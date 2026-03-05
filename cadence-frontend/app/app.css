@@ -1,0 +1,382 @@
+/*
+ * CONTRAST FLOOR: Never use text opacity below /90 on twilight backgrounds.
+ * --alpha-muted-min: 0.9 (defined in @theme)
+ * Grep for "/70" and "/80" on text-twilight-text-muted periodically.
+ */
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import "tw-animate-css";
+
+
+@theme {
+  /* === TYPOGRAPHY === */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Outfit", system-ui, sans-serif;
+
+  /* === TWILIGHT THEME (Default Dark) === */
+  --color-twilight-void: #070e1a;
+  --color-twilight-deep: #0a1628;
+  --color-twilight-base: #0f1d32;
+  --color-twilight-surface: #152540;
+  --color-twilight-surface-muted: #0d1a2e;
+  --color-twilight-surface-hover: #1a2d4a;
+  --color-twilight-elevated: #1c2f50;
+
+  /* Text — warm whites and silver-blues per Manifesto §2.1 */
+  --color-twilight-text: #e8edf5;
+  --color-twilight-text-soft: #b8c5d4;
+  --color-twilight-text-muted: #8899b0;
+
+  /* Contrast-safe text opacity presets — NEVER go below these */
+  --alpha-muted-min: 0.9;
+  --alpha-muted-large: 0.7;
+  --alpha-soft-min: 0.7;
+
+  /* Borders */
+  --color-twilight-border: rgba(255, 255, 255, 0.10);
+  --color-twilight-border-interactive: rgba(255, 255, 255, 0.20);
+  --color-twilight-border-light: rgba(255, 255, 255, 0.15);
+
+  /* === FEEDBACK === */
+  --color-feedback-success: #5dba72;
+  --color-feedback-error: #d97756;
+
+  /* === ACCENTS === */
+  --color-lantern: #e8a44a;
+  --color-lantern-soft: rgba(232, 164, 74, 0.12);
+  --color-lantern-dim: rgba(232, 164, 74, 0.06);
+  --color-moonlit: #7eb8d4;
+  --color-moonlit-soft: rgba(126, 184, 212, 0.12);
+  --color-sapphire: #4a90d9;
+  --color-ember-red: #d97756;
+  --color-forest-green: #5dba72;
+  --color-violet: #9b72cf;
+
+  /* === DAYLIGHT THEME (Light) === */
+  --color-day-base: #f5f3f0;
+  --color-day-surface: #eae6e1;
+  --color-day-text: #1a1a2e;
+  --color-day-text-muted: #6b7280;
+
+  /* Blur */
+  --blur-3xl: 64px;
+
+  /* === PRIORITY COLORS === */
+  --color-priority-low: #60a5fa;
+  --color-priority-medium: var(--color-lantern);
+  --color-priority-high: #f59e0b;
+  --color-priority-urgent: #e87461;
+  --color-priority-urgent-glow: color-mix(in srgb, #e87461 40%, transparent);
+
+  /* === NAV ACCENT COLORS === */
+  --color-nav-planner: var(--color-lantern);
+  --color-nav-schedule: var(--color-moonlit);
+  --color-nav-upcoming: #34d399;
+  --color-nav-inbox: #a78bfa;
+  --color-nav-completed: #4ade80;
+
+  /* === SIDEBAR ANIMATION === */
+  --sidebar-transition-duration: 280ms;
+  --sidebar-width: 224px;
+}
+
+/* === MOTION TOKENS === */
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-smooth: 300ms;
+  --duration-expressive: 450ms;
+}
+
+/* === BASE === */
+@layer base {
+  :root {
+    color-scheme: dark;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    @apply font-sans antialiased;
+    background-color: var(--color-twilight-void);
+    color: var(--color-twilight-text);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  *:focus-visible {
+    @apply outline-none;
+    box-shadow: 0 0 0 2px rgba(232, 164, 74, 0.5);
+    transition: box-shadow var(--duration-smooth) var(--ease-out-expo);
+  }
+
+  /* Inputs inside containers that manage their own focus styling should not
+     receive the global lantern ring — the parent container IS the focus indicator.
+     Apply data-focus-container to any composite wrapper that handles focus visually. */
+  [role="form"] input:focus-visible,
+  [data-focus-container] input:focus-visible,
+  [data-focus-container] textarea:focus-visible,
+  [data-focus-container] select:focus-visible {
+    box-shadow: none;
+  }
+
+  /* Standalone text inputs get a lighter 1px ring rather than the full 2px button ring */
+  input[type="text"]:focus-visible,
+  input:not([type]):focus-visible,
+  textarea:focus-visible {
+    box-shadow: 0 0 0 1px rgba(232, 164, 74, 0.3);
+  }
+
+  ::selection {
+    background: var(--color-lantern-soft);
+    color: var(--color-twilight-text);
+  }
+}
+
+/* === UTILITIES === */
+@layer utilities {
+
+  /* ── Atmospheric background ── */
+  .bg-twilight {
+    background:
+      /* Moonlit mist — top-left cool glow */
+      radial-gradient(ellipse 100% 70% at 8% 0%,
+        rgba(126, 184, 212, 0.06) 0%,
+        transparent 55%),
+      /* Lantern warmth — top-right amber blush */
+      radial-gradient(ellipse 70% 50% at 92% 8%,
+        rgba(232, 164, 74, 0.05) 0%,
+        transparent 50%),
+      /* Horizon amber — bottom-center warm glow like distant sunset */
+      radial-gradient(ellipse 80% 40% at 50% 100%,
+        rgba(232, 164, 74, 0.04) 0%,
+        transparent 50%),
+      /* Depth vignette — darkens edges for that "vast night" feeling */
+      radial-gradient(ellipse 60% 60% at 50% 50%,
+        transparent 40%,
+        rgba(7, 14, 26, 0.5) 100%),
+      /* Base gradient — deep to deeper */
+      linear-gradient(175deg,
+        var(--color-twilight-deep) 0%,
+        #081020 40%,
+        var(--color-twilight-void) 100%);
+  }
+
+  /* ── Glass surfaces ── */
+  .glass {
+    background: rgba(15, 29, 50, 0.45);
+    backdrop-filter: blur(32px) saturate(1.2);
+    -webkit-backdrop-filter: blur(32px) saturate(1.2);
+    border: 1px solid var(--color-twilight-border);
+  }
+
+  .glass-surface {
+    background: rgba(21, 37, 64, 0.5);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--color-twilight-border-light);
+  }
+
+  /* ── Ambient glows ── */
+
+
+
+
+  /* ── Text ── */
+  .text-truncate-safe {
+    @apply truncate min-w-0;
+  }
+
+  /* ── Scrollbars ── */
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Themed thin scrollbar — visible but unobtrusive */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.24);
+  }
+
+  /* ── Icon-only button — minimum 36px tap target for accessible interaction ── */
+  .btn-icon {
+    @apply w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer;
+  }
+}
+
+/* === GLOBAL INTERACTIVE TRANSITIONS === */
+button,
+a,
+[role="menuitem"],
+[role="option"],
+input,
+select,
+textarea {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--duration-normal);
+  transition-timing-function: var(--ease-out-expo);
+}
+
+/* Subtle scale-down on active press for tactile feedback */
+button:active:not(:disabled),
+a:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+
+/* ── Collapsible (custom keyframes for height animation) ── */
+@keyframes collapsible-open {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes collapsible-close {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+[data-radix-collapsible-content][data-state="open"] {
+  animation: collapsible-open 350ms var(--ease-out-expo) forwards;
+  overflow: hidden;
+}
+
+[data-radix-collapsible-content][data-state="closed"] {
+  animation: collapsible-close 250ms var(--ease-out-quart) forwards;
+  overflow: hidden;
+}
+
+/* ── Skeleton Shimmer (for app/components/primitives/Skeleton.tsx) ── */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ── ScrollArea Thumb ── */
+[data-radix-scroll-area-thumb] {
+  transition: opacity 250ms var(--ease-out-quart), background-color 250ms var(--ease-out-quart);
+}
+
+/* === PRIORITY URGENT GLOW === */
+.priority-urgent-bar {
+  box-shadow: 0 0 6px var(--color-priority-urgent-glow);
+}
+
+.priority-high-bar {
+  box-shadow: 0 0 4px rgba(245, 158, 11, 0.1);
+}
+
+.neon-auth-wrapper label,
+.neon-auth-wrapper h1,
+.neon-auth-wrapper h2,
+.neon-auth-wrapper p,
+.neon-auth-wrapper span {
+  color: var(--color-twilight-text) !important;
+  font-family: inherit !important;
+}
+
+.neon-auth-wrapper input {
+  background: rgba(15, 29, 50, 0.45) !important;
+  border: 1px solid var(--color-twilight-border-light) !important;
+  border-radius: 12px !important;
+  color: var(--color-twilight-text) !important;
+  padding: 12px 16px !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.neon-auth-wrapper input:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(232, 164, 74, 0.5) !important;
+  border-color: var(--color-lantern) !important;
+}
+
+/* Primary Submit Button */
+.neon-auth-wrapper button[type="submit"] {
+  background: var(--color-lantern) !important;
+  color: #070e1a !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 0 20px rgba(232, 164, 74, 0.15) !important;
+}
+
+/* OAuth Buttons & Other Buttons */
+.neon-auth-wrapper button {
+  background: rgba(15, 29, 50, 0.3) !important;
+  border: 1px solid var(--color-twilight-border-light) !important;
+  border-radius: 12px !important;
+  color: var(--color-twilight-text) !important;
+  transition: all 0.2s ease !important;
+  padding: 10px 16px !important;
+}
+
+.neon-auth-wrapper button:hover {
+  background: rgba(21, 37, 64, 0.5) !important;
+  border-color: var(--color-lantern-soft) !important;
+}
+
+/* Fix Tailwind SVG reset causing massive icons in Auth components */
+.neon-auth-wrapper svg {
+  width: 20px !important;
+  height: 20px !important;
+  fill: currentColor;
+}
+
+/* Divider Text */
+.neon-auth-wrapper .before\:border-border::before,
+.neon-auth-wrapper .after\:border-border::after {
+  border-color: var(--color-twilight-border-light) !important;
+}
+
+@utility glow-lantern {
+  box-shadow: 0 0 24px rgba(232, 164, 74, 0.06), 0 0 80px rgba(232, 164, 74, 0.03);
+}
+
+@utility glow-moonlit {
+  box-shadow: 0 0 24px rgba(126, 184, 212, 0.06), 0 0 80px rgba(126, 184, 212, 0.03);
+}

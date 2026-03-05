@@ -1,0 +1,20 @@
+import type { InboxItem } from "../../types/inbox";
+import { InboxItemCard } from "./InboxItemCard";
+
+interface InboxListProps {
+    items: InboxItem[];
+}
+
+export function InboxList({ items }: InboxListProps) {
+    if (!items.length) {
+        return null;
+    }
+
+    return (
+        <div className="flex flex-col gap-1 w-full max-w-2xl mx-auto divide-y divide-twilight-border-light">
+            {items.map((item) => (
+                <InboxItemCard key={item.id} item={item} />
+            ))}
+        </div>
+    );
+}

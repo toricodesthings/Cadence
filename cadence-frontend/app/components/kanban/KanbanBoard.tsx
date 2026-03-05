@@ -1,0 +1,299 @@
+import { useState, useMemo, useRef, useEffect } from "react";
+import {
+    DndContext, DragOverlay, closestCorners,
+    KeyboardSensor, PointerSensor, useSensor, useSensors,
+} from "@dnd-kit/core";
+import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections";
+import { useUpdateTask } from "../../hooks/tasks";
+import { KanbanCard } from "./KanbanCard";
+import { TaskContextMenuWrapper } from "../tasks/TaskContextMenuWrapper";
+import * as DropdownMenu from "../primitives/DropdownMenu";
+import type { Task, TaskSection } from "../../types/task";
+
+interface KanbanBoardProps {
+    tasks: Task[];
+    selectedTaskId?: string | null;
+    onSelectTask?: (id: string) => void;
+}
+
+/** A single column (droppable zone) in the Kanban board */
+function KanbanColumn({
+    section,
+    tasks,
+    selectedTaskId,
+    onSelectTask,
+    onRename,
+    onDelete,
+}: {
+    section: TaskSection | { id: "ungrouped"; name: string };
+    tasks: Task[];
+    selectedTaskId?: string | null;
+    onSelectTask?: (id: string) => void;
+    onRename?: (name: string) => void;
+    onDelete?: () => void;
+}) {
+    const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
+    const { setNodeRef } = useDroppable({
+        id: section.id,
+        data: { type: "Column", section },
+    });
+
+    const [isRenaming, setIsRenaming] = useState(false);
+
+    return (
+        <div className="flex flex-col h-full bg-twilight-backdrop/20 rounded-t-2xl border-x-[1px] border-t-[1px] border-twilight-border/40 min-w-[280px]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-twilight-border/30 group">
+                {isRenaming && onRename ? (
+                    <input
+                        autoFocus
+                        defaultValue={section.name}
+                        className="bg-transparent text-[13px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-lantern/30"
+                        onBlur={(e) => { onRename(e.target.value); setIsRenaming(false); }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") { onRename((e.target as HTMLInputElement).value); setIsRenaming(false); }
+                            if (e.key === "Escape") setIsRenaming(false);
+                        }}
+                    />
+                ) : (
+                    <h3 className="text-[13px] font-display font-medium text-twilight-text-muted/90 uppercase tracking-wider flex items-center gap-2">
+                        {section.name}
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-twilight-backdrop/30 text-twilight-text-muted text-[11px] font-mono leading-none border border-twilight-border/40">
+                            {tasks.length}
+                        </span>
+                    </h3>
+                )}
+
+                {section.id !== "ungrouped" && onRename && onDelete && (
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                                <button className="p-1 rounded-md hover:bg-white/[0.06] transition-colors cursor-pointer text-twilight-text-muted">
+                                    <MoreHorizontal size={14} />
+                                </button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content>
+                                <DropdownMenu.Item onClick={() => setIsRenaming(true)}>
+                                    <Pencil size={14} className="text-twilight-text-muted mr-2" />
+                                    Rename
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Separator />
+                                <DropdownMenu.Item onClick={onDelete} className="text-red-400 focus:text-red-400">
+                                    <Trash2 size={14} className="mr-2" />
+                                    Delete
+                                </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+                    </div>
+                )}
+            </div>
+
+            {/* Droppable card area */}
+            <div
+                ref={setNodeRef}
+                className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin flex flex-col gap-3 min-h-[200px]"
+            >
+                <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+                    {tasks.map((task) => (
+                        <TaskContextMenuWrapper key={task.id} task={task}>
+                            <KanbanCard
+                                task={task}
+                                isSelected={task.id === selectedTaskId}
+                                onClick={onSelectTask || (() => { })}
+                            />
+                        </TaskContextMenuWrapper>
+                    ))}
+                </SortableContext>
+
+                {tasks.length === 0 && (
+                    <div className="h-full flex items-center justify-center text-center p-6 border-2 border-dashed border-twilight-border/30 rounded-xl text-twilight-text-muted/50 text-sm">
+                        Drop here
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Kanban Board — columns are user-defined TaskSections.
+ *
+ * This is NOT a separate page. It's a view mode activated by `?view=kanban`.
+ * Dragging a card between columns changes its `sectionId`.
+ */
+export function KanbanBoard({ tasks, selectedTaskId = null, onSelectTask = () => { } }: KanbanBoardProps) {
+    const { data: sections = [] } = useSections();
+    const createSection = useCreateSection();
+    const updateSection = useUpdateSection();
+    const deleteSection = useDeleteSection();
+    const updateTask = useUpdateTask();
+
+    const [activeTask, setActiveTask] = useState<Task | null>(null);
+    const [isAddingColumn, setIsAddingColumn] = useState(false);
+    const [newColumnName, setNewColumnName] = useState("");
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const addColumnRef = useRef<HTMLDivElement>(null);
+
+    // Scroll to the new "add column" area when entering add mode
+    useEffect(() => {
+        if (isAddingColumn && addColumnRef.current) {
+            addColumnRef.current.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" });
+        }
+    }, [isAddingColumn]);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor),
+    );
+
+    // Group tasks by sectionId
+    const { ungroupedTasks, sectionTaskMap } = useMemo(() => {
+        const ungrouped: Task[] = [];
+        const map = new Map<string, Task[]>();
+
+        for (const task of tasks) {
+            if (!task.sectionId) {
+                ungrouped.push(task);
+            } else {
+                const list = map.get(task.sectionId) || [];
+                list.push(task);
+                map.set(task.sectionId, list);
+            }
+        }
+
+        return { ungroupedTasks: ungrouped, sectionTaskMap: map };
+    }, [tasks]);
+
+    const handleDragStart = (e: DragStartEvent) => {
+        const task = tasks.find((t) => t.id === e.active.id);
+        if (task) setActiveTask(task);
+    };
+
+    const handleDragEnd = (e: DragEndEvent) => {
+        setActiveTask(null);
+        const { active, over } = e;
+        if (!over) return;
+
+        const taskId = active.id as string;
+        const overData = over.data.current;
+
+        // Determine target section
+        let targetSectionId: string | null = null;
+        if (overData?.type === "Column") {
+            targetSectionId = overData.section.id === "ungrouped" ? null : overData.section.id;
+        } else {
+            // Dropped on a card — figure out which section it belongs to
+            const overTask = tasks.find((t) => t.id === over.id);
+            if (overTask) {
+                targetSectionId = overTask.sectionId || null;
+            }
+        }
+
+        // Update the task's sectionId if it changed
+        const draggedTask = tasks.find((t) => t.id === taskId);
+        if (draggedTask && (draggedTask.sectionId || null) !== targetSectionId) {
+            updateTask.mutate({ id: taskId, sectionId: targetSectionId });
+        }
+    };
+
+    const handleCreateColumn = () => {
+        const name = newColumnName.trim();
+        if (!name) return;
+        const nextOrder = sections.length > 0
+            ? Math.max(...sections.map((s) => s.orderIndex)) + 1
+            : 1;
+        createSection.mutate({ name, orderIndex: nextOrder }, {
+            onSuccess: () => {
+                // After optimistic insert, scroll to show the new column
+                requestAnimationFrame(() => {
+                    if (addColumnRef.current) {
+                        addColumnRef.current.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" });
+                    }
+                });
+            },
+        });
+        setNewColumnName("");
+        setIsAddingColumn(false);
+    };
+
+    return (
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+        >
+            <div
+                ref={scrollContainerRef}
+                className="flex gap-5 px-4 py-4 h-full flex-1 min-h-0 overflow-x-auto scroll-smooth scrollbar-thin"
+            >
+                {/* Ungrouped column (always first) */}
+                {(ungroupedTasks.length > 0 || sections.length > 0) && (
+                    <div className="flex-shrink-0 w-[300px]">
+                        <KanbanColumn
+                            section={{ id: "ungrouped", name: "Ungrouped" }}
+                            tasks={ungroupedTasks}
+                            selectedTaskId={selectedTaskId}
+                            onSelectTask={onSelectTask}
+                        />
+                    </div>
+                )}
+
+                {/* Section columns */}
+                {sections.map((section) => (
+                    <div key={section.id} className="flex-shrink-0 w-[300px]">
+                        <KanbanColumn
+                            section={section}
+                            tasks={sectionTaskMap.get(section.id) || []}
+                            selectedTaskId={selectedTaskId}
+                            onSelectTask={onSelectTask}
+                            onRename={(name) => updateSection.mutate({ id: section.id, name })}
+                            onDelete={() => deleteSection.mutate(section.id)}
+                        />
+                    </div>
+                ))}
+
+                {/* Add column button */}
+                <div ref={addColumnRef} className="flex-shrink-0 w-[280px]">
+                    {isAddingColumn ? (
+                        <div className="bg-twilight-backdrop/20 rounded-2xl border border-twilight-border/40 p-4">
+                            <input
+                                autoFocus
+                                value={newColumnName}
+                                onChange={(e) => setNewColumnName(e.target.value)}
+                                placeholder="Section name..."
+                                className="w-full bg-transparent text-[13px] text-twilight-text outline-none border-b border-twilight-border/40 pb-2 placeholder:text-twilight-text-muted/40"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleCreateColumn();
+                                    if (e.key === "Escape") { setIsAddingColumn(false); setNewColumnName(""); }
+                                }}
+                                onBlur={() => {
+                                    if (newColumnName.trim()) handleCreateColumn();
+                                    else { setIsAddingColumn(false); setNewColumnName(""); }
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setIsAddingColumn(true)}
+                            className="w-full h-[60px] rounded-2xl border-2 border-dashed border-twilight-border/30 flex items-center justify-center gap-2 text-[13px] text-twilight-text-muted/50 hover:text-twilight-text-muted hover:border-twilight-border/50 transition-colors cursor-pointer"
+                        >
+                            <Plus size={16} />
+                            Add section
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
+                {activeTask ? (
+                    <KanbanCard task={activeTask} onClick={onSelectTask} isSelected={activeTask.id === selectedTaskId} />
+                ) : null}
+            </DragOverlay>
+        </DndContext>
+    );
+}

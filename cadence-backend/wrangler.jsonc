@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cadence-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-02-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "c25e56a5b7894baa95da5e7f44216d4a"
+    }
+  ],
+  "rate_limits": [
+    {
+      "binding": "RATE_LIMITER",
+      "namespace_id": "cadence-api",
+      "simple": {
+        "limit": 100,
+        "period": 60
+      }
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 6 * * *"
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771988787228,
+      "tag": "0000_glossy_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772162264467,
+      "tag": "0001_complex_baron_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772424111229,
+      "tag": "0002_lively_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772521282103,
+      "tag": "0003_black_lester",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772596973780,
+      "tag": "0004_jazzy_reaper",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772651633682,
+      "tag": "0005_pretty_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772652239247,
+      "tag": "0006_aromatic_blob",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772673919182,
+      "tag": "0007_friendly_blazing_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772685208929,
+      "tag": "0008_perpetual_shadowcat",
+      "breakpoints": true
+    }
+  ]
+}

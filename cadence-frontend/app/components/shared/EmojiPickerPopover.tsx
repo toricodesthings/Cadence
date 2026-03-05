@@ -1,0 +1,55 @@
+import React, { Suspense } from "react";
+import * as Popover from "@radix-ui/react-popover";
+import { Smile } from "lucide-react";
+import data from "@emoji-mart/data";
+
+const Picker = React.lazy(() => import("@emoji-mart/react"));
+
+interface EmojiPickerPopoverProps {
+    emoji?: string;
+    onSelect: (emoji: string) => void;
+    children?: React.ReactNode;
+}
+
+export function EmojiPickerPopover({ emoji, onSelect, children }: EmojiPickerPopoverProps) {
+    return (
+        <Popover.Root>
+            <Popover.Trigger asChild>
+                {children ? (
+                    children
+                ) : (
+                    <button
+                        type="button"
+                        aria-label="Pick an emoji"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-transparent hover:border-twilight-border-interactive focus:border-twilight-border-interactive transition-colors text-twilight-text"
+                    >
+                        {emoji || <Smile size={16} className="text-twilight-text-muted" />}
+                    </button>
+                )}
+            </Popover.Trigger>
+            <Popover.Portal>
+                <Popover.Content
+                    side="bottom"
+                    align="start"
+                    sideOffset={8}
+                    className="z-[100] bg-twilight-surface border border-twilight-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                >
+                    <Suspense
+                        fallback={
+                            <div className="w-[352px] h-[435px] flex items-center justify-center text-twilight-text-muted text-sm">
+                                Loading emojis...
+                            </div>
+                        }
+                    >
+                        <Picker
+                            data={data}
+                            onEmojiSelect={(e: any) => onSelect(e.native)}
+                            theme="dark"
+                            autoFocus={true}
+                        />
+                    </Suspense>
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
+    );
+}

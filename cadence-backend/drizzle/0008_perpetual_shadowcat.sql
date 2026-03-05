@@ -1,0 +1,1 @@
+ALTER TABLE "habits" ADD COLUMN "archived" boolean DEFAULT false NOT NULL;
