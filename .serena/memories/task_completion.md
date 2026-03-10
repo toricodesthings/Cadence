@@ -1,0 +1,1 @@
+After making changes, verify at the workspace root with pnpm typecheck, pnpm build, and pnpm lint. Note any remaining peer dependency warnings from third-party packages separately if builds/typechecks still pass. Update root and app READMEs when workflow or structure changes.

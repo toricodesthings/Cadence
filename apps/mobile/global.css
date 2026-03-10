@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+    /* === TYPOGRAPHY === */
+    --font-sans: "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif;
+    --font-display: "Outfit", "Plus Jakarta Sans", system-ui, sans-serif;
+
+    /* === TWILIGHT THEME (Default Dark) === */
+    --color-twilight-void: #070e1a;
+    --color-twilight-deep: #0a1628;
+    --color-twilight-base: #0f1d32;
+    --color-twilight-surface: #152540;
+    --color-twilight-elevated: #1c2f50;
+
+    /* Text */
+    --color-twilight-text: #e8edf5;
+    --color-twilight-text-soft: #b0becc;
+    --color-twilight-text-muted: #5c7080;
+
+    /* Borders & Glass */
+    --color-twilight-border: rgba(255, 255, 255, 0.06);
+    --color-twilight-border-light: rgba(255, 255, 255, 0.10);
+    --color-twilight-glass: rgba(15, 29, 50, 0.45);
+    --color-twilight-glass-surface: rgba(21, 37, 64, 0.5);
+
+    /* === DAYLIGHT THEME (Light) === */
+    --color-day-base: #f5f3f0;
+    --color-day-surface: #eae6e1;
+    --color-day-text: #1a1a2e;
+    --color-day-text-muted: #6b7280;
+    --color-day-glass: rgba(255, 255, 255, 0.7);
+    --color-day-border: rgba(0, 0, 0, 0.06);
+
+    /* === ACCENTS === */
+    --color-lantern: #e8a44a;
+    --color-lantern-soft: rgba(232, 164, 74, 0.12);
+    --color-moonlit: #7eb8d4;
+    --color-moonlit-soft: rgba(126, 184, 212, 0.12);
+}
+
+@layer base {
+    :root {
+        color-scheme: light dark;
+    }
+}
+
+@layer utilities {
+    .glass-twilight {
+        @apply bg-twilight-glass border-t border-l border-twilight-border;
+    }
+
+    .glass-surface-twilight {
+        @apply bg-twilight-glass-surface border-t border-l border-twilight-border-light;
+    }
+
+    .glass-day {
+        @apply bg-day-glass border-t border-l border-day-border;
+    }
+}

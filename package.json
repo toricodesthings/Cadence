@@ -1,0 +1,27 @@
+{
+  "name": "cadence",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel --filter=@cadence/backend --filter=@cadence/frontend",
+    "dev:frontend": "pnpm --filter @cadence/frontend dev",
+    "dev:backend": "pnpm --filter @cadence/backend dev",
+    "dev:mobile": "pnpm --filter @cadence/mobile dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "cf-typegen": "turbo run cf-typegen",
+    "db:generate": "pnpm --filter @cadence/backend db:generate",
+    "db:migrate": "pnpm --filter @cadence/backend db:migrate",
+    "db:studio": "pnpm --filter @cadence/backend db:studio",
+    "deploy:frontend": "pnpm --filter @cadence/frontend deploy",
+    "deploy:frontend:dev": "pnpm --filter @cadence/frontend deploy:dev",
+    "deploy:backend": "pnpm --filter @cadence/backend deploy"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.8"
+  }
+}

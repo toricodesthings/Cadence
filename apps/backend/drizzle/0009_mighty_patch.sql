@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "settings" SET DEFAULT '{"tasks":{"defaultDueDate":null,"hideTrash":false,"hideCompleted":false},"dateTime":{"weekStart":"Sunday","timezone":"local","timeDisplay":"12h"},"notifications":{"email":true},"shortcuts":{}}'::jsonb;
