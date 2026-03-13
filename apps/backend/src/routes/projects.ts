@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
 import { getDbClient } from "../lib/db";
-import { setRlsContext } from "../lib/rls";
+import { withRls } from "../lib/rls";
 import { projects } from "../db/schema";
 import { insertProjectSchema, updateProjectSchema } from "../types/project";
 import { uuidParamSchema } from "../types/common";
@@ -15,15 +15,16 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const userId = c.get("userId");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [project] = await db
-            .insert(projects)
-            .values({
-                ...body,
-                userId,
-            })
-            .returning();
+        const [project] = await withRls(db, userId, (tx) =>
+            tx
+                .insert(projects)
+                .values({
+                    ...body,
+                    userId,
+                })
+                .returning(),
+        );
 
         return c.json({ data: project }, 201);
     })
@@ -32,15 +33,16 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [updated] = await db
-            .update(projects)
-            .set({
-                ...body,
-            })
-            .where(and(eq(projects.id, id), eq(projects.userId, userId)))
-            .returning();
+        const [updated] = await withRls(db, userId, (tx) =>
+            tx
+                .update(projects)
+                .set({
+                    ...body,
+                })
+                .where(and(eq(projects.id, id), eq(projects.userId, userId)))
+                .returning(),
+        );
 
         if (!updated) {
             throw new AppError(404, "NOT_FOUND", "Project not found");
@@ -51,13 +53,14 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     .get("/", async (c) => {
         const userId = c.get("userId");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const userProjects = await db
-            .select()
-            .from(projects)
-            .where(eq(projects.userId, userId))
-            .orderBy(projects.createdAt);
+        const userProjects = await withRls(db, userId, (tx) =>
+            tx
+                .select()
+                .from(projects)
+                .where(eq(projects.userId, userId))
+                .orderBy(projects.createdAt),
+        );
 
         return c.json({ data: userProjects });
     })
@@ -65,12 +68,13 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [project] = await db
-            .select()
-            .from(projects)
-            .where(and(eq(projects.id, id), eq(projects.userId, userId)));
+        const [project] = await withRls(db, userId, (tx) =>
+            tx
+                .select()
+                .from(projects)
+                .where(and(eq(projects.id, id), eq(projects.userId, userId))),
+        );
 
         if (!project) {
             throw new AppError(404, "NOT_FOUND", "Project not found");
@@ -82,12 +86,13 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [deleted] = await db
-            .delete(projects)
-            .where(and(eq(projects.id, id), eq(projects.userId, userId)))
-            .returning();
+        const [deleted] = await withRls(db, userId, (tx) =>
+            tx
+                .delete(projects)
+                .where(and(eq(projects.id, id), eq(projects.userId, userId)))
+                .returning(),
+        );
 
         if (!deleted) {
             throw new AppError(404, "NOT_FOUND", "Project not found");

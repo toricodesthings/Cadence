@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
 import { getDbClient } from "../lib/db";
-import { setRlsContext } from "../lib/rls";
+import { withRls } from "../lib/rls";
 import { inboxItems, inboxSections } from "../db/schema";
 import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema } from "../types/inbox";
 import { uuidParamSchema } from "../types/common";
@@ -15,28 +15,30 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [item] = await db
-            .insert(inboxItems)
-            .values({
-                ...body,
-                userId,
-            })
-            .returning();
+        const [item] = await withRls(db, userId, (tx) =>
+            tx
+                .insert(inboxItems)
+                .values({
+                    ...body,
+                    userId,
+                })
+                .returning(),
+        );
 
         return c.json({ data: item }, 201);
     })
     .get("/", async (c) => {
         const userId = c.get("userId");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const items = await db
-            .select()
-            .from(inboxItems)
-            .where(and(eq(inboxItems.userId, userId), eq(inboxItems.processed, false)))
-            .orderBy(inboxItems.createdAt);
+        const items = await withRls(db, userId, (tx) =>
+            tx
+                .select()
+                .from(inboxItems)
+                .where(and(eq(inboxItems.userId, userId), eq(inboxItems.processed, false)))
+                .orderBy(inboxItems.createdAt),
+        );
 
         return c.json({ data: items });
     })
@@ -44,12 +46,13 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [deleted] = await db
-            .delete(inboxItems)
-            .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
-            .returning();
+        const [deleted] = await withRls(db, userId, (tx) =>
+            tx
+                .delete(inboxItems)
+                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+                .returning(),
+        );
 
         if (!deleted) {
             throw new AppError(404, "NOT_FOUND", "Inbox item not found");
@@ -62,13 +65,14 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [updated] = await db
-            .update(inboxItems)
-            .set(body)
-            .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
-            .returning();
+        const [updated] = await withRls(db, userId, (tx) =>
+            tx
+                .update(inboxItems)
+                .set(body)
+                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+                .returning(),
+        );
 
         if (!updated) {
             throw new AppError(404, "NOT_FOUND", "Inbox item not found");
@@ -81,25 +85,27 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [section] = await db
-            .insert(inboxSections)
-            .values({ ...body, userId })
-            .returning();
+        const [section] = await withRls(db, userId, (tx) =>
+            tx
+                .insert(inboxSections)
+                .values({ ...body, userId })
+                .returning(),
+        );
 
         return c.json({ data: section }, 201);
     })
     .get("/sections", async (c) => {
         const userId = c.get("userId");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const sections = await db
-            .select()
-            .from(inboxSections)
-            .where(eq(inboxSections.userId, userId))
-            .orderBy(inboxSections.orderIndex);
+        const sections = await withRls(db, userId, (tx) =>
+            tx
+                .select()
+                .from(inboxSections)
+                .where(eq(inboxSections.userId, userId))
+                .orderBy(inboxSections.orderIndex),
+        );
 
         return c.json({ data: sections });
     })
@@ -108,13 +114,14 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [updated] = await db
-            .update(inboxSections)
-            .set(body)
-            .where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId)))
-            .returning();
+        const [updated] = await withRls(db, userId, (tx) =>
+            tx
+                .update(inboxSections)
+                .set(body)
+                .where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId)))
+                .returning(),
+        );
 
         if (!updated) {
             throw new AppError(404, "NOT_FOUND", "Inbox section not found");
@@ -126,12 +133,13 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
-        await setRlsContext(db, userId);
 
-        const [deleted] = await db
-            .delete(inboxSections)
-            .where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId)))
-            .returning();
+        const [deleted] = await withRls(db, userId, (tx) =>
+            tx
+                .delete(inboxSections)
+                .where(and(eq(inboxSections.id, id), eq(inboxSections.userId, userId)))
+                .returning(),
+        );
 
         if (!deleted) {
             throw new AppError(404, "NOT_FOUND", "Inbox section not found");
