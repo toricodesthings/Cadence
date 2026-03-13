@@ -560,11 +560,6 @@ debugRoutes.post("/seed", async (c) => {
 
     // ── Notification & feature-testing data ──────────────────────────
 
-
-debugRoutes.get("/capabilities", async (c) => {
-    const { userId, userEmail } = requireAdmin(c);
-    return c.json({ data: { canUseDeveloperTools: true, userId, email: userEmail ?? null } });
-});
     // Tasks that trigger notification center items:
     // 1. A task with a reminder ~30 min ago (should show as "task-reminder" notification)
     // 2. A task due today (should show as "task-due" notification)
@@ -664,4 +659,9 @@ debugRoutes.get("/capabilities", async (c) => {
     });
 
     return c.json({ success: true, message: "Seeded full test workspace." });
+});
+
+debugRoutes.get("/capabilities", async (c) => {
+    const { userId, userEmail } = requireAdmin(c);
+    return c.json({ data: { canUseDeveloperTools: true, userId, email: userEmail ?? null } });
 });
