@@ -3,9 +3,8 @@
   "name": "cadence-backend",
   "main": "src/index.ts",
   "compatibility_date": "2026-02-23",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
+
   "observability": {
     "enabled": true,
     "head_sampling_rate": 0.2,
@@ -21,12 +20,14 @@
       "persist": true
     }
   },
+
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "c25e56a5b7894baa95da5e7f44216d4a"
+      "id": "80ebbc92ada0464ca99496f0b3ac65ce"
     }
   ],
+
   "rate_limits": [
     {
       "binding": "RATE_LIMITER",
@@ -37,9 +38,33 @@
       }
     }
   ],
+
   "triggers": {
-    "crons": [
-      "0 6 * * *"
-    ]
+    "crons": ["0 6 * * *"]
+  },
+
+  "env": {
+    "dev": {
+      "name": "cadence-backend-dev",
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "c25e56a5b7894baa95da5e7f44216d4a"
+        }
+      ],
+      "rate_limits": [
+        {
+          "binding": "RATE_LIMITER",
+          "namespace_id": "cadence-api-dev",
+          "simple": {
+            "limit": 100,
+            "period": 60
+          }
+        }
+      ],
+      "triggers": {
+        "crons": ["0 6 * * *"]
+      }
+    }
   }
 }

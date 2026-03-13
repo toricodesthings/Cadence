@@ -1,4 +1,4 @@
--- CREATE TYPE "public"."habit_status" AS ENUM('COMPLETED', 'SKIPPED', 'PENDING');--> statement-breakpoint
+CREATE TYPE "public"."habit_status" AS ENUM('COMPLETED', 'SKIPPED', 'PENDING');--> statement-breakpoint
 CREATE TABLE "habit_logs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"habit_id" uuid NOT NULL,
