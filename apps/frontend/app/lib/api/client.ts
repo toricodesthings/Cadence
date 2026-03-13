@@ -2,8 +2,7 @@ import { hc } from "hono/client";
 import type { AppType } from "@cadence/backend";
 import { ApiErrorResponse } from "../../types/api";
 import { authClient } from "../auth-client";
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8787";
+import { API_BASE_URL } from "../env";
 
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
@@ -45,7 +44,7 @@ export async function authenticatedFetch(
  */
 export function createApiClient(token?: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return hc<AppType>(BASE_URL, {
+    return hc<AppType>(API_BASE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any;

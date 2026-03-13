@@ -1,11 +1,10 @@
 import { useMemo } from "react";
-import { createApiClient, type ApiClient } from "../lib/api/client";
+import type { ApiClient } from "../lib/api/client";
 import { hc } from "hono/client";
 import type { AppType } from "@cadence/backend";
 import { authenticatedFetch } from "../lib/api/client";
+import { API_BASE_URL } from "../lib/env";
 import { useAuthState } from "./use-auth-state";
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8787";
 
 /** Returns a typed Hono client pre-authenticated with the current session's JWT.
  * The explicit `as ApiClient` cast is required because cross-project Hono RPC
@@ -18,7 +17,7 @@ export function useApiClient(): ApiClient {
 
     return useMemo(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return hc<AppType>(BASE_URL, {
+        return hc<AppType>(API_BASE_URL, {
             fetch: async (input: RequestInfo | URL, requestInit?: RequestInit) => {
                 return authenticatedFetch(input, {
                     ...requestInit,
