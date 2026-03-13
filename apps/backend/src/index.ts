@@ -26,7 +26,12 @@ app.use(
   cors({
     origin: (origin) => {
       if (!origin) return "https://cadence.app";
-      if (origin.startsWith("http://localhost:") || origin === "https://cadence.app" || origin.endsWith(".cadence.app")) {
+      if (
+        origin.startsWith("http://localhost:") ||
+        origin === "https://cadence.app" ||
+        origin.endsWith(".cadence.app") ||
+        origin.endsWith(".pitoursirak.workers.dev")
+      ) {
         return origin;
       }
       return "https://cadence.app";
