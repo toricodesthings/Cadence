@@ -1,12 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { DbClient } from "./db";
 
-export async function setRlsContext(db: DbClient, userId: string) {
-    await db.execute(
-        sql`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`,
-    );
-}
-
 /**
  * Wraps a database operation in a transaction where RLS context is set first.
  * This guarantees the SET CONFIG and query run atomically on the same connection,

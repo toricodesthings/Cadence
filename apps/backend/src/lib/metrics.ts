@@ -1,5 +1,6 @@
 import { eq, and, sql } from "drizzle-orm";
 import { type DbClient } from "./db";
+import { withRls } from "./rls";
 import { tasks, taskMetrics } from "../db/schema";
 
 export async function trackReschedule(
@@ -8,29 +9,31 @@ export async function trackReschedule(
     userId: string,
     newScheduledStart: string | null,
 ) {
-    // Upsert into task_metrics
-    const existing = await db
-        .select()
-        .from(taskMetrics)
-        .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)))
-        .limit(1);
+    await withRls(db, userId, async (tx) => {
+        const existing = await tx
+            .select()
+            .from(taskMetrics)
+            .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)))
+            .limit(1);
 
-    if (existing.length === 0) {
-        await db.insert(taskMetrics).values({
-            taskId,
-            userId,
-            rescheduleCount: 1,
-            firstScheduled: newScheduledStart,
-        });
-    } else {
-        await db
+        if (existing.length === 0) {
+            await tx.insert(taskMetrics).values({
+                taskId,
+                userId,
+                rescheduleCount: 1,
+                firstScheduled: newScheduledStart,
+            });
+            return;
+        }
+
+        await tx
             .update(taskMetrics)
             .set({
                 rescheduleCount: sql`${taskMetrics.rescheduleCount} + 1`,
                 firstScheduled: existing[0].firstScheduled ?? newScheduledStart,
             })
             .where(eq(taskMetrics.id, existing[0].id));
-    }
+    });
 }
 
 export async function trackCompletion(
@@ -38,34 +41,35 @@ export async function trackCompletion(
     taskId: string,
     userId: string,
 ) {
-    const task = await db
-        .select({ createdAt: tasks.createdAt })
-        .from(tasks)
-        .where(eq(tasks.id, taskId))
-        .limit(1);
+    await withRls(db, userId, async (tx) => {
+        const task = await tx
+            .select({ createdAt: tasks.createdAt })
+            .from(tasks)
+            .where(eq(tasks.id, taskId))
+            .limit(1);
 
-    if (!task[0]) return;
+        if (!task[0]) return;
 
-    const createdToDone = Math.floor(
-        (Date.now() - new Date(task[0].createdAt).getTime()) / 1000,
-    );
+        const createdToDone = Math.floor(
+            (Date.now() - new Date(task[0].createdAt).getTime()) / 1000,
+        );
 
-    await db
-        .insert(taskMetrics)
-        .values({
-            taskId,
-            userId,
-            completedAt: new Date().toISOString(),
-            createdToDone,
-        })
-        .onConflictDoNothing(); // If metrics row already exists from reschedule tracking
+        await tx
+            .insert(taskMetrics)
+            .values({
+                taskId,
+                userId,
+                completedAt: new Date().toISOString(),
+                createdToDone,
+            })
+            .onConflictDoNothing();
 
-    // If row exists, update it instead
-    await db
-        .update(taskMetrics)
-        .set({
-            completedAt: new Date().toISOString(),
-            createdToDone,
-        })
-        .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)));
+        await tx
+            .update(taskMetrics)
+            .set({
+                completedAt: new Date().toISOString(),
+                createdToDone,
+            })
+            .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)));
+    });
 }

@@ -22,6 +22,7 @@ import { useWorkspaceSync } from "../../hooks/use-workspace-sync";
 import { useNotificationCenter } from "../../hooks/use-notification-center";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
+import { useAdminCapabilities } from "../../hooks/use-admin-capabilities";
 
 /** Nav item accent color definitions per Design Manifesto §1.9 */
 const NAV_LINKS = [
@@ -80,6 +81,8 @@ export function IconRail({
     const api = useApiClient();
     const queryClient = useQueryClient();
     const { data: session, isPending } = authClient.useSession();
+    const { data: adminCapabilities } = useAdminCapabilities();
+    const canUseDeveloperTools = adminCapabilities?.canUseDeveloperTools ?? false;
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -372,121 +375,125 @@ export function IconRail({
                 </button>
             </Tip>
 
-            {/* Developer Tools */}
-            <div className="w-[40%] h-px bg-twilight-border my-1 rounded-full opacity-50" aria-hidden="true" />
+            {canUseDeveloperTools ? (
+                <>
+                    {/* Developer Tools */}
+                    <div className="w-[40%] h-px bg-twilight-border my-1 rounded-full opacity-50" aria-hidden="true" />
 
-            <AlertDialog.Root open={wipeConfirmOpen} onOpenChange={setWipeConfirmOpen}>
-                <DropdownMenu.Root>
-                    <Tip label={isLoading ? "Working..." : "Developer tools"}>
-                        <DropdownMenu.Trigger asChild>
-                            <button
-                                disabled={isLoading}
-                                aria-label="Developer tools"
-                                className="btn-icon relative rounded-2xl text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 disabled:opacity-50 outline-none"
+                    <AlertDialog.Root open={wipeConfirmOpen} onOpenChange={setWipeConfirmOpen}>
+                        <DropdownMenu.Root>
+                            <Tip label={isLoading ? "Working..." : "Developer tools"}>
+                                <DropdownMenu.Trigger asChild>
+                                    <button
+                                        disabled={isLoading}
+                                        aria-label="Developer tools"
+                                        className="btn-icon relative rounded-2xl text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 disabled:opacity-50 outline-none"
+                                    >
+                                        <Database size={18} aria-hidden="true" />
+                                        <ChevronDown
+                                            size={11}
+                                            aria-hidden="true"
+                                            className="absolute bottom-1.5 right-1.5 text-current/70"
+                                        />
+                                    </button>
+                                </DropdownMenu.Trigger>
+                            </Tip>
+
+                            <DropdownMenu.Content
+                                side="right"
+                                align="center"
+                                sideOffset={14}
+                                className="w-[340px] p-2.5"
                             >
-                                <Database size={18} aria-hidden="true" />
-                                <ChevronDown
-                                    size={11}
-                                    aria-hidden="true"
-                                    className="absolute bottom-1.5 right-1.5 text-current/70"
-                                />
-                            </button>
-                        </DropdownMenu.Trigger>
-                    </Tip>
+                                <div className="px-1.5 pb-3 pt-1">
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-twilight-text-soft">
+                                        Developer Tools
+                                    </p>
+                                    <p className="mt-1 text-xs leading-relaxed text-twilight-text-muted">
+                                        Workspace utilities and toast previews, arranged like a compact launchpad.
+                                    </p>
+                                </div>
 
-                    <DropdownMenu.Content
-                        side="right"
-                        align="center"
-                        sideOffset={14}
-                        className="w-[340px] p-2.5"
-                    >
-                        <div className="px-1.5 pb-3 pt-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-twilight-text-soft">
-                                Developer Tools
-                            </p>
-                            <p className="mt-1 text-xs leading-relaxed text-twilight-text-muted">
-                                Workspace utilities and toast previews, arranged like a compact launchpad.
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-4 gap-2">
-                            {devToolTiles.map(({ key, label, meta, icon: Icon, iconClassName, surfaceClassName, action }) => (
-                                <DropdownMenu.Item
-                                    key={key}
-                                    disabled={isLoading}
-                                    onSelect={(event) => {
-                                        if (isLoading) {
-                                            event.preventDefault();
-                                            return;
-                                        }
-                                        action();
-                                    }}
-                                    className={`
-                                        group relative min-h-[88px] rounded-[1.35rem] border p-0 text-left
-                                        backdrop-blur-xl transition-[transform,border-color,background-color,box-shadow]
-                                        data-[disabled]:pointer-events-none data-[disabled]:opacity-50
-                                        data-[highlighted]:-translate-y-0.5 data-[highlighted]:border-white/16
-                                        data-[highlighted]:bg-white/[0.05]
-                                        ${surfaceClassName}
-                                    `}
-                                >
-                                    <div className="flex h-full flex-col items-center justify-center gap-2.5 px-2 py-3 text-center">
-                                        <div
+                                <div className="grid grid-cols-4 gap-2">
+                                    {devToolTiles.map(({ key, label, meta, icon: Icon, iconClassName, surfaceClassName, action }) => (
+                                        <DropdownMenu.Item
+                                            key={key}
+                                            disabled={isLoading}
+                                            onSelect={(event) => {
+                                                if (isLoading) {
+                                                    event.preventDefault();
+                                                    return;
+                                                }
+                                                action();
+                                            }}
                                             className={`
-                                                flex size-10 items-center justify-center rounded-[1rem] border border-white/8
-                                                bg-twilight-void/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]
-                                                ${iconClassName}
+                                                group relative min-h-[88px] rounded-[1.35rem] border p-0 text-left
+                                                backdrop-blur-xl transition-[transform,border-color,background-color,box-shadow]
+                                                data-[disabled]:pointer-events-none data-[disabled]:opacity-50
+                                                data-[highlighted]:-translate-y-0.5 data-[highlighted]:border-white/16
+                                                data-[highlighted]:bg-white/[0.05]
+                                                ${surfaceClassName}
                                             `}
                                         >
-                                            <Icon
-                                                size={16}
-                                                aria-hidden="true"
-                                                className={key === "loading" ? "animate-spin" : undefined}
-                                            />
-                                        </div>
-                                        <div className="space-y-0.5">
-                                            <p className="text-[11px] font-medium leading-none text-twilight-text">
-                                                {label}
-                                            </p>
-                                            <p className="text-[9px] uppercase tracking-[0.18em] text-twilight-text-muted">
-                                                {meta}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </DropdownMenu.Item>
-                            ))}
-                        </div>
-                    </DropdownMenu.Content>
-                </DropdownMenu.Root>
+                                            <div className="flex h-full flex-col items-center justify-center gap-2.5 px-2 py-3 text-center">
+                                                <div
+                                                    className={`
+                                                        flex size-10 items-center justify-center rounded-[1rem] border border-white/8
+                                                        bg-twilight-void/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]
+                                                        ${iconClassName}
+                                                    `}
+                                                >
+                                                    <Icon
+                                                        size={16}
+                                                        aria-hidden="true"
+                                                        className={key === "loading" ? "animate-spin" : undefined}
+                                                    />
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <p className="text-[11px] font-medium leading-none text-twilight-text">
+                                                        {label}
+                                                    </p>
+                                                    <p className="text-[9px] uppercase tracking-[0.18em] text-twilight-text-muted">
+                                                        {meta}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </DropdownMenu.Item>
+                                    ))}
+                                </div>
+                            </DropdownMenu.Content>
+                        </DropdownMenu.Root>
 
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Wipe all test workspace data?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            This deletes every user-scoped record except the `users` table entry and its saved settings.
-                            Projects, tasks, habits, inbox items, sections, tags, metrics, and AI memory will all be removed.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="secondary" size="md">
-                                Cancel
-                            </Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button
-                                variant="danger"
-                                size="md"
-                                onClick={() => {
-                                    void handleClearData();
-                                }}
-                            >
-                                Wipe workspace
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
+                        <AlertDialog.Content>
+                            <AlertDialog.Header>
+                                <AlertDialog.Title>Wipe all test workspace data?</AlertDialog.Title>
+                                <AlertDialog.Description>
+                                    This deletes every user-scoped record except the `users` table entry and its saved settings.
+                                    Projects, tasks, habits, inbox items, sections, tags, metrics, and AI memory will all be removed.
+                                </AlertDialog.Description>
+                            </AlertDialog.Header>
+                            <AlertDialog.Footer>
+                                <AlertDialog.Cancel asChild>
+                                    <Button variant="secondary" size="md">
+                                        Cancel
+                                    </Button>
+                                </AlertDialog.Cancel>
+                                <AlertDialog.Action asChild>
+                                    <Button
+                                        variant="danger"
+                                        size="md"
+                                        onClick={() => {
+                                            void handleClearData();
+                                        }}
+                                    >
+                                        Wipe workspace
+                                    </Button>
+                                </AlertDialog.Action>
+                            </AlertDialog.Footer>
+                        </AlertDialog.Content>
+                    </AlertDialog.Root>
+                </>
+            ) : null}
 
             {/* Profile avatar */}
             <div className="w-[40%] h-px bg-twilight-border my-1 rounded-full opacity-50" aria-hidden="true" />

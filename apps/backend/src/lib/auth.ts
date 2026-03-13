@@ -9,10 +9,34 @@ let cachedUrl = "";
 
 export type AuthVariables = {
     userId: string;
+    userEmail?: string;
     requestId: string;
     requestStartedAt: number;
     errorCode?: string;
 };
+
+function parseCsvList(value?: string | null) {
+    if (!value) return [];
+    return value
+        .split(",")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+export function isAdminUser(env: Env, identity: { userId: string; email?: string | null }) {
+    const allowedUserIds = parseCsvList(env.ADMIN_USER_IDS);
+    if (allowedUserIds.includes(identity.userId.toLowerCase())) {
+        return true;
+    }
+
+    const normalizedEmail = identity.email?.trim().toLowerCase();
+    if (!normalizedEmail) {
+        return false;
+    }
+
+    const allowedEmails = parseCsvList(env.ADMIN_EMAILS);
+    return allowedEmails.includes(normalizedEmail);
+}
 
 function classifyAuthFailure(error: unknown) {
     const message = error instanceof Error ? error.message : "Invalid token";
@@ -88,6 +112,9 @@ export const authMiddleware = createMiddleware<{
         }
 
         c.set("userId", payload.sub);
+        if (typeof payload.email === "string") {
+            c.set("userEmail", payload.email);
+        }
 
         // Only sync user on write operations — GETs don't need to upsert
         const isWrite = c.req.method !== "GET" && c.req.method !== "HEAD";
@@ -96,9 +123,12 @@ export const authMiddleware = createMiddleware<{
                 (async () => {
                     try {
                         const { getDbClient } = await import("./db");
+                        const { withRls } = await import("./rls");
                         const { users } = await import("../db/schema");
                         const db = getDbClient(c.env as any);
-                        await db.insert(users).values({ id: payload!.sub! }).onConflictDoNothing();
+                        await withRls(db as any, payload!.sub!, async (tx) => {
+                            await tx.insert(users).values({ id: payload!.sub! }).onConflictDoNothing();
+                        });
                     } catch (dbErr) {
                         console.error("Failed to sync user via background Worker:", dbErr);
                     }

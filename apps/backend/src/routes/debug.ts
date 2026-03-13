@@ -1,5 +1,8 @@
-import { Hono } from "hono";
-import { getDbClient } from "../lib/db";
+import { Hono, type Context } from "hono";
+import { getDbClient, type DbClient } from "../lib/db";
+import { withRls } from "../lib/rls";
+import { AppError } from "../lib/errors";
+import { isAdminUser } from "../lib/auth";
 import {
     createSeedHabit,
     createSeedInboxItem,
@@ -34,6 +37,20 @@ import type { AuthVariables } from "../lib/auth";
 
 export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
+type TransactionClient = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+type RlsClient = DbClient | TransactionClient;
+
+function requireAdmin(c: Context<{ Bindings: Env; Variables: AuthVariables }>) {
+    const userId = c.get("userId");
+    const userEmail = c.get("userEmail");
+
+    if (!isAdminUser(c.env, { userId, email: userEmail })) {
+        throw new AppError(403, "FORBIDDEN", "Admin access required");
+    }
+
+    return { userId, userEmail };
+}
+
 function getRequiredRow<T extends { id: string }>(rows: Map<string, T>, key: string, label: string) {
     const row = rows.get(key);
     if (!row) {
@@ -42,7 +59,7 @@ function getRequiredRow<T extends { id: string }>(rows: Map<string, T>, key: str
     return row;
 }
 
-async function clearUserData(db: ReturnType<typeof getDbClient>, userId: string) {
+async function clearUserData(db: RlsClient, userId: string) {
     await db.delete(taskMetrics).where(eq(taskMetrics.userId, userId));
     await db.delete(subtasks).where(eq(subtasks.userId, userId));
     await db.delete(tasks).where(eq(tasks.userId, userId));
@@ -58,18 +75,21 @@ async function clearUserData(db: ReturnType<typeof getDbClient>, userId: string)
 }
 
 debugRoutes.post("/clear", async (c) => {
-    const userId = c.get("userId");
+    const { userId } = requireAdmin(c);
     const db = getDbClient(c.env);
 
-    await clearUserData(db, userId);
+    await withRls(db, userId, async (tx) => {
+        await clearUserData(tx, userId);
+    });
 
     return c.json({ success: true, message: "Cleared all user data except the user profile." });
 });
 
 debugRoutes.post("/seed", async (c) => {
-    const userId = c.get("userId");
+    const { userId } = requireAdmin(c);
     const db = getDbClient(c.env);
 
+    await withRls(db, userId, async (db) => {
     await clearUserData(db, userId);
 
     const anchor = new Date();
@@ -540,6 +560,11 @@ debugRoutes.post("/seed", async (c) => {
 
     // ── Notification & feature-testing data ──────────────────────────
 
+
+debugRoutes.get("/capabilities", async (c) => {
+    const { userId, userEmail } = requireAdmin(c);
+    return c.json({ data: { canUseDeveloperTools: true, userId, email: userEmail ?? null } });
+});
     // Tasks that trigger notification center items:
     // 1. A task with a reminder ~30 min ago (should show as "task-reminder" notification)
     // 2. A task due today (should show as "task-due" notification)
@@ -635,6 +660,8 @@ debugRoutes.post("/seed", async (c) => {
             },
         })
         .where(eq(users.id, userId));
+
+    });
 
     return c.json({ success: true, message: "Seeded full test workspace." });
 });
