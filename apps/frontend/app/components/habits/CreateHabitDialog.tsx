@@ -32,7 +32,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
 
     return (
         <Dialog.Dialog open={open} onOpenChange={onOpenChange}>
-            <Dialog.DialogContent className="max-w-md">
+            <Dialog.DialogContent className="max-w-lg">
                 <Dialog.DialogHeader>
                     <Dialog.DialogTitle>New habit</Dialog.DialogTitle>
                     <Dialog.DialogDescription>

@@ -15,7 +15,7 @@ describe("task temporal normalization", () => {
                 scheduledStart: "2026-03-10T09:00:00.000Z",
             }),
         ).toEqual({
-            dueDate: "2026-03-10T00:00:00.000Z",
+            dueDate: "2026-03-10T12:00:00.000Z",
             scheduledStart: null,
             scheduledEnd: null,
             isAllDay: true,
@@ -46,7 +46,7 @@ describe("task temporal normalization", () => {
                 scheduledEnd: "2026-03-12",
             }),
         ).toEqual({
-            dueDate: "2026-03-10T00:00:00.000Z",
+            dueDate: "2026-03-10T12:00:00.000Z",
             scheduledStart: null,
             scheduledEnd: "2026-03-12T23:59:59.999Z",
             isAllDay: true,

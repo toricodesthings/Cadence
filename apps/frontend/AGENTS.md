@@ -99,6 +99,8 @@ Current top-level routes are:
 - `/habits` — Habit planning and review canvas
 - `/weekly-review` — Weekly reset / reflection surface
 
+All primary routes (`/`, `/upcoming`, `/inbox`, `/habits`, `/project/:projectId`) call `useRouteFocus()` to restore keyboard focus on navigation, enabling seamless keyboard-driven workflows from search, quick add, and notification center.
+
 The current codebase is not “just tasks.” It includes major product domains for:
 
 - planner tasks
@@ -109,7 +111,10 @@ The current codebase is not “just tasks.” It includes major product domains 
 - settings
 - auth
 - sidebar navigation / filtering
-- global command palette and shortcuts
+- global command palette and universal search
+- quick-add surface (tasks, thoughts, habits)
+- in-app notification center and browser notifications
+- holding planner panel (unmanaged task triage)
 
 ---
 
@@ -123,14 +128,17 @@ app/
 ├── routes.ts               # Route config
 ├── components/
 │   ├── MainLayout.tsx      # App shell layout
-│   ├── CommandPalette.tsx  # Global palette
+│   ├── CommandPalette.tsx  # Global command palette + universal search
 │   ├── calendar/
 │   ├── feedback/
 │   ├── habits/
+│   ├── holding/           # HoldingPlannerPanel for unmanaged task triage
 │   ├── inbox/
 │   ├── kanban/
 │   ├── layout/
+│   ├── notifications/     # NotificationCenter popover
 │   ├── primitives/
+│   ├── quick-add/         # QuickAddSurface (tasks, thoughts, habits)
 │   ├── settings/
 │   ├── shared/
 │   ├── sidebar/
@@ -142,19 +150,37 @@ app/
 │   ├── sections/
 │   ├── tags/
 │   ├── tasks/
-│   └── shared app hooks
+│   └── shared app hooks (see §5.1)
 ├── lib/
 │   ├── api/
+│   ├── notifications/     # notification-model.ts, reminder-engine.ts
+│   ├── types/             # settings.ts (Zod schemas for user settings)
 │   ├── utils/
 │   ├── validations/
 │   └── auth-client.ts
 ├── stores/
+│   ├── right-panel-store.ts    # Holding planner panel visibility
 │   ├── sidebar-store.ts
 │   ├── tag-filter-store.ts
+│   ├── task-completion-store.ts
 │   └── task-selection-store.ts
 └── types/
    └── frontend-facing domain types
 ```
+
+---
+
+### 5.1 Shared app hooks
+
+Notable hooks added or expanded in the current codebase:
+
+- `use-shell-mode.ts` — responsive breakpoint hook returning `wide`, `laptop`, `tablet`, `phone`
+- `use-keyboard-shortcuts.ts` — global keyboard shortcut registration (`Cmd/Ctrl+K`, `N`, `G` chords, etc.)
+- `use-universal-search.ts` — fuzzy search over tasks, projects, and habits with ranked scoring
+- `use-route-focus.ts` — restores keyboard focus to `[data-focus-target]` after navigation
+- `use-notification-center.ts` — derives in-app notifications from tasks/habits, manages read/dismiss state with `useSyncExternalStore`
+- `use-browser-notifications.ts` — fires native browser `Notification` API for new items when permitted
+- `use-workspace-sync.ts` — manual sync hook for TanStack Query invalidation + SyncButton UI
 
 ---
 
@@ -166,12 +192,15 @@ app/
 
 - sidebar composition
 - top header/title region
-- optional side panels
+- optional side panels (including holding planner panel)
 - auth gating
 - command palette mounting
+- quick-add surface mounting
+- notification center mounting
 - settings dialog mounting
 - global toaster mounting
 - floating action bar mounting
+- sync button mounting
 
 If you are building a new primary route, it will usually compose through `MainLayout`.
 
@@ -383,6 +412,8 @@ Current Zustand domains include:
 - sidebar collapsed state and width persistence
 - active tag filter
 - multi-select task selection
+- right panel visibility (holding planner)
+- task completion animation state
 
 ### 10.3 Local device cache
 
@@ -436,18 +467,42 @@ This hybrid task/habit calendar behavior is intentional. Do not simplify it away
 - Settings dialog state is driven by the `?settings=` query parameter.
 - Deep-linkable settings tabs are intentional.
 - User settings are merged optimistically and cached locally.
+- Notification settings fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are **required** (non-optional) in the schema. The backend default seeds all fields, and migration `0011` backfills existing users.
 
-### 11.7 Keyboard shortcuts and command palette
+### 11.7 Keyboard shortcuts, command palette, and universal search
 
 Global shortcuts are part of the product experience.
 
 Current notable shortcuts include:
 
-- `Cmd/Ctrl+K` — command palette
-- `N` — create task flow hook point
+- `Cmd/Ctrl+K` — command palette (doubles as universal search)
+- `Cmd/Ctrl+Shift+S` — manual sync
+- `N` — quick-add surface
 - `G` chords for navigation
 
+The command palette provides universal search across tasks, projects, and habits with fuzzy matching and ranked results.
+
 Do not add conflicting shortcuts casually.
+
+### 11.8 In-app notification center
+
+- Notification center lives in `app/components/notifications/NotificationCenter.tsx`.
+- Notification derivation is **client-side only**: `reminder-engine.ts` scans cached tasks/habits and generates notifications based on reminders, due dates, and overdue state.
+- Session-scoped dismiss/read state uses module-level `Set` objects exposed through `useSyncExternalStore`. State resets on page reload by design.
+- The engine runs on a 60-second interval inside `use-notification-center.ts`.
+- Browser notifications (`use-browser-notifications.ts`) fire native `Notification` API alerts when user settings allow and permission is granted.
+
+### 11.9 Quick-add surface
+
+- `QuickAddSurface.tsx` is a tabbed modal for creating tasks, thoughts (inbox items), and habits.
+- Triggered via `N` shortcut or UI button.
+- On submit, navigates to the relevant route and focuses via `useRouteFocus()`.
+
+### 11.10 Holding planner panel
+
+- `HoldingPlannerPanel.tsx` is a slide-out right panel showing unmanaged tasks (no date, no project).
+- Visibility is controlled by `right-panel-store.ts` (Zustand, persisted to localStorage).
+- Available on wide/laptop shell modes. Collapsed on smaller breakpoints.
 
 ---
 

@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRef, useCallback } from "react";
 import { useApiClient } from "./use-api-client";
 import { unwrapResponse } from "../lib/api/helpers";
 import type { UserSettings, DeepPartial } from "../lib/types/settings";
+import { SETTINGS_DEFAULTS } from "../lib/types/settings";
 import { useAuthState } from "./use-auth-state";
 
 const SETTINGS_KEY = (userId: string | undefined) => ["settings", userId ?? "anonymous"] as const;
@@ -38,7 +40,10 @@ function readLocalCache(storageKey: string | null): Partial<UserSettings> {
     if (!storageKey) return {};
     try {
         const raw = localStorage.getItem(storageKey);
-        return raw ? JSON.parse(raw) : {};
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        // Merge with canonical defaults to ensure all keys exist
+        return deepMerge(SETTINGS_DEFAULTS, parsed);
     } catch {
         return {};
     }
@@ -79,9 +84,11 @@ export function useSettings() {
 }
 
 /**
- * Update user settings. Optimistically updates cache + localStorage,
- * then persists to backend.
+ * Update user settings. Optimistically updates cache + localStorage instantly,
+ * then debounces the actual network PATCH to coalesce rapid changes.
  */
+const DEBOUNCE_MS = 500;
+
 export function useUpdateSettings() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -89,29 +96,45 @@ export function useUpdateSettings() {
     const storageKey = getLocalSettingsKey(session?.user.id);
     const queryKey = SETTINGS_KEY(session?.user.id);
 
-    return useMutation({
+    // Accumulate patches between debounced flushes
+    const pendingPatch = useRef<DeepPartial<UserSettings>>({});
+    const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const mutation = useMutation({
         mutationFn: async (patch: DeepPartial<UserSettings>) => {
             const res = await client.api.settings.$patch({ json: patch });
             return unwrapResponse<UserSettings>(res);
         },
-        onMutate: async (patch) => {
-            await queryClient.cancelQueries({ queryKey });
-            const previous = queryClient.getQueryData<UserSettings>(queryKey);
-
-            const next = deepMerge(previous || {}, patch);
-            queryClient.setQueryData(queryKey, next);
-            writeLocalCache(storageKey, next);
-
-            return { previous };
-        },
-        onError: (_err, _patch, context) => {
-            if (context?.previous !== undefined) {
-                queryClient.setQueryData(queryKey, context.previous);
-                writeLocalCache(storageKey, context.previous);
-            }
+        onError: (_err, _patch) => {
+            // On failure, re-fetch to restore the server state
+            queryClient.invalidateQueries({ queryKey });
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey });
         },
     });
+
+    const mutate = useCallback(
+        (patch: DeepPartial<UserSettings>) => {
+            // 1. Optimistic: update cache + localStorage immediately
+            const previous = queryClient.getQueryData<UserSettings>(queryKey);
+            const next = deepMerge(previous || {}, patch);
+            queryClient.setQueryData(queryKey, next);
+            writeLocalCache(storageKey, next);
+
+            // 2. Accumulate the patch
+            pendingPatch.current = deepMerge(pendingPatch.current, patch);
+
+            // 3. Debounce the network call
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+            debounceTimer.current = setTimeout(() => {
+                const coalescedPatch = pendingPatch.current;
+                pendingPatch.current = {};
+                mutation.mutate(coalescedPatch);
+            }, DEBOUNCE_MS);
+        },
+        [queryClient, queryKey, storageKey, mutation],
+    );
+
+    return { mutate };
 }

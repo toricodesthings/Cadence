@@ -1,45 +1,55 @@
+import { LoaderCircle, CircleAlert, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
+import type { CSSProperties } from "react";
 import { Toaster as SonnerToaster } from "sonner";
-import { CheckCircle2, AlertCircle, Info } from "lucide-react";
 
-/**
- * Themed Sonner Toaster — styled to match Cadence's twilight design system.
- * Renders `unstyled` toasts with our own glass-surface aesthetic.
- *
- * Colour mapping:
- *   success → feedback-success
- *   error   → feedback-error
- *   info    → moonlit blue
- */
+import { CADENCE_TOAST_DURATION, installCadenceToastTheme } from "./cadence-toast";
+
+installCadenceToastTheme();
+
 export function Toaster() {
     return (
         <SonnerToaster
             position="bottom-right"
-            gap={8}
+            theme="dark"
+            expand={false}
+            visibleToasts={5}
+            gap={12}
+            duration={CADENCE_TOAST_DURATION}
+            offset={24}
+            mobileOffset={16}
+            style={{ "--width": "26.5rem" } as CSSProperties}
+            containerAriaLabel="Cadence notifications"
             toastOptions={{
                 unstyled: true,
+                closeButton: true,
+                style: {
+                    "--cadence-toast-duration": `${CADENCE_TOAST_DURATION}ms`,
+                    "--cadence-toast-progress-opacity": "1",
+                } as CSSProperties,
                 classNames: {
-                    toast: [
-                        "flex items-center gap-3 w-80 p-4 rounded-xl shadow-2xl border",
-                        "backdrop-blur-md pointer-events-auto",
-                        "font-sans",
-                    ].join(" "),
-                    title: "text-[13px] leading-snug text-twilight-text-soft",
-                    description: "text-[12px] leading-snug text-twilight-text-muted mt-0.5",
-                    actionButton:
-                        "text-[12px] font-medium px-2.5 py-1 rounded-xl bg-lantern/20 text-lantern hover:bg-lantern/30 transition-colors ml-auto",
-                    cancelButton:
-                        "text-[12px] font-medium px-2.5 py-1 rounded-xl text-twilight-text-muted hover:text-twilight-text-soft transition-colors",
-                    success: "bg-feedback-success/15 border-feedback-success/30",
-                    error: "bg-feedback-error/15 border-feedback-error/30",
-                    info: "bg-moonlit/15 border-moonlit/30",
-                    // Default toast (no variant) uses twilight surface
-                    default: "bg-twilight-base/95 border-twilight-border",
+                    toast: "cadence-toast",
+                    icon: "cadence-toast__icon",
+                    content: "cadence-toast__content",
+                    title: "cadence-toast__title",
+                    description: "cadence-toast__description",
+                    actionButton: "cadence-toast__action",
+                    cancelButton: "cadence-toast__cancel",
+                    closeButton: "cadence-toast__close",
+                    loader: "cadence-toast__loader",
+                    success: "cadence-toast--success",
+                    error: "cadence-toast--error",
+                    info: "cadence-toast--info",
+                    warning: "cadence-toast--warning",
+                    loading: "cadence-toast--loading",
                 },
             }}
             icons={{
-                success: <CheckCircle2 size={16} className="text-feedback-success shrink-0" />,
-                error: <AlertCircle size={16} className="text-feedback-error shrink-0" />,
-                info: <Info size={16} className="text-moonlit shrink-0" />,
+                success: <CheckCircle2 size={16} strokeWidth={2} />,
+                error: <CircleAlert size={16} strokeWidth={2} />,
+                info: <Info size={16} strokeWidth={2} />,
+                warning: <TriangleAlert size={16} strokeWidth={2} />,
+                loading: <LoaderCircle size={16} strokeWidth={2} className="animate-spin" />,
+                close: <X size={14} strokeWidth={2} />,
             }}
         />
     );

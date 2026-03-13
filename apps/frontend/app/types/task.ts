@@ -7,6 +7,7 @@ export type EffortLevel = 1 | 2 | 3 | null;
 export interface TaskSection {
     id: string;
     userId: string;
+    projectId: string | null;
     name: string;
     orderIndex: number;
     createdAt: string;
@@ -25,6 +26,7 @@ export interface Task {
     id: string;
     userId: string;
     projectId: string | null;
+    sectionId?: string | null;
     title: string;
     content: string | null;
     state: TaskState;
@@ -45,25 +47,30 @@ export interface Task {
     reminderSilenced: boolean;
     recurrenceRule: string | null;
     isHabit?: boolean;
+    seriesId?: string;
+    isRecurringInstance?: boolean;
+    occurrenceStart?: string | null;
+    occurrenceEnd?: string | null;
 
     // ── NEW FIELDS (Plan 7) ──
     waitingOn?: string | null;
     waitingReminder?: string | null;
     effort: EffortLevel;
     notBefore?: string | null;
-    sectionId?: string | null;
     tagIds?: string[];
 }
 
 /** Input shape for creating a task via the API */
 export interface CreateTaskInput {
     title: string;
+    content?: string | null;
     orderIndex: number;
     projectId?: string;
     scheduledStart?: string;
     scheduledEnd?: string;
     dueDate?: string;
     isAllDay?: boolean;
+    timezoneLocked?: boolean;
 
     // ── OLDER FIELDS ──
     priority?: TaskPriority;
@@ -104,5 +111,6 @@ export type UpdateTaskInput = Partial<
         | "effort"
         | "notBefore"
         | "sectionId"
+        | "orderIndex"
     >
 >;

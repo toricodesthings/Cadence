@@ -1,12 +1,14 @@
 import { useRef, useEffect, useMemo } from "react";
+import { Flag } from "lucide-react";
 import { TimeGutter } from "./TimeGutter";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
-import { HOUR_HEIGHT, DAY_GRID_HEIGHT, taskTop, taskHeight } from "../../lib/utils/calendar-utils";
+import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
+import type { HolidayRecord } from "../../lib/holidays/provider";
 
 interface DroppableTimeGridProps {
     dateStr: string;
@@ -73,16 +75,16 @@ function DroppableTimeGrid({
             {Array.from({ length: 24 }, (_, h) => (
                 <div
                     key={h}
-                    className="absolute left-0 right-0 border-t border-white/[0.07]"
+                    className="absolute left-0 right-0 border-t border-twilight-border/20"
                     style={{ top: h * HOUR_HEIGHT }}
                 />
             ))}
-            {/* Half-hour dashed lines */}
-            {Array.from({ length: 24 }, (_, h) => (
+            {/* Quarter-hour dashed lines */}
+            {Array.from({ length: 24 * 4 }, (_, slot) => (
                 <div
-                    key={`half-${h}`}
-                    className="absolute left-0 right-0 border-t border-white/[0.04] border-dashed"
-                    style={{ top: h * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
+                    key={`quarter-${slot}`}
+                    className="absolute left-0 right-0 border-t border-white/[0.03] border-dashed"
+                    style={{ top: (slot * HOUR_HEIGHT) / 4 }}
                 />
             ))}
 
@@ -91,18 +93,20 @@ function DroppableTimeGrid({
             ) : null}
 
             {/* Task blocks */}
-            {timedTasks.map((task) => (
+            {buildTimedTaskLayouts(timedTasks).map((layout) => (
                 <CalendarTaskChip
-                    key={task.id}
-                    task={task}
+                    key={layout.task.id}
+                    task={layout.task}
                     variant="block"
                     sourceId={`day-${dateStr}`}
                     onSelect={onSelectTask}
                     onComplete={onCompleteTask}
                     onArchive={onArchiveTask}
                     style={{
-                        top: taskTop(task),
-                        height: taskHeight(task),
+                        top: layout.top,
+                        height: layout.height,
+                        left: `calc(${(layout.column / layout.columns) * 100}% + 0.25rem)`,
+                        width: `calc(${100 / layout.columns}% - 0.5rem)`,
                     }}
                 />
             ))}
@@ -129,6 +133,9 @@ export interface DayViewProps {
     currentDate: string;
     /** All tasks for this day */
     tasks: Task[];
+    holidays?: HolidayRecord[];
+    /** Whether this day is the user's birthday */
+    isBirthday?: boolean;
     activeDropPreview?: CalendarDropPreview | null;
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
@@ -140,6 +147,8 @@ export interface DayViewProps {
 export function DayView({
     currentDate,
     tasks,
+    holidays = [],
+    isBirthday = false,
     activeDropPreview,
     onSelectTask,
     onCompleteTask,
@@ -184,6 +193,17 @@ export function DayView({
                     isActive={activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate}
                 >
                     <div className={`flex flex-col gap-1 max-w-[480px] ${allDay.length === 0 ? "min-h-11" : ""}`}>
+                        {holidays.length > 0 && (
+                            <div className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-solstice/20 bg-solstice/12 px-3 py-1 text-xs font-medium text-solstice">
+                                <Flag size={12} strokeWidth={2.2} aria-hidden="true" />
+                                {holidays.map((holiday) => holiday.name).join(", ")}
+                            </div>
+                        )}
+                        {isBirthday && (
+                            <div className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-violet/20 bg-violet/12 px-3 py-1 text-xs font-medium text-violet">
+                                🎂 Your Birthday
+                            </div>
+                        )}
                         {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate ? (
                             <AllDayDropPreview preview={activeDropPreview} />
                         ) : null}

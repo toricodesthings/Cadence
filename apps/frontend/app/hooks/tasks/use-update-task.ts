@@ -12,6 +12,7 @@ import type { Task, UpdateTaskInput } from "../../types/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { isRecurringTask } from "../../lib/utils/task-scheduling";
 
 /** Update any task field with optimistic patching across all caches */
 export function useUpdateTask() {
@@ -43,14 +44,17 @@ export function useUpdateTask() {
         },
 
         onSuccess: (task) => {
+            if (isRecurringTask(task)) {
+                invalidateTaskCaches(queryClient);
+                return;
+            }
             reconcileTaskInCaches(queryClient, task);
         },
 
         onError: (err, _input, context) => {
             if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
             toast.error(err.message || "Failed to update task");
+            invalidateTaskCaches(queryClient);
         },
-
-        onSettled: () => invalidateTaskCaches(queryClient),
     });
 }

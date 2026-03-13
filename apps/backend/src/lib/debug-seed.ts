@@ -10,6 +10,7 @@ import { insertTaskSchema } from "../types/task";
 const seedSectionSchema = z.object({
     name: z.string().min(1).max(200),
     orderIndex: z.number(),
+    projectId: z.string().uuid().nullable().optional(),
 });
 
 type SeedTaskInput = z.input<typeof insertTaskSchema>;

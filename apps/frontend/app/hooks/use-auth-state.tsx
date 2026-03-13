@@ -22,7 +22,7 @@ interface AuthStateContextValue {
 
 const AuthStateContext = createContext<AuthStateContextValue | null>(null);
 
-const PROTECTED_PREFIXES = ["/", "/schedule", "/upcoming", "/inbox", "/completed", "/trash", "/project", "/habits", "/weekly-review"];
+const PROTECTED_PREFIXES = ["/", "/today", "/schedule", "/upcoming", "/completed", "/trash", "/project", "/habits", "/weekly-review"];
 
 function isProtectedPath(pathname: string) {
     return PROTECTED_PREFIXES.some((prefix) =>

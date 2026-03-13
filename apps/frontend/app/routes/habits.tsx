@@ -12,6 +12,7 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useDocumentMeta } from "../hooks/use-document-meta";
 import { useShellMode } from "../hooks/use-shell-mode";
+import { useRouteFocus } from "../hooks/use-route-focus";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -97,6 +98,8 @@ export default function Habits() {
         "Track weekly habits in a spacious rhythm that keeps each day readable.",
     );
 
+    useRouteFocus();
+
     return (
         <MainLayout requireAuth>
             <HabitToastResolver />
@@ -155,9 +158,11 @@ export default function Habits() {
                         </div>
 
                         <div className={`mt-4 flex gap-3 ${shell.isCompact ? "flex-col" : "items-center justify-between"}`}>
-                            <div className="flex items-center rounded-2xl border border-twilight-border bg-white/[0.02] p-1">
+                            <div className="flex items-center rounded-2xl border border-twilight-border bg-white/[0.02] p-1" role="radiogroup" aria-label="Habit view mode">
                                 <button
                                     type="button"
+                                    role="radio"
+                                    aria-checked={viewMode === "active"}
                                     onClick={() => setViewMode("active")}
                                     className={`touch-target rounded-xl px-4 text-[14px] font-medium transition-all duration-200 cursor-pointer ${viewMode === "active"
                                         ? "bg-white/[0.08] text-twilight-text shadow-sm"
@@ -168,6 +173,8 @@ export default function Habits() {
                                 </button>
                                 <button
                                     type="button"
+                                    role="radio"
+                                    aria-checked={viewMode === "archived"}
                                     onClick={() => setViewMode("archived")}
                                     className={`touch-target rounded-xl px-4 text-[14px] font-medium transition-all duration-200 cursor-pointer ${viewMode === "archived"
                                         ? "bg-white/[0.08] text-twilight-text shadow-sm"

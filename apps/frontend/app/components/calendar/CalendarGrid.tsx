@@ -22,6 +22,10 @@ interface CalendarGridProps {
     datesWithTasks: Set<number>;
     /** Days that have habits (show a lantern dot indicator, not chips) */
     habitDays?: Set<number>;
+    /** Days that have holidays (show a warmer ember marker) */
+    holidayDays?: Set<number>;
+    /** Day number of user's birthday in this month (if applicable) */
+    birthdayDay?: number | null;
     onSelectDate: (day: number) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
@@ -44,6 +48,8 @@ export function CalendarGrid({
     selectedDate,
     datesWithTasks,
     habitDays,
+    holidayDays,
+    birthdayDay,
     onSelectDate,
     variant = "compact",
     tasksByDay,
@@ -108,6 +114,8 @@ export function CalendarGrid({
                         isSelected={day === selectedDay}
                         hasTask={day !== null && datesWithTasks.has(day)}
                         hasHabit={day !== null && (habitDays?.has(day) ?? false)}
+                        hasHoliday={day !== null && (holidayDays?.has(day) ?? false)}
+                        hasBirthday={day !== null && day === birthdayDay}
                         onSelect={onSelectDate}
                         variant={variant}
                         tasks={day !== null ? (tasksByDay?.[day] ?? []) : []}

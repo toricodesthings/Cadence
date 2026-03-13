@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildTasksQuery, getTaskScheduleSummary } from "../../../../app/lib/utils/task-scheduling";
+import {
+    buildTasksQuery,
+    getTaskMutationTargetId,
+    getTaskRecurrenceSummary,
+    getTaskScheduleSummary,
+    isRecurringTaskInstance,
+} from "../../../../app/lib/utils/task-scheduling";
 import type { Task } from "../../../../app/types/task";
 
 function createTask(overrides: Partial<Task> = {}): Task {
@@ -24,6 +30,11 @@ function createTask(overrides: Partial<Task> = {}): Task {
         reminderAt: null,
         reminderSilenced: false,
         recurrenceRule: null,
+        sectionId: null,
+        seriesId: undefined,
+        isRecurringInstance: false,
+        occurrenceStart: null,
+        occurrenceEnd: null,
         effort: null,
         ...overrides,
     };
@@ -91,5 +102,33 @@ describe("task scheduling helpers", () => {
             hasNoDate: "false",
             effectiveOnOrBeforeDate: "2026-03-09",
         });
+    });
+
+    it("formats recurring series metadata without exposing raw RRULE text", () => {
+        const task = createTask({
+            isAllDay: false,
+            scheduledStart: "2026-03-10T13:30:00.000Z",
+            scheduledEnd: "2026-03-10T14:45:00.000Z",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+        });
+
+        expect(getTaskRecurrenceSummary(task)).toEqual({
+            label: "Repeats Tue & Thu, 9:30 AM - 10:45 AM, until May 2",
+            cadenceLabel: "Repeats Tue & Thu",
+            detailLabel: "every Tue & Thu, 9:30 AM - 10:45 AM, until May 2",
+            weekdayLabel: "Tue & Thu",
+            endLabel: "May 2",
+        });
+    });
+
+    it("routes recurring instances back to their series master for mutations", () => {
+        const instance = createTask({
+            id: "series-1::2026-03-10T09:30:00.000Z",
+            seriesId: "series-1",
+            isRecurringInstance: true,
+        });
+
+        expect(isRecurringTaskInstance(instance)).toBe(true);
+        expect(getTaskMutationTargetId(instance)).toBe("series-1");
     });
 });

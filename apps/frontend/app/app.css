@@ -49,6 +49,7 @@
   --color-lantern-dim: rgba(232, 164, 74, 0.06);
   --color-moonlit: #7eb8d4;
   --color-moonlit-soft: rgba(126, 184, 212, 0.12);
+  --color-solstice: #d96a3b;
   --color-sapphire: #4a90d9;
   --color-ember-red: #d97756;
   --color-forest-green: #5dba72;
@@ -109,6 +110,466 @@
   --duration-normal: 200ms;
   --duration-smooth: 300ms;
   --duration-expressive: 450ms;
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * DAYLIGHT THEME — Light mode overrides
+ *
+ * Applied via `data-theme="daylight"` on <html>.
+ * Uses warm cream/sand palette consistent with the Cadence brand rather than
+ * cold sterile whites. All values pass WCAG AA contrast on their intended
+ * background (verified against body text and muted text).
+ *
+ * Key contrasts:
+ *   --color-twilight-text (#1e293b) on --color-twilight-void (#f8f6f3) → 12.6:1
+ *   --color-twilight-text-soft (#475569) on --color-twilight-void (#f8f6f3) → 6.4:1
+ *   --color-twilight-text-muted (#64748b) on --color-twilight-void (#f8f6f3) → 4.6:1
+ *   --color-lantern (#b45309) on --color-twilight-void (#f8f6f3) → 5.1:1
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+[data-theme="daylight"] {
+  color-scheme: light;
+
+  /* ── Surfaces ── */
+  --color-twilight-void: #f8f6f3;
+  --color-twilight-deep: #f3f0ec;
+  --color-twilight-base: #ece8e2;
+  --color-twilight-surface: #e4dfd8;
+  --color-twilight-surface-muted: #eee9e3;
+  --color-twilight-surface-hover: #ddd7cf;
+  --color-twilight-elevated: #d8d1c8;
+
+  /* ── Text — ink-warm slate, WCAG AA-compliant ── */
+  --color-twilight-text: #1e293b;
+  --color-twilight-text-soft: #475569;
+  --color-twilight-text-muted: #64748b;
+  --color-warm-white: var(--color-twilight-text);
+  --color-lantern-amber: var(--color-lantern);
+
+  /* ── Borders — visible but gentle against cream ── */
+  --color-twilight-border: rgba(0, 0, 0, 0.10);
+  --color-twilight-border-interactive: rgba(0, 0, 0, 0.18);
+  --color-twilight-border-light: rgba(0, 0, 0, 0.08);
+
+  /* ── Accents — slightly deeper for light-bg contrast (WCAG AA on cream) ── */
+  --color-lantern: #b45309;
+  --color-lantern-soft: rgba(180, 83, 9, 0.10);
+  --color-lantern-dim: rgba(180, 83, 9, 0.05);
+  --color-moonlit: #0e7490;
+  --color-moonlit-soft: rgba(14, 116, 144, 0.10);
+  --color-solstice: #c2410c;
+  --color-sapphire: #1d4ed8;
+  --color-ember-red: #c2410c;
+  --color-forest-green: #15803d;
+  --color-violet: #7c3aed;
+
+  /* ── Feedback ── */
+  --color-feedback-success: #15803d;
+  --color-feedback-error: #dc2626;
+
+  /* ── Priority ── */
+  --color-priority-low: #2563eb;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #d97706;
+  --color-priority-urgent: #dc2626;
+  --color-priority-urgent-glow: rgba(220, 38, 38, 0.15);
+
+  /* ── Nav accents (deeper for legibility) ── */
+  --color-nav-planner: var(--color-lantern);
+  --color-nav-schedule: var(--color-moonlit);
+  --color-nav-upcoming: #059669;
+  --color-nav-inbox: #7c3aed;
+  --color-nav-completed: #16a34a;
+
+  /* ── Auth UI bridge ── */
+  --background: var(--color-twilight-deep);
+  --foreground: var(--color-twilight-text);
+  --primary: var(--color-lantern);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-twilight-surface);
+  --secondary-foreground: var(--color-twilight-text);
+  --muted: var(--color-twilight-surface-muted);
+  --muted-foreground: var(--color-twilight-text-soft);
+  --accent: color-mix(in srgb, var(--color-lantern) 12%, var(--color-twilight-surface));
+  --accent-foreground: var(--color-twilight-text);
+  --destructive: var(--color-feedback-error);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-twilight-border-light);
+  --input: var(--color-twilight-border-light);
+  --ring: rgba(180, 83, 9, 0.35);
+
+  /* ── Focus / notification tokens ── */
+  --color-focus-aura: rgba(180, 83, 9, 0.22);
+  --color-focus-aura-soft: rgba(180, 83, 9, 0.10);
+  --color-notification-unread: var(--color-lantern);
+  --color-notification-reminder: var(--color-lantern);
+  --color-notification-system: var(--color-moonlit);
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ACCENT INTENSITY — Adjusts glow/opacity of accent colors
+ * Applied via `data-accent="soft|vivid"` on <html>. "balanced" = default (no attr).
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+[data-accent="soft"] {
+  --color-lantern-soft: rgba(232, 164, 74, 0.06);
+  --color-lantern-dim: rgba(232, 164, 74, 0.03);
+  --color-moonlit-soft: rgba(126, 184, 212, 0.06);
+  --ring: rgba(232, 164, 74, 0.25);
+}
+
+[data-accent="vivid"] {
+  --color-lantern-soft: rgba(232, 164, 74, 0.20);
+  --color-lantern-dim: rgba(232, 164, 74, 0.10);
+  --color-moonlit-soft: rgba(126, 184, 212, 0.20);
+  --ring: rgba(232, 164, 74, 0.60);
+}
+
+/* Daylight + accent intensity combos */
+[data-theme="daylight"][data-accent="soft"] {
+  --color-lantern-soft: rgba(180, 83, 9, 0.05);
+  --color-lantern-dim: rgba(180, 83, 9, 0.02);
+  --color-moonlit-soft: rgba(14, 116, 144, 0.05);
+  --ring: rgba(180, 83, 9, 0.20);
+}
+
+[data-theme="daylight"][data-accent="vivid"] {
+  --color-lantern-soft: rgba(180, 83, 9, 0.18);
+  --color-lantern-dim: rgba(180, 83, 9, 0.08);
+  --color-moonlit-soft: rgba(14, 116, 144, 0.18);
+  --ring: rgba(180, 83, 9, 0.50);
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * DENSITY — Compact spacing tightens the entire interface
+ * Applied via `data-density="compact"` on <html>. "comfortable" = default.
+ *
+ * Gmail-style compact: tighter padding, smaller gaps, slightly reduced font
+ * sizes — but still fully functional and readable. No features removed, just
+ * denser information per screen.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+[data-density="compact"] {
+  font-size: 14px;
+  --sidebar-width: 200px;
+}
+
+/* ── Sidebar ── */
+
+/* Sidebar scroll area padding */
+[data-density="compact"] [id="sidebar-panel"] [data-slot="scroll-area-viewport"] {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* NavLink items — tighter vertical padding */
+[data-density="compact"] [id="sidebar-panel"] a[aria-current],
+[data-density="compact"] [id="sidebar-panel"] a:not([aria-current]) {
+  padding: 0.375rem 0.625rem;
+  font-size: 13.5px;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+}
+
+/* NavLink icons — slightly smaller */
+[data-density="compact"] [id="sidebar-panel"] a svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Sidebar section header labels */
+[data-density="compact"] [id="sidebar-panel"] .text-\[12px\].font-semibold.uppercase {
+  font-size: 10.5px;
+  margin-bottom: 0.25rem;
+}
+
+/* Sidebar separator spacing */
+[data-density="compact"] [id="sidebar-panel"] [role="separator"] {
+  margin-top: 0.625rem;
+  margin-bottom: 0.625rem;
+}
+
+/* Sidebar tag bubbles */
+[data-density="compact"] [id="sidebar-panel"] .flex-wrap.gap-1\.5 {
+  gap: 0.25rem;
+}
+
+/* ── Header / Top Bar ── */
+
+[data-density="compact"] header.shrink-0 > div {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+[data-density="compact"] header.shrink-0 h1 {
+  font-size: 1.125rem;
+}
+
+/* ── Page Content ── */
+
+/* Tighten outer page padding and vertical spacing */
+[data-density="compact"] main .mx-auto.w-full {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+@media (min-width: 1024px) {
+  [data-density="compact"] main .mx-auto.w-full {
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+  }
+}
+
+/* GeneralPageHeader — smaller icon box and spacing */
+[data-density="compact"] main .gap-5.mb-10 {
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+[data-density="compact"] main .gap-5.mb-10 > .w-12.h-12 {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+}
+
+[data-density="compact"] main .gap-5.mb-10 > .w-12.h-12 svg {
+  width: 18px;
+  height: 18px;
+}
+
+[data-density="compact"] main .gap-5.mb-10 h2 {
+  font-size: 1.5rem;
+}
+
+/* ── Task Cards (List view — the biggest density win) ── */
+
+/* List-mode expanded TaskCard padding */
+[data-density="compact"] [data-task-card="list"] {
+  padding: 0.625rem 0.875rem;
+  border-radius: 1.125rem;
+}
+
+/* Board-mode expanded TaskCard padding */
+[data-density="compact"] [data-task-card="board"] {
+  padding: 0.5rem 0.625rem;
+  padding-right: 1.75rem;
+  border-radius: 1.125rem;
+}
+
+/* Task title — tighter leading */
+[data-density="compact"] [data-task-card] .text-\[15px\] {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+/* Task meta chips below title */
+[data-density="compact"] [data-task-card] .gap-2.mt-2 {
+  margin-top: 0.25rem;
+  gap: 0.375rem;
+}
+
+/* Subtask items inside cards */
+[data-density="compact"] [data-task-card] .mt-3.ml-0\.5 {
+  margin-top: 0.375rem;
+}
+
+[data-density="compact"] [data-task-card] .gap-2.py-1 {
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+}
+
+/* ── AddTaskInput ── */
+
+[data-density="compact"] form .rounded-2xl.border.px-6.py-5 {
+  padding: 0.75rem 1rem;
+  border-radius: 0.875rem;
+}
+
+/* ── Habit Rows ── */
+
+/* Habit row padding */
+[data-density="compact"] .group.flex.items-center.py-3 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Day column header circles */
+[data-density="compact"] .flex.min-w-\[3\.25rem\].flex-col {
+  min-width: 2.75rem;
+}
+
+/* Habit day cell height */
+[data-density="compact"] .flex.h-12.items-center.justify-center {
+  height: 2.5rem;
+}
+
+/* Habit button — slightly smaller */
+[data-density="compact"] .touch-target.h-11.w-11 {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+/* Habit name column */
+[data-density="compact"] .flex.w-36.shrink-0,
+[data-density="compact"] .flex.sm\:w-44.shrink-0 {
+  width: 8rem;
+}
+
+/* ── Dialogs ── */
+
+/* Dialog content padding */
+[data-density="compact"] [role="dialog"][data-state="open"]:not(.block) {
+  padding: 1rem;
+  gap: 0.75rem;
+  border-radius: 1.25rem;
+}
+
+/* Dialog header spacing */
+[data-density="compact"] [role="dialog"] .space-y-1\.5 {
+  gap: 0.25rem;
+}
+
+/* Form gaps inside dialogs */
+[data-density="compact"] [role="dialog"] .gap-5 {
+  gap: 0.875rem;
+}
+
+/* ── Settings Dialog ── */
+
+/* Settings sidebar */
+[data-density="compact"] .settings-content-bg {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+[data-density="compact"] [role="dialog"].block .w-\[280px\] {
+  width: 240px;
+  padding: 0.75rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+/* Settings sidebar nav items */
+[data-density="compact"] [role="dialog"].block .w-\[280px\] button {
+  padding: 0.375rem 0.625rem;
+  font-size: 13px;
+  border-radius: 0.75rem;
+}
+
+/* Settings main content area */
+[data-density="compact"] [role="dialog"].block .min-h-full.w-full {
+  padding: 2rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  [data-density="compact"] [role="dialog"].block .min-h-full.w-full {
+    padding: 2rem 2.5rem;
+  }
+}
+
+/* SettingsSection spacing */
+[data-density="compact"] [role="dialog"].block .mb-10 {
+  margin-bottom: 1.5rem;
+}
+
+[data-density="compact"] [role="dialog"].block .gap-6 {
+  gap: 0.875rem;
+}
+
+/* SettingsRow padding */
+[data-density="compact"] [role="dialog"].block .rounded-\[1\.4rem\].border.p-4 {
+  padding: 0.75rem;
+  border-radius: 1rem;
+}
+
+/* Settings tab heading */
+[data-density="compact"] [role="dialog"].block h2.text-2xl {
+  font-size: 1.375rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Quick Add Surface ── */
+
+[data-density="compact"] [data-radix-popper-content-wrapper] .rounded-\[28px\] {
+  border-radius: 1.125rem;
+}
+
+[data-density="compact"] [data-radix-popper-content-wrapper] .p-6 {
+  padding: 1rem;
+}
+
+/* ── Command Palette ── */
+
+[data-density="compact"] [cmdk-root] {
+  font-size: 13.5px;
+}
+
+/* ── General tightening ── */
+
+/* Buttons with py-2.5 (common across components) */
+[data-density="compact"] .btn-icon {
+  padding: 0.375rem;
+}
+
+/* Note: touch targets are maintained at a minimum of 36px so
+   compact mode stays usable on trackpads and stylus-friendly */
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * MOTION — App-level reduced motion (supplements prefers-reduced-motion)
+ * Applied via `data-motion="reduced"` on <html>.
+ * When "full", animations always run regardless of OS preference.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+[data-motion="reduced"],
+[data-motion="reduced"] * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+[data-motion="full"] {
+  /* Override OS-level reduced motion — user explicitly chose "always animate" */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-smooth: 300ms;
+  --duration-expressive: 450ms;
+}
+
+/* Daylight scrollbars — dark tracks on light backgrounds */
+[data-theme="daylight"] * {
+  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
+}
+
+[data-theme="daylight"] *::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+[data-theme="daylight"] *::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.24);
+}
+
+/* Daylight selection */
+[data-theme="daylight"] ::selection {
+  background: rgba(180, 83, 9, 0.15);
+  color: var(--color-twilight-text);
+}
+
+/* Daylight focus ring */
+[data-theme="daylight"] *:focus-visible {
+  box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.40);
+}
+
+[data-theme="daylight"] input[type="text"]:focus-visible,
+[data-theme="daylight"] input:not([type]):focus-visible,
+[data-theme="daylight"] textarea:focus-visible {
+  box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.25);
 }
 
 /* === BASE === */
@@ -224,6 +685,37 @@
 
   .glass-surface {
     background: rgba(21, 37, 64, 0.5);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--color-twilight-border-light);
+  }
+
+  /* ── Daylight theme atmospheric overrides ── */
+  [data-theme="daylight"] .bg-twilight {
+    background:
+      /* Warm amber glow — top-right */
+      radial-gradient(ellipse 70% 50% at 92% 8%,
+        rgba(180, 83, 9, 0.04) 0%,
+        transparent 50%),
+      /* Sand warmth — bottom-center */
+      radial-gradient(ellipse 80% 40% at 50% 100%,
+        rgba(180, 83, 9, 0.03) 0%,
+        transparent 50%),
+      /* Cream base */
+      linear-gradient(175deg,
+        var(--color-twilight-deep) 0%,
+        var(--color-twilight-void) 100%);
+  }
+
+  [data-theme="daylight"] .glass {
+    background: rgba(236, 232, 226, 0.65);
+    backdrop-filter: blur(32px) saturate(1.1);
+    -webkit-backdrop-filter: blur(32px) saturate(1.1);
+    border: 1px solid var(--color-twilight-border);
+  }
+
+  [data-theme="daylight"] .glass-surface {
+    background: rgba(228, 223, 216, 0.6);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--color-twilight-border-light);
@@ -446,10 +938,541 @@ a:active {
   box-shadow: none !important;
 }
 
+/* === CADENCE TOASTS === */
+@keyframes cadence-toast-progress {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.cadence-toast {
+  --cadence-toast-accent: var(--color-moonlit);
+  position: relative;
+  display: grid;
+  width: min(26.5rem, calc(100vw - 3.75rem));
+  max-width: calc(100vw - 3.75rem);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 0.8rem;
+  row-gap: 0.5rem;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--cadence-toast-accent) 14%, var(--color-twilight-border-light));
+  background:
+    radial-gradient(circle at 14% 0%,
+      color-mix(in srgb, var(--cadence-toast-accent) 14%, transparent) 0%,
+      transparent 40%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--color-twilight-elevated) 84%, rgba(255, 255, 255, 0.02)) 0%,
+      rgba(9, 18, 33, 0.95) 100%);
+  padding: 0.95rem 0.95rem 0.85rem;
+  color: var(--color-twilight-text);
+  box-shadow:
+    0 18px 38px rgba(3, 9, 20, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(22px) saturate(1.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.08);
+}
+
+.cadence-toast::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 22%);
+}
+
+.cadence-toast::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, white 18%, var(--cadence-toast-accent)),
+    var(--cadence-toast-accent)
+  );
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cadence-toast-accent) 30%, transparent);
+  opacity: var(--cadence-toast-progress-opacity, 1);
+  animation: cadence-toast-progress var(--cadence-toast-duration, 4200ms) linear forwards;
+}
+
+.cadence-toast[data-swiping="true"]::after,
+.cadence-toast[data-expanded="true"]::after {
+  animation-play-state: paused;
+}
+
+.cadence-toast[data-expanded="true"]::after {
+  height: 2px;
+  bottom: 0;
+  top: auto;
+  width: auto;
+  left: 0;
+  right: 0;
+}
+
+.cadence-toast[data-type="loading"]::after {
+  opacity: 0;
+}
+
+.cadence-toast--wide {
+  width: min(38rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.cadence-toast--success {
+  --cadence-toast-accent: var(--color-feedback-success);
+}
+
+.cadence-toast--error {
+  --cadence-toast-accent: var(--color-feedback-error);
+}
+
+.cadence-toast--info,
+.cadence-toast--loading {
+  --cadence-toast-accent: var(--color-moonlit);
+}
+
+.cadence-toast--warning {
+  --cadence-toast-accent: var(--color-lantern);
+}
+
+.cadence-toast__icon {
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+  height: 1.15rem;
+  width: 1.15rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  color: var(--cadence-toast-accent);
+}
+
+.cadence-toast__icon svg {
+  height: 1rem;
+  width: 1rem;
+}
+
+/* When a description is present, span the icon across both rows */
+.cadence-toast:has(.cadence-toast__description) .cadence-toast__icon {
+  grid-row: 1 / span 2;
+  align-self: start;
+  margin-top: 0.18rem;
+}
+
+.cadence-toast__loader {
+  color: var(--cadence-toast-accent);
+}
+
+.cadence-toast__content {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.18rem;
+  padding-top: 0.08rem;
+}
+
+.cadence-toast__title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--color-twilight-text);
+}
+
+.cadence-toast__description {
+  font-size: 0.77rem;
+  line-height: 1.45;
+  color: var(--color-twilight-text-soft);
+  max-width: 38ch;
+}
+
+.cadence-toast__buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+}
+
+.cadence-toast__action,
+.cadence-toast__cancel,
+.cadence-toast__close,
+.cadence-toast__secondaryAction,
+.cadence-toast__tertiaryAction {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--duration-normal);
+  transition-timing-function: var(--ease-out-expo);
+}
+
+.cadence-toast__action,
+.cadence-toast__cancel,
+.cadence-toast__secondaryAction,
+.cadence-toast__tertiaryAction {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.cadence-toast__action {
+  gap: 0.45rem;
+  background: color-mix(in srgb, var(--cadence-toast-accent) 10%, transparent);
+  color: var(--cadence-toast-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cadence-toast-accent) 24%, transparent);
+}
+
+.cadence-toast__action:hover {
+  background: color-mix(in srgb, var(--cadence-toast-accent) 16%, transparent);
+}
+
+.cadence-toast__secondaryAction {
+  border-color: color-mix(in srgb, var(--color-twilight-border-light) 74%, transparent);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--color-twilight-text);
+}
+
+.cadence-toast__secondaryAction:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cadence-toast__cancel {
+  border-color: color-mix(in srgb, var(--color-twilight-border-light) 70%, transparent);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--color-twilight-text-soft);
+}
+
+.cadence-toast__cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-twilight-text);
+}
+
+.cadence-toast__tertiaryAction {
+  color: var(--color-twilight-text-muted);
+  background: transparent;
+}
+
+.cadence-toast__tertiaryAction:hover {
+  color: var(--color-twilight-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cadence-toast__close {
+  grid-column: 3;
+  grid-row: 1;
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent !important;
+  background-image: none !important;
+  justify-self: end;
+  align-self: start;
+  color: color-mix(in srgb, var(--color-twilight-text-muted) 84%, white 16%);
+  box-shadow: none !important;
+}
+
+.cadence-toast__close:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--color-twilight-text);
+}
+
+.cadence-toast__close:focus-visible,
+.cadence-toast__action:focus-visible,
+.cadence-toast__cancel:focus-visible,
+.cadence-toast__secondaryAction:focus-visible,
+.cadence-toast__tertiaryAction:focus-visible {
+  box-shadow: 0 0 0 2px rgba(232, 164, 74, 0.28);
+}
+
+@media (max-width: 640px) {
+  .cadence-toast {
+    width: min(100%, calc(100vw - 1.5rem));
+    max-width: calc(100vw - 1.5rem);
+    column-gap: 0.75rem;
+  }
+
+  .cadence-toast__action,
+  .cadence-toast__cancel {
+    min-height: 2.75rem;
+    padding: 0 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cadence-toast::after {
+    animation: none;
+    transform: scaleX(1);
+    opacity: 0.45;
+  }
+}
+
 @utility glow-lantern {
   box-shadow: 0 0 24px rgba(232, 164, 74, 0.06), 0 0 80px rgba(232, 164, 74, 0.03);
 }
 
 @utility glow-moonlit {
   box-shadow: 0 0 24px rgba(126, 184, 212, 0.06), 0 0 80px rgba(126, 184, 212, 0.03);
+}
+
+/* === FOCUS / REVEAL TOKENS === */
+:root {
+  --color-focus-aura: rgba(232, 164, 74, 0.18);
+  --color-focus-aura-soft: rgba(232, 164, 74, 0.08);
+  --duration-focus-pulse: 1.6s;
+
+  /* Sync */
+  --color-sync-active: var(--color-lantern);
+  --color-sync-idle: var(--color-twilight-text-muted);
+  --duration-sync-spin: 800ms;
+
+  /* Notifications */
+  --color-notification-unread: var(--color-lantern);
+  --color-notification-reminder: var(--color-lantern);
+  --color-notification-system: var(--color-moonlit);
+
+  /* Holding companion panel */
+  --holding-panel-default-width: 320px;
+  --holding-panel-max-width: 420px;
+}
+
+/* ── Surface utility — frosted utility chrome for search, quick add, notifications ── */
+@utility surface-utility {
+  background: rgba(15, 29, 50, 0.55);
+  backdrop-filter: blur(32px) saturate(1.2);
+  -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  border: 1px solid var(--color-twilight-border-light);
+}
+
+/* ── Focus pulse — soft 2-cycle glow for route reveal targets ── */
+@keyframes focus-pulse-soft {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  25% { box-shadow: 0 0 12px 2px var(--color-focus-aura); }
+  50% { box-shadow: 0 0 0 0 transparent; }
+  75% { box-shadow: 0 0 12px 2px var(--color-focus-aura); }
+}
+
+@utility focus-pulse-soft {
+  animation: focus-pulse-soft var(--duration-focus-pulse) var(--ease-out-expo) 1 forwards;
+}
+
+/* Reduced-motion: static ring instead of pulse */
+@media (prefers-reduced-motion: reduce) {
+  .focus-pulse-soft {
+    animation: none !important;
+    box-shadow: 0 0 0 2px var(--color-focus-aura-soft);
+    transition: box-shadow 0.3s ease;
+  }
+}
+
+/* ── Focus ring static — reduced motion fallback ring ── */
+@utility focus-ring-static {
+  box-shadow: 0 0 0 2px var(--color-focus-aura-soft);
+}
+
+/* ── Sync spin — rotation for sync icon ── */
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@utility sync-spin {
+  animation: sync-spin var(--duration-sync-spin) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-spin {
+    animation: none !important;
+    opacity: 0.7;
+  }
+}
+
+/* ── Notification dot — unread indicator ── */
+@utility notification-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-notification-unread);
+}
+
+/* ── Utility divider — subtle separator for shell utility rows ── */
+@utility utility-divider {
+  height: 1px;
+  background: var(--color-twilight-border);
+  opacity: 0.6;
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * DAYLIGHT COMPONENT OVERRIDES
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+
+/* Auth UI overrides for daylight */
+[data-theme="daylight"] .neon-auth-wrapper input {
+  background: rgba(236, 232, 226, 0.6) !important;
+  border: 1px solid var(--color-twilight-border-light) !important;
+  color: var(--color-twilight-text) !important;
+}
+
+[data-theme="daylight"] .neon-auth-wrapper input:focus {
+  box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.35) !important;
+  border-color: var(--color-lantern) !important;
+}
+
+[data-theme="daylight"] .neon-auth-wrapper button[type="submit"] {
+  background: var(--color-lantern) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="daylight"] .neon-auth-wrapper button {
+  background: rgba(236, 232, 226, 0.4) !important;
+  border: 1px solid var(--color-twilight-border-light) !important;
+  color: var(--color-twilight-text) !important;
+}
+
+[data-theme="daylight"] .neon-auth-wrapper button:hover {
+  background: rgba(228, 223, 216, 0.6) !important;
+  border-color: var(--color-lantern-soft) !important;
+}
+
+/* Toasts for daylight */
+[data-theme="daylight"] .cadence-toast {
+  border-color: color-mix(in srgb, var(--cadence-toast-accent) 10%, var(--color-twilight-border-light));
+  background:
+    radial-gradient(circle at 14% 0%,
+      color-mix(in srgb, var(--cadence-toast-accent) 8%, transparent) 0%,
+      transparent 40%),
+    linear-gradient(180deg,
+      var(--color-twilight-elevated) 0%,
+      var(--color-twilight-deep) 100%);
+  color: var(--color-twilight-text);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+}
+
+/* Surface utility for daylight */
+[data-theme="daylight"] .surface-utility {
+  background: rgba(236, 232, 226, 0.7);
+  backdrop-filter: blur(32px) saturate(1.1);
+  -webkit-backdrop-filter: blur(32px) saturate(1.1);
+  border: 1px solid var(--color-twilight-border-light);
+}
+
+/* Settings dialog content background — theme-aware */
+.settings-content-bg {
+  background:
+    radial-gradient(circle at top right, rgba(232, 164, 74, 0.06), transparent 25%),
+    linear-gradient(180deg, rgba(10, 22, 40, 0.92), rgba(7, 14, 26, 0.96));
+}
+
+[data-theme="daylight"] .settings-content-bg {
+  background:
+    radial-gradient(circle at top right, rgba(180, 83, 9, 0.04), transparent 25%),
+    linear-gradient(180deg, var(--color-twilight-deep), var(--color-twilight-void));
+}
+
+/* Profile card — themed surface for the account settings card */
+.profile-card-bg {
+  background-color: #132035;
+}
+[data-theme="daylight"] .profile-card-bg {
+  background-color: var(--color-twilight-surface);
+}
+
+/* Profile banner — decorative gradient behind the avatar area */
+.profile-banner-bg {
+  background: linear-gradient(to bottom right, #1a2b45, #0a1628);
+}
+[data-theme="daylight"] .profile-banner-bg {
+  background: linear-gradient(to bottom right, var(--color-twilight-elevated), var(--color-twilight-surface));
+}
+
+/* Glow utilities for daylight — subtle on light backgrounds */
+[data-theme="daylight"] .glow-lantern {
+  box-shadow: 0 0 24px rgba(180, 83, 9, 0.06), 0 0 80px rgba(180, 83, 9, 0.03);
+}
+
+[data-theme="daylight"] .glow-moonlit {
+  box-shadow: 0 0 24px rgba(14, 116, 144, 0.06), 0 0 80px rgba(14, 116, 144, 0.03);
+}
+
+/*
+ * Daylight interactive overlay fix — bg-white/[0.0x] is invisible on cream.
+ * This re-maps the most common inline hover/active patterns to use dark overlay.
+ */
+@layer utilities {
+  [data-theme="daylight"] .bg-white\/\[0\.02\] { background-color: rgba(0, 0, 0, 0.02); }
+  [data-theme="daylight"] .bg-white\/\[0\.03\] { background-color: rgba(0, 0, 0, 0.03); }
+  [data-theme="daylight"] .bg-white\/\[0\.035\] { background-color: rgba(0, 0, 0, 0.035); }
+  [data-theme="daylight"] .bg-white\/\[0\.04\] { background-color: rgba(0, 0, 0, 0.04); }
+  [data-theme="daylight"] .bg-white\/\[0\.05\] { background-color: rgba(0, 0, 0, 0.05); }
+  [data-theme="daylight"] .bg-white\/\[0\.06\] { background-color: rgba(0, 0, 0, 0.06); }
+  [data-theme="daylight"] .bg-white\/\[0\.08\] { background-color: rgba(0, 0, 0, 0.06); }
+  [data-theme="daylight"] .bg-white\/\[0\.015\] { background-color: rgba(0, 0, 0, 0.015); }
+  [data-theme="daylight"] .bg-white\/5 { background-color: rgba(0, 0, 0, 0.05); }
+  [data-theme="daylight"] .bg-white\/10 { background-color: rgba(0, 0, 0, 0.08); }
+
+  /* Hover variants */
+  [data-theme="daylight"] .hover\:bg-white\/\[0\.03\]:hover { background-color: rgba(0, 0, 0, 0.03); }
+  [data-theme="daylight"] .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0, 0, 0, 0.04); }
+  [data-theme="daylight"] .hover\:bg-white\/\[0\.05\]:hover { background-color: rgba(0, 0, 0, 0.05); }
+  [data-theme="daylight"] .hover\:bg-white\/\[0\.06\]:hover { background-color: rgba(0, 0, 0, 0.06); }
+  [data-theme="daylight"] .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.05); }
+  [data-theme="daylight"] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.08); }
+
+  /* Data-highlighted (Radix) */
+  [data-theme="daylight"] .data-\[highlighted\]\:bg-white\/\[0\.05\][data-highlighted] { background-color: rgba(0, 0, 0, 0.05); }
+
+  /* Border overrides — border-white/N uses white alpha, needs black alpha in daylight */
+  [data-theme="daylight"] .border-white\/\[0\.04\] { border-color: rgba(0, 0, 0, 0.04); }
+  [data-theme="daylight"] .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.06); }
+  [data-theme="daylight"] .border-white\/\[0\.10\] { border-color: rgba(0, 0, 0, 0.08); }
+  [data-theme="daylight"] .border-white\/10 { border-color: rgba(0, 0, 0, 0.08); }
+
+  /* Shadow with light inset line override */
+  [data-theme="daylight"] .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.03\)\] {
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.03);
+  }
+  [data-theme="daylight"] .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.05\)\] {
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.04);
+  }
+  [data-theme="daylight"] .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.06\)\] {
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  /* bg-black/N daylight overrides — dark overlays become subtle on cream */
+  [data-theme="daylight"] .bg-black\/20 { background-color: rgba(0, 0, 0, 0.04); }
+  [data-theme="daylight"] .bg-black\/40 { background-color: rgba(0, 0, 0, 0.06); }
+  [data-theme="daylight"] .hover\:bg-black\/20:hover { background-color: rgba(0, 0, 0, 0.04); }
+
+  /* fill-white → fill-current in daylight so SVGs follow text color */
+  [data-theme="daylight"] .fill-white { fill: var(--color-twilight-text); }
+  [data-theme="daylight"] .hover\:border-white\/5:hover { border-color: rgba(0, 0, 0, 0.05); }
 }

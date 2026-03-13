@@ -59,7 +59,7 @@
   },
   "devDependencies": {
     "@cadence/backend": "workspace:*",
-    "@cloudflare/workers-types": "^4.20260266.1",
+    "@cloudflare/workers-types": "^4.20260310.1",
     "@react-router/dev": "7.13.1",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.1",
@@ -75,6 +75,6 @@
     "vite": "^7.3.1",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^3.2.4",
-    "wrangler": "^4.69.0"
+    "wrangler": "^4.72.0"
   }
 }

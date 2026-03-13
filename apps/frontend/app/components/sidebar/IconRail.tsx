@@ -1,7 +1,8 @@
 import {
-    Search, Plus, Bell, Settings, Database, Flame, ListTree, AppWindow,
-    Calendar, LayoutDashboard, Sprout, Columns3,
-    LogOut, LifeBuoy, Palette, ChevronDown, Sparkles, Trash2,
+    Search, Plus, Bell, Settings, Database, Flame,
+    Calendar, LayoutDashboard, Sprout,
+    LogOut, LifeBuoy, ChevronDown, Sparkles, Trash2, RefreshCw,
+    BellRing, CheckCircle2, Info, TriangleAlert, CircleAlert, LoaderCircle,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 
@@ -15,17 +16,19 @@ import { authClient } from "../../lib/auth-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
-import * as Dialog from "../primitives/Dialog";
 import { Button } from "../primitives/Button";
-import { BellRing } from "lucide-react";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
+import { useWorkspaceSync } from "../../hooks/use-workspace-sync";
+import { useNotificationCenter } from "../../hooks/use-notification-center";
+import { NotificationCenter } from "../notifications/NotificationCenter";
+import { getDateFormatConfig } from "../../lib/utils/date-format";
 
 /** Nav item accent color definitions per Design Manifesto §1.9 */
 const NAV_LINKS = [
     {
         to: "/",
         icon: LayoutDashboard,
-        label: "Today",
+        label: "Holding",
         activeColor: "text-[var(--color-nav-planner)]",
         activeBg: "bg-[var(--color-nav-planner)]/15 glow-lantern",
         hoverColor: "hover:text-[var(--color-nav-planner)]/70",
@@ -65,7 +68,13 @@ const NAV_LINKS = [
 ] as const;
 
 /** The narrow icon rail on the left of the sidebar */
-export function IconRail() {
+export function IconRail({
+    onSearchOpen,
+    onQuickAddOpen,
+}: {
+    onSearchOpen?: () => void;
+    onQuickAddOpen?: () => void;
+}) {
     const location = useLocation();
     const navigate = useNavigate();
     const api = useApiClient();
@@ -75,10 +84,11 @@ export function IconRail() {
     const [isLoading, setIsLoading] = useState(false);
 
     // Dialog states
-    const [searchOpen, setSearchOpen] = useState(false);
-    const [quickAddOpen, setQuickAddOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
+
+    // Notification center
+    const { grouped, hasUnread, markRead, markAllRead, dismiss } = useNotificationCenter();
 
     const handleSeedData = async () => {
         setIsLoading(true);
@@ -121,9 +131,142 @@ export function IconRail() {
         }
     };
 
+    const handlePreviewToast = (kind: "default" | "success" | "info" | "warning" | "error" | "loading") => {
+        toast.dismiss();
+
+        switch (kind) {
+            case "default":
+                toast.message("Default toast", {
+                    description: "Neutral Cadence surface with the animated progress border.",
+                });
+                return;
+            case "success":
+                toast.success("Success toast", {
+                    description: "Use this for saved changes, completed actions, and confirmations.",
+                });
+                return;
+            case "info":
+                toast.info("Info toast", {
+                    description: "Good for ambient updates that do not need immediate action.",
+                });
+                return;
+            case "warning":
+                toast.warning("Warning toast", {
+                    description: "Previewing action and cancel pills on the warning variant.",
+                    action: {
+                        label: "Review",
+                        onClick: () => undefined,
+                    },
+                    cancel: {
+                        label: "Later",
+                        onClick: () => undefined,
+                    },
+                    duration: 6500,
+                });
+                return;
+            case "error":
+                toast.error("Error toast", {
+                    description: "Use for failed mutations, sync issues, and blocked flows.",
+                });
+                return;
+            case "loading":
+                toast.loading("Loading toast", {
+                    description: "Loading toasts keep the progress border hidden while work is in flight.",
+                });
+        }
+    };
+
+    const devToolTiles = [
+        {
+            key: "seed",
+            label: "Seed",
+            meta: "Data",
+            icon: Sparkles,
+            iconClassName: "text-lantern",
+            surfaceClassName: "border-lantern/18 bg-lantern/[0.08] shadow-[0_0_24px_rgba(232,164,74,0.08)]",
+            action: () => {
+                void handleSeedData();
+            },
+        },
+        {
+            key: "default",
+            label: "Default",
+            meta: "Toast",
+            icon: BellRing,
+            iconClassName: "text-twilight-text-soft",
+            surfaceClassName: "border-white/10 bg-white/[0.035]",
+            action: () => handlePreviewToast("default"),
+        },
+        {
+            key: "loading_screen",
+            label: "Loading",
+            meta: "Screen",
+            icon: Sparkles,
+            iconClassName: "text-blue-400",
+            surfaceClassName: "border-blue-500/20 bg-blue-500/10",
+            action: () => {
+                window.dispatchEvent(new CustomEvent("debug:loading", { detail: { duration: 10000 } }));
+            },
+        },
+        {
+            key: "success",
+            label: "Success",
+            meta: "Toast",
+            icon: CheckCircle2,
+            iconClassName: "text-feedback-success",
+            surfaceClassName: "border-feedback-success/18 bg-feedback-success/[0.08]",
+            action: () => handlePreviewToast("success"),
+        },
+        {
+            key: "info",
+            label: "Info",
+            meta: "Toast",
+            icon: Info,
+            iconClassName: "text-moonlit",
+            surfaceClassName: "border-moonlit/18 bg-moonlit/[0.08]",
+            action: () => handlePreviewToast("info"),
+        },
+        {
+            key: "warning",
+            label: "Warning",
+            meta: "Toast",
+            icon: TriangleAlert,
+            iconClassName: "text-lantern",
+            surfaceClassName: "border-lantern/18 bg-lantern/[0.08]",
+            action: () => handlePreviewToast("warning"),
+        },
+        {
+            key: "error",
+            label: "Error",
+            meta: "Toast",
+            icon: CircleAlert,
+            iconClassName: "text-feedback-error",
+            surfaceClassName: "border-feedback-error/18 bg-feedback-error/[0.08]",
+            action: () => handlePreviewToast("error"),
+        },
+        {
+            key: "loading",
+            label: "Loading",
+            meta: "Toast",
+            icon: LoaderCircle,
+            iconClassName: "text-moonlit",
+            surfaceClassName: "border-moonlit/18 bg-moonlit/[0.08]",
+            action: () => handlePreviewToast("loading"),
+        },
+        {
+            key: "wipe",
+            label: "Wipe",
+            meta: "Workspace",
+            icon: Trash2,
+            iconClassName: "text-feedback-error",
+            surfaceClassName: "border-feedback-error/18 bg-feedback-error/[0.08] shadow-[0_0_24px_rgba(217,119,86,0.08)]",
+            action: () => setWipeConfirmOpen(true),
+        },
+    ] as const;
+
     return (
         <div
-            className="flex h-dvh w-[60px] flex-col items-center gap-2 border-r border-twilight-border py-5 shrink-0"
+            className="flex h-full w-[60px] flex-col items-center gap-2 border-r border-twilight-border py-5 shrink-0"
             role="navigation"
             aria-label="Icon navigation rail"
         >
@@ -168,51 +311,27 @@ export function IconRail() {
 
             <div className="w-[60%] h-px bg-twilight-border rounded-full my-1" aria-hidden="true" />
 
-            <Dialog.Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-                <Tip label="Search">
-                    <Dialog.DialogTrigger asChild>
-                        <button
-                            aria-label="Search"
-                            className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] outline-none"
-                        >
-                            <Search size={18} aria-hidden="true" />
-                        </button>
-                    </Dialog.DialogTrigger>
-                </Tip>
-                <Dialog.DialogContent className="sm:max-w-[500px]">
-                    <Dialog.DialogHeader>
-                        <Dialog.DialogTitle>Search</Dialog.DialogTitle>
-                        <Dialog.DialogDescription>Universal search coming soon.</Dialog.DialogDescription>
-                    </Dialog.DialogHeader>
-                    <div className="py-12 flex flex-col items-center justify-center text-twilight-text-muted">
-                        <Search size={32} className="mb-4 opacity-50" aria-hidden="true" />
-                        <p>Search interface placeholder</p>
-                    </div>
-                </Dialog.DialogContent>
-            </Dialog.Dialog>
+            <Tip label="Search" side="right">
+                <button
+                    onClick={onSearchOpen}
+                    aria-label="Search"
+                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] outline-none"
+                >
+                    <Search size={18} aria-hidden="true" />
+                </button>
+            </Tip>
 
-            <Dialog.Dialog open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-                <Tip label="Quick add">
-                    <Dialog.DialogTrigger asChild>
-                        <button
-                            aria-label="Quick add task"
-                            className="btn-icon rounded-2xl text-twilight-text-muted hover:text-lantern hover:bg-lantern-dim outline-none"
-                        >
-                            <Plus size={18} aria-hidden="true" />
-                        </button>
-                    </Dialog.DialogTrigger>
-                </Tip>
-                <Dialog.DialogContent className="sm:max-w-[425px]">
-                    <Dialog.DialogHeader>
-                        <Dialog.DialogTitle>Quick Add</Dialog.DialogTitle>
-                        <Dialog.DialogDescription>Add a new task or project quickly.</Dialog.DialogDescription>
-                    </Dialog.DialogHeader>
-                    <div className="py-12 flex flex-col items-center justify-center text-twilight-text-muted">
-                        <Plus size={32} className="mb-4 opacity-50" aria-hidden="true" />
-                        <p>Quick Add palette placeholder</p>
-                    </div>
-                </Dialog.DialogContent>
-            </Dialog.Dialog>
+            <Tip label="Quick add" side="right">
+                <button
+                    onClick={onQuickAddOpen}
+                    aria-label="Quick add task"
+                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-lantern hover:bg-lantern-dim outline-none"
+                >
+                    <Plus size={18} aria-hidden="true" />
+                </button>
+            </Tip>
+
+            <SyncButton />
 
             <div className="flex-1" />
 
@@ -221,34 +340,24 @@ export function IconRail() {
                     <Popover.Trigger asChild>
                         <button
                             aria-label="Notifications"
-                            className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] outline-none"
+                            className="btn-icon relative rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] outline-none"
                         >
                             <Bell size={18} aria-hidden="true" />
+                            {hasUnread && (
+                                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-lantern" />
+                            )}
                         </button>
                     </Popover.Trigger>
                 </Tip>
-                <Popover.Content side="right" align="start" className="w-[19rem] p-0 overflow-hidden">
-                    <div className="border-b border-twilight-border px-4 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-soft">
-                            Notifications
-                        </p>
-                        <h2 className="mt-1 font-display text-lg font-semibold text-twilight-text">
-                            Recent activity
-                        </h2>
-                    </div>
-                    <div className="flex flex-col items-center justify-center gap-2 px-5 py-7 text-center text-twilight-text-soft">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-twilight-surface">
-                            <BellRing size={20} className="text-moonlit" aria-hidden="true" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-twilight-text">
-                                Nothing new yet
-                            </p>
-                            <p className="mt-1 text-[13px] leading-relaxed">
-                                Task reminders and workspace updates will appear here without interrupting your flow.
-                            </p>
-                        </div>
-                    </div>
+                <Popover.Content side="right" align="start" className="w-[20rem] p-0 overflow-hidden">
+                    <NotificationCenter
+                        grouped={grouped}
+                        hasUnread={hasUnread}
+                        markRead={markRead}
+                        markAllRead={markAllRead}
+                        dismiss={dismiss}
+                        onClose={() => setNotificationsOpen(false)}
+                    />
                     <Popover.Arrow className="fill-twilight-surface" />
                 </Popover.Content>
             </Popover.Root>
@@ -289,59 +398,64 @@ export function IconRail() {
                         side="right"
                         align="center"
                         sideOffset={14}
-                        className="w-[290px] p-2"
+                        className="w-[340px] p-2.5"
                     >
-                        <div className="px-3 pb-2 pt-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-soft">
+                        <div className="px-1.5 pb-3 pt-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-twilight-text-soft">
                                 Developer Tools
                             </p>
-                            <p className="mt-1 text-sm leading-relaxed text-twilight-text-muted">
-                                Load a full QA workspace or wipe every user-scoped table while keeping your account.
+                            <p className="mt-1 text-xs leading-relaxed text-twilight-text-muted">
+                                Workspace utilities and toast previews, arranged like a compact launchpad.
                             </p>
                         </div>
 
-                        <DropdownMenu.Separator className="bg-twilight-border-light" />
-
-                        <DropdownMenu.Item
-                            disabled={isLoading}
-                            onSelect={(event) => {
-                                if (isLoading) {
-                                    event.preventDefault();
-                                    return;
-                                }
-                                void handleSeedData();
-                            }}
-                            className="flex items-start gap-3 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                        >
-                            <Sparkles size={16} className="mt-0.5 text-blue-300" aria-hidden="true" />
-                            <div className="space-y-0.5">
-                                <p className="text-sm font-medium text-twilight-text">Inject full test data</p>
-                                <p className="text-xs leading-relaxed text-twilight-text-muted">
-                                    Seeds projects, sections, tags, tasks, habits, inbox items, metrics, and archives.
-                                </p>
-                            </div>
-                        </DropdownMenu.Item>
-
-                        <DropdownMenu.Item
-                            disabled={isLoading}
-                            variant="danger"
-                            onSelect={(event) => {
-                                if (isLoading) {
-                                    event.preventDefault();
-                                    return;
-                                }
-                                setWipeConfirmOpen(true);
-                            }}
-                            className="flex items-start gap-3 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                        >
-                            <Trash2 size={16} className="mt-0.5" aria-hidden="true" />
-                            <div className="space-y-0.5">
-                                <p className="text-sm font-medium text-red-300">Wipe test data</p>
-                                <p className="text-xs leading-relaxed text-red-200/70">
-                                    Deletes tasks, projects, sections, tags, habits, logs, inbox items, metrics, and AI memory.
-                                </p>
-                            </div>
-                        </DropdownMenu.Item>
+                        <div className="grid grid-cols-4 gap-2">
+                            {devToolTiles.map(({ key, label, meta, icon: Icon, iconClassName, surfaceClassName, action }) => (
+                                <DropdownMenu.Item
+                                    key={key}
+                                    disabled={isLoading}
+                                    onSelect={(event) => {
+                                        if (isLoading) {
+                                            event.preventDefault();
+                                            return;
+                                        }
+                                        action();
+                                    }}
+                                    className={`
+                                        group relative min-h-[88px] rounded-[1.35rem] border p-0 text-left
+                                        backdrop-blur-xl transition-[transform,border-color,background-color,box-shadow]
+                                        data-[disabled]:pointer-events-none data-[disabled]:opacity-50
+                                        data-[highlighted]:-translate-y-0.5 data-[highlighted]:border-white/16
+                                        data-[highlighted]:bg-white/[0.05]
+                                        ${surfaceClassName}
+                                    `}
+                                >
+                                    <div className="flex h-full flex-col items-center justify-center gap-2.5 px-2 py-3 text-center">
+                                        <div
+                                            className={`
+                                                flex size-10 items-center justify-center rounded-[1rem] border border-white/8
+                                                bg-twilight-void/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]
+                                                ${iconClassName}
+                                            `}
+                                        >
+                                            <Icon
+                                                size={16}
+                                                aria-hidden="true"
+                                                className={key === "loading" ? "animate-spin" : undefined}
+                                            />
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-[11px] font-medium leading-none text-twilight-text">
+                                                {label}
+                                            </p>
+                                            <p className="text-[9px] uppercase tracking-[0.18em] text-twilight-text-muted">
+                                                {meta}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </DropdownMenu.Item>
+                            ))}
+                        </div>
                     </DropdownMenu.Content>
                 </DropdownMenu.Root>
 
@@ -420,12 +534,6 @@ export function IconRail() {
                             </p>
                         </div>
 
-                        <div className="px-2 pb-2">
-                            <Button variant="secondary" size="md" className="w-full" onClick={() => navigate("?settings=account")}>
-                                Manage your Account
-                            </Button>
-                        </div>
-
                         <DropdownMenu.Separator className="bg-twilight-border-light" />
 
                         <div className="p-1">
@@ -468,5 +576,27 @@ export function IconRail() {
                 </Tip>
             )}
         </div>
+    );
+}
+
+/** Sync button with rotating icon while syncing */
+function SyncButton() {
+    const { sync, isSyncing, lastSyncedAt } = useWorkspaceSync();
+    const is24h = getDateFormatConfig().timeDisplay === "24h";
+    const tooltipText = lastSyncedAt
+        ? `Sync · Last synced ${lastSyncedAt.toLocaleTimeString(is24h ? "en-GB" : [], { hour: "numeric", minute: "2-digit", hour12: !is24h })}`
+        : "Sync";
+
+    return (
+        <Tip label={isSyncing ? "Syncing…" : tooltipText} side="right">
+            <button
+                onClick={() => void sync()}
+                disabled={isSyncing}
+                aria-label="Sync workspace"
+                className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] disabled:opacity-50 outline-none"
+            >
+                <RefreshCw size={18} className={isSyncing ? "sync-spin" : ""} aria-hidden="true" />
+            </button>
+        </Tip>
     );
 }

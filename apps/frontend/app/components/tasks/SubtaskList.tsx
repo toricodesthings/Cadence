@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { X, GripVertical } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/use-subtasks";
+import { TaskCheckbox } from "./TaskCheckbox";
 import type { Subtask } from "../../types/task";
 
 function computeMidpointIndex(prevIndex: number | null, nextIndex: number | null): number {
@@ -65,7 +66,7 @@ function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: Sor
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            className={`group flex items-center gap-3 py-2 ${isDragging ? "opacity-50" : "opacity-100"}`}
+            className={`group flex items-center gap-3 py-3 ${isDragging ? "opacity-50" : "opacity-100"}`}
         >
             <div
                 {...attributes}
@@ -75,19 +76,7 @@ function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: Sor
                 <GripVertical size={16} />
             </div>
 
-            <button
-                onClick={() => onToggle(subtask.id, !subtask.isComplete)}
-                className={`h-9 w-9 rounded-xl border shrink-0 flex items-center justify-center transition-colors ${subtask.isComplete
-                    ? "bg-feedback-success border-feedback-success text-twilight-base"
-                    : "border-twilight-border hover:border-feedback-success/50"
-                    }`}
-            >
-                {subtask.isComplete && (
-                    <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
-                        <path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                )}
-            </button>
+            <TaskCheckbox subtask={subtask} compact />
 
             <input
                 type="text"

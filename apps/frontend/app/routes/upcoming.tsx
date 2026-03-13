@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { useDragScroll } from "../hooks/use-drag-scroll";
 import {
     AlertTriangle,
     CalendarRange,
@@ -14,7 +14,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../components/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
-import { CalendarView } from "../components/calendar/CalendarView";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { TaskCheckbox } from "../components/tasks/TaskCheckbox";
@@ -26,6 +25,7 @@ import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { useApiClient } from "../hooks/use-api-client";
 import { useViewMode } from "../hooks/use-view-mode";
+import { useRouteFocus } from "../hooks/use-route-focus";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, parseLocalDate, toISODate } from "../lib/utils/date-format";
@@ -312,6 +312,7 @@ export default function Upcoming() {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const queryClient = useQueryClient();
     const client = useApiClient();
+    const boardScroll = useDragScroll();
 
     const today = new Date();
     const todayISO = toISODate(today);
@@ -323,6 +324,8 @@ export default function Upcoming() {
         start: habitsRangeStart,
         end: nextWeekISO,
     });
+
+    useRouteFocus();
 
     const tagFilteredTasks = activeTagId
         ? tasks.filter((task) => task.tagIds?.includes(activeTagId))
@@ -428,25 +431,15 @@ export default function Upcoming() {
         await invalidateEverywhere(queryClient, queryKeys.habits.all);
     };
 
-    const sidePanel = (
+    const sidePanel = selectedTaskId ? (
         <ResizableSidePanel ariaLabel="Resize upcoming sidebar">
-            <AnimatePresence mode="wait">
-                {selectedTaskId ? (
-                    <TaskEditPanel
-                        key={`edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        onClose={() => setSelectedTaskId(null)}
-                    />
-                ) : (
-                    <ScrollAreaWrapper key="calendar">
-                        <div className="p-5">
-                            <CalendarView />
-                        </div>
-                    </ScrollAreaWrapper>
-                )}
-            </AnimatePresence>
+            <TaskEditPanel
+                key={`edit-${selectedTaskId}`}
+                taskId={selectedTaskId}
+                onClose={() => setSelectedTaskId(null)}
+            />
         </ResizableSidePanel>
-    );
+    ) : null;
 
     return (
         <MainLayout
@@ -485,7 +478,14 @@ export default function Upcoming() {
                                 ))}
                             </div>
                         ) : (
-                            <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+                            <div
+                                ref={boardScroll.ref}
+                                className="-mx-4 overflow-x-auto scrollbar-thin cursor-grab px-4 pb-2 sm:-mx-6 sm:px-6"
+                                onPointerDown={boardScroll.onPointerDown}
+                                onPointerMove={boardScroll.onPointerMove}
+                                onPointerUp={boardScroll.onPointerUp}
+                                onPointerCancel={boardScroll.onPointerCancel}
+                            >
                                 <div className="flex min-w-max gap-4">
                                 {UPCOMING_SECTIONS.map((section) => (
                                     <section key={section.key} className="w-[min(24rem,80vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">

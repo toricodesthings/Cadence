@@ -1,3 +1,13 @@
 packages:
   - apps/*
   - packages/*
+
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - '@sentry-internal/node-cpu-profiler'
+  - core-js
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver
+  - workerd

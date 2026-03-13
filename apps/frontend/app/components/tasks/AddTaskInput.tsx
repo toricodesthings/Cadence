@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Plus, Calendar } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
-import { parseLocalDate } from "../../lib/utils/date-format";
+import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
+import { useSettings } from "../../hooks/use-settings";
+import { mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
 import type { Task } from "../../types/task";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 
@@ -33,18 +35,25 @@ export function AddTaskInput({
     });
 
     const createTask = useCreateTask();
+    const { data: userSettings } = useSettings();
+    const taskDefaults = userSettings?.tasks;
 
     const handleSubmit = () => {
         if (!value.trim()) return;
 
+        const placement = taskDefaults?.newTaskPlacement ?? "bottom";
+        const orderIndex = placement === "top" ? 0 : computeNextOrderIndex(tasks);
+        const priority = mapPriorityNameToNumber(taskDefaults?.defaultPriority);
+
         createTask.mutate({
             title: value.trim(),
-            orderIndex: computeNextOrderIndex(tasks),
+            orderIndex,
             dueDate: deadline.dueDate ?? undefined,
             scheduledStart: deadline.scheduledStart ?? undefined,
             scheduledEnd: deadline.scheduledEnd ?? undefined,
             recurrenceRule: deadline.recurrenceRule ?? undefined,
             isAllDay: deadline.isAllDay,
+            ...(priority > 0 && { priority }),
             ...(projectId && { projectId }),
         });
 
@@ -61,13 +70,14 @@ export function AddTaskInput({
     const hasDeadlineSet = !!(deadline.dueDate || deadline.scheduledStart);
 
     const deadlineLabel = (() => {
+        const locale = getDateFormatConfig().dateStyle === "dmy" ? "en-GB" : "en-US";
         if (deadline.scheduledEnd && deadline.dueDate) {
-            const start = parseLocalDate(deadline.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-            const end = parseLocalDate(deadline.scheduledEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-            return `${start} – ${end}`;
+            const start = parseLocalDate(deadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+            const end = parseLocalDate(deadline.scheduledEnd).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+            return `${start} \u2013 ${end}`;
         }
         if (deadline.dueDate) {
-            return parseLocalDate(deadline.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            return parseLocalDate(deadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
         }
         return 'Set date';
     })();

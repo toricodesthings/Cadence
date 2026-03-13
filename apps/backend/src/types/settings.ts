@@ -3,21 +3,98 @@ import { z } from "zod";
 export const settingsPatchSchema = z.object({
     profile: z.object({
         pronouns: z.string().optional(),
+        birthday: z.string().nullable().optional(),
     }).partial().optional(),
-    tasks: z.object({
-        defaultDueDate: z.enum(["None", "Today", "Tomorrow", "Next Week"]).nullable().optional(),
-        hideTrash: z.boolean().optional(),
-        hideCompleted: z.boolean().optional(),
+    appearance: z.object({
+        theme: z.enum(["twilight", "daylight", "system"]).optional(),
+        accentIntensity: z.enum(["soft", "balanced", "vivid"]).optional(),
+        motion: z.enum(["system", "full", "reduced"]).optional(),
+        density: z.enum(["comfortable", "compact"]).optional(),
+    }).partial().optional(),
+    notifications: z.object({
+        email: z.boolean().optional(),
+        browser: z.boolean().optional(),
+        taskReminders: z.boolean().optional(),
+        habitReminders: z.boolean().optional(),
+        dueDateAlerts: z.boolean().optional(),
+        quietHoursEnabled: z.boolean().optional(),
+        quietHoursStart: z.string().nullable().optional(),
+        quietHoursEnd: z.string().nullable().optional(),
     }).partial().optional(),
     dateTime: z.object({
         weekStart: z.enum(["Sunday", "Monday", "Saturday"]).optional(),
         timezone: z.string().optional(),
         timeDisplay: z.enum(["12h", "24h"]).optional(),
+        dateStyle: z.enum(["mdy", "dmy", "ymd"]).optional(),
     }).partial().optional(),
-    notifications: z.object({
-        email: z.boolean().optional(),
+    calendar: z.object({
+        defaultView: z.enum(["month", "week", "day"]).optional(),
+        showWeekNumbers: z.boolean().optional(),
+        showWeekends: z.boolean().optional(),
+        holidays: z.object({
+            enabled: z.boolean().optional(),
+            usePreciseLocation: z.boolean().optional(),
+            locationMode: z.enum(["auto", "manual"]).optional(),
+            countryCode: z.string().nullable().optional(),
+            subdivisionCode: z.string().nullable().optional(),
+            promptDismissedAt: z.string().nullable().optional(),
+        }).partial().optional(),
     }).partial().optional(),
-    shortcuts: z.record(z.string(), z.string()).optional(),
+    tasks: z.object({
+        defaultDueDate: z.enum(["None", "Today", "Tomorrow", "Next Week"]).nullable().optional(),
+        defaultView: z.enum(["list", "kanban"]).optional(),
+        defaultPriority: z.enum(["none", "low", "medium", "high", "urgent"]).optional(),
+        defaultDurationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90)]).nullable().optional(),
+        newTaskPlacement: z.enum(["top", "bottom"]).optional(),
+        openDetailOnCreate: z.boolean().optional(),
+        hideTrash: z.boolean().optional(),
+        hideCompleted: z.boolean().optional(),
+        showDoneCelebration: z.boolean().optional(),
+    }).partial().optional(),
+    shortcuts: z.object({
+        enabled: z.boolean().optional(),
+        showHints: z.boolean().optional(),
+        bindings: z.object({
+            commandPalette: z.string().optional(),
+            newTask: z.string().optional(),
+            focusSearch: z.string().optional(),
+            toggleView: z.string().optional(),
+            completeTask: z.string().optional(),
+            archiveTask: z.string().optional(),
+        }).partial().optional(),
+    }).partial().optional(),
+    integrations: z.object({
+        googleCalendar: z.object({
+            enabled: z.boolean().optional(),
+            syncMode: z.enum(["one_way", "two_way"]).optional(),
+            includeCompleted: z.boolean().optional(),
+        }).partial().optional(),
+        appleCalendar: z.object({
+            enabled: z.boolean().optional(),
+            syncMode: z.enum(["one_way", "two_way"]).optional(),
+        }).partial().optional(),
+        notion: z.object({
+            enabled: z.boolean().optional(),
+            createBacklinks: z.boolean().optional(),
+        }).partial().optional(),
+        obsidian: z.object({
+            enabled: z.boolean().optional(),
+            appendTaskLinks: z.boolean().optional(),
+        }).partial().optional(),
+        ics: z.object({
+            enabled: z.boolean().optional(),
+            includeHabits: z.boolean().optional(),
+        }).partial().optional(),
+    }).partial().optional(),
+    privacy: z.object({
+        usageDiagnostics: z.boolean().optional(),
+        crashReports: z.boolean().optional(),
+        storeRecentSearches: z.boolean().optional(),
+        storeDismissedPrompts: z.boolean().optional(),
+        exportFormat: z.enum(["json", "csv"]).optional(),
+        lastExportRequestedAt: z.string().nullable().optional(),
+    }).partial().optional(),
+    // Legacy field — accepted for backward compat but migrated to tasks.defaultView
     preferredView: z.enum(["list", "kanban"]).optional(),
 });
 

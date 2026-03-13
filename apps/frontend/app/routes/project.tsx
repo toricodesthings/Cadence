@@ -22,9 +22,10 @@ import { resolveAccentColor } from "../lib/utils/color-resolver";
 import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
 import { PageContent } from "../components/layout/page-layout";
 import { useViewMode } from "../hooks/use-view-mode";
+import { useRouteFocus } from "../hooks/use-route-focus";
 
-const MIN_PANEL_WIDTH = 260;
-const MAX_PANEL_WIDTH = 480;
+const MIN_PANEL_WIDTH = 300;
+const MAX_PANEL_WIDTH = 500;
 const DEFAULT_PANEL_WIDTH = 320;
 
 export default function ProjectView() {
@@ -51,6 +52,8 @@ export default function ProjectView() {
 
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
     const { activeTagId } = useTagFilterStore();
+
+    useRouteFocus();
 
     const tasks = activeTagId
         ? (rawTasks ?? []).filter(t => (t as any).tagIds?.includes(activeTagId))
@@ -205,7 +208,12 @@ export default function ProjectView() {
                                     style={{ backgroundColor: opt.varName }}
                                 />
                             ))}
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer" title="Custom Hex Color">
+                            <div
+                                className="relative flex items-center justify-center w-[22px] h-[22px] rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10 hover:ring-white/20 transition-all"
+                                title="Custom Hex Color"
+                                style={{ backgroundColor: colorValue.startsWith("#") ? colorValue : "transparent" }}
+                            >
+                                <div className="absolute inset-0 bg-twilight-surface/30 backdrop-blur-sm pointer-events-none" />
                                 <input
                                     type="color"
                                     value={colorValue.startsWith("#") ? colorValue : "#e8a44a"}
@@ -213,10 +221,10 @@ export default function ProjectView() {
                                         setColorValue(e.target.value);
                                         setIsCustomColor(true);
                                     }}
-                                    className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer"
+                                    className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer opacity-0"
                                 />
                                 {isCustomColor && (
-                                    <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-surface ring-twilight-text/50 rounded-full pointer-events-none" />
+                                    <div className="absolute inset-0 ring-2 ring-twilight-surface/50 rounded-full pointer-events-none" />
                                 )}
                             </div>
                         </div>
@@ -277,10 +285,9 @@ export default function ProjectView() {
                         <DropdownMenu.Trigger asChild>
                             <button
                                 aria-label="Project actions"
-                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-twilight-border/35 px-4 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-twilight-border/35 text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
                             >
-                                <MoreHorizontal size={16} aria-hidden="true" />
-                                Project actions
+                                <MoreHorizontal size={18} aria-hidden="true" />
                             </button>
                         </DropdownMenu.Trigger>
                         <DropdownMenu.Content align="end">
@@ -316,45 +323,71 @@ export default function ProjectView() {
                     accentColor: projectAccent,
                 }}
             >
-                <ScrollAreaWrapper>
-                    <PageContent width="default">
-                        {projectId && (
-                            <div className="mb-6">
-                                <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
-                            </div>
-                        )}
-
-                        {isLoading ? (
-                            <TaskListSkeleton />
-                        ) : tasks && tasks.length > 0 ? (
-                            view === "kanban" ? (
-                                <div className="min-h-[34rem]">
-                                    <KanbanBoard
-                                        tasks={tasks}
-                                        selectedTaskId={selectedTaskId}
-                                        onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)}
-                                    />
+                {view === "kanban" ? (
+                    <>
+                        <PageContent width="default" className="shrink-0">
+                            {projectId && (
+                                <div className="mb-6">
+                                    <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
                                 </div>
+                            )}
+                        </PageContent>
+                        <div className="flex-1 min-h-0 min-w-0">
+                            {isLoading ? (
+                                <PageContent width="default"><TaskListSkeleton /></PageContent>
+                            ) : tasks && tasks.length > 0 ? (
+                                <KanbanBoard
+                                    tasks={tasks}
+                                    projectId={projectId}
+                                    selectedTaskId={selectedTaskId}
+                                    onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)}
+                                />
                             ) : (
+                                <PageContent width="default">
+                                    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                                        <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
+                                            <FolderKanban size={24} className="text-twilight-text-muted" />
+                                        </div>
+                                        <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this project</h3>
+                                        <p className="text-twilight-text-muted text-sm max-w-sm">
+                                            Add some tasks to get started with {project?.name || "this project"}.
+                                        </p>
+                                    </div>
+                                </PageContent>
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <ScrollAreaWrapper>
+                        <PageContent width="default">
+                            {projectId && (
+                                <div className="mb-10">
+                                    <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
+                                </div>
+                            )}
+
+                            {isLoading ? (
+                                <TaskListSkeleton />
+                            ) : tasks && tasks.length > 0 ? (
                                 <TaskList
                                     tasks={tasks}
                                     selectedTaskId={selectedTaskId}
                                     onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)}
                                 />
-                            )
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                                <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
-                                    <FolderKanban size={24} className="text-twilight-text-muted" />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                                    <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
+                                        <FolderKanban size={24} className="text-twilight-text-muted" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this project</h3>
+                                    <p className="text-twilight-text-muted text-sm max-w-sm">
+                                        Add some tasks to get started with {project?.name || "this project"}.
+                                    </p>
                                 </div>
-                                <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this project</h3>
-                                <p className="text-twilight-text-muted text-sm max-w-sm">
-                                    Add some tasks to get started with {project?.name || "this project"}.
-                                </p>
-                            </div>
-                        )}
-                    </PageContent>
-                </ScrollAreaWrapper>
+                            )}
+                        </PageContent>
+                    </ScrollAreaWrapper>
+                )}
             </MainLayout>
         </>
     );

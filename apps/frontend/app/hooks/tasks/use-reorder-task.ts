@@ -61,7 +61,7 @@ export function useReorderTask() {
         onError: (err, _vars, context) => {
             if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
             toast.error(err.message || "Failed to reorder task");
+            invalidateTaskCaches(queryClient);
         },
-        onSettled: () => invalidateTaskCaches(queryClient),
     });
 }

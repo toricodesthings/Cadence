@@ -44,7 +44,7 @@ export const SubContent = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={[
-            "glass-surface rounded-xl p-1 min-w-[160px] z-50",
+            "glass-surface rounded-xl p-1 min-w-[200px] z-50",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=open]:fade-in data-[state=closed]:fade-out",
             "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
@@ -62,13 +62,14 @@ SubContent.displayName = "DropdownMenu.SubContent";
 export const Content = forwardRef<
     HTMLDivElement,
     RadixDropdownMenu.DropdownMenuContentProps
->(({ className = "", sideOffset = 4, ...props }, ref) => (
+>(({ className = "", sideOffset = 4, collisionPadding = 8, ...props }, ref) => (
     <RadixDropdownMenu.Portal>
         <RadixDropdownMenu.Content
             ref={ref}
             sideOffset={sideOffset}
+            collisionPadding={collisionPadding}
             className={[
-                "glass-surface rounded-xl p-1 min-w-[160px] z-50",
+                "glass-surface rounded-xl p-1 min-w-[200px] z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto overscroll-contain",
                 "data-[state=open]:animate-in data-[state=closed]:animate-out",
                 "data-[state=open]:fade-in data-[state=closed]:fade-out",
                 "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
@@ -97,7 +98,7 @@ export const Item = forwardRef<
         <RadixDropdownMenu.Item
             ref={ref}
             className={[
-                "px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors",
+                "flex items-center px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors",
                 variants[variant],
                 className,
             ].join(" ")}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
-import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, Flame, Sprout } from "lucide-react";
+import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, Flame, Sprout, Search, Plus } from "lucide-react";
 import * as ScrollArea from "../primitives/ScrollArea";
 import * as Separator from "../primitives/Separator";
 import * as Collapsible from "../primitives/Collapsible";
@@ -16,15 +16,24 @@ import { TagBubble } from "./TagBubble";
 import { CreateTagInline } from "./CreateTagInline";
 import { useTags } from "../../hooks/tags";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
-import { Plus } from "lucide-react";
+import { useSettings } from "../../hooks/use-settings";
 
 /** Main sidebar panel with live projects and inbox count */
-export function SidebarPanel({ showWorkspaceNav = false }: { showWorkspaceNav?: boolean }) {
+export function SidebarPanel({
+    showWorkspaceNav = false,
+    onSearchOpen,
+    onQuickAddOpen,
+}: {
+    showWorkspaceNav?: boolean;
+    onSearchOpen?: () => void;
+    onQuickAddOpen?: () => void;
+}) {
     const [listsOpen, setListsOpen] = useState(true);
     const { data: projects, isLoading: projectsLoading } = useProjects();
     const { data: inboxItems, isLoading: inboxLoading } = useInbox();
     const { data: tags = [], isLoading: tagsLoading } = useTags();
     const { activeTagId, setActiveTag } = useTagFilterStore();
+    const { data: userSettings } = useSettings();
     const [searchParams, setSearchParams] = useSearchParams();
 
     useEffect(() => {
@@ -77,6 +86,20 @@ export function SidebarPanel({ showWorkspaceNav = false }: { showWorkspaceNav?: 
         >
             <ScrollArea.Root className="flex-1">
                 <ScrollArea.Viewport className="h-full px-3 py-5">
+                    {/* Search bar — opens command palette for non-wide shells */}
+                    {onSearchOpen && (
+                        <>
+                            <button
+                                onClick={onSearchOpen}
+                                className="flex w-full items-center gap-3 rounded-xl border border-twilight-border/50 bg-white/[0.02] px-3.5 py-2.5 text-sm text-twilight-text-muted/60 hover:bg-white/[0.04] hover:border-twilight-border transition-colors cursor-pointer"
+                                aria-label="Search workspace"
+                            >
+                                <Search size={15} className="shrink-0" aria-hidden="true" />
+                                <span>Search…</span>
+                            </button>
+                            <Separator.Root className="h-px bg-twilight-border my-4" aria-hidden="true" />
+                        </>
+                    )}
                     {/* Primary nav */}
                     {showWorkspaceNav && (
                         <>
@@ -116,7 +139,7 @@ export function SidebarPanel({ showWorkspaceNav = false }: { showWorkspaceNav?: 
                         <NavLink
                             icon={Inbox}
                             label="Holding"
-                            href="/inbox"
+                            href="/"
                             count={inboxCount}
                             activeColor="text-[var(--color-nav-inbox)]"
                             activeBg="bg-[var(--color-nav-inbox)]/15"
@@ -125,7 +148,7 @@ export function SidebarPanel({ showWorkspaceNav = false }: { showWorkspaceNav?: 
                         <NavLink
                             icon={LayoutDashboard}
                             label="Today"
-                            href="/"
+                            href="/today"
                             activeColor="text-[var(--color-nav-planner)]"
                             activeBg="bg-[var(--color-nav-planner)]/15"
                             hoverColor="group-hover:text-[var(--color-nav-planner)]/70"
@@ -242,22 +265,26 @@ export function SidebarPanel({ showWorkspaceNav = false }: { showWorkspaceNav?: 
 
                     {/* Bottom nav */}
                     <nav aria-label="Secondary navigation" className="flex flex-col gap-0.5">
-                        <NavLink
-                            icon={CheckCircle2}
-                            label="Completed"
-                            href="/completed"
-                            activeColor="text-[var(--color-nav-completed)]"
-                            activeBg="bg-[var(--color-nav-completed)]/15"
-                            hoverColor="group-hover:text-[var(--color-nav-completed)]/70"
-                        />
-                        <NavLink
-                            icon={Trash2}
-                            label="Trash"
-                            href="/trash"
-                            activeColor="text-twilight-text-muted"
-                            activeBg="bg-white/[0.06]"
-                            hoverColor="group-hover:text-twilight-text-soft"
-                        />
+                        {!userSettings?.tasks?.hideCompleted && (
+                            <NavLink
+                                icon={CheckCircle2}
+                                label="Completed"
+                                href="/completed"
+                                activeColor="text-[var(--color-nav-completed)]"
+                                activeBg="bg-[var(--color-nav-completed)]/15"
+                                hoverColor="group-hover:text-[var(--color-nav-completed)]/70"
+                            />
+                        )}
+                        {!userSettings?.tasks?.hideTrash && (
+                            <NavLink
+                                icon={Trash2}
+                                label="Trash"
+                                href="/trash"
+                                activeColor="text-twilight-text-muted"
+                                activeBg="bg-white/[0.06]"
+                                hoverColor="group-hover:text-twilight-text-soft"
+                            />
+                        )}
                     </nav>
                 </ScrollArea.Viewport>
                 <ScrollArea.Scrollbar orientation="vertical" className="w-1 p-px">
@@ -267,3 +294,5 @@ export function SidebarPanel({ showWorkspaceNav = false }: { showWorkspaceNav?: 
         </div>
     );
 }
+
+

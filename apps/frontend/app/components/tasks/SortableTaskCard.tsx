@@ -43,6 +43,7 @@ export function SortableTaskCard({
     } = useSortable({ id: task.id });
 
     const dragProps: HTMLAttributes<HTMLElement> = {
+        onPointerDown: listeners?.onPointerDown as HTMLAttributes<HTMLElement>["onPointerDown"],
         onMouseDown: listeners?.onMouseDown as HTMLAttributes<HTMLElement>["onMouseDown"],
         onTouchStart: listeners?.onTouchStart as HTMLAttributes<HTMLElement>["onTouchStart"],
     };
@@ -69,6 +70,7 @@ export function SortableTaskCard({
         <motion.div
             ref={setNodeRef}
             style={style}
+            data-dnd-card
             layout
             initial={false}
             animate={{

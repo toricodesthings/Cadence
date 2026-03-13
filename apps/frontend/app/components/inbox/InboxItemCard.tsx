@@ -9,7 +9,7 @@ export function InboxItemCard({ item }: InboxItemCardProps) {
     const deleteItem = useDeleteInboxItem();
 
     return (
-        <div className="group relative flex items-center gap-3 py-3 px-4 -mx-4 rounded-xl hover:bg-white/[0.03] transition-colors border border-transparent hover:border-twilight-border-light cursor-default">
+        <div data-focus-kind="inbox" data-focus-id={item.id} className="group relative flex items-center gap-3 py-3 px-4 -mx-4 rounded-xl hover:bg-white/[0.03] transition-colors border border-transparent hover:border-twilight-border-light cursor-default">
             <div className="flex-1 min-w-0">
                 <p className="text-[15px] text-twilight-text leading-relaxed whitespace-pre-wrap break-words">
                     {item.rawText}

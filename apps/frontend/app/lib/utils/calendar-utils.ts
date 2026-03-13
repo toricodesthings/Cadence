@@ -32,3 +32,80 @@ export function taskHeight(task: Task): number {
     const mins = task.durationEstimate ?? 60;
     return (Math.max(30, mins) / 60) * HOUR_HEIGHT;
 }
+
+export interface TimedTaskLayout {
+    task: Task;
+    top: number;
+    height: number;
+    column: number;
+    columns: number;
+}
+
+type TimedTaskWithRange = {
+    task: Task;
+    start: number;
+    end: number;
+};
+
+function getTaskRange(task: Task): TimedTaskWithRange {
+    const start = task.scheduledStart ? minutesFromMidnight(task.scheduledStart) : 0;
+    const rawEnd = task.scheduledEnd ? minutesFromMidnight(task.scheduledEnd) : start + (task.durationEstimate ?? 60);
+    return {
+        task,
+        start,
+        end: Math.max(start + 15, rawEnd),
+    };
+}
+
+function buildClusterLayouts(cluster: TimedTaskWithRange[]): TimedTaskLayout[] {
+    const columns: number[] = [];
+    const columnAssignments = new Map<string, number>();
+
+    for (const item of cluster) {
+        let columnIndex = columns.findIndex((columnEnd) => item.start >= columnEnd);
+        if (columnIndex === -1) {
+            columnIndex = columns.length;
+            columns.push(item.end);
+        } else {
+            columns[columnIndex] = item.end;
+        }
+        columnAssignments.set(item.task.id, columnIndex);
+    }
+
+    return cluster.map((item) => ({
+        task: item.task,
+        top: taskTop(item.task),
+        height: taskHeight(item.task),
+        column: columnAssignments.get(item.task.id) ?? 0,
+        columns: Math.max(1, columns.length),
+    }));
+}
+
+export function buildTimedTaskLayouts(tasks: Task[]): TimedTaskLayout[] {
+    const timed = tasks
+        .filter((task) => !task.isAllDay && task.scheduledStart)
+        .map(getTaskRange)
+        .sort((a, b) => (a.start - b.start) || (a.end - b.end));
+
+    const layouts: TimedTaskLayout[] = [];
+    let cluster: TimedTaskWithRange[] = [];
+    let clusterMaxEnd = -1;
+
+    for (const item of timed) {
+        if (cluster.length === 0 || item.start < clusterMaxEnd) {
+            cluster.push(item);
+            clusterMaxEnd = Math.max(clusterMaxEnd, item.end);
+            continue;
+        }
+
+        layouts.push(...buildClusterLayouts(cluster));
+        cluster = [item];
+        clusterMaxEnd = item.end;
+    }
+
+    if (cluster.length > 0) {
+        layouts.push(...buildClusterLayouts(cluster));
+    }
+
+    return layouts;
+}

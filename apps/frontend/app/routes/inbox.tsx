@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, Inbox, PanelRightClose, Sparkles } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
+import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/MainLayout";
 import { PlannerHeader } from "../components/layout/PlannerHeader";
 import { PageContent } from "../components/layout/page-layout";
@@ -16,11 +16,14 @@ import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { CalendarView } from "../components/calendar/CalendarView";
+import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
+import { useRightPanelStore } from "../stores/right-panel-store";
 import { useInbox } from "../hooks/inbox";
 import { useTasks } from "../hooks/tasks";
 import { useDocumentMeta } from "../hooks/use-document-meta";
 import { useShellMode } from "../hooks/use-shell-mode";
+import { useRouteFocus } from "../hooks/use-route-focus";
 
 export default function InboxView() {
     const shell = useShellMode();
@@ -29,30 +32,53 @@ export default function InboxView() {
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const { data: inboxItems = [], isLoading: inboxLoading } = useInbox();
     const { data: holdingTasks = [], isLoading: tasksLoading } = useTasks({ state: "ACTIVE", hasNoProject: true });
+    const { holdingPanelOpen, toggleHoldingPanel } = useRightPanelStore();
 
     useDocumentMeta(
         "Holding · Cadence",
         "Capture unmanaged work, keep it visible, and sort raw notes without losing calm.",
     );
 
+    useRouteFocus();
+
+    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
+
     const sidePanel = (
-        <ResizableSidePanel ariaLabel="Resize holding sidebar">
-            <AnimatePresence mode="wait">
-                {selectedTaskId ? (
-                    <TaskEditPanel
-                        key={`holding-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        onClose={() => setSelectedTaskId(null)}
-                    />
-                ) : (
-                    <ScrollAreaWrapper key="holding-calendar">
-                        <div className="p-5">
-                            <CalendarView />
-                        </div>
-                    </ScrollAreaWrapper>
-                )}
-            </AnimatePresence>
-        </ResizableSidePanel>
+        <AnimatePresence initial={false}>
+            {(holdingPanelOpen || selectedTaskId) && (
+                <motion.div
+                    key="holding-side-panel"
+                    initial={{ width: 0 }}
+                    animate={{ width: "auto" }}
+                    exit={{ width: 0 }}
+                    transition={panelMotion}
+                    style={{ overflow: "hidden", willChange: "width" }}
+                    className="shrink-0"
+                >
+                    <motion.div
+                        initial={{ x: 32, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 24, opacity: 0 }}
+                        transition={panelMotion}
+                        style={{ willChange: "transform, opacity" }}
+                    >
+                        <ResizableSidePanel ariaLabel="Resize holding planner panel">
+                            <AnimatePresence mode="wait">
+                                {selectedTaskId ? (
+                                    <TaskEditPanel
+                                        key={`holding-edit-${selectedTaskId}`}
+                                        taskId={selectedTaskId}
+                                        onClose={() => setSelectedTaskId(null)}
+                                    />
+                                ) : (
+                                    <HoldingPlannerPanel key="holding-planner" />
+                                )}
+                            </AnimatePresence>
+                        </ResizableSidePanel>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 
     const handleSelectTask = (taskId: string) => {
@@ -67,26 +93,36 @@ export default function InboxView() {
         <button
             type="button"
             onClick={() => setMobilePanelOpen(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label={selectedTaskId ? "Open task details" : "Open holding calendar"}
+            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+            aria-label={selectedTaskId ? "Open task details" : "Open planner"}
         >
             {selectedTaskId ? <PanelRightClose size={16} aria-hidden="true" /> : <CalendarDays size={16} aria-hidden="true" />}
-            {selectedTaskId ? "Details" : "Calendar"}
         </button>
-    ) : undefined;
+    ) : (
+        <button
+            type="button"
+            onClick={toggleHoldingPanel}
+            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+            aria-label={holdingPanelOpen ? "Hide planner panel" : "Show planner panel"}
+        >
+            {holdingPanelOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
+        </button>
+    );
 
     const primaryContent = useMemo(() => {
         if (view === "kanban") {
             return (
-                <div className="flex flex-col gap-8">
-                    <section>
-                        <div className="mb-4 flex items-center gap-3">
-                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Unmanaged tasks</h2>
-                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{holdingTasks.length}</span>
-                            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-                        </div>
-                        <KanbanBoard tasks={holdingTasks} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} />
-                    </section>
+                <div className="flex flex-col gap-8 flex-1 min-h-0">
+                    {holdingTasks.length > 0 && (
+                        <section className="flex-1 min-h-0">
+                            <div className="mb-4 flex items-center gap-3 px-4 sm:px-6 lg:px-8">
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Unmanaged tasks</h2>
+                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{holdingTasks.length}</span>
+                                <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
+                            </div>
+                            <KanbanBoard tasks={holdingTasks} projectId={null} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} />
+                        </section>
+                    )}
                     <section>
                         <div className="mb-4 flex items-center gap-3">
                             <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
@@ -103,18 +139,16 @@ export default function InboxView() {
 
         return (
             <div className="flex flex-col gap-8">
-                <section>
-                    <div className="mb-4 flex items-center gap-3">
-                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Unmanaged tasks</h2>
-                        <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{holdingTasks.length}</span>
-                        <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-                    </div>
-                    {holdingTasks.length > 0 ? (
+                {holdingTasks.length > 0 && (
+                    <section>
+                        <div className="mb-4 flex items-center gap-3">
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Unmanaged tasks</h2>
+                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{holdingTasks.length}</span>
+                            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
+                        </div>
                         <TaskList tasks={holdingTasks} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} />
-                    ) : (
-                        <EmptyState />
-                    )}
-                </section>
+                    </section>
+                )}
 
                 <section>
                     <div className="mb-4 flex items-center gap-3">
@@ -154,24 +188,41 @@ export default function InboxView() {
                 accentColor: "var(--color-nav-inbox)",
             }}
         >
-            <ScrollAreaWrapper>
-                <PageContent width="default">
-                    <PlannerHeader />
+            {view === "kanban" ? (
+                <>
+                    <PageContent width="default" className="shrink-0">
+                        <PlannerHeader />
 
-                    <div className="mt-6">
-                        <AddTaskInput projectId={undefined} tasks={holdingTasks} />
+                        <div className="mt-6 mb-6 rounded-[24px] bg-twilight-surface/30 backdrop-blur-md p-1">
+                            <AddTaskInput projectId={undefined} tasks={holdingTasks} />
+                        </div>
+                    </PageContent>
+                    <div className="flex-1 min-h-0 min-w-0">
+                        {tasksLoading || inboxLoading ? (
+                            <PageContent width="default"><TaskListSkeleton /></PageContent>
+                        ) : primaryContent}
                     </div>
+                </>
+            ) : (
+                <ScrollAreaWrapper>
+                    <PageContent width="default">
+                        <PlannerHeader />
 
-                    {tasksLoading || inboxLoading ? <TaskListSkeleton /> : primaryContent}
-                </PageContent>
-            </ScrollAreaWrapper>
+                        <div className="mt-6 mb-10 rounded-[24px] bg-twilight-surface/30 backdrop-blur-md p-1">
+                            <AddTaskInput projectId={undefined} tasks={holdingTasks} />
+                        </div>
+
+                        {tasksLoading || inboxLoading ? <TaskListSkeleton /> : primaryContent}
+                    </PageContent>
+                </ScrollAreaWrapper>
+            )}
 
             {!shell.isWide && (
                 <ResponsiveOverlayPanel
-                    ariaLabel={selectedTaskId ? "Holding details" : "Holding calendar"}
+                    ariaLabel={selectedTaskId ? "Holding details" : "Holding planner"}
                     open={mobilePanelOpen}
                     onClose={() => setMobilePanelOpen(false)}
-                    title={selectedTaskId ? "Task details" : "Calendar"}
+                    title={selectedTaskId ? "Task details" : "Planner"}
                 >
                     <AnimatePresence mode="wait">
                         {selectedTaskId ? (
@@ -184,11 +235,7 @@ export default function InboxView() {
                                 }}
                             />
                         ) : (
-                            <ScrollAreaWrapper key="holding-mobile-calendar">
-                                <div className="p-5">
-                                    <CalendarView />
-                                </div>
-                            </ScrollAreaWrapper>
+                            <HoldingPlannerPanel key="holding-mobile-planner" />
                         )}
                     </AnimatePresence>
                 </ResponsiveOverlayPanel>

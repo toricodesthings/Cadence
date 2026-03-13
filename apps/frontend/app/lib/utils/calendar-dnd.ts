@@ -1,6 +1,6 @@
 import { toISODate } from "./date-format";
 
-export const CALENDAR_SLOT_MINUTES = 30;
+export const CALENDAR_SLOT_MINUTES = 15;
 export const CALENDAR_SLOT_COUNT = (24 * 60) / CALENDAR_SLOT_MINUTES;
 
 export interface CalendarDropPreview {

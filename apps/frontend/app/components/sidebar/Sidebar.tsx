@@ -12,10 +12,14 @@ export function Sidebar({
     mode,
     navOpen = false,
     onClose,
+    onSearchOpen,
+    onQuickAddOpen,
 }: {
     mode: ShellMode;
     navOpen?: boolean;
     onClose?: () => void;
+    onSearchOpen?: () => void;
+    onQuickAddOpen?: () => void;
 }) {
     const location = useLocation();
     const isSchedule = location.pathname === "/schedule";
@@ -82,8 +86,8 @@ export function Sidebar({
 
     if (mode === "wide") {
         return (
-            <aside className="sticky top-0 flex h-dvh shrink-0 self-start relative" aria-label="Application navigation">
-                <IconRail />
+            <aside className="flex h-full shrink-0 relative z-40" aria-label="Application navigation">
+                <IconRail onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
                 <AnimatePresence initial={false}>
                     {showPersistentPanel && !isCollapsed && (
                         <motion.div
@@ -104,7 +108,7 @@ export function Sidebar({
                                 className="relative h-full"
                                 style={{ width, willChange: "transform, opacity" }}
                             >
-                                <SidebarPanel />
+                                <SidebarPanel onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
 
                                 <div
                                     onMouseDown={startResizing}
@@ -146,7 +150,7 @@ export function Sidebar({
                             className="relative h-full"
                             style={{ width: laptopWidth, willChange: "transform, opacity" }}
                         >
-                            <SidebarPanel showWorkspaceNav={showWorkspaceNav} />
+                            <SidebarPanel showWorkspaceNav={showWorkspaceNav} onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
 
                             <div
                                 onMouseDown={startResizing}
@@ -210,7 +214,7 @@ export function Sidebar({
                             </button>
                         </div>
 
-                        <SidebarPanel showWorkspaceNav />
+                        <SidebarPanel showWorkspaceNav onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
                     </motion.aside>
                 </>
             )}

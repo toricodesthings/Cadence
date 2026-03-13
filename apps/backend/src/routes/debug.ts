@@ -26,6 +26,7 @@ import {
     taskTags,
     tasks,
     userMetrics,
+    users,
 } from "../db/schema";
 import { eq } from "drizzle-orm";
 import type { Env } from "../types/env";
@@ -73,19 +74,34 @@ debugRoutes.post("/seed", async (c) => {
 
     const anchor = new Date();
 
-    const seededSections = await db.insert(taskSections).values([
-        createSeedSection(userId, { name: "Today Focus", orderIndex: 1 }),
-        createSeedSection(userId, { name: "Waiting On", orderIndex: 2 }),
-        createSeedSection(userId, { name: "Later This Week", orderIndex: 3 }),
-    ]).returning();
-    const sectionByName = new Map(seededSections.map((section) => [section.name, section] as const));
-
     const seededProjects = await db.insert(projects).values([
         createSeedProject(userId, { name: "Feature Launch", colorAccent: "glacier", emoji: "🚀" }),
         createSeedProject(userId, { name: "Client Ops", colorAccent: "luminous-amber", emoji: "🧾" }),
         createSeedProject(userId, { name: "Home Reset", colorAccent: "emerald", emoji: "🏡" }),
+        createSeedProject(userId, { name: "Spring Semester", colorAccent: "violet", emoji: "📚" }),
     ]).returning();
     const projectByName = new Map(seededProjects.map((project) => [project.name, project] as const));
+
+    const featureLaunchId = getRequiredRow(projectByName, "Feature Launch", "project").id;
+    const clientOpsId = getRequiredRow(projectByName, "Client Ops", "project").id;
+    const homeResetId = getRequiredRow(projectByName, "Home Reset", "project").id;
+    const springSemesterId = getRequiredRow(projectByName, "Spring Semester", "project").id;
+
+    const seededSections = await db.insert(taskSections).values([
+        createSeedSection(userId, { name: "Today Focus", orderIndex: 1, projectId: featureLaunchId }),
+        createSeedSection(userId, { name: "Waiting On", orderIndex: 2, projectId: featureLaunchId }),
+        createSeedSection(userId, { name: "Later This Week", orderIndex: 3, projectId: featureLaunchId }),
+        createSeedSection(userId, { name: "Today Focus", orderIndex: 1, projectId: homeResetId }),
+        createSeedSection(userId, { name: "Later This Week", orderIndex: 2, projectId: homeResetId }),
+        createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: clientOpsId }),
+        createSeedSection(userId, { name: "Weekly Anchors", orderIndex: 1, projectId: springSemesterId }),
+        createSeedSection(userId, { name: "Later This Week", orderIndex: 1, projectId: null }),
+    ]).returning();
+    const sectionByProjectAndName = (projectId: string | null, name: string) => {
+        const section = seededSections.find((s) => s.projectId === projectId && s.name === name);
+        if (!section) throw new Error(`Section "${name}" not found for project ${projectId}`);
+        return section;
+    };
 
     const seededInboxSections = await db.insert(inboxSections).values([
         createSeedInboxSection(userId, { name: "Capture", orderIndex: 0 }),
@@ -104,8 +120,8 @@ debugRoutes.post("/seed", async (c) => {
 
     const seededTasks = await db.insert(tasks).values([
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Feature Launch", "project").id,
-            sectionId: getRequiredRow(sectionByName, "Today Focus", "section").id,
+            projectId: featureLaunchId,
+            sectionId: sectionByProjectAndName(featureLaunchId, "Today Focus").id,
             title: "Draft launch announcement",
             content: "## Messaging notes\n- tighten the opening line\n- confirm CTA with sales\n- link the release recap",
             state: "ACTIVE",
@@ -121,8 +137,8 @@ debugRoutes.post("/seed", async (c) => {
             effort: 2,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Home Reset", "project").id,
-            sectionId: getRequiredRow(sectionByName, "Today Focus", "section").id,
+            projectId: homeResetId,
+            sectionId: sectionByProjectAndName(homeResetId, "Today Focus").id,
             title: "Call landlord about hallway leak",
             state: "ACTIVE",
             orderIndex: 2,
@@ -134,7 +150,7 @@ debugRoutes.post("/seed", async (c) => {
             effort: 1,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Client Ops", "project").id,
+            projectId: clientOpsId,
             title: "Reconcile subscription invoices",
             content: "Finance sweep before the weekly reset.",
             state: "ACTIVE",
@@ -147,8 +163,8 @@ debugRoutes.post("/seed", async (c) => {
             effort: 1,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Feature Launch", "project").id,
-            sectionId: getRequiredRow(sectionByName, "Waiting On", "section").id,
+            projectId: featureLaunchId,
+            sectionId: sectionByProjectAndName(featureLaunchId, "Waiting On").id,
             title: "Wait for legal sign-off",
             state: "WAITING",
             orderIndex: 4,
@@ -159,8 +175,8 @@ debugRoutes.post("/seed", async (c) => {
             effort: 1,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Client Ops", "project").id,
-            sectionId: getRequiredRow(sectionByName, "Later This Week", "section").id,
+            projectId: clientOpsId,
+            sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
             title: "Prepare weekly reset notes",
             state: "ACTIVE",
             orderIndex: 5,
@@ -170,7 +186,7 @@ debugRoutes.post("/seed", async (c) => {
             priority: 1,
         }),
         createSeedTask(userId, {
-            sectionId: getRequiredRow(sectionByName, "Later This Week", "section").id,
+            sectionId: sectionByProjectAndName(null, "Later This Week").id,
             title: "Outline Q2 research themes",
             content: "Collect wins, friction points, and three testable hypotheses for the next cycle.",
             state: "ACTIVE",
@@ -180,8 +196,8 @@ debugRoutes.post("/seed", async (c) => {
             effort: 3,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Home Reset", "project").id,
-            sectionId: getRequiredRow(sectionByName, "Later This Week", "section").id,
+            projectId: homeResetId,
+            sectionId: sectionByProjectAndName(homeResetId, "Later This Week").id,
             title: "Stage weekend reset window",
             state: "ACTIVE",
             orderIndex: 7,
@@ -192,8 +208,8 @@ debugRoutes.post("/seed", async (c) => {
             effort: 2,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Feature Launch", "project").id,
-            sectionId: getRequiredRow(sectionByName, "Later This Week", "section").id,
+            projectId: featureLaunchId,
+            sectionId: sectionByProjectAndName(featureLaunchId, "Later This Week").id,
             title: "Pack samples for studio shoot",
             state: "ACTIVE",
             orderIndex: 8,
@@ -207,7 +223,7 @@ debugRoutes.post("/seed", async (c) => {
             effort: 2,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Feature Launch", "project").id,
+            projectId: featureLaunchId,
             title: "Ship retrospective notes",
             content: "Published after the team recap.",
             state: "COMPLETE",
@@ -217,7 +233,7 @@ debugRoutes.post("/seed", async (c) => {
             priority: 1,
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Home Reset", "project").id,
+            projectId: homeResetId,
             title: "Archive 2025 receipts",
             state: "ARCHIVED",
             orderIndex: 10,
@@ -225,8 +241,8 @@ debugRoutes.post("/seed", async (c) => {
             dueDate: seedDate(anchor, -3),
         }),
         createSeedTask(userId, {
-            projectId: getRequiredRow(projectByName, "Client Ops", "project").id,
-            sectionId: getRequiredRow(sectionByName, "Later This Week", "section").id,
+            projectId: clientOpsId,
+            sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
             title: "Clear inbox to zero",
             state: "ACTIVE",
             orderIndex: 11,
@@ -245,6 +261,22 @@ debugRoutes.post("/seed", async (c) => {
             dueDate: seedDate(anchor, 5),
             reminderAt: seedDateTime(anchor, 4, 18, 0),
             effort: 1,
+        }),
+        createSeedTask(userId, {
+            projectId: springSemesterId,
+            sectionId: sectionByProjectAndName(springSemesterId, "Weekly Anchors").id,
+            title: "Calculus II lecture",
+            content: "Recurring timetable anchor for Tuesday and Thursday mornings during the spring term.",
+            state: "ACTIVE",
+            orderIndex: 13,
+            isAllDay: false,
+            scheduledStart: "2026-03-10T09:30:00.000Z",
+            scheduledEnd: "2026-03-10T10:45:00.000Z",
+            durationEstimate: 75,
+            timezoneLocked: true,
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+            priority: 2,
+            effort: 2,
         }),
     ]).returning();
     const taskByTitle = new Map(seededTasks.map((task) => [task.title, task] as const));
@@ -341,6 +373,10 @@ debugRoutes.post("/seed", async (c) => {
         {
             taskId: getRequiredRow(taskByTitle, "Book dentist follow-up", "task").id,
             tagId: getRequiredRow(tagByName, "Home", "tag").id,
+        },
+        {
+            taskId: getRequiredRow(taskByTitle, "Calculus II lecture", "task").id,
+            tagId: getRequiredRow(tagByName, "Deep Work", "tag").id,
         },
     ]);
 
@@ -501,6 +537,104 @@ debugRoutes.post("/seed", async (c) => {
         currentBurnoutIndex: 34,
         lastCalculatedAt: seedDateTime(anchor, 0, 6, 0),
     });
+
+    // ── Notification & feature-testing data ──────────────────────────
+
+    // Tasks that trigger notification center items:
+    // 1. A task with a reminder ~30 min ago (should show as "task-reminder" notification)
+    // 2. A task due today (should show as "task-due" notification)
+    // 3. An overdue task from yesterday without project (routes to /inbox)
+    const notifTasks = await db.insert(tasks).values([
+        createSeedTask(userId, {
+            projectId: getRequiredRow(projectByName, "Feature Launch", "project").id,
+            title: "Review analytics dashboard mockups",
+            content: "Check the latest Figma frames from design.",
+            state: "ACTIVE",
+            orderIndex: 20,
+            isAllDay: true,
+            reminderAt: seedDateTime(anchor, 0, anchor.getUTCHours() - 1, 0),
+            reminderSilenced: false,
+            priority: 3,
+            effort: 2,
+        }),
+        createSeedTask(userId, {
+            projectId: getRequiredRow(projectByName, "Client Ops", "project").id,
+            title: "Send revised proposal to Acme Corp",
+            state: "ACTIVE",
+            orderIndex: 21,
+            isAllDay: true,
+            dueDate: seedDate(anchor, 0),
+            priority: 4,
+            effort: 1,
+        }),
+        createSeedTask(userId, {
+            title: "Follow up on venue booking",
+            state: "ACTIVE",
+            orderIndex: 22,
+            isAllDay: true,
+            dueDate: seedDate(anchor, -1),
+            priority: 2,
+            effort: 1,
+        }),
+    ]).returning();
+
+    // Unmanaged tasks (no date, no project) — exercises holding planner "Unmanaged" count
+    await db.insert(tasks).values([
+        createSeedTask(userId, {
+            title: "Brainstorm podcast episode topics",
+            state: "ACTIVE",
+            orderIndex: 30,
+            isAllDay: true,
+            effort: 2,
+        }),
+        createSeedTask(userId, {
+            title: "Research ergonomic keyboard options",
+            state: "ACTIVE",
+            orderIndex: 31,
+            isAllDay: true,
+            effort: 1,
+        }),
+    ]);
+
+    // Tag the notification-test tasks for search diversity
+    await db.insert(taskTags).values([
+        {
+            taskId: notifTasks[0].id,
+            tagId: getRequiredRow(tagByName, "Deep Work", "tag").id,
+        },
+        {
+            taskId: notifTasks[1].id,
+            tagId: getRequiredRow(tagByName, "Follow-up", "tag").id,
+        },
+    ]);
+
+    // Update user settings to enable all notification channels
+    await db.update(users)
+        .set({
+            settings: {
+                tasks: { defaultDueDate: null, hideTrash: false, hideCompleted: false },
+                dateTime: { weekStart: "Sunday", timezone: "local", timeDisplay: "12h" },
+                calendar: {
+                    holidays: {
+                        enabled: true,
+                        usePreciseLocation: false,
+                        locationMode: "auto",
+                        countryCode: null,
+                        subdivisionCode: null,
+                        promptDismissedAt: null,
+                    },
+                },
+                notifications: {
+                    email: true,
+                    browser: false,
+                    taskReminders: true,
+                    habitReminders: true,
+                    dueDateAlerts: true,
+                },
+                shortcuts: {},
+            },
+        })
+        .where(eq(users.id, userId));
 
     return c.json({ success: true, message: "Seeded full test workspace." });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import {
     patchHabitMonthlyCache,
@@ -32,6 +32,11 @@ function createTask(overrides: Partial<Task> = {}): Task {
         reminderAt: null,
         reminderSilenced: false,
         recurrenceRule: null,
+        sectionId: null,
+        seriesId: undefined,
+        isRecurringInstance: false,
+        occurrenceStart: null,
+        occurrenceEnd: null,
         effort: null,
         ...overrides,
     };
@@ -98,6 +103,21 @@ describe("api/cache-sync", () => {
 
         expect(queryClient.getQueryData(queryKeys.tasks.detail(task.id))).toBeUndefined();
         expect(queryClient.getQueryData(queryKeys.tasks.list({ state: "ACTIVE" }))).toEqual([]);
+    });
+
+    it("invalidates task list caches instead of reconciling recurring series inline", async () => {
+        const queryClient = new QueryClient();
+        const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+        const recurring = createTask({
+            scheduledStart: "2026-03-10T09:30:00.000Z",
+            scheduledEnd: "2026-03-10T10:45:00.000Z",
+            isAllDay: false,
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH",
+        });
+
+        reconcileTaskInCaches(queryClient, recurring);
+
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.tasks.all });
     });
 
     it("replaces optimistic habits and patches monthly logs by day", () => {

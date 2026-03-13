@@ -18,20 +18,97 @@ export const UserSettingsSchema = z.object({
     profile: z.object({
         pronouns: z.string().optional(),
     }).optional(),
-    tasks: z.object({
-        defaultDueDate: z.enum(['None', 'Today', 'Tomorrow', 'Next Week']).nullable(),
-        hideTrash: z.boolean(),
-        hideCompleted: z.boolean(),
+    appearance: z.object({
+        theme: z.enum(["twilight", "daylight", "system"]),
+        accentIntensity: z.enum(["soft", "balanced", "vivid"]),
+        motion: z.enum(["system", "full", "reduced"]),
+        density: z.enum(["comfortable", "compact"]),
+    }).optional(),
+    notifications: z.object({
+        email: z.boolean(),
+        browser: z.boolean().optional(),
+        taskReminders: z.boolean().optional(),
+        habitReminders: z.boolean().optional(),
+        dueDateAlerts: z.boolean().optional(),
+        quietHoursEnabled: z.boolean().optional(),
+        quietHoursStart: z.string().nullable().optional(),
+        quietHoursEnd: z.string().nullable().optional(),
     }),
     dateTime: z.object({
         weekStart: z.enum(['Sunday', 'Monday', 'Saturday']),
         timezone: z.string(),
         timeDisplay: z.enum(['12h', '24h']),
+        dateStyle: z.enum(['mdy', 'dmy', 'ymd']).optional(),
     }),
-    notifications: z.object({
-        email: z.boolean(),
+    calendar: z.object({
+        defaultView: z.enum(["month", "week", "day"]).optional(),
+        showWeekNumbers: z.boolean().optional(),
+        showWeekends: z.boolean().optional(),
+        holidays: z.object({
+            enabled: z.boolean(),
+            usePreciseLocation: z.boolean(),
+            locationMode: z.enum(["auto", "manual"]),
+            countryCode: z.string().nullable(),
+            subdivisionCode: z.string().nullable(),
+            promptDismissedAt: z.string().nullable(),
+        }),
     }),
-    shortcuts: z.record(z.string(), z.string())
+    tasks: z.object({
+        defaultDueDate: z.enum(['None', 'Today', 'Tomorrow', 'Next Week']).nullable(),
+        defaultView: z.enum(["list", "kanban"]).optional(),
+        defaultPriority: z.enum(["none", "low", "medium", "high", "urgent"]).optional(),
+        defaultDurationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90)]).nullable().optional(),
+        newTaskPlacement: z.enum(["top", "bottom"]).optional(),
+        openDetailOnCreate: z.boolean().optional(),
+        hideTrash: z.boolean(),
+        hideCompleted: z.boolean(),
+        showDoneCelebration: z.boolean().optional(),
+    }),
+    shortcuts: z.object({
+        enabled: z.boolean().optional(),
+        showHints: z.boolean().optional(),
+        bindings: z.object({
+            commandPalette: z.string().optional(),
+            newTask: z.string().optional(),
+            focusSearch: z.string().optional(),
+            toggleView: z.string().optional(),
+            completeTask: z.string().optional(),
+            archiveTask: z.string().optional(),
+        }).optional(),
+    }).optional(),
+    integrations: z.object({
+        googleCalendar: z.object({
+            enabled: z.boolean(),
+            syncMode: z.enum(["one_way", "two_way"]),
+            includeCompleted: z.boolean().optional(),
+        }).optional(),
+        appleCalendar: z.object({
+            enabled: z.boolean(),
+            syncMode: z.enum(["one_way", "two_way"]),
+        }).optional(),
+        notion: z.object({
+            enabled: z.boolean(),
+            createBacklinks: z.boolean(),
+        }).optional(),
+        obsidian: z.object({
+            enabled: z.boolean(),
+            appendTaskLinks: z.boolean(),
+        }).optional(),
+        ics: z.object({
+            enabled: z.boolean(),
+            includeHabits: z.boolean(),
+        }).optional(),
+    }).optional(),
+    privacy: z.object({
+        usageDiagnostics: z.boolean(),
+        crashReports: z.boolean(),
+        storeRecentSearches: z.boolean(),
+        storeDismissedPrompts: z.boolean(),
+        exportFormat: z.enum(["json", "csv"]),
+        lastExportRequestedAt: z.string().nullable().optional(),
+    }).optional(),
+    // Legacy — kept for backward compat during migration
+    preferredView: z.enum(['list', 'kanban']).optional(),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
@@ -49,7 +126,17 @@ export const users = pgTable('users', {
     settings: jsonb('settings').$type<UserSettings>().default({
         tasks: { defaultDueDate: null, hideTrash: false, hideCompleted: false },
         dateTime: { weekStart: 'Sunday', timezone: 'local', timeDisplay: '12h' },
-        notifications: { email: true },
+        calendar: {
+            holidays: {
+                enabled: true,
+                usePreciseLocation: false,
+                locationMode: "auto",
+                countryCode: null,
+                subdivisionCode: null,
+                promptDismissedAt: null,
+            },
+        },
+        notifications: { email: true, browser: false, taskReminders: true, habitReminders: true, dueDateAlerts: true },
         shortcuts: {}
     }).notNull(), // User preferences (view mode, theme, etc.)
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -82,17 +169,18 @@ export const aiMemories = pgTable('ai_memories', {
     };
 });
 
-// 4a. Task Sections (User-defined grouping headers)
-// In list view these render as collapsible section headers.
+// 4a. Task Sections (User-defined grouping headers, scoped to a project)
 // In kanban view each section becomes a column.
 export const taskSections = pgTable('task_sections', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     orderIndex: real('order_index').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('task_sections_user_id_idx').on(table.userId),
+    projectIdIdx: index('task_sections_project_id_idx').on(table.projectId),
 }));
 
 // 5. Projects (Task Containers)

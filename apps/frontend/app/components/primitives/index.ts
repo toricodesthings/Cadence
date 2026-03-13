@@ -20,4 +20,5 @@ export * as Dialog from "./Dialog";
 export * from "./Skeleton";
 export * from "./Switch";
 export * from "./Input";
+export * from "./TimePicker";
 export * as Select from "./Select";

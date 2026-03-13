@@ -5,6 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskPriority } from "../../types/task";
 import { formatTime } from "../../lib/utils/date-format";
+import { isRecurringTask, isRecurringTaskInstance } from "../../lib/utils/task-scheduling";
 
 /** Tailwind classes for the chip background/border based on priority */
 const PRIORITY_PILL_BG: Record<TaskPriority, string> = {
@@ -59,11 +60,13 @@ export function CalendarTaskChip({
     const [isHovered, setIsHovered] = useState(false);
 
     const priority = (task.priority ?? 0) as TaskPriority;
+    const isRecurring = isRecurringTask(task) || isRecurringTaskInstance(task);
+    const allowQuickActions = !task.isHabit && !isRecurring;
 
     const { listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `task-${task.id}`,
         data: { taskId: task.id, sourceId: sourceId ?? null },
-        disabled: Boolean(task.isHabit),
+        disabled: Boolean(task.isHabit || isRecurring),
     });
 
     const dragStyle: CSSProperties = {
@@ -89,6 +92,7 @@ export function CalendarTaskChip({
                     ${isDragging ? "z-50 scale-[1.03] shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
                     ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
                     ${task.isHabit ? "border-l-2 border-lantern bg-lantern/5 pl-2 shadow-sm" : ""}
+                    ${isRecurring ? "bg-[rgba(126,184,212,0.08)] border-[rgba(126,184,212,0.18)]" : PRIORITY_PILL_BG[priority]}
                 `}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
@@ -104,18 +108,18 @@ export function CalendarTaskChip({
                     className={`flex-1 truncate text-left ${PRIORITY_TEXT[priority]} cursor-pointer flex items-center gap-1`}
                 >
                     {task.title}
-                    {task.isHabit && <Repeat size={10} className="text-lantern/50 shrink-0" />}
+                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-lantern/50" : "text-moonlit/70"} shrink-0`} />}
                 </button>
 
                 {/* Hover quick actions */}
                 <AnimatePresence>
-                    {isHovered && (
+                    {isHovered && allowQuickActions && (
                         <motion.div
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.8 }}
                             transition={{ duration: 0.1 }}
-                            className="flex items-center gap-0.5 shrink-0"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 shrink-0 bg-twilight-surface/90 backdrop-blur-md rounded-full px-0.5"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {onComplete && (
@@ -156,12 +160,12 @@ export function CalendarTaskChip({
             {...listeners}
             data-task-chip
             className={`
-                group absolute left-1 right-1 flex flex-col gap-0.5
+                group absolute flex flex-col gap-0.5
                 rounded-2xl p-4 border backdrop-blur-xl cursor-grab select-none
                 transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 overflow-hidden
                 shadow-[0_8px_30px_rgba(0,0,0,0.12)]
-                ${PRIORITY_PILL_BG[priority]}
-                ${task.isHabit ? "cursor-pointer" : ""}
+                ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
+                ${task.isHabit || isRecurring ? "cursor-pointer" : ""}
                 ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
                 ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
                 ${task.isHabit ? "border-l-2 border-lantern bg-lantern/5 shadow-sm" : ""}
@@ -175,7 +179,7 @@ export function CalendarTaskChip({
 
             {/* Hover quick actions */}
             <AnimatePresence>
-                {isHovered && (
+                {isHovered && allowQuickActions && (
                     <motion.div
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -217,7 +221,7 @@ export function CalendarTaskChip({
             >
                 <span className={`text-[14px] font-medium truncate leading-tight flex flex-wrap items-center gap-1 ${PRIORITY_TEXT[priority]}`}>
                     {task.title}
-                    {task.isHabit && <Repeat size={10} className="text-lantern/50 shrink-0" />}
+                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-lantern/50" : "text-moonlit/70"} shrink-0`} />}
                 </span>
                 {timeLabel && (
                     <span className="text-[12px] text-twilight-text-muted/90 leading-tight">

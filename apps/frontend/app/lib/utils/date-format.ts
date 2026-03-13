@@ -13,6 +13,34 @@ import {
     parseISO,
 } from "date-fns";
 
+// ─── Format Configuration ────────────────────────────────────────────────────
+
+type TimeDisplay = "12h" | "24h";
+type DateStyle = "mdy" | "dmy" | "ymd";
+
+interface DateFormatConfig {
+    timeDisplay: TimeDisplay;
+    dateStyle: DateStyle;
+    /** 0 = Sunday, 1 = Monday, 6 = Saturday */
+    weekStartsOn: 0 | 1 | 6;
+}
+
+let _config: DateFormatConfig = {
+    timeDisplay: "12h",
+    dateStyle: "mdy",
+    weekStartsOn: 1,
+};
+
+/** Set the global date format configuration. Call from a sync hook. */
+export function setDateFormatConfig(config: DateFormatConfig) {
+    _config = config;
+}
+
+/** Get the current date format configuration. */
+export function getDateFormatConfig(): Readonly<DateFormatConfig> {
+    return _config;
+}
+
 // ─── Core Conversion ─────────────────────────────────────────────────────────
 
 /**
@@ -39,6 +67,42 @@ export function parseLocalDate(iso: string): Date {
     return new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
 }
 
+/** 
+ * Takes a date-only string (YYYY-MM-DD) and an original ISO string with time,
+ * and constructs a new ISO string preserving the local hour/minute of the original.
+ */
+export function preserveLocalTime(datePart: string, originalIso: string): string {
+    const oldLocal = new Date(originalIso);
+    const lh = String(oldLocal.getHours()).padStart(2, "0");
+    const lm = String(oldLocal.getMinutes()).padStart(2, "0");
+    return new Date(`${datePart}T${lh}:${lm}:00`).toISOString();
+}
+
+/**
+ * Extract the YYYY-MM-DD date for a task's effective timestamp.
+ * For all-day tasks, extracts the UTC date portion from the stored ISO
+ * string to avoid timezone off-by-one (dueDate is stored as UTC midnight).
+ * For timed tasks, uses local timezone for correct local-day positioning.
+ */
+export function getEffectiveTaskDate(dateStr: string, isAllDay: boolean): string {
+    if (isAllDay && dateStr.length > 10) {
+        return dateStr.substring(0, 10);
+    }
+    return toISODate(parseLocalDate(dateStr));
+}
+
+/**
+ * Parse a task's effective timestamp into a Date for calendar positioning.
+ * For all-day tasks, re-interprets the UTC date as local midnight to avoid
+ * timezone off-by-one. For timed tasks, parses as-is.
+ */
+export function parseEffectiveTaskDate(dateStr: string, isAllDay: boolean): Date {
+    if (isAllDay && dateStr.length > 10) {
+        return new Date(`${dateStr.substring(0, 10)}T00:00:00`);
+    }
+    return parseLocalDate(dateStr);
+}
+
 // ─── Date Arithmetic (re-exported from date-fns) ─────────────────────────────
 
 export function addDays(date: Date, days: number): Date {
@@ -51,25 +115,32 @@ export function isSameDay(a: Date, b: Date): boolean {
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-/** Format a date for display: "Thursday, February 26" */
+/** Format a date for display, e.g. "Thursday, February 26" or "Thursday, 26 February" */
 export function formatDateLabel(date: Date): string {
-    return format(date, "EEEE, MMMM d");
+    return _config.dateStyle === "dmy"
+        ? format(date, "EEEE, d MMMM")
+        : format(date, "EEEE, MMMM d");
 }
 
-/** Format a time from an ISO string: "9:30 AM" */
+/** Format a time from an ISO string: "9:30 AM" (12h) or "09:30" (24h) */
 export function formatTime(iso: string): string {
     const d = parseLocalDate(iso);
-    return format(d, "h:mm a");
+    return format(d, _config.timeDisplay === "24h" ? "HH:mm" : "h:mm a");
 }
 
-/** Format a short local-safe date label: "Mar 8" */
+/** Format a short local-safe date label: "Mar 8" (mdy/ymd) or "8 Mar" (dmy) */
 export function formatShortDate(iso: string): string {
-    return format(parseLocalDate(iso), "MMM d");
+    return format(
+        parseLocalDate(iso),
+        _config.dateStyle === "dmy" ? "d MMM" : "MMM d",
+    );
 }
 
 /** Format a short local-safe date + time label: "Mar 8, 9:30 AM" */
 export function formatShortDateTime(iso: string): string {
-    return format(parseLocalDate(iso), "MMM d, h:mm a");
+    const datePart = _config.dateStyle === "dmy" ? "d MMM" : "MMM d";
+    const timePart = _config.timeDisplay === "24h" ? "HH:mm" : "h:mm a";
+    return format(parseLocalDate(iso), `${datePart}, ${timePart}`);
 }
 
 /** Format a local-safe date span: "Mar 8 - Mar 10" */
@@ -79,12 +150,12 @@ export function formatDateSpan(startIso: string, endIso: string): string {
 
 // ─── Week Helpers ────────────────────────────────────────────────────────────
 
-/** Return the Monday of the ISO week containing the given date */
+/** Return the start of the week containing the given date, respecting settings */
 export function getWeekStart(date: Date): Date {
-    return startOfWeek(date, { weekStartsOn: 1 });
+    return startOfWeek(date, { weekStartsOn: _config.weekStartsOn });
 }
 
-/** Return an array of 7 Date objects (Mon–Sun) for the week containing the given date */
+/** Return an array of 7 Date objects for the week containing the given date */
 export function getWeekDates(date: Date): Date[] {
     const start = getWeekStart(date);
     return eachDayOfInterval({ start, end: dfnsAddDays(start, 6) });
@@ -107,10 +178,10 @@ export function getMonthDateRange(year: number, month: number) {
     };
 }
 
-/** Build a date range for an entire week (Mon–Sun) → `{start: "YYYY-MM-DD", end: "YYYY-MM-DD"}` */
+/** Build a date range for an entire week → `{start: "YYYY-MM-DD", end: "YYYY-MM-DD"}` */
 export function getWeekDateRange(date: Date) {
     const start = getWeekStart(date);
-    const end = endOfWeek(date, { weekStartsOn: 1 });
+    const end = endOfWeek(date, { weekStartsOn: _config.weekStartsOn });
     return {
         start: toISODate(start),
         end: toISODate(end),

@@ -1,10 +1,11 @@
-import { MoreHorizontal, Pin, Copy, Trash2, Calendar, Bell, Repeat, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks } from "lucide-react";
+import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Repeat, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Zap } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { Button } from "../primitives/Button";
 import { useDeleteTask, useUpdateTask, useDuplicateTask } from "../../hooks/tasks";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
 import { PriorityPicker } from "./PriorityPicker";
+import { EffortPicker } from "./EffortPicker";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { MoveToSubmenu } from "./MoveToSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
@@ -151,6 +152,12 @@ export function TaskMenuItems({ task, onAddSubtask, MenuComponents: Menu }: Task
                 onSelect={(p) => updateTask.mutate({ id: task.id, priority: p })}
             />
 
+            {/* ── Effort ── */}
+            <EffortPicker
+                currentEffort={task.effort}
+                onSelect={(e) => updateTask.mutate({ id: task.id, effort: e })}
+            />
+
             <Menu.Separator />
 
             {/* ── Organization ── */}
@@ -216,11 +223,11 @@ export function TaskContextMenu({ task, onAddSubtask }: TaskContextMenuProps) {
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
                 <Button variant="ghost" size="icon" aria-label={`Open actions for ${task.title}`}>
-                    <MoreHorizontal size={16} />
+                    <MoreVertical size={16} />
                 </Button>
             </DropdownMenu.Trigger>
 
-            <DropdownMenu.Content className="w-64">
+            <DropdownMenu.Content className="w-72" side="right" align="start" sideOffset={8}>
                 <TaskMenuItems task={task} onAddSubtask={onAddSubtask} MenuComponents={DropdownMenu} />
             </DropdownMenu.Content>
         </DropdownMenu.Root>

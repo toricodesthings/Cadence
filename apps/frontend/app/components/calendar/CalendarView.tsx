@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { CalendarHeader } from "./CalendarHeader";
 import { CalendarGrid } from "./CalendarGrid";
 import { useTasks } from "../../hooks/tasks";
-import { toISODate, getMonthDateRange, parseLocalDate, addDays, isSameDay } from "../../lib/utils/date-format";
+import { toISODate, getMonthDateRange, parseLocalDate, addDays, isSameDay, getDateFormatConfig } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task-scheduling";
 
 
@@ -12,7 +12,8 @@ function formatUpcomingDate(iso: string, today: Date): string {
     const d = parseLocalDate(iso);
     if (isSameDay(d, today)) return "Today";
     if (isSameDay(d, addDays(today, 1))) return "Tomorrow";
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const locale = getDateFormatConfig().dateStyle === "dmy" ? "en-GB" : "en-US";
+    return d.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
 /** Calendar container — manages month state, drives date filter via URL params */
@@ -105,7 +106,7 @@ export function CalendarView() {
     }
 
     return (
-        <div className="glass rounded-2xl p-6 flex flex-col gap-4">
+        <div className="glass rounded-2xl p-4 flex flex-col gap-4 min-w-0 overflow-hidden">
             <CalendarHeader
                 year={year}
                 month={month}
@@ -122,11 +123,11 @@ export function CalendarView() {
 
             {/* Upcoming preview */}
             {upcomingRows.length > 0 && (
-                <div className="mt-2" aria-label="Upcoming tasks">
+                <div className="mt-2 min-w-0 overflow-hidden" aria-label="Upcoming tasks">
                     <p className="text-[11px] font-semibold text-twilight-text-muted uppercase tracking-[0.12em] mb-2">
                         Upcoming
                     </p>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 min-w-0">
                         {upcomingRows.slice(0, 5).map(({ dateIso, label, tasks: dayTasks }) => (
                             <button
                                 key={dateIso}
@@ -138,12 +139,12 @@ export function CalendarView() {
                                     setSearchParams({ date: dateIso });
                                 }}
                                 aria-label={`View tasks for ${label}: ${dayTasks.length} task${dayTasks.length !== 1 ? "s" : ""}`}
-                                className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-white/[0.04] transition-colors text-left w-full group"
+                                className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-white/[0.04] transition-colors text-left w-full min-w-0 group"
                             >
                                 <span className="text-[12px] font-medium text-twilight-text-muted w-16 shrink-0">
                                     {label}
                                 </span>
-                                <span className="flex-1 text-[12px] text-twilight-text-soft truncate">
+                                <span className="flex-1 text-[12px] text-twilight-text-soft truncate min-w-0">
                                     {(label === "Today" || label === "Tomorrow") && dayTasks.length === 1
                                         ? dayTasks[0].title
                                         : `${dayTasks.length} task${dayTasks.length !== 1 ? "s" : ""}`}

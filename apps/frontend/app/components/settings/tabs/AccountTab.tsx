@@ -69,6 +69,78 @@ function FieldEditorModal({
     );
 }
 
+function BirthdayEditorModal({
+    initialValue,
+    onSave,
+}: {
+    initialValue: string | null;
+    onSave: (val: string | null) => Promise<void>;
+}) {
+    const [open, setOpen] = useState(false);
+    const [val, setVal] = useState(initialValue || "");
+    const [loading, setLoading] = useState(false);
+
+    return (
+        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue || ""); }}>
+            <Dialog.DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    {initialValue ? "Edit" : "Set"}
+                </Button>
+            </Dialog.DialogTrigger>
+            <Dialog.DialogContent>
+                <Dialog.DialogHeader>
+                    <Dialog.DialogTitle>Set Birthday</Dialog.DialogTitle>
+                </Dialog.DialogHeader>
+                <div className="py-4 flex flex-col gap-3">
+                    <p className="text-sm text-warm-white/70">Your birthday will appear as an overlay on the Schedule calendar. You can clear it at any time.</p>
+                    <Input
+                        type="date"
+                        value={val}
+                        onChange={(e) => setVal(e.target.value)}
+                        autoFocus
+                    />
+                </div>
+                <Dialog.DialogFooter>
+                    {initialValue && (
+                        <Button
+                            variant="ghost"
+                            className="text-red-400 hover:text-red-300 mr-auto"
+                            onClick={async () => {
+                                setLoading(true);
+                                try {
+                                    await onSave(null);
+                                    setOpen(false);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
+                            disabled={loading}
+                        >
+                            Clear
+                        </Button>
+                    )}
+                    <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+                    <Button
+                        variant="primary"
+                        onClick={async () => {
+                            setLoading(true);
+                            try {
+                                await onSave(val || null);
+                                setOpen(false);
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                        disabled={loading || val === (initialValue || "")}
+                    >
+                        {loading ? "Saving..." : "Save"}
+                    </Button>
+                </Dialog.DialogFooter>
+            </Dialog.DialogContent>
+        </Dialog.Dialog>
+    );
+}
+
 function PasswordChangeModal() {
     const [open, setOpen] = useState(false);
     const [currentPassword, setCurrentPassword] = useState("");
@@ -78,7 +150,7 @@ function PasswordChangeModal() {
     return (
         <Dialog.Dialog open={open} onOpenChange={setOpen}>
             <Dialog.DialogTrigger asChild>
-                <Button variant="secondary" size="sm" className="bg-white/5 border-white/10 hover:bg-white/10">
+                <Button variant="secondary" size="sm">
                     Update Password
                 </Button>
             </Dialog.DialogTrigger>
@@ -179,7 +251,7 @@ function TwoFactorModal() {
     return (
         <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) { setPassword(""); setBackupCodes(null); } }}>
             <Dialog.DialogTrigger asChild>
-                <Button variant="secondary" size="sm" className="bg-white/5 border-white/10 hover:bg-white/10">
+                <Button variant="secondary" size="sm">
                     Manage 2FA
                 </Button>
             </Dialog.DialogTrigger>
@@ -192,7 +264,7 @@ function TwoFactorModal() {
                         <div className="flex flex-col gap-3">
                             <p className="text-sm text-green-400 font-semibold">2FA is now enabled!</p>
                             <p className="text-xs text-warm-white/70">Please save these backup codes in a secure location. You will need them if you lose access to your authenticator device.</p>
-                            <div className="bg-black/40 p-3 rounded border border-white/10 grid grid-cols-2 gap-2 max-h-40 overflow-y-auto font-mono text-sm text-warm-white">
+                            <div className="bg-black/40 p-3 rounded border border-twilight-border grid grid-cols-2 gap-2 max-h-40 overflow-y-auto font-mono text-sm text-warm-white">
                                 {backupCodes.map((code, i) => (
                                     <span key={i} className="tracking-wider">{code}</span>
                                 ))}
@@ -300,7 +372,7 @@ function OAuthConnectionsBlock() {
     };
 
     return (
-        <div className="bg-black/20 rounded-2xl p-5 flex flex-col gap-4 border border-white/5 mt-2 overflow-hidden relative">
+        <div className="bg-black/20 rounded-2xl p-5 flex flex-col gap-4 border border-twilight-border mt-2 overflow-hidden relative">
             {/* Subtle background glow */}
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-lantern/5 blur-3xl pointer-events-none" />
 
@@ -312,9 +384,9 @@ function OAuthConnectionsBlock() {
             ) : accounts && accounts.length > 0 ? (
                 <div className="flex flex-col gap-1">
                     {accounts.map((acc: any) => (
-                        <div key={acc.id} className="flex justify-between items-center group/acc px-3 py-3 rounded-xl hover:bg-white/[0.03] transition-all border border-transparent hover:border-white/5">
+                        <div key={acc.id} className="flex justify-between items-center group/acc px-3 py-3 rounded-xl hover:bg-white/[0.03] transition-all border border-transparent hover:border-twilight-border">
                             <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center border border-white/5 group-hover/acc:bg-white/[0.06] transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center border border-twilight-border group-hover/acc:bg-white/[0.06] transition-colors">
                                     <ProviderLogo provider={acc.providerId} />
                                 </div>
                                 <div className="flex flex-col">
@@ -354,11 +426,11 @@ function OAuthConnectionsBlock() {
                 </div>
             )}
 
-            <div className="pt-4 border-t border-white/5 flex flex-wrap gap-2">
+            <div className="pt-4 border-t border-twilight-border flex flex-wrap gap-2">
                 <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-white/5 border-white/10 hover:bg-white/10 h-9 px-4 gap-2 font-medium"
+                    className="h-9 px-4 gap-2 font-medium"
                     disabled={loading || accounts?.some((a: any) => a.providerId === 'google')}
                     onClick={async () => {
                         await authClient.linkSocial({ provider: 'google', callbackURL: window.location.href });
@@ -370,7 +442,7 @@ function OAuthConnectionsBlock() {
                 <Button
                     variant="secondary"
                     size="sm"
-                    className="bg-white/5 border-white/10 hover:bg-white/10 h-9 px-4 gap-2 font-medium"
+                    className="h-9 px-4 gap-2 font-medium"
                     disabled={loading || accounts?.some((a: any) => a.providerId === 'github')}
                     onClick={async () => {
                         await authClient.linkSocial({ provider: 'github', callbackURL: window.location.href });
@@ -412,14 +484,14 @@ function SessionsBlock() {
             <p className="text-sm text-warm-white/50 -mt-2 mb-2">
                 Manage all devices that are currently signed in to your account.
             </p>
-            <div className="bg-black/20 rounded-xl p-4 flex flex-col gap-3 border border-white/5">
+            <div className="bg-black/20 rounded-xl p-4 flex flex-col gap-3 border border-twilight-border">
                 {isPending ? (
                     <p className="text-sm text-warm-white/50">Loading sessions...</p>
                 ) : sessions && sessions.length > 0 ? (
                     sessions.map((sess: any) => {
                         const isCurrent = sess.id === currentSession?.session.id;
                         return (
-                            <div key={sess.id} className={`flex justify-between items-center group/session ${isCurrent ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'} border rounded-lg p-3 transition-colors`}>
+                            <div key={sess.id} className={`flex justify-between items-center group/session ${isCurrent ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-twilight-border'} border rounded-lg p-3 transition-colors`}>
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-sm text-warm-white font-medium flex items-center gap-2">
                                         {isCurrent ? "Current Device" : "Other Device"}
@@ -522,7 +594,7 @@ function AvatarEditModal({ userImage, onProfileUpdated }: { userImage?: string |
                         <Dialog.DialogTitle>Preview Profile Picture</Dialog.DialogTitle>
                     </Dialog.DialogHeader>
                     <div className="py-6 flex flex-col items-center justify-center gap-4">
-                        <div className="w-32 h-32 bg-twilight-base rounded-full border-4 border-[#132035] shadow-lg overflow-hidden flex items-center justify-center relative">
+                        <div className="w-32 h-32 bg-twilight-base rounded-full border-4 border-twilight-surface shadow-lg overflow-hidden flex items-center justify-center relative">
                             {previewImage ? (
                                 <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
                             ) : (
@@ -561,7 +633,7 @@ export function AccountTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
 
-    const profileSettings = settings?.profile || { pronouns: "" };
+    const profileSettings = settings?.profile || { pronouns: "", birthday: null };
 
     const handleUpdateUser = async (field: "name" | "image", value: string) => {
         const { error } = await authClient.updateUser({ [field]: value });
@@ -582,19 +654,19 @@ export function AccountTab() {
         }
     };
 
-    const handleUpdateSettings = async (field: "pronouns", value: string) => {
+    const handleUpdateSettings = async (field: "pronouns" | "birthday", value: string | null) => {
         await updateSettings.mutateAsync({ profile: { ...profileSettings, [field]: value } });
     };
 
     return (
         <div className="flex flex-col gap-10">
-            <h2 className="text-2xl font-bold text-warm-white mb-2">My Account</h2>
+            <h2 className="text-2xl font-bold text-twilight-text mb-2">Profile & Security</h2>
 
             {/* Account Card */}
-            <div className="bg-[#132035] rounded-2xl border border-white/5 overflow-hidden">
-                <div className="h-32 relative border-b border-white/5 isolate">
+            <div className="profile-card-bg rounded-2xl border border-twilight-border overflow-hidden">
+                <div className="h-32 relative border-b border-twilight-border isolate">
                     {/* Inner wrapper specifically for overflow hidden background constraints */}
-                    <div className="absolute inset-0 overflow-hidden bg-twilight-surface -z-10 bg-gradient-to-br from-[#1a2b45] to-[#0a1628]">
+                    <div className="absolute inset-0 overflow-hidden bg-twilight-surface -z-10 profile-banner-bg">
                         {/* Atmospheric glow blobs per Manifesto */}
                         <div className="absolute -top-24 -right-24 w-96 h-96 bg-[var(--color-lantern)] opacity-[0.14] rounded-full blur-[80px] pointer-events-none" />
                         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[var(--color-moonlit)] opacity-[0.12] rounded-full blur-[80px] pointer-events-none" />
@@ -626,7 +698,7 @@ export function AccountTab() {
                     </div>
 
                     <div className="absolute -bottom-10 left-6 group/avatar z-10">
-                        <div className="w-20 h-20 bg-twilight-base rounded-full border-4 border-[#132035] flex items-center justify-center overflow-hidden relative">
+                        <div className="w-20 h-20 bg-twilight-base rounded-full border-4 border-twilight-surface flex items-center justify-center overflow-hidden relative">
                             {user?.image ? (
                                 <img src={user.image} alt={user.name || "User"} className="w-full h-full object-cover" />
                             ) : (
@@ -644,7 +716,7 @@ export function AccountTab() {
                         </h3>
                     </div>
 
-                    <div className="mt-8 bg-black/20 rounded-xl p-4 flex flex-col gap-4 border border-white/5">
+                    <div className="mt-8 bg-black/20 rounded-xl p-4 flex flex-col gap-4 border border-twilight-border">
                         <div className="flex justify-between items-center group">
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Display Name</p>
@@ -682,6 +754,20 @@ export function AccountTab() {
                                 onSave={async (val) => await handleUpdateEmail(val)}
                                 placeholder="new@example.com"
                                 type="email"
+                            />
+                        </div>
+                        <div className="flex justify-between items-center group">
+                            <div>
+                                <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Birthday</p>
+                                <p className="text-sm text-warm-white">
+                                    {profileSettings.birthday
+                                        ? new Date(profileSettings.birthday + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
+                                        : "Not set"}
+                                </p>
+                            </div>
+                            <BirthdayEditorModal
+                                initialValue={profileSettings.birthday}
+                                onSave={async (val) => await handleUpdateSettings("birthday", val)}
                             />
                         </div>
                     </div>

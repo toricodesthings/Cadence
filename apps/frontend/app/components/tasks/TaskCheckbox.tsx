@@ -1,21 +1,31 @@
 import { useUpdateTask } from "../../hooks/tasks";
+import { useUpdateSubtask } from "../../hooks/use-subtasks";
 import { useTaskCompletionStore } from "../../stores/task-completion-store";
-import type { Task, TaskState } from "../../types/task";
+import { useSettings } from "../../hooks/use-settings";
+import type { Task, TaskState, Subtask } from "../../types/task";
 import { Pause } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface TaskCheckboxProps {
-    task: Task;
+    task?: Task;
+    subtask?: Subtask;
     compact?: boolean;
 }
 
 /** Circular checkbox that toggles task between states */
-export function TaskCheckbox({ task, compact = false }: TaskCheckboxProps) {
+export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxProps) {
     const updateTask = useUpdateTask();
-    const isComplete = task.state === "COMPLETE";
-    const isWaiting = task.state === "WAITING";
-    const pendingCompletion = useTaskCompletionStore((state) => state.pendingById[task.id]);
+    const updateSubtask = useUpdateSubtask(subtask?.taskId ?? "");
+    const { data: userSettings } = useSettings();
+    const showCelebration = userSettings?.tasks?.showDoneCelebration ?? true;
+    const id = task?.id ?? subtask?.id ?? "";
+    const title = task?.title ?? subtask?.title ?? "";
+    const [sparkleKey, setSparkleKey] = useState(0);
+
+    const isComplete = task ? task.state === "COMPLETE" : subtask?.isComplete;
+    const isWaiting = task ? task.state === "WAITING" : false;
+    const pendingCompletion = useTaskCompletionStore((state) => state.pendingById[id]);
     const queueCompletion = useTaskCompletionStore((state) => state.queueCompletion);
     const cancelCompletion = useTaskCompletionStore((state) => state.cancelCompletion);
     const clearCompletion = useTaskCompletionStore((state) => state.clearCompletion);
@@ -35,10 +45,10 @@ export function TaskCheckbox({ task, compact = false }: TaskCheckboxProps) {
     }, [pendingCompletion]);
 
     useEffect(() => {
-        if (task.state === "COMPLETE" && pendingCompletion) {
-            clearCompletion(task.id);
+        if (isComplete && pendingCompletion) {
+            clearCompletion(id);
         }
-    }, [clearCompletion, pendingCompletion, task.id, task.state]);
+    }, [clearCompletion, pendingCompletion, id, isComplete]);
 
     const countdownProgress = pendingCompletion
         ? Math.max(0, Math.min(1, (pendingCompletion.commitAt - now) / pendingCompletion.durationMs))
@@ -48,33 +58,36 @@ export function TaskCheckbox({ task, compact = false }: TaskCheckboxProps) {
         e.stopPropagation(); // prevent card expansion click
 
         if (isPendingComplete) {
-            cancelCompletion(task.id);
+            cancelCompletion(id);
             return;
         }
-
-        let nextState: TaskState = "COMPLETE";
 
         if (isComplete) {
-            updateTask.mutate({
-                id: task.id,
-                state: "ACTIVE",
-            });
+            if (task) {
+                updateTask.mutate({ id, state: "ACTIVE" });
+            } else if (subtask) {
+                updateSubtask.mutate({ id, isComplete: false });
+            }
             return;
         }
 
-        if (isWaiting) nextState = "COMPLETE";
-        else nextState = "COMPLETE";
+        const commitCompletion = () => {
+            if (task) {
+                updateTask.mutate({ id, state: "COMPLETE" });
+            } else if (subtask) {
+                updateSubtask.mutate({ id, isComplete: true });
+            }
+        };
 
         queueCompletion({
-            taskId: task.id,
-            taskTitle: task.title,
-            onCommit: () => {
-                updateTask.mutate({
-                    id: task.id,
-                    state: nextState,
-                });
-            },
+            taskId: id,
+            taskTitle: title,
+            onCommit: commitCompletion,
         });
+
+        if (showCelebration) {
+            setSparkleKey((k) => k + 1);
+        }
     };
 
     return (
@@ -169,6 +182,40 @@ export function TaskCheckbox({ task, compact = false }: TaskCheckboxProps) {
                     ) : null}
                 </AnimatePresence>
             </motion.span>
+
+            {/* Celebration sparkle burst */}
+            <AnimatePresence>
+                {sparkleKey > 0 && (
+                    <CelebrationBurst key={sparkleKey} compact={compact} />
+                )}
+            </AnimatePresence>
         </button>
+    );
+}
+
+const SPARKLE_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
+
+function CelebrationBurst({ compact }: { compact: boolean }) {
+    const radius = compact ? 14 : 18;
+    return (
+        <>
+            {SPARKLE_ANGLES.map((angle) => {
+                const rad = (angle * Math.PI) / 180;
+                const tx = Math.cos(rad) * radius;
+                const ty = Math.sin(rad) * radius;
+                return (
+                    <motion.span
+                        key={angle}
+                        className="absolute rounded-full bg-lantern"
+                        style={{ width: 3, height: 3 }}
+                        initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                        animate={{ opacity: 0, x: tx, y: ty, scale: 0.4 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                        aria-hidden="true"
+                    />
+                );
+            })}
+        </>
     );
 }

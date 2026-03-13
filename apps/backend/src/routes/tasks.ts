@@ -13,6 +13,11 @@ import {
     hasTaskTemporalMutation,
     normalizeTaskTemporalFields,
 } from "../lib/task-normalization";
+import {
+    expandScheduleScopedTasks,
+    isScheduleScopedTaskQuery,
+    validateTaskRecurrenceRule,
+} from "../lib/task-recurrence";
 import { apiValidator } from "../lib/validation";
 import type { AuthVariables } from "../lib/auth";
 import { uuidParamSchema } from "../types/common";
@@ -104,21 +109,29 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const userId = c.get("userId");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
+        validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? null);
         const temporalFields = getTemporalFieldsForPersistence(body);
 
-        const task = await withRls(db, userId, async (tx) => {
-            const [row] = await tx
-                .insert(tasks)
-                .values({
-                    ...body,
-                    ...temporalFields,
-                    userId,
-                })
-                .returning();
-            return row;
-        });
+        try {
+            const task = await withRls(db, userId, async (tx) => {
+                const [row] = await tx
+                    .insert(tasks)
+                    .values({
+                        ...body,
+                        ...temporalFields,
+                        userId,
+                    })
+                    .returning();
+                return row;
+            });
 
-        return c.json({ data: task }, 201);
+            return c.json({ data: task }, 201);
+        } catch (err: unknown) {
+            if (err instanceof Error && err.message?.includes("violates foreign key constraint")) {
+                throw new AppError(400, "INVALID_REFERENCE", "Referenced project or section does not exist");
+            }
+            throw err;
+        }
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTaskSchema), async (c) => {
         const userId = c.get("userId");
@@ -139,6 +152,8 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
             if (!existing) throw new AppError(404, "NOT_FOUND", "Task not found");
+
+            validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
 
             const temporalPatch = hasTaskTemporalMutation(body)
                 ? getTemporalFieldsForPersistence({
@@ -370,12 +385,27 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const db = getDbClient(c.env);
 
         const items = await withRls(db, userId, async (tx) => {
-            const conditions = buildTaskWhereClause(userId, query);
+            const scheduleScoped = isScheduleScopedTaskQuery(query);
+            const conditions = buildTaskWhereClause(
+                userId,
+                scheduleScoped
+                    ? {
+                        ...query,
+                        scheduledDate: undefined,
+                        scheduledRangeStart: undefined,
+                        scheduledRangeEnd: undefined,
+                    }
+                    : query,
+            );
             const returnedTasks = await tx.query.tasks.findMany({
                 where: and(...conditions),
                 orderBy: (taskTable, { asc, desc }) => [desc(taskTable.isPinned), asc(taskTable.orderIndex)],
-                limit: query.limit,
-                offset: query.offset,
+                ...(scheduleScoped
+                    ? {}
+                    : {
+                        limit: query.limit,
+                        offset: query.offset,
+                    }),
                 with: {
                     tags: {
                         columns: {
@@ -385,11 +415,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 },
             });
 
-            return returnedTasks.map((task) => ({
+            const mappedTasks = returnedTasks.map((task) => ({
                 ...task,
                 tags: undefined,
                 tagIds: task.tags.map((assoc) => assoc.tagId),
             }));
+
+            return scheduleScoped ? expandScheduleScopedTasks(mappedTasks, query) : mappedTasks;
         });
 
         c.header("Cache-Control", "private, no-store");

@@ -64,14 +64,14 @@ function InlineSubtaskItem({
                 type="button"
                 onClick={() => onToggle(subtask.id, !subtask.isComplete)}
                 data-no-dnd="true"
-                className={`h-9 w-9 rounded-xl border shrink-0 flex items-center justify-center transition-colors ${subtask.isComplete
-                    ? "bg-feedback-success border-feedback-success text-twilight-base"
-                    : "border-twilight-border hover:border-feedback-success/50"
+                className={`h-6 w-6 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors cursor-pointer ${subtask.isComplete
+                    ? "bg-lantern/20 border-lantern text-lantern"
+                    : "border-twilight-text-muted/70 hover:border-lantern/50"
                     }`}
             >
                 {subtask.isComplete && (
-                    <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5">
-                        <path d="M3 7.5L5.5 10L11 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-lantern">
+                        <path d="M2 5L4 7L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 )}
             </button>
@@ -85,7 +85,7 @@ function InlineSubtaskItem({
                 type="button"
                 onClick={() => onDelete(subtask.id)}
                 data-no-dnd="true"
-                className="h-9 w-9 rounded-xl opacity-0 group-hover/sub:opacity-100 text-red-400/70 hover:bg-red-500/10 hover:text-red-300 transition-[opacity,color,background-color] cursor-pointer shrink-0"
+                className="h-7 w-7 rounded-lg opacity-0 group-hover/sub:opacity-100 text-red-400/70 hover:bg-red-500/10 hover:text-red-300 transition-[opacity,color,background-color] cursor-pointer shrink-0"
                 aria-label="Delete subtask"
             >
                 <span aria-hidden="true">✕</span>
@@ -182,11 +182,14 @@ export function TaskCard({
 
     return (
         <article
+            data-focus-kind="task"
+            data-focus-id={task.id}
+            data-task-card={isBoardCard ? "board" : "list"}
             {...dragProps}
             className={`
                 group relative flex rounded-[26px] border border-twilight-border/40 transition-[background-color,border-color,box-shadow,opacity,transform,padding] duration-200 cursor-grab active:cursor-grabbing
                 ${isBoardCard
-                    ? `${isCompactCard ? "items-center gap-2.5 px-3 py-3" : "items-start gap-2.5 px-3 py-3.5"}`
+                    ? `${isCompactCard ? "items-center gap-2.5 px-3 pr-9 py-3" : "items-start gap-2.5 px-3 pr-9 py-3.5"}`
                     : `${isCompactCard ? "items-center gap-3 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-3 px-4 py-4 sm:px-5 sm:py-5"}`
                 }
                 ${task.state === "WAITING" ? "border-moonlit/25" : ""}
@@ -212,7 +215,7 @@ export function TaskCard({
                 type="button"
                 {...dragHandleProps}
                 data-no-dnd="true"
-                className={`btn-icon rounded-2xl ${isCompactCard ? "self-center" : "self-start"} transition-opacity text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text ${isBoardCard ? "-ml-1 opacity-0 group-hover:opacity-20 focus-visible:opacity-20" : "-ml-2"} ${isDragging ? "opacity-60" : isBoardCard ? "" : "opacity-0 group-hover:opacity-30 focus-visible:opacity-30"}`}
+                className={`${isBoardCard ? "min-w-6 min-h-8 rounded-xl flex items-center justify-center cursor-pointer" : "btn-icon rounded-2xl"} ${isCompactCard ? "self-center" : "self-start"} transition-opacity text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text ${isBoardCard ? "-ml-1 opacity-0 group-hover:opacity-20 focus-visible:opacity-20" : "-ml-2"} ${isDragging ? "opacity-60" : isBoardCard ? "" : "opacity-0 group-hover:opacity-30 focus-visible:opacity-30"}`}
                 aria-label="Drag to reorder"
             >
                 <GripVertical size={16} className="text-twilight-text-muted" aria-hidden="true" />
@@ -274,7 +277,7 @@ export function TaskCard({
                                 type="button"
                                 onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}
                                 data-no-dnd="true"
-                                className="touch-target inline-flex min-h-11 items-center gap-2 rounded-2xl px-3 text-[12px] text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text transition-colors cursor-pointer"
+                                className={`inline-flex items-center gap-2 rounded-2xl px-3 text-[12px] text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text transition-colors cursor-pointer ${isBoardCard ? "min-h-7" : "touch-target min-h-11"}`}
                                 aria-label={isSubtasksExpanded ? "Collapse subtasks" : "Expand subtasks"}
                             >
                                 {isSubtasksExpanded
@@ -317,11 +320,6 @@ export function TaskCard({
                             <span className={`inline-flex items-center gap-1.5 text-[12px] ${scheduleSummary.isDeadline || scheduleSummary.isDuration ? "font-medium text-lantern" : "text-twilight-text-soft"}`}>
                                 <Calendar size={12} aria-hidden="true" />
                                 {scheduleLabel}
-                                {scheduleSummary.secondaryLabel ? (
-                                    <span className="rounded-full bg-lantern/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-lantern">
-                                        {scheduleSummary.secondaryLabel}
-                                    </span>
-                                ) : null}
                             </span>
                         )}
                         {task.recurrenceRule && (
@@ -376,7 +374,7 @@ export function TaskCard({
                                 {/* Inline add subtask */}
                                 {isAddingSubtask ? (
                                     <div className="flex items-center gap-2 py-1">
-                                        <div className="h-11 w-11 rounded-xl border border-twilight-border/30 shrink-0" />
+                                        <div className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 shrink-0" />
                                         <input
                                             ref={addInputRef}
                                             type="text"
@@ -400,7 +398,7 @@ export function TaskCard({
                                         type="button"
                                         onClick={handleAddSubtask}
                                         data-no-dnd="true"
-                                    className="touch-target inline-flex min-h-11 items-center gap-2 rounded-2xl px-3 text-[13px] text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text transition-colors cursor-pointer"
+                                    className={`inline-flex items-center gap-2 rounded-2xl px-3 text-[13px] text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text transition-colors cursor-pointer ${isBoardCard ? "min-h-7" : "touch-target min-h-11"}`}
                                 >
                                         <span className="text-sm" aria-hidden="true">+</span> Add subtask
                                     </button>
@@ -422,7 +420,7 @@ export function TaskCard({
                         >
                             <div className="mt-3 ml-0.5 border-l border-twilight-border/30 pl-3">
                                 <div className="flex items-center gap-2 py-1">
-                                    <div className="h-11 w-11 rounded-xl border border-twilight-border/30 shrink-0" />
+                                    <div className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 shrink-0" />
                                     <input
                                         ref={addInputRef}
                                         type="text"

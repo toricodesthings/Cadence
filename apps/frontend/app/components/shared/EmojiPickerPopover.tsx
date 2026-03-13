@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import * as Popover from "@radix-ui/react-popover";
+import * as Popover from "../primitives/Popover";
 import { Smile } from "lucide-react";
 import data from "@emoji-mart/data";
 
@@ -27,29 +27,26 @@ export function EmojiPickerPopover({ emoji, onSelect, children }: EmojiPickerPop
                     </button>
                 )}
             </Popover.Trigger>
-            <Popover.Portal>
-                <Popover.Content
-                    side="bottom"
-                    align="start"
-                    sideOffset={8}
-                    className="z-[100] bg-twilight-surface border border-twilight-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            <Popover.Content
+                side="bottom"
+                align="start"
+                className="p-0 rounded-xl z-[100] overflow-hidden"
+            >
+                <Suspense
+                    fallback={
+                        <div className="w-[352px] h-[435px] flex items-center justify-center text-twilight-text-muted text-sm">
+                            Loading emojis...
+                        </div>
+                    }
                 >
-                    <Suspense
-                        fallback={
-                            <div className="w-[352px] h-[435px] flex items-center justify-center text-twilight-text-muted text-sm">
-                                Loading emojis...
-                            </div>
-                        }
-                    >
-                        <Picker
-                            data={data}
-                            onEmojiSelect={(e: any) => onSelect(e.native)}
-                            theme="dark"
-                            autoFocus={true}
-                        />
-                    </Suspense>
-                </Popover.Content>
-            </Popover.Portal>
+                    <Picker
+                        data={data}
+                        onEmojiSelect={(e: any) => onSelect(e.native)}
+                        theme="dark"
+                        autoFocus={true}
+                    />
+                </Suspense>
+            </Popover.Content>
         </Popover.Root>
     );
 }

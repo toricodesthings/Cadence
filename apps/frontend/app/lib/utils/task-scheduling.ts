@@ -8,7 +8,7 @@ import {
 } from "./date-format";
 import type { Task } from "../../types/task";
 
-const canonicalAllDayDateTimePattern = /^(\d{4}-\d{2}-\d{2})T(?:00:00:00(?:\.000)?|23:59:59\.999)Z$/;
+const canonicalAllDayDateTimePattern = /^(\d{4}-\d{2}-\d{2})T(?:00:00:00(?:\.000)?|12:00:00(?:\.000)?|23:59:59\.999)Z$/;
 
 export type TaskScheduleKind =
     | "unscheduled"
@@ -28,6 +28,105 @@ export interface TaskScheduleSummary {
     isTimed: boolean;
     needsNormalization: boolean;
     anchorDate: string | null;
+}
+
+const RRULE_DAY_LABELS: Record<string, string> = {
+    MO: "Mon",
+    TU: "Tue",
+    WE: "Wed",
+    TH: "Thu",
+    FR: "Fri",
+    SA: "Sat",
+    SU: "Sun",
+};
+
+export interface TaskRecurrenceSummary {
+    label: string;
+    cadenceLabel: string;
+    detailLabel: string | null;
+    weekdayLabel: string | null;
+    endLabel: string | null;
+}
+
+function parseRRuleParts(rule: string | null | undefined) {
+    if (!rule) return new Map<string, string>();
+
+    return new Map(
+        rule
+            .split(";")
+            .map((part) => part.split("="))
+            .filter((part): part is [string, string] => part.length === 2),
+    );
+}
+
+function formatWeekdayLabel(byDay: string | null | undefined) {
+    if (!byDay) return null;
+    const labels = byDay
+        .split(",")
+        .map((value) => RRULE_DAY_LABELS[value] ?? value)
+        .filter(Boolean);
+
+    if (labels.length === 0) return null;
+    if (labels.length === 1) return labels[0];
+    if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
+    return `${labels.slice(0, -1).join(", ")} & ${labels.at(-1)}`;
+}
+
+function formatUntilLabel(untilValue: string | null | undefined) {
+    if (!untilValue) return null;
+    if (/^\d{8}T\d{6}Z$/.test(untilValue)) {
+        return formatShortDate(`${untilValue.slice(0, 4)}-${untilValue.slice(4, 6)}-${untilValue.slice(6, 8)}`);
+    }
+    if (/^\d{8}$/.test(untilValue)) {
+        return formatShortDate(`${untilValue.slice(0, 4)}-${untilValue.slice(4, 6)}-${untilValue.slice(6, 8)}`);
+    }
+    return formatShortDate(untilValue);
+}
+
+export function isRecurringTask(task: Pick<Task, "recurrenceRule">) {
+    return Boolean(task.recurrenceRule);
+}
+
+export function isRecurringTaskInstance(task: Pick<Task, "isRecurringInstance" | "seriesId">) {
+    return Boolean(task.isRecurringInstance || task.seriesId);
+}
+
+export function getTaskSeriesId(task: Pick<Task, "id" | "seriesId">) {
+    return task.seriesId ?? task.id;
+}
+
+export function getTaskMutationTargetId(task: Pick<Task, "id" | "seriesId">) {
+    return getTaskSeriesId(task);
+}
+
+export function getTaskRecurrenceSummary(
+    task: Pick<Task, "recurrenceRule" | "scheduledStart" | "scheduledEnd">,
+): TaskRecurrenceSummary | null {
+    if (!task.recurrenceRule) return null;
+
+    const parts = parseRRuleParts(task.recurrenceRule);
+    const freq = parts.get("FREQ");
+    const weekdayLabel = formatWeekdayLabel(parts.get("BYDAY"));
+    const endLabel = formatUntilLabel(parts.get("UNTIL"));
+    const timeLabel = task.scheduledStart
+        ? `${formatTime(task.scheduledStart)}${task.scheduledEnd ? ` - ${formatTime(task.scheduledEnd)}` : ""}`
+        : null;
+
+    let cadenceLabel = "Repeats";
+    if (freq === "DAILY") cadenceLabel = "Repeats daily";
+    if (freq === "WEEKLY" && weekdayLabel) cadenceLabel = `Repeats ${weekdayLabel}`;
+    if (freq === "WEEKLY" && !weekdayLabel) cadenceLabel = "Repeats weekly";
+    if (freq === "MONTHLY") cadenceLabel = "Repeats monthly";
+
+    const detailParts = [weekdayLabel ? `every ${weekdayLabel}` : null, timeLabel, endLabel ? `until ${endLabel}` : null].filter(Boolean);
+
+    return {
+        label: [cadenceLabel, timeLabel, endLabel ? `until ${endLabel}` : null].filter(Boolean).join(", "),
+        cadenceLabel,
+        detailLabel: detailParts.length > 0 ? detailParts.join(", ") : null,
+        weekdayLabel,
+        endLabel,
+    };
 }
 
 export function toTaskDateOnly(value: string | null | undefined) {

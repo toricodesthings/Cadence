@@ -2,11 +2,13 @@ import { useRef, useEffect, useMemo } from "react";
 import { TimeGutter } from "./TimeGutter";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
-import { HOUR_HEIGHT, DAY_GRID_HEIGHT, taskTop, taskHeight } from "../../lib/utils/calendar-utils";
+import * as Tooltip from "../primitives/Tooltip";
+import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
+import type { HolidayRecord } from "../../lib/holidays/provider";
 
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -74,17 +76,17 @@ function DroppableDayColumn({
             {Array.from({ length: 24 }, (_, h) => (
                 <div
                     key={h}
-                    className="absolute left-0 right-0 border-t border-white/[0.07]"
+                    className="absolute left-0 right-0 border-t border-twilight-border/20"
                     style={{ top: h * HOUR_HEIGHT }}
                 />
             ))}
 
-            {/* Half-hour faint lines */}
-            {Array.from({ length: 24 }, (_, h) => (
+            {/* Quarter-hour faint lines */}
+            {Array.from({ length: 24 * 4 }, (_, slot) => (
                 <div
-                    key={`half-${h}`}
-                    className="absolute left-0 right-0 border-t border-white/[0.04] border-dashed"
-                    style={{ top: h * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
+                    key={`quarter-${slot}`}
+                    className="absolute left-0 right-0 border-t border-white/[0.03] border-dashed"
+                    style={{ top: (slot * HOUR_HEIGHT) / 4 }}
                 />
             ))}
 
@@ -93,18 +95,20 @@ function DroppableDayColumn({
             ) : null}
 
             {/* Task chips — absolutely positioned */}
-            {tasks.map((task) => (
+            {buildTimedTaskLayouts(tasks).map((layout) => (
                 <CalendarTaskChip
-                    key={task.id}
-                    task={task}
+                    key={layout.task.id}
+                    task={layout.task}
                     variant="block"
                     sourceId={`day-${dateStr}`}
                     onSelect={onSelectTask}
                     onComplete={onCompleteTask}
                     onArchive={onArchiveTask}
                     style={{
-                        top: taskTop(task),
-                        height: taskHeight(task),
+                        top: layout.top,
+                        height: layout.height,
+                        left: `calc(${(layout.column / layout.columns) * 100}% + 0.25rem)`,
+                        width: `calc(${100 / layout.columns}% - 0.5rem)`,
                     }}
                 />
             ))}
@@ -118,6 +122,9 @@ export interface WeekViewProps {
     weekDates: Date[];
     /** Tasks grouped by ISO date string */
     tasksByDate: Record<string, Task[]>;
+    holidaysByDate?: Record<string, HolidayRecord[]>;
+    /** ISO date string of user's birthday this year (e.g. "2026-03-15") */
+    birthdayDate?: string | null;
     activeDropPreview?: CalendarDropPreview | null;
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
@@ -129,6 +136,8 @@ export interface WeekViewProps {
 export function WeekView({
     weekDates,
     tasksByDate,
+    holidaysByDate = {},
+    birthdayDate,
     activeDropPreview,
     onSelectTask,
     onCompleteTask,
@@ -192,13 +201,45 @@ export function WeekView({
                                 <div className="text-[11px] uppercase tracking-widest font-medium text-twilight-text-muted">
                                     {DAYS_SHORT[i]}
                                 </div>
-                                <div className={`
-                                    text-[20px] font-display font-semibold leading-tight mt-0.5
-                                    ${isToday
-                                        ? "w-9 h-9 mx-auto rounded-full bg-lantern/20 text-lantern ring-1 ring-lantern flex items-center justify-center text-[17px] shadow-[0_0_8px_rgba(232,164,74,0.15)]"
-                                        : ""}
-                                `}>
-                                    {d.getDate()}
+                                <div className="mt-0.5 flex items-center justify-center gap-1.5">
+                                    <div className={`
+                                        text-[20px] font-display font-semibold leading-tight
+                                        ${isToday
+                                            ? "flex h-9 w-9 items-center justify-center rounded-full bg-lantern/20 text-[17px] text-lantern ring-1 ring-lantern shadow-[0_0_8px_rgba(232,164,74,0.15)]"
+                                            : ""}
+                                    `}>
+                                        {d.getDate()}
+                                    </div>
+                                    {(holidaysByDate[ds]?.length ?? 0) > 0 && (
+                                        <Tooltip.Root>
+                                            <Tooltip.Trigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-solstice focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-solstice/60"
+                                                    aria-label={`Holiday: ${holidaysByDate[ds].map((holiday) => holiday.name).join(", ")}`}
+                                                >
+                                                    <span className="h-2 w-2 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]" />
+                                                </button>
+                                            </Tooltip.Trigger>
+                                            <Tooltip.Content>
+                                                {holidaysByDate[ds].map((holiday) => holiday.name).join(", ")}
+                                            </Tooltip.Content>
+                                        </Tooltip.Root>
+                                    )}
+                                    {birthdayDate === ds && (
+                                        <Tooltip.Root>
+                                            <Tooltip.Trigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/60"
+                                                    aria-label="Your birthday"
+                                                >
+                                                    <span className="h-2 w-2 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]" />
+                                                </button>
+                                            </Tooltip.Trigger>
+                                            <Tooltip.Content>🎂 Your Birthday</Tooltip.Content>
+                                        </Tooltip.Root>
+                                    )}
                                 </div>
                             </div>
 

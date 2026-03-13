@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CalendarDays, PanelRightClose, Sunrise } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
+import { AlertTriangle, PanelRightClose, Sunrise } from "lucide-react";
+import { useDragScroll } from "../hooks/use-drag-scroll";
 import { MainLayout } from "../components/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { CalendarView } from "../components/calendar/CalendarView";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
@@ -15,6 +14,7 @@ import { useTasks } from "../hooks/tasks";
 import { useDocumentMeta } from "../hooks/use-document-meta";
 import { useShellMode } from "../hooks/use-shell-mode";
 import { useViewMode } from "../hooks/use-view-mode";
+import { useRouteFocus } from "../hooks/use-route-focus";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { toISODate } from "../lib/utils/date-format";
 import { getTaskEffectiveAnchor } from "../lib/utils/task-scheduling";
@@ -66,11 +66,14 @@ export default function Home() {
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const todayISO = toISODate(new Date());
     const { activeTagId } = useTagFilterStore();
+    const boardScroll = useDragScroll();
 
     useDocumentMeta(
         "Today · Cadence",
         "Review overdue work and today's commitments in one calm, focused viewer.",
     );
+
+    useRouteFocus();
 
     const { data: tasks = [], isLoading } = useTasks({
         state: "ACTIVE",
@@ -114,35 +117,25 @@ export default function Home() {
         }
     };
 
-    const sidePanel = (
+    const sidePanel = selectedTaskId ? (
         <ResizableSidePanel ariaLabel="Resize today sidebar">
-            <AnimatePresence mode="wait">
-                {selectedTaskId ? (
-                    <TaskEditPanel
-                        key={`today-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        onClose={() => setSelectedTaskId(null)}
-                    />
-                ) : (
-                    <ScrollAreaWrapper key="today-calendar">
-                        <div className="p-5">
-                            <CalendarView />
-                        </div>
-                    </ScrollAreaWrapper>
-                )}
-            </AnimatePresence>
+            <TaskEditPanel
+                key={`today-edit-${selectedTaskId}`}
+                taskId={selectedTaskId}
+                onClose={() => setSelectedTaskId(null)}
+            />
         </ResizableSidePanel>
-    );
+    ) : null;
 
-    const headerRight = !shell.isWide ? (
+    const headerRight = (!shell.isWide && selectedTaskId) ? (
         <button
             type="button"
             onClick={() => setMobilePanelOpen(true)}
             className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label={selectedTaskId ? "Open task details" : "Open today calendar"}
+            aria-label="Open task details"
         >
-            {selectedTaskId ? <PanelRightClose size={16} aria-hidden="true" /> : <CalendarDays size={16} aria-hidden="true" />}
-            {selectedTaskId ? "Details" : "Calendar"}
+            <PanelRightClose size={16} aria-hidden="true" />
+            Details
         </button>
     ) : undefined;
 
@@ -188,34 +181,41 @@ export default function Home() {
                                     />
                                 </>
                             ) : (
-                                <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+                                <div
+                                    ref={boardScroll.ref}
+                                    className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 scrollbar-thin cursor-grab"
+                                    onPointerDown={boardScroll.onPointerDown}
+                                    onPointerMove={boardScroll.onPointerMove}
+                                    onPointerUp={boardScroll.onPointerUp}
+                                    onPointerCancel={boardScroll.onPointerCancel}
+                                >
                                     <div className="flex min-w-max gap-4">
-                                    <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
-                                        <div className="mb-3 flex items-center gap-3">
-                                            <AlertTriangle size={14} className="text-[var(--color-priority-urgent)]" aria-hidden="true" />
-                                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Overdue</h2>
-                                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.overdue.length}</span>
-                                        </div>
-                                        <TaskList
-                                            tasks={grouped.overdue}
-                                            selectedTaskId={selectedTaskId}
-                                            onSelectTask={handleSelectTask}
-                                            cardVariant="board"
-                                        />
-                                    </section>
-                                    <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
-                                        <div className="mb-3 flex items-center gap-3">
-                                            <Sunrise size={14} className="text-lantern" aria-hidden="true" />
-                                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Today</h2>
-                                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.today.length}</span>
-                                        </div>
-                                        <TaskList
-                                            tasks={grouped.today}
-                                            selectedTaskId={selectedTaskId}
-                                            onSelectTask={handleSelectTask}
-                                            cardVariant="board"
-                                        />
-                                    </section>
+                                        <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
+                                            <div className="mb-3 flex items-center gap-3">
+                                                <AlertTriangle size={14} className="text-[var(--color-priority-urgent)]" aria-hidden="true" />
+                                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Overdue</h2>
+                                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.overdue.length}</span>
+                                            </div>
+                                            <TaskList
+                                                tasks={grouped.overdue}
+                                                selectedTaskId={selectedTaskId}
+                                                onSelectTask={handleSelectTask}
+                                                cardVariant="board"
+                                            />
+                                        </section>
+                                        <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
+                                            <div className="mb-3 flex items-center gap-3">
+                                                <Sunrise size={14} className="text-lantern" aria-hidden="true" />
+                                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Today</h2>
+                                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.today.length}</span>
+                                            </div>
+                                            <TaskList
+                                                tasks={grouped.today}
+                                                selectedTaskId={selectedTaskId}
+                                                onSelectTask={handleSelectTask}
+                                                cardVariant="board"
+                                            />
+                                        </section>
                                     </div>
                                 </div>
                             )}
@@ -234,31 +234,21 @@ export default function Home() {
                 </PageContent>
             </ScrollAreaWrapper>
 
-            {!shell.isWide && (
+            {!shell.isWide && selectedTaskId && (
                 <ResponsiveOverlayPanel
-                    ariaLabel={selectedTaskId ? "Today details" : "Today calendar"}
+                    ariaLabel="Today details"
                     open={mobilePanelOpen}
                     onClose={() => setMobilePanelOpen(false)}
-                    title={selectedTaskId ? "Task details" : "Calendar"}
+                    title="Task details"
                 >
-                    <AnimatePresence mode="wait">
-                        {selectedTaskId ? (
-                            <TaskEditPanel
-                                key={`today-mobile-edit-${selectedTaskId}`}
-                                taskId={selectedTaskId}
-                                onClose={() => {
-                                    setSelectedTaskId(null);
-                                    setMobilePanelOpen(false);
-                                }}
-                            />
-                        ) : (
-                            <ScrollAreaWrapper key="today-mobile-calendar">
-                                <div className="p-5">
-                                    <CalendarView />
-                                </div>
-                            </ScrollAreaWrapper>
-                        )}
-                    </AnimatePresence>
+                    <TaskEditPanel
+                        key={`today-mobile-edit-${selectedTaskId}`}
+                        taskId={selectedTaskId}
+                        onClose={() => {
+                            setSelectedTaskId(null);
+                            setMobilePanelOpen(false);
+                        }}
+                    />
                 </ResponsiveOverlayPanel>
             )}
         </MainLayout>

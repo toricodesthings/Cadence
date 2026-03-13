@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
-import { NeonAuthUIProvider } from "@neondatabase/auth/react/ui";
+import { AuthUIProvider } from "@neondatabase/auth/react/ui";
+import { ThemeProvider } from "next-themes";
 import { useNavigate, Link as RouterLink } from "react-router";
 import { toast } from "sonner";
 import { authClient } from "./lib/auth-client";
@@ -7,6 +8,7 @@ import { STALE_TIMES } from "./lib/api/query-keys";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ApiErrorResponse } from "./types/api";
 import { AuthStateProvider, useAuthState } from "./hooks/use-auth-state";
+import { Toaster } from "./components/feedback/Toaster";
 
 // Adapter for react-router-dom Link (using react-router v7)
 function Link({
@@ -77,41 +79,56 @@ function ProvidersInner({ children }: { children: ReactNode }) {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <NeonAuthUIProvider
-                authClient={authClient}
-                navigate={(path) => navigate(path)}
-                replace={(path) => navigate(path, { replace: true })}
-                onSessionChange={() => {
-                    queryClient.invalidateQueries();
-                }}
-                Link={Link}
-                social={{
-                    providers: ["google", "github"],
-                }}
-                toast={({ variant = "default", message }) => {
-                    if (!message) return;
+            <div className="neon-auth-ui">
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="dark"
+                    enableSystem
+                >
+                    <AuthUIProvider
+                        authClient={authClient}
+                        navigate={(path) => navigate(path)}
+                        replace={(path) => navigate(path, { replace: true })}
+                        onSessionChange={() => {
+                            queryClient.invalidateQueries();
+                        }}
+                        Link={Link}
+                        social={{
+                            providers: ["google", "github"],
+                        }}
+                        multiSession={false}
+                        apiKey={false}
+                        magicLink={false}
+                        passkey={false}
+                        oneTap={false}
+                        genericOAuth={undefined}
+                        twoFactor={undefined}
+                        toast={({ variant = "default", message }) => {
+                            if (!message) return;
 
-                    switch (variant) {
-                        case "success":
-                            toast.success(message);
-                            return;
-                        case "error":
-                            toast.error(message);
-                            return;
-                        case "warning":
-                            toast.warning(message);
-                            return;
-                        case "info":
-                            toast.info(message);
-                            return;
-                        default:
-                            toast(message);
-                    }
-                }}
-                defaultTheme="dark" // We are aggressively going for the astral dark mode primarily
-            >
-                {children}
-            </NeonAuthUIProvider>
+                            switch (variant) {
+                                case "success":
+                                    toast.success(message);
+                                    return;
+                                case "error":
+                                    toast.error(message);
+                                    return;
+                                case "warning":
+                                    toast.warning(message);
+                                    return;
+                                case "info":
+                                    toast.info(message);
+                                    return;
+                                default:
+                                    toast.message(message);
+                            }
+                        }}
+                    >
+                        {children}
+                        <Toaster />
+                    </AuthUIProvider>
+                </ThemeProvider>
+            </div>
         </QueryClientProvider>
     );
 }

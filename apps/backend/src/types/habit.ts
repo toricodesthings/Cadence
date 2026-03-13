@@ -27,11 +27,11 @@ export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;
 export const weeklyHabitsQuerySchema = z.object({
     start: z.string().min(1), // e.g., YYYY-MM-DD
     end: z.string().min(1),
-    archived: z.coerce.boolean().optional().default(false),
+    archived: z.string().optional().default("false").transform(v => v === "true"),
 });
 
 export const habitListQuerySchema = z.object({
-    archived: z.coerce.boolean().optional().default(false),
+    archived: z.string().optional().default("false").transform(v => v === "true"),
 });
 
 export const monthlyHabitsQuerySchema = z.object({

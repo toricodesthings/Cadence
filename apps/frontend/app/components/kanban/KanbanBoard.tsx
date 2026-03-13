@@ -6,18 +6,23 @@ import {
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections";
 import { useSubtasksByTaskIds } from "../../hooks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks";
-import { KanbanCard } from "./KanbanCard";
+import { useTags } from "../../hooks/tags";
+import { SortableTaskCard } from "../tasks/SortableTaskCard";
+import { TaskCard } from "../tasks/TaskCard";
 import { TaskContextMenuWrapper } from "../tasks/TaskContextMenuWrapper";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
+import { useDragScroll } from "../../hooks/use-drag-scroll";
 import type { Task, TaskSection, Subtask } from "../../types/task";
+import type { Tag } from "../../types/tag";
 
 interface KanbanBoardProps {
     tasks: Task[];
+    projectId?: string | null;
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
 }
@@ -27,6 +32,7 @@ function KanbanColumn({
     section,
     tasks,
     subtasksByTaskId,
+    tagsByTaskId,
     selectedTaskId,
     onSelectTask,
     onRename,
@@ -35,6 +41,7 @@ function KanbanColumn({
     section: TaskSection | { id: "ungrouped"; name: string };
     tasks: Task[];
     subtasksByTaskId: Record<string, Subtask[]>;
+    tagsByTaskId: Record<string, Tag[]>;
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
     onRename?: (name: string) => void;
@@ -51,7 +58,7 @@ function KanbanColumn({
     return (
         <div className="flex flex-col h-full bg-twilight-backdrop/20 rounded-t-2xl border-x-[1px] border-t-[1px] border-twilight-border/40 min-w-[280px]">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-twilight-border/30 group">
+            <div className="relative flex items-center px-5 py-4 shrink-0 border-b border-twilight-border/30 group">
                 {isRenaming && onRename ? (
                     <input
                         autoFocus
@@ -73,7 +80,7 @@ function KanbanColumn({
                 )}
 
                 {section.id !== "ungrouped" && onRename && onDelete && (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
                                 <Button
@@ -82,17 +89,17 @@ function KanbanColumn({
                                     className="p-1"
                                     aria-label={`Open actions for column ${section.name}`}
                                 >
-                                    <MoreHorizontal size={14} />
+                                    <MoreVertical size={14} />
                                 </Button>
                             </DropdownMenu.Trigger>
-                            <DropdownMenu.Content>
+                            <DropdownMenu.Content align="end" sideOffset={4}>
                                 <DropdownMenu.Item onClick={() => setIsRenaming(true)}>
-                                    <Pencil size={14} className="text-twilight-text-muted mr-2" />
+                                    <Pencil size={14} className="text-twilight-text-muted mr-2 shrink-0" />
                                     Rename
                                 </DropdownMenu.Item>
                                 <DropdownMenu.Separator />
                                 <DropdownMenu.Item onClick={onDelete} className="text-red-400 focus:text-red-400">
-                                    <Trash2 size={14} className="mr-2" />
+                                    <Trash2 size={14} className="mr-2 shrink-0" />
                                     Delete
                                 </DropdownMenu.Item>
                             </DropdownMenu.Content>
@@ -109,11 +116,13 @@ function KanbanColumn({
                 <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                     {tasks.map((task) => (
                         <TaskContextMenuWrapper key={task.id} task={task}>
-                            <KanbanCard
+                            <SortableTaskCard
                                 task={task}
+                                tags={tagsByTaskId[task.id] ?? []}
                                 subtasks={subtasksByTaskId[task.id] ?? []}
                                 isSelected={task.id === selectedTaskId}
-                                onClick={onSelectTask || (() => { })}
+                                onSelect={onSelectTask || (() => { })}
+                                variant="board"
                             />
                         </TaskContextMenuWrapper>
                     ))}
@@ -135,20 +144,30 @@ function KanbanColumn({
  * This is NOT a separate page. It's a view mode activated by `?view=kanban`.
  * Dragging a card between columns changes its `sectionId`.
  */
-export function KanbanBoard({ tasks, selectedTaskId = null, onSelectTask = () => { } }: KanbanBoardProps) {
-    const { data: sections = [] } = useSections();
-    const createSection = useCreateSection();
-    const updateSection = useUpdateSection();
-    const deleteSection = useDeleteSection();
+export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, onSelectTask = () => { } }: KanbanBoardProps) {
+    const { data: sections = [] } = useSections(projectId);
+    const createSection = useCreateSection(projectId);
+    const updateSection = useUpdateSection(projectId);
+    const deleteSection = useDeleteSection(projectId);
     const updateTask = useUpdateTask();
 
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [isAddingColumn, setIsAddingColumn] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const dragScroll = useDragScroll();
+    const scrollContainerRef = dragScroll.ref;
     const addColumnRef = useRef<HTMLDivElement>(null);
     const taskIds = useMemo(() => tasks.map((task) => task.id), [tasks]);
     const { data: subtasksByTaskId = {} } = useSubtasksByTaskIds(taskIds);
+    const { data: allTags = [] } = useTags();
+
+    const tagsByTaskId = useMemo(() => {
+        const tagsById = new Map(allTags.map((t) => [t.id, t] as const));
+        return tasks.reduce<Record<string, Tag[]>>((acc, task) => {
+            acc[task.id] = (task.tagIds ?? []).map((id) => tagsById.get(id)).filter((t): t is Tag => Boolean(t));
+            return acc;
+        }, {});
+    }, [allTags, tasks]);
 
     // Scroll to the new "add column" area when entering add mode
     useEffect(() => {
@@ -188,27 +207,61 @@ export function KanbanBoard({ tasks, selectedTaskId = null, onSelectTask = () =>
     const handleDragEnd = (e: DragEndEvent) => {
         setActiveTask(null);
         const { active, over } = e;
-        if (!over) return;
+        if (!over || active.id === over.id) return;
 
         const taskId = active.id as string;
         const overData = over.data.current;
 
-        // Determine target section
-        let targetSectionId: string | null = null;
+        const draggedTask = tasks.find((t) => t.id === taskId);
+        if (!draggedTask) return;
+
+        let targetSectionId: string | null = draggedTask.sectionId || null;
+        let newOrderIndex = draggedTask.orderIndex || 0;
+        let shouldUpdate = false;
+
         if (overData?.type === "Column") {
-            targetSectionId = overData.section.id === "ungrouped" ? null : overData.section.id;
+            const newSectionId = overData.section.id === "ungrouped" ? null : overData.section.id;
+            targetSectionId = newSectionId;
+            const targetTasks = (targetSectionId ? sectionTaskMap.get(targetSectionId) : ungroupedTasks) || [];
+            newOrderIndex = targetTasks.length > 0
+                ? Math.max(...targetTasks.map(t => t.orderIndex || 0)) + 1000
+                : 1000;
+
+            if (draggedTask.sectionId !== targetSectionId) {
+                shouldUpdate = true;
+            }
         } else {
-            // Dropped on a card — figure out which section it belongs to
+            // Dropped on a card
             const overTask = tasks.find((t) => t.id === over.id);
             if (overTask) {
                 targetSectionId = overTask.sectionId || null;
+                const targetTasks = (targetSectionId ? sectionTaskMap.get(targetSectionId) : ungroupedTasks) || [];
+                const sortedTasks = [...targetTasks].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                const overIndex = sortedTasks.findIndex(t => t.id === over.id);
+
+                const activeRect = active.rect.current.translated;
+                const isBelow = activeRect && activeRect.top > over.rect.top + (over.rect.height / 2);
+
+                if (isBelow) {
+                    const prevOrder = overTask.orderIndex || 0;
+                    const nextTask = sortedTasks[overIndex + 1];
+                    const nextOrder = nextTask ? (nextTask.orderIndex || prevOrder + 2000) : prevOrder + 2000;
+                    newOrderIndex = (prevOrder + nextOrder) / 2;
+                } else {
+                    const nextOrder = overTask.orderIndex || 0;
+                    const prevTask = sortedTasks[overIndex - 1];
+                    const prevOrder = prevTask ? (prevTask.orderIndex || nextOrder - 2000) : nextOrder - 2000;
+                    newOrderIndex = (prevOrder + nextOrder) / 2;
+                }
+
+                if (draggedTask.sectionId !== targetSectionId || Math.abs(draggedTask.orderIndex - newOrderIndex) > 0.001) {
+                    shouldUpdate = true;
+                }
             }
         }
 
-        // Update the task's sectionId if it changed
-        const draggedTask = tasks.find((t) => t.id === taskId);
-        if (draggedTask && (draggedTask.sectionId || null) !== targetSectionId) {
-            updateTask.mutate({ id: taskId, sectionId: targetSectionId });
+        if (shouldUpdate) {
+            updateTask.mutate({ id: taskId, sectionId: targetSectionId, orderIndex: newOrderIndex });
         }
     };
 
@@ -241,15 +294,21 @@ export function KanbanBoard({ tasks, selectedTaskId = null, onSelectTask = () =>
         >
             <div
                 ref={scrollContainerRef}
-                className="flex gap-5 px-4 py-4 h-full flex-1 min-h-0 overflow-x-auto scroll-smooth scrollbar-thin"
+                className="overflow-x-auto overflow-y-auto h-full flex-1 min-h-0 scrollbar-thin cursor-grab"
+                onPointerDown={dragScroll.onPointerDown}
+                onPointerMove={dragScroll.onPointerMove}
+                onPointerUp={dragScroll.onPointerUp}
+                onPointerCancel={dragScroll.onPointerCancel}
             >
+                <div className="flex gap-4 px-4 py-4 h-full min-h-full items-stretch">
                 {/* Ungrouped column (always first) */}
                 {(ungroupedTasks.length > 0 || sections.length > 0) && (
-                    <div className="flex-shrink-0 w-[300px]">
+                    <div className="w-[min(24rem,80vw)] shrink-0">
                         <KanbanColumn
                             section={{ id: "ungrouped", name: "Ungrouped" }}
                             tasks={ungroupedTasks}
                             subtasksByTaskId={subtasksByTaskId}
+                            tagsByTaskId={tagsByTaskId}
                             selectedTaskId={selectedTaskId}
                             onSelectTask={onSelectTask}
                         />
@@ -258,11 +317,12 @@ export function KanbanBoard({ tasks, selectedTaskId = null, onSelectTask = () =>
 
                 {/* Section columns */}
                 {sections.map((section) => (
-                    <div key={section.id} className="flex-shrink-0 w-[300px]">
+                    <div key={section.id} className="w-[min(24rem,80vw)] shrink-0">
                         <KanbanColumn
                             section={section}
                             tasks={sectionTaskMap.get(section.id) || []}
                             subtasksByTaskId={subtasksByTaskId}
+                            tagsByTaskId={tagsByTaskId}
                             selectedTaskId={selectedTaskId}
                             onSelectTask={onSelectTask}
                             onRename={(name) => updateSection.mutate({ id: section.id, name })}
@@ -272,7 +332,7 @@ export function KanbanBoard({ tasks, selectedTaskId = null, onSelectTask = () =>
                 ))}
 
                 {/* Add column button */}
-                <div ref={addColumnRef} className="flex-shrink-0 w-[280px]">
+                <div ref={addColumnRef} className="w-[min(20rem,70vw)] shrink-0">
                     {isAddingColumn ? (
                         <div className="bg-twilight-backdrop/20 rounded-2xl border border-twilight-border/40 p-4">
                             <input
@@ -302,15 +362,19 @@ export function KanbanBoard({ tasks, selectedTaskId = null, onSelectTask = () =>
                         </button>
                     )}
                 </div>
+                </div>
             </div>
 
             <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
                 {activeTask ? (
-                    <KanbanCard
+                    <TaskCard
                         task={activeTask}
+                        tags={tagsByTaskId[activeTask.id] ?? []}
                         subtasks={subtasksByTaskId[activeTask.id] ?? []}
-                        onClick={onSelectTask}
+                        onSelect={onSelectTask}
                         isSelected={activeTask.id === selectedTaskId}
+                        variant="board"
+                        isDragging
                     />
                 ) : null}
             </DragOverlay>

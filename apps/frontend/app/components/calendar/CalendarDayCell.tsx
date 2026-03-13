@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useDroppable } from "@dnd-kit/core";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
@@ -14,6 +13,10 @@ interface CalendarDayCellProps {
     hasTask: boolean;
     /** Has habits scheduled on this day — shows as a small flame-colored dot */
     hasHabit?: boolean;
+    /** Has holidays scheduled on this day — shows as a warm ember marker */
+    hasHoliday?: boolean;
+    /** User's birthday falls on this day — shows a violet birthday marker */
+    hasBirthday?: boolean;
     onSelect: (day: number) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
@@ -36,6 +39,8 @@ export function CalendarDayCell({
     isSelected,
     hasTask,
     hasHabit = false,
+    hasHoliday = false,
+    hasBirthday = false,
     onSelect,
     variant = "compact",
     tasks = [],
@@ -60,7 +65,7 @@ export function CalendarDayCell({
             <button
                 onClick={() => onSelect(day)}
                 className={`
-                    relative w-8 h-8 rounded-lg flex items-center justify-center text-[13px]
+                    relative aspect-square w-full max-w-8 rounded-lg flex items-center justify-center text-[13px]
                     transition-colors duration-200 cursor-pointer
                     ${isToday
                         ? "bg-lantern/20 text-lantern ring-1 ring-lantern font-bold"
@@ -71,8 +76,12 @@ export function CalendarDayCell({
                 `}
             >
                 {day}
-                {hasTask && !isToday && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-lantern/60" />
+                {(hasTask || hasHoliday || hasBirthday) && !isToday && (
+                    <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1">
+                        {hasTask && <span className="h-1 w-1 rounded-full bg-lantern/60" />}
+                        {hasHoliday && <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />}
+                        {hasBirthday && <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />}
+                    </span>
                 )}
             </button>
         );
@@ -149,38 +158,42 @@ export function CalendarDayCell({
                 `}>
                     {day}
                 </span>
-                {/* Habit dot indicator — shows when habits are scheduled on this day */}
-                {hasHabit && !isToday && (
-                    <span
-                        title="Habits scheduled"
-                        className="w-1.5 h-1.5 rounded-full bg-lantern/50 shrink-0 shadow-[0_0_4px_rgba(232,164,74,0.4)]"
-                    />
-                )}
+                <span className="flex items-center gap-1.5">
+                    {hasHabit && !isToday && (
+                        <span
+                            title="Habits scheduled"
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-lantern/50 shadow-[0_0_4px_rgba(232,164,74,0.4)]"
+                        />
+                    )}
+                    {hasHoliday && (
+                        <span
+                            title="Holiday"
+                            className="h-2 w-2 shrink-0 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]"
+                        />
+                    )}
+                    {hasBirthday && (
+                        <span
+                            title="Birthday"
+                            className="h-2 w-2 shrink-0 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]"
+                        />
+                    )}
+                </span>
             </button>
 
             {/* Task chips */}
             {tasks.length > 0 && (
                 <div className="w-full px-1.5 pb-1.5 flex flex-col gap-[3px]">
-                    <AnimatePresence initial={false}>
-                        {visibleTasks.map((task) => (
-                            <motion.div
-                                key={task.id}
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.15 }}
-                            >
-                                <CalendarTaskChip
-                                    task={task}
-                                    variant="pill"
-                                    sourceId={dateStr ? `day-${dateStr}` : undefined}
-                                    onSelect={onSelectTask ?? (() => { })}
-                                    onComplete={onCompleteTask}
-                                    onArchive={onArchiveTask}
-                                />
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
+                    {visibleTasks.map((task) => (
+                        <CalendarTaskChip
+                            key={task.id}
+                            task={task}
+                            variant="pill"
+                            sourceId={dateStr ? `day-${dateStr}` : undefined}
+                            onSelect={onSelectTask ?? (() => { })}
+                            onComplete={onCompleteTask}
+                            onArchive={onArchiveTask}
+                        />
+                    ))}
 
                     {/* +N more toggle — expands cell downward */}
                     {hiddenCount > 0 && !expanded && (
@@ -206,4 +219,3 @@ export function CalendarDayCell({
         </div>
     );
 }
-

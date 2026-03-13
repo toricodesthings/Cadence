@@ -22,6 +22,9 @@ interface MiniMonthProps {
     year: number;
     month: number;
     taskDateSet: Set<string>; // ISO dates with tasks YYYY-MM-DD
+    holidayDateSet?: Set<string>;
+    /** ISO date string of user's birthday this year */
+    birthdayDate?: string | null;
     today: Date;
     /** Jump to month view for this month */
     onSelectMonth: (month: number) => void;
@@ -33,6 +36,8 @@ function MiniMonth({
     year,
     month,
     taskDateSet,
+    holidayDateSet,
+    birthdayDate,
     today,
     onSelectMonth,
     onSelectDay,
@@ -51,12 +56,12 @@ function MiniMonth({
     const monthStr = String(month + 1).padStart(2, "0");
 
     return (
-        <div className="glass rounded-2xl p-3 flex flex-col gap-1.5 hover:bg-white/[0.02] transition-colors">
+        <div className="glass rounded-2xl p-4 flex flex-col gap-3 hover:bg-white/[0.02] transition-colors">
             {/* Month name */}
             <button
                 type="button"
                 onClick={() => onSelectMonth(month)}
-                className="font-display text-[13px] font-semibold text-twilight-text-soft hover:text-lantern transition-colors cursor-pointer text-left"
+                className="font-display text-[14px] font-semibold text-twilight-text-soft hover:text-lantern transition-colors cursor-pointer text-left pb-1"
             >
                 {MONTHS[month]}
             </button>
@@ -77,6 +82,8 @@ function MiniMonth({
                     const dayStr = `${year}-${monthStr}-${String(day).padStart(2, "0")}`;
                     const isToday = dayStr === todayStr;
                     const hasTask = taskDateSet.has(dayStr);
+                    const hasHoliday = holidayDateSet?.has(dayStr) ?? false;
+                    const isBirthday = birthdayDate === dayStr;
 
                     return (
                         <button
@@ -95,6 +102,12 @@ function MiniMonth({
                             {hasTask && !isToday && (
                                 <span className="absolute bottom-[1px] left-1/2 -translate-x-1/2 w-[3px] h-[3px] rounded-full bg-lantern/60" />
                             )}
+                            {hasHoliday && (
+                                <span className="absolute right-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.4)]" />
+                            )}
+                            {isBirthday && (
+                                <span className="absolute left-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.4)]" />
+                            )}
                         </button>
                     );
                 })}
@@ -106,13 +119,16 @@ function MiniMonth({
 export interface YearViewProps {
     year: number;
     tasks: Task[];
+    holidayDateSet?: Set<string>;
+    /** ISO date string of user's birthday this year */
+    birthdayDate?: string | null;
     /** Switch to month view for a specific month */
     onSelectMonth: (month: number) => void;
     /** Switch to day view for a specific day */
     onSelectDay: (dateStr: string) => void;
 }
 
-export function YearView({ year, tasks, onSelectMonth, onSelectDay }: YearViewProps) {
+export function YearView({ year, tasks, holidayDateSet, birthdayDate, onSelectMonth, onSelectDay }: YearViewProps) {
     const today = new Date();
 
     // Build a set of all ISO dates that have at least one task
@@ -137,6 +153,8 @@ export function YearView({ year, tasks, onSelectMonth, onSelectDay }: YearViewPr
                         year={year}
                         month={m}
                         taskDateSet={taskDateSet}
+                        holidayDateSet={holidayDateSet}
+                        birthdayDate={birthdayDate}
                         today={today}
                         onSelectMonth={onSelectMonth}
                         onSelectDay={onSelectDay}

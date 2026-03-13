@@ -7,14 +7,27 @@ import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { CommandPalette } from "./CommandPalette";
 import { FloatingActionBar } from "./tasks/FloatingActionBar";
 import { SettingsDialog } from "./settings/SettingsDialog";
+import { QuickAddSurface } from "./quick-add/QuickAddSurface";
+import { Loading } from "./Loading";
 import { useEffect, useMemo, useState } from "react";
 import { useAuthState } from "../hooks/use-auth-state";
 import { useShellMode } from "../hooks/use-shell-mode";
 import { useDocumentMeta } from "../hooks/use-document-meta";
+import { useNotificationCenter } from "../hooks/use-notification-center";
+import { useBrowserNotifications } from "../hooks/use-browser-notifications";
+import { useThemeSync } from "../hooks/use-theme-sync";
+import { useViewMode } from "../hooks/use-view-mode";
+import { useTaskSelection } from "../stores/task-selection-store";
+import { useBatchStateTransition } from "../hooks/tasks/use-batch-state";
+import { toast } from "sonner";
 import type { PageWidth } from "./layout/page-layout";
 
 const PAGE_META: Record<string, { title: string; description: string }> = {
     "/": {
+        title: "Holding",
+        description: "Capture unmanaged work, keep it visible, and sort raw notes without losing calm.",
+    },
+    "/today": {
         title: "Today",
         description: "Review overdue work and today's commitments in one calm, focused viewer.",
     },
@@ -25,10 +38,6 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
     "/upcoming": {
         title: "Upcoming",
         description: "Review the horizon of upcoming tasks and prepare what needs attention next.",
-    },
-    "/inbox": {
-        title: "Holding",
-        description: "Capture unmanaged work, keep it visible, and sort raw notes without losing calm.",
     },
     "/completed": {
         title: "Completed",
@@ -84,14 +93,54 @@ export function MainLayout({
     const location = useLocation();
     const { isCollapsed, toggleCollapse } = useSidebarStore();
     const [commandOpen, setCommandOpen] = useState(false);
+    const [quickAddOpen, setQuickAddOpen] = useState(false);
     const [navOpen, setNavOpen] = useState(false);
+    const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
+    const { view, setView } = useViewMode();
+    const { selectedTaskIds, clearSelection } = useTaskSelection();
+    const batchState = useBatchStateTransition();
+
+    useEffect(() => {
+        const handleDebugLoading = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            setForceLoading(true);
+            setTimeout(() => setForceLoading(false), detail?.duration || 10000);
+        };
+        window.addEventListener("debug:loading", handleDebugLoading);
+        return () => window.removeEventListener("debug:loading", handleDebugLoading);
+    }, []);
 
     useKeyboardShortcuts({
         onCommandPalette: () => setCommandOpen((open) => !open),
-        // other commands handled by defaults
+        onQuickAdd: () => setQuickAddOpen(true),
+        onFocusSearch: () => setCommandOpen(true),
+        onToggleView: () => setView(view === "list" ? "kanban" : "list"),
+        onCompleteTask: () => {
+            const ids = Array.from(selectedTaskIds);
+            if (ids.length === 0) return;
+            batchState.mutate(
+                { taskIds: ids, state: "COMPLETE" },
+                { onSuccess: () => { toast.success(`Completed ${ids.length} task${ids.length > 1 ? "s" : ""}`); clearSelection(); } },
+            );
+        },
+        onArchiveTask: () => {
+            const ids = Array.from(selectedTaskIds);
+            if (ids.length === 0) return;
+            batchState.mutate(
+                { taskIds: ids, state: "ARCHIVED" },
+                { onSuccess: () => { toast.success(`Archived ${ids.length} task${ids.length > 1 ? "s" : ""}`); clearSelection(); } },
+            );
+        },
     });
+
+    // Drive browser notifications from the notification center's computed list
+    const { allNotifications } = useNotificationCenter();
+    useBrowserNotifications(allNotifications);
+
+    // Sync appearance settings (theme, motion) to the DOM
+    useThemeSync();
 
     useEffect(() => {
         setNavOpen(false);
@@ -117,15 +166,8 @@ export function MainLayout({
 
     useDocumentMeta(`${resolvedPageTitle} · Cadence`, resolvedPageDescription);
 
-    if (requireAuth && (status === "bootstrapping" || status === "refreshing")) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-twilight">
-                <div className="rounded-3xl border border-twilight-border bg-twilight-surface/80 px-8 py-6 text-center">
-                    <p className="text-sm uppercase tracking-[0.2em] text-twilight-text-muted">Restoring session</p>
-                    <p className="mt-3 text-sm text-twilight-text-soft">Loading your workspace.</p>
-                </div>
-            </div>
-        );
+    if (forceLoading || (requireAuth && (status === "bootstrapping" || status === "refreshing"))) {
+        return <Loading />;
     }
 
     if (requireAuth && status === "recoverable_error") {
@@ -171,13 +213,21 @@ export function MainLayout({
 
     return (
         <Tooltip.Provider delayDuration={300}>
-            <div className="min-h-dvh bg-twilight">
-                <div className="flex min-h-dvh">
-                    {customSidebar !== undefined ? customSidebar : <Sidebar mode={shell.mode} navOpen={navOpen} onClose={() => setNavOpen(false)} />}
+            <div className="h-dvh bg-twilight overflow-hidden">
+                <div className="flex h-full">
+                    {customSidebar !== undefined ? customSidebar : (
+                        <Sidebar
+                            mode={shell.mode}
+                            navOpen={navOpen}
+                            onClose={() => setNavOpen(false)}
+                            onSearchOpen={() => setCommandOpen(true)}
+                            onQuickAddOpen={() => setQuickAddOpen(true)}
+                        />
+                    )}
 
-                    <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex min-w-0 flex-1 flex-col min-h-0">
                     {!hideHeader && (
-                        <header className="sticky top-0 z-30 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl">
+                        <header className="shrink-0 z-30 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl">
                             <div
                                 className="px-4 pb-3 pt-2.5 sm:px-6 sm:pb-3 sm:pt-3 lg:px-8"
                                 style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
@@ -185,7 +235,7 @@ export function MainLayout({
                                 <div className="flex w-full flex-col gap-2">
                                     <div className="flex min-h-11 items-center justify-between gap-4 sm:min-h-12">
                                         <div className="flex min-w-0 items-center gap-3">
-                                            {customSidebar === undefined && (
+                                            {customSidebar === undefined && (controlsSidebarPanel || !shell.isDesktop) && (
                                                 <button
                                                     onClick={shell.isDesktop ? toggleCollapse : () => setNavOpen(true)}
                                                     aria-label={
@@ -266,6 +316,7 @@ export function MainLayout({
 
             <FloatingActionBar />
             <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+            <QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} />
             <SettingsDialog />
         </Tooltip.Provider>
     );

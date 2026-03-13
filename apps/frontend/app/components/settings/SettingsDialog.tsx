@@ -28,20 +28,24 @@ type TabId =
     | "privacy";
 
 const SETTINGS_CATEGORIES = [
-    { label: "User Settings", isHeader: true },
-    { id: "account", label: "My Account", icon: User },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "datetime", label: "Date & Time", icon: Clock },
-    { id: "privacy", label: "Data & Privacy", icon: Shield },
+    { label: "Profile & Security", isHeader: true },
+    { id: "account", label: "Profile & Security", icon: User },
 
     { label: "Preferences", isHeader: true },
-    { id: "ai", label: "Cadence Intelligence", icon: Sparkles },
     { id: "appearance", label: "Appearance", icon: Paintbrush },
-    { id: "shortcuts", label: "Shortcuts", icon: Keyboard },
-
-    { label: "App Settings", isHeader: true },
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "datetime", label: "Calendar & Time", icon: Clock },
     { id: "tasks", label: "Tasks & Workflow", icon: CheckSquare },
-    { id: "integrations", label: "Integrations", icon: Blocks },
+    { id: "shortcuts", label: "Keyboard Shortcuts", icon: Keyboard },
+
+    { label: "Workspace", isHeader: true },
+    { id: "integrations", label: "Integrations", icon: Blocks, badge: "Soon" },
+
+    { label: "Privacy", isHeader: true },
+    { id: "privacy", label: "Privacy & Data", icon: Shield },
+
+    { label: "Planned", isHeader: true },
+    { id: "ai", label: "Cadence Intelligence", icon: Sparkles },
 ];
 
 export function SettingsDialog() {
@@ -151,6 +155,11 @@ export function SettingsDialog() {
                                     >
                                         <Icon className={cn("h-4 w-4", isActive ? "h-5 w-5 text-lantern" : "text-twilight-text-muted")} />
                                         {item.label}
+                                        {(item as any).badge && (
+                                            <span className="ml-auto rounded-full border border-lantern/30 bg-lantern/12 px-1.5 py-0.5 text-[10px] font-medium text-lantern">
+                                                {(item as any).badge}
+                                            </span>
+                                        )}
                                     </button>
                                 );
                             })}
@@ -158,7 +167,7 @@ export function SettingsDialog() {
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="relative flex flex-1 flex-col items-stretch overflow-y-auto bg-[radial-gradient(circle_at_top_right,rgba(232,164,74,0.06),transparent_25%),linear-gradient(180deg,rgba(10,22,40,0.92),rgba(7,14,26,0.96))]">
+                    <div className="settings-content-bg relative flex flex-1 flex-col items-stretch overflow-y-auto">
                         <button
                             type="button"
                             className="group absolute right-6 top-6 z-10 hidden flex-col items-center gap-2 lg:flex"

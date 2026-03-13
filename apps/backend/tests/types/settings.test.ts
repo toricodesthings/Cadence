@@ -7,11 +7,25 @@ describe("settings patch schema", () => {
             settingsPatchSchema.parse({
                 tasks: { hideCompleted: true },
                 dateTime: { timezone: "America/Toronto" },
+                calendar: {
+                    holidays: {
+                        enabled: false,
+                        countryCode: "CA",
+                        promptDismissedAt: "2026-03-11T15:00:00.000Z",
+                    },
+                },
                 preferredView: "kanban",
             }),
         ).toEqual({
             tasks: { hideCompleted: true },
             dateTime: { timezone: "America/Toronto" },
+            calendar: {
+                holidays: {
+                    enabled: false,
+                    countryCode: "CA",
+                    promptDismissedAt: "2026-03-11T15:00:00.000Z",
+                },
+            },
             preferredView: "kanban",
         });
     });

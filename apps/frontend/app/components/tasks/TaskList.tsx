@@ -151,7 +151,7 @@ export function TaskList({
             onDragEnd={handleDragEnd}
         >
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col mt-4">
+                <div className="flex flex-col mt-4 gap-1">
                     {tasks.map((task) => (
                         <TaskContextMenuWrapper key={task.id} task={task}>
                             <SortableTaskCard

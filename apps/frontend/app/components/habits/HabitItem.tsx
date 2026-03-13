@@ -3,7 +3,7 @@ import { Check, X } from "lucide-react";
 import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
 import type { Habit, HabitLog } from "../../types/habit";
 import { useState } from "react";
-import * as Popover from "@radix-ui/react-popover";
+import * as Popover from "../primitives/Popover";
 
 interface HabitItemProps {
     habit: Habit;
@@ -32,6 +32,8 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
         <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Trigger asChild>
                 <button
+                    data-focus-kind="habit"
+                    data-focus-id={habit.id}
                     onClick={handleToggle}
                     onContextMenu={(e) => {
                         e.preventDefault();
@@ -72,52 +74,38 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                 </button>
             </Popover.Trigger>
 
-            <AnimatePresence>
-                {open && (
-                    <Popover.Portal forceMount>
-                        <Popover.Content sideOffset={8} className="z-50 outline-none" asChild>
-                            <motion.div
-                                initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }} // Natural UI curve
-                                className="glass bg-twilight-surface p-2 rounded-xl border border-twilight-border shadow-2xl flex space-x-2 relative"
-                            >
-                                <button
-                                    className="touch-target rounded-xl bg-twilight-surface-hover/50 p-3 text-lantern shadow-inner transition-colors hover:bg-twilight-surface-hover"
-                                    onClick={() => {
-                                        resolveHabit({ targetDate: log.targetDate, status: "COMPLETED" });
-                                        setOpen(false);
-                                    }}
-                                    aria-label="Mark habit complete"
-                                >
-                                    <Check className="h-5 w-5" />
-                                </button>
-                                <button
-                                    className="touch-target rounded-xl bg-twilight-surface-hover/50 p-3 text-twilight-text-soft transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text"
-                                    onClick={() => {
-                                        resolveHabit({ targetDate: log.targetDate, status: "SKIPPED" });
-                                        setOpen(false);
-                                    }}
-                                    aria-label="Skip habit"
-                                >
-                                    <X className="h-5 w-5" />
-                                </button>
-                                <div className="w-px bg-twilight-border mx-1 my-2" />
-                                <button
-                                    className="touch-target rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-widest text-twilight-text-soft transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text"
-                                    onClick={() => {
-                                        resolveHabit({ targetDate: log.targetDate, status: "PENDING" });
-                                        setOpen(false);
-                                    }}
-                                >
-                                    Clear
-                                </button>
-                            </motion.div>
-                        </Popover.Content>
-                    </Popover.Portal>
-                )}
-            </AnimatePresence>
+            <Popover.Content sideOffset={8} className="p-2 flex space-x-2">
+                <button
+                    className="touch-target rounded-xl bg-twilight-surface-hover/50 p-3 text-lantern shadow-inner transition-colors hover:bg-twilight-surface-hover"
+                    onClick={() => {
+                        resolveHabit({ targetDate: log.targetDate, status: "COMPLETED" });
+                        setOpen(false);
+                    }}
+                    aria-label="Mark habit complete"
+                >
+                    <Check className="h-5 w-5" />
+                </button>
+                <button
+                    className="touch-target rounded-xl bg-twilight-surface-hover/50 p-3 text-twilight-text-soft transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text"
+                    onClick={() => {
+                        resolveHabit({ targetDate: log.targetDate, status: "SKIPPED" });
+                        setOpen(false);
+                    }}
+                    aria-label="Skip habit"
+                >
+                    <X className="h-5 w-5" />
+                </button>
+                <div className="w-px bg-twilight-border mx-1 my-2" />
+                <button
+                    className="touch-target rounded-xl px-4 py-2 text-xs font-semibold uppercase tracking-widest text-twilight-text-soft transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text"
+                    onClick={() => {
+                        resolveHabit({ targetDate: log.targetDate, status: "PENDING" });
+                        setOpen(false);
+                    }}
+                >
+                    Clear
+                </button>
+            </Popover.Content>
         </Popover.Root>
     );
 }

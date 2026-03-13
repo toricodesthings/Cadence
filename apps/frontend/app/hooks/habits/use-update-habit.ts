@@ -30,10 +30,27 @@ export function useUpdateHabit() {
             await cancelHabitQueries(queryClient);
             const snapshot = snapshotHabitCache(queryClient);
 
+            let fullHabit: Habit | undefined;
+            queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }).forEach(([_, data]) => {
+                const found = data?.find(h => h.id === id);
+                if (found) fullHabit = found;
+            });
+            // Also search weekly caches — archived habits may only exist there
+            if (!fullHabit) {
+                queryClient.getQueriesData<Habit[]>({ queryKey: ["habits", "weekly"] }).forEach(([_, data]) => {
+                    const found = data?.find(h => h.id === id);
+                    if (found) fullHabit = found;
+                });
+            }
+
             const apply = (old: Habit[] | undefined): Habit[] | undefined => {
-                return transformListCache(old, (items) =>
-                    items.map((h) => h.id === id ? { ...h, ...patch } : h),
-                );
+                return transformListCache(old, (items) => {
+                    const exists = items.some(h => h.id === id);
+                    if (patch.archived === false && !exists && fullHabit) {
+                        return [{ ...fullHabit, ...patch } as Habit, ...items];
+                    }
+                    return items.map((h) => h.id === id ? { ...h, ...patch } as Habit : h);
+                });
             };
 
             queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }, apply);
@@ -53,9 +70,9 @@ export function useUpdateHabit() {
                     queryClient.setQueryData(
                         key,
                         transformListCache(withoutTarget, (items) => {
-                            const existing = old?.find((habit) => habit.id === id);
+                            const existing = old?.find((habit) => habit.id === id) || fullHabit;
                             if (!existing) return items;
-                            return [...items, { ...existing, ...patch }];
+                            return [...items, { ...existing, ...patch } as Habit];
                         }),
                     );
                 });
@@ -70,8 +87,7 @@ export function useUpdateHabit() {
         onError: (err, _vars, context) => {
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
             toast.error(err instanceof Error ? err.message : "Failed to update habit");
+            invalidateHabitCaches(queryClient);
         },
-
-        onSettled: () => invalidateHabitCaches(queryClient),
     });
 }

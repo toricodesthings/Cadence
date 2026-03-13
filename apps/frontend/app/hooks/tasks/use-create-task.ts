@@ -12,6 +12,7 @@ import type { Task, CreateTaskInput } from "../../types/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { isRecurringTask } from "../../lib/utils/task-scheduling";
 
 /** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
@@ -23,6 +24,7 @@ export function useCreateTask() {
             const res = await client.api.tasks.$post({
                 json: {
                     title: input.title,
+                    ...(input.content !== undefined && { content: input.content }),
                     orderIndex: input.orderIndex,
                     state: "ACTIVE",
                     isAllDay: input.isAllDay ?? true,
@@ -30,6 +32,7 @@ export function useCreateTask() {
                     ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
                     ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
                     ...(input.dueDate && { dueDate: input.dueDate }),
+                    ...(input.timezoneLocked !== undefined && { timezoneLocked: input.timezoneLocked }),
                     ...(input.priority !== undefined && { priority: input.priority }),
                     ...(input.isPinned !== undefined && { isPinned: input.isPinned }),
                     ...(input.reminderAt && { reminderAt: input.reminderAt }),
@@ -49,8 +52,10 @@ export function useCreateTask() {
                 id: crypto.randomUUID(),
                 userId: "",
                 projectId: input.projectId ?? null,
+                sectionId: input.sectionId ?? null,
+                tagIds: [],
                 title: input.title,
-                content: null,
+                content: input.content ?? null,
                 state: "ACTIVE",
                 orderIndex: input.orderIndex,
                 isAllDay: input.isAllDay ?? true,
@@ -58,7 +63,7 @@ export function useCreateTask() {
                 scheduledStart: input.scheduledStart ?? null,
                 scheduledEnd: input.scheduledEnd ?? null,
                 durationEstimate: null,
-                timezoneLocked: false,
+                timezoneLocked: input.timezoneLocked ?? false,
                 priority: input.priority ?? 0,
                 isPinned: input.isPinned ?? false,
                 reminderAt: input.reminderAt ?? null,
@@ -82,14 +87,17 @@ export function useCreateTask() {
         },
 
         onSuccess: (task, _input, context) => {
+            if (isRecurringTask(task)) {
+                invalidateTaskCaches(queryClient);
+                return;
+            }
             reconcileTaskInCaches(queryClient, task, context?.optimisticId);
         },
 
         onError: (err, _input, context) => {
             if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            invalidateTaskCaches(queryClient);
             toast.error(err.message || "Failed to create task");
         },
-
-        onSettled: () => invalidateTaskCaches(queryClient),
     });
 }

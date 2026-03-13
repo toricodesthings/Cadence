@@ -14,6 +14,7 @@ const uuidParamSchema = z.object({ id: z.string().uuid() });
 const createSectionSchema = z.object({
     name: z.string().min(1).max(200),
     orderIndex: z.number(),
+    projectId: z.string().uuid().nullable().optional(),
 });
 
 const updateSectionSchema = z.object({
@@ -22,16 +23,24 @@ const updateSectionSchema = z.object({
 });
 
 export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // GET /api/sections — list all user sections
+    // GET /api/sections?projectId=... — list sections for a project (or unscoped if no projectId)
     .get("/", async (c) => {
         const userId = c.get("userId");
+        const projectId = c.req.query("projectId") ?? null;
         const db = getDbClient(c.env);
+
+        const conditions = [eq(taskSections.userId, userId)];
+        if (projectId) {
+            conditions.push(eq(taskSections.projectId, projectId));
+        } else {
+            conditions.push(sql`${taskSections.projectId} IS NULL`);
+        }
 
         const rows = await withRls(db, userId, async (tx) =>
             tx
                 .select()
                 .from(taskSections)
-                .where(eq(taskSections.userId, userId))
+                .where(and(...conditions))
                 .orderBy(asc(taskSections.orderIndex))
         );
 

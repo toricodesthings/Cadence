@@ -31,11 +31,11 @@ Or run them from this directory with `pnpm <script>`.
 ```text
 src/
 ├── index.ts    Worker entry point and AppType export
-├── routes/     Route modules
-├── lib/        Shared backend logic
-├── types/      Zod schemas and shared API types
-├── db/         Drizzle schema
-└── cron/       Scheduled worker jobs
+├── routes/     Route modules (tasks, projects, inbox, tags, habits, settings, debug, etc.)
+├── lib/        Shared backend logic (auth, DB, RLS, errors, metrics)
+├── types/      Zod schemas and shared API types (including settings patch schema)
+├── db/         Drizzle schema (user settings default includes full notification preferences)
+└── cron/       Scheduled worker jobs (overdue task processing)
 ```
 
 ## Workspace Role
@@ -43,6 +43,8 @@ src/
 - Export `AppType` from the package root for typed Hono RPC clients.
 - Export schema types through `@cadence/backend/types/*`.
 - Keep this package runtime-safe for Cloudflare Workers.
+- The settings PATCH schema keeps notification fields optional by design (partial merges).
+- The debug seed route includes notification-triggering test data and unmanaged tasks for frontend testing.
 
 ## Related Docs
 

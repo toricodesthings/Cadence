@@ -21,7 +21,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/utils/priority";
-import { getTaskScheduleSummary } from "../../lib/utils/task-scheduling";
+import { getTaskRecurrenceSummary, getTaskScheduleSummary, isRecurringTask } from "../../lib/utils/task-scheduling";
 import type { Task, TaskPriority, TaskState, EffortLevel } from "../../types/task";
 
 interface TaskEditPanelProps {
@@ -173,8 +173,15 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
     const project = projects?.find((p) => p.id === task?.projectId);
 
     const scheduleSummary = task ? getTaskScheduleSummary(task) : null;
-    const scheduleLabel = scheduleSummary?.primaryLabel ?? "No schedule";
-    const scheduleFieldLabel = scheduleSummary?.isDuration ? "Duration" : scheduleSummary?.isTimed ? "Time block" : "Deadline";
+    const recurrenceSummary = task ? getTaskRecurrenceSummary(task) : null;
+    const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
+    const scheduleFieldLabel = task && isRecurringTask(task)
+        ? "Series"
+        : scheduleSummary?.isDuration
+            ? "Duration"
+            : scheduleSummary?.isTimed
+                ? "Time block"
+                : "Deadline";
 
     const charCount = notes.length;
     const maxChars = 10000;
@@ -239,12 +246,18 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                                 </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end">
+                                {task.recurrenceRule && (
+                                    <DropdownMenu.Item onSelect={() => handleStateChange("ARCHIVED")}>
+                                        <Calendar size={14} aria-hidden="true" />
+                                        Archive series
+                                    </DropdownMenu.Item>
+                                )}
                                 <DropdownMenu.Item
                                     className="flex items-center gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
                                     onSelect={handleDelete}
                                 >
                                     <Trash2 size={14} aria-hidden="true" />
-                                    Delete task
+                                    {task.recurrenceRule ? "Delete series" : "Delete task"}
                                 </DropdownMenu.Item>
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>
@@ -345,30 +358,24 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                                     {/* Effort */}
                                     <MetaRow icon={Gauge} label="Effort">
                                         <div className="flex bg-white/[0.04] p-0.5 rounded-xl gap-0.5">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
+                                            <button
                                                 onClick={() => handleEffortChange(1)}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] ${task.effort === 1 ? "bg-white/[0.08] text-twilight-text shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.effort === 1 ? "bg-white/[0.08] text-twilight-text shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Low
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
+                                            </button>
+                                            <button
                                                 onClick={() => handleEffortChange(2)}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] ${task.effort === 2 ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.effort === 2 ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Medium
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
+                                            </button>
+                                            <button
                                                 onClick={() => handleEffortChange(3)}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] ${task.effort === 3 ? "bg-lantern/30 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.effort === 3 ? "bg-lantern/30 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 High
-                                            </Button>
+                                            </button>
                                         </div>
                                     </MetaRow>
 
@@ -463,11 +470,18 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                                     </MetaRow>
 
                                     {/* Recurrence */}
-                                    {task.recurrenceRule && (
+                                    {task.recurrenceRule && recurrenceSummary && (
                                         <MetaRow icon={Repeat} label="Recurrence">
-                                            <span className="text-xs text-twilight-text-muted bg-white/[0.06] rounded-lg px-2 py-1">
-                                                {task.recurrenceRule}
-                                            </span>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className="rounded-xl bg-moonlit/10 px-2.5 py-1 text-xs text-moonlit">
+                                                    {recurrenceSummary.cadenceLabel}
+                                                </span>
+                                                {recurrenceSummary.detailLabel && (
+                                                    <span className="text-xs text-twilight-text-muted">
+                                                        {recurrenceSummary.detailLabel}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </MetaRow>
                                     )}
                                 </div>

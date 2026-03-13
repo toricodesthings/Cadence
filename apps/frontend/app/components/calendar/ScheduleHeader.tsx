@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
@@ -6,6 +7,7 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { useRealtimeClock } from "../../hooks/use-realtime-clock";
+import { getDateFormatConfig } from "../../lib/utils/date-format";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
 
@@ -38,6 +40,7 @@ export interface ScheduleHeaderProps {
     onToday: () => void;
     /** Opens the event popover for creating a task */
     onAddTask?: () => void;
+    holidayControls?: ReactNode;
     compact?: boolean;
 }
 
@@ -46,19 +49,22 @@ function buildSubtitleLabel(
     viewMode: CalendarViewMode,
     currentDate: string,
 ): string {
+    const isDmy = getDateFormatConfig().dateStyle === "dmy";
+    const locale = isDmy ? "en-GB" : "en-US";
+
     if (viewMode === "day") {
         const d = new Date(currentDate + "T00:00:00");
-        return d.toLocaleDateString("en-US", { weekday: "long", day: "numeric" });
+        return d.toLocaleDateString(locale, { weekday: "long", day: "numeric" });
     }
     if (viewMode === "week") {
         const start = new Date(currentDate + "T00:00:00");
         const end = new Date(start);
         end.setDate(end.getDate() + 6);
-        const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const startLabel = start.toLocaleDateString(locale, { month: "short", day: "numeric" });
         if (start.getMonth() === end.getMonth()) {
             return `Week of ${startLabel} \u2013 ${end.getDate()}, ${end.getFullYear()}`;
         }
-        const endLabel = end.toLocaleDateString("en-US", {
+        const endLabel = end.toLocaleDateString(locale, {
             month: "short",
             day: "numeric",
             year: "numeric",
@@ -67,7 +73,7 @@ function buildSubtitleLabel(
     }
     // Month / year view — return the current day label as warm context
     const d = new Date(currentDate + "T00:00:00");
-    return d.toLocaleDateString("en-US", { weekday: "long", day: "numeric" });
+    return d.toLocaleDateString(locale, { weekday: "long", day: "numeric" });
 }
 
 export function ScheduleHeader({
@@ -79,6 +85,7 @@ export function ScheduleHeader({
     onNavigate,
     onToday,
     onAddTask,
+    holidayControls,
     compact = false,
 }: ScheduleHeaderProps) {
     const CurrentIcon = MONTH_ICONS[month];
@@ -138,7 +145,7 @@ export function ScheduleHeader({
                 </div>
             </div>
 
-            {/* ── Row 2: View switcher (left) + Add Task CTA (right) ── */}
+            {/* ── Row 2: View switcher (left) + Calendar controls (right) ── */}
             <div className={`mt-4 flex gap-3 ${compact ? "flex-col" : "items-center justify-between"}`}>
                 <nav
                     className="flex flex-wrap items-center gap-2 rounded-2xl border border-twilight-border bg-twilight-base/35 p-1"
@@ -150,10 +157,10 @@ export function ScheduleHeader({
                             type="button"
                             onClick={() => onViewMode(mode)}
                             className={`
-                                touch-target rounded-xl px-4 text-[14px] font-medium transition-colors duration-200 cursor-pointer
+                                touch-target rounded-xl px-4 text-[14px] font-medium transition-colors duration-200 cursor-pointer border
                                 ${viewMode === mode
-                                    ? "bg-lantern/20 text-lantern border border-lantern/25"
-                                    : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04]"}
+                                    ? "bg-lantern/20 text-lantern border-lantern/25"
+                                    : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
                             `}
                             aria-current={viewMode === mode ? "true" : undefined}
                         >
@@ -162,16 +169,19 @@ export function ScheduleHeader({
                     ))}
                 </nav>
 
-                {onAddTask && (
-                    <button
-                        type="button"
-                        onClick={onAddTask}
-                        className="touch-target inline-flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-lantern/20 bg-lantern/15 px-4 text-[14px] font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors duration-200 cursor-pointer"
-                    >
-                        <Plus size={15} />
-                        Add Task
-                    </button>
-                )}
+                <div className={`flex flex-wrap gap-2 ${compact ? "" : "justify-end"}`}>
+                    {holidayControls}
+                    {onAddTask && (
+                        <button
+                            type="button"
+                            onClick={onAddTask}
+                            className="touch-target inline-flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-lantern/20 bg-lantern/15 px-4 text-[14px] font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors duration-200 cursor-pointer"
+                        >
+                            <Plus size={15} />
+                            Add Task
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -26,7 +26,7 @@ describe("debug seed helpers", () => {
             effort: 1,
         });
 
-        expect(task.dueDate).toBe("2026-03-09T00:00:00.000Z");
+        expect(task.dueDate).toBe("2026-03-09T12:00:00.000Z");
         expect(task.scheduledStart).toBeNull();
         expect(task.scheduledEnd).toBeNull();
         expect(getTaskScheduleKind(task)).toBe("deadline");
@@ -45,7 +45,7 @@ describe("debug seed helpers", () => {
             effort: 2,
         });
 
-        expect(task.dueDate).toBe("2026-03-11T00:00:00.000Z");
+        expect(task.dueDate).toBe("2026-03-11T12:00:00.000Z");
         expect(task.scheduledStart).toBeNull();
         expect(task.scheduledEnd).toBe("2026-03-12T23:59:59.999Z");
         expect(getTaskScheduleKind(task)).toBe("duration");
@@ -72,6 +72,29 @@ describe("debug seed helpers", () => {
         expect(task.scheduledEnd).toBe("2026-03-09T15:30:00.000Z");
         expect(getTaskScheduleKind(task)).toBe("timed");
         expect(getTaskEffectiveAnchor(task)).toBe("2026-03-09");
+    });
+
+    it("builds recurring timetable seed tasks without mutating the timed anchor", () => {
+        const task = createSeedTask(USER_ID, {
+            title: "Calculus II lecture",
+            state: "ACTIVE",
+            orderIndex: 13,
+            isAllDay: false,
+            scheduledStart: "2026-03-10T09:30:00.000Z",
+            scheduledEnd: "2026-03-10T10:45:00.000Z",
+            durationEstimate: 75,
+            timezoneLocked: true,
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+            priority: 2,
+            effort: 2,
+        });
+
+        expect(task.scheduledStart).toBe("2026-03-10T09:30:00.000Z");
+        expect(task.scheduledEnd).toBe("2026-03-10T10:45:00.000Z");
+        expect(task.timezoneLocked).toBe(true);
+        expect(task.recurrenceRule).toBe("FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z");
+        expect(getTaskScheduleKind(task)).toBe("timed");
+        expect(getTaskEffectiveAnchor(task)).toBe("2026-03-10");
     });
 
     it("uses shared insert-contract defaults for non-task seed entities", () => {

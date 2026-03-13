@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import { createRequestContext } from "../../src/lib/request-log";
 import type { AuthVariables } from "../../src/lib/auth";
+import { formatErrorResponse } from "../../src/lib/errors";
 
 const {
     getDbClientMock,
@@ -39,6 +40,10 @@ function createExecutionContext() {
 
 function createTaskApp() {
     const app = new Hono<{ Variables: AuthVariables }>();
+    app.onError((err, c) => {
+        const res = formatErrorResponse(err);
+        return c.json(res.body, res.status as 500);
+    });
     app.use("*", createRequestContext());
     app.use("*", async (c, next) => {
         c.set("userId", "11111111-1111-4111-8111-111111111111");
@@ -157,10 +162,67 @@ describe("task route contracts", () => {
         expect(body.data[0].tagIds).toEqual(["tag-1"]);
         expect(db.query.tasks.findMany).toHaveBeenCalledWith(
             expect.objectContaining({
-                limit: 50,
-                offset: 0,
+                with: expect.any(Object),
             }),
         );
+    });
+
+    it("expands recurring timed tasks into schedule-scoped virtual instances", async () => {
+        const db = createFindManyDb([
+            {
+                id: "series-1",
+                userId: "user-1",
+                title: "Calculus II lecture",
+                state: "ACTIVE",
+                orderIndex: 1,
+                isAllDay: false,
+                dueDate: null,
+                scheduledStart: "2026-03-10T09:30:00.000Z",
+                scheduledEnd: "2026-03-10T10:45:00.000Z",
+                durationEstimate: 75,
+                timezoneLocked: true,
+                priority: 0,
+                isPinned: false,
+                reminderAt: null,
+                reminderSilenced: false,
+                recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+                waitingOn: null,
+                waitingReminder: null,
+                effort: null,
+                notBefore: null,
+                createdAt: "2026-03-01T00:00:00.000Z",
+                updatedAt: "2026-03-01T00:00:00.000Z",
+                projectId: null,
+                sectionId: null,
+                content: null,
+                tags: [{ tagId: "tag-1" }],
+            },
+        ]);
+
+        getDbClientMock.mockReturnValue(db);
+        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(db));
+
+        const app = createTaskApp();
+        const response = await app.request(
+            "http://localhost/tasks?state=ACTIVE&scheduledRangeStart=2026-03-09&scheduledRangeEnd=2026-03-15",
+        );
+
+        expect(response.status).toBe(200);
+        const body = await response.json() as any;
+
+        expect(body.data).toHaveLength(2);
+        expect(body.data[0]).toMatchObject({
+            id: "series-1::2026-03-10T09:30:00.000Z",
+            seriesId: "series-1",
+            isRecurringInstance: true,
+            occurrenceStart: "2026-03-10T09:30:00.000Z",
+            occurrenceEnd: "2026-03-10T10:45:00.000Z",
+            tagIds: ["tag-1"],
+        });
+        expect(body.data[1]).toMatchObject({
+            id: "series-1::2026-03-12T09:30:00.000Z",
+            occurrenceStart: "2026-03-12T09:30:00.000Z",
+        });
     });
 
     it("accepts the Today/Holding frontend filters together", async () => {
@@ -227,11 +289,33 @@ describe("task route contracts", () => {
 
         expect(response.status).toBe(201);
         expect(capture.values).toMatchObject({
-            dueDate: "2026-03-10T00:00:00.000Z",
+            dueDate: "2026-03-10T12:00:00.000Z",
             scheduledStart: null,
             scheduledEnd: "2026-03-12T23:59:59.999Z",
             isAllDay: true,
         });
+    });
+
+    it("rejects malformed recurrence rules during task creation", async () => {
+        const app = createTaskApp();
+        const response = await app.request("http://localhost/tasks", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                title: "Broken series",
+                orderIndex: 1,
+                isAllDay: false,
+                scheduledStart: "2026-03-10T09:30:00.000Z",
+                scheduledEnd: "2026-03-10T10:45:00.000Z",
+                recurrenceRule: "FREQ=WEEKLY;BYDAY=NOPE",
+            }),
+        });
+
+        expect(response.status).toBe(400);
+        const body = await response.json() as any;
+        expect(body.error.code).toBe("INVALID_RECURRENCE_RULE");
     });
 
     it("normalizes all-day reschedules from the frontend and clears timed fields", async () => {
@@ -272,7 +356,7 @@ describe("task route contracts", () => {
 
         expect(response.status).toBe(200);
         expect(capture.set).toMatchObject({
-            dueDate: "2026-03-10T00:00:00.000Z",
+            dueDate: "2026-03-10T12:00:00.000Z",
             scheduledStart: null,
             scheduledEnd: null,
             isAllDay: true,
@@ -281,7 +365,7 @@ describe("task route contracts", () => {
             tx,
             "11111111-1111-4111-8111-111111111111",
             "11111111-1111-4111-8111-111111111111",
-            "2026-03-10T00:00:00.000Z",
+            "2026-03-10T12:00:00.000Z",
         );
         expect((executionCtx.waitUntil as any)).toHaveBeenCalledTimes(1);
     });

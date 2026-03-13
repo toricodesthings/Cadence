@@ -7,7 +7,7 @@ import type { Tag } from "../../types/tag";
 import type { InboxItem } from "../../types/inbox";
 import type { HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
 import { transformListCache } from "./cache-guards";
-import { getTaskEffectiveAnchor } from "../utils/task-scheduling";
+import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task-scheduling";
 
 function matchesTaskList(task: Task, filters: Record<string, unknown>) {
     if (filters.state && task.state !== filters.state) return false;
@@ -34,6 +34,11 @@ function matchesTaskList(task: Task, filters: Record<string, unknown>) {
 }
 
 export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, replaceId?: string) {
+    if (isRecurringTask(task) || isRecurringTaskInstance(task)) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+        return;
+    }
+
     queryClient.setQueryData(queryKeys.tasks.detail(task.id), task);
     const taskLists = queryClient
         .getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })
@@ -62,14 +67,24 @@ export function removeTaskFromCaches(queryClient: QueryClient, taskId: string) {
 
 export function reconcileHabitInCaches(queryClient: QueryClient, habit: Habit, replaceId?: string) {
     queryClient.setQueryData(queryKeys.habits.detail(habit.id), habit);
+
+    // Helper: update habit in-place to preserve array order
+    const updateInPlace = (items: Habit[]): Habit[] => {
+        const idx = items.findIndex((entry) => entry.id === habit.id || entry.id === replaceId);
+        if (idx >= 0) {
+            const updated = [...items];
+            updated[idx] = { ...items[idx], ...habit };
+            return updated;
+        }
+        return [...items, habit];
+    };
+
     const habitLists = queryClient
         .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all })
         .filter(([key]) => key.length === 1);
     habitLists.forEach(([key, old]) => {
-        const remaining = Array.isArray(old)
-            ? old.filter((entry) => entry.id !== habit.id && entry.id !== replaceId)
-            : [];
-        queryClient.setQueryData(key, [habit, ...remaining]);
+        if (!Array.isArray(old)) return;
+        queryClient.setQueryData(key, updateInPlace(old));
     });
 
     const weeklyLists = queryClient
@@ -79,17 +94,13 @@ export function reconcileHabitInCaches(queryClient: QueryClient, habit: Habit, r
         if (!Array.isArray(old)) return;
         const archivedFlag = key.at(-1);
         const matchesArchivedView = typeof archivedFlag === "boolean" ? archivedFlag === habit.archived : true;
-        const remaining = old.filter((entry) => entry.id !== habit.id && entry.id !== replaceId);
 
         if (matchesArchivedView) {
-            const existing = old.find((entry) => entry.id === habit.id || entry.id === replaceId);
-            if (existing) {
-                queryClient.setQueryData(key, [...remaining, { ...existing, ...habit }]);
-                return;
-            }
+            queryClient.setQueryData(key, updateInPlace(old));
+            return;
         }
 
-        queryClient.setQueryData(key, remaining);
+        queryClient.setQueryData(key, old.filter((entry) => entry.id !== habit.id && entry.id !== replaceId));
     });
 }
 

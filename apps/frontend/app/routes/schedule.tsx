@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import * as Popover from "../components/primitives/Popover";
 import { MainLayout } from "../components/MainLayout";
 import {
     DndContext,
@@ -30,6 +31,9 @@ import {
     getYearDateRange,
     formatTime,
     parseLocalDate,
+    preserveLocalTime,
+    getEffectiveTaskDate,
+    parseEffectiveTaskDate,
 } from "../lib/utils/date-format";
 import type { Task } from "../types/task";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
@@ -45,9 +49,17 @@ import {
     parseCalendarTimedDropId,
     type CalendarDropPreview,
 } from "../lib/utils/calendar-dnd";
+import { getTaskSeriesId, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task-scheduling";
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import {
+    HolidayAccuracyHint,
+    HolidayLocationPrompt,
+    HolidayPreferencesPanel,
+} from "../components/calendar/HolidayControls";
+import { useHolidayOverlay } from "../hooks/use-holiday-overlay";
+import { useSettings } from "../hooks/use-settings";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -97,6 +109,8 @@ export default function Schedule() {
     const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
+    const [holidayPopoverOpen, setHolidayPopoverOpen] = useState(false);
+    const holidayPromptToastIdRef = useRef<string | number | null>(null);
     const scrollLockRef = useRef(false);
     const hasAppliedCompactDefault = useRef(false);
 
@@ -157,6 +171,61 @@ export default function Schedule() {
         enabled: viewMode === "year",
     });
 
+    const holidayQueryRange = useMemo(() => {
+        if (viewMode === "year") {
+            return {
+                start: yearRange.start.substring(0, 10),
+                end: yearRange.end.substring(0, 10),
+            };
+        }
+
+        if (viewMode === "week") {
+            return {
+                start: weekRange.start.substring(0, 10),
+                end: weekRange.end.substring(0, 10),
+            };
+        }
+
+        if (viewMode === "day") {
+            return {
+                start: currentDate,
+                end: currentDate,
+            };
+        }
+
+        return {
+            start: monthRange.start.substring(0, 10),
+            end: monthRange.end.substring(0, 10),
+        };
+    }, [currentDate, monthRange.end, monthRange.start, viewMode, weekRange.end, weekRange.start, yearRange.end, yearRange.start]);
+
+    const holidayOverlay = useHolidayOverlay({
+        start: holidayQueryRange.start,
+        end: holidayQueryRange.end,
+        viewMode,
+    });
+
+    // ── Birthday overlay ───────────────────────────────────────────────────
+    const { data: userSettings } = useSettings();
+    const birthdayDate = useMemo(() => {
+        const bd = userSettings?.profile?.birthday;
+        if (!bd) return null;
+        // bd is "YYYY-MM-DD" — extract month+day, apply to current view year
+        const parts = bd.split("-");
+        if (parts.length < 3) return null;
+        const mm = parts[1];
+        const dd = parts[2];
+        return `${year}-${mm}-${dd}`;
+    }, [userSettings?.profile?.birthday, year]);
+
+    const birthdayDay = useMemo(() => {
+        if (!birthdayDate) return null;
+        const parts = birthdayDate.split("-");
+        const bMonth = parseInt(parts[1]) - 1;
+        const bDay = parseInt(parts[2]);
+        return bMonth === month ? bDay : null;
+    }, [birthdayDate, month]);
+
     // ── Habits injection ───────────────────────────────────────────────────
     const { data: rawHabits = [] } = useHabitsWeekly({
         start: viewMode === "month" ? monthRange.start.substring(0, 10) : viewMode === "week" ? weekRange.start.substring(0, 10) : viewMode === "day" ? dayRange.start.substring(0, 10) : "",
@@ -211,7 +280,7 @@ export default function Schedule() {
         for (const t of monthTasks) {
             const dateStr = t.scheduledStart ?? t.dueDate;
             if (!dateStr) continue;
-            const d = parseLocalDate(dateStr);
+            const d = parseEffectiveTaskDate(dateStr, t.isAllDay);
             if (d.getFullYear() === year && d.getMonth() === month) {
                 const day = d.getDate();
                 withTasks.add(day);
@@ -223,7 +292,7 @@ export default function Schedule() {
         for (const h of virtualHabitTasks) {
             const dateStr = h.scheduledStart ?? h.dueDate;
             if (!dateStr) continue;
-            const d = parseLocalDate(dateStr);
+            const d = parseEffectiveTaskDate(dateStr, h.isAllDay);
             if (d.getFullYear() === year && d.getMonth() === month) {
                 habitDaySet.add(d.getDate());
                 withTasks.add(d.getDate());
@@ -232,21 +301,35 @@ export default function Schedule() {
         return { datesWithTasks: withTasks, tasksByDay: byDay, habitDays: habitDaySet };
     }, [monthTasks, year, month, virtualHabitTasks]);
 
+    const holidaysByDateRecord = useMemo<Record<string, import("../lib/holidays/provider").HolidayRecord[]>>(() => {
+        return Object.fromEntries(holidayOverlay.holidaysByDate.entries());
+    }, [holidayOverlay.holidaysByDate]);
+
+    const holidayDays = useMemo(() => {
+        const days = new Set<number>();
+        for (const date of holidayOverlay.holidayDateSet) {
+            const parsed = parseLocalDate(date);
+            if (parsed.getFullYear() === year && parsed.getMonth() === month) {
+                days.add(parsed.getDate());
+            }
+        }
+        return days;
+    }, [holidayOverlay.holidayDateSet, month, year]);
+
     // ── Group week tasks by ISO date string ─────────────────────────────────
     const weekTasksByDate = useMemo(() => {
         const map: Record<string, Task[]> = {};
         for (const t of weekTasks) {
             const dateStr = t.scheduledStart ?? t.dueDate;
             if (!dateStr) continue;
-            // parseLocalDate avoids the UTC-midnight off-by-one for date-only strings
-            const iso = toISODate(parseLocalDate(dateStr));
+            const iso = getEffectiveTaskDate(dateStr, t.isAllDay);
             if (!map[iso]) map[iso] = [];
             map[iso].push(t);
         }
         for (const h of virtualHabitTasks) {
             const dateStr = h.scheduledStart ?? h.dueDate;
             if (!dateStr) continue;
-            const iso = toISODate(parseLocalDate(dateStr));
+            const iso = getEffectiveTaskDate(dateStr, h.isAllDay);
             if (!map[iso]) map[iso] = [];
             map[iso].push(h);
         }
@@ -335,7 +418,7 @@ export default function Schedule() {
         }
 
         const task = allVisibleTasks.get(taskId);
-        if (!task || task.isHabit) {
+        if (!task || task.isHabit || isRecurringTask(task) || isRecurringTaskInstance(task)) {
             setActiveDropId(null);
             return;
         }
@@ -415,7 +498,7 @@ export default function Schedule() {
 
         const droppedId = String(over.id);
         const task = allVisibleTasks.get(taskId);
-        if (!task || task.isHabit) return;
+        if (!task || task.isHabit || isRecurringTask(task) || isRecurringTaskInstance(task)) return;
 
         if (droppedId.startsWith("slot-")) {
             const { iso, date } = getDateFromTimedDropId(droppedId);
@@ -457,8 +540,8 @@ export default function Schedule() {
                 return;
             }
 
-            const normalizedIso = new Date(task.scheduledStart).toISOString();
-            const preservedStart = `${datePart}T${normalizedIso.slice(11)}`;
+            const preservedStart = preserveLocalTime(datePart, task.scheduledStart);
+
             updateTask({
                 id: taskId,
                 dueDate: datePart,
@@ -475,8 +558,9 @@ export default function Schedule() {
             window.location.href = "/habits";
             return;
         }
-        setSelectedTaskId(taskId);
-    }, []);
+        const task = allVisibleTasks.get(taskId);
+        setSelectedTaskId(task ? getTaskSeriesId(task) : taskId);
+    }, [allVisibleTasks]);
 
     const handleCompleteTask = useCallback(async (taskId: string) => {
         if (taskId.startsWith("habit-")) {
@@ -493,8 +577,13 @@ export default function Schedule() {
             }
             return;
         }
+        const task = allVisibleTasks.get(taskId);
+        if (task && (isRecurringTask(task) || isRecurringTaskInstance(task))) {
+            toast.message("Recurring blocks are edited as a series.");
+            return;
+        }
         updateTask({ id: taskId, state: "COMPLETE" });
-    }, [updateTask, client, queryClient]);
+    }, [updateTask, client, queryClient, allVisibleTasks]);
 
     const handleArchiveTask = useCallback(async (taskId: string) => {
         if (taskId.startsWith("habit-")) {
@@ -511,8 +600,13 @@ export default function Schedule() {
             }
             return;
         }
+        const task = allVisibleTasks.get(taskId);
+        if (task && (isRecurringTask(task) || isRecurringTaskInstance(task))) {
+            toast.message("Recurring blocks are edited as a series.");
+            return;
+        }
         updateTask({ id: taskId, state: "ARCHIVED" });
-    }, [updateTask, client, queryClient]);
+    }, [updateTask, client, queryClient, allVisibleTasks]);
 
     // ── Year view helpers ───────────────────────────────────────────────────
     const handleYearSelectMonth = useCallback((m: number) => {
@@ -541,6 +635,167 @@ export default function Schedule() {
             anchorY: 140,
         });
     }, [currentDate]);
+
+    useEffect(() => {
+        if (holidayOverlay.shouldShowPrompt) {
+            if (holidayPromptToastIdRef.current !== null) return;
+
+            const toastId = toast.custom(
+                () => (
+                    <HolidayLocationPrompt
+                        isLocating={holidayOverlay.isLocating}
+                        onUsePreciseLocation={async () => {
+                            const result = await holidayOverlay.requestPreciseLocation();
+
+                            if (result.status === "granted" || result.status === "denied" || result.status === "unsupported") {
+                                toast.dismiss(toastId);
+                                return;
+                            }
+
+                            toast.error("Couldn’t refine holiday location just now.");
+                        }}
+                        onDismiss={() => {
+                            holidayOverlay.dismissPrompt();
+                            toast.dismiss(toastId);
+                        }}
+                        onDismissPermanently={() => {
+                            holidayOverlay.dismissPromptPermanently();
+                            toast.dismiss(toastId);
+                        }}
+                        onChooseManual={() => {
+                            holidayOverlay.setLocationMode("manual");
+                            holidayOverlay.dismissPrompt();
+                            setHolidayPopoverOpen(true);
+                            toast.dismiss(toastId);
+                        }}
+                    />
+                ),
+                {
+                    id: "holiday-location-prompt",
+                    duration: Number.POSITIVE_INFINITY,
+                    position: "top-center",
+                    closeButton: false,
+                    unstyled: true,
+                    style: {
+                        background: "transparent",
+                        boxShadow: "none",
+                        padding: 0,
+                        border: 0,
+                    },
+                    classNames: {
+                        toast: "bg-transparent border-0 p-0 shadow-none",
+                    },
+                },
+            );
+
+            holidayPromptToastIdRef.current = toastId;
+            return;
+        }
+
+        if (holidayPromptToastIdRef.current !== null) {
+            toast.dismiss(holidayPromptToastIdRef.current);
+            holidayPromptToastIdRef.current = null;
+        }
+    }, [
+        holidayOverlay.dismissPrompt,
+        holidayOverlay.dismissPromptPermanently,
+        holidayOverlay.isLocating,
+        holidayOverlay.requestPreciseLocation,
+        holidayOverlay.setLocationMode,
+        holidayOverlay.shouldShowPrompt,
+    ]);
+
+    useEffect(() => {
+        return () => {
+            if (holidayPromptToastIdRef.current !== null) {
+                toast.dismiss(holidayPromptToastIdRef.current);
+            }
+        };
+    }, []);
+
+    const holidayControls = (
+        <Popover.Root open={holidayPopoverOpen} onOpenChange={setHolidayPopoverOpen}>
+            <div className="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-twilight-border bg-white/[0.03] p-1">
+                <label className="inline-flex min-h-9 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text">
+                    <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={holidayOverlay.holidaySettings.enabled}
+                        onChange={(event) => holidayOverlay.setEnabled(event.target.checked)}
+                        aria-label="Toggle holiday overlay"
+                    />
+                    <span
+                        aria-hidden="true"
+                        className={`flex h-5 w-5 items-center justify-center rounded-md border transition-colors ${
+                            holidayOverlay.holidaySettings.enabled
+                                ? "border-lantern/45 bg-lantern/18 text-lantern"
+                                : "border-twilight-border-light bg-white/[0.02] text-transparent"
+                        }`}
+                    >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path
+                                d="M2.5 6.2L4.8 8.4L9.4 3.6"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                    </span>
+                    <span>Holidays</span>
+                </label>
+
+                {holidayOverlay.permissionState === "denied" ? <HolidayAccuracyHint variant="icon" /> : null}
+
+                <Popover.Trigger asChild>
+                    <button
+                        type="button"
+                        className="btn-icon h-11 w-11 rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                        aria-label="Holiday overlay settings"
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M4 7h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            <path d="M17 7h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            <path d="M4 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            <path d="M11 17h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                            <circle cx="15" cy="7" r="2" stroke="currentColor" strokeWidth="1.8" />
+                            <circle cx="9" cy="17" r="2" stroke="currentColor" strokeWidth="1.8" />
+                        </svg>
+                    </button>
+                </Popover.Trigger>
+            </div>
+            <Popover.Content align="end" className="w-[min(26rem,calc(100vw-2rem))]">
+                {holidayOverlay.permissionState === "denied" ? (
+                    <div className="mb-4 flex items-center gap-2 text-xs text-twilight-text-soft">
+                        <HolidayAccuracyHint />
+                    </div>
+                ) : null}
+                <HolidayPreferencesPanel
+                    enabled={holidayOverlay.holidaySettings.enabled}
+                    usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
+                    locationMode={holidayOverlay.holidaySettings.locationMode}
+                    countryCode={holidayOverlay.holidaySettings.countryCode}
+                    subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
+                    countryOptions={holidayOverlay.countryOptions}
+                    subdivisionOptions={holidayOverlay.subdivisionOptions}
+                    effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
+                    effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
+                    permissionState={holidayOverlay.permissionState}
+                    countriesLoading={holidayOverlay.countriesLoading}
+                    subdivisionsLoading={holidayOverlay.subdivisionsLoading}
+                    isLocating={holidayOverlay.isLocating}
+                    compact
+                    showEnabledToggle={false}
+                    onEnabledChange={holidayOverlay.setEnabled}
+                    onLocationModeChange={holidayOverlay.setLocationMode}
+                    onCountryChange={holidayOverlay.setCountryCode}
+                    onSubdivisionChange={holidayOverlay.setSubdivisionCode}
+                    onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
+                    onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
+                    />
+            </Popover.Content>
+        </Popover.Root>
+    );
 
     // ── View key for AnimatePresence ────────────────────────────────────────
     const viewKey = viewMode === "month"
@@ -586,6 +841,7 @@ export default function Schedule() {
                         onNavigate={handleNavigate}
                         onToday={handleToday}
                         onAddTask={handleAddTaskToolbar}
+                        holidayControls={holidayControls}
                         compact={shell.isCompact}
                     />
 
@@ -616,6 +872,8 @@ export default function Schedule() {
                                                 selectedDate={currentDate}
                                                 datesWithTasks={datesWithTasks}
                                                 habitDays={habitDays}
+                                                holidayDays={holidayOverlay.holidaySettings.enabled ? holidayDays : undefined}
+                                                birthdayDay={birthdayDay}
                                                 onSelectDate={handleSelectDate}
                                                 variant="full"
                                                 tasksByDay={tasksByDay}
@@ -632,6 +890,8 @@ export default function Schedule() {
                                         <WeekView
                                             weekDates={weekDates}
                                             tasksByDate={weekTasksByDate}
+                                            holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
+                                            birthdayDate={birthdayDate}
                                             activeDropPreview={activeDropPreview}
                                             onSelectTask={handleSelectTask}
                                             onCompleteTask={handleCompleteTask}
@@ -645,6 +905,8 @@ export default function Schedule() {
                                         <DayView
                                             currentDate={currentDate}
                                             tasks={[...dayTasks, ...virtualHabitTasks]}
+                                            holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
+                                            isBirthday={birthdayDate === currentDate}
                                             activeDropPreview={activeDropPreview}
                                             onSelectTask={handleSelectTask}
                                             onCompleteTask={handleCompleteTask}
@@ -659,6 +921,8 @@ export default function Schedule() {
                                             <YearView
                                                 year={year}
                                                 tasks={yearTasks}
+                                                holidayDateSet={holidayOverlay.holidaySettings.enabled ? holidayOverlay.holidayDateSet : undefined}
+                                                birthdayDate={birthdayDate}
                                                 onSelectMonth={handleYearSelectMonth}
                                                 onSelectDay={handleYearSelectDay}
                                             />

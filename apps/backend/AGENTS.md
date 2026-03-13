@@ -70,9 +70,11 @@ The backend now supports substantially more than the original task/project CRUD 
 - `user_metrics` for future adaptive intelligence
 - `ai_memories` for future AI memory/RAG workflows
 
-### Important product-state note
+### Important product-state notes
 
 AI-related tables exist in the schema, but there are **no public AI endpoints yet**. Treat them as internal scaffolding unless the task explicitly expands that surface.
+
+Notification settings (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are now **required fields** in the user settings JSON. The schema default seeds all notification fields, and migration `0011_backfill_notification_settings.sql` backfills existing users. The backend patch schema (`src/types/settings.ts`) intentionally keeps these fields **optional** since it handles partial PATCH merges — this is correct by design.
 
 ---
 
@@ -107,7 +109,7 @@ src/
 │   ├── metrics.ts        # Silent task metric tracking helpers
 │   └── rls.ts            # RLS helpers (`setRlsContext`, `withRls`)
 ├── routes/
-│   ├── debug.ts
+│   ├── debug.ts          # Seed/clear routes (with notification-triggering test data)
 │   ├── habits.ts
 │   ├── health.ts
 │   ├── inbox.ts
@@ -124,6 +126,7 @@ src/
     ├── habit.ts
     ├── inbox.ts
     ├── project.ts
+    ├── settings.ts       # Settings patch schema (notification fields optional by design)
     ├── subtask.ts
     ├── tag.ts
     └── task.ts
@@ -230,7 +233,8 @@ The Drizzle schema is the source of truth.
 
 - `users`
   - primary key mirrors Neon Auth `sub`
-  - stores JSON `settings`
+  - stores JSON `settings` with deep-merge PATCH semantics
+  - default settings include full notification preferences (`email`, `browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`)
   - is synced automatically on authenticated write traffic
 
 ### 8.2 Tasks ecosystem
@@ -399,7 +403,7 @@ Task list filtering currently supports:
 - `POST /api/debug/clear`
 - `POST /api/debug/seed`
 
-These are utility/debug routes. Do not expand them casually.
+These are utility/debug routes. The seed route includes notification-triggering test data (tasks with reminders, due dates, overdue state) and unmanaged tasks for holding planner testing. Do not expand them casually.
 
 ---
 

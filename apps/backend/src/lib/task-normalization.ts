@@ -1,5 +1,5 @@
 import { AppError } from "./errors";
-import { isDateOnly, normalizeEndBoundary, normalizeStartBoundary } from "./task-filters";
+import { isDateOnly, normalizeEndBoundary } from "./task-filters";
 
 export type TaskTemporalFields = {
     dueDate?: string | null;
@@ -18,7 +18,9 @@ export type TaskReadShape =
 
 function normalizeAnchorDate(value: string | null | undefined) {
     if (!value) return null;
-    return normalizeStartBoundary(value);
+    // Use noon UTC for date-only strings to avoid timezone off-by-one
+    // when clients parse the stored timestamp with local timezone getters.
+    return isDateOnly(value) ? `${value}T12:00:00.000Z` : value;
 }
 
 function normalizeDurationEnd(value: string | null | undefined) {

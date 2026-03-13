@@ -7,6 +7,7 @@ import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
 import { apiValidator } from "../lib/validation";
 import { settingsPatchSchema } from "../types/settings";
+import { SETTINGS_DEFAULTS } from "../types/settings-defaults";
 
 function isObject(item: any): item is Record<string, any> {
     return item && typeof item === "object" && !Array.isArray(item);
@@ -30,6 +31,22 @@ function deepMerge(target: any, source: any): any {
     return output;
 }
 
+/**
+ * Normalize stored settings against canonical defaults.
+ * - Merges in missing sections/keys from defaults
+ * - Migrates legacy `preferredView` into `tasks.defaultView`
+ */
+function normalizeSettings(stored: Record<string, any>): Record<string, any> {
+    const merged = deepMerge(SETTINGS_DEFAULTS, stored);
+
+    // Migrate legacy preferredView → tasks.defaultView
+    if (stored.preferredView && !stored.tasks?.defaultView) {
+        merged.tasks = { ...merged.tasks, defaultView: stored.preferredView };
+    }
+
+    return merged;
+}
+
 export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .get("/", async (c) => {
         const userId = c.get("userId");
@@ -47,7 +64,8 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .limit(1)
         );
 
-        return c.json({ data: (user?.settings ?? {}) as Record<string, unknown> });
+        const normalized = normalizeSettings((user?.settings ?? {}) as Record<string, any>);
+        return c.json({ data: normalized });
     })
     .patch("/", apiValidator("json", settingsPatchSchema), async (c) => {
         const userId = c.get("userId");
@@ -65,7 +83,9 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .where(eq(users.id, userId))
                 .limit(1);
 
-            const merged = deepMerge(user?.settings || {}, body);
+            // Normalize stored settings first, then merge in patch
+            const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);
+            const merged = deepMerge(normalized, body);
 
             return tx
                 .update(users)
@@ -76,5 +96,6 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .returning({ settings: users.settings });
         });
 
-        return c.json({ data: (updated?.settings ?? {}) as Record<string, unknown> });
+        const normalizedResult = normalizeSettings((updated?.settings ?? {}) as Record<string, any>);
+        return c.json({ data: normalizedResult });
     });
