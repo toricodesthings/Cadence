@@ -7,6 +7,7 @@ import {
   ScrollRestoration,
 } from "react-router";
 
+import { Loading } from "./components/Loading";
 import { Providers } from "./providers";
 import "./app.css";
 
@@ -59,6 +60,10 @@ export default function App() {
       <Outlet />
     </Providers>
   );
+}
+
+export function HydrateFallback() {
+  return <Loading />;
 }
 
 export function ErrorBoundary({ error }: { error: unknown }) {
