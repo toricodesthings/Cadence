@@ -9,7 +9,8 @@ import {
     pgEnum,
     jsonb,
     vector,
-    index
+    index,
+    uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { z } from 'zod';
@@ -116,6 +117,7 @@ export type UserSettings = z.infer<typeof UserSettingsSchema>;
 // === ENUMS ===
 export const taskStateEnum = pgEnum('task_state', ['ACTIVE', 'WAITING', 'COMPLETE', 'ARCHIVED']);
 export const memoryTypeEnum = pgEnum('memory_type', ['CORE', 'EPHEMERAL']);
+export const suggestionStatusEnum = pgEnum('suggestion_status', ['PENDING', 'ACCEPTED', 'DISMISSED']);
 export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', 'PENDING']);
 
 // === TABLES ===
@@ -148,6 +150,10 @@ export const userMetrics = pgTable('user_metrics', {
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     rescheduleVelocity: real('reschedule_velocity').default(0).notNull(), // Averages how often tasks are pushed back
     currentBurnoutIndex: integer('current_burnout_index').default(10).notNull(), // 1-100 score indicating cognitive load
+    completionRatio: real('completion_ratio').default(0).notNull(), // completed / (completed + overdue) over rolling window
+    overdueCarryLoad: integer('overdue_carry_load').default(0).notNull(), // number of tasks currently overdue
+    habitAdherenceRate: real('habit_adherence_rate').default(0).notNull(), // completed / (completed + skipped) rolling 14 days
+    scheduleDensity: real('schedule_density').default(0).notNull(), // avg scheduled minutes per day over 7 days
     lastCalculatedAt: timestamp('last_calculated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => {
     return {
@@ -449,5 +455,72 @@ export const taskMetrics = pgTable(
     (table) => ({
         userIdIdx: index("task_metrics_user_id_idx").on(table.userId),
         taskIdIdx: index("task_metrics_task_id_idx").on(table.taskId),
+    }),
+);
+
+// 13. Usage Events (Lightweight telemetry for AI-readiness)
+export const usageEvents = pgTable(
+    "usage_events",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        event: text("event").notNull(), // e.g. "task.complete", "task.reschedule", "habit.complete"
+        metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+    },
+    (table) => ({
+        userIdIdx: index("usage_events_user_id_idx").on(table.userId),
+        eventIdx: index("usage_events_event_idx").on(table.event),
+        createdAtIdx: index("usage_events_created_at_idx").on(table.createdAt),
+    }),
+);
+
+// 14. Suggestions (AI-generated advice, never autonomous)
+export const suggestions = pgTable(
+    "suggestions",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        type: text("type").notNull(), // e.g. "lighten_today", "suggested_cleanup", "move_overdue"
+        title: text("title").notNull(),
+        body: text("body"),
+        status: suggestionStatusEnum("status").default("PENDING").notNull(),
+        relatedTaskIds: jsonb("related_task_ids").$type<string[]>().default([]),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+        resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "string" }),
+    },
+    (table) => ({
+        userIdIdx: index("suggestions_user_id_idx").on(table.userId),
+        statusIdx: index("suggestions_status_idx").on(table.status),
+    }),
+);
+
+// 15. Mutation Dedup (Idempotent offline replay)
+export const mutationDedup = pgTable(
+    "mutation_dedup",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        clientMutationId: text("client_mutation_id").notNull(),
+        resultId: uuid("result_id"),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+    },
+    (table) => ({
+        dedupIdx: uniqueIndex("mutation_dedup_user_mutation_idx").on(
+            table.userId,
+            table.clientMutationId,
+        ),
     }),
 );

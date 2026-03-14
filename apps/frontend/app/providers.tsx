@@ -1,14 +1,19 @@
-import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { AuthUIProvider } from "@neondatabase/auth/react/ui";
 import { ThemeProvider } from "next-themes";
 import { useNavigate, Link as RouterLink } from "react-router";
 import { toast } from "sonner";
 import { authClient } from "./lib/auth-client";
 import { STALE_TIMES } from "./lib/api/query-keys";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createIDBPersister } from "./lib/api/persister";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ApiErrorResponse } from "./types/api";
 import { AuthStateProvider, useAuthState } from "./hooks/use-auth-state";
 import { Toaster } from "./components/feedback/Toaster";
+import { OfflineBanner } from "./components/shared/OfflineBanner";
+import { initWal } from "./lib/api/offline-wal";
+import { replayWal } from "./lib/api/mutation-executor";
 
 // Adapter for react-router-dom Link (using react-router v7)
 function Link({
@@ -31,12 +36,37 @@ function ProvidersInner({ children }: { children: ReactNode }) {
     const { beginAuthRecovery, completeSignOut, session } = useAuthState();
     const lastUserId = useRef<string | null>(null);
 
+    // Only retry errors the backend marks as retryable (429, 5xx).
+    // Auth errors and validation errors are never retried.
+    const shouldRetry = (failureCount: number, error: Error, maxRetries: number) => {
+        if (!(error instanceof ApiErrorResponse)) return failureCount < maxRetries;
+        if (error.isAuthError) return false;
+        return error.isRetryable && failureCount < maxRetries;
+    };
+
+    // Use Retry-After header when available (rate limits), otherwise exponential backoff.
+    const retryDelay = (attempt: number, error: Error) => {
+        if (error instanceof ApiErrorResponse && error.isRateLimited) {
+            return Math.min(2000 * 2 ** attempt, 16000);
+        }
+        return Math.min(1000 * 2 ** attempt, 8000);
+    };
+
+    // Show toast for exhausted rate-limit retries
+    const handleRateLimitExhausted = (error: Error) => {
+        if (error instanceof ApiErrorResponse && error.isRateLimited) {
+            toast.error("You're doing that too fast — please wait a moment and try again.");
+        }
+    };
+
     // Create QueryClient inside provider to prevent request crossover in SSR when caching
     const [queryClient] = useState(
         () =>
             new QueryClient({
                 queryCache: new QueryCache({
                     onError: async (error) => {
+                        handleRateLimitExhausted(error);
+
                         if (!(error instanceof ApiErrorResponse) || !error.isAuthError) {
                             return;
                         }
@@ -48,17 +78,23 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                         }
                     },
                 }),
+                mutationCache: new MutationCache({
+                    onError: (error) => {
+                        handleRateLimitExhausted(error);
+                    },
+                }),
                 defaultOptions: {
                     queries: {
                         // Default to tasks stale time (most common query); hooks may override
                         staleTime: STALE_TIMES.TASKS,
                         gcTime: 1000 * 60 * 10, // 10 minutes — keep for back-nav
                         refetchOnWindowFocus: true, // Sync on tab return
-                        retry: 2,
-                        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+                        retry: (failureCount, error) => shouldRetry(failureCount, error, 3),
+                        retryDelay,
                     },
                     mutations: {
-                        retry: 1,
+                        retry: (failureCount, error) => shouldRetry(failureCount, error, 2),
+                        retryDelay,
                     },
                 },
             })
@@ -77,8 +113,33 @@ function ProvidersInner({ children }: { children: ReactNode }) {
         queryClient.removeQueries({ queryKey: ["settings"] });
     }, [queryClient, session]);
 
+    // Layer 1+4: Initialize the durable WAL and replay pending mutations on reconnect
+    useEffect(() => {
+        initWal().then(() => {
+            // Replay any mutations that were queued while offline (previous session)
+            if (navigator.onLine) {
+                replayWal(queryClient);
+            }
+        });
+
+        const handleOnline = () => {
+            replayWal(queryClient);
+        };
+        window.addEventListener("online", handleOnline);
+        return () => window.removeEventListener("online", handleOnline);
+    }, [queryClient]);
+
+    const persistOptions = useMemo(
+        () => ({
+            persister: createIDBPersister(),
+            maxAge: 1000 * 60 * 60 * 24, // 24 hours
+            buster: session?.user.id ?? "",
+        }),
+        [session?.user.id],
+    );
+
     return (
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
             <div className="neon-auth-ui">
                 <ThemeProvider
                     attribute="class"
@@ -126,9 +187,10 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                     >
                         {children}
                         <Toaster />
+                        <OfflineBanner />
                     </AuthUIProvider>
                 </ThemeProvider>
             </div>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
     );
 }

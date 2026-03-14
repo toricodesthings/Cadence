@@ -14,22 +14,28 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../components/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
+import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
+import { EmptyState } from "../components/tasks/EmptyState";
 import { TaskCheckbox } from "../components/tasks/TaskCheckbox";
 import { PageContent } from "../components/layout/page-layout";
 import { ViewToggle } from "../components/shared/ViewToggle";
+import { SortMenu } from "../components/shared/SortMenu";
 import { useTasks } from "../hooks/tasks";
 import { useProjects } from "../hooks/projects";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { useApiClient } from "../hooks/use-api-client";
 import { useViewMode } from "../hooks/use-view-mode";
+import { useSortMode } from "../hooks/use-sort-mode";
+import { useShellMode } from "../hooks/use-shell-mode";
 import { useRouteFocus } from "../hooks/use-route-focus";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, parseLocalDate, toISODate } from "../lib/utils/date-format";
 import { toTaskDateOnly } from "../lib/utils/task-scheduling";
+import type { SortMode } from "../lib/utils/sort-tasks";
 import type { Task } from "../types/task";
 
 type UpcomingBucketKey = "overdue" | "tomorrow" | "nextWeek";
@@ -84,6 +90,29 @@ function toDateOnly(value: string | null | undefined) {
 function getTaskSortAt(task: Task, dateOnly: string) {
     if (task.scheduledStart) return task.scheduledStart;
     return `${dateOnly}T12:00:00`;
+}
+
+function getUpcomingComparator(mode: SortMode) {
+    return (a: UpcomingViewerItem, b: UpcomingViewerItem): number => {
+        switch (mode) {
+            case "priority": {
+                const pa = a.task?.priority ?? 0;
+                const pb = b.task?.priority ?? 0;
+                if (pa !== pb) return pb - pa;
+                if (a.sortAt !== b.sortAt) return a.sortAt.localeCompare(b.sortAt);
+                return a.title.localeCompare(b.title);
+            }
+            case "manual": {
+                const oa = a.task?.orderIndex ?? 0;
+                const ob = b.task?.orderIndex ?? 0;
+                return oa - ob;
+            }
+            default: {
+                if (a.sortAt !== b.sortAt) return a.sortAt.localeCompare(b.sortAt);
+                return a.title.localeCompare(b.title);
+            }
+        }
+    };
 }
 
 function classifyUpcomingBucket(dateOnly: string, todayISO: string, tomorrowISO: string, nextWeekISO: string): UpcomingBucketKey | null {
@@ -309,10 +338,13 @@ export default function Upcoming() {
     const { data: projects = [] } = useProjects();
     const { activeTagId } = useTagFilterStore();
     const { view, setView } = useViewMode();
+    const { sortMode, setSortMode } = useSortMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const queryClient = useQueryClient();
     const client = useApiClient();
     const boardScroll = useDragScroll();
+    const shell = useShellMode();
 
     const today = new Date();
     const todayISO = toISODate(today);
@@ -403,21 +435,20 @@ export default function Upcoming() {
             }
         }
 
+        const comparator = getUpcomingComparator(sortMode);
         for (const bucket of Object.keys(grouped) as UpcomingBucketKey[]) {
-            grouped[bucket].sort((a, b) => {
-                if (a.sortAt !== b.sortAt) return a.sortAt.localeCompare(b.sortAt);
-                return a.title.localeCompare(b.title);
-            });
+            grouped[bucket].sort(comparator);
         }
 
         return grouped;
-    }, [activeTagId, habits, nextWeekISO, projectById, tagFilteredTasks, todayISO, tomorrowISO]);
+    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO]);
 
     const totalVisible = groupedItems.overdue.length + groupedItems.tomorrow.length + groupedItems.nextWeek.length;
     const isLoading = tasksLoading || habitsLoading;
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
+        if (!shell.isWide) setMobilePanelOpen(true);
     };
 
     const handleCompleteHabit = async (item: UpcomingViewerItem) => {
@@ -431,7 +462,7 @@ export default function Upcoming() {
         await invalidateEverywhere(queryClient, queryKeys.habits.all);
     };
 
-    const sidePanel = selectedTaskId ? (
+    const sidePanel = shell.isWide && selectedTaskId ? (
         <ResizableSidePanel ariaLabel="Resize upcoming sidebar">
             <TaskEditPanel
                 key={`edit-${selectedTaskId}`}
@@ -446,6 +477,7 @@ export default function Upcoming() {
             requireAuth
             sidePanel={sidePanel}
             headerCenter={<ViewToggle view={view} onViewChange={setView} />}
+            headerRight={<SortMenu mode={sortMode} onModeChange={setSortMode} />}
             contentWidth="default"
             shellHeader={{
                 title: "Upcoming",
@@ -519,18 +551,28 @@ export default function Upcoming() {
                             </div>
                         )
                     ) : (
-                        <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
-                            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-twilight-surface ring-1 ring-twilight-border">
-                                <CalendarRange size={24} className="text-twilight-text-muted" />
-                            </div>
-                            <h3 className="mb-2 text-lg font-medium text-twilight-text">Nothing urgent on the horizon.</h3>
-                            <p className="max-w-sm text-sm text-twilight-text-muted">
-                                Overdue work, tomorrow&apos;s commitments, and next week&apos;s due items will collect here automatically.
-                            </p>
-                        </div>
+                        <EmptyState variant="upcoming" />
                     )}
                 </PageContent>
             </ScrollAreaWrapper>
+
+            {!shell.isWide && selectedTaskId && (
+                <ResponsiveOverlayPanel
+                    ariaLabel="Upcoming details"
+                    open={mobilePanelOpen}
+                    onClose={() => setMobilePanelOpen(false)}
+                    title="Task details"
+                >
+                    <TaskEditPanel
+                        key={`upcoming-mobile-edit-${selectedTaskId}`}
+                        taskId={selectedTaskId}
+                        onClose={() => {
+                            setSelectedTaskId(null);
+                            setMobilePanelOpen(false);
+                        }}
+                    />
+                </ResponsiveOverlayPanel>
+            )}
         </MainLayout>
     );
 }

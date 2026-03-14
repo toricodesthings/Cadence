@@ -7,16 +7,23 @@ import { toast } from "sonner";
 import { reconcileInboxItemInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useCreateInboxItem() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (rawText: string) => {
-            const res = await client.api.inbox.$post({ json: { rawText } });
-            return unwrapResponse<InboxItem>(res);
-        },
+        mutationFn: withOfflineSupport<string, InboxItem>(
+            (rawText) => ({
+                type: "create_inbox",
+                payload: { rawText, clientMutationId: crypto.randomUUID() },
+            }),
+            async (rawText) => {
+                const res = await client.api.inbox.$post({ json: { rawText } });
+                return unwrapResponse<InboxItem>(res);
+            },
+        ),
 
         onMutate: async (rawText) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
@@ -41,6 +48,7 @@ export function useCreateInboxItem() {
         },
 
         onSuccess: (item, _rawText, context) => {
+            if (!item) return; // Queued offline
             reconcileInboxItemInCaches(queryClient, item, context?.optimisticId);
         },
 

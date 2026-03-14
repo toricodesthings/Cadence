@@ -22,7 +22,7 @@
     "deploy:backend": "pnpm --filter @cadence/backend deploy"
   },
   "devDependencies": {
-    "turbo": "^2.8.16"
+    "turbo": "^2.8.17"
   },
   "pnpm": {
     "peerDependencyRules": {

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { eq, and, or, inArray, gte, lte, between, sql, desc, asc } from "drizzle-orm";
 import { getDbClient } from "../lib/db";
+import { checkIdempotency, recordMutation } from "../lib/idempotency";
 import { withRls } from "../lib/rls";
 import { habits, habitLogs } from "../db/schema";
 import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, monthlyHabitsQuerySchema, habitListQuerySchema } from "../types/habit";
@@ -15,14 +16,22 @@ import { apiValidator } from "../lib/validation";
 export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertHabitSchema), async (c) => {
         const userId = c.get("userId");
-        const body = c.req.valid("json");
+        const { clientMutationId, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
         const habit = await withRls(db, userId, async (tx) => {
+            const existingId = await checkIdempotency(tx, userId, clientMutationId);
+            if (existingId) {
+                const [existing] = await tx.select().from(habits).where(and(eq(habits.id, existingId), eq(habits.userId, userId)));
+                if (existing) return existing;
+            }
+
             const [row] = await tx
                 .insert(habits)
                 .values({ ...body, userId })
                 .returning();
+
+            await recordMutation(tx, userId, clientMutationId, row.id);
             return row;
         });
 
@@ -209,10 +218,22 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateHabitSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
+        const { expectedUpdatedAt, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
         const updated = await withRls(db, userId, async (tx) => {
+            // Conflict detection: if expectedUpdatedAt is provided, verify it matches
+            if (expectedUpdatedAt) {
+                const [existing] = await tx
+                    .select({ updatedAt: habits.updatedAt })
+                    .from(habits)
+                    .where(and(eq(habits.id, id), eq(habits.userId, userId)));
+                if (!existing) throw new AppError(404, "NOT_FOUND", "Habit not found");
+                if (existing.updatedAt !== expectedUpdatedAt) {
+                    throw new AppError(409, "CONFLICT", "Habit was modified by another client");
+                }
+            }
+
             const [row] = await tx
                 .update(habits)
                 .set({ ...body, updatedAt: sql`NOW()` })

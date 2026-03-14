@@ -9,11 +9,13 @@ const {
     withRlsMock,
     trackRescheduleMock,
     trackCompletionMock,
+    trackEventMock,
 } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
     withRlsMock: vi.fn(),
     trackRescheduleMock: vi.fn().mockResolvedValue(undefined),
     trackCompletionMock: vi.fn().mockResolvedValue(undefined),
+    trackEventMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../src/lib/db", () => ({
@@ -27,6 +29,7 @@ vi.mock("../../src/lib/rls", () => ({
 vi.mock("../../src/lib/metrics", () => ({
     trackReschedule: trackRescheduleMock,
     trackCompletion: trackCompletionMock,
+    trackEvent: trackEventMock,
 }));
 
 import { taskRoutes } from "../../src/routes/tasks";
@@ -367,7 +370,7 @@ describe("task route contracts", () => {
             "11111111-1111-4111-8111-111111111111",
             "2026-03-10T12:00:00.000Z",
         );
-        expect((executionCtx.waitUntil as any)).toHaveBeenCalledTimes(1);
+        expect((executionCtx.waitUntil as any)).toHaveBeenCalledTimes(2);
     });
 
     it("preserves unrelated fields during partial task patches from the frontend", async () => {
@@ -408,5 +411,53 @@ describe("task route contracts", () => {
         });
         expect(capture.set).not.toHaveProperty("priority");
         expect(capture.set).not.toHaveProperty("isPinned");
+    });
+
+    it("reorder endpoint rebalances all tasks when orderedTaskIds is provided", async () => {
+        const capture: { set?: Record<string, unknown> } = {};
+        const updateSets: Array<{ orderIndex: number }> = [];
+        const taskA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        const taskB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        const taskC = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+        const tx = {
+            update: vi.fn(() => ({
+                set: vi.fn((values) => {
+                    capture.set = values;
+                    updateSets.push({ orderIndex: values.orderIndex });
+                    return {
+                        where: vi.fn(() => ({
+                            returning: vi.fn().mockResolvedValue([{ id: taskB, orderIndex: values.orderIndex }]),
+                        })),
+                    };
+                }),
+            })),
+            select: vi.fn(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn().mockResolvedValue([{ id: taskB, orderIndex: 1024, title: "Task B" }]),
+                })),
+            })),
+        };
+
+        getDbClientMock.mockReturnValue(tx);
+        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
+
+        const app = createTaskApp();
+        const response = await app.request(`http://localhost/tasks/${taskB}/reorder`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                orderIndex: 1024,
+                orderedTaskIds: [taskA, taskB, taskC],
+            }),
+        });
+
+        expect(response.status).toBe(200);
+        // Should update all 3 tasks in the ordered list with GAP=1024
+        expect(tx.update).toHaveBeenCalledTimes(3);
+        expect(updateSets).toEqual([
+            { orderIndex: 0 },
+            { orderIndex: 1024 },
+            { orderIndex: 2048 },
+        ]);
     });
 });

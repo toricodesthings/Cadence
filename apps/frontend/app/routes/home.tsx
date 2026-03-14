@@ -8,16 +8,20 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
+import { EmptyState } from "../components/tasks/EmptyState";
 import { PageContent } from "../components/layout/page-layout";
 import { ViewToggle } from "../components/shared/ViewToggle";
+import { SortMenu } from "../components/shared/SortMenu";
 import { useTasks } from "../hooks/tasks";
 import { useDocumentMeta } from "../hooks/use-document-meta";
 import { useShellMode } from "../hooks/use-shell-mode";
 import { useViewMode } from "../hooks/use-view-mode";
+import { useSortMode } from "../hooks/use-sort-mode";
 import { useRouteFocus } from "../hooks/use-route-focus";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { toISODate } from "../lib/utils/date-format";
 import { getTaskEffectiveAnchor } from "../lib/utils/task-scheduling";
+import { sortTasks } from "../lib/utils/sort-tasks";
 import type { Task } from "../types/task";
 
 function TodaySection({
@@ -62,6 +66,7 @@ function TodaySection({
 export default function Home() {
     const shell = useShellMode();
     const { view, setView } = useViewMode();
+    const { sortMode, setSortMode } = useSortMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const todayISO = toISODate(new Date());
@@ -96,19 +101,11 @@ export default function Home() {
             if (anchor === todayISO) today.push(task);
         }
 
-        const sortByAnchor = (a: Task, b: Task) => {
-            const anchorA = getTaskEffectiveAnchor(a) ?? "";
-            const anchorB = getTaskEffectiveAnchor(b) ?? "";
-            if (anchorA !== anchorB) return anchorA.localeCompare(anchorB);
-            if (a.isPinned !== b.isPinned) return Number(b.isPinned) - Number(a.isPinned);
-            return a.orderIndex - b.orderIndex;
+        return {
+            overdue: sortTasks(overdue, sortMode),
+            today: sortTasks(today, sortMode),
         };
-
-        overdue.sort(sortByAnchor);
-        today.sort(sortByAnchor);
-
-        return { overdue, today };
-    }, [filteredTasks, todayISO]);
+    }, [filteredTasks, todayISO, sortMode]);
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
@@ -146,7 +143,12 @@ export default function Home() {
             requireAuth
             sidePanel={sidePanel}
             headerCenter={<ViewToggle view={view} onViewChange={setView} />}
-            headerRight={headerRight}
+            headerRight={
+                <div className="flex items-center gap-2">
+                    {headerRight}
+                    <SortMenu mode={sortMode} onModeChange={setSortMode} />
+                </div>
+            }
             contentWidth="default"
             shellHeader={{
                 title: "Today",
@@ -221,15 +223,7 @@ export default function Home() {
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
-                            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-twilight-surface ring-1 ring-twilight-border">
-                                <Sunrise size={24} className="text-lantern" />
-                            </div>
-                            <h3 className="mb-2 text-lg font-medium text-twilight-text">Nothing pressing today.</h3>
-                            <p className="max-w-sm text-sm text-twilight-text-muted">
-                                Overdue work and today&apos;s scheduled tasks will gather here automatically.
-                            </p>
-                        </div>
+                        <EmptyState variant="today" />
                     )}
                 </PageContent>
             </ScrollAreaWrapper>

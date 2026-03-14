@@ -655,7 +655,7 @@ export function AccountTab() {
     };
 
     const handleUpdateSettings = async (field: "pronouns" | "birthday", value: string | null) => {
-        await updateSettings.mutateAsync({ profile: { ...profileSettings, [field]: value } });
+        updateSettings.mutate({ profile: { ...profileSettings, [field]: value } });
     };
 
     return (

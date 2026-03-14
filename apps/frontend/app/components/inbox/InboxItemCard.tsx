@@ -1,5 +1,6 @@
 import type { InboxItem } from "../../types/inbox";
 import { useDeleteInboxItem } from "../../hooks/inbox/use-delete-inbox-item";
+import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
 
 interface InboxItemCardProps {
     item: InboxItem;
@@ -7,6 +8,15 @@ interface InboxItemCardProps {
 
 export function InboxItemCard({ item }: InboxItemCardProps) {
     const deleteItem = useDeleteInboxItem();
+    const processToTask = useProcessInboxToTask();
+
+    const handleProcess = () => {
+        processToTask.mutate({ inboxItemId: item.id, rawText: item.rawText });
+    };
+
+    const handleProcessKeep = () => {
+        processToTask.mutate({ inboxItemId: item.id, rawText: item.rawText, keepNote: true });
+    };
 
     return (
         <div data-focus-kind="inbox" data-focus-id={item.id} className="group relative flex items-center gap-3 py-3 px-4 -mx-4 rounded-xl hover:bg-white/[0.03] transition-colors border border-transparent hover:border-twilight-border-light cursor-default">
@@ -14,11 +24,20 @@ export function InboxItemCard({ item }: InboxItemCardProps) {
                 <p className="text-[15px] text-twilight-text leading-relaxed whitespace-pre-wrap break-words">
                     {item.rawText}
                 </p>
-                <div className="flex gap-3 mt-3 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                <div className="flex flex-wrap gap-3 mt-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
                     <button
-                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-lantern/10 text-lantern hover:bg-lantern/20 transition-colors cursor-pointer ring-1 ring-lantern/20"
+                        onClick={handleProcess}
+                        disabled={processToTask.isPending}
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-lantern/10 text-lantern hover:bg-lantern/20 transition-colors cursor-pointer ring-1 ring-lantern/20 disabled:opacity-50"
                     >
-                        Process to Task
+                        {processToTask.isPending ? "Processing..." : "Convert & Remove"}
+                    </button>
+                    <button
+                        onClick={handleProcessKeep}
+                        disabled={processToTask.isPending}
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-moonlit/10 text-moonlit hover:bg-moonlit/20 transition-colors cursor-pointer ring-1 ring-moonlit/20 disabled:opacity-50"
+                    >
+                        {processToTask.isPending ? "Processing..." : "To Task & Keep"}
                     </button>
                     <button
                         onClick={() => deleteItem.mutate(item.id)}

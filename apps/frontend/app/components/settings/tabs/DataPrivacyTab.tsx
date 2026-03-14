@@ -16,15 +16,9 @@ export function DataPrivacyTab() {
 
     const handleExportRequest = () => {
         const now = new Date().toISOString();
-        updateSettings.mutate(
-            { privacy: { lastExportRequestedAt: now } },
-            {
-                onSuccess: () => {
-                    toast.success("Export request recorded. You will be notified when your data is ready.");
-                    setExportConfirmOpen(false);
-                },
-            },
-        );
+        updateSettings.mutate({ privacy: { lastExportRequestedAt: now } });
+        toast.success("Export request recorded. You will be notified when your data is ready.");
+        setExportConfirmOpen(false);
     };
 
     const hasExportPending = !!privacy.lastExportRequestedAt;

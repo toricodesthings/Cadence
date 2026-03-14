@@ -119,6 +119,7 @@ function TaskForm({ onClose }: { onClose: () => void }) {
             },
             {
                 onSuccess: (created) => {
+                    if (!created) return; // Queued offline
                     toast.success("Task added to Holding");
                     onClose();
                     const focusParams = buildFocusSearchParams({
@@ -182,6 +183,7 @@ function CaptureForm({ onClose }: { onClose: () => void }) {
 
         createInbox.mutate(trimmed, {
             onSuccess: (created) => {
+                if (!created) return; // Queued offline
                 toast.success("Thought saved to Holding");
                 onClose();
                 const focusParams = buildFocusSearchParams({
@@ -259,6 +261,7 @@ function HabitForm({ onClose }: { onClose: () => void }) {
             { title: trimmed, recurrenceRule },
             {
                 onSuccess: (created) => {
+                    if (!created) return; // Queued offline
                     toast.success("Habit created");
                     onClose();
                     const focusParams = buildFocusSearchParams({

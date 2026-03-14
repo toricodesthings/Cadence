@@ -1,0 +1,17 @@
+{
+  "name": "Cadence",
+  "short_name": "Cadence",
+  "description": "Calm, focused task and habit management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0f14",
+  "theme_color": "#0d0f14",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

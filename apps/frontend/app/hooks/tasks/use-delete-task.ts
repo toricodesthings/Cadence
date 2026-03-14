@@ -12,6 +12,7 @@ import type { Task } from "../../types/task";
 import { toast } from "sonner";
 import { removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Delete a task with optimistic removal from all caches */
 export function useDeleteTask() {
@@ -19,10 +20,13 @@ export function useDeleteTask() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (id: string) => {
-            const res = await client.api.tasks[":id"].$delete({ param: { id } });
-            return unwrapResponse<Task>(res);
-        },
+        mutationFn: withOfflineSupport<string, Task>(
+            (id) => ({ type: "delete_task", id }),
+            async (id) => {
+                const res = await client.api.tasks[":id"].$delete({ param: { id } });
+                return unwrapResponse<Task>(res);
+            },
+        ),
 
         onMutate: async (id) => {
             await cancelTaskQueries(queryClient);

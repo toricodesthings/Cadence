@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-const DEFAULT_COMPLETION_DELAY_MS = 4000;
+const DEFAULT_COMPLETION_DELAY_MS = 1500;
 
 type PendingTaskCompletion = {
     startedAt: number;

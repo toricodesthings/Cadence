@@ -5,7 +5,8 @@ import { z } from "zod";
 import { tasks, tags, taskTags } from "../db/schema";
 import { getDbClient } from "../lib/db";
 import { AppError } from "../lib/errors";
-import { trackCompletion, trackReschedule } from "../lib/metrics";
+import { checkIdempotency, recordMutation } from "../lib/idempotency";
+import { trackCompletion, trackReschedule, trackEvent } from "../lib/metrics";
 import { withRls } from "../lib/rls";
 import { normalizeTaskFilters, type NormalizedTaskFilters } from "../lib/task-filters";
 import {
@@ -107,13 +108,20 @@ function getTemporalFieldsForPersistence(fields: {
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertTaskSchema), async (c) => {
         const userId = c.get("userId");
-        const body = c.req.valid("json");
+        const { clientMutationId, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
         validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? null);
         const temporalFields = getTemporalFieldsForPersistence(body);
 
         try {
             const task = await withRls(db, userId, async (tx) => {
+                // Idempotency: return existing result if this mutation was already processed
+                const existingId = await checkIdempotency(tx, userId, clientMutationId);
+                if (existingId) {
+                    const [existing] = await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId)));
+                    if (existing) return existing;
+                }
+
                 const [row] = await tx
                     .insert(tasks)
                     .values({
@@ -122,8 +130,18 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                         userId,
                     })
                     .returning();
+
+                await recordMutation(tx, userId, clientMutationId, row.id);
                 return row;
             });
+
+            try {
+                c.executionCtx.waitUntil(
+                    trackEvent(getDbClient(c.env), userId, "task.create", { taskId: task.id }),
+                );
+            } catch {
+                // executionCtx may not be available in test environments
+            }
 
             return c.json({ data: task }, 201);
         } catch (err: unknown) {
@@ -136,7 +154,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTaskSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
+        const { expectedUpdatedAt, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
         const updated = await withRls(db, userId, async (tx) => {
@@ -147,11 +165,17 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     dueDate: tasks.dueDate,
                     scheduledStart: tasks.scheduledStart,
                     scheduledEnd: tasks.scheduledEnd,
+                    updatedAt: tasks.updatedAt,
                 })
                 .from(tasks)
                 .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
             if (!existing) throw new AppError(404, "NOT_FOUND", "Task not found");
+
+            // Conflict detection: if client sends expectedUpdatedAt, verify it matches
+            if (expectedUpdatedAt && existing.updatedAt !== expectedUpdatedAt) {
+                throw new AppError(409, "CONFLICT", "Task was modified by another client");
+            }
 
             validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
 
@@ -176,9 +200,15 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             c.executionCtx.waitUntil(
                 trackReschedule(getDbClient(c.env), id, userId, updated.scheduledStart ?? updated.dueDate),
             );
+            c.executionCtx.waitUntil(
+                trackEvent(getDbClient(c.env), userId, "task.reschedule", { taskId: id }),
+            );
         }
         if (body.state === "COMPLETE") {
             c.executionCtx.waitUntil(trackCompletion(getDbClient(c.env), id, userId));
+            c.executionCtx.waitUntil(
+                trackEvent(getDbClient(c.env), userId, "task.complete", { taskId: id }),
+            );
         }
 
         return c.json({ data: updated });
@@ -186,10 +216,33 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .patch("/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderTaskSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const { orderIndex } = c.req.valid("json");
+        const { orderIndex, orderedTaskIds } = c.req.valid("json");
         const db = getDbClient(c.env);
 
         const updated = await withRls(db, userId, async (tx) => {
+            // If the client sent the full ordered list, rebalance all affected tasks
+            if (orderedTaskIds && orderedTaskIds.length > 1) {
+                const GAP = 1024;
+                const updates = orderedTaskIds.map((taskId, idx) => ({
+                    id: taskId,
+                    orderIndex: idx * GAP,
+                }));
+
+                for (const u of updates) {
+                    await tx
+                        .update(tasks)
+                        .set({ orderIndex: u.orderIndex, updatedAt: sql`NOW()` })
+                        .where(and(eq(tasks.id, u.id), eq(tasks.userId, userId)));
+                }
+
+                const [row] = await tx
+                    .select()
+                    .from(tasks)
+                    .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+                return row;
+            }
+
+            // Fallback: only update the single moved task
             const [row] = await tx
                 .update(tasks)
                 .set({ orderIndex, updatedAt: sql`NOW()` })
@@ -217,6 +270,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         if (state === "COMPLETE") {
             for (const id of taskIds) {
                 c.executionCtx.waitUntil(trackCompletion(getDbClient(c.env), id, userId));
+                c.executionCtx.waitUntil(
+                    trackEvent(getDbClient(c.env), userId, "task.complete", { taskId: id }),
+                );
             }
         }
 
@@ -242,6 +298,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         for (const id of taskIds) {
             c.executionCtx.waitUntil(
                 trackReschedule(getDbClient(c.env), id, userId, temporalFields.scheduledStart ?? temporalFields.dueDate),
+            );
+            c.executionCtx.waitUntil(
+                trackEvent(getDbClient(c.env), userId, "task.reschedule", { taskId: id }),
             );
         }
 

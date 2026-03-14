@@ -10,18 +10,22 @@ import {
 import { toast } from "sonner";
 import { removeHabitFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useDeleteHabit() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (id: string) => {
-            const res = await client.api.habits[":id"].$delete({
-                param: { id },
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<string, unknown>(
+            (id) => ({ type: "delete_habit", id }),
+            async (id) => {
+                const res = await client.api.habits[":id"].$delete({
+                    param: { id },
+                });
+                return unwrapResponse(res);
+            },
+        ),
 
         onMutate: async (id) => {
             await cancelHabitQueries(queryClient);

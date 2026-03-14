@@ -14,6 +14,9 @@ import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { ViewToggle } from "../components/shared/ViewToggle";
+import { SortMenu } from "../components/shared/SortMenu";
+import { useSortMode } from "../hooks/use-sort-mode";
+import { sortTasks } from "../lib/utils/sort-tasks";
 import * as DropdownMenu from "../components/primitives/DropdownMenu";
 import * as Dialog from "../components/primitives/Dialog";
 import * as AlertDialog from "../components/primitives/AlertDialog";
@@ -52,12 +55,16 @@ export default function ProjectView() {
 
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
     const { activeTagId } = useTagFilterStore();
+    const { sortMode, setSortMode } = useSortMode();
 
     useRouteFocus();
 
-    const tasks = activeTagId
-        ? (rawTasks ?? []).filter(t => (t as any).tagIds?.includes(activeTagId))
-        : (rawTasks ?? []);
+    const tasks = sortTasks(
+        activeTagId
+            ? (rawTasks ?? []).filter(t => (t as any).tagIds?.includes(activeTagId))
+            : (rawTasks ?? []),
+        sortMode
+    );
 
     const handleRenameOpen = () => {
         setRenameValue(project?.name ?? "");
@@ -281,7 +288,9 @@ export default function ProjectView() {
                 sidePanel={sidePanel}
                 headerCenter={<ViewToggle view={view} onViewChange={setView} />}
                 headerRight={project ? (
-                    <DropdownMenu.Root>
+                    <div className="flex items-center gap-2">
+                        <SortMenu mode={sortMode} onModeChange={setSortMode} />
+                        <DropdownMenu.Root>
                         <DropdownMenu.Trigger asChild>
                             <button
                                 aria-label="Project actions"
@@ -308,6 +317,7 @@ export default function ProjectView() {
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>
                     </DropdownMenu.Root>
+                    </div>
                 ) : undefined}
                 contentWidth="default"
                 pageTitle={project?.name ?? "Project"}

@@ -14,6 +14,8 @@ import { habitsRoutes } from "./routes/habits";
 import { subtasksRoutes } from "./routes/subtasks";
 import { sectionRoutes } from "./routes/sections";
 import { settingsRoutes } from "./routes/settings";
+import { eventRoutes } from "./routes/events";
+import { suggestionRoutes } from "./routes/suggestions";
 import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCode } from "./lib/request-log";
 
 const app = new Hono<{ Bindings: Env; Variables: import("./lib/auth").AuthVariables }>();
@@ -25,16 +27,14 @@ app.use(
   "*",
   cors({
     origin: (origin) => {
-      if (!origin) return "https://cadence.app";
+      if (!origin) return "https://dashboard.cadenceapp.cloud";
       if (
         origin.startsWith("http://localhost:") ||
-        origin === "https://cadence.app" ||
-        origin.endsWith(".cadence.app") ||
-        origin.endsWith(".pitoursirak.workers.dev")
+        origin === "https://dashboard.cadenceapp.cloud"
       ) {
         return origin;
       }
-      return "https://cadence.app";
+      return "https://dashboard.cadenceapp.cloud";
     },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type"],
@@ -53,30 +53,68 @@ app.onError(async (err, c) => {
 // ── Public ──
 app.route("/health", healthRoutes);
 
+// ── Rate-limit helper ──
+function rateLimitResponse(c: import("hono").Context) {
+  setRequestErrorCode(c, "TOO_MANY_REQUESTS");
+  return c.json(
+    {
+      error: {
+        code: "TOO_MANY_REQUESTS",
+        message: "Rate limit exceeded. Please slow down.",
+        status: 429,
+        isRetryable: true,
+        requestId: getRequestId(c),
+      },
+    },
+    { status: 429, headers: { "Retry-After": "60" } },
+  );
+}
+
 // ── Protected ──
+
+// Tier 1: IP-based global limiter (pre-auth, catches abuse early)
 app.use("/api/*", async (c, next) => {
+  if (c.req.method === "OPTIONS") return next();
   const ip = c.req.header("cf-connecting-ip") || "unknown";
   if (c.env.RATE_LIMITER) {
     const { success } = await c.env.RATE_LIMITER.limit({ key: ip });
-    if (!success) {
-      setRequestErrorCode(c, "TOO_MANY_REQUESTS");
-      return c.json(
-        {
-          error: {
-            code: "TOO_MANY_REQUESTS",
-            message: "Rate limit exceeded",
-            status: 429,
-            isRetryable: false,
-            requestId: getRequestId(c),
-          },
-        },
-        429,
-      );
+    if (!success) return rateLimitResponse(c);
+  }
+  await next();
+});
+
+app.use("/api/*", authMiddleware);
+
+// Tier 2: User-scoped read/write limiters (post-auth)
+app.use("/api/*", async (c, next) => {
+  if (c.req.method === "OPTIONS") return next();
+  const userId = c.get("userId");
+  const method = c.req.method;
+
+  if (method === "GET") {
+    if (c.env.RATE_LIMITER_READ) {
+      const { success } = await c.env.RATE_LIMITER_READ.limit({ key: userId });
+      if (!success) return rateLimitResponse(c);
+    }
+  } else {
+    if (c.env.RATE_LIMITER_WRITE) {
+      const { success } = await c.env.RATE_LIMITER_WRITE.limit({ key: userId });
+      if (!success) return rateLimitResponse(c);
     }
   }
   await next();
 });
-app.use("/api/*", authMiddleware);
+
+// Tier 3: Admin route limiter (tighter ceiling on debug endpoints)
+app.use("/api/debug/*", async (c, next) => {
+  if (c.req.method === "OPTIONS") return next();
+  const userId = c.get("userId");
+  if (c.env.RATE_LIMITER_ADMIN) {
+    const { success } = await c.env.RATE_LIMITER_ADMIN.limit({ key: userId });
+    if (!success) return rateLimitResponse(c);
+  }
+  await next();
+});
 app.route("/api/tasks", taskRoutes);
 app.route("/api/projects", projectRoutes);
 app.route("/api/inbox", inboxRoutes);
@@ -85,6 +123,8 @@ app.route("/api/habits", habitsRoutes);
 app.route("/api", subtasksRoutes);
 app.route("/api/sections", sectionRoutes);
 app.route("/api/settings", settingsRoutes);
+app.route("/api/events", eventRoutes);
+app.route("/api/suggestions", suggestionRoutes);
 app.route("/api/debug", debugRoutes);
 
 // ── Type export for Hono RPC ──

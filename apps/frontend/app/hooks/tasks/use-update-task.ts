@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task-scheduling";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Update any task field with optimistic patching across all caches */
 export function useUpdateTask() {
@@ -20,16 +21,16 @@ export function useUpdateTask() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({
-            id,
-            ...updates
-        }: { id: string } & UpdateTaskInput) => {
-            const res = await client.api.tasks[":id"].$patch({
-                param: { id },
-                json: updates,
-            });
-            return unwrapResponse<Task>(res);
-        },
+        mutationFn: withOfflineSupport<{ id: string } & UpdateTaskInput, Task>(
+            ({ id, ...updates }) => ({ type: "update_task", id, payload: updates }),
+            async ({ id, ...updates }) => {
+                const res = await client.api.tasks[":id"].$patch({
+                    param: { id },
+                    json: updates,
+                });
+                return unwrapResponse<Task>(res);
+            },
+        ),
 
         onMutate: async ({ id, ...updates }) => {
             await cancelTaskQueries(queryClient);
@@ -44,6 +45,7 @@ export function useUpdateTask() {
         },
 
         onSuccess: (task) => {
+            if (!task) return; // Queued offline
             if (isRecurringTask(task)) {
                 invalidateTaskCaches(queryClient);
                 return;

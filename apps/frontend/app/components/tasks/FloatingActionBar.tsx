@@ -1,10 +1,11 @@
-import { X, Calendar, CheckSquare, Trash2, CalendarDays } from "lucide-react";
+import { X, Calendar, CheckSquare, Trash2, CalendarDays, Sun, Moon, ArrowRight } from "lucide-react";
 import { useTaskSelection } from "../../stores/task-selection-store";
 import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
 import * as Popover from "../primitives/Popover";
 import { Button } from "../primitives/Button";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
+import { toISODate, addDays } from "../../lib/utils/date-format";
 
 export function FloatingActionBar() {
     const { selectedTaskIds, clearSelection } = useTaskSelection();
@@ -61,6 +62,19 @@ export function FloatingActionBar() {
         );
     };
 
+    const handleQuickReschedule = (daysFromNow: number) => {
+        const target = toISODate(addDays(new Date(), daysFromNow));
+        batchReschedule.mutate(
+            { taskIds: selectedArray, scheduledStart: target, isAllDay: true },
+            {
+                onSuccess: () => {
+                    toast.success(`Rescheduled ${count} tasks`);
+                    clearSelection();
+                },
+            },
+        );
+    };
+
     return (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 p-1.5 rounded-2xl bg-twilight-surface shadow-2xl border border-twilight-border animate-in slide-in-from-bottom-5 fade-in duration-300">
             {/* Count Badge */}
@@ -83,6 +97,37 @@ export function FloatingActionBar() {
                 >
                     <CheckSquare size={14} className="opacity-80" />
                     Complete
+                </Button>
+
+                {/* Quick reschedule presets */}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleQuickReschedule(0)}
+                    className="shrink-0 text-twilight-text-soft hover:text-white"
+                >
+                    <Sun size={14} className="opacity-80" />
+                    Today
+                </Button>
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleQuickReschedule(1)}
+                    className="shrink-0 text-twilight-text-soft hover:text-white"
+                >
+                    <Moon size={14} className="opacity-80" />
+                    Tomorrow
+                </Button>
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleQuickReschedule(7)}
+                    className="shrink-0 text-twilight-text-soft hover:text-white hidden sm:flex"
+                >
+                    <ArrowRight size={14} className="opacity-80" />
+                    Next week
                 </Button>
 
                 <DeadlinePickerPopover

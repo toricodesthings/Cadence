@@ -13,18 +13,25 @@ import { toast } from "sonner";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useCreateHabit() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (input: InsertHabit) => {
-            const res = await client.api.habits.$post({
-                json: input,
-            });
-            return unwrapResponse<Habit>(res);
-        },
+        mutationFn: withOfflineSupport<InsertHabit, Habit>(
+            (input) => ({
+                type: "create_habit",
+                payload: { ...input, clientMutationId: crypto.randomUUID() } as Record<string, unknown> & { clientMutationId: string },
+            }),
+            async (input) => {
+                const res = await client.api.habits.$post({
+                    json: input,
+                });
+                return unwrapResponse<Habit>(res);
+            },
+        ),
 
         onMutate: async (input) => {
             await cancelHabitQueries(queryClient);
@@ -79,6 +86,7 @@ export function useCreateHabit() {
         },
 
         onSuccess: (habit, _input, context) => {
+            if (!habit) return; // Queued offline
             reconcileHabitInCaches(queryClient, habit, context?.optimisticId);
         },
 

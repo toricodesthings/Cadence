@@ -43,4 +43,8 @@ export class ApiErrorResponse extends Error {
         this.isRetryable = isRetryable;
         this.details = details;
     }
+
+    get isRateLimited(): boolean {
+        return this.status === 429 || this.code === "TOO_MANY_REQUESTS";
+    }
 }

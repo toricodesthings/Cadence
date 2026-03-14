@@ -18,6 +18,10 @@ export const links: LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Sora:wght@100..800&family=Outfit:wght@300;400;500;600;700&display=swap",
   },
+  {
+    rel: "manifest",
+    href: "/manifest.webmanifest",
+  },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -26,6 +30,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#0d0f14" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         <title>Cadence</title>
         <meta
           name="description"
@@ -49,6 +55,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ("serviceWorker" in navigator) {
+                window.addEventListener("load", function() {
+                  navigator.serviceWorker.register("/sw.js").catch(function() {});
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

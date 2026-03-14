@@ -28,20 +28,40 @@
     }
   ],
 
-  "rate_limits": [
+  "ratelimits": [
     {
-      "binding": "RATE_LIMITER",
-      "namespace_id": "cadence-api",
-      "simple": {
-        "limit": 100,
-        "period": 60
-      }
+      "name": "RATE_LIMITER",
+      "namespace_id": "cadence-global",
+      "simple": { "limit": 500, "period": 60 }
+    },
+    {
+      "name": "RATE_LIMITER_READ",
+      "namespace_id": "cadence-read",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      "name": "RATE_LIMITER_WRITE",
+      "namespace_id": "cadence-write",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      "name": "RATE_LIMITER_ADMIN",
+      "namespace_id": "cadence-admin",
+      "simple": { "limit": 30, "period": 60 }
     }
   ],
 
   "triggers": {
     "crons": ["0 6 * * *"]
   },
+  "preview_urls": false,
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "api.cadenceapp.cloud",
+      "custom_domain": true
+    }
+  ],
 
   "env": {
     "dev": {
@@ -52,14 +72,26 @@
           "id": "c25e56a5b7894baa95da5e7f44216d4a"
         }
       ],
-      "rate_limits": [
+      "ratelimits": [
         {
-          "binding": "RATE_LIMITER",
-          "namespace_id": "cadence-api-dev",
-          "simple": {
-            "limit": 100,
-            "period": 60
-          }
+          "name": "RATE_LIMITER",
+          "namespace_id": "cadence-global-dev",
+          "simple": { "limit": 500, "period": 60 }
+        },
+        {
+          "name": "RATE_LIMITER_READ",
+          "namespace_id": "cadence-read-dev",
+          "simple": { "limit": 300, "period": 60 }
+        },
+        {
+          "name": "RATE_LIMITER_WRITE",
+          "namespace_id": "cadence-write-dev",
+          "simple": { "limit": 120, "period": 60 }
+        },
+        {
+          "name": "RATE_LIMITER_ADMIN",
+          "namespace_id": "cadence-admin-dev",
+          "simple": { "limit": 30, "period": 60 }
         }
       ],
       "triggers": {

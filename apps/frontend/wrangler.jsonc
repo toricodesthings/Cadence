@@ -10,8 +10,17 @@
 
   "vars": {
     "VITE_NEON_AUTH_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth",
-    "VITE_API_BASE_URL": "https://cadence-backend.pitoursirak.workers.dev"
+    "VITE_API_BASE_URL": "https://api.cadenceapp.cloud"
   },
+
+  "preview_urls": false,
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "dashboard.cadenceapp.cloud",
+      "custom_domain": true
+    }
+  ],
 
   // ── Named environments ────────────────────────────────────────────
   "env": {

@@ -12,10 +12,13 @@ export const insertHabitSchema = z.object({
     reminderEnabled: z.boolean().default(false),
     colorAccent: z.string().default("lantern"),
     archived: z.boolean().default(false).optional(),
+    clientMutationId: z.string().max(100).optional(),
 });
 export type InsertHabit = z.infer<typeof insertHabitSchema>;
 
-export const updateHabitSchema = insertHabitSchema.partial();
+export const updateHabitSchema = insertHabitSchema.partial().extend({
+    expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
+});
 export type UpdateHabit = z.infer<typeof updateHabitSchema>;
 
 export const resolveHabitActionSchema = z.object({

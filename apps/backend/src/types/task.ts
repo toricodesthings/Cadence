@@ -31,6 +31,7 @@ export const insertTaskSchema = z.object({
     effort: z.number().int().min(1).max(3).nullable().optional(),
     notBefore: z.iso.datetime().nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
+    clientMutationId: z.string().max(100).optional(),
 });
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 
@@ -56,11 +57,13 @@ export const updateTaskSchema = z.object({
     effort: z.number().int().min(1).max(3).nullable().optional(),
     notBefore: z.iso.datetime().nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
+    expectedUpdatedAt: z.iso.datetime().optional(),
 });
 export type UpdateTask = z.infer<typeof updateTaskSchema>;
 
 export const reorderTaskSchema = z.object({
     orderIndex: z.number(),
+    orderedTaskIds: z.array(z.string().uuid()).max(200).optional(),
 });
 
 export const batchStateSchema = z.object({

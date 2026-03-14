@@ -9,6 +9,6 @@ export default defineConfig({
     out: './drizzle',
     dialect: 'postgresql',
     dbCredentials: {
-        url: process.env.PROD_MANAGEMENT_DATABASE_URL!,
+        url: process.env.MANAGEMENT_DATABASE_URL!,
     },
 });

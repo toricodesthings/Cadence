@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
 import { getDbClient } from "../lib/db";
+import { checkIdempotency, recordMutation } from "../lib/idempotency";
 import { withRls } from "../lib/rls";
 import { inboxItems, inboxSections } from "../db/schema";
 import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema } from "../types/inbox";
@@ -13,18 +14,24 @@ import { apiValidator } from "../lib/validation";
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertInboxItemSchema), async (c) => {
         const userId = c.get("userId");
-        const body = c.req.valid("json");
+        const { clientMutationId, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const [item] = await withRls(db, userId, (tx) =>
-            tx
+        const item = await withRls(db, userId, async (tx) => {
+            const existingId = await checkIdempotency(tx, userId, clientMutationId);
+            if (existingId) {
+                const [existing] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, existingId), eq(inboxItems.userId, userId)));
+                if (existing) return existing;
+            }
+
+            const [row] = await tx
                 .insert(inboxItems)
-                .values({
-                    ...body,
-                    userId,
-                })
-                .returning(),
-        );
+                .values({ ...body, userId })
+                .returning();
+
+            await recordMutation(tx, userId, clientMutationId, row.id);
+            return row;
+        });
 
         return c.json({ data: item }, 201);
     })
@@ -83,15 +90,24 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     // ── Inbox Sections ──
     .post("/sections", apiValidator("json", insertInboxSectionSchema), async (c) => {
         const userId = c.get("userId");
-        const body = c.req.valid("json");
+        const { clientMutationId, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const [section] = await withRls(db, userId, (tx) =>
-            tx
+        const section = await withRls(db, userId, async (tx) => {
+            const existingId = await checkIdempotency(tx, userId, clientMutationId);
+            if (existingId) {
+                const [existing] = await tx.select().from(inboxSections).where(and(eq(inboxSections.id, existingId), eq(inboxSections.userId, userId)));
+                if (existing) return existing;
+            }
+
+            const [row] = await tx
                 .insert(inboxSections)
                 .values({ ...body, userId })
-                .returning(),
-        );
+                .returning();
+
+            await recordMutation(tx, userId, clientMutationId, row.id);
+            return row;
+        });
 
         return c.json({ data: section }, 201);
     })

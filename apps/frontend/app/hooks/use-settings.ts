@@ -136,5 +136,38 @@ export function useUpdateSettings() {
         [queryClient, queryKey, storageKey, mutation],
     );
 
-    return { mutate };
+    /** Flush immediately without debounce — returns a promise for await-style usage */
+    const mutateAsync = useCallback(
+        async (patch: DeepPartial<UserSettings>) => {
+            // Capture previous state for rollback
+            const previous = queryClient.getQueryData<UserSettings>(queryKey);
+
+            // Optimistic local update
+            const next = deepMerge(previous || {}, patch);
+            queryClient.setQueryData(queryKey, next);
+            writeLocalCache(storageKey, next);
+
+            // Flush any pending debounced patches together with this one
+            const coalescedPatch = deepMerge(pendingPatch.current, patch);
+            pendingPatch.current = {};
+            if (debounceTimer.current) {
+                clearTimeout(debounceTimer.current);
+                debounceTimer.current = null;
+            }
+
+            try {
+                return await mutation.mutateAsync(coalescedPatch);
+            } catch (err) {
+                // Rollback optimistic update on failure
+                if (previous) {
+                    queryClient.setQueryData(queryKey, previous);
+                    writeLocalCache(storageKey, previous);
+                }
+                throw err;
+            }
+        },
+        [queryClient, queryKey, storageKey, mutation],
+    );
+
+    return { mutate, mutateAsync };
 }

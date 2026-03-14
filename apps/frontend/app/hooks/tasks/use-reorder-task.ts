@@ -6,6 +6,7 @@ import type { Task } from "../../types/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Reorder a task via fractional index — component handles optimistic array reorder */
 export function useReorderTask() {
@@ -13,21 +14,19 @@ export function useReorderTask() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({
-            id,
-            orderIndex,
-            orderedTaskIds,
-        }: {
-            id: string;
-            orderIndex: number;
-            orderedTaskIds: string[];
-        }) => {
-            const res = await client.api.tasks[":id"].reorder.$patch({
-                param: { id },
-                json: { orderIndex },
-            });
-            return unwrapResponse<Task>(res);
-        },
+        mutationFn: withOfflineSupport<
+            { id: string; orderIndex: number; orderedTaskIds: string[] },
+            Task
+        >(
+            ({ id, orderIndex, orderedTaskIds }) => ({ type: "reorder_task", id, payload: { orderIndex, orderedTaskIds } }),
+            async ({ id, orderIndex, orderedTaskIds }) => {
+                const res = await client.api.tasks[":id"].reorder.$patch({
+                    param: { id },
+                    json: { orderIndex, orderedTaskIds },
+                });
+                return unwrapResponse<Task>(res);
+            },
+        ),
         onMutate: async ({ id, orderIndex, orderedTaskIds }) => {
             await cancelTaskQueries(queryClient);
             const snapshot = snapshotTaskCache(queryClient);
@@ -56,6 +55,7 @@ export function useReorderTask() {
             return { snapshot };
         },
         onSuccess: (task) => {
+            if (!task) return; // Queued offline
             reconcileTaskInCaches(queryClient, task);
         },
         onError: (err, _vars, context) => {

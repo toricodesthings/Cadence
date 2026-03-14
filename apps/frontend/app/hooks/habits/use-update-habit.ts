@@ -12,19 +12,26 @@ import { toast } from "sonner";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { queryKeys } from "../../lib/api/query-keys";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useUpdateHabit() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, ...patch }: UpdateHabit & { id: string }) => {
-            const res = await client.api.habits[":id"].$patch({
-                param: { id },
-                json: patch,
-            });
-            return unwrapResponse<Habit>(res);
-        },
+        mutationFn: withOfflineSupport<
+            UpdateHabit & { id: string },
+            Habit
+        >(
+            ({ id, ...patch }) => ({ type: "update_habit", id, payload: patch as Record<string, unknown> }),
+            async ({ id, ...patch }) => {
+                const res = await client.api.habits[":id"].$patch({
+                    param: { id },
+                    json: patch,
+                });
+                return unwrapResponse<Habit>(res);
+            },
+        ),
 
         onMutate: async ({ id, ...patch }) => {
             await cancelHabitQueries(queryClient);
@@ -81,6 +88,7 @@ export function useUpdateHabit() {
         },
 
         onSuccess: (habit) => {
+            if (!habit) return; // Queued offline
             reconcileHabitInCaches(queryClient, habit);
         },
 

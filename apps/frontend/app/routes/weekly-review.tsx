@@ -156,7 +156,9 @@ export default function WeeklyReview() {
             await deleteInboxItem.mutateAsync(item.id);
         } else if (action === "someday") {
             const newTask = await createTask.mutateAsync({ title: item.rawText, orderIndex: 0 });
-            await updateTask.mutateAsync({ id: newTask.id, state: "WAITING" });
+            if (newTask) {
+                await updateTask.mutateAsync({ id: newTask.id, state: "WAITING" });
+            }
             await deleteInboxItem.mutateAsync(item.id);
         }
     };

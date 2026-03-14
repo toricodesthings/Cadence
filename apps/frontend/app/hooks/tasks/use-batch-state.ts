@@ -6,6 +6,7 @@ import type { Task, TaskState } from "../../types/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Batch-transition multiple tasks to a new state (COMPLETE, WAITING, ARCHIVED, ACTIVE) */
 export function useBatchStateTransition() {
@@ -13,18 +14,18 @@ export function useBatchStateTransition() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({
-            taskIds,
-            state,
-        }: {
-            taskIds: string[];
-            state: TaskState;
-        }) => {
-            const res = await client.api.tasks.batch.state.$patch({
-                json: { taskIds, state },
-            });
-            return unwrapResponse<Task[]>(res);
-        },
+        mutationFn: withOfflineSupport<
+            { taskIds: string[]; state: TaskState },
+            Task[]
+        >(
+            ({ taskIds, state }) => ({ type: "batch_state", payload: { taskIds, state } }),
+            async ({ taskIds, state }) => {
+                const res = await client.api.tasks.batch.state.$patch({
+                    json: { taskIds, state },
+                });
+                return unwrapResponse<Task[]>(res);
+            },
+        ),
         onMutate: async ({ taskIds, state }) => {
             await cancelTaskQueries(queryClient);
             const snapshot = snapshotTaskCache(queryClient);
@@ -36,6 +37,7 @@ export function useBatchStateTransition() {
             return { snapshot };
         },
         onSuccess: (tasks) => {
+            if (!tasks) return; // Queued offline
             tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
         },
         onError: (err, _vars, context) => {
@@ -51,20 +53,18 @@ export function useBatchRescheduleTasks() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({
-            taskIds,
-            scheduledStart,
-            isAllDay
-        }: {
-            taskIds: string[];
-            scheduledStart: string;
-            isAllDay: boolean;
-        }) => {
-            const res = await client.api.tasks.batch.reschedule.$post({
-                json: { taskIds, scheduledStart, isAllDay },
-            });
-            return unwrapResponse<Task[]>(res);
-        },
+        mutationFn: withOfflineSupport<
+            { taskIds: string[]; scheduledStart: string; isAllDay: boolean },
+            Task[]
+        >(
+            ({ taskIds, scheduledStart, isAllDay }) => ({ type: "batch_reschedule", payload: { taskIds, scheduledStart, isAllDay } }),
+            async ({ taskIds, scheduledStart, isAllDay }) => {
+                const res = await client.api.tasks.batch.reschedule.$post({
+                    json: { taskIds, scheduledStart, isAllDay },
+                });
+                return unwrapResponse<Task[]>(res);
+            },
+        ),
         onMutate: async ({ taskIds, scheduledStart, isAllDay }) => {
             await cancelTaskQueries(queryClient);
             const snapshot = snapshotTaskCache(queryClient);
@@ -78,6 +78,7 @@ export function useBatchRescheduleTasks() {
             return { snapshot };
         },
         onSuccess: (tasks) => {
+            if (!tasks) return; // Queued offline
             tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
         },
         onError: (err, _vars, context) => {
@@ -93,13 +94,18 @@ export function useBatchDeleteTasks() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ taskIds }: { taskIds: string[] }) => {
-            // Delete individually since no batch delete API
-            const results = await Promise.all(taskIds.map(id =>
-                client.api.tasks[":id"].$delete({ param: { id } })
-            ));
-            return results;
-        },
+        mutationFn: withOfflineSupport<
+            { taskIds: string[] },
+            Response[]
+        >(
+            ({ taskIds }) => ({ type: "batch_delete", payload: { taskIds } }),
+            async ({ taskIds }) => {
+                const results = await Promise.all(taskIds.map(id =>
+                    client.api.tasks[":id"].$delete({ param: { id } })
+                ));
+                return results;
+            },
+        ),
         onMutate: async ({ taskIds }) => {
             await cancelTaskQueries(queryClient);
             const snapshot = snapshotTaskCache(queryClient);

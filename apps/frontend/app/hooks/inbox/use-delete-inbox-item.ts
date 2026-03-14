@@ -7,16 +7,20 @@ import { toast } from "sonner";
 import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useDeleteInboxItem() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (id: string) => {
-            const res = await client.api.inbox[":id"].$delete({ param: { id } });
-            return unwrapResponse<InboxItem>(res);
-        },
+        mutationFn: withOfflineSupport<string, InboxItem>(
+            (id) => ({ type: "delete_inbox", id }),
+            async (id) => {
+                const res = await client.api.inbox[":id"].$delete({ param: { id } });
+                return unwrapResponse<InboxItem>(res);
+            },
+        ),
 
         onMutate: async (id) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });

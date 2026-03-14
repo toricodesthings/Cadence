@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSettings, useUpdateSettings } from "../../../app/hooks/use-settings";
+import { SETTINGS_DEFAULTS } from "../../../app/lib/types/settings";
 
 const settingsGetMock = vi.fn();
 const settingsPatchMock = vi.fn();
@@ -71,7 +72,11 @@ describe("useSettings", () => {
         const queryClient = createQueryClient();
         const { result } = renderHook(() => useSettings(), { wrapper: createWrapper(queryClient) });
 
-        expect(result.current.data).toEqual({ tasks: { hideCompleted: true } });
+        // readLocalCache deep-merges stored values onto SETTINGS_DEFAULTS
+        expect(result.current.data).toEqual({
+            ...SETTINGS_DEFAULTS,
+            tasks: { ...SETTINGS_DEFAULTS.tasks, hideCompleted: true },
+        });
     });
 
     it("writes fetched settings back to the same user-scoped storage key", async () => {

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task-scheduling";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
@@ -20,28 +21,37 @@ export function useCreateTask() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (input: CreateTaskInput) => {
-            const res = await client.api.tasks.$post({
-                json: {
-                    title: input.title,
-                    ...(input.content !== undefined && { content: input.content }),
-                    orderIndex: input.orderIndex,
-                    state: "ACTIVE",
-                    isAllDay: input.isAllDay ?? true,
-                    ...(input.projectId && { projectId: input.projectId }),
-                    ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
-                    ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
-                    ...(input.dueDate && { dueDate: input.dueDate }),
-                    ...(input.timezoneLocked !== undefined && { timezoneLocked: input.timezoneLocked }),
-                    ...(input.priority !== undefined && { priority: input.priority }),
-                    ...(input.isPinned !== undefined && { isPinned: input.isPinned }),
-                    ...(input.reminderAt && { reminderAt: input.reminderAt }),
-                    ...(input.reminderSilenced !== undefined && { reminderSilenced: input.reminderSilenced }),
-                    ...(input.recurrenceRule && { recurrenceRule: input.recurrenceRule }),
+        mutationFn: withOfflineSupport<CreateTaskInput, Task>(
+            (input) => ({
+                type: "create_task",
+                payload: {
+                    ...input,
+                    clientMutationId: crypto.randomUUID(),
                 },
-            });
-            return unwrapResponse<Task>(res);
-        },
+            }),
+            async (input) => {
+                const res = await client.api.tasks.$post({
+                    json: {
+                        title: input.title,
+                        ...(input.content !== undefined && { content: input.content }),
+                        orderIndex: input.orderIndex,
+                        state: "ACTIVE",
+                        isAllDay: input.isAllDay ?? true,
+                        ...(input.projectId && { projectId: input.projectId }),
+                        ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
+                        ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
+                        ...(input.dueDate && { dueDate: input.dueDate }),
+                        ...(input.timezoneLocked !== undefined && { timezoneLocked: input.timezoneLocked }),
+                        ...(input.priority !== undefined && { priority: input.priority }),
+                        ...(input.isPinned !== undefined && { isPinned: input.isPinned }),
+                        ...(input.reminderAt && { reminderAt: input.reminderAt }),
+                        ...(input.reminderSilenced !== undefined && { reminderSilenced: input.reminderSilenced }),
+                        ...(input.recurrenceRule && { recurrenceRule: input.recurrenceRule }),
+                    },
+                });
+                return unwrapResponse<Task>(res);
+            },
+        ),
 
         onMutate: async (input) => {
             await cancelTaskQueries(queryClient);
@@ -87,6 +97,7 @@ export function useCreateTask() {
         },
 
         onSuccess: (task, _input, context) => {
+            if (!task) return; // Queued offline
             if (isRecurringTask(task)) {
                 invalidateTaskCaches(queryClient);
                 return;

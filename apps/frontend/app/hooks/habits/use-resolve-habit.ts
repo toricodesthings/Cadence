@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { patchHabitMonthlyCache, reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 const latestResolveByCell = new Map<string, string>();
 
@@ -24,20 +25,30 @@ export function useResolveHabit(habitId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (action: ResolveHabitAction) => {
-            const requestKey = makeCellKey(habitId, action.targetDate);
-            const requestId = crypto.randomUUID();
-            latestResolveByCell.set(requestKey, requestId);
-            const res = await client.api.habits[":id"].resolve.$post({
-                param: { id: habitId },
-                json: action,
-            });
-            return {
-                ...(await unwrapResponse<{ habit: Habit }>(res)),
-                requestId,
-                requestKey,
-            };
-        },
+        mutationFn: withOfflineSupport<
+            ResolveHabitAction,
+            { habit: Habit; requestId: string; requestKey: string }
+        >(
+            (action) => ({
+                type: "resolve_habit",
+                id: habitId,
+                payload: { targetDate: action.targetDate, status: action.status },
+            }),
+            async (action) => {
+                const requestKey = makeCellKey(habitId, action.targetDate);
+                const requestId = crypto.randomUUID();
+                latestResolveByCell.set(requestKey, requestId);
+                const res = await client.api.habits[":id"].resolve.$post({
+                    param: { id: habitId },
+                    json: action,
+                });
+                return {
+                    ...(await unwrapResponse<{ habit: Habit }>(res)),
+                    requestId,
+                    requestKey,
+                };
+            },
+        ),
         onMutate: async (action) => {
             await cancelHabitQueries(queryClient);
             const snapshot = snapshotHabitCache(queryClient);
@@ -74,6 +85,7 @@ export function useResolveHabit(habitId: string) {
             return { snapshot, requestKey };
         },
         onSuccess: (result, action, context) => {
+            if (!result) return; // Queued offline
             if (latestResolveByCell.get(result.requestKey) !== result.requestId) {
                 return;
             }

@@ -4,6 +4,7 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { invalidateTaskCaches } from "./optimistic-helpers";
 import type { Task } from "../../types/task";
 import { toast } from "sonner";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Duplicate a task — server generates new ID, appends "(copy)" to title */
 export function useDuplicateTask() {
@@ -11,12 +12,15 @@ export function useDuplicateTask() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (taskId: string) => {
-            const res = await client.api.tasks[":id"].duplicate.$post({
-                param: { id: taskId },
-            });
-            return unwrapResponse<Task>(res);
-        },
+        mutationFn: withOfflineSupport<string, Task>(
+            (id) => ({ type: "duplicate_task", id }),
+            async (taskId) => {
+                const res = await client.api.tasks[":id"].duplicate.$post({
+                    param: { id: taskId },
+                });
+                return unwrapResponse<Task>(res);
+            },
+        ),
 
         onSuccess: () => {
             toast.success("Task duplicated");
