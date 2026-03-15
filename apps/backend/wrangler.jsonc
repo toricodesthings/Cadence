@@ -31,22 +31,22 @@
   "ratelimits": [
     {
       "name": "RATE_LIMITER",
-      "namespace_id": "1010",
+      "namespace_id": "2026031501",
       "simple": { "limit": 500, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_READ",
-      "namespace_id": "1011",
+      "namespace_id": "2026031502",
       "simple": { "limit": 300, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_WRITE",
-      "namespace_id": "1012",
+      "namespace_id": "2026031503",
       "simple": { "limit": 120, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_ADMIN",
-      "namespace_id": "1013",
+      "namespace_id": "2026031504",
       "simple": { "limit": 30, "period": 60 }
     }
   ],
@@ -75,22 +75,22 @@
       "ratelimits": [
         {
           "name": "RATE_LIMITER",
-          "namespace_id": "2001",
+          "namespace_id": "2026031511",
           "simple": { "limit": 500, "period": 60 }
         },
         {
           "name": "RATE_LIMITER_READ",
-          "namespace_id": "2002",
+          "namespace_id": "2026031512",
           "simple": { "limit": 300, "period": 60 }
         },
         {
           "name": "RATE_LIMITER_WRITE",
-          "namespace_id": "2003",
+          "namespace_id": "2026031513",
           "simple": { "limit": 120, "period": 60 }
         },
         {
           "name": "RATE_LIMITER_ADMIN",
-          "namespace_id": "2004",
+          "namespace_id": "2026031514",
           "simple": { "limit": 30, "period": 60 }
         }
       ],
