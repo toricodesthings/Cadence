@@ -31,22 +31,22 @@
   "ratelimits": [
     {
       "name": "RATE_LIMITER",
-      "namespace_id": "1001",
+      "namespace_id": "1010",
       "simple": { "limit": 500, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_READ",
-      "namespace_id": "1002",
+      "namespace_id": "1011",
       "simple": { "limit": 300, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_WRITE",
-      "namespace_id": "1003",
+      "namespace_id": "1012",
       "simple": { "limit": 120, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_ADMIN",
-      "namespace_id": "1004",
+      "namespace_id": "1013",
       "simple": { "limit": 30, "period": 60 }
     }
   ],
