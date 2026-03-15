@@ -31,22 +31,22 @@
   "ratelimits": [
     {
       "name": "RATE_LIMITER",
-      "namespace_id": "cadence-global",
+      "namespace_id": "1001",
       "simple": { "limit": 500, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_READ",
-      "namespace_id": "cadence-read",
+      "namespace_id": "1002",
       "simple": { "limit": 300, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_WRITE",
-      "namespace_id": "cadence-write",
+      "namespace_id": "1003",
       "simple": { "limit": 120, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_ADMIN",
-      "namespace_id": "cadence-admin",
+      "namespace_id": "1004",
       "simple": { "limit": 30, "period": 60 }
     }
   ],
@@ -75,22 +75,22 @@
       "ratelimits": [
         {
           "name": "RATE_LIMITER",
-          "namespace_id": "cadence-global-dev",
+          "namespace_id": "2001",
           "simple": { "limit": 500, "period": 60 }
         },
         {
           "name": "RATE_LIMITER_READ",
-          "namespace_id": "cadence-read-dev",
+          "namespace_id": "2002",
           "simple": { "limit": 300, "period": 60 }
         },
         {
           "name": "RATE_LIMITER_WRITE",
-          "namespace_id": "cadence-write-dev",
+          "namespace_id": "2003",
           "simple": { "limit": 120, "period": 60 }
         },
         {
           "name": "RATE_LIMITER_ADMIN",
-          "namespace_id": "cadence-admin-dev",
+          "namespace_id": "2004",
           "simple": { "limit": 30, "period": 60 }
         }
       ],
