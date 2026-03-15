@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { getDbClient } from "../lib/db";
 import { withRls } from "../lib/rls";
 import { usageEvents, users } from "../db/schema";
@@ -7,30 +6,8 @@ import { eq } from "drizzle-orm";
 import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
 import { apiValidator } from "../lib/validation";
-
-const ALLOWED_EVENTS = [
-    "task.complete",
-    "task.reschedule",
-    "task.create",
-    "task.reorder",
-    "habit.complete",
-    "habit.skip",
-    "inbox.capture",
-    "inbox.process",
-    "schedule.open",
-    "schedule.drag",
-    "search.query",
-    "export.request",
-] as const;
-
-const trackEventSchema = z.object({
-    event: z.enum(ALLOWED_EVENTS),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-});
-
-const trackBatchSchema = z.object({
-    events: z.array(trackEventSchema).min(1).max(50),
-});
+import type { DbClient } from "../lib/db";
+import { trackEventSchema, trackBatchSchema } from "../types/event";
 
 export const eventRoutes = new Hono<{
     Bindings: Env;
@@ -49,7 +26,7 @@ eventRoutes.post(
         const db = getDbClient(c.env);
         const allowed = await isTrackingAllowed(db, userId);
         if (!allowed) {
-            return c.json({ ok: true, tracked: false }, 200);
+            return c.json({ data: { tracked: false } }, 200);
         }
 
         c.executionCtx.waitUntil(
@@ -58,7 +35,7 @@ eventRoutes.post(
             }),
         );
 
-        return c.json({ ok: true, tracked: true }, 201);
+        return c.json({ data: { tracked: true } }, 201);
     },
 );
 
@@ -73,7 +50,7 @@ eventRoutes.post(
         const db = getDbClient(c.env);
         const allowed = await isTrackingAllowed(db, userId);
         if (!allowed) {
-            return c.json({ ok: true, tracked: false }, 200);
+            return c.json({ data: { tracked: false } }, 200);
         }
 
         c.executionCtx.waitUntil(
@@ -88,11 +65,11 @@ eventRoutes.post(
             }),
         );
 
-        return c.json({ ok: true, tracked: true }, 201);
+        return c.json({ data: { tracked: true } }, 201);
     },
 );
 
-async function isTrackingAllowed(db: ReturnType<typeof getDbClient>, userId: string): Promise<boolean> {
+async function isTrackingAllowed(db: DbClient, userId: string): Promise<boolean> {
     const [user] = await db
         .select({ settings: users.settings })
         .from(users)

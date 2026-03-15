@@ -13,7 +13,7 @@ import { CadencePicker } from "./CadencePicker";
 import { useHabitMonthly } from "../../hooks/habits/use-habit-monthly";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useDeleteHabit } from "../../hooks/habits/use-delete-habit";
-import { useDebouncedCallback } from "../../hooks/use-debounced-callback";
+import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import type { Habit } from "../../types/habit";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

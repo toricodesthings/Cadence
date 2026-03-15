@@ -5,7 +5,7 @@ import { IconRail } from "./IconRail";
 import { SidebarPanel } from "./SidebarPanel";
 import { useSidebarStore } from "../../stores/sidebar-store";
 import { X } from "lucide-react";
-import type { ShellMode } from "../../hooks/use-shell-mode";
+import type { ShellMode } from "../../hooks/ui/use-shell-mode";
 
 /** Main sidebar — root layout composing IconRail + SidebarPanel */
 export function Sidebar({

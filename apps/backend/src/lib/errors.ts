@@ -9,6 +9,16 @@ export class AppError extends Error {
     }
 }
 
+export function throwIfNotFound<T>(value: T | null | undefined, label: string): asserts value is T {
+    if (!value) throw new AppError(404, "NOT_FOUND", `${label} not found`);
+}
+
+export function assertNoConflict(expectedUpdatedAt: string | undefined, actualUpdatedAt: string, entity: string) {
+    if (expectedUpdatedAt && actualUpdatedAt !== expectedUpdatedAt) {
+        throw new AppError(409, "CONFLICT", `${entity} was modified by another client`);
+    }
+}
+
 type ErrorBodyOptions = {
     code: string;
     message: string;

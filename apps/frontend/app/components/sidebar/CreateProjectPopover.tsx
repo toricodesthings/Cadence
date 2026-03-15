@@ -4,15 +4,9 @@ import { Plus } from "lucide-react";
 import { useCreateProject } from "../../hooks/projects";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { Button } from "../primitives/Button";
+import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
-const ACCENT_OPTIONS = [
-    { label: "Amber", value: "luminous-amber", varName: "var(--color-lantern)" },
-    { label: "Blue", value: "moonlit-blue", varName: "var(--color-moonlit)" },
-    { label: "Sapphire", value: "sapphire", varName: "var(--color-sapphire)" },
-    { label: "Red", value: "ember-red", varName: "var(--color-ember-red)" },
-    { label: "Green", value: "forest-green", varName: "var(--color-forest-green)" },
-    { label: "Violet", value: "violet", varName: "var(--color-violet)" },
-];
+const ACCENT_OPTIONS = PROJECT_ACCENT_OPTIONS;
 
 /** Popover form for creating a new project — optimistic insert */
 export function CreateProjectPopover() {
@@ -82,7 +76,7 @@ export function CreateProjectPopover() {
                     <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer" title="Custom Hex Color">
                         <input
                             type="color"
-                            value={colorAccent.startsWith("#") ? colorAccent : "#e8a44a"}
+                            value={colorAccent.startsWith("#") ? colorAccent : PROJECT_FALLBACK_COLOR}
                             onChange={(e) => {
                                 setColorAccent(e.target.value);
                                 setIsCustomColor(true);

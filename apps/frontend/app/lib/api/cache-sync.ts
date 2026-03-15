@@ -88,7 +88,7 @@ export function reconcileHabitInCaches(queryClient: QueryClient, habit: Habit, r
     });
 
     const weeklyLists = queryClient
-        .getQueriesData<Habit[]>({ queryKey: ["habits", "weekly"] })
+        .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
         .filter(([key]) => key[1] === "weekly");
     weeklyLists.forEach(([key, old]) => {
         if (!Array.isArray(old)) return;
@@ -109,7 +109,7 @@ export function removeHabitFromCaches(queryClient: QueryClient, habitId: string)
     queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }, (old) =>
         transformListCache(old, (items) => items.filter((habit) => habit.id !== habitId)),
     );
-    queryClient.setQueriesData<Habit[]>({ queryKey: ["habits", "weekly"] }, (old) =>
+    queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }, (old) =>
         transformListCache(old, (items) => items.filter((habit) => habit.id !== habitId)),
     );
     queryClient.removeQueries({ queryKey: ["habits", habitId, "monthly"] });

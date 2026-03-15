@@ -1,7 +1,7 @@
 import { AuthView } from "@neondatabase/auth/react/ui";
 import { Link, useLocation } from "react-router";
 import { Feather, Sparkles } from "lucide-react";
-import { useDocumentMeta } from "../hooks/use-document-meta";
+import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useEffect } from "react";
 
 export default function AuthPage() {
@@ -99,27 +99,22 @@ export default function AuthPage() {
                         {/* Top glass highlight */}
                         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
-                        <div className="mb-6">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft">
-                                {isSignUp ? "A gentler beginning" : "Return to your rhythm"}
-                            </p>
-                            <h1 className="mt-2 font-display text-[2rem] font-semibold leading-tight text-twilight-text">
-                                {isSignUp ? "Create your sanctuary." : "Step back into Cadence."}
+                        <div className="mb-5 flex items-center gap-4">
+                            <div className="hidden md:flex w-11 h-11 rounded-2xl bg-lantern/10 items-center justify-center shrink-0 glow-lantern">
+                                <span className="text-lantern font-display font-bold text-lg">C</span>
+                            </div>
+                            <h1 className="font-display text-[1.6rem] font-semibold leading-tight text-twilight-text">
+                                {isSignUp ? "Create your sanctuary." : "Step into your Cadence."}
                             </h1>
-                            <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
-                                {isSignUp
-                                    ? "Set up a calm workspace for planning, habits, and weekly resets without the usual dashboard noise."
-                                    : "Sign in to continue your tasks, habits, and weekly reset in one quiet room."}
-                            </p>
                         </div>
 
                         {/* Auth component with forced dark theme wrapping styles */}
                         <div className="neon-auth-wrapper">
                             <AuthView
                                 view={isSignUp ? "SIGN_UP" : "SIGN_IN"}
-                                socialLayout="vertical"
+                                socialLayout="horizontal"
                                 classNames={{
-                                    base: "space-y-5",
+                                    base: "space-y-4",
                                     header: "hidden",
                                     title: "hidden",
                                     description: "hidden",
@@ -140,31 +135,29 @@ export default function AuthPage() {
                                     },
                                 }}
                                 localization={{
-                                    SIGN_IN: "Step back into Cadence",
-                                    SIGN_IN_DESCRIPTION: "Use your email to return to your calm planning workspace.",
+                                    SIGN_IN: "Step into your Cadence",
+                                    SIGN_IN_DESCRIPTION: "",
                                     SIGN_IN_ACTION: "Enter Cadence",
                                     SIGN_UP: "Create your sanctuary",
-                                    SIGN_UP_DESCRIPTION: "Set up a quieter workspace for planning, habits, and weekly resets.",
+                                    SIGN_UP_DESCRIPTION: "",
                                     SIGN_UP_ACTION: "Create account",
-                                    OR_CONTINUE_WITH: "Or continue quietly with",
+                                    OR_CONTINUE_WITH: "Or continue with",
                                     NAME_DESCRIPTION: "Choose the name that should greet you inside Cadence.",
-                                    FORGOT_PASSWORD: "Need a reset?",
+                                    FORGOT_PASSWORD: "Forgot password?",
                                 }}
                             />
                         </div>
 
-                        <div className="mt-6 rounded-[1.4rem] border border-twilight-border bg-twilight-surface/30 p-4">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-twilight-text-soft">
-                                    {isSignUp ? "Already have a room?" : "Need to create a room first?"}
-                                </p>
-                                <Link
-                                    to={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
-                                    className="touch-target inline-flex min-h-11 items-center justify-center rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-                                >
-                                    {isSignUp ? "Sign in instead" : "Create an account"}
-                                </Link>
-                            </div>
+                        <div className="mt-5 flex items-center justify-center gap-1.5 text-sm">
+                            <span className="text-twilight-text-soft">
+                                {isSignUp ? "Already have a room?" : "New here?"}
+                            </span>
+                            <Link
+                                to={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
+                                className="font-medium text-lantern hover:text-lantern/80 transition-colors"
+                            >
+                                {isSignUp ? "Sign in" : "Create an account"}
+                            </Link>
                         </div>
                     </div>
                 </div>

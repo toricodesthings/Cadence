@@ -2,7 +2,7 @@ import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Button } from "../../primitives";
 import { Switch } from "../../primitives";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../lib/types/settings";
 import { Lightbulb, ShieldCheck } from "lucide-react";
 

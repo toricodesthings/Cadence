@@ -1,5 +1,7 @@
 # Documentation
 docs
+!apps/desktop/docs/
+!apps/desktop/docs/**
 
 # Dependencies
 node_modules

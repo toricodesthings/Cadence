@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useSettings, useUpdateSettings } from "../../../app/hooks/use-settings";
+import { useSettings, useUpdateSettings } from "../../../app/hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../app/lib/types/settings";
 
 const settingsGetMock = vi.fn();
@@ -9,11 +9,11 @@ const settingsPatchMock = vi.fn();
 const useApiClientMock = vi.fn();
 const useAuthStateMock = vi.fn();
 
-vi.mock("../../../app/hooks/use-api-client", () => ({
+vi.mock("../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => useApiClientMock(),
 }));
 
-vi.mock("../../../app/hooks/use-auth-state", () => ({
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => useAuthStateMock(),
 }));
 

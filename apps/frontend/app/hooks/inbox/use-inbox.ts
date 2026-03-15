@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { InboxItem } from "../../types/inbox";
-import { useAuthState } from "../use-auth-state";
+import { useAuthState } from "../auth/use-auth-state";
 
 export function useInbox() {
     const client = useApiClient();

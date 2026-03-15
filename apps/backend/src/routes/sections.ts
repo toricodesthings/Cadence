@@ -1,26 +1,14 @@
 import { Hono } from "hono";
 import { eq, and, asc, sql } from "drizzle-orm";
-import { z } from "zod";
 import { getDbClient } from "../lib/db";
 import { withRls } from "../lib/rls";
 import { taskSections } from "../db/schema";
 import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
-import { AppError } from "../lib/errors";
+import { AppError, throwIfNotFound } from "../lib/errors";
 import { apiValidator } from "../lib/validation";
-
-const uuidParamSchema = z.object({ id: z.string().uuid() });
-
-const createSectionSchema = z.object({
-    name: z.string().min(1).max(200),
-    orderIndex: z.number(),
-    projectId: z.string().uuid().nullable().optional(),
-});
-
-const updateSectionSchema = z.object({
-    name: z.string().min(1).max(200).optional(),
-    orderIndex: z.number().optional(),
-});
+import { uuidParamSchema } from "../types/common";
+import { createSectionSchema, updateSectionSchema } from "../types/section";
 
 export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // GET /api/sections?projectId=... — list sections for a project (or unscoped if no projectId)
@@ -46,7 +34,6 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         return c.json({ data: rows });
     })
-    // POST /api/sections — create a section
     .post("/", apiValidator("json", createSectionSchema), async (c) => {
         const userId = c.get("userId");
         const body = c.req.valid("json");
@@ -62,7 +49,6 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         return c.json({ data: section }, 201);
     })
-    // PATCH /api/sections/:id — update a section
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateSectionSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
@@ -78,10 +64,9 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             return row;
         });
 
-        if (!updated) throw new AppError(404, "NOT_FOUND", "Section not found");
+        throwIfNotFound(updated, "Section");
         return c.json({ data: updated });
     })
-    // DELETE /api/sections/:id — delete a section (tasks become ungrouped via ON DELETE SET NULL)
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");

@@ -4,7 +4,7 @@ import type { SQL } from "drizzle-orm";
 import { z } from "zod";
 import { tasks, tags, taskTags } from "../db/schema";
 import { getDbClient } from "../lib/db";
-import { AppError } from "../lib/errors";
+import { AppError, throwIfNotFound, assertNoConflict } from "../lib/errors";
 import { checkIdempotency, recordMutation } from "../lib/idempotency";
 import { trackCompletion, trackReschedule, trackEvent } from "../lib/metrics";
 import { withRls } from "../lib/rls";
@@ -170,12 +170,10 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .from(tasks)
                 .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
-            if (!existing) throw new AppError(404, "NOT_FOUND", "Task not found");
+            throwIfNotFound(existing, "Task");
 
             // Conflict detection: if client sends expectedUpdatedAt, verify it matches
-            if (expectedUpdatedAt && existing.updatedAt !== expectedUpdatedAt) {
-                throw new AppError(409, "CONFLICT", "Task was modified by another client");
-            }
+            assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
 
             validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
 
@@ -251,7 +249,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             return row;
         });
 
-        if (!updated) throw new AppError(404, "NOT_FOUND", "Task not found");
+        throwIfNotFound(updated, "Task");
         return c.json({ data: updated });
     })
     .patch("/batch/state", apiValidator("json", batchStateSchema), async (c) => {
@@ -317,7 +315,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .from(tasks)
                 .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
-            if (!original) throw new AppError(404, "NOT_FOUND", "Task not found");
+            throwIfNotFound(original, "Task");
 
             const [dup] = await tx
                 .insert(tasks)
@@ -367,7 +365,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .from(tasks)
                 .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
-            if (!task) throw new AppError(404, "NOT_FOUND", "Task not found");
+            throwIfNotFound(task, "Task");
 
             return tx
                 .select({
@@ -397,14 +395,14 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .from(tasks)
                 .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
 
-            if (!task) throw new AppError(404, "NOT_FOUND", "Task not found");
+            throwIfNotFound(task, "Task");
 
             const [tag] = await tx
                 .select({ id: tags.id })
                 .from(tags)
                 .where(and(eq(tags.id, tagId), eq(tags.userId, userId)));
 
-            if (!tag) throw new AppError(404, "NOT_FOUND", "Tag not found");
+            throwIfNotFound(tag, "Tag");
 
             const [assoc] = await tx
                 .insert(taskTags)
@@ -426,7 +424,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .from(tasks)
                 .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
 
-            if (!task) throw new AppError(404, "NOT_FOUND", "Task not found");
+            throwIfNotFound(task, "Task");
 
             const [row] = await tx
                 .delete(taskTags)
@@ -435,7 +433,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             return row;
         });
 
-        if (!deleted) throw new AppError(404, "NOT_FOUND", "Tag association not found");
+        throwIfNotFound(deleted, "Tag association");
         return c.json({ data: { success: true } });
     })
     .get("/", apiValidator("query", taskListQuerySchema), async (c) => {
@@ -509,7 +507,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             return row;
         });
 
-        if (!task) throw new AppError(404, "NOT_FOUND", "Task not found");
+        throwIfNotFound(task, "Task");
 
         c.header("Cache-Control", "private, no-store");
         c.header("X-Task-Read-Shape", classifyTaskReadShape(task));
@@ -528,6 +526,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             return row;
         });
 
-        if (!deleted) throw new AppError(404, "NOT_FOUND", "Task not found");
+        throwIfNotFound(deleted, "Task");
         return c.json({ data: deleted });
     });

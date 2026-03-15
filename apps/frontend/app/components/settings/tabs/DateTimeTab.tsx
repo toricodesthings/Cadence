@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
-import { useHolidayOverlay } from "../../../hooks/use-holiday-overlay";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
 import { HolidayPreferencesPanel } from "../../calendar/HolidayControls";
 
 /** Returns the current system UTC offset as a formatted string like "UTC+5:30" or "UTC-8" */

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getDateFormatConfig } from "../lib/utils/date-format";
+import { getDateFormatConfig } from "../../lib/utils/date-format";
 
 /** Returns a live time string that updates every second, respecting format settings */
 export function useRealtimeClock(): string {

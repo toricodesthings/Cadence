@@ -10,13 +10,15 @@ import { inboxRoutes } from "./routes/inbox";
 import { healthRoutes } from "./routes/health";
 import { debugRoutes } from "./routes/debug";
 import { tagRoutes } from "./routes/tags";
-import { habitsRoutes } from "./routes/habits";
-import { subtasksRoutes } from "./routes/subtasks";
+import { habitRoutes } from "./routes/habits";
+import { subtaskRoutes } from "./routes/subtasks";
 import { sectionRoutes } from "./routes/sections";
 import { settingsRoutes } from "./routes/settings";
 import { eventRoutes } from "./routes/events";
 import { suggestionRoutes } from "./routes/suggestions";
 import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCode } from "./lib/request-log";
+
+const CORS_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
 const app = new Hono<{ Bindings: Env; Variables: import("./lib/auth").AuthVariables }>();
 
@@ -27,14 +29,14 @@ app.use(
   "*",
   cors({
     origin: (origin) => {
-      if (!origin) return "https://dashboard.cadenceapp.cloud";
+      if (!origin) return CORS_ORIGIN;
       if (
         origin.startsWith("http://localhost:") ||
-        origin === "https://dashboard.cadenceapp.cloud"
+        origin === CORS_ORIGIN
       ) {
         return origin;
       }
-      return "https://dashboard.cadenceapp.cloud";
+      return CORS_ORIGIN;
     },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type"],
@@ -119,8 +121,8 @@ app.route("/api/tasks", taskRoutes);
 app.route("/api/projects", projectRoutes);
 app.route("/api/inbox", inboxRoutes);
 app.route("/api/tags", tagRoutes);
-app.route("/api/habits", habitsRoutes);
-app.route("/api", subtasksRoutes);
+app.route("/api/habits", habitRoutes);
+app.route("/api", subtaskRoutes);
 app.route("/api/sections", sectionRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/events", eventRoutes);

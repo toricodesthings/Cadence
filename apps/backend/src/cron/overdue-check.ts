@@ -15,33 +15,37 @@ export async function handleOverdueCheck(env: Env) {
         .from(tasks)
         .where(and(eq(tasks.state, "ACTIVE"), lt(tasks.dueDate, now)));
 
-    // Collect unique user IDs affected
-    const affectedUserIds = new Set<string>();
+    if (overdueTasks.length === 0) return;
 
-    // Increment delay_count for each
-    if (overdueTasks.length > 0) {
-        for (const task of overdueTasks) {
-            affectedUserIds.add(task.userId);
-            await withRls(db, task.userId, async (tx) => {
+    // Group by userId for batched RLS transactions
+    const tasksByUser = new Map<string, string[]>();
+    for (const task of overdueTasks) {
+        const ids = tasksByUser.get(task.userId) ?? [];
+        ids.push(task.id);
+        tasksByUser.set(task.userId, ids);
+    }
+
+    console.info(`Overdue check: ${overdueTasks.length} tasks across ${tasksByUser.size} users`);
+
+    for (const [userId, taskIds] of tasksByUser) {
+        await withRls(db, userId, async (tx) => {
+            for (const taskId of taskIds) {
                 await tx
                     .insert(taskMetrics)
-                    .values({ taskId: task.id, userId: task.userId, delayCount: 0 })
+                    .values({ taskId, userId, delayCount: 0 })
                     .onConflictDoNothing();
 
                 await tx
                     .update(taskMetrics)
                     .set({ delayCount: sql`${taskMetrics.delayCount} + 1` })
-                    .where(and(eq(taskMetrics.taskId, task.id), eq(taskMetrics.userId, task.userId)));
-            });
-        }
-    }
+                    .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)));
+            }
+        });
 
-    // Recompute workload signals for each affected user
-    for (const userId of affectedUserIds) {
         try {
             await computeWorkloadSignals(db, userId);
-        } catch {
-            // Best-effort — don't block the cron job
+        } catch (err) {
+            console.error(`Failed to recompute workload signals for user ${userId}:`, err);
         }
     }
 }

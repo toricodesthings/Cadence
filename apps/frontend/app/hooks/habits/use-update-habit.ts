@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import {
     snapshotHabitCache,
@@ -44,7 +44,7 @@ export function useUpdateHabit() {
             });
             // Also search weekly caches — archived habits may only exist there
             if (!fullHabit) {
-                queryClient.getQueriesData<Habit[]>({ queryKey: ["habits", "weekly"] }).forEach(([_, data]) => {
+                queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([_, data]) => {
                     const found = data?.find(h => h.id === id);
                     if (found) fullHabit = found;
                 });
@@ -63,7 +63,7 @@ export function useUpdateHabit() {
             queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }, apply);
 
             queryClient
-                .getQueriesData<Habit[]>({ queryKey: ["habits", "weekly"] })
+                .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
                 .forEach(([key, old]) => {
                     const archivedFlag = key.at(-1);
                     const shouldInclude = patch.archived === undefined || archivedFlag === patch.archived;
@@ -94,7 +94,7 @@ export function useUpdateHabit() {
 
         onError: (err, _vars, context) => {
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
-            toast.error(err instanceof Error ? err.message : "Failed to update habit");
+            toast.error(err.message || "Failed to update habit");
             invalidateHabitCaches(queryClient);
         },
     });

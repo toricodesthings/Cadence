@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import type { ApiClient } from "../lib/api/client";
+import type { ApiClient } from "../../lib/api/client";
 import { hc } from "hono/client";
 import type { AppType } from "@cadence/backend";
-import { authenticatedFetch } from "../lib/api/client";
-import { API_BASE_URL } from "../lib/env";
+import { authenticatedFetch } from "../../lib/api/client";
+import { API_BASE_URL } from "../../lib/env";
 import { useAuthState } from "./use-auth-state";
 
 /** Returns a typed Hono client pre-authenticated with the current session's JWT.

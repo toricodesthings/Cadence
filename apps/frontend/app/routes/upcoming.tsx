@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useDragScroll } from "../hooks/use-drag-scroll";
+import { useDragScroll } from "../hooks/ui/use-drag-scroll";
 import {
     AlertTriangle,
     CalendarRange,
@@ -11,7 +11,7 @@ import {
     Sunrise,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MainLayout } from "../components/MainLayout";
+import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
@@ -19,18 +19,18 @@ import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { TaskCheckbox } from "../components/tasks/TaskCheckbox";
-import { PageContent } from "../components/layout/page-layout";
+import { PageContent } from "../components/layout/PageLayout";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
 import { useTasks } from "../hooks/tasks";
 import { useProjects } from "../hooks/projects";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useTagFilterStore } from "../stores/tag-filter-store";
-import { useApiClient } from "../hooks/use-api-client";
-import { useViewMode } from "../hooks/use-view-mode";
-import { useSortMode } from "../hooks/use-sort-mode";
-import { useShellMode } from "../hooks/use-shell-mode";
-import { useRouteFocus } from "../hooks/use-route-focus";
+import { useApiClient } from "../hooks/auth/use-api-client";
+import { useViewMode } from "../hooks/ui/use-view-mode";
+import { useSortMode } from "../hooks/ui/use-sort-mode";
+import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, parseLocalDate, toISODate } from "../lib/utils/date-format";

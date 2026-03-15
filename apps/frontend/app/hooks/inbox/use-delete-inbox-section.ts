@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useDeleteInboxSection() {

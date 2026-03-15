@@ -8,12 +8,32 @@ import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyH
 import { uuidParamSchema } from "../types/common";
 import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
-import { AppError } from "../lib/errors";
+import { AppError, throwIfNotFound, assertNoConflict } from "../lib/errors";
 import { rrulestr } from "rrule";
 import { parseISO } from "date-fns";
 import { apiValidator } from "../lib/validation";
 
-export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
+function computeStreakDelta(newStatus: string, wasCompleted: boolean, previousStatus?: string) {
+    let completionsDelta = 0;
+    let skipsDelta = 0;
+    let streakDelta = 0;
+
+    if (newStatus === "COMPLETED" && !wasCompleted) {
+        completionsDelta = 1;
+        streakDelta = 1;
+    } else if (newStatus !== "COMPLETED" && wasCompleted) {
+        completionsDelta = -1;
+        streakDelta = -1;
+    }
+
+    if (newStatus === "SKIPPED" && previousStatus !== "SKIPPED") {
+        skipsDelta = 1;
+    }
+
+    return { completionsDelta, skipsDelta, streakDelta };
+}
+
+export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertHabitSchema), async (c) => {
         const userId = c.get("userId");
         const { clientMutationId, ...body } = c.req.valid("json");
@@ -57,8 +77,7 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
     .get("/unresolved", async (c) => {
         const userId = c.get("userId");
         const db = getDbClient(c.env);
-        // Note: For intelligent toast, this could query the logs for yesterday/today based on UTC boundary,
-        // and find habits which do not have a log yet. For now, we return empty structure.
+        // TODO: Query logs for yesterday/today based on UTC boundary to find unresolved habits
         return c.json({ data: [] });
     })
     .get("/weekly", apiValidator("query", weeklyHabitsQuerySchema), async (c) => {
@@ -116,7 +135,7 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
 
                 // Expand instances
                 const logsHydrated = instances.map((targetD) => {
-                    // Assuming UTC formatting or simple substring to match YYYY-MM-DD
+                    // rrule returns UTC Date objects — extract YYYY-MM-DD via ISO substring
                     const iso = targetD.toISOString();
                     const dateKey = iso.substring(0, 10);
                     const logKey = `${habit.id}_${dateKey}`;
@@ -154,7 +173,7 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
             return row;
         });
 
-        if (!habit) throw new AppError(404, "NOT_FOUND", "Habit not found");
+        throwIfNotFound(habit, "Habit");
 
         return c.json({ data: habit });
     })
@@ -178,7 +197,7 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
                 .from(habits)
                 .where(and(eq(habits.id, id), eq(habits.userId, userId)));
 
-            if (!habit) throw new AppError(404, "NOT_FOUND", "Habit not found");
+            throwIfNotFound(habit, "Habit");
 
             const logs = await tx
                 .select()
@@ -228,10 +247,8 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
                     .select({ updatedAt: habits.updatedAt })
                     .from(habits)
                     .where(and(eq(habits.id, id), eq(habits.userId, userId)));
-                if (!existing) throw new AppError(404, "NOT_FOUND", "Habit not found");
-                if (existing.updatedAt !== expectedUpdatedAt) {
-                    throw new AppError(409, "CONFLICT", "Habit was modified by another client");
-                }
+                throwIfNotFound(existing, "Habit");
+                assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Habit");
             }
 
             const [row] = await tx
@@ -242,7 +259,7 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
             return row;
         });
 
-        if (!updated) throw new AppError(404, "NOT_FOUND", "Habit not found");
+        throwIfNotFound(updated, "Habit");
         return c.json({ data: updated });
     })
     .post("/:id/resolve", apiValidator("param", uuidParamSchema), apiValidator("json", resolveHabitActionSchema), async (c) => {
@@ -258,7 +275,7 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
                 .from(habits)
                 .where(and(eq(habits.id, id), eq(habits.userId, userId)));
 
-            if (!habit) throw new AppError(404, "NOT_FOUND", "Habit not found");
+            throwIfNotFound(habit, "Habit");
 
             // Look up existing log
             // We want to match exactly by targetDate (YYYY-MM-DD), so let's match substring
@@ -302,19 +319,10 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
             let newTotalCompletions = habit.totalCompletions;
             let newTotalSkips = habit.totalSkips;
             let newCurrentStreak = habit.currentStreak;
-            // Streak math: if marking as completed from pending/skipped, +1.
-            // if marking as skipped/pending from completed, -1
-            if (status === "COMPLETED" && !wasCompleted) {
-                newTotalCompletions++;
-                newCurrentStreak++;
-            } else if (status !== "COMPLETED" && wasCompleted) {
-                newTotalCompletions--;
-                newCurrentStreak = Math.max(0, newCurrentStreak - 1);
-            }
-
-            if (status === "SKIPPED" && existing?.status !== "SKIPPED") {
-                newTotalSkips++;
-            }
+            const streakDelta = computeStreakDelta(status, wasCompleted, existing?.status);
+            newTotalCompletions += streakDelta.completionsDelta;
+            newTotalSkips += streakDelta.skipsDelta;
+            newCurrentStreak = Math.max(0, newCurrentStreak + streakDelta.streakDelta);
 
             const newLongestStreak = Math.max(habit.longestStreak, newCurrentStreak);
 
@@ -349,6 +357,6 @@ export const habitsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
             return row;
         });
 
-        if (!deleted) throw new AppError(404, "NOT_FOUND", "Habit not found");
+        throwIfNotFound(deleted, "Habit");
         return c.json({ data: deleted });
     });

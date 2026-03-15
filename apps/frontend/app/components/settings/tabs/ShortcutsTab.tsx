@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../lib/types/settings";
 
 const BINDING_LABELS: Record<string, { label: string; description: string }> = {

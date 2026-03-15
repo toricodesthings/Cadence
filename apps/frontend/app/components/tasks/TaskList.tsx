@@ -21,7 +21,7 @@ import { SortableTaskCard } from "./SortableTaskCard";
 import { TaskCard } from "./TaskCard";
 import { useReorderTask } from "../../hooks/tasks";
 import { useTags } from "../../hooks/tags";
-import { useSubtasksByTaskIds } from "../../hooks/use-subtasks";
+import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { computeMidpointIndex } from "../../lib/utils/order-index";
 import { TaskContextMenuWrapper } from "./TaskContextMenuWrapper";
 import type { Tag } from "../../types/tag";

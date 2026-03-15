@@ -1,30 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Check, X } from "lucide-react";
 import { useCreateTag } from "../../hooks/tags";
+import { TAG_PALETTE } from "../../lib/constants/colors";
 
 interface CreateTagInlineProps {
     onCreated: () => void;
     onCancel: () => void;
 }
 
-const TAG_COLORS = [
-    "default",
-    "#ff7b72", // red
-    "#d2a8ff", // purple
-    "#79c0ff", // blue
-    "#a5d6ff", // light blue
-    "#7ee787", // green
-    "#f2cc60", // yellow
-    "#ff9800", // orange
-    "#f472b6", // rose
-    "#fb923c", // coral
-    "#2dd4bf", // teal
-    "#22d3ee", // cyan
-    "#818cf8", // indigo
-    "#a3e635", // lime
-    "#e879f9", // fuchsia
-    "#38bdf8", // sky
-];
+const TAG_COLORS = TAG_PALETTE;
 
 export function CreateTagInline({ onCreated, onCancel }: CreateTagInlineProps) {
     const createTag = useCreateTag();

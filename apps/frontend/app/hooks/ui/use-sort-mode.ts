@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useSearchParams } from "react-router";
-import type { SortMode } from "../lib/utils/sort-tasks";
+import type { SortMode } from "../../lib/utils/sort-tasks";
 
 /**
  * Reads/writes the sort mode for a route via URL search params.

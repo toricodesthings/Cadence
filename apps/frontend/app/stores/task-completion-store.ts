@@ -12,7 +12,6 @@ interface TaskCompletionState {
     pendingById: Record<string, PendingTaskCompletion>;
     queueCompletion: (input: {
         taskId: string;
-        taskTitle: string;
         durationMs?: number;
         onCommit: () => void;
     }) => void;
@@ -26,7 +25,7 @@ const completionCallbacks = new Map<string, () => void>();
 export const useTaskCompletionStore = create<TaskCompletionState>((set, get) => ({
     pendingById: {},
 
-    queueCompletion: ({ taskId, taskTitle: _taskTitle, durationMs = DEFAULT_COMPLETION_DELAY_MS, onCommit }) => {
+    queueCompletion: ({ taskId, durationMs = DEFAULT_COMPLETION_DELAY_MS, onCommit }) => {
         if (get().pendingById[taskId]) return;
 
         const startedAt = Date.now();

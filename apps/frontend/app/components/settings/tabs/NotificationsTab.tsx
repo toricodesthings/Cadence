@@ -3,8 +3,8 @@ import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { Input } from "../../primitives/Input";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
-import { getBrowserPermission } from "../../../hooks/use-browser-notifications";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { getBrowserPermission } from "../../../hooks/notifications/use-browser-notifications";
 
 export function NotificationsTab() {
     const { data: settings } = useSettings();

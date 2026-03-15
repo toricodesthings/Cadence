@@ -3,7 +3,7 @@ import { Switch, AlertDialog } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../lib/types/settings";
 import { toast } from "sonner";
 

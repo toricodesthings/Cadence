@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button, Input } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { authClient } from "../../../lib/auth-client";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import * as Dialog from "../../primitives/Dialog";
 import { toast } from "sonner";
 import { compressImageToBase64 } from "../../../lib/utils/image";

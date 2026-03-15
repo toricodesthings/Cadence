@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { invalidateTaskCaches, snapshotTaskCache, rollbackTaskCache, cancelTaskQueries } from "./optimistic-helpers";
 import type { Task, TaskState } from "../../types/task";

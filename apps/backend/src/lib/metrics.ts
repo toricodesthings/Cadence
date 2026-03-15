@@ -3,6 +3,8 @@ import { type DbClient } from "./db";
 import { withRls } from "./rls";
 import { tasks, taskMetrics, usageEvents, userMetrics, habitLogs } from "../db/schema";
 
+type RlsTx = Parameters<Parameters<DbClient['transaction']>[0]>[0];
+
 export async function trackReschedule(
     db: DbClient,
     taskId: string,
@@ -98,133 +100,128 @@ export async function trackEvent(
 export async function computeWorkloadSignals(db: DbClient, userId: string) {
     await withRls(db, userId, async (tx) => {
         const now = new Date();
-        const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const daysAgo = (n: number) => new Date(now.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
+        const fourteenDaysAgo = daysAgo(14);
+        const sevenDaysAgo = daysAgo(7);
 
-        // Reschedule velocity: avg reschedule_count over tasks touched in last 14 days
-        const [rescheduleStats] = await tx
-            .select({ avgReschedules: avg(taskMetrics.rescheduleCount) })
-            .from(taskMetrics)
-            .where(and(eq(taskMetrics.userId, userId), gte(taskMetrics.createdAt, fourteenDaysAgo)));
-        const rescheduleVelocity = parseFloat(String(rescheduleStats?.avgReschedules ?? "0"));
+        const rescheduleVelocity = await queryRescheduleVelocity(tx, userId, fourteenDaysAgo);
+        const overdueCarryLoad = await queryOverdueCarryLoad(tx, userId);
+        const completionRatio = await queryCompletionRatio(tx, userId, fourteenDaysAgo, overdueCarryLoad);
+        const habitAdherenceRate = await queryHabitAdherenceRate(tx, userId, fourteenDaysAgo);
+        const scheduleDensity = await queryScheduleDensity(tx, userId, sevenDaysAgo);
 
-        // Overdue carry load: count of currently overdue ACTIVE tasks
-        const [overdueStats] = await tx
-            .select({ cnt: count() })
-            .from(tasks)
-            .where(
-                and(
-                    eq(tasks.userId, userId),
-                    eq(tasks.state, "ACTIVE"),
-                    sql`${tasks.dueDate} < NOW()`,
-                ),
-            );
-        const overdueCarryLoad = overdueStats?.cnt ?? 0;
+        const burnoutIndex = computeBurnoutIndex({
+            rescheduleVelocity,
+            overdueCarryLoad,
+            completionRatio,
+            habitAdherenceRate,
+            scheduleDensity,
+        });
 
-        // Completion ratio: completed / (completed + currently overdue) in last 14 days
-        const [completedStats] = await tx
-            .select({ cnt: count() })
-            .from(taskMetrics)
-            .where(
-                and(
-                    eq(taskMetrics.userId, userId),
-                    sql`${taskMetrics.completedAt} IS NOT NULL`,
-                    gte(taskMetrics.createdAt, fourteenDaysAgo),
-                ),
-            );
-        const completed = completedStats?.cnt ?? 0;
-        const completionDenominator = completed + overdueCarryLoad;
-        const completionRatio = completionDenominator > 0 ? completed / completionDenominator : 0;
-
-        // Habit adherence: completed / (completed + skipped) in last 14 days
-        const [habitCompleted] = await tx
-            .select({ cnt: count() })
-            .from(habitLogs)
-            .where(
-                and(
-                    eq(habitLogs.userId, userId),
-                    eq(habitLogs.status, "COMPLETED"),
-                    gte(habitLogs.createdAt, fourteenDaysAgo),
-                ),
-            );
-        const [habitSkipped] = await tx
-            .select({ cnt: count() })
-            .from(habitLogs)
-            .where(
-                and(
-                    eq(habitLogs.userId, userId),
-                    eq(habitLogs.status, "SKIPPED"),
-                    gte(habitLogs.createdAt, fourteenDaysAgo),
-                ),
-            );
-        const hCompleted = habitCompleted?.cnt ?? 0;
-        const hSkipped = habitSkipped?.cnt ?? 0;
-        const habitTotal = hCompleted + hSkipped;
-        const habitAdherenceRate = habitTotal > 0 ? hCompleted / habitTotal : 0;
-
-        // Schedule density: avg scheduled minutes per day over 7 days
-        const [densityStats] = await tx
-            .select({
-                totalMinutes: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${tasks.scheduledEnd} - ${tasks.scheduledStart})) / 60), 0)`,
-            })
-            .from(tasks)
-            .where(
-                and(
-                    eq(tasks.userId, userId),
-                    sql`${tasks.scheduledStart} IS NOT NULL`,
-                    sql`${tasks.scheduledEnd} IS NOT NULL`,
-                    gte(tasks.scheduledStart, sevenDaysAgo),
-                ),
-            );
-        const scheduleDensity = (Number(densityStats?.totalMinutes) || 0) / 7;
-
-        // Burnout index: composite 1-100 score
-        const burnoutIndex = Math.min(
-            100,
-            Math.max(
-                1,
-                Math.round(
-                    10
-                    + rescheduleVelocity * 8
-                    + overdueCarryLoad * 3
-                    + (1 - completionRatio) * 20
-                    + (1 - habitAdherenceRate) * 10
-                    + scheduleDensity * 0.05,
-                ),
-            ),
-        );
-
-        // Upsert user_metrics
-        const existing = await tx
-            .select({ id: userMetrics.id })
-            .from(userMetrics)
-            .where(eq(userMetrics.userId, userId))
-            .limit(1);
-
-        if (existing.length === 0) {
-            await tx.insert(userMetrics).values({
-                userId,
-                rescheduleVelocity,
-                currentBurnoutIndex: burnoutIndex,
-                completionRatio,
-                overdueCarryLoad,
-                habitAdherenceRate,
-                scheduleDensity,
-                lastCalculatedAt: now.toISOString(),
-            });
-        } else {
-            await tx
-                .update(userMetrics)
-                .set({
-                    rescheduleVelocity,
-                    currentBurnoutIndex: burnoutIndex,
-                    completionRatio,
-                    overdueCarryLoad,
-                    habitAdherenceRate,
-                    scheduleDensity,
-                    lastCalculatedAt: now.toISOString(),
-                })
-                .where(eq(userMetrics.id, existing[0].id));
-        }
+        await upsertUserMetrics(tx, userId, {
+            rescheduleVelocity,
+            currentBurnoutIndex: burnoutIndex,
+            completionRatio,
+            overdueCarryLoad,
+            habitAdherenceRate,
+            scheduleDensity,
+            lastCalculatedAt: now.toISOString(),
+        });
     });
+}
+
+async function queryRescheduleVelocity(tx: RlsTx, userId: string, since: string) {
+    const [stats] = await tx
+        .select({ avgReschedules: avg(taskMetrics.rescheduleCount) })
+        .from(taskMetrics)
+        .where(and(eq(taskMetrics.userId, userId), gte(taskMetrics.createdAt, since)));
+    return parseFloat(String(stats?.avgReschedules ?? "0"));
+}
+
+async function queryOverdueCarryLoad(tx: RlsTx, userId: string) {
+    const [stats] = await tx
+        .select({ cnt: count() })
+        .from(tasks)
+        .where(and(eq(tasks.userId, userId), eq(tasks.state, "ACTIVE"), sql`${tasks.dueDate} < NOW()`));
+    return stats?.cnt ?? 0;
+}
+
+async function queryCompletionRatio(tx: RlsTx, userId: string, since: string, overdueCarryLoad: number) {
+    const [stats] = await tx
+        .select({ cnt: count() })
+        .from(taskMetrics)
+        .where(and(eq(taskMetrics.userId, userId), sql`${taskMetrics.completedAt} IS NOT NULL`, gte(taskMetrics.createdAt, since)));
+    const completed = stats?.cnt ?? 0;
+    const denominator = completed + overdueCarryLoad;
+    return denominator > 0 ? completed / denominator : 0;
+}
+
+async function queryHabitAdherenceRate(tx: RlsTx, userId: string, since: string) {
+    const [habitCompleted] = await tx
+        .select({ cnt: count() })
+        .from(habitLogs)
+        .where(and(eq(habitLogs.userId, userId), eq(habitLogs.status, "COMPLETED"), gte(habitLogs.createdAt, since)));
+    const [habitSkipped] = await tx
+        .select({ cnt: count() })
+        .from(habitLogs)
+        .where(and(eq(habitLogs.userId, userId), eq(habitLogs.status, "SKIPPED"), gte(habitLogs.createdAt, since)));
+    const completed = habitCompleted?.cnt ?? 0;
+    const skipped = habitSkipped?.cnt ?? 0;
+    const total = completed + skipped;
+    return total > 0 ? completed / total : 0;
+}
+
+async function queryScheduleDensity(tx: RlsTx, userId: string, since: string) {
+    const [stats] = await tx
+        .select({
+            totalMinutes: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${tasks.scheduledEnd} - ${tasks.scheduledStart})) / 60), 0)`,
+        })
+        .from(tasks)
+        .where(and(eq(tasks.userId, userId), sql`${tasks.scheduledStart} IS NOT NULL`, sql`${tasks.scheduledEnd} IS NOT NULL`, gte(tasks.scheduledStart, since)));
+    return (Number(stats?.totalMinutes) || 0) / 7;
+}
+
+function computeBurnoutIndex(signals: {
+    rescheduleVelocity: number;
+    overdueCarryLoad: number;
+    completionRatio: number;
+    habitAdherenceRate: number;
+    scheduleDensity: number;
+}) {
+    return Math.min(
+        100,
+        Math.max(
+            1,
+            Math.round(
+                10
+                + signals.rescheduleVelocity * 8
+                + signals.overdueCarryLoad * 3
+                + (1 - signals.completionRatio) * 20
+                + (1 - signals.habitAdherenceRate) * 10
+                + signals.scheduleDensity * 0.05,
+            ),
+        ),
+    );
+}
+
+async function upsertUserMetrics(tx: RlsTx, userId: string, data: {
+    rescheduleVelocity: number;
+    currentBurnoutIndex: number;
+    completionRatio: number;
+    overdueCarryLoad: number;
+    habitAdherenceRate: number;
+    scheduleDensity: number;
+    lastCalculatedAt: string;
+}) {
+    const existing = await tx
+        .select({ id: userMetrics.id })
+        .from(userMetrics)
+        .where(eq(userMetrics.userId, userId))
+        .limit(1);
+
+    if (existing.length === 0) {
+        await tx.insert(userMetrics).values({ userId, ...data });
+    } else {
+        await tx.update(userMetrics).set(data).where(eq(userMetrics.id, existing[0].id));
+    }
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { authClient } from "../lib/auth-client";
+import { authClient } from "../../lib/auth-client";
 
 type AuthStatus =
     | "bootstrapping"

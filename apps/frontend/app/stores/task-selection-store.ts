@@ -9,7 +9,7 @@ interface TaskSelectionState {
     selectAll: (taskIds: string[]) => void;
 }
 
-export const useTaskSelection = create<TaskSelectionState>((set) => ({
+export const useTaskSelectionStore = create<TaskSelectionState>((set) => ({
     selectedTaskIds: new Set<string>(),
 
     toggleTask: (taskId) => set((state) => {

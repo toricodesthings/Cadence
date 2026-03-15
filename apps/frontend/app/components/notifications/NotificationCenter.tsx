@@ -2,9 +2,9 @@ import { useNavigate } from "react-router";
 import {
     Bell, BellRing, Clock, CalendarClock, Flame, X, CheckCheck,
 } from "lucide-react";
-import { buildFocusSearchParams } from "../../hooks/use-route-focus";
+import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import type { AppNotification, NotificationGroup } from "../../lib/notifications/notification-model";
-import type { GroupedNotifications } from "../../hooks/use-notification-center";
+import type { GroupedNotifications } from "../../hooks/notifications/use-notification-center";
 
 // ── Icon + accent mapping ──
 const NOTIFICATION_STYLES: Record<

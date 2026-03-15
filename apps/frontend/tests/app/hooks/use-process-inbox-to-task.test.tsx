@@ -7,7 +7,7 @@ const taskPostMock = vi.fn();
 const inboxDeleteMock = vi.fn();
 const useApiClientMock = vi.fn();
 
-vi.mock("../../../app/hooks/use-api-client", () => ({
+vi.mock("../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => useApiClientMock(),
 }));
 

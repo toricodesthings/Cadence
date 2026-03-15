@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
-import { MainLayout } from "../components/MainLayout";
+import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { FolderKanban, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
@@ -15,7 +15,7 @@ import { AddTaskInput } from "../components/tasks/AddTaskInput";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
-import { useSortMode } from "../hooks/use-sort-mode";
+import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/sort-tasks";
 import * as DropdownMenu from "../components/primitives/DropdownMenu";
 import * as Dialog from "../components/primitives/Dialog";
@@ -23,9 +23,10 @@ import * as AlertDialog from "../components/primitives/AlertDialog";
 import { Button } from "../components/primitives/Button";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
 import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
-import { PageContent } from "../components/layout/page-layout";
-import { useViewMode } from "../hooks/use-view-mode";
-import { useRouteFocus } from "../hooks/use-route-focus";
+import { PageContent } from "../components/layout/PageLayout";
+import { useViewMode } from "../hooks/ui/use-view-mode";
+import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
 
 const MIN_PANEL_WIDTH = 300;
 const MAX_PANEL_WIDTH = 500;
@@ -192,14 +193,7 @@ export default function ProjectView() {
                             />
                         </div>
                         <div className="flex gap-2 items-center flex-wrap">
-                            {[
-                                { label: "Amber", value: "luminous-amber", varName: "var(--color-lantern)" },
-                                { label: "Blue", value: "moonlit-blue", varName: "var(--color-moonlit)" },
-                                { label: "Sapphire", value: "sapphire", varName: "var(--color-sapphire)" },
-                                { label: "Red", value: "ember-red", varName: "var(--color-ember-red)" },
-                                { label: "Green", value: "forest-green", varName: "var(--color-forest-green)" },
-                                { label: "Violet", value: "violet", varName: "var(--color-violet)" },
-                            ].map((opt) => (
+                            {PROJECT_ACCENT_OPTIONS.map((opt) => (
                                 <button
                                     key={opt.value}
                                     type="button"
@@ -223,7 +217,7 @@ export default function ProjectView() {
                                 <div className="absolute inset-0 bg-twilight-surface/30 backdrop-blur-sm pointer-events-none" />
                                 <input
                                     type="color"
-                                    value={colorValue.startsWith("#") ? colorValue : "#e8a44a"}
+                                    value={colorValue.startsWith("#") ? colorValue : PROJECT_FALLBACK_COLOR}
                                     onChange={(e) => {
                                         setColorValue(e.target.value);
                                         setIsCustomColor(true);

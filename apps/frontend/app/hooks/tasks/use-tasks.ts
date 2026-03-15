@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { Task, TaskState } from "../../types/task";
-import { useAuthState } from "../use-auth-state";
+import { useAuthState } from "../auth/use-auth-state";
 import { buildTasksQuery } from "../../lib/utils/task-scheduling";
 
 interface UseTasksOptions {

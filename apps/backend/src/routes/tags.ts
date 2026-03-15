@@ -7,7 +7,7 @@ import { insertTagSchema, updateTagSchema } from "../types/tag";
 import { uuidParamSchema } from "../types/common";
 import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
-import { AppError } from "../lib/errors";
+import { AppError, throwIfNotFound } from "../lib/errors";
 import { apiValidator } from "../lib/validation";
 
 export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -47,9 +47,7 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     .returning(),
             );
 
-            if (!updated) {
-                throw new AppError(404, "NOT_FOUND", "Tag not found");
-            }
+            throwIfNotFound(updated, "Tag");
 
             return c.json({ data: updated });
         },
@@ -84,9 +82,7 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 .where(and(eq(tags.id, id), eq(tags.userId, userId))),
         );
 
-        if (!tag) {
-            throw new AppError(404, "NOT_FOUND", "Tag not found");
-        }
+        throwIfNotFound(tag, "Tag");
 
         return c.json({ data: tag });
     })
@@ -104,9 +100,7 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 .returning(),
         );
 
-        if (!deleted) {
-            throw new AppError(404, "NOT_FOUND", "Tag not found");
-        }
+        throwIfNotFound(deleted, "Tag");
 
         return c.json({ data: deleted });
     });

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
+import { queryKeys } from "../../lib/api/query-keys";
 import {
     snapshotHabitCache,
     rollbackHabitCache,
@@ -35,8 +36,8 @@ export function useDeleteHabit() {
             const remove = <T extends { id: string }>(old: T[] | undefined) =>
                 transformListCache(old, (items) => items.filter((h) => h.id !== id));
 
-            queryClient.setQueriesData<{ id: string }[]>({ queryKey: ["habits"] }, remove);
-            queryClient.setQueriesData<{ id: string }[]>({ queryKey: ["habits", "weekly"] }, remove);
+            queryClient.setQueriesData<{ id: string }[]>({ queryKey: queryKeys.habits.all }, remove);
+            queryClient.setQueriesData<{ id: string }[]>({ queryKey: queryKeys.habits.weeklyAll }, remove);
 
             return { snapshot };
         },
@@ -47,7 +48,7 @@ export function useDeleteHabit() {
 
         onError: (err, _id, context) => {
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
-            toast.error(err instanceof Error ? err.message : "Failed to delete habit");
+            toast.error(err.message || "Failed to delete habit");
         },
 
         onSettled: () => invalidateHabitCaches(queryClient),

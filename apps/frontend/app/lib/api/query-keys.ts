@@ -17,6 +17,7 @@ export const queryKeys = {
     },
     habits: {
         all: ["habits"] as const,
+        weeklyAll: ["habits", "weekly"] as const,
         weekly: (filters: Record<string, unknown>) => ["habits", "weekly", filters] as const,
         detail: (id: string) => ["habits", id] as const,
         monthly: (id: string, year: number, month: number) => ["habits", id, "monthly", year, month] as const,

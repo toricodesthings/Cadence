@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "./use-api-client";
-import { unwrapResponse } from "../lib/api/helpers";
-import type { Subtask } from "../types/task";
-import { useAuthState } from "./use-auth-state";
-import { transformListCache } from "../lib/api/cache-guards";
+import { useApiClient } from "../auth/use-api-client";
+import { unwrapResponse } from "../../lib/api/helpers";
+import type { Subtask } from "../../types/task";
+import { useAuthState } from "../auth/use-auth-state";
+import { transformListCache } from "../../lib/api/cache-guards";
 
 const SUBTASKS_KEY = (taskId: string) => ["tasks", taskId, "subtasks"] as const;
 const BULK_SUBTASKS_KEY = (taskIds: string[]) => ["subtasks", "bulk", taskIds] as const;

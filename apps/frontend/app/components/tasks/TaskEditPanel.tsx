@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
     ArrowLeft, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
     Pin, Repeat, CalendarRange, AlertTriangle, Trash2, Copy, SlidersHorizontal,
@@ -7,7 +7,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks, useUpdateTask, useDeleteTask } from "../../hooks/tasks";
 import { useProjects } from "../../hooks/projects";
-import { useDebouncedCallback } from "../../hooks/use-debounced-callback";
+import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { PriorityPicker } from "./PriorityPicker";
 import { TagPickerList } from "./TagPickerSubmenu";
@@ -33,7 +33,7 @@ function formatDateTime(iso: string) {
     return formatShortDate(iso);
 }
 
-function MetaRow({
+const MetaRow = React.memo(function MetaRow({
     icon: Icon,
     label,
     children,
@@ -53,7 +53,7 @@ function MetaRow({
             <div className="flex-1 flex justify-end">{children}</div>
         </div>
     );
-}
+});
 
 /** Full task editing panel — notes-first design; metadata revealed on demand */
 export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
@@ -69,8 +69,11 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
     const removeTagAssoc = useRemoveTaskTag();
 
     // Find the task across all caches
-    const task = [...(activeTasks ?? []), ...(waitingTasks ?? []), ...(archiveTasks ?? []), ...(doneTasks ?? [])].find(
-        (t) => t.id === taskId
+    const task = useMemo(
+        () => [...(activeTasks ?? []), ...(waitingTasks ?? []), ...(archiveTasks ?? []), ...(doneTasks ?? [])].find(
+            (t) => t.id === taskId
+        ),
+        [activeTasks, waitingTasks, archiveTasks, doneTasks, taskId],
     );
 
     const [title, setTitle] = useState(task?.title ?? "");

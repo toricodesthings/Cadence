@@ -110,6 +110,7 @@ src/
 │   └── rls.ts            # RLS helpers (`setRlsContext`, `withRls`)
 ├── routes/
 │   ├── debug.ts          # Seed/clear routes (with notification-triggering test data)
+│   ├── events.ts         # Usage event tracking (single + batch)
 │   ├── habits.ts
 │   ├── health.ts
 │   ├── inbox.ts
@@ -117,17 +118,21 @@ src/
 │   ├── sections.ts
 │   ├── settings.ts
 │   ├── subtasks.ts
+│   ├── suggestions.ts    # AI suggestion list + accept/dismiss
 │   ├── tags.ts
 │   └── tasks.ts
 └── types/
     ├── auth.ts
-    ├── common.ts
+    ├── common.ts          # Shared param schemas (uuidParamSchema, taskIdParamSchema)
     ├── env.ts
+    ├── event.ts
     ├── habit.ts
     ├── inbox.ts
     ├── project.ts
-    ├── settings.ts       # Settings patch schema (notification fields optional by design)
+    ├── section.ts
+    ├── settings.ts        # Settings patch schema (notification fields optional by design)
     ├── subtask.ts
+    ├── suggestion.ts
     ├── tag.ts
     └── task.ts
 ```
@@ -162,6 +167,8 @@ Protected routes currently mount as:
 - `/api` for shared subtask paths
 - `/api/sections`
 - `/api/settings`
+- `/api/events`
+- `/api/suggestions`
 - `/api/debug`
 
 ### 5.3 Shared Contract Export
@@ -398,7 +405,17 @@ Task list filtering currently supports:
 - `GET /api/settings`
 - `PATCH /api/settings`
 
-### 9.10 Debug
+### 9.10 Events
+
+- `POST /api/events/track`
+- `POST /api/events/track/batch`
+
+### 9.11 Suggestions
+
+- `GET /api/suggestions`
+- `PATCH /api/suggestions/:id`
+
+### 9.12 Debug
 
 - `POST /api/debug/clear`
 - `POST /api/debug/seed`

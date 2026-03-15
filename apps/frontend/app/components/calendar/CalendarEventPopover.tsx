@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useCreateTask } from "../../hooks/tasks";
 import { parseLocalDate, toISODate, getDateFormatConfig } from "../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task-scheduling";
-import { useShellMode } from "../../hooks/use-shell-mode";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { TimePicker } from "../primitives";
 import type { EffortLevel, TaskPriority } from "../../types/task";
 

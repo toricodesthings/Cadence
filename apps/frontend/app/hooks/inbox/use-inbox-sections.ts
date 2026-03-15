@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
-import { useAuthState } from "../use-auth-state";
+import { useApiClient } from "../auth/use-api-client";
+import { useAuthState } from "../auth/use-auth-state";
 
 export function useInboxSections() {
     const api = useApiClient();

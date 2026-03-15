@@ -1,8 +1,8 @@
 import { useMemo, useDeferredValue } from "react";
-import { useTasks } from "./tasks/use-tasks";
-import { useAllHabits } from "./habits/use-habits";
-import { useInbox } from "./inbox";
-import { useProjects } from "./projects";
+import { useTasks } from "../tasks/use-tasks";
+import { useAllHabits } from "../habits/use-habits";
+import { useInbox } from "../inbox";
+import { useProjects } from "../projects";
 import type { FocusKind } from "./use-route-focus";
 
 /** Type-safe null filter */

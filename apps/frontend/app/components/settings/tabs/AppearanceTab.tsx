@@ -1,6 +1,6 @@
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 
 export function AppearanceTab() {
     const { data: settings } = useSettings();

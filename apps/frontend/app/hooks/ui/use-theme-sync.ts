@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useSettings } from "./use-settings";
-import { setDateFormatConfig } from "../lib/utils/date-format";
+import { useSettings } from "../core/use-settings";
+import { setDateFormatConfig } from "../../lib/utils/date-format";
 
 /**
  * Syncs the user's `appearance.theme` setting to the `data-theme` attribute

@@ -9,7 +9,7 @@ import { STALE_TIMES } from "./lib/api/query-keys";
 import { createIDBPersister } from "./lib/api/persister";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ApiErrorResponse } from "./types/api";
-import { AuthStateProvider, useAuthState } from "./hooks/use-auth-state";
+import { AuthStateProvider, useAuthState } from "./hooks/auth/use-auth-state";
 import { Toaster } from "./components/feedback/Toaster";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { initWal } from "./lib/api/offline-wal";

@@ -1,8 +1,8 @@
 import { formatDateLabel } from "../../lib/utils/date-format";
 import { getTimeBasedGreeting } from "../../lib/utils/greetings";
 import { authClient } from "../../lib/auth-client";
-import { useWeather } from "../../hooks/use-weather";
-import { useRealtimeClock } from "../../hooks/use-realtime-clock";
+import { useWeather } from "../../hooks/environment/use-weather";
+import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
 import { useMemo } from "react";
 
 /** The contextual greeting header — warm, cozy, like settling into a lit room */

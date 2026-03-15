@@ -7,6 +7,7 @@ import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { useUpdateProject, useDeleteProject } from "../../hooks/projects";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
 interface ProjectLinkProps {
     id: string;
@@ -83,14 +84,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                             />
                         </div>
                         <div className="flex gap-2 items-center flex-wrap">
-                            {[
-                                { label: "Amber", value: "luminous-amber", varName: "var(--color-lantern)" },
-                                { label: "Blue", value: "moonlit-blue", varName: "var(--color-moonlit)" },
-                                { label: "Sapphire", value: "sapphire", varName: "var(--color-sapphire)" },
-                                { label: "Red", value: "ember-red", varName: "var(--color-ember-red)" },
-                                { label: "Green", value: "forest-green", varName: "var(--color-forest-green)" },
-                                { label: "Violet", value: "violet", varName: "var(--color-violet)" },
-                            ].map((opt) => (
+                            {PROJECT_ACCENT_OPTIONS.map((opt) => (
                                 <button
                                     key={opt.value}
                                     type="button"
@@ -109,7 +103,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                             <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer" title="Custom Hex Color">
                                 <input
                                     type="color"
-                                    value={colorValue.startsWith("#") ? colorValue : "#e8a44a"}
+                                    value={colorValue.startsWith("#") ? colorValue : PROJECT_FALLBACK_COLOR}
                                     onChange={(e) => {
                                         setColorValue(e.target.value);
                                         setIsCustomColor(true);

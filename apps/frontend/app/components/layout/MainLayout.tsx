@@ -1,26 +1,26 @@
-import { Sidebar } from "../components/sidebar/Sidebar";
+import { Sidebar } from "../sidebar/Sidebar";
 import { useNavigate, useLocation } from "react-router";
-import * as Tooltip from "../components/primitives/Tooltip";
+import * as Tooltip from "../primitives/Tooltip";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useSidebarStore } from "../stores/sidebar-store";
-import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
-import { CommandPalette } from "./CommandPalette";
-import { FloatingActionBar } from "./tasks/FloatingActionBar";
-import { SettingsDialog } from "./settings/SettingsDialog";
-import { QuickAddSurface } from "./quick-add/QuickAddSurface";
-import { Loading } from "./Loading";
+import { useSidebarStore } from "../../stores/sidebar-store";
+import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
+import { CommandPalette } from "../command-palette/CommandPalette";
+import { FloatingActionBar } from "../tasks/FloatingActionBar";
+import { SettingsDialog } from "../settings/SettingsDialog";
+import { QuickAddSurface } from "../quick-add/QuickAddSurface";
+import { Loading } from "../shared/Loading";
 import { useEffect, useMemo, useState } from "react";
-import { useAuthState } from "../hooks/use-auth-state";
-import { useShellMode } from "../hooks/use-shell-mode";
-import { useDocumentMeta } from "../hooks/use-document-meta";
-import { useNotificationCenter } from "../hooks/use-notification-center";
-import { useBrowserNotifications } from "../hooks/use-browser-notifications";
-import { useThemeSync } from "../hooks/use-theme-sync";
-import { useViewMode } from "../hooks/use-view-mode";
-import { useTaskSelection } from "../stores/task-selection-store";
-import { useBatchStateTransition } from "../hooks/tasks/use-batch-state";
+import { useAuthState } from "../../hooks/auth/use-auth-state";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useDocumentMeta } from "../../hooks/core/use-document-meta";
+import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
+import { useBrowserNotifications } from "../../hooks/notifications/use-browser-notifications";
+import { useThemeSync } from "../../hooks/ui/use-theme-sync";
+import { useViewMode } from "../../hooks/ui/use-view-mode";
+import { useTaskSelectionStore } from "../../stores/task-selection-store";
+import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
-import type { PageWidth } from "./layout/page-layout";
+import type { PageWidth } from "./PageLayout";
 
 const PAGE_META: Record<string, { title: string; description: string }> = {
     "/": {
@@ -99,7 +99,7 @@ export function MainLayout({
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
     const { view, setView } = useViewMode();
-    const { selectedTaskIds, clearSelection } = useTaskSelection();
+    const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
     const batchState = useBatchStateTransition();
 
     useEffect(() => {

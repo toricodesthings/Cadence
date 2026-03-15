@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import * as Popover from "../components/primitives/Popover";
-import { MainLayout } from "../components/MainLayout";
+import { MainLayout } from "../components/layout/MainLayout";
 import {
     DndContext,
     DragOverlay,
@@ -36,14 +36,14 @@ import {
     parseEffectiveTaskDate,
 } from "../lib/utils/date-format";
 import type { Task } from "../types/task";
-import { useHabitsWeekly } from "../hooks/habits/use-habits";
-import { useApiClient } from "../hooks/use-api-client";
+import { useVirtualHabitTasks } from "../hooks/habits/use-virtual-habit-tasks";
+import { useApiClient } from "../hooks/auth/use-api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/api/query-keys";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { toast } from "sonner";
-import { useDocumentMeta } from "../hooks/use-document-meta";
-import { useShellMode } from "../hooks/use-shell-mode";
+import { useDocumentMeta } from "../hooks/core/use-document-meta";
+import { useShellMode } from "../hooks/ui/use-shell-mode";
 import {
     getDateFromTimedDropId,
     parseCalendarTimedDropId,
@@ -58,38 +58,9 @@ import {
     HolidayLocationPrompt,
     HolidayPreferencesPanel,
 } from "../components/calendar/HolidayControls";
-import { useHolidayOverlay } from "../hooks/use-holiday-overlay";
-import { useSettings } from "../hooks/use-settings";
-
-// ── helpers ────────────────────────────────────────────────────────────────
-
-function parseYMD(dateStr: string): { y: number; m: number; d: number } {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    return { y, m: m - 1, d };
-}
-
-function addDaysToIso(iso: string, days: number): string {
-    const { y, m, d } = parseYMD(iso);
-    const dt = new Date(y, m, d + days);
-    return toISODate(dt);
-}
-
-function addMonthsToIso(iso: string, delta: number): string {
-    const { y, m, d } = parseYMD(iso);
-    let nm = m + delta;
-    let ny = y;
-    while (nm > 11) { nm -= 12; ny++; }
-    while (nm < 0) { nm += 12; ny--; }
-    const maxDay = new Date(ny, nm + 1, 0).getDate();
-    return `${ny}-${String(nm + 1).padStart(2, "0")}-${String(Math.min(d, maxDay)).padStart(2, "0")}`;
-}
-
-function getTaskDurationMs(task: Task) {
-    if (task.scheduledStart && task.scheduledEnd) {
-        return Math.max(30 * 60_000, new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime());
-    }
-    return Math.max(30, task.durationEstimate ?? 60) * 60_000;
-}
+import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
+import { useSettings } from "../hooks/core/use-settings";
+import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar-math";
 
 const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 32 : -32, opacity: 0 }),
@@ -227,47 +198,21 @@ export default function Schedule() {
     }, [birthdayDate, month]);
 
     // ── Habits injection ───────────────────────────────────────────────────
-    const { data: rawHabits = [] } = useHabitsWeekly({
-        start: viewMode === "month" ? monthRange.start.substring(0, 10) : viewMode === "week" ? weekRange.start.substring(0, 10) : viewMode === "day" ? dayRange.start.substring(0, 10) : "",
-        end: viewMode === "month" ? monthRange.end.substring(0, 10) : viewMode === "week" ? weekRange.end.substring(0, 10) : viewMode === "day" ? dayRange.end.substring(0, 10) : "",
-        enabled: viewMode !== "year"
-    });
+    const habitRange = useMemo(() => {
+        if (viewMode === "year") return { start: "", end: "", enabled: false };
+        const ranges = { month: monthRange, week: weekRange, day: dayRange };
+        const r = ranges[viewMode as keyof typeof ranges];
+        return {
+            start: typeof r.start === "string" ? r.start.substring(0, 10) : "",
+            end: typeof r.end === "string" ? r.end.substring(0, 10) : "",
+            enabled: true,
+        };
+    }, [viewMode, monthRange, weekRange, dayRange]);
+
+    const virtualHabitTasks = useVirtualHabitTasks(habitRange);
 
     const client = useApiClient();
     const queryClient = useQueryClient();
-
-    const virtualHabitTasks = useMemo<Task[]>(() => {
-        return rawHabits.flatMap((h) =>
-            h.logs?.filter(l => l.status !== "SKIPPED").map(l => {
-                const isAllDay = !h.targetTime;
-                const scheduledStart = h.targetTime ? `${l.targetDate.substring(0, 10)}T${h.targetTime}:00.000Z` : l.targetDate;
-
-                return {
-                    id: `habit-${h.id}--${l.targetDate}`,
-                    userId: h.userId,
-                    projectId: null,
-                    title: h.title,
-                    content: h.description,
-                    state: l.status === "COMPLETED" ? "COMPLETE" : "ACTIVE",
-                    orderIndex: 0,
-                    isAllDay,
-                    dueDate: l.targetDate,
-                    scheduledStart,
-                    scheduledEnd: null,
-                    durationEstimate: 30, // 30m default for habits if timed
-                    timezoneLocked: false,
-                    createdAt: h.createdAt,
-                    updatedAt: h.updatedAt,
-                    priority: 0,
-                    isPinned: false,
-                    reminderAt: h.reminderEnabled ? "10m" : null,
-                    reminderSilenced: !h.reminderEnabled,
-                    recurrenceRule: h.recurrenceRule,
-                    isHabit: true,
-                } as Task;
-            }) || []
-        );
-    }, [rawHabits]);
 
     // ── Group month tasks by day-number ─────────────────────────────────────
     // Habits are intentionally NOT injected into tasksByDay for month view —

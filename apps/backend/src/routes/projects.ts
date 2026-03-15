@@ -7,7 +7,7 @@ import { insertProjectSchema, updateProjectSchema } from "../types/project";
 import { uuidParamSchema } from "../types/common";
 import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
-import { AppError } from "../lib/errors";
+import { AppError, throwIfNotFound } from "../lib/errors";
 import { apiValidator } from "../lib/validation";
 
 export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -44,9 +44,7 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 .returning(),
         );
 
-        if (!updated) {
-            throw new AppError(404, "NOT_FOUND", "Project not found");
-        }
+        throwIfNotFound(updated, "Project");
 
         return c.json({ data: updated });
     })
@@ -76,9 +74,7 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 .where(and(eq(projects.id, id), eq(projects.userId, userId))),
         );
 
-        if (!project) {
-            throw new AppError(404, "NOT_FOUND", "Project not found");
-        }
+        throwIfNotFound(project, "Project");
 
         return c.json({ data: project });
     })
@@ -94,9 +90,7 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 .returning(),
         );
 
-        if (!deleted) {
-            throw new AppError(404, "NOT_FOUND", "Project not found");
-        }
+        throwIfNotFound(deleted, "Project");
 
         return c.json({ data: deleted });
     });

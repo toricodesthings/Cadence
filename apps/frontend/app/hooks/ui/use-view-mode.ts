@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useSettings, useUpdateSettings } from "./use-settings";
+import { useSettings, useUpdateSettings } from "../core/use-settings";
 
 export type ViewMode = "list" | "kanban";
 

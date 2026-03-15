@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useCallback } from "react";
-import { useApiClient } from "./use-api-client";
-import { unwrapResponse } from "../lib/api/helpers";
-import type { UserSettings, DeepPartial } from "../lib/types/settings";
-import { SETTINGS_DEFAULTS } from "../lib/types/settings";
-import { useAuthState } from "./use-auth-state";
+import { useApiClient } from "../auth/use-api-client";
+import { unwrapResponse } from "../../lib/api/helpers";
+import type { UserSettings, DeepPartial } from "../../lib/types/settings";
+import { SETTINGS_DEFAULTS } from "../../lib/types/settings";
+import { useAuthState } from "../auth/use-auth-state";
 
 const SETTINGS_KEY = (userId: string | undefined) => ["settings", userId ?? "anonymous"] as const;
 

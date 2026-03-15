@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Dialog, DialogContent } from "./primitives/Dialog";
+import { Dialog, DialogContent } from "../primitives/Dialog";
 import { useNavigate } from "react-router";
 import {
     Search, CheckSquare, Flame, Inbox, FolderOpen, Navigation,
 } from "lucide-react";
-import { useUniversalSearch, type SearchResult, type SearchResultKind } from "../hooks/use-universal-search";
-import { buildFocusSearchParams } from "../hooks/use-route-focus";
+import { useUniversalSearch, type SearchResult, type SearchResultKind } from "../../hooks/search/use-universal-search";
+import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 
 interface CommandPaletteProps {
     open: boolean;

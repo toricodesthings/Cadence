@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { MainLayout } from "../components/MainLayout";
+import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { CheckCircle2 } from "lucide-react";
@@ -10,7 +10,7 @@ import { useTasks } from "../hooks/tasks";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
-import { PageContent } from "../components/layout/page-layout";
+import { PageContent } from "../components/layout/PageLayout";
 
 export default function CompletedView() {
     const { data: tasks, isLoading } = useTasks({ state: "COMPLETE" });

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useApiClient } from "../../hooks/use-api-client";
+import { useApiClient } from "../../hooks/auth/use-api-client";
 import { toast } from "sonner";
 
 export function HabitToastResolver() {

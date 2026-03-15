@@ -1,10 +1,10 @@
 import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "react";
-import { useTasks } from "./tasks";
-import { useAllHabits } from "./habits/use-habits";
-import { useSettings } from "./use-settings";
-import { deriveNotifications } from "../lib/notifications/reminder-engine";
-import type { AppNotification, NotificationGroup } from "../lib/notifications/notification-model";
-import { groupNotification, GROUP_ORDER } from "../lib/notifications/notification-model";
+import { useTasks } from "../tasks";
+import { useAllHabits } from "../habits/use-habits";
+import { useSettings } from "../core/use-settings";
+import { deriveNotifications } from "../../lib/notifications/reminder-engine";
+import type { AppNotification, NotificationGroup } from "../../lib/notifications/notification-model";
+import { groupNotification, GROUP_ORDER } from "../../lib/notifications/notification-model";
 
 // ── Dismissed-ids store (session-scoped, survives re-renders but not tab close) ──
 const dismissedIds = new Set<string>();

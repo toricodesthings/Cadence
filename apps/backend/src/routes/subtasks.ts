@@ -4,18 +4,13 @@ import { getDbClient } from "../lib/db";
 import { withRls } from "../lib/rls";
 import { tasks, subtasks } from "../db/schema";
 import { insertSubtaskSchema, updateSubtaskSchema, reorderSubtaskSchema } from "../types/subtask";
-import { uuidParamSchema } from "../types/common";
-import { z } from "zod";
+import { uuidParamSchema, taskIdParamSchema } from "../types/common";
 import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
-import { AppError } from "../lib/errors";
+import { AppError, throwIfNotFound } from "../lib/errors";
 import { apiValidator } from "../lib/validation";
 
-const taskIdParamSchema = z.object({
-    taskId: z.string().uuid(),
-});
-
-export const subtasksRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
+export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .get("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), async (c) => {
         const userId = c.get("userId");
         const { taskId } = c.req.valid("param");
@@ -28,7 +23,7 @@ export const subtasksRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .from(tasks)
                 .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
 
-            if (!parent) throw new AppError(404, "NOT_FOUND", "Task not found");
+            throwIfNotFound(parent, "Task");
 
             return tx
                 .select()
@@ -52,7 +47,7 @@ export const subtasksRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .from(tasks)
                 .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
 
-            if (!parent) throw new AppError(404, "NOT_FOUND", "Task not found");
+            throwIfNotFound(parent, "Task");
 
             const [row] = await tx
                 .insert(subtasks)
@@ -83,7 +78,7 @@ export const subtasksRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
             return row;
         });
 
-        if (!updated) throw new AppError(404, "NOT_FOUND", "Subtask not found");
+        throwIfNotFound(updated, "Subtask");
         return c.json({ data: updated });
     })
     .patch("/subtasks/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderSubtaskSchema), async (c) => {
@@ -101,7 +96,7 @@ export const subtasksRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
             return row;
         });
 
-        if (!updated) throw new AppError(404, "NOT_FOUND", "Subtask not found");
+        throwIfNotFound(updated, "Subtask");
         return c.json({ data: updated });
     })
     .delete("/subtasks/:id", apiValidator("param", uuidParamSchema), async (c) => {
@@ -117,6 +112,6 @@ export const subtasksRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
             return row;
         });
 
-        if (!deleted) throw new AppError(404, "NOT_FOUND", "Subtask not found");
+        throwIfNotFound(deleted, "Subtask");
         return c.json({ data: deleted });
     });

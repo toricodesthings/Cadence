@@ -8,7 +8,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useDroppable } from "@dnd-kit/core";
 import { Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections";
-import { useSubtasksByTaskIds } from "../../hooks/use-subtasks";
+import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks";
 import { useTags } from "../../hooks/tags";
 import { SortableTaskCard } from "../tasks/SortableTaskCard";
@@ -16,7 +16,7 @@ import { TaskCard } from "../tasks/TaskCard";
 import { TaskContextMenuWrapper } from "../tasks/TaskContextMenuWrapper";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
-import { useDragScroll } from "../../hooks/use-drag-scroll";
+import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
 import type { Task, TaskSection, Subtask } from "../../types/task";
 import type { Tag } from "../../types/tag";
 

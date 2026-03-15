@@ -11,18 +11,18 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as Popover from "../primitives/Popover";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Tip } from "./Tip";
-import { useApiClient } from "../../hooks/use-api-client";
+import { useApiClient } from "../../hooks/auth/use-api-client";
 import { authClient } from "../../lib/auth-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Button } from "../primitives/Button";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
-import { useWorkspaceSync } from "../../hooks/use-workspace-sync";
-import { useNotificationCenter } from "../../hooks/use-notification-center";
+import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
+import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
-import { useAdminCapabilities } from "../../hooks/use-admin-capabilities";
+import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 
 /** Nav item accent color definitions per Design Manifesto §1.9 */
 const NAV_LINKS = [

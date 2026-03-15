@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MainLayout } from "../components/MainLayout";
+import { MainLayout } from "../components/layout/MainLayout";
 import { PlannerHeader } from "../components/layout/PlannerHeader";
-import { PageContent } from "../components/layout/page-layout";
+import { PageContent } from "../components/layout/PageLayout";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
@@ -21,9 +21,9 @@ import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { useInbox } from "../hooks/inbox";
 import { useTasks } from "../hooks/tasks";
-import { useDocumentMeta } from "../hooks/use-document-meta";
-import { useShellMode } from "../hooks/use-shell-mode";
-import { useRouteFocus } from "../hooks/use-route-focus";
+import { useDocumentMeta } from "../hooks/core/use-document-meta";
+import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useRouteFocus } from "../hooks/search/use-route-focus";
 
 export default function InboxView() {
     const shell = useShellMode();

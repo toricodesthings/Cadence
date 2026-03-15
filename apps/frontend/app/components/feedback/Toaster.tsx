@@ -2,7 +2,7 @@ import { LoaderCircle, CircleAlert, CheckCircle2, Info, TriangleAlert, X } from 
 import type { CSSProperties } from "react";
 import { Toaster as SonnerToaster } from "sonner";
 
-import { CADENCE_TOAST_DURATION, installCadenceToastTheme } from "./cadence-toast";
+import { CADENCE_TOAST_DURATION, installCadenceToastTheme } from "../../lib/utils/cadence-toast";
 
 installCadenceToastTheme();
 

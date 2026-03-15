@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { useSettings, useUpdateSettings } from "../../../hooks/use-settings";
+import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 
 export function TasksTab() {
     const { data: settings } = useSettings();

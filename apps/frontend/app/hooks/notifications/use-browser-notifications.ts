@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useSettings, useUpdateSettings } from "./use-settings";
-import type { AppNotification } from "../lib/notifications/notification-model";
+import { useSettings, useUpdateSettings } from "../core/use-settings";
+import type { AppNotification } from "../../lib/notifications/notification-model";
 
 export type NotificationPermission = "default" | "granted" | "denied";
 

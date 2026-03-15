@@ -1,5 +1,5 @@
 import { LayoutList, KanbanSquare } from "lucide-react";
-import type { ViewMode } from "../../hooks/use-view-mode";
+import type { ViewMode } from "../../hooks/ui/use-view-mode";
 
 interface ViewToggleProps {
     view: ViewMode;

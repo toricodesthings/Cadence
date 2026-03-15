@@ -3,7 +3,7 @@ import { Button } from "../primitives/Button";
 import { Switch } from "../primitives";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
 import * as Tooltip from "../primitives/Tooltip";
-import type { HolidayCountryOption } from "../../hooks/use-holiday-overlay";
+import type { HolidayCountryOption } from "../../hooks/environment/use-holiday-overlay";
 
 interface HolidayControlsProps {
     enabled: boolean;

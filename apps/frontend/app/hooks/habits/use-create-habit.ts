@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import {
@@ -69,7 +69,7 @@ export function useCreateHabit() {
             };
 
             queryClient
-                .getQueriesData<Habit[]>({ queryKey: ["habits", "weekly"] })
+                .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
                 .forEach(([key, old]) => {
                     const filters = key[2] as { start?: string; end?: string } | undefined;
                     const archivedFlag = key.at(-1);

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { Habit } from "../../types/habit";
-import { useAuthState } from "../use-auth-state";
+import { useAuthState } from "../auth/use-auth-state";
 
 interface UseHabitsWeeklyOptions {
     start: string; // YYYY-MM-DD

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
-import { MainLayout } from "../components/MainLayout";
+import { MainLayout } from "../components/layout/MainLayout";
 import { toISODate, getWeekDates } from "../lib/utils/date-format";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
 import { HabitDetailPanel } from "../components/habits/HabitDetailPanel";
@@ -10,9 +10,9 @@ import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { HabitToastResolver } from "../components/habits/HabitToastResolver";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { useDocumentMeta } from "../hooks/use-document-meta";
-import { useShellMode } from "../hooks/use-shell-mode";
-import { useRouteFocus } from "../hooks/use-route-focus";
+import { useDocumentMeta } from "../hooks/core/use-document-meta";
+import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useRouteFocus } from "../hooks/search/use-route-focus";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",

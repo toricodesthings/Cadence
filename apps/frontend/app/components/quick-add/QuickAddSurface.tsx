@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Dialog, DialogContent } from "../primitives/Dialog";
-import { useShellMode } from "../../hooks/use-shell-mode";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { CadencePicker } from "../habits/CadencePicker";
-import { buildFocusSearchParams } from "../../hooks/use-route-focus";
-import { useSettings } from "../../hooks/use-settings";
+import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
+import { useSettings } from "../../hooks/core/use-settings";
 import { resolveDefaultDueDate, mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
 import { toast } from "sonner";
 import { CheckSquare, MessageSquare, Flame } from "lucide-react";

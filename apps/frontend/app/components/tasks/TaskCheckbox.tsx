@@ -1,7 +1,7 @@
 import { useUpdateTask } from "../../hooks/tasks";
-import { useUpdateSubtask } from "../../hooks/use-subtasks";
+import { useUpdateSubtask } from "../../hooks/tasks/use-subtasks";
 import { useTaskCompletionStore } from "../../stores/task-completion-store";
-import { useSettings } from "../../hooks/use-settings";
+import { useSettings } from "../../hooks/core/use-settings";
 import type { Task, TaskState, Subtask } from "../../types/task";
 import { Pause } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -81,7 +81,6 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
 
         queueCompletion({
             taskId: id,
-            taskTitle: title,
             onCommit: commitCompletion,
         });
 

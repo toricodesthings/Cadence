@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
 import { EffortDots } from "./EffortDots";
-import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask } from "../../hooks/use-subtasks";
-import { useTaskSelection } from "../../stores/task-selection-store";
+import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask } from "../../hooks/tasks/use-subtasks";
+import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { PRIORITY_CONFIG } from "../../lib/utils/priority";
 import { formatShortDate } from "../../lib/utils/date-format";
 import { getTaskScheduleSummary } from "../../lib/utils/task-scheduling";
@@ -114,7 +114,7 @@ export function TaskCard({
     const createSubtask = useCreateSubtask(task.id);
     const updateSubtask = useUpdateSubtask(task.id);
     const deleteSubtask = useDeleteSubtask(task.id);
-    const { toggleTask, selectedTaskIds } = useTaskSelection();
+    const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
 
     const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
     const [isAddingSubtask, setIsAddingSubtask] = useState(false);

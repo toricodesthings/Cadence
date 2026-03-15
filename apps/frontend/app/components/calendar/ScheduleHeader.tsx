@@ -6,7 +6,7 @@ import {
     Leaf, Moon, CloudFog, Gift,
     type LucideIcon,
 } from "lucide-react";
-import { useRealtimeClock } from "../../hooks/use-realtime-clock";
+import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";

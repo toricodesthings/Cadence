@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "../use-api-client";
+import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
+import { queryKeys } from "../../lib/api/query-keys";
 import {
     snapshotHabitCache,
     rollbackHabitCache,
@@ -72,13 +73,13 @@ export function useResolveHabit(habitId: string) {
 
             // Update the flat list (habits.all)
             queryClient.setQueriesData<Habit[]>(
-                { queryKey: ["habits"] },
+                { queryKey: queryKeys.habits.all },
                 applyUpdate,
             );
 
             // Update each weekly query variant
             queryClient.setQueriesData<Habit[]>(
-                { queryKey: ["habits", "weekly"] },
+                { queryKey: queryKeys.habits.weeklyAll },
                 applyUpdate,
             );
 
@@ -98,7 +99,7 @@ export function useResolveHabit(habitId: string) {
                 latestResolveByCell.delete(context.requestKey);
             }
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
-            toast.error(err instanceof Error ? err.message : "Failed to resolve habit");
+            toast.error(err.message || "Failed to resolve habit");
         },
         onSettled: () => invalidateHabitCaches(queryClient),
     });

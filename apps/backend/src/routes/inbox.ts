@@ -8,7 +8,7 @@ import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema,
 import { uuidParamSchema } from "../types/common";
 import type { Env } from "../types/env";
 import type { AuthVariables } from "../lib/auth";
-import { AppError } from "../lib/errors";
+import { AppError, throwIfNotFound } from "../lib/errors";
 import { apiValidator } from "../lib/validation";
 
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -61,9 +61,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 .returning(),
         );
 
-        if (!deleted) {
-            throw new AppError(404, "NOT_FOUND", "Inbox item not found");
-        }
+        throwIfNotFound(deleted, "Inbox item");
 
         return c.json({ data: deleted });
     })
@@ -81,9 +79,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 .returning(),
         );
 
-        if (!updated) {
-            throw new AppError(404, "NOT_FOUND", "Inbox item not found");
-        }
+        throwIfNotFound(updated, "Inbox item");
 
         return c.json({ data: updated });
     })
@@ -139,9 +135,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 .returning(),
         );
 
-        if (!updated) {
-            throw new AppError(404, "NOT_FOUND", "Inbox section not found");
-        }
+        throwIfNotFound(updated, "Inbox section");
 
         return c.json({ data: updated });
     })
@@ -157,9 +151,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 .returning(),
         );
 
-        if (!deleted) {
-            throw new AppError(404, "NOT_FOUND", "Inbox section not found");
-        }
+        throwIfNotFound(deleted, "Inbox section");
 
         return c.json({ data: deleted });
     });

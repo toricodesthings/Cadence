@@ -16,7 +16,7 @@ import { TagBubble } from "./TagBubble";
 import { CreateTagInline } from "./CreateTagInline";
 import { useTags } from "../../hooks/tags";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
-import { useSettings } from "../../hooks/use-settings";
+import { useSettings } from "../../hooks/core/use-settings";
 
 /** Main sidebar panel with live projects and inbox count */
 export function SidebarPanel({

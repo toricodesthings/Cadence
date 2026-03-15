@@ -7,11 +7,11 @@ const taskGetMock = vi.fn();
 const useApiClientMock = vi.fn();
 const useAuthStateMock = vi.fn();
 
-vi.mock("../../../app/hooks/use-api-client", () => ({
+vi.mock("../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => useApiClientMock(),
 }));
 
-vi.mock("../../../app/hooks/use-auth-state", () => ({
+vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => useAuthStateMock(),
 }));
 

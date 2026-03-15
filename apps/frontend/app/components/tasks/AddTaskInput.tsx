@@ -3,7 +3,7 @@ import { Plus, Calendar } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
-import { useSettings } from "../../hooks/use-settings";
+import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
 import type { Task } from "../../types/task";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { hardRefreshWorkspaceCaches } from "../lib/api/workspace-cache";
+import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 
 export function useWorkspaceSync() {
     const queryClient = useQueryClient();

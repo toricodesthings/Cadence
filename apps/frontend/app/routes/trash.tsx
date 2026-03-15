@@ -1,4 +1,4 @@
-import { MainLayout } from "../components/MainLayout";
+import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { Trash2 } from "lucide-react";
@@ -6,7 +6,7 @@ import { CalendarView } from "../components/calendar/CalendarView";
 import { useTasks } from "../hooks/tasks";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
-import { PageContent } from "../components/layout/page-layout";
+import { PageContent } from "../components/layout/PageLayout";
 
 export default function TrashView() {
     const { data: tasks, isLoading } = useTasks({ state: "ARCHIVED" });

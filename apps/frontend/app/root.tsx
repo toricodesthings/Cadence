@@ -7,7 +7,7 @@ import {
   ScrollRestoration,
 } from "react-router";
 
-import { Loading } from "./components/Loading";
+import { Loading } from "./components/shared/Loading";
 import { Providers } from "./providers";
 import "./app.css";
 

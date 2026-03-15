@@ -10,6 +10,10 @@ export const uuidParamSchema = z.object({
     id: z.string().uuid(),
 });
 
+export const taskIdParamSchema = z.object({
+    taskId: z.string().uuid(),
+});
+
 export interface ApiResponse<T> {
     data: T;
     meta?: { total?: number; limit?: number; offset?: number };

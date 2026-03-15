@@ -1,5 +1,5 @@
 import { X, Calendar, CheckSquare, Trash2, CalendarDays, Sun, Moon, ArrowRight } from "lucide-react";
-import { useTaskSelection } from "../../stores/task-selection-store";
+import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
 import * as Popover from "../primitives/Popover";
@@ -8,7 +8,7 @@ import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { toISODate, addDays } from "../../lib/utils/date-format";
 
 export function FloatingActionBar() {
-    const { selectedTaskIds, clearSelection } = useTaskSelection();
+    const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
 
     // Convert Set back to Array for hooks
     const selectedArray = Array.from(selectedTaskIds);

@@ -4,6 +4,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { useTags, useCreateTag } from "../../hooks/tags";
 import type { Tag } from "../../types/tag";
+import { TAG_PALETTE } from "../../lib/constants/colors";
 
 interface TagPickerSubmenuProps {
     activeTagIds: string[];
@@ -31,16 +32,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
 
     const [selectedColor, setSelectedColor] = useState("default");
 
-    const TAG_COLORS = [
-        "default",
-        "#ff7b72", // red
-        "#d2a8ff", // purple
-        "#79c0ff", // blue
-        "#a5d6ff", // light blue
-        "#7ee787", // green
-        "#f2cc60", // yellow
-        "#ff9800", // orange
-    ];
+    const TAG_COLORS = TAG_PALETTE;
 
     const handleCreate = async (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && newTagName.trim()) {
