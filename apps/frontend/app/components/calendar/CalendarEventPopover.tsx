@@ -206,6 +206,9 @@ export function CalendarEventPopover({ info, onClose }: CalendarEventPopoverProp
     }, [createTask, title, notes, startDate, startTime, endTime, mode, recurrenceRule, priority, effort, onClose]);
 
     const popoverWidth = shell.isPhone ? window.innerWidth : 420;
+    const desktopMaxHeight = typeof window !== "undefined"
+        ? Math.min(window.innerHeight - 48, 760)
+        : 760;
     let desktopLeft = info.anchorX + 20;
     let desktopTop = info.anchorY - 40;
     if (typeof window !== "undefined" && !shell.isPhone) {
@@ -213,7 +216,16 @@ export function CalendarEventPopover({ info, onClose }: CalendarEventPopoverProp
             desktopLeft = window.innerWidth - popoverWidth - 24;
         }
         desktopLeft = Math.max(24, desktopLeft);
-        desktopTop = Math.max(24, desktopTop);
+
+        const availableBelow = window.innerHeight - info.anchorY - 24;
+        const availableAbove = info.anchorY - 24;
+        const shouldOpenUpward = availableBelow < 360 && availableAbove > availableBelow;
+
+        if (shouldOpenUpward) {
+            desktopTop = Math.max(24, info.anchorY - desktopMaxHeight + 40);
+        } else {
+            desktopTop = Math.max(24, Math.min(desktopTop, window.innerHeight - desktopMaxHeight - 24));
+        }
     }
 
     return createPortal(
@@ -229,7 +241,7 @@ export function CalendarEventPopover({ info, onClose }: CalendarEventPopoverProp
                         ? "inset-x-0 bottom-0 max-h-[85dvh] rounded-t-[32px]"
                         : "max-h-[calc(100dvh-48px)] rounded-[32px]"
                 }`}
-                style={shell.isPhone ? undefined : { left: desktopLeft, top: desktopTop, width: popoverWidth }}
+                style={shell.isPhone ? undefined : { left: desktopLeft, top: desktopTop, width: popoverWidth, maxHeight: desktopMaxHeight }}
                 aria-label="Schedule composer"
                 role="dialog"
                 aria-modal="true"
@@ -252,7 +264,7 @@ export function CalendarEventPopover({ info, onClose }: CalendarEventPopoverProp
                 </div>
 
                 {/* ── Scrollable body ── */}
-                <div className={`flex-1 overflow-y-auto overscroll-contain scrollbar-thin ${shell.isPhone ? "px-5 py-4" : "px-6 py-4"}`}>
+                <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin ${shell.isPhone ? "px-5 py-4" : "px-6 py-4"}`}>
                     <div className="space-y-4">
                         <input
                             ref={titleRef}
