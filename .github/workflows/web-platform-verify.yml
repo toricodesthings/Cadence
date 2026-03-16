@@ -44,7 +44,12 @@ jobs:
       - name: Fail on tracked secret files
         shell: bash
         run: |
-          tracked_secret_files="$(git ls-files | grep -E '(^|/)(\.env($|\.)|\.dev\.vars($|\.)|.*\.(pem|key|crt)$)' || true)"
+          tracked_secret_files="$(
+            git ls-files \
+              | grep -E '(^|/)(\.env($|\.)|\.dev\.vars($|\.)|.*\.(pem|key|crt)$)' \
+              | grep -Ev '(^|/)\.(env|dev\.vars)(\.[^/]+)?\.(example|sample|template)$' \
+              || true
+          )"
 
           if [ -n "${tracked_secret_files}" ]; then
             printf 'Tracked secret-like files detected:\n%s\n' "${tracked_secret_files}" >&2
