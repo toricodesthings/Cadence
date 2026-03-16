@@ -1,0 +1,21 @@
+{
+  "name": "@cadence/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "dev:frontend": "node ./scripts/dev-with-bridge.mjs",
+    "sync-version": "node ./scripts/sync-version.mjs",
+    "build": "pnpm run sync-version && tauri build",
+    "build:debug": "pnpm run sync-version && tauri build --debug --no-bundle",
+    "typecheck": "pnpm run sync-version && cargo check --manifest-path src-tauri/Cargo.toml --all-targets && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "e2e:smoke": "pnpm run sync-version && mocha --timeout 180000 \"e2e/**/*.test.mjs\""
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.10.1",
+    "chai": "^5.3.3",
+    "mocha": "^11.7.5",
+    "selenium-webdriver": "^4.38.0"
+  }
+}

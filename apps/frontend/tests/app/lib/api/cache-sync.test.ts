@@ -32,6 +32,7 @@ function createTask(overrides: Partial<Task> = {}): Task {
         reminderAt: null,
         reminderSilenced: false,
         recurrenceRule: null,
+        interactionMode: "task",
         sectionId: null,
         seriesId: undefined,
         isRecurringInstance: false,

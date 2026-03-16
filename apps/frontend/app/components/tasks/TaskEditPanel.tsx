@@ -21,7 +21,12 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/utils/priority";
-import { getTaskRecurrenceSummary, getTaskScheduleSummary, isRecurringTask } from "../../lib/utils/task-scheduling";
+import {
+    getTaskRecurrenceSummary,
+    getTaskScheduleSummary,
+    isPassiveTimetableTask,
+    isRecurringTask,
+} from "../../lib/utils/task-scheduling";
 import type { Task, TaskPriority, TaskState, EffortLevel } from "../../types/task";
 
 interface TaskEditPanelProps {
@@ -177,13 +182,15 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
 
     const scheduleSummary = task ? getTaskScheduleSummary(task) : null;
     const recurrenceSummary = task ? getTaskRecurrenceSummary(task) : null;
+    const isPassiveTimetable = task ? isPassiveTimetableTask(task) : false;
+    const canToggleInteractionMode = Boolean(task?.recurrenceRule && task?.scheduledStart && task?.isAllDay === false);
     const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
     const scheduleFieldLabel = task && isRecurringTask(task)
         ? "Series"
         : scheduleSummary?.isDuration
             ? "Duration"
             : scheduleSummary?.isTimed
-                ? "Time block"
+                ? (isPassiveTimetable ? "Anchor" : "Time block")
                 : "Deadline";
 
     const charCount = notes.length;
@@ -293,14 +300,51 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                                             >
                                                 Waiting
                                             </button>
-                                            <button
-                                                onClick={() => handleStateChange("COMPLETE")}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "COMPLETE" ? "bg-feedback-success/15 text-feedback-success shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
-                                            >
-                                                Complete
-                                            </button>
+                                            {!isPassiveTimetable ? (
+                                                <button
+                                                    onClick={() => handleStateChange("COMPLETE")}
+                                                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "COMPLETE" ? "bg-feedback-success/15 text-feedback-success shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                >
+                                                    Complete
+                                                </button>
+                                            ) : (
+                                                <span className="px-3 py-1.5 rounded-[10px] text-[12px] font-medium text-moonlit">
+                                                    Anchor
+                                                </span>
+                                            )}
                                         </div>
                                     </MetaRow>
+
+                                    {canToggleInteractionMode && (
+                                        <MetaRow icon={Repeat} label="Mode">
+                                            <div className="flex bg-white/[0.04] p-0.5 rounded-xl gap-0.5">
+                                                <button
+                                                    onClick={() => updateTask.mutate({
+                                                        id: task.id,
+                                                        interactionMode: "timetable",
+                                                        ...(task.state === "COMPLETE" ? { state: "ACTIVE" } : {}),
+                                                    })}
+                                                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${
+                                                        task.interactionMode === "timetable"
+                                                            ? "bg-moonlit/15 text-moonlit shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                                                            : "text-twilight-text-muted hover:text-twilight-text"
+                                                    }`}
+                                                >
+                                                    Timetable anchor
+                                                </button>
+                                                <button
+                                                    onClick={() => updateTask.mutate({ id: task.id, interactionMode: "task" })}
+                                                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${
+                                                        task.interactionMode === "task"
+                                                            ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                                                            : "text-twilight-text-muted hover:text-twilight-text"
+                                                    }`}
+                                                >
+                                                    Needs check-off
+                                                </button>
+                                            </div>
+                                        </MetaRow>
+                                    )}
 
                                     <AnimatePresence>
                                         {task.state === "WAITING" && (

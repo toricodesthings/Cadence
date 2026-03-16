@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Button, Input } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { authClient } from "../../../lib/auth-client";
+import { beginSocialLink, getAuthCallbackUrl } from "../../../platform/runtime";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import * as Dialog from "../../primitives/Dialog";
 import { toast } from "sonner";
@@ -433,7 +434,7 @@ function OAuthConnectionsBlock() {
                     className="h-9 px-4 gap-2 font-medium"
                     disabled={loading || accounts?.some((a: any) => a.providerId === 'google')}
                     onClick={async () => {
-                        await authClient.linkSocial({ provider: 'google', callbackURL: window.location.href });
+                        await beginSocialLink("google", getAuthCallbackUrl(window.location.pathname));
                     }}
                 >
                     <ProviderLogo provider="google" />
@@ -445,7 +446,7 @@ function OAuthConnectionsBlock() {
                     className="h-9 px-4 gap-2 font-medium"
                     disabled={loading || accounts?.some((a: any) => a.providerId === 'github')}
                     onClick={async () => {
-                        await authClient.linkSocial({ provider: 'github', callbackURL: window.location.href });
+                        await beginSocialLink("github", getAuthCallbackUrl(window.location.pathname));
                     }}
                 >
                     <ProviderLogo provider="github" />

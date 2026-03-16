@@ -337,6 +337,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     reminderAt: null,
                     reminderSilenced: false,
                     recurrenceRule: original.recurrenceRule,
+                    interactionMode: original.interactionMode,
                 })
                 .returning();
 

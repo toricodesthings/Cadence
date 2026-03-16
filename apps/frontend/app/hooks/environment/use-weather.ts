@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, type LucideIcon } from "lucide-react";
+import { useGeolocation } from "./use-geolocation";
 
 export interface WeatherData {
     temp: number;
@@ -55,6 +56,7 @@ interface OpenMeteoResponse {
 export function useWeather() {
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [loading, setLoading] = useState(true);
+    const { coordinates, permissionState, resolvePreciseLocation } = useGeolocation();
 
     useEffect(() => {
         let cancelled = false;
@@ -83,21 +85,28 @@ export function useWeather() {
             }
         };
 
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
-                () => {
-                    // User denied location — just hide weather gracefully
-                    if (!cancelled) setLoading(false);
-                },
-                { timeout: 8000, maximumAge: 300_000 } // cache position for 5 min
-            );
-        } else {
-            setLoading(false);
-        }
+        const loadWeather = async () => {
+            if (coordinates) {
+                await fetchWeather(coordinates.latitude, coordinates.longitude);
+                return;
+            }
+
+            if (permissionState === "denied" || permissionState === "unsupported") {
+                if (!cancelled) setLoading(false);
+                return;
+            }
+
+            const result = await resolvePreciseLocation();
+            if (result.status !== "granted") {
+                if (!cancelled) setLoading(false);
+                return;
+            }
+        };
+
+        void loadWeather();
 
         return () => { cancelled = true; };
-    }, []);
+    }, [coordinates, permissionState, resolvePreciseLocation]);
 
     return { weather, loading };
 }

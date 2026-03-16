@@ -37,10 +37,12 @@ function withCadenceToastOptions(
     fallbackDuration = CADENCE_TOAST_DURATION,
 ): ExternalToast {
     const duration = options?.duration ?? fallbackDuration;
+    const shouldShowCloseButton = options?.closeButton ?? Boolean(options?.description);
 
     return {
         ...options,
         duration,
+        closeButton: shouldShowCloseButton,
         style: {
             ...cadenceProgressStyle(duration),
             ...options?.style,

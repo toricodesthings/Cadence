@@ -131,6 +131,7 @@ describe("task route contracts", () => {
                 reminderAt: null,
                 reminderSilenced: false,
                 recurrenceRule: null,
+                interactionMode: "task",
                 waitingOn: null,
                 waitingReminder: null,
                 effort: null,
@@ -189,6 +190,7 @@ describe("task route contracts", () => {
                 reminderAt: null,
                 reminderSilenced: false,
                 recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+                interactionMode: "timetable",
                 waitingOn: null,
                 waitingReminder: null,
                 effort: null,
@@ -218,6 +220,7 @@ describe("task route contracts", () => {
             id: "series-1::2026-03-10T09:30:00.000Z",
             seriesId: "series-1",
             isRecurringInstance: true,
+            interactionMode: "timetable",
             occurrenceStart: "2026-03-10T09:30:00.000Z",
             occurrenceEnd: "2026-03-10T10:45:00.000Z",
             tagIds: ["tag-1"],
@@ -319,6 +322,37 @@ describe("task route contracts", () => {
         expect(response.status).toBe(400);
         const body = await response.json() as any;
         expect(body.error.code).toBe("INVALID_RECURRENCE_RULE");
+    });
+
+    it("accepts explicit passive timetable interaction mode during task creation", async () => {
+        const capture: { values?: Record<string, unknown> } = {};
+        const insertedRow = { id: "task-created" };
+        const tx = createInsertTx(insertedRow, capture);
+
+        getDbClientMock.mockReturnValue(tx);
+        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
+
+        const app = createTaskApp();
+        const response = await app.request("http://localhost/tasks", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                title: "Studio block",
+                orderIndex: 1,
+                isAllDay: false,
+                scheduledStart: "2026-03-10T09:30:00.000Z",
+                scheduledEnd: "2026-03-10T10:45:00.000Z",
+                recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH",
+                interactionMode: "timetable",
+            }),
+        });
+
+        expect(response.status).toBe(201);
+        expect(capture.values).toMatchObject({
+            interactionMode: "timetable",
+        });
     });
 
     it("normalizes all-day reschedules from the frontend and clears timed fields", async () => {

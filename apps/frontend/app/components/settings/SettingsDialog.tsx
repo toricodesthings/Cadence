@@ -4,6 +4,7 @@ import { User, Bell, Clock, Sparkles, Paintbrush, Keyboard, CheckSquare, Blocks,
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import { Input } from "../primitives/Input";
 import { cn } from "../../lib/utils";
+import { flushAllPendingSettingsMutations } from "../../hooks/core/use-settings";
 
 // Tabs
 import { AccountTab } from "./tabs/AccountTab";
@@ -55,13 +56,15 @@ export function SettingsDialog() {
     // We keep internal state for search to filter tabs in the sidebar
     const [searchQuery, setSearchQuery] = React.useState("");
 
-    const handleClose = () => {
+    const handleClose = async () => {
+        await flushAllPendingSettingsMutations();
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete("settings");
         setSearchParams(nextParams);
     };
 
-    const handleTabChange = (tabId: string) => {
+    const handleTabChange = async (tabId: string) => {
+        await flushAllPendingSettingsMutations();
         const nextParams = new URLSearchParams(searchParams);
         nextParams.set("settings", tabId);
         setSearchParams(nextParams);
@@ -69,7 +72,7 @@ export function SettingsDialog() {
 
     const handleEscape = (e: KeyboardEvent) => {
         if (e.key === "Escape" && activeTab) {
-            handleClose();
+            void handleClose();
         }
     };
 
@@ -97,7 +100,7 @@ export function SettingsDialog() {
     };
 
     return (
-        <Dialog open={!!activeTab} onOpenChange={(open) => !open && handleClose()}>
+        <Dialog open={!!activeTab} onOpenChange={(open) => !open && void handleClose()}>
             <DialogContent
                 className="block h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none gap-0 overflow-hidden rounded-[2rem] border border-twilight-border-light bg-twilight-deep/95 p-0 shadow-[0_32px_96px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.05)] outline-none lg:h-[95vh] lg:w-[min(96vw,1720px)] !translate-x-[-50%] !translate-y-[-50%] !left-[50%] !top-[50%]"
                 style={{
@@ -145,7 +148,7 @@ export function SettingsDialog() {
                                     <button
                                         key={item.id}
                                         type="button"
-                                        onClick={() => handleTabChange(item.id!)}
+                                        onClick={() => void handleTabChange(item.id!)}
                                         className={cn(
                                             "flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm outline-none transition-colors cursor-pointer",
                                             isActive
@@ -171,7 +174,7 @@ export function SettingsDialog() {
                         <button
                             type="button"
                             className="group absolute right-6 top-6 z-10 hidden flex-col items-center gap-2 lg:flex"
-                            onClick={handleClose}
+                            onClick={() => void handleClose()}
                             aria-label="Close settings"
                         >
                             <div className="btn-icon rounded-full border border-twilight-border-light text-twilight-text-soft group-hover:bg-white/[0.06] group-hover:text-twilight-text">

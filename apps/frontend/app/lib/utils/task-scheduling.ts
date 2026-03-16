@@ -6,6 +6,7 @@ import {
     parseLocalDate,
     toISODate,
 } from "./date-format";
+import { rrulestr } from "rrule";
 import type { Task } from "../../types/task";
 
 const canonicalAllDayDateTimePattern = /^(\d{4}-\d{2}-\d{2})T(?:00:00:00(?:\.000)?|12:00:00(?:\.000)?|23:59:59\.999)Z$/;
@@ -91,6 +92,14 @@ export function isRecurringTaskInstance(task: Pick<Task, "isRecurringInstance" |
     return Boolean(task.isRecurringInstance || task.seriesId);
 }
 
+export function isPassiveTimetableTask(task: Pick<Task, "interactionMode">) {
+    return task.interactionMode === "timetable";
+}
+
+export function supportsManualTaskCompletion(task: Pick<Task, "interactionMode">) {
+    return !isPassiveTimetableTask(task);
+}
+
 export function getTaskSeriesId(task: Pick<Task, "id" | "seriesId">) {
     return task.seriesId ?? task.id;
 }
@@ -129,6 +138,32 @@ export function getTaskRecurrenceSummary(
     };
 }
 
+function startOfLocalDay(referenceDate: Date) {
+    return new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+}
+
+export function getPassiveTimetableOccurrenceAnchor(
+    task: Pick<Task, "interactionMode" | "recurrenceRule" | "scheduledStart" | "dueDate">,
+    referenceDate = new Date(),
+) {
+    const fallbackAnchor = task.scheduledStart ?? task.dueDate;
+
+    if (!isPassiveTimetableTask(task) || !task.recurrenceRule || !task.scheduledStart) {
+        return fallbackAnchor;
+    }
+
+    try {
+        const rule = rrulestr(task.recurrenceRule, { dtstart: new Date(task.scheduledStart) });
+        const occurrence =
+            rule.after(startOfLocalDay(referenceDate), true)
+            ?? rule.before(startOfLocalDay(referenceDate), true)
+            ?? new Date(task.scheduledStart);
+        return occurrence.toISOString();
+    } catch {
+        return fallbackAnchor;
+    }
+}
+
 export function toTaskDateOnly(value: string | null | undefined) {
     if (!value) return null;
     if (value.length === 10) return value;
@@ -165,7 +200,10 @@ export function getTaskScheduleKind(task: Pick<Task, "dueDate" | "scheduledStart
     return "deadline";
 }
 
-export function getTaskScheduleSummary(task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay">): TaskScheduleSummary {
+export function getTaskScheduleSummary(
+    task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay" | "interactionMode">,
+): TaskScheduleSummary {
+    const passiveTimetable = isPassiveTimetableTask(task);
     const kind = getTaskScheduleKind(task);
 
     switch (kind) {
@@ -176,7 +214,7 @@ export function getTaskScheduleSummary(task: Pick<Task, "dueDate" | "scheduledSt
                 kind,
                 displayMode: "timed",
                 primaryLabel: end ? `${formatShortDateTime(start)} - ${formatTime(end)}` : formatShortDateTime(start),
-                secondaryLabel: "Time block",
+                secondaryLabel: passiveTimetable ? "Timetable anchor" : "Time block",
                 isDeadline: false,
                 isDuration: false,
                 isTimed: true,
@@ -191,7 +229,7 @@ export function getTaskScheduleSummary(task: Pick<Task, "dueDate" | "scheduledSt
                 kind,
                 displayMode: "timed",
                 primaryLabel: end ? `${formatShortDateTime(start)} - ${formatTime(end)}` : formatShortDateTime(start),
-                secondaryLabel: "Time block",
+                secondaryLabel: passiveTimetable ? "Timetable anchor" : "Time block",
                 isDeadline: false,
                 isDuration: false,
                 isTimed: true,
@@ -257,9 +295,22 @@ export function getTaskScheduleSummary(task: Pick<Task, "dueDate" | "scheduledSt
     }
 }
 
-export function getTaskEffectiveAnchor(task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay">) {
+export function getTaskEffectiveAnchor(
+    task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay" | "interactionMode">,
+) {
     const summary = getTaskScheduleSummary(task);
     return summary.anchorDate;
+}
+
+export function getTaskTimelineAnchor(
+    task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay" | "interactionMode" | "recurrenceRule">,
+    referenceDate = new Date(),
+) {
+    if (isPassiveTimetableTask(task)) {
+        return toTaskDateOnly(getPassiveTimetableOccurrenceAnchor(task, referenceDate));
+    }
+
+    return getTaskEffectiveAnchor(task);
 }
 
 export interface UseTasksFilterInput {

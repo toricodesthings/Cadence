@@ -16,6 +16,7 @@ interface HolidayControlsProps {
     effectiveCountryLabel: string | null;
     effectiveSubdivisionLabel: string | null;
     permissionState: "prompt" | "granted" | "denied" | "unsupported";
+    locationRefreshedAt?: string | null;
     countriesLoading?: boolean;
     subdivisionsLoading?: boolean;
     isLocating?: boolean;
@@ -40,6 +41,7 @@ export function HolidayPreferencesPanel({
     effectiveCountryLabel,
     effectiveSubdivisionLabel,
     permissionState,
+    locationRefreshedAt,
     countriesLoading = false,
     subdivisionsLoading = false,
     isLocating = false,
@@ -114,6 +116,11 @@ export function HolidayPreferencesPanel({
                             {effectiveCountryLabel ?? "Detecting country"}
                             {effectiveSubdivisionLabel ? ` · ${effectiveSubdivisionLabel}` : ""}
                         </span>
+                        {locationRefreshedAt ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
+                                Refreshed {new Date(locationRefreshedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                            </span>
+                        ) : null}
                         {permissionState === "denied" && <HolidayAccuracyHint />}
                         {permissionState !== "granted" && (
                             <Button
@@ -210,47 +217,53 @@ export function HolidayLocationPrompt({
     isLocating?: boolean;
 }) {
     return (
-        <div className="cadence-toast cadence-toast--info cadence-toast--wide">
-            <div className="cadence-toast__icon" aria-hidden="true">
-                <Sparkles size={16} strokeWidth={2} />
+        <div className="rounded-[1.75rem] border border-moonlit/18 bg-[linear-gradient(180deg,rgba(23,35,58,0.96),rgba(11,20,36,0.98))] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
+            <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-moonlit/20 bg-moonlit/10 text-moonlit">
+                    <Sparkles size={16} strokeWidth={2} aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-sm font-medium text-twilight-text">Holiday overlay</p>
+                    <p className="mt-1 text-sm leading-relaxed text-twilight-text-soft">
+                        Regional holidays feel steadier when Cadence knows your area or when you choose the region yourself.
+                    </p>
+                </div>
             </div>
-            <div className="cadence-toast__content">
-                <div className="cadence-toast__title">Holiday overlay</div>
-                <div className="cadence-toast__description">
-                    Regional holidays are more accurate with precise location or a manual region.
-                </div>
-                <div className="cadence-toast__buttonRow">
-                    <button
-                        type="button"
-                        className="cadence-toast__action"
-                        onClick={() => void onUsePreciseLocation()}
-                        disabled={isLocating}
-                    >
-                        <LocateFixed size={14} aria-hidden="true" />
-                        {isLocating ? "Locating..." : "Use precise location"}
-                    </button>
-                    <button
-                        type="button"
-                        className="cadence-toast__secondaryAction"
-                        onClick={onChooseManual}
-                    >
-                        Choose manually
-                    </button>
-                    <button
-                        type="button"
-                        className="cadence-toast__cancel"
-                        onClick={onDismiss}
-                    >
-                        Not now
-                    </button>
-                    <button
-                        type="button"
-                        className="cadence-toast__tertiaryAction"
-                        onClick={onDismissPermanently}
-                    >
-                        Don&apos;t remind again
-                    </button>
-                </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <button
+                    type="button"
+                    className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-moonlit/25 bg-moonlit/10 px-4 text-sm font-medium text-moonlit transition-colors hover:bg-moonlit/15 disabled:cursor-wait disabled:opacity-70"
+                    onClick={() => void onUsePreciseLocation()}
+                    disabled={isLocating}
+                >
+                    <LocateFixed size={14} aria-hidden="true" />
+                    {isLocating ? "Locating..." : "Use precise location"}
+                </button>
+                <button
+                    type="button"
+                    className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] px-4 text-sm font-medium text-twilight-text transition-colors hover:bg-white/[0.07]"
+                    onClick={onChooseManual}
+                >
+                    Choose manually
+                </button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-twilight-text-muted">
+                <button
+                    type="button"
+                    className="cursor-pointer transition-colors hover:text-twilight-text"
+                    onClick={onDismiss}
+                >
+                    Not now
+                </button>
+                <button
+                    type="button"
+                    className="cursor-pointer transition-colors hover:text-twilight-text"
+                    onClick={onDismissPermanently}
+                >
+                    Don&apos;t remind again
+                </button>
             </div>
         </div>
     );

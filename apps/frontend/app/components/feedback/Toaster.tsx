@@ -21,7 +21,7 @@ export function Toaster() {
             containerAriaLabel="Cadence notifications"
             toastOptions={{
                 unstyled: true,
-                closeButton: true,
+                closeButton: false,
                 style: {
                     "--cadence-toast-duration": `${CADENCE_TOAST_DURATION}ms`,
                     "--cadence-toast-progress-opacity": "1",

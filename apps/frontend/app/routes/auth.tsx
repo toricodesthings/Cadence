@@ -1,18 +1,279 @@
-import { AuthView } from "@neondatabase/auth/react/ui";
-import { Link, useLocation } from "react-router";
-import { Feather, Sparkles } from "lucide-react";
+import { AuthCallback, AuthView } from "@neondatabase/auth/react/ui";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { authClient } from "../lib/auth-client";
+import { useAuthState } from "../hooks/auth/use-auth-state";
+import { Button } from "../components/primitives/Button";
+import {
+    DESKTOP_AUTH_BRIDGE_PARAM,
+    DESKTOP_AUTH_PROVIDER_PARAM,
+    getAuthCallbackUrl,
+    getDesktopAuthBrowserCallbackPath,
+    getDesktopDeepLinkCallbackUrl,
+    IS_DESKTOP_RUNTIME,
+    normalizeRedirectTo,
+    type SocialProvider,
+} from "../platform/runtime";
+
+function isSocialProvider(value: string | null): value is SocialProvider {
+    return value === "google" || value === "github";
+}
+
+function getMergedCallbackParams(location: { search: string; hash: string }) {
+    const params = new URLSearchParams(location.search);
+    const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+
+    if (hash.includes("=")) {
+        const hashParams = new URLSearchParams(hash);
+        hashParams.forEach((value, key) => {
+            if (!params.has(key)) {
+                params.set(key, value);
+            }
+        });
+    }
+
+    return params;
+}
+
+function CadenceAuthMark({ size = "h-14 w-14", rounded = "rounded-[1.4rem]" }: { size?: string; rounded?: string }) {
+    return (
+        <div className={`flex items-center justify-center border border-white/[0.08] bg-white/[0.04] p-2 shadow-[0_0_32px_rgba(232,164,74,0.08)] ${rounded}`}>
+            <img src="/logo.png" alt="Cadence" className={`${size} object-cover`} />
+        </div>
+    );
+}
+
+function DesktopBrowserSignInScreen({ provider, redirectTo }: { provider: SocialProvider; redirectTo: string }) {
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+
+        void authClient.signIn.social({
+            provider,
+            callbackURL: getDesktopAuthBrowserCallbackPath(redirectTo),
+            fetchOptions: { throw: true },
+        }).catch((error) => {
+            if (!active) {
+                return;
+            }
+
+            setErrorMessage(
+                error instanceof Error
+                    ? error.message
+                    : "Cadence could not start desktop sign-in from the browser bridge.",
+            );
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [provider, redirectTo]);
+
+    return (
+        <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
+            <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
+                <div className="mb-5 flex items-center justify-center">
+                    <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
+                </div>
+                <h1 className="font-display text-2xl font-semibold text-twilight-text">
+                    {errorMessage ? "Desktop sign-in failed" : "Opening secure sign-in"}
+                </h1>
+                <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
+                    {errorMessage
+                        ? errorMessage
+                        : `Cadence is opening ${provider === "google" ? "Google" : "GitHub"} sign-in in your browser.`}
+                </p>
+            </div>
+        </main>
+    );
+}
+
+function DesktopBrowserCallbackBridgeScreen({ location }: { location: { search: string; hash: string } }) {
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        const params = getMergedCallbackParams(location);
+
+        if (!params.has("neon_auth_session_verifier")) {
+            setErrorMessage("The desktop callback bridge did not receive a session verifier.");
+            return;
+        }
+
+        window.location.replace(getDesktopDeepLinkCallbackUrl(params));
+    }, [location]);
+
+    return (
+        <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
+            <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
+                <div className="mb-5 flex items-center justify-center">
+                    <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
+                </div>
+                <h1 className="font-display text-2xl font-semibold text-twilight-text">
+                    {errorMessage ? "Desktop handoff failed" : "Returning to Cadence"}
+                </h1>
+                <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
+                    {errorMessage
+                        ? errorMessage
+                        : "Your browser is handing the completed sign-in back to the desktop app."}
+                </p>
+            </div>
+        </main>
+    );
+}
+
+function DesktopAuthCallbackScreen({ redirectTo }: { redirectTo: string }) {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { beginAuthRecovery } = useAuthState();
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isRecovering, setIsRecovering] = useState(true);
+
+    useEffect(() => {
+        let active = true;
+
+        const recoverSession = async () => {
+            const params = new URLSearchParams(location.search);
+            const hasVerifier = params.has("neon_auth_session_verifier");
+
+            if (!hasVerifier) {
+                if (import.meta.env.DEV) {
+                    console.warn("[cadence:desktop-auth] callback missing session verifier", {
+                        search: location.search,
+                    });
+                }
+
+                setErrorMessage("The sign-in callback did not include a session verifier.");
+                setIsRecovering(false);
+                return;
+            }
+
+            try {
+                if (import.meta.env.DEV) {
+                    console.info("[cadence:desktop-auth] restoring session from callback", {
+                        redirectTo,
+                    });
+                }
+
+                const session = await authClient.getSession();
+                if (!active) {
+                    return;
+                }
+
+                if (!session?.data) {
+                    const recovered = await beginAuthRecovery();
+                    if (!active) {
+                        return;
+                    }
+
+                    if (!recovered) {
+                        setErrorMessage("Cadence could not restore your session after the OAuth callback.");
+                        setIsRecovering(false);
+                        return;
+                    }
+                }
+
+                navigate(redirectTo, { replace: true });
+            } catch (error) {
+                if (!active) {
+                    return;
+                }
+
+                if (import.meta.env.DEV) {
+                    console.error("[cadence:desktop-auth] session restore failed", error);
+                }
+
+                setErrorMessage(
+                    error instanceof Error
+                        ? error.message
+                        : "Cadence could not restore your session after the OAuth callback.",
+                );
+                setIsRecovering(false);
+            }
+        };
+
+        void recoverSession();
+
+        return () => {
+            active = false;
+        };
+    }, [beginAuthRecovery, location.search, navigate, redirectTo]);
+
+    return (
+        <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
+            <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
+                <div className="mb-5 flex items-center justify-center">
+                    <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
+                </div>
+                <h1 className="font-display text-2xl font-semibold text-twilight-text">
+                    {errorMessage ? "Sign-in needs attention" : "Completing sign in"}
+                </h1>
+                <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
+                    {errorMessage
+                        ? errorMessage
+                        : "Cadence is restoring your desktop session and returning you to the app."}
+                </p>
+                <div className="mt-6 flex justify-center">
+                    {errorMessage ? (
+                        <Button
+                            variant="secondary"
+                            className="border-white/10 bg-white/5"
+                            onClick={() => {
+                                setErrorMessage(null);
+                                setIsRecovering(true);
+                                void beginAuthRecovery().then((recovered) => {
+                                    if (recovered) {
+                                        navigate(redirectTo, { replace: true });
+                                        return;
+                                    }
+
+                                    setErrorMessage("Cadence still could not restore your session.");
+                                    setIsRecovering(false);
+                                });
+                            }}
+                        >
+                            Retry sign-in
+                        </Button>
+                    ) : (
+                        <div className="flex items-center gap-2 text-sm text-twilight-text-soft">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-lantern" />
+                            {isRecovering ? "Restoring session..." : "Finishing up..."}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </main>
+    );
+}
 
 export default function AuthPage() {
-    const { pathname } = useLocation();
+    const location = useLocation();
+    const { pathname, state, search } = location;
+    const searchParams = new URLSearchParams(search);
     const isSignUp = pathname === "/auth/sign-up";
+    const isCallback = pathname === "/auth/callback";
+    const isDesktopStart = pathname === "/auth/desktop-start";
+    const isDesktopBrowserBridge = searchParams.get(DESKTOP_AUTH_BRIDGE_PARAM) === "1";
+    const desktopProvider = searchParams.get(DESKTOP_AUTH_PROVIDER_PARAM);
+    const redirectTo = normalizeRedirectTo(
+        searchParams.get("redirectTo")
+        ?? (typeof state === "object" && state && "from" in state ? String(state.from) : "/"),
+    );
 
     useDocumentMeta(
-        `${isSignUp ? "Create Account" : "Sign In"} · Cadence`,
-        isSignUp
-            ? "Create your Cadence account and enter a calm workspace for tasks, habits, and weekly resets."
-            : "Sign in to Cadence and return to your calm planning workspace.",
+        isCallback
+            ? "Finishing Sign In · Cadence"
+            : isDesktopStart
+                ? "Redirecting to Sign In · Cadence"
+            : `${isSignUp ? "Create Account" : "Sign In"} · Cadence`,
+        isCallback
+            ? "Completing your Cadence sign-in flow."
+            : isDesktopStart
+                ? "Redirecting your desktop sign-in to the selected provider."
+            : isSignUp
+                ? "Create your Cadence account and enter a calm workspace for tasks, habits, and weekly resets."
+                : "Sign in to Cadence and return to your calm planning workspace.",
     );
 
     useEffect(() => {
@@ -20,9 +281,22 @@ export default function AuthPage() {
         if (!wrapper) return;
 
         const labelPasswordButtons = () => {
-            wrapper.querySelectorAll<HTMLButtonElement>('button[type="button"]').forEach((button) => {
-                if (button.getAttribute("aria-label")) return;
-                if (!button.querySelector("svg")) return;
+            const iconOnlyButtons = Array.from(wrapper.querySelectorAll<HTMLButtonElement>("button"))
+                .filter((button) => !button.getAttribute("aria-label"))
+                .filter((button) => button.querySelector("svg"))
+                .filter((button) => !button.textContent?.trim());
+
+            iconOnlyButtons.forEach((button, index) => {
+                if (index === 0) {
+                    button.setAttribute("aria-label", "Continue with Google");
+                    return;
+                }
+
+                if (index === 1) {
+                    button.setAttribute("aria-label", "Continue with GitHub");
+                    return;
+                }
+
                 button.setAttribute("aria-label", "Toggle password visibility");
             });
         };
@@ -35,83 +309,66 @@ export default function AuthPage() {
         return () => observer.disconnect();
     }, [pathname]);
 
-    return (
-        <main className="min-h-dvh bg-twilight">
-        <div className="min-h-dvh flex flex-col overflow-hidden md:flex-row">
-            {/* ─── Left Atmospheric Panel ─── */}
-            <div className="relative hidden md:flex flex-col justify-center p-14 lg:p-24 flex-1 overflow-hidden">
-                {/* Glow Effects behind text */}
-                <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-moonlit/5 blur-[120px] pointer-events-none" />
-                <div className="absolute top-1/2 left-20 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-lantern/5 blur-[100px] pointer-events-none" />
+    if (!IS_DESKTOP_RUNTIME && isDesktopBrowserBridge && isSocialProvider(desktopProvider) && isDesktopStart) {
+        return <DesktopBrowserSignInScreen provider={desktopProvider} redirectTo={redirectTo} />;
+    }
 
-                <div className="relative z-10 max-w-lg">
-                    <div className="w-16 h-16 rounded-3xl bg-lantern/10 flex items-center justify-center glow-lantern mb-10">
-                        <span className="text-lantern font-display font-bold text-2xl">C</span>
+    if (isCallback) {
+        if (IS_DESKTOP_RUNTIME) {
+            return <DesktopAuthCallbackScreen redirectTo={redirectTo} />;
+        }
+
+        if (isDesktopBrowserBridge) {
+            return <DesktopBrowserCallbackBridgeScreen location={location} />;
+        }
+
+        return (
+            <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
+                <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
+                    <div className="mb-5 flex items-center justify-center">
+                        <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
                     </div>
-
-                    <p className="font-display text-4xl lg:text-5xl font-medium text-twilight-text leading-[1.15] tracking-tight mb-6">
-                        A quiet space for your brightest thoughts.
+                    <h1 className="font-display text-2xl font-semibold text-twilight-text">
+                        Completing sign in
+                    </h1>
+                    <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
+                        Cadence is restoring your session and returning you to the app.
                     </p>
-
-                    <p className="text-lg text-twilight-text-muted leading-relaxed mb-12 max-w-md">
-                        Cadence is a digital sanctuary. Uncluttered, peaceful, and designed to help you organize your life without adding noise to it.
-                    </p>
-
-                    <div className="flex flex-col gap-6">
-                        <div className="flex items-start gap-4">
-                            <div className="w-9 h-9 rounded-xl bg-twilight-surface flex items-center justify-center shrink-0 border border-twilight-border-light">
-                                <Feather size={16} className="text-lantern" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-twilight-text mb-1">Lightweight Capture</h3>
-                                <p className="text-sm text-twilight-text-muted leading-relaxed">Offload your thoughts instantly before they disappear.</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-start gap-4">
-                            <div className="w-9 h-9 rounded-xl bg-twilight-surface flex items-center justify-center shrink-0 border border-twilight-border-light">
-                                <Sparkles size={16} className="text-moonlit" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-twilight-text mb-1">Peaceful Interface</h3>
-                                <p className="text-sm text-twilight-text-muted leading-relaxed">No aggressive metrics or red alerts. Just calm clarity.</p>
-                            </div>
-                        </div>
+                    <div className="mt-6 flex justify-center">
+                        <AuthCallback redirectTo={redirectTo} />
                     </div>
                 </div>
+            </main>
+        );
+    }
+
+    return (
+        <main className="relative min-h-dvh overflow-hidden bg-twilight">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-[-12%] top-[8%] h-[24rem] w-[24rem] rounded-full bg-moonlit/10 blur-[120px]" />
+                <div className="absolute right-[-8%] top-[18%] h-[26rem] w-[26rem] rounded-full bg-lantern/8 blur-[130px]" />
+                <div className="absolute bottom-[-10%] left-1/2 h-[22rem] w-[34rem] -translate-x-1/2 rounded-full bg-white/[0.04] blur-[160px]" />
             </div>
 
-            {/* ─── Right Auth Panel ─── */}
-            <section className="safe-top safe-bottom relative flex flex-1 items-start justify-center overflow-y-auto px-4 py-6 sm:px-6 md:flex-none md:w-[500px] md:px-8 md:py-10 lg:w-[600px] lg:px-12">
-                {/* Subtle right-side glow */}
-                <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-lantern/5 blur-[100px] pointer-events-none" />
-
-                <div className="relative z-10 w-full max-w-md">
-                    {/* Mobile Logo */}
-                    <div className="mb-8 flex flex-col items-center md:hidden">
-                        <div className="w-12 h-12 rounded-2xl bg-lantern/10 flex items-center justify-center glow-lantern mb-4">
-                            <span className="text-lantern font-display font-bold text-xl">C</span>
-                        </div>
-                        <p className="font-display text-2xl font-medium text-twilight-text">Cadence</p>
-                    </div>
-
-                    <div className="glass-surface relative overflow-hidden rounded-[2rem] p-6 shadow-2xl sm:p-8">
-                        {/* Top glass highlight */}
-                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
-                        <div className="mb-5 flex items-center gap-4">
-                            <div className="hidden md:flex w-11 h-11 rounded-2xl bg-lantern/10 items-center justify-center shrink-0 glow-lantern">
-                                <span className="text-lantern font-display font-bold text-lg">C</span>
-                            </div>
-                            <h1 className="font-display text-[1.6rem] font-semibold leading-tight text-twilight-text">
+            <section className="safe-top safe-bottom relative flex min-h-dvh items-start justify-center px-4 py-6 sm:px-6 sm:py-10 md:items-center">
+                <div className="w-full max-w-[32rem]">
+                    <div className="glass-surface relative overflow-hidden rounded-[2.35rem] px-6 py-7 shadow-[0_36px_120px_rgba(0,0,0,0.38)] sm:px-8 sm:py-9">
+                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                        <div className="mb-8 flex flex-col items-center text-center">
+                            <CadenceAuthMark size="h-14 w-14 sm:h-16 sm:w-16" rounded="rounded-[1.6rem]" />
+                            <p className="mt-6 font-display text-[2rem] font-semibold leading-tight text-twilight-text sm:text-[2.3rem]">
                                 {isSignUp ? "Create your sanctuary." : "Step into your Cadence."}
-                            </h1>
+                            </p>
+                            <p className="mt-3 max-w-[26rem] text-sm leading-relaxed text-twilight-text-soft sm:text-[15px]">
+                                A quiet room for the week ahead. Capture what matters, settle the noise, and return to the work with a steadier rhythm.
+                            </p>
                         </div>
 
-                        {/* Auth component with forced dark theme wrapping styles */}
                         <div className="neon-auth-wrapper">
                             <AuthView
                                 view={isSignUp ? "SIGN_UP" : "SIGN_IN"}
+                                callbackURL={getAuthCallbackUrl(redirectTo)}
+                                redirectTo={redirectTo}
                                 socialLayout="horizontal"
                                 classNames={{
                                     base: "space-y-4",
@@ -148,7 +405,7 @@ export default function AuthPage() {
                             />
                         </div>
 
-                        <div className="mt-5 flex items-center justify-center gap-1.5 text-sm">
+                        <div className="mt-6 flex items-center justify-center gap-1.5 text-sm">
                             <span className="text-twilight-text-soft">
                                 {isSignUp ? "Already have a room?" : "New here?"}
                             </span>
@@ -162,7 +419,6 @@ export default function AuthPage() {
                     </div>
                 </div>
             </section>
-        </div>
         </main>
     );
 }

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
 import type { AppNotification } from "../../lib/notifications/notification-model";
+import {
+    getNotificationPermission,
+    requestNotificationPermission,
+    sendPlatformNotification,
+} from "../../platform/runtime";
+import { useState } from "react";
 
 export type NotificationPermission = "default" | "granted" | "denied";
 
@@ -30,12 +36,10 @@ function isInQuietHours(
 }
 
 /**
- * Returns the current browser Notification permission state.
- * Safe for SSR (returns "default" when Notification API is unavailable).
+ * Returns the current platform notification permission state.
  */
-export function getBrowserPermission(): NotificationPermission {
-    if (typeof window === "undefined" || !("Notification" in window)) return "default";
-    return Notification.permission as NotificationPermission;
+export async function getStoredNotificationPermission(): Promise<NotificationPermission> {
+    return getNotificationPermission();
 }
 
 /**
@@ -49,22 +53,35 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
     const firedRef = useRef(new Set<string>());
+    const [permission, setPermission] = useState<NotificationPermission>("default");
 
     const browserEnabled = settings?.notifications?.browser ?? false;
     const quietHoursEnabled = settings?.notifications?.quietHoursEnabled ?? false;
     const quietHoursStart = settings?.notifications?.quietHoursStart ?? null;
     const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
-    const permission = getBrowserPermission();
-
     const requestPermission = useCallback(async () => {
-        if (typeof window === "undefined" || !("Notification" in window)) return "denied" as const;
-        const result = await Notification.requestPermission();
+        const result = await requestNotificationPermission();
         // If user granted permission, also enable the setting
         if (result === "granted") {
             updateSettings.mutate({ notifications: { browser: true } });
         }
+        setPermission(result);
         return result as NotificationPermission;
     }, [updateSettings]);
+
+    useEffect(() => {
+        let active = true;
+
+        void getNotificationPermission().then((result) => {
+            if (active) {
+                setPermission(result);
+            }
+        });
+
+        return () => {
+            active = false;
+        };
+    }, []);
 
     // Fire browser notifications for new items
     useEffect(() => {
@@ -84,16 +101,11 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
 
             firedRef.current.add(n.id);
 
-            // Use the Web Notification API
-            const notif = new Notification(n.title, {
+            void sendPlatformNotification({
+                title: n.title,
                 body: n.body,
                 icon: "/logo.png",
-                tag: n.id, // browser-level dedup
-                silent: false,
             });
-
-            // Auto-close after 8 seconds
-            setTimeout(() => notif.close(), 8_000);
         }
     }, [notifications, browserEnabled, permission, quietHoursEnabled, quietHoursStart, quietHoursEnd]);
 

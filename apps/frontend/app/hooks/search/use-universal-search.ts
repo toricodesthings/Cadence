@@ -3,6 +3,7 @@ import { useTasks } from "../tasks/use-tasks";
 import { useAllHabits } from "../habits/use-habits";
 import { useInbox } from "../inbox";
 import { useProjects } from "../projects";
+import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
 import type { FocusKind } from "./use-route-focus";
 
 /** Type-safe null filter */
@@ -84,12 +85,26 @@ function scoreItem(query: string, fields: { title: string; meta?: string[] }): n
 
 // ── Route resolution ──────────────────────────────────────────────
 
-function resolveTaskRoute(task: { state: string; projectId: string | null; dueDate: string | null; scheduledStart: string | null }): { route: string; context: string; scope?: string } {
+function resolveTaskRoute(task: {
+    state: string;
+    projectId: string | null;
+    dueDate: string | null;
+    scheduledStart: string | null;
+    interactionMode: "task" | "timetable";
+    recurrenceRule: string | null;
+    scheduledEnd: string | null;
+    isAllDay: boolean;
+}): { route: string; context: string; scope?: string } {
     if (task.state === "COMPLETE") return { route: "/completed", context: "Completed" };
     if (task.state === "ARCHIVED") return { route: "/trash", context: "Trash" };
 
+    if (isPassiveTimetableTask(task)) {
+        if (task.projectId) return { route: `/project/${task.projectId}`, context: "Project · Schedule anchor" };
+        return { route: "/schedule", context: "Schedule anchor" };
+    }
+
     const today = new Date().toISOString().split("T")[0];
-    const effectiveDate = task.dueDate ?? task.scheduledStart;
+    const effectiveDate = getTaskTimelineAnchor(task) ?? task.dueDate ?? task.scheduledStart;
 
     if (task.projectId) return { route: `/project/${task.projectId}`, context: "Project" };
     if (effectiveDate && effectiveDate <= today) return { route: "/today", context: "Today", scope: effectiveDate < today ? "today-overdue" : "today" };

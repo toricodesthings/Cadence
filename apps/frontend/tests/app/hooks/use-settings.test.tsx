@@ -1,7 +1,11 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useSettings, useUpdateSettings } from "../../../app/hooks/core/use-settings";
+import {
+    flushAllPendingSettingsMutations,
+    useSettings,
+    useUpdateSettings,
+} from "../../../app/hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../app/lib/types/settings";
 
 const settingsGetMock = vi.fn();
@@ -144,5 +148,69 @@ describe("useSettings", () => {
         expect(localStorage.getItem("cadence_user_settings:user-c")).toBe(
             JSON.stringify({ tasks: { hideCompleted: false, hideTrash: false } }),
         );
+    });
+
+    it("flushes pending settings mutations when the hook unmounts", async () => {
+        useAuthStateMock.mockReturnValue({
+            authReady: true,
+            isAuthenticated: true,
+            session: { user: { id: "user-d" } },
+        });
+        settingsPatchMock.mockResolvedValue(
+            new Response(JSON.stringify({ data: { tasks: { hideCompleted: true } } }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
+
+        const queryClient = createQueryClient();
+        queryClient.setQueryData(["settings", "user-d"], SETTINGS_DEFAULTS);
+
+        const { result, unmount } = renderHook(() => useUpdateSettings(), {
+            wrapper: createWrapper(queryClient),
+        });
+
+        act(() => {
+            result.current.mutate({ tasks: { hideCompleted: true } });
+        });
+
+        unmount();
+
+        await waitFor(() => {
+            expect(settingsPatchMock).toHaveBeenCalledWith({
+                json: { tasks: { hideCompleted: true } },
+            });
+        });
+    });
+
+    it("flushes all registered pending settings mutations on demand", async () => {
+        useAuthStateMock.mockReturnValue({
+            authReady: true,
+            isAuthenticated: true,
+            session: { user: { id: "user-e" } },
+        });
+        settingsPatchMock.mockResolvedValue(
+            new Response(JSON.stringify({ data: { notifications: { email: false } } }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
+
+        const queryClient = createQueryClient();
+        queryClient.setQueryData(["settings", "user-e"], SETTINGS_DEFAULTS);
+
+        const { result } = renderHook(() => useUpdateSettings(), {
+            wrapper: createWrapper(queryClient),
+        });
+
+        act(() => {
+            result.current.mutate({ notifications: { email: false } });
+        });
+
+        await flushAllPendingSettingsMutations();
+
+        expect(settingsPatchMock).toHaveBeenCalledWith({
+            json: { notifications: { email: false } },
+        });
     });
 });

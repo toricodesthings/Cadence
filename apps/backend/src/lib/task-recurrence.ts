@@ -11,6 +11,7 @@ type TaskRow = {
     durationEstimate: number | null;
     isAllDay: boolean;
     recurrenceRule: string | null;
+    interactionMode: "task" | "timetable";
     orderIndex: number;
     isPinned: boolean;
     tagIds?: string[];

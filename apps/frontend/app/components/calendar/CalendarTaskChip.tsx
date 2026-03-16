@@ -1,11 +1,11 @@
 import { useState, type CSSProperties } from "react";
-import { Check, Archive, GripVertical, Repeat } from "lucide-react";
+import { Check, Archive, GripVertical, Repeat, CalendarClock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskPriority } from "../../types/task";
 import { formatTime } from "../../lib/utils/date-format";
-import { isRecurringTask, isRecurringTaskInstance } from "../../lib/utils/task-scheduling";
+import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, supportsManualTaskCompletion } from "../../lib/utils/task-scheduling";
 
 /** Tailwind classes for the chip background/border based on priority */
 const PRIORITY_PILL_BG: Record<TaskPriority, string> = {
@@ -61,7 +61,8 @@ export function CalendarTaskChip({
 
     const priority = (task.priority ?? 0) as TaskPriority;
     const isRecurring = isRecurringTask(task) || isRecurringTaskInstance(task);
-    const allowQuickActions = !task.isHabit && !isRecurring;
+    const isPassiveTimetable = isPassiveTimetableTask(task);
+    const allowQuickActions = !task.isHabit && !isRecurring && supportsManualTaskCompletion(task);
 
     const { listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `task-${task.id}`,
@@ -109,6 +110,7 @@ export function CalendarTaskChip({
                 >
                     {task.title}
                     {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-lantern/50" : "text-moonlit/70"} shrink-0`} />}
+                    {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
                 </button>
 
                 {/* Hover quick actions */}
@@ -222,6 +224,7 @@ export function CalendarTaskChip({
                 <span className={`text-[14px] font-medium truncate leading-tight flex flex-wrap items-center gap-1 ${PRIORITY_TEXT[priority]}`}>
                     {task.title}
                     {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-lantern/50" : "text-moonlit/70"} shrink-0`} />}
+                    {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
                 </span>
                 {timeLabel && (
                     <span className="text-[12px] text-twilight-text-muted/90 leading-tight">

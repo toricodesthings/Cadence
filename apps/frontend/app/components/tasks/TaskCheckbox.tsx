@@ -3,9 +3,10 @@ import { useUpdateSubtask } from "../../hooks/tasks/use-subtasks";
 import { useTaskCompletionStore } from "../../stores/task-completion-store";
 import { useSettings } from "../../hooks/core/use-settings";
 import type { Task, TaskState, Subtask } from "../../types/task";
-import { Pause } from "lucide-react";
+import { CalendarClock, Pause } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
+import { supportsManualTaskCompletion } from "../../lib/utils/task-scheduling";
 
 interface TaskCheckboxProps {
     task?: Task;
@@ -22,6 +23,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
     const id = task?.id ?? subtask?.id ?? "";
     const title = task?.title ?? subtask?.title ?? "";
     const [sparkleKey, setSparkleKey] = useState(0);
+    const allowsManualCompletion = task ? supportsManualTaskCompletion(task) : true;
 
     const isComplete = task ? task.state === "COMPLETE" : subtask?.isComplete;
     const isWaiting = task ? task.state === "WAITING" : false;
@@ -56,6 +58,9 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
 
     const handleToggle = (e: React.MouseEvent) => {
         e.stopPropagation(); // prevent card expansion click
+        if (task && !allowsManualCompletion) {
+            return;
+        }
 
         if (isPendingComplete) {
             cancelCompletion(id);
@@ -94,17 +99,33 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
             onClick={handleToggle}
             type="button"
             data-no-dnd="true"
-            className={`group relative flex shrink-0 items-center justify-center rounded-full transition-colors duration-200 cursor-pointer ${compact ? "h-8 w-8" : "mt-0.5 h-11 w-11 lg:h-8 lg:w-8"}`}
+            disabled={task ? !allowsManualCompletion : false}
+            className={`group relative flex shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${
+                task && !allowsManualCompletion ? "cursor-default" : "cursor-pointer"
+            } ${compact ? "h-8 w-8" : "mt-0.5 h-11 w-11 lg:h-8 lg:w-8"}`}
             aria-label={
-                isComplete
-                    ? "Mark incomplete"
-                    : isPendingComplete
-                        ? "Undo complete"
-                        : isWaiting
-                            ? "Finish waiting"
-                            : "Mark complete"
+                task && !allowsManualCompletion
+                    ? `${title} is a timetable anchor`
+                    : isComplete
+                        ? "Mark incomplete"
+                        : isPendingComplete
+                            ? "Undo complete"
+                            : isWaiting
+                                ? "Finish waiting"
+                                : "Mark complete"
             }
         >
+            {task && !allowsManualCompletion ? (
+                <span
+                    className={`relative z-10 flex items-center justify-center rounded-full border border-moonlit/35 bg-moonlit/10 text-moonlit ${
+                        compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"
+                    }`}
+                    aria-hidden="true"
+                >
+                    <CalendarClock className="h-3 w-3" />
+                </span>
+            ) : (
+                <>
             <AnimatePresence>
                 {isPendingComplete && (
                     <motion.span
@@ -188,6 +209,8 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
                     <CelebrationBurst key={sparkleKey} compact={compact} />
                 )}
             </AnimatePresence>
+                </>
+            )}
         </button>
     );
 }

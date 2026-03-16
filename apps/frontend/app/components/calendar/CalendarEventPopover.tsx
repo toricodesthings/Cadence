@@ -7,7 +7,8 @@ import { parseLocalDate, toISODate, getDateFormatConfig } from "../../lib/utils/
 import { getTaskRecurrenceSummary } from "../../lib/utils/task-scheduling";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { TimePicker } from "../primitives";
-import type { EffortLevel, TaskPriority } from "../../types/task";
+import { Switch } from "../primitives";
+import type { EffortLevel, TaskInteractionMode, TaskPriority } from "../../types/task";
 
 export interface CalendarEventInfo {
     date: string;
@@ -137,6 +138,7 @@ export function CalendarEventPopover({ info, onClose }: CalendarEventPopoverProp
     const [endTime, setEndTime] = useState(addHour(formatTimeValue(info.startHour, info.startMinute)));
     const [priority, setPriority] = useState<TaskPriority>(0);
     const [effort, setEffort] = useState<EffortLevel>(null);
+    const [interactionMode, setInteractionMode] = useState<TaskInteractionMode>("timetable");
 
     useEffect(() => {
         const id = requestAnimationFrame(() => titleRef.current?.focus());
@@ -195,6 +197,7 @@ export function CalendarEventPopover({ info, onClose }: CalendarEventPopoverProp
                 isAllDay: false,
                 timezoneLocked: mode === "weekly",
                 recurrenceRule: recurrenceRule ?? undefined,
+                interactionMode: recurrenceRule ? interactionMode : "task",
                 priority,
                 effort,
             },
@@ -280,7 +283,27 @@ export function CalendarEventPopover({ info, onClose }: CalendarEventPopoverProp
                         </div>
 
                         {mode === "weekly" && (
-                            <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+                            <>
+                                <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+                                <div className="rounded-2xl border border-moonlit/18 bg-moonlit/[0.05] px-4 py-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium text-twilight-text">Treat this as a timetable anchor</p>
+                                            <p className="text-xs leading-relaxed text-twilight-text-soft">
+                                                Anchors stay in the schedule without asking for a check-off. Turn this off if the series should behave like a task.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={interactionMode === "timetable"}
+                                            onCheckedChange={(checked) => setInteractionMode(checked ? "timetable" : "task")}
+                                            aria-label="Treat this recurring block as a timetable anchor"
+                                        />
+                                    </div>
+                                    <p className="mt-3 text-xs font-medium text-moonlit">
+                                        {interactionMode === "timetable" ? "Default for recurring schedule anchors" : "Needs check-off"}
+                                    </p>
+                                </div>
+                            </>
                         )}
 
                         <div className="grid grid-cols-2 gap-3">

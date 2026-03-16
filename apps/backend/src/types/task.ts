@@ -4,6 +4,8 @@ import { paginationSchema } from "./common";
 
 export const taskStateSchema = z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]);
 export type TaskState = z.infer<typeof taskStateSchema>;
+export const taskInteractionModeSchema = z.enum(["task", "timetable"]);
+export type TaskInteractionMode = z.infer<typeof taskInteractionModeSchema>;
 const flexibleDateTimeSchema = z.union([z.iso.date(), z.iso.datetime()]);
 const booleanQuerySchema = z
     .enum(["true", "false"])
@@ -26,6 +28,7 @@ export const insertTaskSchema = z.object({
     reminderAt: z.iso.datetime().nullable().optional(),
     reminderSilenced: z.boolean().default(false),
     recurrenceRule: z.string().max(500).nullable().optional(),
+    interactionMode: taskInteractionModeSchema.default("task"),
     waitingOn: z.string().max(500).nullable().optional(),
     waitingReminder: z.iso.datetime().nullable().optional(),
     effort: z.number().int().min(1).max(3).nullable().optional(),
@@ -52,6 +55,7 @@ export const updateTaskSchema = z.object({
     reminderAt: z.iso.datetime().nullable().optional(),
     reminderSilenced: z.boolean().optional(),
     recurrenceRule: z.string().max(500).nullable().optional(),
+    interactionMode: taskInteractionModeSchema.optional(),
     waitingOn: z.string().max(500).nullable().optional(),
     waitingReminder: z.iso.datetime().nullable().optional(),
     effort: z.number().int().min(1).max(3).nullable().optional(),

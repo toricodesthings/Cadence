@@ -42,6 +42,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/api/query-keys";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { toast } from "sonner";
+import * as Dialog from "../components/primitives/Dialog";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import {
@@ -81,7 +82,7 @@ export default function Schedule() {
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
     const [holidayPopoverOpen, setHolidayPopoverOpen] = useState(false);
-    const holidayPromptToastIdRef = useRef<string | number | null>(null);
+    const [holidayPromptOpen, setHolidayPromptOpen] = useState(false);
     const scrollLockRef = useRef(false);
     const hasAppliedCompactDefault = useRef(false);
 
@@ -582,164 +583,146 @@ export default function Schedule() {
     }, [currentDate]);
 
     useEffect(() => {
-        if (holidayOverlay.shouldShowPrompt) {
-            if (holidayPromptToastIdRef.current !== null) return;
+        setHolidayPromptOpen(holidayOverlay.shouldShowPrompt);
+    }, [holidayOverlay.shouldShowPrompt]);
 
-            const toastId = toast.custom(
-                () => (
-                    <HolidayLocationPrompt
-                        isLocating={holidayOverlay.isLocating}
-                        onUsePreciseLocation={async () => {
-                            const result = await holidayOverlay.requestPreciseLocation();
+    const handleUsePreciseHolidayLocation = useCallback(async () => {
+        const result = await holidayOverlay.requestPreciseLocation();
 
-                            if (result.status === "granted" || result.status === "denied" || result.status === "unsupported") {
-                                toast.dismiss(toastId);
-                                return;
-                            }
-
-                            toast.error("Couldn’t refine holiday location just now.");
-                        }}
-                        onDismiss={() => {
-                            holidayOverlay.dismissPrompt();
-                            toast.dismiss(toastId);
-                        }}
-                        onDismissPermanently={() => {
-                            holidayOverlay.dismissPromptPermanently();
-                            toast.dismiss(toastId);
-                        }}
-                        onChooseManual={() => {
-                            holidayOverlay.setLocationMode("manual");
-                            holidayOverlay.dismissPrompt();
-                            setHolidayPopoverOpen(true);
-                            toast.dismiss(toastId);
-                        }}
-                    />
-                ),
-                {
-                    id: "holiday-location-prompt",
-                    duration: Number.POSITIVE_INFINITY,
-                    position: "top-center",
-                    closeButton: false,
-                    unstyled: true,
-                    style: {
-                        background: "transparent",
-                        boxShadow: "none",
-                        padding: 0,
-                        border: 0,
-                    },
-                    classNames: {
-                        toast: "bg-transparent border-0 p-0 shadow-none",
-                    },
-                },
-            );
-
-            holidayPromptToastIdRef.current = toastId;
+        if (result.status === "granted" || result.status === "denied" || result.status === "unsupported") {
+            setHolidayPromptOpen(false);
             return;
         }
 
-        if (holidayPromptToastIdRef.current !== null) {
-            toast.dismiss(holidayPromptToastIdRef.current);
-            holidayPromptToastIdRef.current = null;
-        }
-    }, [
-        holidayOverlay.dismissPrompt,
-        holidayOverlay.dismissPromptPermanently,
-        holidayOverlay.isLocating,
-        holidayOverlay.requestPreciseLocation,
-        holidayOverlay.setLocationMode,
-        holidayOverlay.shouldShowPrompt,
-    ]);
+        toast.error("Couldn’t refine holiday location just now.");
+    }, [holidayOverlay]);
 
-    useEffect(() => {
-        return () => {
-            if (holidayPromptToastIdRef.current !== null) {
-                toast.dismiss(holidayPromptToastIdRef.current);
-            }
-        };
-    }, []);
+    const handleDismissHolidayPrompt = useCallback(() => {
+        holidayOverlay.dismissPrompt();
+        setHolidayPromptOpen(false);
+    }, [holidayOverlay]);
+
+    const handleDismissHolidayPromptPermanently = useCallback(() => {
+        holidayOverlay.dismissPromptPermanently();
+        setHolidayPromptOpen(false);
+    }, [holidayOverlay]);
+
+    const handleChooseHolidayLocationManually = useCallback(() => {
+        holidayOverlay.setLocationMode("manual");
+        holidayOverlay.dismissPrompt();
+        setHolidayPromptOpen(false);
+        setHolidayPopoverOpen(true);
+    }, [holidayOverlay]);
 
     const holidayControls = (
-        <Popover.Root open={holidayPopoverOpen} onOpenChange={setHolidayPopoverOpen}>
-            <div className="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-twilight-border bg-white/[0.03] p-1">
-                <label className="inline-flex min-h-9 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text">
-                    <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={holidayOverlay.holidaySettings.enabled}
-                        onChange={(event) => holidayOverlay.setEnabled(event.target.checked)}
-                        aria-label="Toggle holiday overlay"
-                    />
-                    <span
-                        aria-hidden="true"
-                        className={`flex h-5 w-5 items-center justify-center rounded-md border transition-colors ${
-                            holidayOverlay.holidaySettings.enabled
-                                ? "border-lantern/45 bg-lantern/18 text-lantern"
-                                : "border-twilight-border-light bg-white/[0.02] text-transparent"
-                        }`}
-                    >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path
-                                d="M2.5 6.2L4.8 8.4L9.4 3.6"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                        </svg>
-                    </span>
-                    <span>Holidays</span>
-                </label>
+        <div className="relative">
+            <Popover.Root open={holidayPopoverOpen} onOpenChange={setHolidayPopoverOpen}>
+                <div className="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-twilight-border bg-white/[0.03] p-1">
+                    <label className="inline-flex min-h-9 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text">
+                        <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={holidayOverlay.holidaySettings.enabled}
+                            onChange={(event) => holidayOverlay.setEnabled(event.target.checked)}
+                            aria-label="Toggle holiday overlay"
+                        />
+                        <span
+                            aria-hidden="true"
+                            className={`flex h-5 w-5 items-center justify-center rounded-md border transition-colors ${
+                                holidayOverlay.holidaySettings.enabled
+                                    ? "border-lantern/45 bg-lantern/18 text-lantern"
+                                    : "border-twilight-border-light bg-white/[0.02] text-transparent"
+                            }`}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path
+                                    d="M2.5 6.2L4.8 8.4L9.4 3.6"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        </span>
+                        <span>Holidays</span>
+                    </label>
 
-                {holidayOverlay.permissionState === "denied" ? <HolidayAccuracyHint variant="icon" /> : null}
+                    {holidayOverlay.permissionState === "denied" ? <HolidayAccuracyHint variant="icon" /> : null}
 
-                <Popover.Trigger asChild>
-                    <button
-                        type="button"
-                        className="btn-icon h-11 w-11 rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                        aria-label="Holiday overlay settings"
-                    >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M4 7h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                            <path d="M17 7h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                            <path d="M4 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                            <path d="M11 17h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                            <circle cx="15" cy="7" r="2" stroke="currentColor" strokeWidth="1.8" />
-                            <circle cx="9" cy="17" r="2" stroke="currentColor" strokeWidth="1.8" />
-                        </svg>
-                    </button>
-                </Popover.Trigger>
-            </div>
-            <Popover.Content align="end" className="w-[min(26rem,calc(100vw-2rem))]">
-                {holidayOverlay.permissionState === "denied" ? (
-                    <div className="mb-4 flex items-center gap-2 text-xs text-twilight-text-soft">
-                        <HolidayAccuracyHint />
-                    </div>
-                ) : null}
-                <HolidayPreferencesPanel
-                    enabled={holidayOverlay.holidaySettings.enabled}
-                    usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
-                    locationMode={holidayOverlay.holidaySettings.locationMode}
-                    countryCode={holidayOverlay.holidaySettings.countryCode}
-                    subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
-                    countryOptions={holidayOverlay.countryOptions}
-                    subdivisionOptions={holidayOverlay.subdivisionOptions}
-                    effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
-                    effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
-                    permissionState={holidayOverlay.permissionState}
-                    countriesLoading={holidayOverlay.countriesLoading}
-                    subdivisionsLoading={holidayOverlay.subdivisionsLoading}
-                    isLocating={holidayOverlay.isLocating}
-                    compact
-                    showEnabledToggle={false}
-                    onEnabledChange={holidayOverlay.setEnabled}
-                    onLocationModeChange={holidayOverlay.setLocationMode}
-                    onCountryChange={holidayOverlay.setCountryCode}
-                    onSubdivisionChange={holidayOverlay.setSubdivisionCode}
-                    onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
-                    onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
+                    <Popover.Trigger asChild>
+                        <button
+                            type="button"
+                            className="btn-icon h-11 w-11 rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                            aria-label="Holiday overlay settings"
+                        >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M4 7h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                <path d="M17 7h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                <path d="M4 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                <path d="M11 17h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                <circle cx="15" cy="7" r="2" stroke="currentColor" strokeWidth="1.8" />
+                                <circle cx="9" cy="17" r="2" stroke="currentColor" strokeWidth="1.8" />
+                            </svg>
+                        </button>
+                    </Popover.Trigger>
+                </div>
+                <Popover.Content align="end" className="w-[min(26rem,calc(100vw-2rem))]">
+                    {holidayOverlay.permissionState === "denied" ? (
+                        <div className="mb-4 flex items-center gap-2 text-xs text-twilight-text-soft">
+                            <HolidayAccuracyHint />
+                        </div>
+                    ) : null}
+                    <HolidayPreferencesPanel
+                        enabled={holidayOverlay.holidaySettings.enabled}
+                        usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
+                        locationMode={holidayOverlay.holidaySettings.locationMode}
+                        countryCode={holidayOverlay.holidaySettings.countryCode}
+                        subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
+                        countryOptions={holidayOverlay.countryOptions}
+                        subdivisionOptions={holidayOverlay.subdivisionOptions}
+                        effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
+                        effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
+                        permissionState={holidayOverlay.permissionState}
+                        locationRefreshedAt={holidayOverlay.refreshedAt}
+                        countriesLoading={holidayOverlay.countriesLoading}
+                        subdivisionsLoading={holidayOverlay.subdivisionsLoading}
+                        isLocating={holidayOverlay.isLocating}
+                        compact
+                        showEnabledToggle={false}
+                        onEnabledChange={holidayOverlay.setEnabled}
+                        onLocationModeChange={holidayOverlay.setLocationMode}
+                        onCountryChange={holidayOverlay.setCountryCode}
+                        onSubdivisionChange={holidayOverlay.setSubdivisionCode}
+                        onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
+                        onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
                     />
-            </Popover.Content>
-        </Popover.Root>
+                </Popover.Content>
+            </Popover.Root>
+
+            {!shell.isPhone && holidayPromptOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.85rem)] z-30 w-[min(25rem,calc(100vw-2rem))]">
+                    <HolidayLocationPrompt
+                        isLocating={holidayOverlay.isLocating}
+                        onUsePreciseLocation={handleUsePreciseHolidayLocation}
+                        onDismiss={handleDismissHolidayPrompt}
+                        onDismissPermanently={handleDismissHolidayPromptPermanently}
+                        onChooseManual={handleChooseHolidayLocationManually}
+                    />
+                </div>
+            ) : null}
+
+            <Dialog.Dialog open={shell.isPhone && holidayPromptOpen} onOpenChange={(open) => !open && handleDismissHolidayPrompt()}>
+                <Dialog.DialogContent className="w-[min(calc(100vw-1.5rem),28rem)] rounded-[2rem] border border-white/[0.08] bg-twilight-deep/96 p-0">
+                    <HolidayLocationPrompt
+                        isLocating={holidayOverlay.isLocating}
+                        onUsePreciseLocation={handleUsePreciseHolidayLocation}
+                        onDismiss={handleDismissHolidayPrompt}
+                        onDismissPermanently={handleDismissHolidayPromptPermanently}
+                        onChooseManual={handleChooseHolidayLocationManually}
+                    />
+                </Dialog.DialogContent>
+            </Dialog.Dialog>
+        </div>
     );
 
     // ── View key for AnimatePresence ────────────────────────────────────────

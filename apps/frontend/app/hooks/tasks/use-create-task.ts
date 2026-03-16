@@ -47,6 +47,7 @@ export function useCreateTask() {
                         ...(input.reminderAt && { reminderAt: input.reminderAt }),
                         ...(input.reminderSilenced !== undefined && { reminderSilenced: input.reminderSilenced }),
                         ...(input.recurrenceRule && { recurrenceRule: input.recurrenceRule }),
+                        ...(input.interactionMode && { interactionMode: input.interactionMode }),
                     },
                 });
                 return unwrapResponse<Task>(res);
@@ -79,6 +80,7 @@ export function useCreateTask() {
                 reminderAt: input.reminderAt ?? null,
                 reminderSilenced: input.reminderSilenced ?? false,
                 recurrenceRule: input.recurrenceRule ?? null,
+                interactionMode: input.interactionMode ?? "task",
                 effort: input.effort ?? null,
                 waitingOn: input.waitingOn ?? null,
                 waitingReminder: input.waitingReminder ?? null,

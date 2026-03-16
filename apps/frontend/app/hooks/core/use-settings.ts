@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { UserSettings, DeepPartial } from "../../lib/types/settings";
@@ -7,6 +7,7 @@ import { SETTINGS_DEFAULTS } from "../../lib/types/settings";
 import { useAuthState } from "../auth/use-auth-state";
 
 const SETTINGS_KEY = (userId: string | undefined) => ["settings", userId ?? "anonymous"] as const;
+const registeredFlushers = new Set<() => Promise<void>>();
 
 /** Deep merges source into target for settings updates */
 function isObject(item: any): item is Record<string, any> {
@@ -89,6 +90,10 @@ export function useSettings() {
  */
 const DEBOUNCE_MS = 500;
 
+export async function flushAllPendingSettingsMutations() {
+    await Promise.all(Array.from(registeredFlushers, (flush) => flush()));
+}
+
 export function useUpdateSettings() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -114,6 +119,26 @@ export function useUpdateSettings() {
         },
     });
 
+    const flushPending = useCallback(async () => {
+        if (!pendingPatch.current || Object.keys(pendingPatch.current).length === 0) {
+            if (debounceTimer.current) {
+                clearTimeout(debounceTimer.current);
+                debounceTimer.current = null;
+            }
+            return;
+        }
+
+        const coalescedPatch = pendingPatch.current;
+        pendingPatch.current = {};
+
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+            debounceTimer.current = null;
+        }
+
+        await mutation.mutateAsync(coalescedPatch);
+    }, [mutation]);
+
     const mutate = useCallback(
         (patch: DeepPartial<UserSettings>) => {
             // 1. Optimistic: update cache + localStorage immediately
@@ -130,6 +155,7 @@ export function useUpdateSettings() {
             debounceTimer.current = setTimeout(() => {
                 const coalescedPatch = pendingPatch.current;
                 pendingPatch.current = {};
+                debounceTimer.current = null;
                 mutation.mutate(coalescedPatch);
             }, DEBOUNCE_MS);
         },
@@ -169,5 +195,25 @@ export function useUpdateSettings() {
         [queryClient, queryKey, storageKey, mutation],
     );
 
-    return { mutate, mutateAsync };
+    useEffect(() => {
+        registeredFlushers.add(flushPending);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "hidden") {
+                void flushPending();
+            }
+        };
+
+        window.addEventListener("pagehide", handleVisibilityChange);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            registeredFlushers.delete(flushPending);
+            window.removeEventListener("pagehide", handleVisibilityChange);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            void flushPending();
+        };
+    }, [flushPending]);
+
+    return { mutate, mutateAsync, flushPending };
 }

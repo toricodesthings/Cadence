@@ -1,6 +1,7 @@
 export type TaskState = "ACTIVE" | "WAITING" | "COMPLETE" | "ARCHIVED";
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 // 0 = none, 1 = low, 2 = medium, 3 = high, 4 = urgent
+export type TaskInteractionMode = "task" | "timetable";
 
 export type EffortLevel = 1 | 2 | 3 | null;
 
@@ -46,6 +47,7 @@ export interface Task {
     reminderAt: string | null;
     reminderSilenced: boolean;
     recurrenceRule: string | null;
+    interactionMode: TaskInteractionMode;
     isHabit?: boolean;
     seriesId?: string;
     isRecurringInstance?: boolean;
@@ -78,6 +80,7 @@ export interface CreateTaskInput {
     reminderAt?: string;
     reminderSilenced?: boolean;
     recurrenceRule?: string;
+    interactionMode?: TaskInteractionMode;
 
     // ── NEW FIELDS (Plan 7) ──
     waitingOn?: string | null;
@@ -106,6 +109,7 @@ export type UpdateTaskInput = Partial<
         | "reminderAt"
         | "reminderSilenced"
         | "recurrenceRule"
+        | "interactionMode"
         | "waitingOn"
         | "waitingReminder"
         | "effort"

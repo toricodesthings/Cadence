@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import {
     normalizeCountryCode,
     type PreciseHolidayLocation,
@@ -19,6 +19,45 @@ interface ReverseGeocodeResponse {
         region?: string;
         county?: string;
     };
+}
+
+interface SharedGeolocationState {
+    permissionState: GeolocationPermissionState;
+    preciseLocation: PreciseHolidayLocation | null;
+    coordinates: { latitude: number; longitude: number } | null;
+    isLocating: boolean;
+    refreshedAt: string | null;
+}
+
+let sharedGeolocationState: SharedGeolocationState = {
+    permissionState: "prompt",
+    preciseLocation: null,
+    coordinates: null,
+    isLocating: false,
+    refreshedAt: null,
+};
+
+let inflightLocationRequest: Promise<PreciseLocationRequestResult> | null = null;
+const subscribers = new Set<() => void>();
+
+function emitGeolocationChange() {
+    subscribers.forEach((listener) => listener());
+}
+
+function updateSharedGeolocationState(
+    nextState: Partial<SharedGeolocationState> | ((current: SharedGeolocationState) => Partial<SharedGeolocationState>),
+) {
+    const patch = typeof nextState === "function" ? nextState(sharedGeolocationState) : nextState;
+    sharedGeolocationState = {
+        ...sharedGeolocationState,
+        ...patch,
+    };
+    emitGeolocationChange();
+}
+
+function subscribeToSharedGeolocation(listener: () => void) {
+    subscribers.add(listener);
+    return () => subscribers.delete(listener);
 }
 
 async function getGeolocationPermissionState(): Promise<GeolocationPermissionState> {
@@ -76,46 +115,78 @@ async function reverseGeocodeLocation(latitude: number, longitude: number): Prom
 }
 
 export function useGeolocation({ onDenied }: { onDenied?: () => void } = {}) {
-    const [permissionState, setPermissionState] = useState<GeolocationPermissionState>("prompt");
-    const [preciseLocation, setPreciseLocation] = useState<PreciseHolidayLocation | null>(null);
-    const [isLocating, setIsLocating] = useState(false);
+    const snapshot = useSyncExternalStore(
+        subscribeToSharedGeolocation,
+        () => sharedGeolocationState,
+        () => sharedGeolocationState,
+    );
 
     useEffect(() => {
-        void getGeolocationPermissionState().then(setPermissionState);
+        void getGeolocationPermissionState().then((permissionState) => {
+            updateSharedGeolocationState({ permissionState });
+        });
     }, []);
 
     const resolvePreciseLocation = useCallback(async (): Promise<PreciseLocationRequestResult> => {
         if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
-            setPermissionState("unsupported");
+            updateSharedGeolocationState({ permissionState: "unsupported" });
             return { status: "unsupported", location: null };
         }
 
-        setIsLocating(true);
-
-        try {
-            const position = await requestCurrentPosition();
-            const resolved = await reverseGeocodeLocation(position.coords.latitude, position.coords.longitude);
-            setPreciseLocation(resolved);
-            setPermissionState("granted");
-            return { status: "granted", location: resolved };
-        } catch (error) {
-            const geolocationError = error as GeolocationPositionError;
-            if (geolocationError?.code === 1) {
-                setPermissionState("denied");
-                onDenied?.();
-                return { status: "denied", location: null };
-            }
-            return { status: "error", location: null };
-        } finally {
-            setIsLocating(false);
+        if (inflightLocationRequest) {
+            return inflightLocationRequest;
         }
+
+        updateSharedGeolocationState({ isLocating: true });
+
+        inflightLocationRequest = (async () => {
+            try {
+                const position = await requestCurrentPosition();
+                const resolved = await reverseGeocodeLocation(position.coords.latitude, position.coords.longitude);
+                updateSharedGeolocationState({
+                    coordinates: {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                    },
+                    preciseLocation: resolved,
+                    permissionState: "granted",
+                    refreshedAt: new Date().toISOString(),
+                });
+                return { status: "granted", location: resolved };
+            } catch (error) {
+                const geolocationError = error as GeolocationPositionError;
+                if (geolocationError?.code === 1) {
+                    updateSharedGeolocationState({
+                        permissionState: "denied",
+                        preciseLocation: null,
+                        coordinates: null,
+                    });
+                    onDenied?.();
+                    return { status: "denied", location: null };
+                }
+                return { status: "error", location: null };
+            } finally {
+                inflightLocationRequest = null;
+                updateSharedGeolocationState({ isLocating: false });
+            }
+        })();
+
+        return inflightLocationRequest;
     }, [onDenied]);
 
     return {
-        permissionState,
-        preciseLocation,
-        isLocating,
+        permissionState: snapshot.permissionState,
+        preciseLocation: snapshot.preciseLocation,
+        coordinates: snapshot.coordinates,
+        isLocating: snapshot.isLocating,
+        refreshedAt: snapshot.refreshedAt,
         resolvePreciseLocation,
-        clearPreciseLocation: useCallback(() => setPreciseLocation(null), []),
+        clearPreciseLocation: useCallback(() => {
+            updateSharedGeolocationState({
+                preciseLocation: null,
+                coordinates: null,
+                refreshedAt: null,
+            });
+        }, []),
     };
 }

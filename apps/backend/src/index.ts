@@ -20,7 +20,11 @@ import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCo
 
 const CORS_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
-const app = new Hono<{ Bindings: Env; Variables: import("./lib/auth").AuthVariables }>();
+export const app = new Hono<{ Bindings: Env; Variables: import("./lib/auth").AuthVariables }>();
+
+function areDebugRoutesEnabled(value?: string | null) {
+  return value?.trim().toLowerCase() === "true";
+}
 
 // ── Global Middleware ──
 app.use("*", createRequestContext());
@@ -73,6 +77,21 @@ function rateLimitResponse(c: import("hono").Context) {
 }
 
 // ── Protected ──
+
+// Keep admin debug tooling dark in production unless explicitly enabled.
+app.use("/api/debug", async (c, next) => {
+  if (!areDebugRoutesEnabled(c.env.ENABLE_DEBUG_ROUTES)) {
+    return c.notFound();
+  }
+  await next();
+});
+
+app.use("/api/debug/*", async (c, next) => {
+  if (!areDebugRoutesEnabled(c.env.ENABLE_DEBUG_ROUTES)) {
+    return c.notFound();
+  }
+  await next();
+});
 
 // Tier 1: IP-based global limiter (pre-auth, catches abuse early)
 app.use("/api/*", async (c, next) => {

@@ -14,6 +14,15 @@ import { Toaster } from "./components/feedback/Toaster";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { initWal } from "./lib/api/offline-wal";
 import { replayWal } from "./lib/api/mutation-executor";
+import {
+    beginSocialSignIn,
+    checkForAppUpdate,
+    getCurrentAuthCallback,
+    IS_DESKTOP_RUNTIME,
+    listenForAuthCallback,
+    normalizeRedirectTo,
+} from "./platform/runtime";
+import { installDesktopE2EBridge } from "./platform/desktop-e2e";
 
 // Adapter for react-router-dom Link (using react-router v7)
 function Link({
@@ -33,8 +42,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
 function ProvidersInner({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
-    const { beginAuthRecovery, completeSignOut, session } = useAuthState();
+    const { beginAuthRecovery, completeSignOut, session, authReady } = useAuthState();
     const lastUserId = useRef<string | null>(null);
+    const hasCheckedForUpdates = useRef(false);
 
     // Only retry errors the backend marks as retryable (429, 5xx).
     // Auth errors and validation errors are never retried.
@@ -129,6 +139,84 @@ function ProvidersInner({ children }: { children: ReactNode }) {
         return () => window.removeEventListener("online", handleOnline);
     }, [queryClient]);
 
+    useEffect(() => {
+        let unlisten: (() => void) | undefined;
+        let active = true;
+
+        const handleCallback = (url: URL) => {
+            const params = new URLSearchParams(url.search);
+            const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+
+            if (hash.includes("=")) {
+                const hashParams = new URLSearchParams(hash);
+                hashParams.forEach((value, key) => {
+                    if (!params.has(key)) {
+                        params.set(key, value);
+                    }
+                });
+            }
+
+            params.set("redirectTo", normalizeRedirectTo(params.get("redirectTo")));
+
+            if (import.meta.env.DEV) {
+                console.info("[cadence:desktop-auth] received callback", {
+                    pathname: url.pathname,
+                    searchKeys: Array.from(params.keys()),
+                    hasHash: Boolean(hash),
+                });
+            }
+
+            const search = params.toString();
+            navigate(search ? `/auth/callback?${search}` : "/auth/callback", { replace: true });
+        };
+
+        void getCurrentAuthCallback().then((url) => {
+            if (active && url) {
+                handleCallback(url);
+            }
+        });
+
+        void listenForAuthCallback((url) => {
+            if (active) {
+                handleCallback(url);
+            }
+        }).then((dispose) => {
+            unlisten = dispose;
+        });
+
+        return () => {
+            active = false;
+            unlisten?.();
+        };
+    }, [navigate]);
+
+    useEffect(() => installDesktopE2EBridge(), []);
+
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME || !authReady || hasCheckedForUpdates.current) {
+            return;
+        }
+
+        hasCheckedForUpdates.current = true;
+        let active = true;
+
+        void checkForAppUpdate().then((update) => {
+            if (!active || !update) {
+                return;
+            }
+
+            toast.info(`Cadence ${update.version} is ready to install.`, {
+                description: "Open Settings > Privacy & Data to review release notes and apply the update.",
+            });
+        }).catch(() => {
+            hasCheckedForUpdates.current = false;
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [authReady]);
+
     const persistOptions = useMemo(
         () => ({
             persister: createIDBPersister(),
@@ -136,6 +224,35 @@ function ProvidersInner({ children }: { children: ReactNode }) {
             buster: session?.user.id ?? "",
         }),
         [session?.user.id],
+    );
+
+    const social = useMemo(
+        () => ({
+            providers: ["google", "github"],
+            ...(IS_DESKTOP_RUNTIME
+                ? {
+                    signIn: async ({
+                        provider,
+                        callbackURL,
+                    }: {
+                        provider: string;
+                        callbackURL?: string;
+                    }) => {
+                        if (provider !== "google" && provider !== "github") {
+                            await authClient.signIn.social({
+                                provider,
+                                callbackURL,
+                                fetchOptions: { throw: true },
+                            });
+                            return;
+                        }
+
+                        await beginSocialSignIn(provider, callbackURL);
+                    },
+                }
+                : {}),
+        }),
+        [],
     );
 
     return (
@@ -154,9 +271,7 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                             queryClient.invalidateQueries();
                         }}
                         Link={Link}
-                        social={{
-                            providers: ["google", "github"],
-                        }}
+                        social={social as any}
                         multiSession={false}
                         apiKey={false}
                         magicLink={false}

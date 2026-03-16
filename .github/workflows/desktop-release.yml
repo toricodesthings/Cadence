@@ -1,0 +1,241 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - desktop-v*
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to create or publish, for example desktop-v0.1.0
+        required: true
+        type: string
+      release_draft:
+        description: Publish the release as a draft
+        required: true
+        default: true
+        type: boolean
+      prerelease:
+        description: Mark the release as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "10.32.1"
+  VITE_RUNTIME_TARGET: desktop
+  VITE_API_BASE_URL: https://api.cadenceapp.cloud
+  VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
+
+jobs:
+  release:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin
+            cache_key: macos-aarch64
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin
+            cache_key: macos-x86_64
+          - runner: windows-latest
+            target: ""
+            args: ""
+            cache_key: windows
+          - runner: ubuntu-22.04
+            target: ""
+            args: ""
+            cache_key: linux
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve release metadata
+        shell: bash
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "RELEASE_TAG=${{ inputs.tag_name }}" >> "$GITHUB_ENV"
+            echo "RELEASE_DRAFT=${{ inputs.release_draft }}" >> "$GITHUB_ENV"
+            echo "RELEASE_PRERELEASE=${{ inputs.prerelease }}" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+            echo "RELEASE_DRAFT=true" >> "$GITHUB_ENV"
+
+            if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+              echo "RELEASE_PRERELEASE=true" >> "$GITHUB_ENV"
+            else
+              echo "RELEASE_PRERELEASE=false" >> "$GITHUB_ENV"
+            fi
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Set up Rust toolchain with extra target
+        if: matrix.target != ''
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Set up Rust toolchain
+        if: matrix.target == ''
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/src-tauri/target
+          key: ${{ matrix.cache_key }}-release-cargo-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.cache_key }}-release-cargo-
+
+      - name: Install Linux desktop prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            wget
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync desktop version
+        run: pnpm --filter @cadence/desktop sync-version
+
+      - name: Validate signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          missing=()
+
+          [ -n "${TAURI_SIGNING_PRIVATE_KEY}" ] || missing+=("TAURI_SIGNING_PRIVATE_KEY")
+
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            [ -n "${WINDOWS_CERTIFICATE}" ] || missing+=("WINDOWS_CERTIFICATE")
+            [ -n "${WINDOWS_CERTIFICATE_PASSWORD}" ] || missing+=("WINDOWS_CERTIFICATE_PASSWORD")
+            [ -n "${WINDOWS_CERTIFICATE_THUMBPRINT}" ] || missing+=("WINDOWS_CERTIFICATE_THUMBPRINT")
+          fi
+
+          if [ "${RUNNER_OS}" = "macOS" ]; then
+            [ -n "${APPLE_CERTIFICATE}" ] || missing+=("APPLE_CERTIFICATE")
+            [ -n "${APPLE_CERTIFICATE_PASSWORD}" ] || missing+=("APPLE_CERTIFICATE_PASSWORD")
+            [ -n "${APPLE_API_KEY}" ] || missing+=("APPLE_API_KEY")
+            [ -n "${APPLE_API_ISSUER}" ] || missing+=("APPLE_API_ISSUER")
+            [ -n "${APPLE_API_PRIVATE_KEY}" ] || missing+=("APPLE_API_PRIVATE_KEY")
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing required signing secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Import Windows signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "cadence-signing.pfx"
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
+
+      - name: Materialize Windows signing config
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+          WINDOWS_DIGEST_ALGORITHM: ${{ vars.WINDOWS_DIGEST_ALGORITHM }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          digest="${WINDOWS_DIGEST_ALGORITHM:-sha256}"
+          timestamp_url="${WINDOWS_TIMESTAMP_URL:-http://timestamp.digicert.com}"
+
+          cat > apps/desktop/src-tauri/tauri.windows.conf.json <<EOF
+          {
+            "bundle": {
+              "windows": {
+                "certificateThumbprint": "${WINDOWS_CERTIFICATE_THUMBPRINT}",
+                "digestAlgorithm": "${digest}",
+                "timestampUrl": "${timestamp_url}"
+              }
+            }
+          }
+          EOF
+
+      - name: Materialize App Store Connect API key
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          key_path="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "${APPLE_API_PRIVATE_KEY}" > "${key_path}"
+          echo "APPLE_API_KEY_PATH=${key_path}" >> "$GITHUB_ENV"
+
+      - name: Build and publish desktop artifacts
+        uses: tauri-apps/tauri-action@v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: Cadence Desktop ${{ env.RELEASE_TAG }}
+          releaseDraft: ${{ env.RELEASE_DRAFT }}
+          prerelease: ${{ env.RELEASE_PRERELEASE }}
+          releaseCommitish: ${{ github.sha }}
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          generateReleaseNotes: true
+          retryAttempts: 2
+          args: ${{ matrix.args }}

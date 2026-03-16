@@ -116,6 +116,7 @@ export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 // === ENUMS ===
 export const taskStateEnum = pgEnum('task_state', ['ACTIVE', 'WAITING', 'COMPLETE', 'ARCHIVED']);
+export const taskInteractionModeEnum = pgEnum('task_interaction_mode', ['task', 'timetable']);
 export const memoryTypeEnum = pgEnum('memory_type', ['CORE', 'EPHEMERAL']);
 export const suggestionStatusEnum = pgEnum('suggestion_status', ['PENDING', 'ACCEPTED', 'DISMISSED']);
 export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', 'PENDING']);
@@ -234,6 +235,7 @@ export const tasks = pgTable('tasks', {
 
     // ── Recurrence (iCalendar RRULE) ──
     recurrenceRule: text('recurrence_rule'),
+    interactionMode: taskInteractionModeEnum('interaction_mode').default('task').notNull(),
 
     // ── Additional Task States & Tracking ──
     waitingOn: text('waiting_on'),

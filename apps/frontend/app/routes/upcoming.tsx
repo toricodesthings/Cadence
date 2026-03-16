@@ -34,7 +34,7 @@ import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, parseLocalDate, toISODate } from "../lib/utils/date-format";
-import { toTaskDateOnly } from "../lib/utils/task-scheduling";
+import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task-scheduling";
 import type { SortMode } from "../lib/utils/sort-tasks";
 import type { Task } from "../types/task";
 
@@ -376,7 +376,11 @@ export default function Upcoming() {
         };
 
         for (const task of tagFilteredTasks) {
-            const dateOnly = task.dueDate ?? toDateOnly(task.scheduledStart);
+            if (isPassiveTimetableTask(task)) {
+                continue;
+            }
+
+            const dateOnly = getTaskTimelineAnchor(task) ?? task.dueDate ?? toDateOnly(task.scheduledStart);
             if (!dateOnly) continue;
 
             const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);

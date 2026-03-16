@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { GripVertical, Calendar, Pin, Repeat, Bell, BellOff, AlertTriangle, Clock, ChevronRight, ChevronDown } from "lucide-react";
+import { GripVertical, Calendar, Pin, Repeat, Bell, BellOff, AlertTriangle, Clock, ChevronRight, ChevronDown, CalendarClock } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
@@ -8,7 +8,7 @@ import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask } from "../../hook
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { PRIORITY_CONFIG } from "../../lib/utils/priority";
 import { formatShortDate } from "../../lib/utils/date-format";
-import { getTaskScheduleSummary } from "../../lib/utils/task-scheduling";
+import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
 import type { Tag } from "../../types/tag";
 import type { Task, Subtask } from "../../types/task";
 
@@ -157,9 +157,11 @@ export function TaskCard({
 
     const scheduleSummary = getTaskScheduleSummary(task);
     const scheduleLabel = scheduleSummary.primaryLabel;
+    const isPassiveTimetable = isPassiveTimetableTask(task);
     const completedCount = subtasks.filter(s => s.isComplete).length;
     const hasMetaChips = Boolean(
         scheduleLabel ||
+        isPassiveTimetable ||
         task.recurrenceRule ||
         task.reminderAt ||
         task.effort ||
@@ -242,6 +244,13 @@ export function TaskCard({
                         {task.isPinned && (
                             <Pin size={12} className={`${isCompactCard ? "" : "mt-1"} rotate-45 text-lantern shrink-0`} aria-label="Pinned" />
                         )}
+                        {isPassiveTimetable && (
+                            <CalendarClock
+                                size={12}
+                                className={`${isCompactCard ? "" : "mt-0.5"} shrink-0 text-moonlit`}
+                                aria-label="Timetable anchor"
+                            />
+                        )}
                         {showUrgentIcon && (
                             <AlertTriangle
                                 size={13}
@@ -317,9 +326,21 @@ export function TaskCard({
                             </div>
                         )}
                         {scheduleLabel && (
-                            <span className={`inline-flex items-center gap-1.5 text-[12px] ${scheduleSummary.isDeadline || scheduleSummary.isDuration ? "font-medium text-lantern" : "text-twilight-text-soft"}`}>
+                            <span className={`inline-flex items-center gap-1.5 text-[12px] ${
+                                isPassiveTimetable
+                                    ? "font-medium text-moonlit"
+                                    : scheduleSummary.isDeadline || scheduleSummary.isDuration
+                                        ? "font-medium text-lantern"
+                                        : "text-twilight-text-soft"
+                            }`}>
                                 <Calendar size={12} aria-hidden="true" />
                                 {scheduleLabel}
+                            </span>
+                        )}
+                        {isPassiveTimetable && (
+                            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-moonlit">
+                                <CalendarClock size={12} aria-hidden="true" />
+                                Timetable anchor
                             </span>
                         )}
                         {task.recurrenceRule && (

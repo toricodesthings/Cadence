@@ -1,5 +1,7 @@
 # Documentation
 docs
+!apps/frontend/docs/
+!apps/frontend/docs/**
 !apps/desktop/docs/
 !apps/desktop/docs/**
 

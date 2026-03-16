@@ -20,7 +20,7 @@ import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { toISODate } from "../lib/utils/date-format";
-import { getTaskEffectiveAnchor } from "../lib/utils/task-scheduling";
+import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task-scheduling";
 import { sortTasks } from "../lib/utils/sort-tasks";
 import type { Task } from "../types/task";
 
@@ -86,7 +86,10 @@ export default function Home() {
     });
 
     const filteredTasks = useMemo(
-        () => (activeTagId ? tasks.filter((task) => task.tagIds?.includes(activeTagId)) : tasks),
+        () => {
+            const visibleTasks = tasks.filter((task) => !isPassiveTimetableTask(task));
+            return activeTagId ? visibleTasks.filter((task) => task.tagIds?.includes(activeTagId)) : visibleTasks;
+        },
         [activeTagId, tasks],
     );
 
@@ -95,7 +98,7 @@ export default function Home() {
         const today: Task[] = [];
 
         for (const task of filteredTasks) {
-            const anchor = getTaskEffectiveAnchor(task);
+            const anchor = getTaskTimelineAnchor(task);
             if (!anchor) continue;
             if (anchor < todayISO) overdue.push(task);
             if (anchor === todayISO) today.push(task);

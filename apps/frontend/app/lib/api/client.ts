@@ -3,6 +3,7 @@ import type { AppType } from "@cadence/backend";
 import { ApiErrorResponse } from "../../types/api";
 import { authClient } from "../auth-client";
 import { API_BASE_URL } from "../env";
+import { platformFetch } from "../../platform/runtime";
 
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
@@ -33,7 +34,7 @@ export async function authenticatedFetch(
         }
     }
 
-    return fetch(input, { ...requestInit, headers });
+    return platformFetch(input, { ...requestInit, headers });
 }
 
 /**
@@ -46,6 +47,7 @@ export function createApiClient(token?: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return hc<AppType>(API_BASE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
+        fetch: platformFetch,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any;
 }

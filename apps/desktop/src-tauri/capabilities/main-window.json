@@ -1,0 +1,36 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Allows the main Cadence window to access only the desktop capabilities it actually uses.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "deep-link:default",
+    "notification:default",
+    "opener:default",
+    "process:default",
+    "updater:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "http://localhost:*"
+        },
+        {
+          "url": "http://127.0.0.1:*"
+        },
+        {
+          "url": "https://api.cadenceapp.cloud/*"
+        },
+        {
+          "url": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/*"
+        },
+        {
+          "url": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/*"
+        }
+      ]
+    }
+  ]
+}

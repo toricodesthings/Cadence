@@ -1,0 +1,126 @@
+name: Web Platform Verify
+
+on:
+  pull_request:
+    paths:
+      - apps/frontend/**
+      - apps/backend/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/web-platform-verify.yml
+  push:
+    branches:
+      - main
+    paths:
+      - apps/frontend/**
+      - apps/backend/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/web-platform-verify.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-platform-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "10.32.1"
+  VITE_API_BASE_URL: https://api.cadenceapp.cloud
+  VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
+
+jobs:
+  secret-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Fail on tracked secret files
+        shell: bash
+        run: |
+          tracked_secret_files="$(git ls-files | grep -E '(^|/)(\.env($|\.)|\.dev\.vars($|\.)|.*\.(pem|key|crt)$)' || true)"
+
+          if [ -n "${tracked_secret_files}" ]; then
+            printf 'Tracked secret-like files detected:\n%s\n' "${tracked_secret_files}" >&2
+            exit 1
+          fi
+
+      - name: Fail on embedded private key material
+        shell: bash
+        run: |
+          if git grep -nE -- '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----' -- .; then
+            echo "Embedded private key material detected in tracked files." >&2
+            exit 1
+          fi
+
+  frontend-verify:
+    runs-on: ubuntu-latest
+    needs:
+      - secret-hygiene
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: pnpm --filter @cadence/frontend test
+
+      - name: Run frontend typecheck
+        run: pnpm --filter @cadence/frontend typecheck
+
+      - name: Build frontend for production
+        run: pnpm --filter @cadence/frontend build
+
+      - name: Dry-run frontend Worker deploy
+        run: pnpm --filter @cadence/frontend exec wrangler deploy --dry-run --env=""
+
+  backend-verify:
+    runs-on: ubuntu-latest
+    needs:
+      - secret-hygiene
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run backend tests
+        run: pnpm --filter @cadence/backend test:unit
+
+      - name: Run backend typecheck
+        run: pnpm --filter @cadence/backend typecheck
+
+      - name: Dry-run backend Worker deploy
+        run: pnpm --filter @cadence/backend exec wrangler deploy --dry-run --env=""

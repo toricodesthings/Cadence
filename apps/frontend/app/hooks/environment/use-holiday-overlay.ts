@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
+import { toast } from "sonner";
 import {
     fetchHolidays,
     fetchHolidayCountries,
@@ -52,16 +53,43 @@ export function useHolidayOverlay({
     const holidaySettings = settings?.calendar?.holidays ?? DEFAULT_HOLIDAY_SETTINGS;
     const [sessionPromptDismissed, setSessionPromptDismissed] = useState(false);
 
-    const persistHolidaySettings = useCallback((patch: Partial<typeof DEFAULT_HOLIDAY_SETTINGS>) => {
-        updateSettings.mutate({
+    const persistHolidaySettings = useCallback(async (
+        patch: Partial<typeof DEFAULT_HOLIDAY_SETTINGS>,
+        { immediate = false, errorMessage = "Couldn’t save holiday settings." }: { immediate?: boolean; errorMessage?: string } = {},
+    ) => {
+        const payload = {
             calendar: {
                 holidays: patch,
             },
-        });
+        };
+
+        try {
+            if (immediate) {
+                await updateSettings.mutateAsync(payload);
+            } else {
+                updateSettings.mutate(payload);
+            }
+        } catch (error) {
+            toast.error(errorMessage);
+            throw error;
+        }
     }, [updateSettings]);
 
-    const { permissionState, preciseLocation, isLocating, resolvePreciseLocation, clearPreciseLocation } = useGeolocation({
-        onDenied: () => persistHolidaySettings({ usePreciseLocation: false }),
+    const {
+        permissionState,
+        preciseLocation,
+        coordinates,
+        isLocating,
+        refreshedAt,
+        resolvePreciseLocation,
+        clearPreciseLocation,
+    } = useGeolocation({
+        onDenied: () => {
+            void persistHolidaySettings(
+                { usePreciseLocation: false },
+                { immediate: true, errorMessage: "Precise location was blocked, so Cadence fell back to broader holiday matching." },
+            );
+        },
     });
 
     const localeCountryCode = useMemo(() => getLocaleRegion(locale), [locale]);
@@ -166,6 +194,9 @@ export function useHolidayOverlay({
             locationMode: "auto",
             usePreciseLocation: true,
             promptDismissedAt: null,
+        }, {
+            immediate: true,
+            errorMessage: "Couldn’t turn on precise holiday location.",
         });
 
         return resolvePreciseLocation();
@@ -183,7 +214,10 @@ export function useHolidayOverlay({
             window.sessionStorage.setItem(HOLIDAY_PROMPT_SESSION_KEY, "1");
         }
         setSessionPromptDismissed(true);
-        persistHolidaySettings({ promptDismissedAt: new Date().toISOString() });
+        void persistHolidaySettings(
+            { promptDismissedAt: new Date().toISOString() },
+            { immediate: true, errorMessage: "Couldn’t save your holiday prompt preference." },
+        );
     }, [persistHolidaySettings]);
 
     const setEnabled = useCallback((enabled: boolean) => {
@@ -191,17 +225,20 @@ export function useHolidayOverlay({
     }, [persistHolidaySettings]);
 
     const setLocationMode = useCallback((locationMode: HolidayLocationMode) => {
-        persistHolidaySettings({
+        void persistHolidaySettings({
             locationMode,
             countryCode:
                 locationMode === "manual"
                     ? holidaySettings.countryCode ?? effectiveCountryCode ?? null
                     : holidaySettings.countryCode,
+        }, {
+            immediate: true,
+            errorMessage: "Couldn’t switch the holiday location mode.",
         });
     }, [effectiveCountryCode, holidaySettings.countryCode, persistHolidaySettings]);
 
     const setCountryCode = useCallback((countryCode: string | null) => {
-        persistHolidaySettings({
+        void persistHolidaySettings({
             locationMode: "manual",
             countryCode,
             subdivisionCode: null,
@@ -210,7 +247,7 @@ export function useHolidayOverlay({
     }, [persistHolidaySettings]);
 
     const setSubdivisionCode = useCallback((subdivisionCode: string | null) => {
-        persistHolidaySettings({
+        void persistHolidaySettings({
             locationMode: "manual",
             subdivisionCode,
         });
@@ -218,7 +255,10 @@ export function useHolidayOverlay({
 
     const setUsePreciseLocation = useCallback(async (enabled: boolean) => {
         if (!enabled) {
-            persistHolidaySettings({ usePreciseLocation: false });
+            await persistHolidaySettings(
+                { usePreciseLocation: false },
+                { immediate: true, errorMessage: "Couldn’t turn off precise holiday location." },
+            );
             clearPreciseLocation();
             return null;
         }
@@ -254,6 +294,8 @@ export function useHolidayOverlay({
         effectiveSubdivisionCode,
         effectiveSubdivisionLabel,
         preciseLocation,
+        coordinates,
+        refreshedAt,
         setEnabled,
         setLocationMode,
         setCountryCode,

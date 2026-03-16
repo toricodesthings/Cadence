@@ -14,6 +14,7 @@ const BASE_TASK = {
     isPinned: false,
     tagIds: ["tag-1"],
     state: "ACTIVE",
+    interactionMode: "task" as const,
 };
 
 describe("task recurrence expansion", () => {
@@ -56,5 +57,26 @@ describe("task recurrence expansion", () => {
         );
 
         expect(items).toHaveLength(0);
+    });
+
+    it("preserves passive timetable interaction mode on recurring instances", () => {
+        const items = expandScheduleScopedTasks(
+            [
+                {
+                    ...BASE_TASK,
+                    interactionMode: "timetable",
+                },
+            ],
+            {
+                scheduledRangeStart: "2026-03-09T00:00:00.000Z",
+                scheduledRangeEnd: "2026-03-15T23:59:59.999Z",
+            },
+        );
+
+        expect(items).toHaveLength(2);
+        expect(items[0]).toMatchObject({
+            interactionMode: "timetable",
+            isRecurringInstance: true,
+        });
     });
 });

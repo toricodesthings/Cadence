@@ -4,6 +4,7 @@ import {
     getTaskMutationTargetId,
     getTaskRecurrenceSummary,
     getTaskScheduleSummary,
+    getTaskTimelineAnchor,
     isRecurringTaskInstance,
 } from "../../../../app/lib/utils/task-scheduling";
 import type { Task } from "../../../../app/types/task";
@@ -30,6 +31,7 @@ function createTask(overrides: Partial<Task> = {}): Task {
         reminderAt: null,
         reminderSilenced: false,
         recurrenceRule: null,
+        interactionMode: "task",
         sectionId: null,
         seriesId: undefined,
         isRecurringInstance: false,
@@ -130,5 +132,24 @@ describe("task scheduling helpers", () => {
 
         expect(isRecurringTaskInstance(instance)).toBe(true);
         expect(getTaskMutationTargetId(instance)).toBe("series-1");
+    });
+
+    it("labels passive recurring timeblocks as timetable anchors and resolves their occurrence date", () => {
+        const passiveSeries = createTask({
+            isAllDay: false,
+            interactionMode: "timetable",
+            scheduledStart: "2026-03-10T09:30:00.000Z",
+            scheduledEnd: "2026-03-10T10:45:00.000Z",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+        });
+
+        expect(getTaskScheduleSummary(passiveSeries)).toMatchObject({
+            kind: "timed",
+            secondaryLabel: "Timetable anchor",
+        });
+
+        expect(
+            getTaskTimelineAnchor(passiveSeries, new Date("2026-03-11T08:00:00.000Z")),
+        ).toBe("2026-03-12");
     });
 });
