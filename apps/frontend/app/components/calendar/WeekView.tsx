@@ -10,8 +10,6 @@ import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 
-const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 interface DroppableDayColumnProps {
     dateStr: string; // "YYYY-MM-DD"
     tasks: Task[];
@@ -118,7 +116,7 @@ function DroppableDayColumn({
 }
 
 export interface WeekViewProps {
-    /** The 7 date objects for Mon–Sun of this week */
+    /** The 7 date objects for this week in the active configured order */
     weekDates: Date[];
     /** Tasks grouped by ISO date string */
     tasksByDate: Record<string, Task[]>;
@@ -147,6 +145,10 @@ export function WeekView({
     const today = new Date();
     const todayStr = toISODate(today);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const weekdayFormatter = useMemo(
+        () => new Intl.DateTimeFormat("en-US", { weekday: "short" }),
+        [],
+    );
 
     // Scroll to 7 AM on mount
     useEffect(() => {
@@ -189,17 +191,18 @@ export function WeekView({
                     </span>
                 </div>
 
-                {weekDates.map((d, i) => {
+                {weekDates.map((d) => {
                     const ds = toISODate(d);
                     const isToday = ds === todayStr;
                     const allDay = allDayByDate[ds] ?? [];
+                    const dayLabel = weekdayFormatter.format(d);
 
                     return (
                         <div key={ds} className="flex-1 min-w-0 border-l border-twilight-border/20">
                             {/* Day header */}
                             <div className={`px-2 py-3 text-center ${isToday ? "text-lantern" : "text-twilight-text-muted"}`}>
                                 <div className="text-[11px] uppercase tracking-widest font-medium text-twilight-text-muted">
-                                    {DAYS_SHORT[i]}
+                                    {dayLabel}
                                 </div>
                                 <div className="mt-0.5 flex items-center justify-center gap-1.5">
                                     <div className={`

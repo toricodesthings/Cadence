@@ -50,6 +50,24 @@ Or run them from this directory with `pnpm <script>`.
 - **Manual sync** — `Cmd/Ctrl+Shift+S` invalidates all queries for fresh data
 - **Settings** — deep-linkable tabs including notifications, appearance, date/time, shortcuts, AI, and integrations
 
+## Release Notes
+
+- **Auth shell refresh** — the sign-in/sign-up route is now a compact centered shell with tighter editorial spacing, direct logo treatment, corrected submit hover state, and widened form layout.
+- **Shared section model** — Holding and Project list views now use the same section data as Kanban. Before a user creates any section, list mode stays normalized; once sections exist, unassigned tasks render under `Unsectioned`. Kanban always keeps an `Unsectioned` lane.
+- **Settings persistence hardening** — pending settings mutations flush on unmount and can be flushed explicitly before unload/deploy-sensitive flows.
+- **Location and holiday handling** — geolocation state is shared, holiday prompts moved out of toast noise, and external holiday providers are permitted by CSP.
+- **Release CI** — web verification includes frontend tests/typecheck/build, backend verification, Workers dry-run deploys, tracked-secret hygiene, and dependency audit coverage.
+
+## Production Notes
+
+- `VITE_NEON_AUTH_URL` is environment-specific. Dev and production intentionally use different Neon Auth branches.
+- Web social sign-in uses the current web origin to build `/auth/callback`. If production social auth returns `403` from Neon Auth, check the trusted redirect domains and provider configuration on the production Neon Auth branch for `dashboard.cadenceapp.cloud`.
+- CSP is managed through [`public/_headers`](./public/_headers). Current policy explicitly allows:
+  - Cloudflare Insights
+  - Google Fonts
+  - holiday provider fetches to `openholidaysapi.org` and `date.nager.at`
+- The auth UI comes from `@neondatabase/auth/react/ui`; layout fixes are applied through route-level classNames and `app/app.css` overrides.
+
 ## Structure
 
 ```text

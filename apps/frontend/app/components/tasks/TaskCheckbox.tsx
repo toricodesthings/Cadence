@@ -56,6 +56,22 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
         ? Math.max(0, Math.min(1, (pendingCompletion.commitAt - now) / pendingCompletion.durationMs))
         : 0;
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (subtask) return; // Only main tasks have WAITING state
+        if (!task || !allowsManualCompletion) return;
+
+        if (isPendingComplete) {
+            cancelCompletion(id);
+        }
+
+        // Toggle between WAITING and ACTIVE
+        const targetState = isWaiting ? "ACTIVE" : "WAITING";
+        updateTask.mutate({ id, state: targetState });
+    };
+
     const handleToggle = (e: React.MouseEvent) => {
         e.stopPropagation(); // prevent card expansion click
         if (task && !allowsManualCompletion) {

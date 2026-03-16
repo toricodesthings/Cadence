@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Button } from "../components/primitives/Button";
 import { ArrowRight, ArrowLeft, Calendar, Sparkles, Trash2, Moon, Play, Clock, Sprout } from "lucide-react";

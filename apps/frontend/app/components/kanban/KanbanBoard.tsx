@@ -12,6 +12,7 @@ import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks";
 import { useTags } from "../../hooks/tags";
 import { SortableTaskCard } from "../tasks/SortableTaskCard";
+import { AddTaskInput } from "../tasks/AddTaskInput";
 import { TaskCard } from "../tasks/TaskCard";
 import { TaskContextMenuWrapper } from "../tasks/TaskContextMenuWrapper";
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -37,6 +38,7 @@ function KanbanColumn({
     onSelectTask,
     onRename,
     onDelete,
+    projectId,
 }: {
     section: TaskSection | { id: "ungrouped"; name: string };
     tasks: Task[];
@@ -46,6 +48,7 @@ function KanbanColumn({
     onSelectTask?: (id: string) => void;
     onRename?: (name: string) => void;
     onDelete?: () => void;
+    projectId?: string | null;
 }) {
     const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
     const { setNodeRef } = useDroppable({
@@ -79,7 +82,7 @@ function KanbanColumn({
                     </h3>
                 )}
 
-                {section.id !== "ungrouped" && onRename && onDelete && (
+                {((section.id !== "ungrouped" && onRename && onDelete) || (section.id === "ungrouped" && tasks.length === 0 && onDelete)) && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
@@ -93,11 +96,14 @@ function KanbanColumn({
                                 </Button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end" sideOffset={4}>
+                                {section.id !== "ungrouped" && (<>
                                 <DropdownMenu.Item onClick={() => setIsRenaming(true)}>
                                     <Pencil size={14} className="text-twilight-text-muted mr-2 shrink-0" />
                                     Rename
                                 </DropdownMenu.Item>
                                 <DropdownMenu.Separator />
+                                </>
+                                )}
                                 <DropdownMenu.Item onClick={onDelete} className="text-red-400 focus:text-red-400">
                                     <Trash2 size={14} className="mr-2 shrink-0" />
                                     Delete
@@ -134,6 +140,16 @@ function KanbanColumn({
                     </div>
                 )}
             </div>
+
+            {/* Footer / Add task area */}
+            <div className="px-3 pb-3 shrink-0">
+                <AddTaskInput
+                    projectId={projectId || undefined}
+                    sectionId={section.id === "ungrouped" ? undefined : section.id}
+                    tasks={tasks}
+                    compact={true}
+                />
+            </div>
         </div>
     );
 }
@@ -153,6 +169,7 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
 
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [isAddingColumn, setIsAddingColumn] = useState(false);
+    const [isUnsectionedHidden, setIsUnsectionedHidden] = useState(false);
     const [newColumnName, setNewColumnName] = useState("");
     const dragScroll = useDragScroll();
     const scrollContainerRef = dragScroll.ref;
@@ -302,7 +319,7 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
             >
                 <div className="flex gap-4 px-4 py-4 h-full min-h-full items-stretch">
                 {/* Unsectioned column (always first) */}
-                {(ungroupedTasks.length > 0 || sections.length > 0) && (
+                {(!(isUnsectionedHidden && ungroupedTasks.length === 0) && (ungroupedTasks.length > 0 || sections.length > 0)) && (
                     <div className="w-[min(24rem,80vw)] shrink-0">
                         <KanbanColumn
                             section={{ id: "ungrouped", name: "Unsectioned" }}
@@ -310,7 +327,9 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
                             subtasksByTaskId={subtasksByTaskId}
                             tagsByTaskId={tagsByTaskId}
                             selectedTaskId={selectedTaskId}
+                            projectId={projectId}
                             onSelectTask={onSelectTask}
+                            onDelete={() => setIsUnsectionedHidden(true)}
                         />
                     </div>
                 )}
@@ -324,6 +343,7 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
                             subtasksByTaskId={subtasksByTaskId}
                             tagsByTaskId={tagsByTaskId}
                             selectedTaskId={selectedTaskId}
+                            projectId={projectId}
                             onSelectTask={onSelectTask}
                             onRename={(name) => updateSection.mutate({ id: section.id, name })}
                             onDelete={() => deleteSection.mutate(section.id)}

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
+export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import { toISODate, getWeekDates } from "../lib/utils/date-format";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";

@@ -3,6 +3,8 @@ import {
     normalizeCountryCode,
     type PreciseHolidayLocation,
 } from "../../lib/holidays/location-resolver";
+import { authenticatedFetch } from "../../lib/api/client";
+import { API_BASE_URL } from "../../lib/env";
 
 export type GeolocationPermissionState = "prompt" | "granted" | "denied" | "unsupported";
 export type PreciseLocationRequestStatus = "granted" | "denied" | "error" | "unsupported";
@@ -10,15 +12,6 @@ export type PreciseLocationRequestStatus = "granted" | "denied" | "error" | "uns
 export interface PreciseLocationRequestResult {
     status: PreciseLocationRequestStatus;
     location: PreciseHolidayLocation | null;
-}
-
-interface ReverseGeocodeResponse {
-    address?: {
-        country_code?: string;
-        state?: string;
-        region?: string;
-        county?: string;
-    };
 }
 
 interface SharedGeolocationState {
@@ -92,25 +85,18 @@ function requestCurrentPosition() {
 }
 
 async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<PreciseHolidayLocation> {
-    const url = new URL("https://nominatim.openstreetmap.org/reverse");
-    url.searchParams.set("format", "jsonv2");
-    url.searchParams.set("lat", String(latitude));
-    url.searchParams.set("lon", String(longitude));
-    url.searchParams.set("zoom", "5");
-    url.searchParams.set("addressdetails", "1");
-
-    const response = await fetch(url);
+    const url = `${API_BASE_URL}/api/proxy/geocode/reverse?latitude=${latitude}&longitude=${longitude}`;
+    const response = await authenticatedFetch(url, { authenticated: true });
 
     if (!response.ok) {
         throw new Error(`Reverse geocoding failed with status ${response.status}`);
     }
 
-    const payload = await response.json() as ReverseGeocodeResponse;
-    const address = payload.address;
+    const payload = await response.json() as { data: { countryCode: string | null; subdivisionName: string | null } };
 
     return {
-        countryCode: normalizeCountryCode(address?.country_code ?? null),
-        subdivisionName: address?.state ?? address?.region ?? address?.county ?? null,
+        countryCode: normalizeCountryCode(payload.data.countryCode),
+        subdivisionName: payload.data.subdivisionName,
     };
 }
 

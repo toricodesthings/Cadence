@@ -21,13 +21,16 @@ import {
     habits,
     inboxItems,
     inboxSections,
+    mutationDedup,
     projects,
     subtasks,
+    suggestions,
     tags,
     taskMetrics,
     taskSections,
     taskTags,
     tasks,
+    usageEvents,
     userMetrics,
     users,
 } from "../db/schema";
@@ -60,6 +63,9 @@ function getRequiredRow<T extends { id: string }>(rows: Map<string, T>, key: str
 }
 
 async function clearUserData(db: RlsClient, userId: string) {
+    await db.delete(suggestions).where(eq(suggestions.userId, userId));
+    await db.delete(usageEvents).where(eq(usageEvents.userId, userId));
+    await db.delete(mutationDedup).where(eq(mutationDedup.userId, userId));
     await db.delete(taskMetrics).where(eq(taskMetrics.userId, userId));
     await db.delete(subtasks).where(eq(subtasks.userId, userId));
     await db.delete(tasks).where(eq(tasks.userId, userId));
@@ -89,6 +95,7 @@ debugRoutes.post("/seed", async (c) => {
     const { userId } = requireAdmin(c);
     const db = getDbClient(c.env);
 
+    try {
     await withRls(db, userId, async (db) => {
     await clearUserData(db, userId);
 
@@ -290,6 +297,7 @@ debugRoutes.post("/seed", async (c) => {
             state: "ACTIVE",
             orderIndex: 13,
             isAllDay: false,
+            interactionMode: "timetable",
             scheduledStart: "2026-03-10T09:30:00.000Z",
             scheduledEnd: "2026-03-10T10:45:00.000Z",
             durationEstimate: 75,
@@ -657,6 +665,15 @@ debugRoutes.post("/seed", async (c) => {
         .where(eq(users.id, userId));
 
     });
+    } catch (err: unknown) {
+        const cause = err instanceof Error && err.cause ? err.cause : null;
+        const detail = cause instanceof Error ? cause.message : String(cause ?? "");
+        throw new AppError(
+            500,
+            "SEED_FAILED",
+            `Seed failed: ${err instanceof Error ? err.message : String(err)}${detail ? ` — cause: ${detail}` : ""}`,
+        );
+    }
 
     return c.json({ success: true, message: "Seeded full test workspace." });
 });

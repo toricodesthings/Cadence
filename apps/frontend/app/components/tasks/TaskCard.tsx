@@ -173,6 +173,13 @@ export function TaskCard({
     const isCompactCard = !task.waitingOn && !hasMetaChips && !isSubtasksExpanded && !isAddingSubtask;
     const isBoardCard = variant === "board";
 
+    const handleRename = () => {
+        onSelect?.(task.id);
+        setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('cadence:focus-task-title', { detail: { taskId: task.id } }));
+        }, 150);
+    };
+
     const handleSelect = (e?: React.MouseEvent | React.KeyboardEvent) => {
         if (e && "metaKey" in e && (e.metaKey || e.ctrlKey || e.shiftKey)) {
             toggleTask(task.id);
@@ -468,7 +475,7 @@ export function TaskCard({
 
             {/* Context menu — visible on hover */}
             <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100" : `opacity-0 group-hover:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
-                <TaskContextMenu task={task} onAddSubtask={handleAddSubtask} />
+                <TaskContextMenu task={task} onAddSubtask={handleAddSubtask} onRename={handleRename} />
             </div>
         </article>
     );

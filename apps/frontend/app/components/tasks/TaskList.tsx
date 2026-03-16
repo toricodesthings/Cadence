@@ -153,7 +153,10 @@ export function TaskList({
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col mt-4 gap-1">
                     {tasks.map((task) => (
-                        <TaskContextMenuWrapper key={task.id} task={task}>
+                        <TaskContextMenuWrapper key={task.id} task={task} onRename={() => {
+                            onSelectTask?.(task.id);
+                            setTimeout(() => window.dispatchEvent(new CustomEvent('cadence:focus-task-title', { detail: { taskId: task.id } })), 150);
+                        }}>
                             <SortableTaskCard
                                 task={task}
                                 tags={tagsByTaskId[task.id] ?? []}

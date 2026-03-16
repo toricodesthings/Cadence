@@ -7,16 +7,17 @@ export interface TaskContextMenuWrapperProps {
     task: Task;
     children: React.ReactNode;
     onAddSubtask?: () => void;
+    onRename?: () => void;
 }
 
-export function TaskContextMenuWrapper({ task, children, onAddSubtask }: TaskContextMenuWrapperProps) {
+export function TaskContextMenuWrapper({ task, children, onAddSubtask, onRename }: TaskContextMenuWrapperProps) {
     return (
         <ContextMenu.Root>
             <ContextMenu.Trigger className="block w-full">
                 {children}
             </ContextMenu.Trigger>
             <ContextMenu.Content className="w-64">
-                <TaskMenuItems task={task} onAddSubtask={onAddSubtask} MenuComponents={ContextMenu} />
+                <TaskMenuItems task={task} onAddSubtask={onAddSubtask} onRename={onRename} MenuComponents={ContextMenu} />
             </ContextMenu.Content>
         </ContextMenu.Root>
     );

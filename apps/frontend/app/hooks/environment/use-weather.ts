@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, type LucideIcon } from "lucide-react";
 import { useGeolocation } from "./use-geolocation";
+import { authenticatedFetch } from "../../lib/api/client";
+import { API_BASE_URL } from "../../lib/env";
 
 export interface WeatherData {
     temp: number;
@@ -56,6 +58,7 @@ interface OpenMeteoResponse {
 export function useWeather() {
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<"fetch_failed" | "denied" | null>(null);
     const { coordinates, permissionState, resolvePreciseLocation } = useGeolocation();
 
     useEffect(() => {
@@ -63,23 +66,25 @@ export function useWeather() {
 
         const fetchWeather = async (lat: number, lon: number) => {
             try {
-                const res = await fetch(
-                    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`
+                const res = await authenticatedFetch(
+                    `${API_BASE_URL}/api/proxy/weather?latitude=${lat}&longitude=${lon}`,
+                    { authenticated: true },
                 );
-                const data = (await res.json()) as OpenMeteoResponse;
+                const body = (await res.json()) as { data: OpenMeteoResponse };
 
-                if (!cancelled && data.current_weather) {
-                    const code = data.current_weather.weathercode;
+                if (!cancelled && body.data?.current_weather) {
+                    const code = body.data.current_weather.weathercode;
                     const mapped = weatherMapping[code] ?? { label: "Cloudy", icon: Cloud };
 
                     setWeather({
-                        temp: Math.round(data.current_weather.temperature),
+                        temp: Math.round(body.data.current_weather.temperature),
                         condition: mapped.label,
                         icon: mapped.icon,
                     });
                 }
             } catch (err) {
                 console.error("Weather fetch failed:", err);
+                if (!cancelled) setError("fetch_failed");
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -92,7 +97,10 @@ export function useWeather() {
             }
 
             if (permissionState === "denied" || permissionState === "unsupported") {
-                if (!cancelled) setLoading(false);
+                if (!cancelled) {
+                    setError("denied");
+                    setLoading(false);
+                }
                 return;
             }
 
@@ -108,5 +116,5 @@ export function useWeather() {
         return () => { cancelled = true; };
     }, [coordinates, permissionState, resolvePreciseLocation]);
 
-    return { weather, loading };
+    return { weather, loading, error };
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import {
     ArrowLeft, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
     Pin, Repeat, CalendarRange, AlertTriangle, Trash2, Copy, SlidersHorizontal,
@@ -14,7 +14,6 @@ import { TagPickerList } from "./TagPickerSubmenu";
 import { TagBubble } from "../sidebar/TagBubble";
 import { useTags, useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
 import { SubtaskList } from "./SubtaskList";
-import { MarkdownEditor } from "./MarkdownEditor";
 import * as Separator from "../primitives/Separator";
 import * as Tooltip from "../primitives/Tooltip";
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -28,6 +27,8 @@ import {
     isRecurringTask,
 } from "../../lib/utils/task-scheduling";
 import type { Task, TaskPriority, TaskState, EffortLevel } from "../../types/task";
+
+const MarkdownEditor = lazy(() => import("./MarkdownEditor").then((m) => ({ default: m.MarkdownEditor })));
 
 interface TaskEditPanelProps {
     taskId: string;
@@ -55,7 +56,7 @@ const MetaRow = React.memo(function MetaRow({
                 aria-hidden="true"
             />
             <span className="text-[13px] text-twilight-text-muted w-20 shrink-0">{label}</span>
-            <div className="flex-1 flex justify-end">{children}</div>
+            <div className="flex-1 flex justify-end min-w-0"><div className="max-w-full overflow-x-auto scrollbar-hidden flex justify-end">{children}</div></div>
         </div>
     );
 });
@@ -86,6 +87,7 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
     const [showDetails, setShowDetails] = useState(false);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const titleRef = useRef<HTMLInputElement>(null);
     const notesRef = useRef<HTMLTextAreaElement>(null);
 
     // Sync state when task loads
@@ -222,16 +224,22 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                             <ArrowLeft size={15} aria-hidden="true" />
                         </button>
 
-                        <input
-                            type="text"
-                            value={title}
+                        <div className="flex-1 min-w-0 relative group flex items-center">
+                            <input
+                                ref={titleRef}
+                                type="text"
+                                value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             onBlur={handleTitleBlur}
                             onKeyDown={handleTitleKeyDown}
                             aria-label="Task title"
-                            className="flex-1 min-w-0 bg-transparent font-display text-sm font-medium text-twilight-text outline-none placeholder:text-twilight-text-muted/80 truncate"
+                            className="peer flex-1 min-w-0 bg-transparent font-display text-sm font-medium text-twilight-text outline-none placeholder:text-twilight-text-muted/80 truncate"
                             placeholder="Task title"
-                        />
+                            />
+                            <div className="absolute right-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity text-twilight-text-muted peer-focus:opacity-0 flex items-center justify-center">
+                                <Pencil size={13} aria-hidden="true" />
+                            </div>
+                        </div>
 
                         <button
                             onClick={() => setShowDetails((v) => !v)}
@@ -538,13 +546,15 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
 
                     {/* Notes — fills all remaining space */}
                     <div className="flex-1 flex flex-col min-h-0 px-5 pt-5 pb-3">
-                        <MarkdownEditor
-                            notes={notes}
-                            isEditing={isEditingNotes}
-                            setIsEditing={setIsEditingNotes}
-                            onChange={handleNotesChange}
-                            maxLength={maxChars}
-                        />
+                        <Suspense fallback={<div className="flex-1" />}>
+                            <MarkdownEditor
+                                notes={notes}
+                                isEditing={isEditingNotes}
+                                setIsEditing={setIsEditingNotes}
+                                onChange={handleNotesChange}
+                                maxLength={maxChars}
+                            />
+                        </Suspense>
 
                         {/* Subtasks stub to be implemented fully later */}
                         <SubtaskList taskId={task.id} />

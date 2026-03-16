@@ -1,4 +1,4 @@
-import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Repeat, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Zap } from "lucide-react";
+import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Repeat, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Zap, Pencil } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { Button } from "../primitives/Button";
@@ -16,11 +16,12 @@ type GenericMenu = typeof DropdownMenu | typeof ContextMenu;
 export interface TaskMenuItemsProps {
     task: Task;
     onAddSubtask?: () => void;
+    onRename?: () => void;
     MenuComponents: GenericMenu;
 }
 
 /** Reusable inner items for either DropdownMenu or ContextMenu */
-export function TaskMenuItems({ task, onAddSubtask, MenuComponents: Menu }: TaskMenuItemsProps) {
+export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu }: TaskMenuItemsProps) {
     const deleteTask = useDeleteTask();
     const updateTask = useUpdateTask();
     const duplicateTask = useDuplicateTask();
@@ -184,6 +185,13 @@ export function TaskMenuItems({ task, onAddSubtask, MenuComponents: Menu }: Task
                 </div>
             </Menu.Item>
 
+            <Menu.Item onClick={() => onRename?.()}>
+                <div className="flex items-center gap-2">
+                    <Pencil size={16} />
+                    <span>Rename</span>
+                </div>
+            </Menu.Item>
+
             <Menu.Item onClick={() => duplicateTask.mutate(task.id)}>
                 <div className="flex items-center gap-2">
                     <Copy size={16} />
@@ -216,9 +224,10 @@ export function TaskMenuItems({ task, onAddSubtask, MenuComponents: Menu }: Task
 export interface TaskContextMenuProps {
     task: Task;
     onAddSubtask?: () => void;
+    onRename?: () => void;
 }
 
-export function TaskContextMenu({ task, onAddSubtask }: TaskContextMenuProps) {
+export function TaskContextMenu({ task, onAddSubtask, onRename }: TaskContextMenuProps) {
     return (
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -228,7 +237,7 @@ export function TaskContextMenu({ task, onAddSubtask }: TaskContextMenuProps) {
             </DropdownMenu.Trigger>
 
             <DropdownMenu.Content className="w-72" side="right" align="start" sideOffset={8}>
-                <TaskMenuItems task={task} onAddSubtask={onAddSubtask} MenuComponents={DropdownMenu} />
+                <TaskMenuItems task={task} onAddSubtask={onAddSubtask} onRename={onRename} MenuComponents={DropdownMenu} />
             </DropdownMenu.Content>
         </DropdownMenu.Root>
     );

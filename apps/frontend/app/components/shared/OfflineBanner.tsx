@@ -31,10 +31,10 @@ export function OfflineBanner() {
             <div
                 role="status"
                 aria-live="polite"
-                className="fixed top-0 inset-x-0 z-[100] flex items-center justify-center gap-2 bg-blue-900/90 px-4 py-2 text-sm font-medium text-blue-100 backdrop-blur-sm"
+                className="offline-banner offline-banner--syncing"
             >
                 <RefreshCw size={14} className="animate-spin" aria-hidden="true" />
-                Syncing {outbox.replaying} pending changes...
+                Syncing {outbox.replaying} pending changes…
             </div>
         );
     }
@@ -45,20 +45,20 @@ export function OfflineBanner() {
             <div
                 role="status"
                 aria-live="polite"
-                className="fixed top-0 inset-x-0 z-[100] flex items-center justify-center gap-2 bg-rose-900/90 px-4 py-2 text-sm font-medium text-rose-100 backdrop-blur-sm"
+                className="offline-banner offline-banner--failed"
             >
-                {outbox.failed.length} changes failed to sync
+                {outbox.failed.length} change{outbox.failed.length > 1 ? "s" : ""} failed to sync
                 <button
                     type="button"
                     onClick={outbox.retryFailed}
-                    className="ml-2 rounded-md bg-white/20 px-2 py-0.5 text-xs font-semibold hover:bg-white/30"
+                    className="offline-banner__action offline-banner__action--primary"
                 >
                     Retry
                 </button>
                 <button
                     type="button"
                     onClick={outbox.dismissFailed}
-                    className="ml-1 rounded-md bg-white/10 px-2 py-0.5 text-xs hover:bg-white/20"
+                    className="offline-banner__action"
                 >
                     Dismiss
                 </button>
@@ -71,11 +71,11 @@ export function OfflineBanner() {
             <div
                 role="status"
                 aria-live="polite"
-                className="fixed top-0 inset-x-0 z-[100] flex items-center justify-center gap-2 bg-amber-900/90 px-4 py-2 text-sm font-medium text-amber-100 backdrop-blur-sm"
+                className="offline-banner offline-banner--offline"
             >
                 <WifiOff size={14} aria-hidden="true" />
                 You&apos;re offline
-                {outbox.pending > 0 && ` — ${outbox.pending} changes queued`}
+                {outbox.pending > 0 && ` — ${outbox.pending} change${outbox.pending > 1 ? "s" : ""} queued`}
             </div>
         );
     }

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { FolderKanban, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { FolderKanban, Pencil, Trash2 } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects";
 import { useUpdateProject, useDeleteProject } from "../hooks/projects";
@@ -17,7 +17,6 @@ import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/sort-tasks";
-import * as DropdownMenu from "../components/primitives/DropdownMenu";
 import * as Dialog from "../components/primitives/Dialog";
 import * as AlertDialog from "../components/primitives/AlertDialog";
 import { Button } from "../components/primitives/Button";
@@ -283,34 +282,23 @@ export default function ProjectView() {
                 headerCenter={<ViewToggle view={view} onViewChange={setView} />}
                 headerRight={project ? (
                     <div className="flex items-center gap-2">
-                        <SortMenu mode={sortMode} onModeChange={setSortMode} />
-                        <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                            <button
-                                aria-label="Project actions"
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-twilight-border/35 text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
-                            >
-                                <MoreHorizontal size={18} aria-hidden="true" />
-                            </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content align="end">
-                            <DropdownMenu.Item
-                                className="flex items-center gap-2"
-                                onSelect={handleRenameOpen}
-                            >
-                                <Pencil size={13} aria-hidden="true" />
-                                Rename / Edit project
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Separator />
-                            <DropdownMenu.Item
-                                className="flex items-center gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                                onSelect={() => setDeleteOpen(true)}
-                            >
-                                <Trash2 size={13} aria-hidden="true" />
-                                Delete project
-                            </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                    </DropdownMenu.Root>
+                        <SortMenu
+                            mode={sortMode}
+                            onModeChange={setSortMode}
+                            actions={[
+                                {
+                                    label: "Rename / Edit project",
+                                    icon: Pencil,
+                                    onSelect: handleRenameOpen,
+                                },
+                                {
+                                    label: "Delete project",
+                                    icon: Trash2,
+                                    onSelect: () => setDeleteOpen(true),
+                                    danger: true,
+                                },
+                            ]}
+                        />
                     </div>
                 ) : undefined}
                 contentWidth="default"

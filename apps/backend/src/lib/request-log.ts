@@ -217,15 +217,22 @@ export async function logErrorResponse(
 ) {
     const requestId = getRequestId(c);
     const userId = c.var.userId;
-    const issues = error instanceof Error
-        ? [
-            {
-                code: error.name || "Error",
-                message: shorten(error.message),
-                path: "",
-            },
-        ]
-        : undefined;
+    const issueList: ValidationIssueSummary[] = [];
+    if (error instanceof Error) {
+        issueList.push({
+            code: error.name || "Error",
+            message: shorten(error.message),
+            path: "",
+        });
+        if (error.cause instanceof Error) {
+            issueList.push({
+                code: error.cause.name || "Cause",
+                message: shorten(error.cause.message),
+                path: "cause",
+            });
+        }
+    }
+    const issues = issueList.length > 0 ? issueList : undefined;
 
     emitStructuredLog({
         event: "request_failed",

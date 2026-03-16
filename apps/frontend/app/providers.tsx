@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import { QueryClient, QueryCache, MutationCache } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { AuthUIProvider } from "@neondatabase/auth/react/ui";
 import { ThemeProvider } from "next-themes";
@@ -54,7 +54,7 @@ function ProvidersInner({ children }: { children: ReactNode }) {
         return error.isRetryable && failureCount < maxRetries;
     };
 
-    // Use Retry-After header when available (rate limits), otherwise exponential backoff.
+    // Exponential backoff — rate-limited requests back off more aggressively.
     const retryDelay = (attempt: number, error: Error) => {
         if (error instanceof ApiErrorResponse && error.isRateLimited) {
             return Math.min(2000 * 2 ** attempt, 16000);

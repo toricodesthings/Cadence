@@ -2,9 +2,17 @@ import { EllipsisVertical, ArrowUpDown, Sparkles, ArrowDownWideNarrow, GripVerti
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { SortMode } from "../../lib/utils/sort-tasks";
 
+interface SortMenuAction {
+    label: string;
+    onSelect: () => void;
+    icon?: typeof Sparkles;
+    danger?: boolean;
+}
+
 interface SortMenuProps {
     mode: SortMode;
     onModeChange: (mode: SortMode) => void;
+    actions?: SortMenuAction[];
 }
 
 const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof Sparkles }[] = [
@@ -13,7 +21,7 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof Sparkles }[] 
     { value: "manual", label: "Manual", icon: GripVertical },
 ];
 
-export function SortMenu({ mode, onModeChange }: SortMenuProps) {
+export function SortMenu({ mode, onModeChange, actions = [] }: SortMenuProps) {
     return (
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -44,6 +52,24 @@ export function SortMenu({ mode, onModeChange }: SortMenuProps) {
                         )}
                     </DropdownMenu.Item>
                 ))}
+                {actions.length > 0 && (
+                    <>
+                        <DropdownMenu.Separator />
+                        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted">
+                            Actions
+                        </div>
+                        {actions.map(({ label, onSelect, icon: Icon, danger }) => (
+                            <DropdownMenu.Item
+                                key={label}
+                                onSelect={onSelect}
+                                className={`flex items-center gap-2 ${danger ? "text-red-400 focus:text-red-400 focus:bg-red-500/10" : ""}`}
+                            >
+                                {Icon ? <Icon size={14} aria-hidden="true" /> : null}
+                                <span>{label}</span>
+                            </DropdownMenu.Item>
+                        ))}
+                    </>
+                )}
             </DropdownMenu.Content>
         </DropdownMenu.Root>
     );

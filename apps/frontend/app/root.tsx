@@ -41,17 +41,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="description"
           content="Cadence is a calm, atmospheric planning workspace for tasks, habits, and weekly resets."
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if (window.location.hostname === "127.0.0.1") {
-                const url = new URL(window.location.href);
-                url.hostname = "localhost";
-                window.location.replace(url.toString());
-              }
-            `,
-          }}
-        />
+        <script src="/redirect-localhost.js" />
         <Meta />
         <Links />
       </head>
@@ -60,17 +50,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <ScrollRestoration />
         <Scripts />
         {RUNTIME_TARGET !== "desktop" && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                if ("serviceWorker" in navigator) {
-                  window.addEventListener("load", function() {
-                    navigator.serviceWorker.register("/sw.js").catch(function() {});
-                  });
-                }
-              `,
-            }}
-          />
+          <script src="/register-sw.js" />
         )}
       </body>
     </html>

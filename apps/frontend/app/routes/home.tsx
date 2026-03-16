@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen, Sparkles } from "lucide-react";
+export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PlannerHeader } from "../components/layout/PlannerHeader";

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AlertTriangle, PanelRightClose, Sunrise } from "lucide-react";
 import { useDragScroll } from "../hooks/ui/use-drag-scroll";
 import { MainLayout } from "../components/layout/MainLayout";

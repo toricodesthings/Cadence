@@ -16,6 +16,7 @@ import { sectionRoutes } from "./routes/sections";
 import { settingsRoutes } from "./routes/settings";
 import { eventRoutes } from "./routes/events";
 import { suggestionRoutes } from "./routes/suggestions";
+import { proxyRoutes } from "./routes/proxy";
 import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCode } from "./lib/request-log";
 
 const CORS_ORIGIN = "https://dashboard.cadenceapp.cloud";
@@ -146,6 +147,7 @@ app.route("/api/sections", sectionRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/events", eventRoutes);
 app.route("/api/suggestions", suggestionRoutes);
+app.route("/api/proxy", proxyRoutes);
 app.route("/api/debug", debugRoutes);
 
 // ── Type export for Hono RPC ──

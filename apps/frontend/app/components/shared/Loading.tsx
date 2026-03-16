@@ -1,5 +1,3 @@
-import React from "react";
-
 export function Loading() {
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#050811] overflow-hidden">

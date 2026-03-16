@@ -204,4 +204,81 @@ describe("backend middleware security", () => {
             },
         });
     });
+
+    describe("auth required for all route families", () => {
+        const protectedEndpoints = [
+            { name: "projects (GET)", method: "GET", path: "/api/projects" },
+            { name: "projects (POST)", method: "POST", path: "/api/projects" },
+            { name: "tags (GET)", method: "GET", path: "/api/tags" },
+            { name: "tags (POST)", method: "POST", path: "/api/tags" },
+            { name: "inbox (GET)", method: "GET", path: "/api/inbox" },
+            { name: "inbox (POST)", method: "POST", path: "/api/inbox" },
+            { name: "sections (GET)", method: "GET", path: "/api/sections" },
+            { name: "sections (POST)", method: "POST", path: "/api/sections" },
+            { name: "subtasks (GET)", method: "GET", path: "/api/tasks/fake-id/subtasks" },
+            { name: "suggestions (GET)", method: "GET", path: "/api/suggestions" },
+            { name: "events (POST)", method: "POST", path: "/api/events" },
+            { name: "settings (GET)", method: "GET", path: "/api/settings" },
+            { name: "tasks (GET)", method: "GET", path: "/api/tasks" },
+            { name: "habits (GET)", method: "GET", path: "/api/habits" },
+        ];
+
+        for (const { name, method, path } of protectedEndpoints) {
+            it(`rejects unauthenticated ${name} requests with 401`, async () => {
+                const response = await worker.fetch(
+                    new Request(`http://localhost${path}`, { method }),
+                    createEnv(),
+                    createExecutionContext(),
+                );
+
+                expect(response.status).toBe(401);
+                await expect(response.json()).resolves.toMatchObject({
+                    error: { code: "UNAUTHORIZED" },
+                });
+            });
+        }
+    });
+
+    describe("write rate limiter applied on mutations", () => {
+        it("rate-limits POST to /api/projects when write limiter is exhausted", async () => {
+            const response = await worker.fetch(
+                new Request("http://localhost/api/projects", {
+                    method: "POST",
+                    headers: {
+                        Authorization: "Bearer valid-token",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ name: "Test" }),
+                }),
+                createEnv({
+                    RATE_LIMITER_WRITE: createLimiter(false),
+                }),
+                createExecutionContext(),
+            );
+
+            expect(response.status).toBe(429);
+            await expect(response.json()).resolves.toMatchObject({
+                error: { code: "TOO_MANY_REQUESTS" },
+            });
+        });
+
+        it("rate-limits POST to /api/inbox when write limiter is exhausted", async () => {
+            const response = await worker.fetch(
+                new Request("http://localhost/api/inbox", {
+                    method: "POST",
+                    headers: {
+                        Authorization: "Bearer valid-token",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ rawText: "Test" }),
+                }),
+                createEnv({
+                    RATE_LIMITER_WRITE: createLimiter(false),
+                }),
+                createExecutionContext(),
+            );
+
+            expect(response.status).toBe(429);
+        });
+    });
 });

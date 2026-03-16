@@ -46,6 +46,42 @@ src/
 - The settings PATCH schema keeps notification fields optional by design (partial merges).
 - The debug seed route includes notification-triggering test data and unmanaged tasks for frontend testing.
 
+## Release Notes
+
+- **Task interaction mode** — recurring tasks now persist `interactionMode`, including timetable-style passive recurring blocks used by the frontend schedule and task surfaces.
+- **Migration normalization** — the Drizzle migration ledger was repaired so fresh databases and existing databases share the same reproducible migration chain without `push`/force workflows.
+- **Security tightening** — debug routes are disabled by default in production and only become available when explicitly enabled through environment configuration.
+- **Contract alignment** — task recurrence, section/project scoping, and settings flows were updated to match the release frontend behavior and typed RPC contracts.
+
+## Operational Notes
+
+### Deployment Model
+
+Production deploys to Cloudflare Workers happen via direct pushes to `main`. There is no CI gate that blocks deployment — GitHub Actions verify (typecheck, tests, deploy dry-run) runs **after** push and serves as a post-deploy health signal, not a preventative release gate.
+
+This means:
+- All verification must pass **locally** before pushing to `main`.
+- A failing post-push check indicates a rollback may be needed.
+- `wrangler deploy --minify` is the deploy command (aliased as `pnpm deploy:backend`).
+
+### Environment Configuration
+
+- Set `NEON_AUTH_JWKS_URL` in Worker secrets for the production Neon Auth branch.
+- Keep debug capabilities off in production unless there is an intentional operational reason to enable them (`ENABLE_DEBUG_ROUTES` must be explicitly set to `"true"`).
+
+### Pre-Push Checklist
+
+Before pushing to `main`, verify locally:
+1. `pnpm --filter @cadence/backend test:unit` — all contract and unit tests pass
+2. `pnpm --filter @cadence/backend typecheck` — no type errors
+3. `wrangler deploy --dry-run --minify` — deploy bundle builds successfully
+
+### Schema Changes
+
+- Update Drizzle schema first
+- Generate a numbered SQL migration
+- Confirm `pnpm --filter @cadence/backend db:generate` reports no drift after the migration is committed
+
 ## Related Docs
 
 - [Workspace root](../../README.md)

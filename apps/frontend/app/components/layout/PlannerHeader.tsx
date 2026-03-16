@@ -4,11 +4,12 @@ import { authClient } from "../../lib/auth-client";
 import { useWeather } from "../../hooks/environment/use-weather";
 import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
 import { useMemo } from "react";
+import { CloudOff } from "lucide-react";
 
 /** The contextual greeting header — warm, cozy, like settling into a lit room */
 export function PlannerHeader() {
     const { data: session } = authClient.useSession();
-    const { weather, loading } = useWeather();
+    const { weather, loading, error } = useWeather();
     const now = new Date();
     const formatted = formatDateLabel(now);
     const greeting = useMemo(() => getTimeBasedGreeting(), []);
@@ -44,6 +45,16 @@ export function PlannerHeader() {
                         <span className="inline-flex items-center ml-3 gap-1.5 animate-pulse">
                             <span className="w-3 h-3 rounded-full bg-twilight-text-muted/15" />
                             <span className="w-12 h-3 rounded bg-twilight-text-muted/15" />
+                        </span>
+                    )}
+
+                    {!loading && !weather && error && (
+                        <span className="animate-in fade-in duration-500">
+                            <span className="mx-2 text-twilight-text-soft">·</span>
+                            <CloudOff size={13} className="inline -mt-0.5 mr-1 text-twilight-text-muted/70" aria-hidden="true" />
+                            <span className="text-twilight-text-muted/70">
+                                {error === "denied" ? "Location off" : "Weather unavailable"}
+                            </span>
                         </span>
                     )}
                 </p>

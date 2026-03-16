@@ -4,12 +4,8 @@ import * as Tooltip from "../primitives/Tooltip";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useSidebarStore } from "../../stores/sidebar-store";
 import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
-import { CommandPalette } from "../command-palette/CommandPalette";
-import { FloatingActionBar } from "../tasks/FloatingActionBar";
-import { SettingsDialog } from "../settings/SettingsDialog";
-import { QuickAddSurface } from "../quick-add/QuickAddSurface";
 import { Loading } from "../shared/Loading";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDocumentMeta } from "../../hooks/core/use-document-meta";
@@ -21,6 +17,11 @@ import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
 import type { PageWidth } from "./PageLayout";
+
+const CommandPalette = lazy(() => import("../command-palette/CommandPalette").then((m) => ({ default: m.CommandPalette })));
+const SettingsDialog = lazy(() => import("../settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
+const QuickAddSurface = lazy(() => import("../quick-add/QuickAddSurface").then((m) => ({ default: m.QuickAddSurface })));
+const FloatingActionBar = lazy(() => import("../tasks/FloatingActionBar").then((m) => ({ default: m.FloatingActionBar })));
 
 const PAGE_META: Record<string, { title: string; description: string }> = {
     "/": {
@@ -314,10 +315,18 @@ export function MainLayout({
                 </div>
             </div>
 
-            <FloatingActionBar />
-            <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
-            <QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} />
-            <SettingsDialog />
+            <Suspense fallback={null}>
+                <FloatingActionBar />
+            </Suspense>
+            <Suspense fallback={null}>
+                <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+            </Suspense>
+            <Suspense fallback={null}>
+                <QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+            </Suspense>
+            <Suspense fallback={null}>
+                <SettingsDialog />
+            </Suspense>
         </Tooltip.Provider>
     );
 }

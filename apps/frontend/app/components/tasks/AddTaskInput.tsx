@@ -10,13 +10,17 @@ import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 
 interface AddTaskInputProps {
     projectId?: string;
+    sectionId?: string;
+    compact?: boolean;
     tasks: Task[];
 }
 
 /** Input field for quick task creation — submits on Enter, optimistic insert */
 export function AddTaskInput({
     projectId,
+    sectionId,
     tasks,
+    compact = false,
 }: AddTaskInputProps) {
     const [value, setValue] = useState("");
     const [isFocused, setIsFocused] = useState(false);
@@ -55,6 +59,7 @@ export function AddTaskInput({
             isAllDay: deadline.isAllDay,
             ...(priority > 0 && { priority }),
             ...(projectId && { projectId }),
+            ...(sectionId && { sectionId }),
         });
 
         setValue("");
@@ -89,18 +94,19 @@ export function AddTaskInput({
                 handleSubmit();
             }}
             className={`
-                flex items-center gap-4 rounded-2xl border px-6 py-5
+                flex items-center border
+                ${compact ? "gap-2 rounded-[10px] px-3 py-2 shadow-none" : "gap-4 rounded-2xl px-6 py-5"}
                 transition-[color,background-color,border-color,box-shadow] duration-200
-                ${isFocused
-                    ? "border-lantern/20 bg-white/[0.03] shadow-[0_0_0_1px_rgba(232,164,74,0.08),0_4px_24px_rgba(232,164,74,0.04)]"
-                    : "border-twilight-border bg-transparent hover:border-twilight-border-light"
-                }
+                ${compact && !isFocused ? "border-transparent bg-transparent hover:bg-white/[0.02]" : ""}
+                ${!compact && !isFocused ? "border-twilight-border bg-transparent hover:border-twilight-border-light" : ""}
+                ${isFocused && !compact ? "border-lantern/20 bg-white/[0.03] shadow-[0_0_0_1px_rgba(232,164,74,0.08),0_4px_24px_rgba(232,164,74,0.04)]" : ""}
+                ${isFocused && compact ? "border-lantern/40 bg-white/[0.04]" : ""}
             `}
             aria-label="Add new task"
             data-focus-container
         >
             <Plus
-                size={18}
+                size={compact ? 14 : 18}
                 aria-hidden="true"
                 className={`shrink-0 transition-colors duration-200 ${isFocused ? "text-lantern" : "text-twilight-text-muted"}`}
             />
@@ -110,9 +116,9 @@ export function AddTaskInput({
                 onChange={(e) => setValue(e.target.value)}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
-                placeholder="What needs to be done?"
+                placeholder={compact ? "Add task to section..." : "What needs to be done?"}
                 aria-label="New task title"
-                className="flex-1 bg-transparent text-base text-twilight-text outline-none placeholder:text-twilight-text-muted/80"
+                className={`flex-1 bg-transparent text-twilight-text outline-none placeholder:text-twilight-text-muted/60 ${compact ? "text-sm h-7" : "text-base"}`}
                 onKeyDown={(e) => {
                     if (e.key === "Escape") {
                         setValue("");
@@ -131,7 +137,7 @@ export function AddTaskInput({
                 <button
                     aria-label={hasDeadlineSet ? `Deadline: ${deadlineLabel}. Click to change` : "Set task deadline"}
                     className={`
-                        flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium
+                        flex items-center gap-1.5 rounded-lg px-2 py-1 ${compact ? "text-[10px]" : "text-[11px]"} font-medium
                         transition-opacity transition-colors duration-200
                         ${hasDeadlineSet
                             ? "opacity-100 bg-lantern/10 text-lantern"
