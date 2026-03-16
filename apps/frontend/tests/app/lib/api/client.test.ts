@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiErrorResponse } from "../../../../app/types/api";
 
 const getSessionMock = vi.fn();
+const platformFetchMock = vi.fn();
 
 vi.mock("../../../../app/lib/auth-client", () => ({
     authClient: {
@@ -9,14 +10,19 @@ vi.mock("../../../../app/lib/auth-client", () => ({
     },
 }));
 
+vi.mock("../../../../app/platform/runtime", () => ({
+    platformFetch: (input: RequestInfo | URL, init?: RequestInit) => platformFetchMock(input, init),
+}));
+
 describe("api/client", () => {
     beforeEach(() => {
         getSessionMock.mockReset();
-        vi.stubGlobal("fetch", vi.fn(async (_input, init) => new Response(JSON.stringify({
+        platformFetchMock.mockReset();
+        platformFetchMock.mockImplementation(async (_input, init) => new Response(JSON.stringify({
             headers: Object.fromEntries(new Headers(init?.headers).entries()),
             cache: init?.cache ?? null,
             method: init?.method ?? "GET",
-        }))));
+        })));
     });
 
     it("injects bearer tokens and disables GET caching for authenticated requests", async () => {

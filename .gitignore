@@ -34,3 +34,7 @@ npm-debug.log*
 .DS_Store
 .idea
 .vscode
+
+# Windows alternate-stream metadata accidentally materialized as files on Unix
+*:Zone.Identifier
+*Zone.Identifier

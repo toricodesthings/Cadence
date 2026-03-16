@@ -1,4 +1,5 @@
 use tauri::{Emitter, Manager};
+#[cfg(any(windows, target_os = "linux"))]
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, serde::Serialize)]

@@ -7,6 +7,7 @@ import {
     getTaskTimelineAnchor,
     isRecurringTaskInstance,
 } from "../../../../app/lib/utils/task-scheduling";
+import { formatTime } from "../../../../app/lib/utils/date-format";
 import type { Task } from "../../../../app/types/task";
 
 function createTask(overrides: Partial<Task> = {}): Task {
@@ -113,11 +114,12 @@ describe("task scheduling helpers", () => {
             scheduledEnd: "2026-03-10T14:45:00.000Z",
             recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
         });
+        const timeLabel = `${formatTime(task.scheduledStart!)} - ${formatTime(task.scheduledEnd!)}`;
 
         expect(getTaskRecurrenceSummary(task)).toEqual({
-            label: "Repeats Tue & Thu, 9:30 AM - 10:45 AM, until May 2",
+            label: `Repeats Tue & Thu, ${timeLabel}, until May 2`,
             cadenceLabel: "Repeats Tue & Thu",
-            detailLabel: "every Tue & Thu, 9:30 AM - 10:45 AM, until May 2",
+            detailLabel: `every Tue & Thu, ${timeLabel}, until May 2`,
             weekdayLabel: "Tue & Thu",
             endLabel: "May 2",
         });
