@@ -1,114 +1,85 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, PanelRightClose, Sunrise } from "lucide-react";
-import { useDragScroll } from "../hooks/ui/use-drag-scroll";
+import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
+import { PlannerHeader } from "../components/layout/PlannerHeader";
+import { PageContent } from "../components/layout/PageLayout";
+import { AddTaskInput } from "../components/tasks/AddTaskInput";
+import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
+import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
+import { EmptyState } from "../components/tasks/EmptyState";
+import { InboxList } from "../components/inbox/InboxList";
+import { InboxBoard } from "../components/inbox/InboxBoard";
+import { KanbanBoard } from "../components/kanban/KanbanBoard";
+import { ViewToggle } from "../components/shared/ViewToggle";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import { CalendarView } from "../components/calendar/CalendarView";
+import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
-import { TaskList } from "../components/tasks/TaskList";
-import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
-import { EmptyState } from "../components/tasks/EmptyState";
-import { PageContent } from "../components/layout/PageLayout";
-import { ViewToggle } from "../components/shared/ViewToggle";
-import { SortMenu } from "../components/shared/SortMenu";
+import { useRightPanelStore } from "../stores/right-panel-store";
+import { useInbox } from "../hooks/inbox";
 import { useTasks } from "../hooks/tasks";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
-import { useViewMode } from "../hooks/ui/use-view-mode";
-import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { useTagFilterStore } from "../stores/tag-filter-store";
-import { toISODate } from "../lib/utils/date-format";
-import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task-scheduling";
-import { sortTasks } from "../lib/utils/sort-tasks";
-import type { Task } from "../types/task";
 
-function TodaySection({
-    title,
-    icon: Icon,
-    accentClass,
-    tasks,
-    selectedTaskId,
-    onSelectTask,
-}: {
-    title: string;
-    icon: typeof AlertTriangle;
-    accentClass: string;
-    tasks: Task[];
-    selectedTaskId: string | null;
-    onSelectTask: (taskId: string) => void;
-}) {
-    return (
-        <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                    <Icon size={14} className={accentClass} aria-hidden="true" />
-                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                        {title}
-                    </h2>
-                </div>
-                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{tasks.length}</span>
-                <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-            </div>
-
-            {tasks.length > 0 ? (
-                <TaskList tasks={tasks} selectedTaskId={selectedTaskId} onSelectTask={onSelectTask} />
-            ) : (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    Nothing in {title.toLowerCase()}.
-                </div>
-            )}
-        </section>
-    );
-}
-
-export default function Home() {
+export default function HomeRoute() {
     const shell = useShellMode();
-    const { view, setView } = useViewMode();
-    const { sortMode, setSortMode } = useSortMode();
+    const [view, setView] = useState<"list" | "kanban">("list");
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-    const todayISO = toISODate(new Date());
-    const { activeTagId } = useTagFilterStore();
-    const boardScroll = useDragScroll();
+    const { data: inboxItems = [], isLoading: inboxLoading } = useInbox();
+    const { data: holdingTasks = [], isLoading: tasksLoading } = useTasks({ state: "ACTIVE", hasNoProject: true });
+    const { holdingPanelOpen, toggleHoldingPanel } = useRightPanelStore();
 
     useDocumentMeta(
-        "Today · Cadence",
-        "Review overdue work and today's commitments in one calm, focused viewer.",
+        "Holding · Cadence",
+        "Capture unmanaged work, keep it visible, and sort raw notes without losing calm.",
     );
 
     useRouteFocus();
 
-    const { data: tasks = [], isLoading } = useTasks({
-        state: "ACTIVE",
-        effectiveOnOrBeforeDate: todayISO,
-    });
+    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
 
-    const filteredTasks = useMemo(
-        () => {
-            const visibleTasks = tasks.filter((task) => !isPassiveTimetableTask(task));
-            return activeTagId ? visibleTasks.filter((task) => task.tagIds?.includes(activeTagId)) : visibleTasks;
-        },
-        [activeTagId, tasks],
+    const sidePanel = (
+        <AnimatePresence initial={false}>
+            {(holdingPanelOpen || selectedTaskId) && (
+                <motion.div
+                    key="holding-side-panel"
+                    initial={{ width: 0 }}
+                    animate={{ width: "auto" }}
+                    exit={{ width: 0 }}
+                    transition={panelMotion}
+                    style={{ overflow: "hidden", willChange: "width" }}
+                    className="shrink-0"
+                >
+                    <motion.div
+                        initial={{ x: 32, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 24, opacity: 0 }}
+                        transition={panelMotion}
+                        style={{ willChange: "transform, opacity" }}
+                    >
+                        <ResizableSidePanel ariaLabel="Resize holding planner panel">
+                            <AnimatePresence mode="wait">
+                                {selectedTaskId ? (
+                                    <TaskEditPanel
+                                        key={`holding-edit-${selectedTaskId}`}
+                                        taskId={selectedTaskId}
+                                        onClose={() => setSelectedTaskId(null)}
+                                    />
+                                ) : (
+                                    <HoldingPlannerPanel key="holding-planner" />
+                                )}
+                            </AnimatePresence>
+                        </ResizableSidePanel>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
-
-    const grouped = useMemo(() => {
-        const overdue: Task[] = [];
-        const today: Task[] = [];
-
-        for (const task of filteredTasks) {
-            const anchor = getTaskTimelineAnchor(task);
-            if (!anchor) continue;
-            if (anchor < todayISO) overdue.push(task);
-            if (anchor === todayISO) today.push(task);
-        }
-
-        return {
-            overdue: sortTasks(overdue, sortMode),
-            today: sortTasks(today, sortMode),
-        };
-    }, [filteredTasks, todayISO, sortMode]);
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
@@ -117,135 +88,161 @@ export default function Home() {
         }
     };
 
-    const sidePanel = selectedTaskId ? (
-        <ResizableSidePanel ariaLabel="Resize today sidebar">
-            <TaskEditPanel
-                key={`today-edit-${selectedTaskId}`}
-                taskId={selectedTaskId}
-                onClose={() => setSelectedTaskId(null)}
-            />
-        </ResizableSidePanel>
-    ) : null;
-
-    const headerRight = (!shell.isWide && selectedTaskId) ? (
+    const headerCenter = <ViewToggle view={view} onViewChange={setView} />;
+    const headerRight = !shell.isWide ? (
         <button
             type="button"
             onClick={() => setMobilePanelOpen(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label="Open task details"
+            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+            aria-label={selectedTaskId ? "Open task details" : "Open planner"}
         >
-            <PanelRightClose size={16} aria-hidden="true" />
-            Details
+            {selectedTaskId ? <PanelRightClose size={16} aria-hidden="true" /> : <CalendarDays size={16} aria-hidden="true" />}
         </button>
-    ) : undefined;
+    ) : (
+        <button
+            type="button"
+            onClick={toggleHoldingPanel}
+            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+            aria-label={holdingPanelOpen ? "Hide planner panel" : "Show planner panel"}
+        >
+            {holdingPanelOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
+        </button>
+    );
 
-    const totalVisible = grouped.overdue.length + grouped.today.length;
+    const primaryContent = useMemo(() => {
+        if (view === "kanban") {
+            return (
+                <div className="flex flex-col gap-8 flex-1 min-h-0">
+                    {holdingTasks.length > 0 && (
+                        <section className="flex-1 min-h-0">
+                            <div className="mb-4 flex items-center gap-3 px-4 sm:px-6 lg:px-8">
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Unmanaged tasks</h2>
+                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{holdingTasks.length}</span>
+                                <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
+                            </div>
+                            <KanbanBoard tasks={holdingTasks} projectId={null} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} />
+                        </section>
+                    )}
+                    <section>
+                        <div className="mb-4 flex items-center gap-3">
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
+                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
+                            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
+                        </div>
+                        <div className="-mx-4 sm:-mx-6">
+                            <InboxBoard items={inboxItems} />
+                        </div>
+                    </section>
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex flex-col gap-8">
+                {holdingTasks.length > 0 && (
+                    <section>
+                        <div className="mb-4 flex items-center gap-3">
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Unmanaged tasks</h2>
+                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{holdingTasks.length}</span>
+                            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
+                        </div>
+                        <SectionedTaskList
+                            tasks={holdingTasks}
+                            projectId={null}
+                            selectedTaskId={selectedTaskId}
+                            onSelectTask={handleSelectTask}
+                        />
+                    </section>
+                )}
+
+                <section>
+                    <div className="mb-4 flex items-center gap-3">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
+                        <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
+                        <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
+                    </div>
+                    {inboxItems.length > 0 ? (
+                        <InboxList items={inboxItems} />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center rounded-[1.75rem] border border-twilight-border/60 bg-twilight-surface/25 px-6 py-12 text-center">
+                            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-twilight-surface ring-1 ring-twilight-border">
+                                <Inbox size={20} className="text-twilight-text-muted" />
+                            </div>
+                            <h3 className="text-lg font-medium text-twilight-text">No raw captures waiting.</h3>
+                            <p className="mt-2 max-w-sm text-sm text-twilight-text-muted">
+                                Anything you capture outside the task list will gather here until you process it.
+                            </p>
+                        </div>
+                    )}
+                </section>
+            </div>
+        );
+    }, [holdingTasks, inboxItems, selectedTaskId, view]);
 
     return (
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
-            headerCenter={<ViewToggle view={view} onViewChange={setView} />}
-            headerRight={
-                <div className="flex items-center gap-2">
-                    {headerRight}
-                    <SortMenu mode={sortMode} onModeChange={setSortMode} />
-                </div>
-            }
+            headerCenter={headerCenter}
+            headerRight={headerRight}
             contentWidth="default"
             shellHeader={{
-                title: "Today",
-                eyebrow: "Focus",
-                icon: <Sunrise size={18} aria-hidden="true" />,
-                accentColor: "var(--color-nav-planner)",
+                title: "Holding",
+                eyebrow: "Capture",
+                icon: <Sparkles size={18} aria-hidden="true" />,
+                accentColor: "var(--color-nav-inbox)",
             }}
         >
-            <ScrollAreaWrapper>
-                <PageContent width="default">
-                    {isLoading ? (
-                        <TaskListSkeleton />
-                    ) : totalVisible > 0 ? (
-                        <div className="flex flex-col gap-8">
-                            {view === "list" ? (
-                                <>
-                                    <TodaySection
-                                        title="Overdue"
-                                        icon={AlertTriangle}
-                                        accentClass="text-[var(--color-priority-urgent)]"
-                                        tasks={grouped.overdue}
-                                        selectedTaskId={selectedTaskId}
-                                        onSelectTask={handleSelectTask}
-                                    />
-                                    <TodaySection
-                                        title="Today"
-                                        icon={Sunrise}
-                                        accentClass="text-lantern"
-                                        tasks={grouped.today}
-                                        selectedTaskId={selectedTaskId}
-                                        onSelectTask={handleSelectTask}
-                                    />
-                                </>
-                            ) : (
-                                <div
-                                    ref={boardScroll.ref}
-                                    className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 scrollbar-thin cursor-grab"
-                                    onPointerDown={boardScroll.onPointerDown}
-                                    onPointerMove={boardScroll.onPointerMove}
-                                    onPointerUp={boardScroll.onPointerUp}
-                                    onPointerCancel={boardScroll.onPointerCancel}
-                                >
-                                    <div className="flex min-w-max gap-4">
-                                        <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
-                                            <div className="mb-3 flex items-center gap-3">
-                                                <AlertTriangle size={14} className="text-[var(--color-priority-urgent)]" aria-hidden="true" />
-                                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Overdue</h2>
-                                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.overdue.length}</span>
-                                            </div>
-                                            <TaskList
-                                                tasks={grouped.overdue}
-                                                selectedTaskId={selectedTaskId}
-                                                onSelectTask={handleSelectTask}
-                                                cardVariant="board"
-                                            />
-                                        </section>
-                                        <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
-                                            <div className="mb-3 flex items-center gap-3">
-                                                <Sunrise size={14} className="text-lantern" aria-hidden="true" />
-                                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Today</h2>
-                                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.today.length}</span>
-                                            </div>
-                                            <TaskList
-                                                tasks={grouped.today}
-                                                selectedTaskId={selectedTaskId}
-                                                onSelectTask={handleSelectTask}
-                                                cardVariant="board"
-                                            />
-                                        </section>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <EmptyState variant="today" />
-                    )}
-                </PageContent>
-            </ScrollAreaWrapper>
+            {view === "kanban" ? (
+                <>
+                    <PageContent width="default" className="shrink-0">
+                        <PlannerHeader />
 
-            {!shell.isWide && selectedTaskId && (
+                        <div className="mt-6 mb-6 rounded-[24px] bg-twilight-surface/30 backdrop-blur-md p-1">
+                            <AddTaskInput projectId={undefined} tasks={holdingTasks} />
+                        </div>
+                    </PageContent>
+                    <div className="flex-1 min-h-0 min-w-0">
+                        {tasksLoading || inboxLoading ? (
+                            <PageContent width="default"><TaskListSkeleton /></PageContent>
+                        ) : primaryContent}
+                    </div>
+                </>
+            ) : (
+                <ScrollAreaWrapper>
+                    <PageContent width="default">
+                        <PlannerHeader />
+
+                        <div className="mt-6 mb-10 rounded-[24px] bg-twilight-surface/30 backdrop-blur-md p-1">
+                            <AddTaskInput projectId={undefined} tasks={holdingTasks} />
+                        </div>
+
+                        {tasksLoading || inboxLoading ? <TaskListSkeleton /> : primaryContent}
+                    </PageContent>
+                </ScrollAreaWrapper>
+            )}
+
+            {!shell.isWide && (
                 <ResponsiveOverlayPanel
-                    ariaLabel="Today details"
+                    ariaLabel={selectedTaskId ? "Holding details" : "Holding planner"}
                     open={mobilePanelOpen}
                     onClose={() => setMobilePanelOpen(false)}
-                    title="Task details"
+                    title={selectedTaskId ? "Task details" : "Planner"}
                 >
-                    <TaskEditPanel
-                        key={`today-mobile-edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        onClose={() => {
-                            setSelectedTaskId(null);
-                            setMobilePanelOpen(false);
-                        }}
-                    />
+                    <AnimatePresence mode="wait">
+                        {selectedTaskId ? (
+                            <TaskEditPanel
+                                key={`holding-mobile-edit-${selectedTaskId}`}
+                                taskId={selectedTaskId}
+                                onClose={() => {
+                                    setSelectedTaskId(null);
+                                    setMobilePanelOpen(false);
+                                }}
+                            />
+                        ) : (
+                            <HoldingPlannerPanel key="holding-mobile-planner" />
+                        )}
+                    </AnimatePresence>
                 </ResponsiveOverlayPanel>
             )}
         </MainLayout>

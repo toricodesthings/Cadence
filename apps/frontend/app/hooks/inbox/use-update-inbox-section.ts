@@ -14,7 +14,7 @@ export function useUpdateInboxSection() {
         >(
             ({ id, ...data }) => ({ type: "update_inbox_section", id, payload: data as Record<string, unknown> }),
             async ({ id, ...data }) => {
-                const res = await api.inbox.sections[":id"].$patch({
+                const res = await api.api.inbox.sections[":id"].$patch({
                     param: { id },
                     json: data,
                 });

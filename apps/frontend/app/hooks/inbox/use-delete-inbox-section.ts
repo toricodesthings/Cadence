@@ -10,7 +10,7 @@ export function useDeleteInboxSection() {
         mutationFn: withOfflineSupport<string, unknown>(
             (id) => ({ type: "delete_inbox_section", id }),
             async (id) => {
-                const res = await api.inbox.sections[":id"].$delete({
+                const res = await api.api.inbox.sections[":id"].$delete({
                     param: { id },
                 });
                 if (!res.ok) throw new Error("Failed to delete inbox section");

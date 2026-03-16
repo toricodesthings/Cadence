@@ -10,6 +10,7 @@ import type { Task, TaskSection } from "../../types/task";
 
 interface SectionedTaskListProps {
     tasks: Task[];
+    projectId?: string | null;
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
     /** If true, renders AddTaskInput (handled by parent) */
@@ -20,18 +21,20 @@ interface SectionedTaskListProps {
 
 /**
  * Task list with user-defined collapsible section headers.
- * Tasks without a sectionId render in an implicit "Ungrouped" section at the top.
+ * Until the user creates a section, tasks stay in one normalized list.
+ * Once sections exist, tasks without a sectionId render under "Unsectioned".
  */
 export function SectionedTaskList({
     tasks,
+    projectId = null,
     selectedTaskId,
     onSelectTask,
     footer,
 }: SectionedTaskListProps) {
-    const { data: sections = [] } = useSections();
-    const createSection = useCreateSection();
-    const updateSection = useUpdateSection();
-    const deleteSection = useDeleteSection();
+    const { data: sections = [] } = useSections(projectId);
+    const createSection = useCreateSection(projectId);
+    const updateSection = useUpdateSection(projectId);
+    const deleteSection = useDeleteSection(projectId);
     const updateTask = useUpdateTask();
 
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -84,11 +87,77 @@ export function SectionedTaskList({
         setEditingSection(null);
     };
 
+    const hasCustomSections = sections.length > 0;
+
+    if (!hasCustomSections) {
+        return (
+            <div className="flex flex-col gap-1">
+                <TaskList
+                    tasks={tasks}
+                    selectedTaskId={selectedTaskId}
+                    onSelectTask={onSelectTask}
+                />
+
+                <div className="mt-4">
+                    {isAddingSection ? (
+                        <div className="flex items-center gap-2 px-4">
+                            <input
+                                ref={newSectionInputRef}
+                                autoFocus
+                                value={newSectionName}
+                                onChange={(e) => setNewSectionName(e.target.value)}
+                                placeholder="Section name..."
+                                className="flex-1 bg-transparent text-[13px] text-twilight-text outline-none border-b border-twilight-border/40 pb-1 placeholder:text-twilight-text-muted/40"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleCreateSection();
+                                    if (e.key === "Escape") {
+                                        setIsAddingSection(false);
+                                        setNewSectionName("");
+                                    }
+                                }}
+                                onBlur={() => {
+                                    if (newSectionName.trim()) handleCreateSection();
+                                    else {
+                                        setIsAddingSection(false);
+                                        setNewSectionName("");
+                                    }
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setIsAddingSection(true)}
+                            className="flex items-center gap-2 text-[12px] text-twilight-text-muted/50 hover:text-twilight-text-muted transition-colors cursor-pointer px-4 py-2"
+                        >
+                            <Plus size={14} />
+                            Add section
+                        </button>
+                    )}
+                </div>
+
+                {footer}
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-1">
-            {/* Ungrouped tasks (no section) */}
+            {/* Unsectioned tasks (no section) */}
             {ungroupedTasks.length > 0 && (
-                <div>
+                <div className="mt-4">
+                    <div className="flex items-center gap-2 group">
+                        <div className="flex items-center gap-2 flex-1 py-1.5 text-left">
+                            <span className="text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text-muted">
+                                Unsectioned
+                            </span>
+                            <span className="text-[11px] text-twilight-text-muted/50 tabular-nums">
+                                {ungroupedTasks.length}
+                            </span>
+                        </div>
+
+                        <div className="flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent" />
+                    </div>
                     <TaskList
                         tasks={ungroupedTasks}
                         selectedTaskId={selectedTaskId}

@@ -38,9 +38,7 @@ function getMergedCallbackParams(location: { search: string; hash: string }) {
 
 function CadenceAuthMark({ size = "h-14 w-14", rounded = "rounded-[1.4rem]" }: { size?: string; rounded?: string }) {
     return (
-        <div className={`flex items-center justify-center border border-white/[0.08] bg-white/[0.04] p-2 shadow-[0_0_32px_rgba(232,164,74,0.08)] ${rounded}`}>
-            <img src="/logo.png" alt="Cadence" className={`${size} object-cover`} />
-        </div>
+        <img src="/logo.png" alt="Cadence" className={`${size} ${rounded} object-cover`} />
     );
 }
 
@@ -350,17 +348,19 @@ export default function AuthPage() {
                 <div className="absolute bottom-[-10%] left-1/2 h-[22rem] w-[34rem] -translate-x-1/2 rounded-full bg-white/[0.04] blur-[160px]" />
             </div>
 
-            <section className="safe-top safe-bottom relative flex min-h-dvh items-start justify-center px-4 py-6 sm:px-6 sm:py-10 md:items-center">
-                <div className="w-full max-w-[32rem]">
-                    <div className="glass-surface relative overflow-hidden rounded-[2.35rem] px-6 py-7 shadow-[0_36px_120px_rgba(0,0,0,0.38)] sm:px-8 sm:py-9">
+            <section className="safe-top safe-bottom relative flex min-h-dvh items-start justify-center px-4 py-4 sm:px-6 sm:py-8 md:items-center">
+                <div className="w-full max-w-lg">
+                    <div className="glass-surface relative overflow-hidden rounded-[2.15rem] px-6 py-6 shadow-[0_36px_120px_rgba(0,0,0,0.38)] sm:px-7 sm:py-7">
                         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                        <div className="mb-8 flex flex-col items-center text-center">
-                            <CadenceAuthMark size="h-14 w-14 sm:h-16 sm:w-16" rounded="rounded-[1.6rem]" />
-                            <p className="mt-6 font-display text-[2rem] font-semibold leading-tight text-twilight-text sm:text-[2.3rem]">
+                        <div className="mb-4 flex flex-col items-center text-center">
+                            <CadenceAuthMark size="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" rounded="rounded-[1.45rem]" />
+                            <p className="mt-4 font-display text-[1.85rem] font-semibold leading-[1.02] text-twilight-text sm:text-[2.1rem]">
                                 {isSignUp ? "Create your sanctuary." : "Step into your Cadence."}
                             </p>
-                            <p className="mt-3 max-w-[26rem] text-sm leading-relaxed text-twilight-text-soft sm:text-[15px]">
-                                A quiet room for the week ahead. Capture what matters, settle the noise, and return to the work with a steadier rhythm.
+                            <p className="mt-2.5 max-w-[22rem] text-sm leading-7 text-twilight-text-soft sm:text-[15px]">
+                                {isSignUp
+                                    ? "Create your account and start in a calmer rhythm."
+                                    : "Settle in, capture what matters, and continue with clarity."}
                             </p>
                         </div>
 
@@ -371,7 +371,7 @@ export default function AuthPage() {
                                 redirectTo={redirectTo}
                                 socialLayout="horizontal"
                                 classNames={{
-                                    base: "space-y-4",
+                                    base: "w-full max-w-none space-y-2.5",
                                     header: "hidden",
                                     title: "hidden",
                                     description: "hidden",
@@ -380,14 +380,14 @@ export default function AuthPage() {
                                     footer: "hidden",
                                     footerLink: "hidden",
                                     form: {
-                                        button: "min-h-11 rounded-[1.1rem] text-sm font-medium",
-                                        primaryButton: "min-h-11 rounded-[1.1rem] bg-lantern text-twilight-void font-semibold",
-                                        providerButton: "min-h-11 rounded-[1.1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
-                                        secondaryButton: "min-h-11 rounded-[1.1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
-                                        input: "min-h-11 rounded-[1.1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text",
+                                        button: "min-h-10 rounded-[1rem] text-sm font-medium",
+                                        primaryButton: "min-h-10 rounded-[1rem] bg-lantern text-twilight-void font-semibold",
+                                        providerButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
+                                        secondaryButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
+                                        input: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text",
                                         label: "text-sm font-medium text-twilight-text",
                                         description: "text-sm leading-relaxed text-twilight-text-soft",
-                                        forgotPasswordLink: "text-sm font-medium text-lantern hover:text-lantern",
+                                        forgotPasswordLink: "inline-flex min-h-0 items-center py-0 text-sm font-medium leading-none text-lantern hover:text-lantern",
                                         error: "text-sm text-feedback-error",
                                     },
                                 }}
@@ -405,7 +405,7 @@ export default function AuthPage() {
                             />
                         </div>
 
-                        <div className="mt-6 flex items-center justify-center gap-1.5 text-sm">
+                        <div className="mt-5 flex items-center justify-center gap-1.5 text-sm">
                             <span className="text-twilight-text-soft">
                                 {isSignUp ? "Already have a room?" : "New here?"}
                             </span>

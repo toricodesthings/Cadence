@@ -77,4 +77,24 @@ describe("use-auth-state", () => {
             expect(result.current.status).toBe("recoverable_error");
         });
     });
+
+    it("signs out through the shared auth-state helper", async () => {
+        const refetch = vi.fn();
+        authMocks.useSessionMock.mockReturnValue({
+            data: { user: { id: "user-1" }, session: { token: "jwt" } },
+            isPending: false,
+            refetch,
+        });
+        authMocks.signOutMock.mockResolvedValue({ error: null });
+
+        const { result } = renderHook(() => useAuthState(), { wrapper });
+
+        await waitFor(() => {
+            expect(result.current.status).toBe("authenticated");
+        });
+
+        await result.current.completeSignOut();
+
+        expect(authMocks.signOutMock).toHaveBeenCalledTimes(1);
+    });
 });

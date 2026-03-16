@@ -24,6 +24,7 @@ const tauriDriverBinary =
     process.platform === "win32" ? "tauri-driver.exe" : "tauri-driver",
   );
 const pnpmBinary = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const packageManagerExecPath = process.env.npm_execpath;
 
 let driver;
 let tauriDriver;
@@ -145,16 +146,28 @@ describe("Cadence desktop smoke suite", () => {
 });
 
 function buildDesktopDebugBinary() {
-  const result = spawnSync(pnpmBinary, ["run", "build:debug"], {
+  const commonOptions = {
     cwd: desktopRoot,
     stdio: "inherit",
     shell: false,
     env: {
       ...process.env,
+      VITE_DESKTOP_E2E: "true",
       TAURI_WEBVIEW_AUTOMATION:
         process.env.TAURI_WEBVIEW_AUTOMATION ?? (process.platform === "linux" ? "true" : ""),
     },
-  });
+  };
+
+  const result = packageManagerExecPath
+    ? spawnSync(process.execPath, [packageManagerExecPath, "run", "build:debug"], commonOptions)
+    : spawnSync(pnpmBinary, ["run", "build:debug"], {
+      ...commonOptions,
+      shell: process.platform === "win32",
+    });
+
+  if (result.error) {
+    throw new Error(`Desktop debug build failed before launch: ${result.error.message}`);
+  }
 
   if (result.status !== 0) {
     throw new Error(`Desktop debug build failed with exit code ${result.status ?? "unknown"}.`);

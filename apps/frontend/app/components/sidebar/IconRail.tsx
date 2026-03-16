@@ -23,6 +23,7 @@ import { useNotificationCenter } from "../../hooks/notifications/use-notificatio
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
+import { useAuthState } from "../../hooks/auth/use-auth-state";
 
 /** Nav item accent color definitions per Design Manifesto §1.9 */
 const NAV_LINKS = [
@@ -81,6 +82,7 @@ export function IconRail({
     const api = useApiClient();
     const queryClient = useQueryClient();
     const { data: session, isPending } = authClient.useSession();
+    const { completeSignOut } = useAuthState();
     const { data: adminCapabilities } = useAdminCapabilities();
     const canUseDeveloperTools = adminCapabilities?.canUseDeveloperTools ?? false;
 
@@ -558,9 +560,14 @@ export function IconRail({
 
                         <div className="p-1">
                             <DropdownMenu.Item
-                                onSelect={async () => {
-                                    await authClient.signOut();
-                                    navigate("/auth/sign-in");
+                                onSelect={() => {
+                                    void completeSignOut().catch((error) => {
+                                        toast.error(
+                                            error instanceof Error
+                                                ? error.message
+                                                : "Couldn’t sign out right now.",
+                                        );
+                                    });
                                 }}
                                 variant="danger"
                                 className="flex items-center gap-3"

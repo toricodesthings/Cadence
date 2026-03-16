@@ -301,11 +301,11 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
                 onPointerCancel={dragScroll.onPointerCancel}
             >
                 <div className="flex gap-4 px-4 py-4 h-full min-h-full items-stretch">
-                {/* Ungrouped column (always first) */}
+                {/* Unsectioned column (always first) */}
                 {(ungroupedTasks.length > 0 || sections.length > 0) && (
                     <div className="w-[min(24rem,80vw)] shrink-0">
                         <KanbanColumn
-                            section={{ id: "ungrouped", name: "Ungrouped" }}
+                            section={{ id: "ungrouped", name: "Unsectioned" }}
                             tasks={ungroupedTasks}
                             subtasksByTaskId={subtasksByTaskId}
                             tagsByTaskId={tagsByTaskId}

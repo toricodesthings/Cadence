@@ -13,7 +13,7 @@ export function useAdminCapabilities() {
         staleTime: 5 * 60 * 1000,
         queryFn: async () => {
             const response = await api.api.debug.capabilities.$get();
-            if (response.status === 403) {
+            if (response.status === 403 || response.status === 404) {
                 return { canUseDeveloperTools: false };
             }
             if (!response.ok) {

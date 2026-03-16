@@ -8,7 +8,7 @@ import { useProjects } from "../hooks/projects";
 import { useUpdateProject, useDeleteProject } from "../hooks/projects";
 import { useTasks } from "../hooks/tasks";
 import { useTagFilterStore } from "../stores/tag-filter-store";
-import { TaskList } from "../components/tasks/TaskList";
+import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
 import { KanbanBoard } from "../components/kanban/KanbanBoard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
@@ -373,8 +373,9 @@ export default function ProjectView() {
                             {isLoading ? (
                                 <TaskListSkeleton />
                             ) : tasks && tasks.length > 0 ? (
-                                <TaskList
+                                <SectionedTaskList
                                     tasks={tasks}
+                                    projectId={projectId}
                                     selectedTaskId={selectedTaskId}
                                     onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)}
                                 />

@@ -34,7 +34,11 @@ declare global {
 }
 
 export function installDesktopE2EBridge() {
-  if (!IS_DESKTOP_RUNTIME || !import.meta.env.DEV || typeof window === "undefined") {
+  if (
+    !IS_DESKTOP_RUNTIME
+    || import.meta.env.VITE_DESKTOP_E2E !== "true"
+    || typeof window === "undefined"
+  ) {
     return () => {};
   }
 

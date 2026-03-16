@@ -10,7 +10,7 @@ export function useInboxSections() {
         queryKey: ["inbox_sections"],
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
-            const res = await api.inbox.sections.$get();
+            const res = await api.api.inbox.sections.$get();
             if (!res.ok) throw new Error("Failed to fetch inbox sections");
             const { data } = await res.json();
             return data;

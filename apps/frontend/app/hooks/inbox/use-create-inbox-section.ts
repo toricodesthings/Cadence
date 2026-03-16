@@ -14,7 +14,7 @@ export function useCreateInboxSection() {
                 payload: { name: data.name, orderIndex: data.orderIndex, clientMutationId: crypto.randomUUID() },
             }),
             async (data) => {
-                const res = await api.inbox.sections.$post({
+                const res = await api.api.inbox.sections.$post({
                     json: data,
                 });
                 if (!res.ok) throw new Error("Failed to create inbox section");

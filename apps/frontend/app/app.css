@@ -10,8 +10,8 @@
 
 @theme {
   /* === TYPOGRAPHY === */
-  --font-sans: "Sora", system-ui, -apple-system, sans-serif;
-  --font-display: "Outfit", system-ui, sans-serif;
+  --font-sans: "Sora Variable", "Sora", system-ui, -apple-system, sans-serif;
+  --font-display: "Outfit Variable", "Outfit", system-ui, sans-serif;
 
   /* === TWILIGHT THEME (Default Dark) === */
   --color-twilight-void: #070e1a;
@@ -924,10 +924,21 @@ a:active {
   transition-timing-function: var(--ease-out-expo) !important;
 }
 
+.neon-auth-wrapper a.inline-flex {
+  min-height: 0 !important;
+}
+
 .neon-auth-wrapper button:hover {
   background: rgba(21, 37, 64, 0.5) !important;
   border-color: var(--color-lantern-soft) !important;
   box-shadow: 0 0 20px rgba(232, 164, 74, 0.08) !important;
+}
+
+.neon-auth-wrapper button[type="submit"]:hover {
+  background: var(--color-lantern) !important;
+  color: #070e1a !important;
+  border: none !important;
+  box-shadow: 0 0 24px rgba(232, 164, 74, 0.18) !important;
 }
 
 .neon-auth-wrapper button:focus-visible,
