@@ -5,7 +5,7 @@ export interface HabitLog {
     habitId: string;
     userId?: string;
     status: HabitStatus;
-    targetDate: string; // ISO Full time
+    targetDate: string; // YYYY-MM-DD
     completedAt: string | null;
     createdAt?: string;
 }
@@ -47,6 +47,6 @@ export interface UpdateHabit extends Partial<InsertHabit> {
 }
 
 export interface ResolveHabitAction {
-    targetDate: string; // ISO date matching the log
+    targetDate: string; // YYYY-MM-DD
     status: HabitStatus;
 }

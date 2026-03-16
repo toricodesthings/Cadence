@@ -22,7 +22,7 @@ export const updateHabitSchema = insertHabitSchema.partial().extend({
 export type UpdateHabit = z.infer<typeof updateHabitSchema>;
 
 export const resolveHabitActionSchema = z.object({
-    targetDate: z.string().datetime({ offset: true }), // the ISO date preserving timezone or string
+    targetDate: z.string().min(10), // accepts YYYY-MM-DD or full ISO datetime — server truncates to date
     status: habitStatusSchema,
 });
 export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;

@@ -5,14 +5,20 @@ import {
     timestamp,
     boolean,
     real,
+    doublePrecision,
+    date,
     integer,
     pgEnum,
     jsonb,
     vector,
     index,
     uniqueIndex,
+    pgPolicy,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
+
+/** RLS condition: row belongs to the JWT-authenticated user */
+const rlsUsing = sql`(user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`;
 import { z } from 'zod';
 
 export const UserSettingsSchema = z.object({
@@ -183,7 +189,7 @@ export const taskSections = pgTable('task_sections', {
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    orderIndex: real('order_index').notNull(),
+    orderIndex: doublePrecision('order_index').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('task_sections_user_id_idx').on(table.userId),
@@ -198,7 +204,9 @@ export const projects = pgTable('projects', {
     colorAccent: text('color_accent').default('luminous-amber'), // Ties strictly to Tailwind CSS Variables
     emoji: text('emoji'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
+}, (table) => ({
+    userIdIdx: index('projects_user_id_idx').on(table.userId),
+}));
 
 // 5. Tasks (Unified Events & To-Dos)
 export const tasks = pgTable('tasks', {
@@ -213,7 +221,7 @@ export const tasks = pgTable('tasks', {
     state: taskStateEnum('state').default('ACTIVE').notNull(),
 
     // High-Performance Drag & Drop
-    orderIndex: real('order_index').notNull(), // Fractional index (1.5, 2.75) for rapid reordering without collision
+    orderIndex: doublePrecision('order_index').notNull(), // Fractional index (1.5, 2.75) for rapid reordering without collision
 
     // The Calendar Unified Layer
     isAllDay: boolean('is_all_day').default(true).notNull(), // Does it float at the top of the day, or exist in a time block?
@@ -248,6 +256,7 @@ export const tasks = pgTable('tasks', {
 }, (table) => {
     return {
         userIdIdx: index('tasks_user_id_idx').on(table.userId),
+        userStateIdx: index('tasks_user_state_idx').on(table.userId, table.state),
         scheduledStartIdx: index('tasks_scheduled_start_idx').on(table.scheduledStart),
         dueDateIdx: index('tasks_due_date_idx').on(table.dueDate),
         stateIdx: index('tasks_state_idx').on(table.state),
@@ -268,7 +277,9 @@ export const tags = pgTable("tags", {
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
         .defaultNow()
         .notNull(),
-});
+}, (table) => ({
+    userIdIdx: index("tags_user_id_idx").on(table.userId),
+}));
 
 // 7. Task–Tag associations (many-to-many)
 export const taskTags = pgTable("task_tags", {
@@ -279,7 +290,10 @@ export const taskTags = pgTable("task_tags", {
     tagId: uuid("tag_id")
         .references(() => tags.id, { onDelete: "cascade" })
         .notNull(),
-});
+}, (table) => ({
+    uniquePair: uniqueIndex("task_tags_unique_pair").on(table.taskId, table.tagId),
+    tagIdIdx: index("task_tags_tag_id_idx").on(table.tagId),
+}));
 
 export const tasksRelations = relations(tasks, ({ many }) => ({
     tags: many(taskTags),
@@ -303,7 +317,9 @@ export const inboxSections = pgTable('inbox_sections', {
     name: text('name').notNull(),
     orderIndex: integer('order_index').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
+}, (table) => ({
+    userIdIdx: index('inbox_sections_user_id_idx').on(table.userId),
+}));
 
 export const inboxItems = pgTable('inbox_items', {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -313,7 +329,9 @@ export const inboxItems = pgTable('inbox_items', {
     rawText: text('raw_text').notNull(), // The messy input "Call mom tmrw at 4"
     processed: boolean('processed').default(false).notNull(), // Has the Cloudflare AI Queue converted this into a structured Task yet?
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
+}, (table) => ({
+    userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
+}));
 
 // 9. Habits
 export const habits = pgTable(
@@ -380,11 +398,8 @@ export const habitLogs = pgTable(
 
         status: habitStatusEnum('status').default('PENDING').notNull(),
 
-        // The localized day/date the action was due, truncated to YYYY-MM-DD for consistency
-        targetDate: timestamp('target_date', {
-            withTimezone: true,
-            mode: 'string',
-        }).notNull(),
+        // The localized day/date the action was due, stored as YYYY-MM-DD
+        targetDate: date('target_date', { mode: 'string' }).notNull(),
         completedAt: timestamp('completed_at', {
             withTimezone: true,
             mode: 'string',
@@ -400,6 +415,7 @@ export const habitLogs = pgTable(
                 table.habitId,
                 table.targetDate,
             ),
+            userIdIdx: index('habit_logs_user_id_idx').on(table.userId),
         };
     },
 );
@@ -417,7 +433,7 @@ export const subtasks = pgTable(
             .notNull(),
         title: text("title").notNull(),
         isComplete: boolean("is_complete").default(false).notNull(),
-        orderIndex: real("order_index").notNull(),
+        orderIndex: doublePrecision("order_index").notNull(),
         createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
             .defaultNow()
             .notNull(),
@@ -478,8 +494,14 @@ export const usageEvents = pgTable(
         userIdIdx: index("usage_events_user_id_idx").on(table.userId),
         eventIdx: index("usage_events_event_idx").on(table.event),
         createdAtIdx: index("usage_events_created_at_idx").on(table.createdAt),
+        rlsPolicy: pgPolicy("usage_events_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     }),
-);
+).enableRLS();
 
 // 14. Suggestions (AI-generated advice, never autonomous)
 export const suggestions = pgTable(
@@ -502,8 +524,14 @@ export const suggestions = pgTable(
     (table) => ({
         userIdIdx: index("suggestions_user_id_idx").on(table.userId),
         statusIdx: index("suggestions_status_idx").on(table.status),
+        rlsPolicy: pgPolicy("suggestions_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     }),
-);
+).enableRLS();
 
 // 15. Mutation Dedup (Idempotent offline replay)
 export const mutationDedup = pgTable(
@@ -524,5 +552,11 @@ export const mutationDedup = pgTable(
             table.userId,
             table.clientMutationId,
         ),
+        rlsPolicy: pgPolicy("mutation_dedup_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     }),
-);
+).enableRLS();

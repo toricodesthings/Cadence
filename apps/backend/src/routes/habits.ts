@@ -86,7 +86,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const db = getDbClient(c.env);
 
         // start/end arrive as "YYYY-MM-DD" from the frontend.
-        // Build UTC boundaries: start at 00:00:00 UTC, end at 23:59:59.999 UTC.
+        // Build UTC boundaries for rrule expansion.
         const startDate = new Date(`${start}T00:00:00.000Z`);
         const endDate = new Date(`${end}T23:59:59.999Z`);
 
@@ -103,7 +103,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             const habitIds = userHabits.map((h) => h.id);
 
-            // Using ISO strings for comparing since `targetDate` is stored as string in timestamp with timezone mode (handled by PG driver natively)
+            // targetDate is a `date` column — compare with YYYY-MM-DD strings directly
             const logs = await tx
                 .select()
                 .from(habitLogs)
@@ -111,16 +111,14 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     and(
                         eq(habitLogs.userId, userId),
                         inArray(habitLogs.habitId, habitIds),
-                        gte(habitLogs.targetDate, startDate.toISOString()),
-                        lte(habitLogs.targetDate, endDate.toISOString()),
+                        gte(habitLogs.targetDate, start),
+                        lte(habitLogs.targetDate, end),
                     )
                 );
 
             const logsByHabitDate: Record<string, typeof logs[0]> = {};
             for (const log of logs) {
-                // Truncate to just date for quick lookup map
-                const dateKey = log.targetDate.substring(0, 10);
-                logsByHabitDate[`${log.habitId}_${dateKey}`] = log;
+                logsByHabitDate[`${log.habitId}_${log.targetDate}`] = log;
             }
 
             return userHabits.map((habit) => {
@@ -136,8 +134,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 // Expand instances
                 const logsHydrated = instances.map((targetD) => {
                     // rrule returns UTC Date objects — extract YYYY-MM-DD via ISO substring
-                    const iso = targetD.toISOString();
-                    const dateKey = iso.substring(0, 10);
+                    const dateKey = targetD.toISOString().substring(0, 10);
                     const logKey = `${habit.id}_${dateKey}`;
                     const existingLog = logsByHabitDate[logKey];
 
@@ -145,7 +142,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                         id: existingLog?.id || `virt_${dateKey}`,
                         habitId: habit.id,
                         status: existingLog?.status || "PENDING",
-                        targetDate: iso, // Use full time output from recurrence
+                        targetDate: dateKey, // YYYY-MM-DD
                         completedAt: existingLog?.completedAt || null,
                     };
                 });
@@ -184,12 +181,12 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { year, month } = c.req.valid("query");
         const db = getDbClient(c.env);
 
-        // Build inclusive UTC date range for the month.
-        // Using explicit UTC construction avoids Cloudflare Workers UTC-only runtime
-        // creating different boundaries than the frontend intended.
+        // Build inclusive date range for the month as YYYY-MM-DD strings.
         const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
         const startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
         const endDate = new Date(Date.UTC(year, month, daysInMonth, 23, 59, 59, 999));
+        const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
         const result = await withRls(db, userId, async (tx) => {
             const [habit] = await tx
@@ -206,8 +203,8 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     and(
                         eq(habitLogs.habitId, id),
                         eq(habitLogs.userId, userId),
-                        gte(habitLogs.targetDate, startDate.toISOString()),
-                        lte(habitLogs.targetDate, endDate.toISOString())
+                        gte(habitLogs.targetDate, startStr),
+                        lte(habitLogs.targetDate, endStr)
                     )
                 );
 
@@ -224,6 +221,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             // Build a map of day -> status
             const logsByDay: Record<number, string> = {};
             for (const log of logs) {
+                // targetDate is YYYY-MM-DD, extract day
                 const day = parseInt(log.targetDate.substring(8, 10), 10);
                 logsByDay[day] = log.status;
             }
@@ -277,8 +275,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             throwIfNotFound(habit, "Habit");
 
-            // Look up existing log
-            // We want to match exactly by targetDate (YYYY-MM-DD), so let's match substring
+            // Look up existing log by targetDate (YYYY-MM-DD)
             const datePrefix = targetDate.substring(0, 10);
             const [existing] = await tx
                 .select()
@@ -287,7 +284,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     and(
                         eq(habitLogs.userId, userId),
                         eq(habitLogs.habitId, habit.id),
-                        sql`substring(${habitLogs.targetDate}::text from 1 for 10) = ${datePrefix}`
+                        eq(habitLogs.targetDate, datePrefix)
                     )
                 );
 
@@ -309,7 +306,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     .values({
                         userId,
                         habitId: habit.id,
-                        targetDate: targetDate, // full iso
+                        targetDate: datePrefix, // YYYY-MM-DD
                         status,
                         completedAt: status === "COMPLETED" ? sql`NOW()` : null,
                     })

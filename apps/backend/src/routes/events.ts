@@ -70,11 +70,13 @@ eventRoutes.post(
 );
 
 async function isTrackingAllowed(db: DbClient, userId: string): Promise<boolean> {
-    const [user] = await db
-        .select({ settings: users.settings })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
+    const [user] = await withRls(db, userId, async (tx) =>
+        tx
+            .select({ settings: users.settings })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1),
+    );
 
     if (!user?.settings) return false;
     return user.settings.privacy?.usageDiagnostics !== false;

@@ -52,10 +52,6 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         const userId = c.get("userId");
         const db = getDbClient(c.env);
 
-        await withRls(db, userId, async (tx) => {
-            await tx.insert(users).values({ id: userId }).onConflictDoNothing();
-        });
-
         const [user] = await withRls(db, userId, async (tx) =>
             tx
                 .select({ settings: users.settings })
@@ -71,10 +67,6 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         const userId = c.get("userId");
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
-
-        await withRls(db, userId, async (tx) => {
-            await tx.insert(users).values({ id: userId }).onConflictDoNothing();
-        });
 
         const [updated] = await withRls(db, userId, async (tx) => {
             const [user] = await tx

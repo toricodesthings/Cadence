@@ -1,6 +1,6 @@
-import { eq, and, lt, sql } from "drizzle-orm";
+import { eq, and, lt, sql, inArray } from "drizzle-orm";
 import { getDbClient } from "../lib/db";
-import { tasks, taskMetrics } from "../db/schema";
+import { tasks, taskMetrics, mutationDedup } from "../db/schema";
 import { withRls } from "../lib/rls";
 import { computeWorkloadSignals } from "../lib/metrics";
 import type { Env } from "../types/env";
@@ -9,7 +9,7 @@ export async function handleOverdueCheck(env: Env) {
     const db = getDbClient(env);
     const now = new Date().toISOString();
 
-    // Find all tasks that are overdue and still ACTIVE
+    // Cron runs as table owner — intentionally bypasses RLS to scan all users' overdue tasks
     const overdueTasks = await db
         .select({ id: tasks.id, userId: tasks.userId })
         .from(tasks)
@@ -29,17 +29,17 @@ export async function handleOverdueCheck(env: Env) {
 
     for (const [userId, taskIds] of tasksByUser) {
         await withRls(db, userId, async (tx) => {
-            for (const taskId of taskIds) {
-                await tx
-                    .insert(taskMetrics)
-                    .values({ taskId, userId, delayCount: 0 })
-                    .onConflictDoNothing();
+            // Batch insert: ensure all metric rows exist in one statement
+            await tx
+                .insert(taskMetrics)
+                .values(taskIds.map((taskId) => ({ taskId, userId, delayCount: 0 })))
+                .onConflictDoNothing();
 
-                await tx
-                    .update(taskMetrics)
-                    .set({ delayCount: sql`${taskMetrics.delayCount} + 1` })
-                    .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)));
-            }
+            // Batch update: increment delay count for all overdue tasks at once
+            await tx
+                .update(taskMetrics)
+                .set({ delayCount: sql`${taskMetrics.delayCount} + 1` })
+                .where(and(eq(taskMetrics.userId, userId), inArray(taskMetrics.taskId, taskIds)));
         });
 
         try {
@@ -47,5 +47,23 @@ export async function handleOverdueCheck(env: Env) {
         } catch (err) {
             console.error(`Failed to recompute workload signals for user ${userId}:`, err);
         }
+    }
+}
+
+/**
+ * Prune stale mutation dedup entries older than 7 days.
+ * Safe to run from a cron — prevents unbounded table growth.
+ */
+export async function pruneStaleMutations(env: Env) {
+    const db = getDbClient(env);
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const deleted = await db
+        .delete(mutationDedup)
+        .where(lt(mutationDedup.createdAt, cutoff))
+        .returning({ id: mutationDedup.id });
+
+    if (deleted.length > 0) {
+        console.info(`Pruned ${deleted.length} stale mutation_dedup entries`);
     }
 }

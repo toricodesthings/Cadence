@@ -1,4 +1,4 @@
-import { eq, and, sql, gte, count, avg } from "drizzle-orm";
+import { eq, and, sql, gte, count, avg, inArray } from "drizzle-orm";
 import { type DbClient } from "./db";
 import { withRls } from "./rls";
 import { tasks, taskMetrics, usageEvents, userMetrics, habitLogs } from "../db/schema";
@@ -96,6 +96,55 @@ export async function trackEvent(
     }
 }
 
+/**
+ * Batch-track completion for multiple tasks in a single RLS transaction.
+ * Reduces N DB connections + N transactions → 1 of each.
+ */
+export async function trackBatchCompletion(db: DbClient, taskIds: string[], userId: string) {
+    await withRls(db, userId, async (tx) => {
+        const foundTasks = await tx
+            .select({ id: tasks.id, createdAt: tasks.createdAt })
+            .from(tasks)
+            .where(inArray(tasks.id, taskIds));
+
+        if (foundTasks.length === 0) return;
+
+        const now = new Date().toISOString();
+        const values = foundTasks.map((t) => ({
+            taskId: t.id,
+            userId,
+            completedAt: now,
+            createdToDone: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 1000),
+        }));
+
+        await tx.insert(taskMetrics).values(values).onConflictDoNothing();
+
+        for (const v of values) {
+            await tx
+                .update(taskMetrics)
+                .set({ completedAt: v.completedAt, createdToDone: v.createdToDone })
+                .where(and(eq(taskMetrics.taskId, v.taskId), eq(taskMetrics.userId, userId)));
+        }
+    });
+}
+
+/** Batch-insert usage events in a single RLS transaction. */
+export async function trackBatchEvents(
+    db: DbClient,
+    userId: string,
+    events: { event: string; metadata?: Record<string, unknown> }[],
+) {
+    try {
+        await withRls(db, userId, async (tx) => {
+            await tx.insert(usageEvents).values(
+                events.map((e) => ({ userId, event: e.event, metadata: e.metadata ?? null })),
+            );
+        });
+    } catch {
+        // Best-effort telemetry — never block the caller
+    }
+}
+
 /** Recompute user workload signals from existing data and persist in user_metrics. */
 export async function computeWorkloadSignals(db: DbClient, userId: string) {
     await withRls(db, userId, async (tx) => {
@@ -157,17 +206,15 @@ async function queryCompletionRatio(tx: RlsTx, userId: string, since: string, ov
 }
 
 async function queryHabitAdherenceRate(tx: RlsTx, userId: string, since: string) {
-    const [habitCompleted] = await tx
-        .select({ cnt: count() })
+    const [stats] = await tx
+        .select({
+            completed: sql<number>`COUNT(*) FILTER (WHERE ${habitLogs.status} = 'COMPLETED')`,
+            total: sql<number>`COUNT(*) FILTER (WHERE ${habitLogs.status} IN ('COMPLETED', 'SKIPPED'))`,
+        })
         .from(habitLogs)
-        .where(and(eq(habitLogs.userId, userId), eq(habitLogs.status, "COMPLETED"), gte(habitLogs.createdAt, since)));
-    const [habitSkipped] = await tx
-        .select({ cnt: count() })
-        .from(habitLogs)
-        .where(and(eq(habitLogs.userId, userId), eq(habitLogs.status, "SKIPPED"), gte(habitLogs.createdAt, since)));
-    const completed = habitCompleted?.cnt ?? 0;
-    const skipped = habitSkipped?.cnt ?? 0;
-    const total = completed + skipped;
+        .where(and(eq(habitLogs.userId, userId), gte(habitLogs.createdAt, since)));
+    const completed = Number(stats?.completed ?? 0);
+    const total = Number(stats?.total ?? 0);
     return total > 0 ? completed / total : 0;
 }
 

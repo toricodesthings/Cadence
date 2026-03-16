@@ -6,7 +6,7 @@ import { tasks, tags, taskTags } from "../db/schema";
 import { getDbClient } from "../lib/db";
 import { AppError, throwIfNotFound, assertNoConflict } from "../lib/errors";
 import { checkIdempotency, recordMutation } from "../lib/idempotency";
-import { trackCompletion, trackReschedule, trackEvent } from "../lib/metrics";
+import { trackCompletion, trackReschedule, trackEvent, trackBatchCompletion, trackBatchEvents } from "../lib/metrics";
 import { withRls } from "../lib/rls";
 import { normalizeTaskFilters, type NormalizedTaskFilters } from "../lib/task-filters";
 import {
@@ -221,17 +221,18 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             // If the client sent the full ordered list, rebalance all affected tasks
             if (orderedTaskIds && orderedTaskIds.length > 1) {
                 const GAP = 1024;
-                const updates = orderedTaskIds.map((taskId, idx) => ({
-                    id: taskId,
-                    orderIndex: idx * GAP,
-                }));
 
-                for (const u of updates) {
-                    await tx
-                        .update(tasks)
-                        .set({ orderIndex: u.orderIndex, updatedAt: sql`NOW()` })
-                        .where(and(eq(tasks.id, u.id), eq(tasks.userId, userId)));
-                }
+                // Batch all reorder updates into a single UPDATE with CASE
+                const caseChunks = orderedTaskIds.map(
+                    (taskId, idx) => sql`WHEN ${taskId} THEN ${idx * GAP}`,
+                );
+                await tx.execute(sql`
+                    UPDATE tasks
+                    SET order_index = CASE id ${sql.join(caseChunks, sql` `)} END,
+                        updated_at = NOW()
+                    WHERE id IN ${sql`(${sql.join(orderedTaskIds.map((id) => sql`${id}`), sql`, `)})`}
+                      AND user_id = ${userId}
+                `);
 
                 const [row] = await tx
                     .select()
@@ -266,12 +267,11 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         );
 
         if (state === "COMPLETE") {
-            for (const id of taskIds) {
-                c.executionCtx.waitUntil(trackCompletion(getDbClient(c.env), id, userId));
-                c.executionCtx.waitUntil(
-                    trackEvent(getDbClient(c.env), userId, "task.complete", { taskId: id }),
-                );
-            }
+            const db2 = getDbClient(c.env);
+            c.executionCtx.waitUntil(trackBatchCompletion(db2, taskIds, userId));
+            c.executionCtx.waitUntil(
+                trackBatchEvents(db2, userId, taskIds.map((id) => ({ event: "task.complete", metadata: { taskId: id } }))),
+            );
         }
 
         return c.json({ data: updatedTasks });
@@ -293,14 +293,15 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .returning(),
         );
 
+        const db2 = getDbClient(c.env);
         for (const id of taskIds) {
             c.executionCtx.waitUntil(
-                trackReschedule(getDbClient(c.env), id, userId, temporalFields.scheduledStart ?? temporalFields.dueDate),
-            );
-            c.executionCtx.waitUntil(
-                trackEvent(getDbClient(c.env), userId, "task.reschedule", { taskId: id }),
+                trackReschedule(db2, id, userId, temporalFields.scheduledStart ?? temporalFields.dueDate),
             );
         }
+        c.executionCtx.waitUntil(
+            trackBatchEvents(db2, userId, taskIds.map((id) => ({ event: "task.reschedule", metadata: { taskId: id } }))),
+        );
 
         return c.json({ data: updatedTasks });
     })

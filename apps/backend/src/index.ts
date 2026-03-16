@@ -153,11 +153,12 @@ app.route("/api/debug", debugRoutes);
 // ── Type export for Hono RPC ──
 export type AppType = typeof app;
 
-import { handleOverdueCheck } from "./cron/overdue-check";
+import { handleOverdueCheck, pruneStaleMutations } from "./cron/overdue-check";
 
 export default {
   fetch: app.fetch,
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleOverdueCheck(env));
+    ctx.waitUntil(pruneStaleMutations(env));
   },
 };

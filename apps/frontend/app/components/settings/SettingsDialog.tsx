@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useSearchParams } from "react-router";
-import { User, Bell, Clock, Sparkles, Paintbrush, Keyboard, CheckSquare, Blocks, Shield, Search, X } from "lucide-react";
+import { User, Bell, Clock, Sparkles, Paintbrush, Keyboard, CheckSquare, Blocks, Shield, Search, X, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import { Input } from "../primitives/Input";
 import { cn } from "../../lib/utils";
@@ -16,8 +16,10 @@ import { ShortcutsTab } from "./tabs/ShortcutsTab";
 import { TasksTab } from "./tabs/TasksTab";
 import { IntegrationsTab } from "./tabs/IntegrationsTab";
 import { DataPrivacyTab } from "./tabs/DataPrivacyTab";
+import { AboutTab } from "./tabs/AboutTab";
 
 type TabId =
+    | "about"
     | "account"
     | "notifications"
     | "datetime"
@@ -30,6 +32,7 @@ type TabId =
 
 const SETTINGS_CATEGORIES = [
     { label: "Profile & Security", isHeader: true },
+    { id: "about", label: "About Cadence", icon: Info },
     { id: "account", label: "Profile & Security", icon: User },
 
     { label: "Preferences", isHeader: true },
@@ -86,6 +89,7 @@ export function SettingsDialog() {
     // Resolve component to render
     const RenderContent = () => {
         switch (activeTab) {
+            case "about": return <AboutTab />;
             case "account": return <AccountTab />;
             case "notifications": return <NotificationsTab />;
             case "datetime": return <DateTimeTab />;

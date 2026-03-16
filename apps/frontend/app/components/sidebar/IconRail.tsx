@@ -3,6 +3,7 @@ import {
     Calendar, LayoutDashboard, Sprout,
     LogOut, LifeBuoy, ChevronDown, Sparkles, Trash2, RefreshCw,
     BellRing, CheckCircle2, Info, TriangleAlert, CircleAlert, LoaderCircle,
+    ShieldCheck, FileText, History,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 
@@ -68,6 +69,19 @@ const NAV_LINKS = [
         notificationFn: () => new Date().getDay() === 1, // subtle dot if Monday
     },
 ] as const;
+
+const PROFILE_SUPPORT_LINKS: Array<{
+    label: string;
+    icon: typeof Info;
+    to?: string;
+    settingsTab?: "about";
+}> = [
+    { settingsTab: "about", icon: Info, label: "About" },
+    { to: "/changelog", icon: History, label: "Changelog" },
+    { to: "/privacy-policy", icon: ShieldCheck, label: "Privacy & Policy" },
+    { to: "/terms", icon: FileText, label: "Terms & Conditions" },
+    { to: "/help-feedback", icon: LifeBuoy, label: "Help & Feedback" },
+];
 
 /** The narrow icon rail on the left of the sidebar */
 export function IconRail({
@@ -550,10 +564,16 @@ export function IconRail({
                                 <Settings size={16} className="text-twilight-text-muted" aria-hidden="true" />
                                 <span>Preferences</span>
                             </DropdownMenu.Item>
-                            <DropdownMenu.Item className="flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors">
-                                <LifeBuoy size={16} className="text-twilight-text-muted" aria-hidden="true" />
-                                <span>Help & Feedback</span>
-                            </DropdownMenu.Item>
+                            {PROFILE_SUPPORT_LINKS.map(({ to, settingsTab, icon: Icon, label }) => (
+                                <DropdownMenu.Item
+                                    key={to ?? settingsTab}
+                                    className="flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors"
+                                    onSelect={() => navigate(settingsTab ? `?settings=${settingsTab}` : to!)}
+                                >
+                                    <Icon size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                    <span>{label}</span>
+                                </DropdownMenu.Item>
+                            ))}
                         </div>
 
                         <DropdownMenu.Separator className="bg-twilight-border-light" />

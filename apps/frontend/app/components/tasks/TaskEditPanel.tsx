@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "rea
 import {
     ArrowLeft, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
     Pin, Repeat, CalendarRange, AlertTriangle, Trash2, Copy, SlidersHorizontal,
-    CircleDot, Gauge, CalendarOff, Clock, Plus
+    CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks, useUpdateTask, useDeleteTask } from "../../hooks/tasks";
