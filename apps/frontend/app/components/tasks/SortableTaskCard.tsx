@@ -1,4 +1,4 @@
-import { useRef, type HTMLAttributes } from "react";
+import { useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
@@ -42,17 +42,6 @@ export function SortableTaskCard({
         isDragging,
     } = useSortable({ id: task.id });
 
-    const dragProps: HTMLAttributes<HTMLElement> = {
-        onPointerDown: listeners?.onPointerDown as HTMLAttributes<HTMLElement>["onPointerDown"],
-        onMouseDown: listeners?.onMouseDown as HTMLAttributes<HTMLElement>["onMouseDown"],
-        onTouchStart: listeners?.onTouchStart as HTMLAttributes<HTMLElement>["onTouchStart"],
-    };
-
-    const dragHandleProps: HTMLAttributes<HTMLButtonElement> = {
-        ...attributes,
-        onKeyDown: listeners?.onKeyDown as HTMLAttributes<HTMLButtonElement>["onKeyDown"],
-    };
-
     const isComplete = task.state === "COMPLETE";
     const prevCompleteRef = useRef(isComplete);
 
@@ -69,8 +58,19 @@ export function SortableTaskCard({
     return (
         <motion.div
             ref={setNodeRef}
+            role={attributes.role}
+            tabIndex={attributes.tabIndex}
+            aria-disabled={attributes["aria-disabled"]}
+            aria-pressed={attributes["aria-pressed"]}
+            aria-roledescription={attributes["aria-roledescription"]}
+            aria-describedby={attributes["aria-describedby"]}
+            onPointerDown={listeners?.onPointerDown as React.PointerEventHandler<HTMLDivElement> | undefined}
+            onMouseDown={listeners?.onMouseDown as React.MouseEventHandler<HTMLDivElement> | undefined}
+            onTouchStart={listeners?.onTouchStart as React.TouchEventHandler<HTMLDivElement> | undefined}
+            onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler<HTMLDivElement> | undefined}
             style={style}
             data-dnd-card
+            data-dnd-draggable="true"
             layout
             initial={false}
             animate={{
@@ -90,8 +90,6 @@ export function SortableTaskCard({
                 task={task}
                 tags={tags}
                 subtasks={subtasks}
-                dragProps={dragProps}
-                dragHandleProps={dragHandleProps}
                 isDragging={isDragging}
                 isSelected={isSelected}
                 isDropTarget={isDropTarget}

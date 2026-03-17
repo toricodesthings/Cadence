@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and, or, inArray, gte, lte, between, sql, desc, asc } from "drizzle-orm";
+import { eq, and, inArray, gte, lte, sql, desc } from "drizzle-orm";
 import { getDbClient } from "../lib/db";
 import { checkIdempotency, recordMutation } from "../lib/idempotency";
 import { withRls } from "../lib/rls";

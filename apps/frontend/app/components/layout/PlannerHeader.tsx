@@ -20,15 +20,15 @@ export function PlannerHeader() {
     const WeatherIcon = weather?.icon;
 
     return (
-        <div className="mb-6 flex items-start justify-between">
+        <div className="mb-[var(--cadence-planner-gap)] flex items-start justify-between">
             <div>
                 {/* Greeting — the warm anchor */}
-                <h2 className="font-display text-3xl font-semibold tracking-tight text-twilight-text sm:text-[2.15rem]">
+                <h2 className="font-display text-[2rem] font-semibold tracking-tight text-twilight-text sm:text-[2.15rem]">
                     {greeting}, <span className="text-lantern">{firstName}</span>.
                 </h2>
 
                 {/* Date & Weather — quiet, secondary context line */}
-                <p className="mt-2 text-[14px] tracking-wide text-twilight-text-soft">
+                <p className="mt-1.5 text-[14px] tracking-wide text-twilight-text-soft">
                     <span className="first-letter:uppercase">{formatted}</span>
                     <span className="mx-2 text-twilight-text-soft">·</span>
                     <span className="tabular-nums">{clock}</span>

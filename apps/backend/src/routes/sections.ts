@@ -8,18 +8,19 @@ import type { AuthVariables } from "../lib/auth";
 import { AppError, throwIfNotFound } from "../lib/errors";
 import { apiValidator } from "../lib/validation";
 import { uuidParamSchema } from "../types/common";
-import { createSectionSchema, updateSectionSchema } from "../types/section";
+import { createSectionSchema, updateSectionSchema, sectionQuerySchema } from "../types/section";
 
 export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // GET /api/sections?projectId=... — list sections for a project (or unscoped if no projectId)
-    .get("/", async (c) => {
+    .get("/", apiValidator("query", sectionQuerySchema), async (c) => {
         const userId = c.get("userId");
-        const projectId = c.req.query("projectId") ?? null;
+        const { projectId } = c.req.valid("query");
+        const projectIdValue = projectId ?? null;
         const db = getDbClient(c.env);
 
         const conditions = [eq(taskSections.userId, userId)];
-        if (projectId) {
-            conditions.push(eq(taskSections.projectId, projectId));
+        if (projectIdValue) {
+            conditions.push(eq(taskSections.projectId, projectIdValue));
         } else {
             conditions.push(sql`${taskSections.projectId} IS NULL`);
         }

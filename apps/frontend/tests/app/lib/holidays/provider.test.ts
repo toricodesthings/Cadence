@@ -1,28 +1,36 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     fetchHolidays,
     fetchHolidaySubdivisions,
 } from "../../../../app/lib/holidays/provider";
 
+const authenticatedFetchMock = vi.fn();
+
+vi.mock("../../../../app/lib/api/client", () => ({
+    authenticatedFetch: (...args: Parameters<typeof authenticatedFetchMock>) => authenticatedFetchMock(...args),
+}));
+
 describe("holiday provider", () => {
+    beforeEach(() => {
+        authenticatedFetchMock.mockReset();
+    });
+
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
-    it("uses OpenHolidays and filters out regional entries when no subdivision is selected", async () => {
-        vi.spyOn(global, "fetch").mockResolvedValueOnce(new Response(JSON.stringify([
-            {
-                startDate: "2026-01-01",
-                name: [{ language: "EN", text: "New Year's Day" }],
-                nationwide: true,
-            },
-            {
-                startDate: "2026-01-06",
-                name: [{ language: "EN", text: "Regional Day" }],
-                nationwide: false,
-                subdivisions: [{ code: "DE-BY" }],
-            },
-        ]), { status: 200 }));
+    it("requests holidays through the authenticated proxy and returns the normalized payload", async () => {
+        authenticatedFetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+            data: [
+                {
+                    date: "2026-01-01",
+                    name: "New Year's Day",
+                    countryCode: "DE",
+                    subdivisionCode: null,
+                    isRegional: false,
+                },
+            ],
+        }), { status: 200 }));
 
         const holidays = await fetchHolidays({
             start: "2026-01-01",
@@ -32,6 +40,10 @@ describe("holiday provider", () => {
             locale: "en-US",
         });
 
+        expect(authenticatedFetchMock).toHaveBeenCalledWith(
+            expect.stringContaining("/api/proxy/holidays?"),
+            expect.objectContaining({ authenticated: true }),
+        );
         expect(holidays).toEqual([
             expect.objectContaining({
                 date: "2026-01-01",
@@ -42,29 +54,25 @@ describe("holiday provider", () => {
         ]);
     });
 
-    it("falls back to Nager and keeps public subdivision holidays when OpenHolidays fails", async () => {
-        vi.spyOn(global, "fetch")
-            .mockResolvedValueOnce(new Response("boom", { status: 500 }))
-            .mockResolvedValueOnce(new Response(JSON.stringify([
+    it("passes subdivision selection through to the authenticated holiday proxy", async () => {
+        authenticatedFetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+            data: [
                 {
                     date: "2026-01-01",
-                    localName: "New Year's Day",
                     name: "New Year's Day",
                     countryCode: "US",
-                    global: true,
-                    counties: null,
-                    types: ["Public"],
+                    subdivisionCode: null,
+                    isRegional: false,
                 },
                 {
                     date: "2026-02-12",
-                    localName: "Lincoln's Birthday",
                     name: "Lincoln's Birthday",
                     countryCode: "US",
-                    global: false,
-                    counties: ["US-CA"],
-                    types: ["Public"],
+                    subdivisionCode: "US-CA",
+                    isRegional: true,
                 },
-            ]), { status: 200 }));
+            ],
+        }), { status: 200 }));
 
         const holidays = await fetchHolidays({
             start: "2026-01-01",
@@ -74,26 +82,18 @@ describe("holiday provider", () => {
             locale: "en-US",
         });
 
+        expect(authenticatedFetchMock).toHaveBeenCalledWith(
+            expect.stringContaining("subdivisionCode=US-CA"),
+            expect.objectContaining({ authenticated: true }),
+        );
         expect(holidays).toEqual([
             expect.objectContaining({ date: "2026-01-01", countryCode: "US" }),
             expect.objectContaining({ date: "2026-02-12", subdivisionCode: "US-CA", isRegional: true }),
         ]);
     });
 
-    it("derives subdivision options from Nager when OpenHolidays has no subdivision endpoint", async () => {
-        vi.spyOn(global, "fetch")
-            .mockResolvedValueOnce(new Response("missing", { status: 404 }))
-            .mockResolvedValueOnce(new Response(JSON.stringify([
-                {
-                    date: "2026-02-12",
-                    localName: "Lincoln's Birthday",
-                    name: "Lincoln's Birthday",
-                    countryCode: "US",
-                    global: false,
-                    counties: ["US-CA", "US-NY"],
-                    types: ["Public"],
-                },
-            ]), { status: 200 }));
+    it("falls back to static subdivisions when the proxy lookup fails", async () => {
+        authenticatedFetchMock.mockRejectedValueOnce(new Error("missing"));
 
         const subdivisions = await fetchHolidaySubdivisions("US", 2026, "en-US");
 

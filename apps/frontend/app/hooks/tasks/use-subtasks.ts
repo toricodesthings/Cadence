@@ -191,7 +191,7 @@ export function useReorderSubtasks(taskId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, newOrderIndex }: { id: string; newOrderIndex: number }) => {
+        mutationFn: async ({ id, newOrderIndex }: { id: string; newOrderIndex: number; optimisticSubtasks?: Subtask[] }) => {
             const res = await (api.api.subtasks as any)[":id"].reorder.$patch({
                 param: { id },
                 json: { orderIndex: newOrderIndex },
@@ -202,18 +202,23 @@ export function useReorderSubtasks(taskId: string) {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
             const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
 
-            queryClient.setQueryData<Subtask[]>(SUBTASKS_KEY(taskId), (old) => {
-                return transformListCache(old, (items) =>
-                    items
+            if (variables.optimisticSubtasks) {
+                queryClient.setQueryData<Subtask[]>(SUBTASKS_KEY(taskId), variables.optimisticSubtasks);
+                updateBulkSubtasksCaches(queryClient, taskId, () => variables.optimisticSubtasks ?? []);
+            } else {
+                queryClient.setQueryData<Subtask[]>(SUBTASKS_KEY(taskId), (old) => {
+                    return transformListCache(old, (items) =>
+                        items
+                            .map((st) => (st.id === variables.id ? { ...st, orderIndex: variables.newOrderIndex } : st))
+                            .sort((a, b) => a.orderIndex - b.orderIndex),
+                    );
+                });
+                updateBulkSubtasksCaches(queryClient, taskId, (old) =>
+                    old
                         .map((st) => (st.id === variables.id ? { ...st, orderIndex: variables.newOrderIndex } : st))
                         .sort((a, b) => a.orderIndex - b.orderIndex),
                 );
-            });
-            updateBulkSubtasksCaches(queryClient, taskId, (old) =>
-                old
-                    .map((st) => (st.id === variables.id ? { ...st, orderIndex: variables.newOrderIndex } : st))
-                    .sort((a, b) => a.orderIndex - b.orderIndex),
-            );
+            }
 
             return { previous };
         },

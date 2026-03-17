@@ -15,6 +15,8 @@ import { AddTaskInput } from "../components/tasks/AddTaskInput";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
+import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/sort-tasks";
 import * as Dialog from "../components/primitives/Dialog";
@@ -25,6 +27,7 @@ import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
 import { PageContent } from "../components/layout/PageLayout";
 import { useViewMode } from "../hooks/ui/use-view-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
 
 const MIN_PANEL_WIDTH = 300;
@@ -37,8 +40,11 @@ export default function ProjectView() {
     const { data: projects } = useProjects();
     const updateProject = useUpdateProject();
     const deleteProject = useDeleteProject();
+    const shell = useShellMode();
     const { view, setView } = useViewMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
     const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
     const [renameOpen, setRenameOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -126,7 +132,18 @@ export default function ProjectView() {
         };
     }, []);
 
-    const sidePanel = selectedTaskId ? (
+    const handleSelectTask = (taskId: string) => {
+        setSelectedTaskId((current) => {
+            const next = current === taskId ? null : taskId;
+            if (next && !shell.isWide) {
+                setMobileDetailMode("peek");
+                setMobilePanelOpen(true);
+            }
+            return next;
+        });
+    };
+
+    const sidePanel = shell.isWide && selectedTaskId ? (
         <>
             {/* Resize handle */}
             <div
@@ -280,7 +297,73 @@ export default function ProjectView() {
                 requireAuth
                 sidePanel={sidePanel}
                 headerCenter={<ViewToggle view={view} onViewChange={setView} />}
-                headerRight={project ? (
+                headerRight={project ? (shell.isPhone ? (
+                    <ControlsSheet
+                        routeKey={`project:${projectId ?? "unknown"}`}
+                        title={project.name}
+                        sections={[
+                            {
+                                id: "view",
+                                label: "View",
+                                content: (
+                                    <div className="space-y-3">
+                                        <ViewToggle view={view} onViewChange={setView} compact />
+                                    </div>
+                                ),
+                            },
+                            {
+                                id: "sort",
+                                label: "Sort",
+                                content: (
+                                    <div className="space-y-2">
+                                        {[
+                                            { value: "smart", label: "Smart" },
+                                            { value: "priority", label: "Priority" },
+                                            { value: "manual", label: "Manual" },
+                                        ].map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setSortMode(option.value as typeof sortMode)}
+                                                className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
+                                                    sortMode === option.value
+                                                        ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                                        : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ),
+                            },
+                            {
+                                id: "project",
+                                label: "Project",
+                                content: (
+                                    <div className="space-y-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleRenameOpen}
+                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
+                                        >
+                                            <Pencil size={15} aria-hidden="true" />
+                                            Rename / edit project
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDeleteOpen(true)}
+                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-medium text-red-400"
+                                        >
+                                            <Trash2 size={15} aria-hidden="true" />
+                                            Delete project
+                                        </button>
+                                    </div>
+                                ),
+                            },
+                        ]}
+                    />
+                ) : (
                     <div className="flex items-center gap-2">
                         <SortMenu
                             mode={sortMode}
@@ -300,6 +383,7 @@ export default function ProjectView() {
                             ]}
                         />
                     </div>
+                )
                 ) : undefined}
                 contentWidth="default"
                 pageTitle={project?.name ?? "Project"}
@@ -316,44 +400,35 @@ export default function ProjectView() {
                 }}
             >
                 {view === "kanban" ? (
-                    <>
-                        <PageContent width="default" className="shrink-0">
-                            {projectId && (
-                                <div className="mb-6">
-                                    <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
-                                </div>
-                            )}
-                        </PageContent>
-                        <div className="flex-1 min-h-0 min-w-0">
-                            {isLoading ? (
-                                <PageContent width="default"><TaskListSkeleton /></PageContent>
-                            ) : tasks && tasks.length > 0 ? (
-                                <KanbanBoard
-                                    tasks={tasks}
-                                    projectId={projectId}
-                                    selectedTaskId={selectedTaskId}
-                                    onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)}
-                                />
-                            ) : (
-                                <PageContent width="default">
-                                    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                                        <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
-                                            <FolderKanban size={24} className="text-twilight-text-muted" />
-                                        </div>
-                                        <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this project</h3>
-                                        <p className="text-twilight-text-muted text-sm max-w-sm">
-                                            Add some tasks to get started with {project?.name || "this project"}.
-                                        </p>
+                    <div className="flex-1 min-h-0 min-w-0">
+                        {isLoading ? (
+                            <PageContent width="default"><TaskListSkeleton /></PageContent>
+                        ) : tasks && tasks.length > 0 ? (
+                            <KanbanBoard
+                                tasks={tasks}
+                                projectId={projectId}
+                                selectedTaskId={selectedTaskId}
+                                onSelectTask={handleSelectTask}
+                            />
+                        ) : (
+                            <PageContent width="default">
+                                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                                    <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
+                                        <FolderKanban size={24} className="text-twilight-text-muted" />
                                     </div>
-                                </PageContent>
-                            )}
-                        </div>
-                    </>
+                                    <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this project</h3>
+                                    <p className="text-twilight-text-muted text-sm max-w-sm">
+                                        Add some tasks to get started with {project?.name || "this project"}.
+                                    </p>
+                                </div>
+                            </PageContent>
+                        )}
+                    </div>
                 ) : (
                     <ScrollAreaWrapper>
                         <PageContent width="default">
                             {projectId && (
-                                <div className="mb-10">
+                                <div className="mb-4">
                                     <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
                                 </div>
                             )}
@@ -365,7 +440,7 @@ export default function ProjectView() {
                                     tasks={tasks}
                                     projectId={projectId}
                                     selectedTaskId={selectedTaskId}
-                                    onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)}
+                                    onSelectTask={handleSelectTask}
                                 />
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
@@ -382,6 +457,26 @@ export default function ProjectView() {
                     </ScrollAreaWrapper>
                 )}
             </MainLayout>
+
+            {!shell.isWide && selectedTaskId && (
+                <ResponsiveOverlayPanel
+                    ariaLabel="Project task details"
+                    open={mobilePanelOpen}
+                    onClose={() => setMobilePanelOpen(false)}
+                    mode={mobileDetailMode}
+                >
+                    <TaskEditPanel
+                        key={`project-mobile-edit-${selectedTaskId}`}
+                        taskId={selectedTaskId}
+                        detailMode={mobileDetailMode}
+                        onDetailModeChange={setMobileDetailMode}
+                        onClose={() => {
+                            setSelectedTaskId(null);
+                            setMobilePanelOpen(false);
+                        }}
+                    />
+                </ResponsiveOverlayPanel>
+            )}
         </>
     );
 }

@@ -6,6 +6,8 @@ interface ResizableSidePanelProps {
     minWidth?: number;
     maxWidth?: number;
     ariaLabel?: string;
+    width?: number;
+    onWidthChange?: (width: number) => void;
 }
 
 /**
@@ -18,27 +20,37 @@ export function ResizableSidePanel({
     minWidth = 260,
     maxWidth = 480,
     ariaLabel = "Resize side panel",
+    width,
+    onWidthChange,
 }: ResizableSidePanelProps) {
     const [panelWidth, setPanelWidth] = useState(defaultWidth);
     const isDragging = useRef(false);
     const startX = useRef(0);
     const startWidth = useRef(0);
+    const resolvedWidth = width ?? panelWidth;
 
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    const updateWidth = useCallback((nextWidth: number) => {
+        if (width === undefined) {
+            setPanelWidth(nextWidth);
+        }
+        onWidthChange?.(nextWidth);
+    }, [onWidthChange, width]);
+
+    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
         isDragging.current = true;
         startX.current = e.clientX;
-        startWidth.current = panelWidth;
+        startWidth.current = resolvedWidth;
         document.body.style.cursor = "col-resize";
         document.body.style.userSelect = "none";
-    }, [panelWidth]);
+    }, [resolvedWidth]);
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isDragging.current) return;
             const delta = startX.current - e.clientX;
             const newWidth = Math.min(maxWidth, Math.max(minWidth, startWidth.current + delta));
-            setPanelWidth(newWidth);
+            updateWidth(newWidth);
         };
 
         const handleMouseUp = () => {
@@ -54,39 +66,40 @@ export function ResizableSidePanel({
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
         };
-    }, [minWidth, maxWidth]);
+    }, [maxWidth, minWidth, updateWidth]);
 
     return (
         <>
             {/* Resize handle */}
             <div
                 onMouseDown={handleMouseDown}
-                className="w-1 shrink-0 cursor-col-resize hover:bg-lantern/20 active:bg-lantern/30 transition-colors relative z-10 group"
+                className="group relative z-10 w-1 shrink-0 cursor-col-resize transition-colors hover:bg-lantern/20 active:bg-lantern/30"
                 role="slider"
                 aria-orientation="vertical"
                 aria-label={ariaLabel}
-                aria-valuenow={panelWidth}
+                aria-valuenow={resolvedWidth}
                 aria-valuemin={minWidth}
                 aria-valuemax={maxWidth}
                 tabIndex={0}
                 onKeyDown={(e) => {
-                    if (e.key === "ArrowRight") {
+                    if (e.key === "ArrowLeft") {
                         e.preventDefault();
-                        setPanelWidth((w) => Math.min(maxWidth, w + 20));
-                    } else if (e.key === "ArrowLeft") {
+                        updateWidth(Math.min(maxWidth, resolvedWidth + 20));
+                    } else if (e.key === "ArrowRight") {
                         e.preventDefault();
-                        setPanelWidth((w) => Math.max(minWidth, w - 20));
+                        updateWidth(Math.max(minWidth, resolvedWidth - 20));
                     }
                 }}
             >
-                {/* Visible lantern drag indicator on hover */}
-                <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full opacity-0 group-hover:opacity-100 bg-lantern/25 transition-opacity" />
+                <div
+                    className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full bg-lantern/25 opacity-0 transition-opacity group-hover:opacity-100"
+                />
             </div>
 
             {/* Panel container — spans full height (overtakes toolbar thanks to MainLayout flex) */}
             <div
-                className="shrink-0 border-l border-twilight-border overflow-hidden"
-                style={{ width: panelWidth }}
+                className="h-full self-stretch shrink-0 overflow-hidden border-l border-twilight-border"
+                style={{ width: resolvedWidth }}
             >
                 {children}
             </div>

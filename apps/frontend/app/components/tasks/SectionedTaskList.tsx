@@ -3,9 +3,10 @@ import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Pencil, Trash2 } from 
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskList } from "../tasks/TaskList";
 import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections";
-import { useUpdateTask } from "../../hooks/tasks";
+import { AddTaskInput } from "./AddTaskInput";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Task, TaskSection } from "../../types/task";
 
 interface SectionedTaskListProps {
@@ -35,7 +36,7 @@ export function SectionedTaskList({
     const createSection = useCreateSection(projectId);
     const updateSection = useUpdateSection(projectId);
     const deleteSection = useDeleteSection(projectId);
-    const updateTask = useUpdateTask();
+    const shell = useShellMode();
 
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
     const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -91,7 +92,7 @@ export function SectionedTaskList({
 
     if (!hasCustomSections) {
         return (
-            <div className="flex flex-col gap-1">
+            <div className={`flex flex-col gap-1 ${shell.isCompact ? "rounded-[30px] border border-twilight-border/45 bg-twilight-surface/20 px-3 py-4 shadow-[0_24px_80px_rgba(0,0,0,0.16)] backdrop-blur-xl" : ""}`}>
                 <TaskList
                     tasks={tasks}
                     selectedTaskId={selectedTaskId}
@@ -141,11 +142,16 @@ export function SectionedTaskList({
         );
     }
 
+    const sectionSurfaceClass = shell.isCompact
+        ? "rounded-[28px] border border-twilight-border/45 bg-twilight-surface/20 px-3 py-3 shadow-[0_24px_80px_rgba(0,0,0,0.16)] backdrop-blur-xl"
+        : "";
+    const inlineAddClass = shell.isCompact ? "mt-3" : "mt-2";
+
     return (
-        <div className="flex flex-col gap-1">
+        <div className={`flex flex-col gap-3 ${shell.isCompact ? "pb-2" : "gap-1"}`}>
             {/* Unsectioned tasks (no section) */}
-            {ungroupedTasks.length > 0 && (
-                <div className="mt-4">
+            {(ungroupedTasks.length > 0 || hasCustomSections) && (
+                <div className={`${shell.isCompact ? sectionSurfaceClass : "mt-4"}`}>
                     <div className="flex items-center gap-2 group">
                         <div className="flex items-center gap-2 flex-1 py-1.5 text-left">
                             <span className="text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text-muted">
@@ -163,6 +169,14 @@ export function SectionedTaskList({
                         selectedTaskId={selectedTaskId}
                         onSelectTask={onSelectTask}
                     />
+                    <div className={inlineAddClass}>
+                        <AddTaskInput
+                            projectId={projectId ?? undefined}
+                            tasks={ungroupedTasks}
+                            compact
+                            placeholder="Add unsectioned task..."
+                        />
+                    </div>
                 </div>
             )}
 
@@ -173,7 +187,7 @@ export function SectionedTaskList({
                 const isEditing = editingSection === section.id;
 
                 return (
-                    <div key={section.id} className="mt-4">
+                    <div key={section.id} className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
                         {/* Section header */}
                         <div className="flex items-center gap-2 group">
                             <button
@@ -209,7 +223,7 @@ export function SectionedTaskList({
                             </button>
 
                             {/* Section context menu */}
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className={shell.isCompact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}>
                                 <DropdownMenu.Root>
                                     <DropdownMenu.Trigger asChild>
                                         <Button
@@ -262,6 +276,15 @@ export function SectionedTaskList({
                                             No tasks in this section
                                         </div>
                                     )}
+                                    <div className={inlineAddClass}>
+                                        <AddTaskInput
+                                            projectId={projectId ?? undefined}
+                                            sectionId={section.id}
+                                            tasks={sectionTasks}
+                                            compact
+                                            placeholder={`Add task to ${section.name}...`}
+                                        />
+                                    </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>

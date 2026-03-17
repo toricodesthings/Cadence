@@ -4,8 +4,9 @@ import {
 } from "@dnd-kit/core";
 
 function allowsDrag(target: EventTarget | null) {
-    if (!(target instanceof HTMLElement)) return true;
-    return !target.closest('[data-no-dnd="true"]');
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.closest('[data-no-dnd="true"]')) return false;
+    return Boolean(target.closest('[data-dnd-handle="true"], [data-dnd-draggable="true"]'));
 }
 
 export class MouseSensor extends LibMouseSensor {

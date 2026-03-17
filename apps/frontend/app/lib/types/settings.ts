@@ -34,6 +34,11 @@ export interface UserSettings {
         defaultView: "month" | "week" | "day";
         showWeekNumbers: boolean;
         showWeekends: boolean;
+        clutter: {
+            showAllDay: boolean;
+            showTimedTasks: boolean;
+            showHabitAnchors: boolean;
+        };
         holidays: {
             enabled: boolean;
             usePreciseLocation: boolean;
@@ -53,6 +58,11 @@ export interface UserSettings {
         hideCompleted: boolean;
         hideTrash: boolean;
         showDoneCelebration: boolean;
+        quickAdd: {
+            preset: "minimal" | "planner" | "power";
+            style: "icon" | "label";
+            actions: Array<"date" | "priority" | "project" | "tag">;
+        };
     };
     shortcuts: {
         enabled: boolean;
@@ -130,6 +140,11 @@ export const SETTINGS_DEFAULTS: UserSettings = {
         defaultView: "month",
         showWeekNumbers: false,
         showWeekends: true,
+        clutter: {
+            showAllDay: true,
+            showTimedTasks: true,
+            showHabitAnchors: true,
+        },
         holidays: {
             enabled: true,
             usePreciseLocation: false,
@@ -149,6 +164,11 @@ export const SETTINGS_DEFAULTS: UserSettings = {
         hideCompleted: false,
         hideTrash: false,
         showDoneCelebration: true,
+        quickAdd: {
+            preset: "planner",
+            style: "label",
+            actions: ["date", "priority", "project"],
+        },
     },
     shortcuts: {
         enabled: true,

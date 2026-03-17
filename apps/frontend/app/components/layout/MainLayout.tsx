@@ -17,6 +17,9 @@ import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
 import type { PageWidth } from "./PageLayout";
+import { CompactPageControls } from "../shared/CompactPageControls";
+import { ContextualAddOrb } from "../shared/ContextualAddOrb";
+import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette").then((m) => ({ default: m.CommandPalette })));
 const SettingsDialog = lazy(() => import("../settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
@@ -95,6 +98,7 @@ export function MainLayout({
     const { isCollapsed, toggleCollapse } = useSidebarStore();
     const [commandOpen, setCommandOpen] = useState(false);
     const [quickAddOpen, setQuickAddOpen] = useState(false);
+    const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("task");
     const [navOpen, setNavOpen] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
@@ -115,7 +119,10 @@ export function MainLayout({
 
     useKeyboardShortcuts({
         onCommandPalette: () => setCommandOpen((open) => !open),
-        onQuickAdd: () => setQuickAddOpen(true),
+        onQuickAdd: () => {
+            setQuickAddInitialTab("task");
+            setQuickAddOpen(true);
+        },
         onFocusSearch: () => setCommandOpen(true),
         onToggleView: () => setView(view === "list" ? "kanban" : "list"),
         onCompleteTask: () => {
@@ -222,7 +229,10 @@ export function MainLayout({
                             navOpen={navOpen}
                             onClose={() => setNavOpen(false)}
                             onSearchOpen={() => setCommandOpen(true)}
-                            onQuickAddOpen={() => setQuickAddOpen(true)}
+                            onQuickAddOpen={() => {
+                                setQuickAddInitialTab("task");
+                                setQuickAddOpen(true);
+                            }}
                         />
                     )}
 
@@ -296,10 +306,12 @@ export function MainLayout({
                                     </div>
 
                                     {(headerCenter || headerRight) && shell.isPhone && (
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            {headerCenter}
-                                            {headerRight}
-                                        </div>
+                                        <CompactPageControls
+                                            primaryControl={headerCenter}
+                                            secondaryControl={headerRight}
+                                            sticky
+                                            compressedOnScroll
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -322,11 +334,19 @@ export function MainLayout({
                 <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
             </Suspense>
             <Suspense fallback={null}>
-                <QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+                <QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} initialTab={quickAddInitialTab} />
             </Suspense>
             <Suspense fallback={null}>
                 <SettingsDialog />
             </Suspense>
+            {shell.isPhone ? (
+                <ContextualAddOrb
+                    onOpen={(tab) => {
+                        setQuickAddInitialTab(tab);
+                        setQuickAddOpen(true);
+                    }}
+                />
+            ) : null}
         </Tooltip.Provider>
     );
 }

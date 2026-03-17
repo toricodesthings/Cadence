@@ -110,6 +110,9 @@
   --duration-normal: 200ms;
   --duration-smooth: 300ms;
   --duration-expressive: 450ms;
+  --cadence-page-padding-y: 1rem;
+  --cadence-page-padding-y-desktop: 1.25rem;
+  --cadence-planner-gap: 1rem;
 }
 
 /*
@@ -771,6 +774,48 @@
 
   .safe-bottom {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .mobile-sheet-shell {
+    width: min(100%, 32rem);
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-sheet-header {
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-body {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-sheet-footer {
+    flex-shrink: 0;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .mobile-scroll-region {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mobile-scroll-region > [data-slot="scroll-area-root"] {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .mobile-scroll-region [data-slot="scroll-area-viewport"] {
+    min-height: 0;
+    height: 100%;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .touch-target {

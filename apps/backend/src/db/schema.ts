@@ -51,6 +51,11 @@ export const UserSettingsSchema = z.object({
         defaultView: z.enum(["month", "week", "day"]).optional(),
         showWeekNumbers: z.boolean().optional(),
         showWeekends: z.boolean().optional(),
+        clutter: z.object({
+            showAllDay: z.boolean().optional(),
+            showTimedTasks: z.boolean().optional(),
+            showHabitAnchors: z.boolean().optional(),
+        }).optional(),
         holidays: z.object({
             enabled: z.boolean(),
             usePreciseLocation: z.boolean(),
@@ -70,6 +75,11 @@ export const UserSettingsSchema = z.object({
         hideTrash: z.boolean(),
         hideCompleted: z.boolean(),
         showDoneCelebration: z.boolean().optional(),
+        quickAdd: z.object({
+            preset: z.enum(["minimal", "planner", "power"]).optional(),
+            style: z.enum(["icon", "label"]).optional(),
+            actions: z.array(z.enum(["date", "priority", "project", "tag"])).optional(),
+        }).optional(),
     }),
     shortcuts: z.object({
         enabled: z.boolean().optional(),
@@ -133,9 +143,23 @@ export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', '
 export const users = pgTable('users', {
     id: uuid('id').primaryKey(), // We pass the Neon Auth Sub UUID here
     settings: jsonb('settings').$type<UserSettings>().default({
-        tasks: { defaultDueDate: null, hideTrash: false, hideCompleted: false },
+        tasks: {
+            defaultDueDate: null,
+            hideTrash: false,
+            hideCompleted: false,
+            quickAdd: {
+                preset: "planner",
+                style: "label",
+                actions: ["date", "priority", "project"],
+            },
+        },
         dateTime: { weekStart: 'Sunday', timezone: 'local', timeDisplay: '12h' },
         calendar: {
+            clutter: {
+                showAllDay: true,
+                showTimedTasks: true,
+                showHabitAnchors: true,
+            },
             holidays: {
                 enabled: true,
                 usePreciseLocation: false,
@@ -149,7 +173,14 @@ export const users = pgTable('users', {
         shortcuts: {}
     }).notNull(), // User preferences (view mode, theme, etc.)
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-});
+}, (table) => ({
+    rlsPolicy: pgPolicy("users_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: sql`(id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
+        withCheck: sql`(id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
+    }),
+})).enableRLS();
 
 // 2. The Adaptive State Engine (Burnout/Stress Tracker)
 export const userMetrics = pgTable('user_metrics', {
@@ -165,8 +196,14 @@ export const userMetrics = pgTable('user_metrics', {
 }, (table) => {
     return {
         userIdIdx: index('user_metrics_user_id_idx').on(table.userId),
+        rlsPolicy: pgPolicy("user_metrics_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     };
-});
+}).enableRLS();
 
 // 3. AI Memory Layer (Auto-Pruning Context via pgvector RAG)
 export const aiMemories = pgTable('ai_memories', {
@@ -179,8 +216,14 @@ export const aiMemories = pgTable('ai_memories', {
 }, (table) => {
     return {
         userIdIdx: index('ai_memories_user_id_idx').on(table.userId),
+        rlsPolicy: pgPolicy("ai_memories_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     };
-});
+}).enableRLS();
 
 // 4a. Task Sections (User-defined grouping headers, scoped to a project)
 // In kanban view each section becomes a column.
@@ -194,7 +237,13 @@ export const taskSections = pgTable('task_sections', {
 }, (table) => ({
     userIdIdx: index('task_sections_user_id_idx').on(table.userId),
     projectIdIdx: index('task_sections_project_id_idx').on(table.projectId),
-}));
+    rlsPolicy: pgPolicy("task_sections_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: rlsUsing,
+        withCheck: rlsUsing,
+    }),
+})).enableRLS();
 
 // 5. Projects (Task Containers)
 export const projects = pgTable('projects', {
@@ -206,7 +255,13 @@ export const projects = pgTable('projects', {
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('projects_user_id_idx').on(table.userId),
-}));
+    rlsPolicy: pgPolicy("projects_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: rlsUsing,
+        withCheck: rlsUsing,
+    }),
+})).enableRLS();
 
 // 5. Tasks (Unified Events & To-Dos)
 export const tasks = pgTable('tasks', {
@@ -263,8 +318,14 @@ export const tasks = pgTable('tasks', {
         sortOrderIdx: index('tasks_sort_order_idx').on(table.isPinned, table.orderIndex),
         notBeforeIdx: index('tasks_not_before_idx').on(table.notBefore),
         effortIdx: index('tasks_effort_idx').on(table.effort),
+        rlsPolicy: pgPolicy("tasks_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     };
-});
+}).enableRLS();
 
 // 6. Tags (User-defined labels)
 export const tags = pgTable("tags", {
@@ -279,7 +340,13 @@ export const tags = pgTable("tags", {
         .notNull(),
 }, (table) => ({
     userIdIdx: index("tags_user_id_idx").on(table.userId),
-}));
+    rlsPolicy: pgPolicy("tags_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: rlsUsing,
+        withCheck: rlsUsing,
+    }),
+})).enableRLS();
 
 // 7. Task–Tag associations (many-to-many)
 export const taskTags = pgTable("task_tags", {
@@ -293,7 +360,13 @@ export const taskTags = pgTable("task_tags", {
 }, (table) => ({
     uniquePair: uniqueIndex("task_tags_unique_pair").on(table.taskId, table.tagId),
     tagIdIdx: index("task_tags_tag_id_idx").on(table.tagId),
-}));
+    rlsPolicy: pgPolicy("task_tags_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
+        withCheck: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
+    }),
+})).enableRLS();
 
 export const tasksRelations = relations(tasks, ({ many }) => ({
     tags: many(taskTags),
@@ -319,7 +392,13 @@ export const inboxSections = pgTable('inbox_sections', {
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_sections_user_id_idx').on(table.userId),
-}));
+    rlsPolicy: pgPolicy("inbox_sections_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: rlsUsing,
+        withCheck: rlsUsing,
+    }),
+})).enableRLS();
 
 export const inboxItems = pgTable('inbox_items', {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -331,7 +410,13 @@ export const inboxItems = pgTable('inbox_items', {
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
-}));
+    rlsPolicy: pgPolicy("inbox_items_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: rlsUsing,
+        withCheck: rlsUsing,
+    }),
+})).enableRLS();
 
 // 9. Habits
 export const habits = pgTable(
@@ -379,9 +464,15 @@ export const habits = pgTable(
     (table) => {
         return {
             userIdIdx: index('habits_user_id_idx').on(table.userId),
+            rlsPolicy: pgPolicy("habits_owner_access", {
+                as: "permissive",
+                for: "all",
+                using: rlsUsing,
+                withCheck: rlsUsing,
+            }),
         };
     },
-);
+).enableRLS();
 
 // 10. Habit Logs
 // Explicitly tracks the historical interaction with a habit on a given target date.
@@ -416,9 +507,15 @@ export const habitLogs = pgTable(
                 table.targetDate,
             ),
             userIdIdx: index('habit_logs_user_id_idx').on(table.userId),
+            rlsPolicy: pgPolicy("habit_logs_owner_access", {
+                as: "permissive",
+                for: "all",
+                using: rlsUsing,
+                withCheck: rlsUsing,
+            }),
         };
     },
-);
+).enableRLS();
 
 // 11. Subtasks
 export const subtasks = pgTable(
@@ -441,8 +538,14 @@ export const subtasks = pgTable(
     (table) => ({
         taskIdIdx: index("subtasks_task_id_idx").on(table.taskId),
         userIdIdx: index("subtasks_user_id_idx").on(table.userId),
+        rlsPolicy: pgPolicy("subtasks_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     }),
-);
+).enableRLS();
 
 // 12. Task Metrics (Silent Tracking)
 export const taskMetrics = pgTable(
@@ -473,8 +576,14 @@ export const taskMetrics = pgTable(
     (table) => ({
         userIdIdx: index("task_metrics_user_id_idx").on(table.userId),
         taskIdIdx: index("task_metrics_task_id_idx").on(table.taskId),
+        rlsPolicy: pgPolicy("task_metrics_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
     }),
-);
+).enableRLS();
 
 // 13. Usage Events (Lightweight telemetry for AI-readiness)
 export const usageEvents = pgTable(

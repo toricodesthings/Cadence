@@ -13,6 +13,7 @@ export function useDragScroll() {
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         const el = ref.current;
         if (!el || e.button !== 0) return;
+        if (e.pointerType === "touch") return;
         const target = e.target as HTMLElement;
         if (target.closest("article, button, input, textarea, a, select, label, [data-no-dnd], [data-dnd-card]")) return;
         e.preventDefault();

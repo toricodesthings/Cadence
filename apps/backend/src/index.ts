@@ -30,6 +30,18 @@ function areDebugRoutesEnabled(value?: string | null) {
 // ── Global Middleware ──
 app.use("*", createRequestContext());
 app.use("*", secureHeaders());
+
+// ── Request Body Size Limit (100KB) ──
+app.use("/api/*", async (c, next) => {
+  const contentLength = c.req.header("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 102400) {
+    return c.json(
+      { error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large", status: 413 } },
+      413,
+    );
+  }
+  await next();
+});
 app.use(
   "*",
   cors({

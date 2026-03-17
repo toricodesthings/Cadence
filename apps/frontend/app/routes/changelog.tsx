@@ -44,20 +44,10 @@ export default function ChangelogRoute() {
                         title="A simple history of what changed."
                         description={(
                             <p>
-                                Cadence changelogs are intentionally brief: version, change type, and one concise note.
+                                Candence is in active development, and you can expect regular updates with new features, improvements, and bug fixes.
                             </p>
                         )}
                         meta={[CADENCE_PUBLIC_VERSION, `${CADENCE_CHANGELOG.length} entries`, "Newest first"]}
-                        aside={(
-                            <div className="space-y-3">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                                    Edit point
-                                </p>
-                                <p className="text-sm leading-6 text-twilight-text-soft">
-                                    Update <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[12px] text-twilight-text">app/lib/constants/changelog.ts</code> on each release.
-                                </p>
-                            </div>
-                        )}
                     >
                         <section className="surface-utility rounded-[1.75rem] border border-white/[0.06] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-6 sm:py-5">
                             <div className="flex flex-col">

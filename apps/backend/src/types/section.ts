@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+export const sectionQuerySchema = z.object({
+    projectId: z.string().uuid().optional(),
+});
+export type SectionQuery = z.infer<typeof sectionQuerySchema>;
+
 export const createSectionSchema = z.object({
     name: z.string().min(1).max(200),
     orderIndex: z.number(),

@@ -8,7 +8,18 @@ import * as RadixScrollArea from "@radix-ui/react-scroll-area";
 import { forwardRef } from "react";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
-export const Root = RadixScrollArea.Root;
+export const Root = forwardRef<
+    HTMLDivElement,
+    RadixScrollArea.ScrollAreaProps
+>(({ className = "", ...props }, ref) => (
+    <RadixScrollArea.Root
+        ref={ref}
+        data-slot="scroll-area-root"
+        className={`min-h-0 ${className}`}
+        {...props}
+    />
+));
+Root.displayName = "ScrollArea.Root";
 export const Corner = RadixScrollArea.Corner;
 
 /* ── Viewport ───────────────────────────────────────────────────── */
@@ -18,7 +29,8 @@ export const Viewport = forwardRef<
 >(({ className = "", ...props }, ref) => (
     <RadixScrollArea.Viewport
         ref={ref}
-        className={`h-full ${className}`}
+        data-slot="scroll-area-viewport"
+        className={`h-full min-h-0 ${className}`}
         {...props}
     />
 ));

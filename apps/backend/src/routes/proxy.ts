@@ -19,11 +19,27 @@ const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 const OPEN_HOLIDAYS_BASE = "https://openholidaysapi.org";
 const NAGER_BASE = "https://date.nager.at/api/v3";
 
+const MAX_UPSTREAM_BODY = 1_048_576; // 1MB
+const ALLOWED_CONTENT_TYPES = ["application/json", "text/plain"];
+
 async function upstreamFetch(url: string, cacheTtl: number): Promise<Response> {
     const res = await fetch(url, {
         headers: { "User-Agent": "Cadence/1.0 (cadenceapp.cloud)" },
         cf: { cacheTtl, cacheEverything: true },
     });
+
+    // Validate upstream response content-type
+    const ct = res.headers.get("content-type") || "";
+    if (!ALLOWED_CONTENT_TYPES.some((t) => ct.includes(t))) {
+        return new Response(JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Unexpected content type from upstream" } }), { status: 502 });
+    }
+
+    // Reject oversized upstream responses
+    const cl = res.headers.get("content-length");
+    if (cl && parseInt(cl, 10) > MAX_UPSTREAM_BODY) {
+        return new Response(JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Upstream response too large" } }), { status: 502 });
+    }
+
     return res;
 }
 

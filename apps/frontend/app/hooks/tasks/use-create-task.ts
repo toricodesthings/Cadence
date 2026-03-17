@@ -38,6 +38,7 @@ export function useCreateTask() {
                         state: "ACTIVE",
                         isAllDay: input.isAllDay ?? true,
                         ...(input.projectId && { projectId: input.projectId }),
+                        ...(input.sectionId !== undefined && { sectionId: input.sectionId }),
                         ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
                         ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
                         ...(input.dueDate && { dueDate: input.dueDate }),

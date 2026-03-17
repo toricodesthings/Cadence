@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { AlertTriangle, PanelRightClose, Sunrise } from "lucide-react";
-import { useDragScroll } from "../hooks/ui/use-drag-scroll";
+import { AlertTriangle, CalendarClock, EyeOff, Eye, PanelRightClose, Sunrise } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
+import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
@@ -13,6 +13,7 @@ import { EmptyState } from "../components/tasks/EmptyState";
 import { PageContent } from "../components/layout/PageLayout";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
+import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { useTasks } from "../hooks/tasks";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
@@ -25,44 +26,7 @@ import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task
 import { sortTasks } from "../lib/utils/sort-tasks";
 import type { Task } from "../types/task";
 
-function TodaySection({
-    title,
-    icon: Icon,
-    accentClass,
-    tasks,
-    selectedTaskId,
-    onSelectTask,
-}: {
-    title: string;
-    icon: typeof AlertTriangle;
-    accentClass: string;
-    tasks: Task[];
-    selectedTaskId: string | null;
-    onSelectTask: (taskId: string) => void;
-}) {
-    return (
-        <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                    <Icon size={14} className={accentClass} aria-hidden="true" />
-                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                        {title}
-                    </h2>
-                </div>
-                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{tasks.length}</span>
-                <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-            </div>
-
-            {tasks.length > 0 ? (
-                <TaskList tasks={tasks} selectedTaskId={selectedTaskId} onSelectTask={onSelectTask} />
-            ) : (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    Nothing in {title.toLowerCase()}.
-                </div>
-            )}
-        </section>
-    );
-}
+const TIMETABLE_VISIBILITY_STORAGE_KEY = "cadence-today-hide-timetable-anchors";
 
 export default function TodayRoute() {
     const shell = useShellMode();
@@ -70,9 +34,10 @@ export default function TodayRoute() {
     const { sortMode, setSortMode } = useSortMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const [hideTimetableAnchors, setHideTimetableAnchors] = useState(false);
     const todayISO = toISODate(new Date());
     const { activeTagId } = useTagFilterStore();
-    const boardScroll = useDragScroll();
 
     useDocumentMeta(
         "Today · Cadence",
@@ -81,26 +46,35 @@ export default function TodayRoute() {
 
     useRouteFocus();
 
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        setHideTimetableAnchors(window.localStorage.getItem(TIMETABLE_VISIBILITY_STORAGE_KEY) === "1");
+    }, []);
+
     const { data: tasks = [], isLoading } = useTasks({
         state: "ACTIVE",
         effectiveOnOrBeforeDate: todayISO,
     });
 
     const filteredTasks = useMemo(
-        () => {
-            const visibleTasks = tasks.filter((task) => !isPassiveTimetableTask(task));
-            return activeTagId ? visibleTasks.filter((task) => task.tagIds?.includes(activeTagId)) : visibleTasks;
-        },
+        () => (activeTagId ? tasks.filter((task) => task.tagIds?.includes(activeTagId)) : tasks),
         [activeTagId, tasks],
     );
 
     const grouped = useMemo(() => {
         const overdue: Task[] = [];
         const today: Task[] = [];
+        const timetableAnchors: Task[] = [];
 
         for (const task of filteredTasks) {
             const anchor = getTaskTimelineAnchor(task);
             if (!anchor) continue;
+            if (isPassiveTimetableTask(task)) {
+                if (anchor === todayISO) {
+                    timetableAnchors.push(task);
+                }
+                continue;
+            }
             if (anchor < todayISO) overdue.push(task);
             if (anchor === todayISO) today.push(task);
         }
@@ -108,12 +82,14 @@ export default function TodayRoute() {
         return {
             overdue: sortTasks(overdue, sortMode),
             today: sortTasks(today, sortMode),
+            timetableAnchors: sortTasks(timetableAnchors, sortMode),
         };
     }, [filteredTasks, todayISO, sortMode]);
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
         if (!shell.isWide) {
+            setMobileDetailMode("peek");
             setMobilePanelOpen(true);
         }
     };
@@ -128,7 +104,68 @@ export default function TodayRoute() {
         </ResizableSidePanel>
     ) : null;
 
-    const headerRight = (!shell.isWide && selectedTaskId) ? (
+    const sortOptions = [
+        { value: "smart", label: "Smart" },
+        { value: "priority", label: "Priority" },
+        { value: "manual", label: "Manual" },
+    ] as const;
+
+    const headerRight = shell.isPhone ? (
+        <ControlsSheet
+            routeKey="today"
+            title="Today controls"
+            sections={[
+                {
+                    id: "view",
+                    label: "View",
+                    content: (
+                        <div className="space-y-3">
+                            <p className="text-sm text-twilight-text-soft">Switch between list and board without leaving the page.</p>
+                            <ViewToggle view={view} onViewChange={setView} compact />
+                        </div>
+                    ),
+                },
+                {
+                    id: "sort",
+                    label: "Sort",
+                    content: (
+                        <div className="space-y-2">
+                            {sortOptions.map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setSortMode(option.value)}
+                                    className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
+                                        sortMode === option.value
+                                            ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                            : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
+                                    }`}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                    ),
+                },
+                {
+                    id: "details",
+                    label: "Details",
+                    content: selectedTaskId ? (
+                        <button
+                            type="button"
+                            onClick={() => setMobilePanelOpen(true)}
+                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
+                        >
+                            <PanelRightClose size={16} aria-hidden="true" />
+                            Open task details
+                        </button>
+                    ) : (
+                        <p className="text-sm text-twilight-text-muted">Open a task to reveal its peek and focus editor.</p>
+                    ),
+                },
+            ]}
+        />
+    ) : (!shell.isWide && selectedTaskId) ? (
         <button
             type="button"
             onClick={() => setMobilePanelOpen(true)}
@@ -140,7 +177,89 @@ export default function TodayRoute() {
         </button>
     ) : undefined;
 
-    const totalVisible = grouped.overdue.length + grouped.today.length;
+    const visibleTimetableAnchors = hideTimetableAnchors ? [] : grouped.timetableAnchors;
+    const totalVisible = grouped.overdue.length + grouped.today.length + visibleTimetableAnchors.length;
+
+    const toggleTimetableAnchors = () => {
+        setHideTimetableAnchors((current) => {
+            const next = !current;
+            if (typeof window !== "undefined") {
+                window.localStorage.setItem(TIMETABLE_VISIBILITY_STORAGE_KEY, next ? "1" : "0");
+            }
+            return next;
+        });
+    };
+
+    const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board", emptyLabel?: string) => {
+        if (tasks.length > 0) {
+            return (
+                <TaskList
+                    tasks={tasks}
+                    selectedTaskId={selectedTaskId}
+                    onSelectTask={handleSelectTask}
+                    {...(cardVariant ? { cardVariant } : {})}
+                />
+            );
+        }
+
+        return (
+            <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
+                {emptyLabel}
+            </div>
+        );
+    };
+
+    const sections = [
+        {
+            key: "overdue",
+            title: "Overdue",
+            icon: AlertTriangle,
+            accentClass: "text-[var(--color-priority-urgent)]",
+            count: grouped.overdue.length,
+            listContent: renderTaskBucket(grouped.overdue, undefined, "Nothing in overdue."),
+            boardContent: renderTaskBucket(grouped.overdue, "board", "Nothing in overdue."),
+        },
+        {
+            key: "today",
+            title: "Today",
+            icon: Sunrise,
+            accentClass: "text-lantern",
+            count: grouped.today.length,
+            listContent: renderTaskBucket(grouped.today, undefined, "Nothing in today."),
+            boardContent: renderTaskBucket(grouped.today, "board", "Nothing in today."),
+        },
+        {
+            key: "timetable-anchors",
+            title: "Timetable anchors",
+            icon: CalendarClock,
+            accentClass: "text-moonlit",
+            count: visibleTimetableAnchors.length,
+            description: "Recurring anchors stay visible here without blending into today’s check-off work.",
+            headerAction: (
+                <button
+                    type="button"
+                    onClick={toggleTimetableAnchors}
+                    className="touch-target inline-flex min-h-11 items-center gap-2 rounded-2xl border border-moonlit/20 bg-moonlit/10 px-4 text-xs font-medium uppercase tracking-[0.14em] text-moonlit"
+                    aria-pressed={hideTimetableAnchors}
+                >
+                    {hideTimetableAnchors ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
+                    {hideTimetableAnchors ? "Show" : "Hide"}
+                </button>
+            ),
+            listSectionClassName: "rounded-[28px] border border-moonlit/20 bg-moonlit/[0.08] px-4 py-4 shadow-[0_18px_60px_rgba(7,14,26,0.18)]",
+            boardSectionClassName: "border-moonlit/25 bg-moonlit/[0.08]",
+            listContent: renderTaskBucket(
+                visibleTimetableAnchors,
+                undefined,
+                hideTimetableAnchors ? "Timetable anchors are hidden." : "No timetable anchors for today.",
+            ),
+            boardContent: renderTaskBucket(
+                grouped.timetableAnchors,
+                "board",
+                "No timetable anchors for today.",
+            ),
+        },
+    ];
 
     return (
         <MainLayout
@@ -148,10 +267,14 @@ export default function TodayRoute() {
             sidePanel={sidePanel}
             headerCenter={<ViewToggle view={view} onViewChange={setView} />}
             headerRight={
-                <div className="flex items-center gap-2">
-                    {headerRight}
-                    <SortMenu mode={sortMode} onModeChange={setSortMode} />
-                </div>
+                shell.isPhone ? (
+                    headerRight
+                ) : (
+                    <div className="flex items-center gap-2">
+                        {headerRight}
+                        <SortMenu mode={sortMode} onModeChange={setSortMode} />
+                    </div>
+                )
             }
             contentWidth="default"
             shellHeader={{
@@ -161,87 +284,52 @@ export default function TodayRoute() {
                 accentColor: "var(--color-nav-planner)",
             }}
         >
-            <ScrollAreaWrapper>
-                <PageContent width="default">
+            {view === "kanban" ? (
+                <div className="flex-1 min-h-0 min-w-0">
                     {isLoading ? (
-                        <TaskListSkeleton />
+                        <PageContent width="default">
+                            <TaskListSkeleton />
+                        </PageContent>
                     ) : totalVisible > 0 ? (
-                        <div className="flex flex-col gap-8">
-                            {view === "list" ? (
-                                <>
-                                    <TodaySection
-                                        title="Overdue"
-                                        icon={AlertTriangle}
-                                        accentClass="text-[var(--color-priority-urgent)]"
-                                        tasks={grouped.overdue}
-                                        selectedTaskId={selectedTaskId}
-                                        onSelectTask={handleSelectTask}
-                                    />
-                                    <TodaySection
-                                        title="Today"
-                                        icon={Sunrise}
-                                        accentClass="text-lantern"
-                                        tasks={grouped.today}
-                                        selectedTaskId={selectedTaskId}
-                                        onSelectTask={handleSelectTask}
-                                    />
-                                </>
-                            ) : (
-                                <div
-                                    ref={boardScroll.ref}
-                                    className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 scrollbar-thin cursor-grab"
-                                    onPointerDown={boardScroll.onPointerDown}
-                                    onPointerMove={boardScroll.onPointerMove}
-                                    onPointerUp={boardScroll.onPointerUp}
-                                    onPointerCancel={boardScroll.onPointerCancel}
-                                >
-                                    <div className="flex min-w-max gap-4">
-                                        <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
-                                            <div className="mb-3 flex items-center gap-3">
-                                                <AlertTriangle size={14} className="text-[var(--color-priority-urgent)]" aria-hidden="true" />
-                                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Overdue</h2>
-                                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.overdue.length}</span>
-                                            </div>
-                                            <TaskList
-                                                tasks={grouped.overdue}
-                                                selectedTaskId={selectedTaskId}
-                                                onSelectTask={handleSelectTask}
-                                                cardVariant="board"
-                                            />
-                                        </section>
-                                        <section className="w-[min(25rem,82vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
-                                            <div className="mb-3 flex items-center gap-3">
-                                                <Sunrise size={14} className="text-lantern" aria-hidden="true" />
-                                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Today</h2>
-                                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{grouped.today.length}</span>
-                                            </div>
-                                            <TaskList
-                                                tasks={grouped.today}
-                                                selectedTaskId={selectedTaskId}
-                                                onSelectTask={handleSelectTask}
-                                                cardVariant="board"
-                                            />
-                                        </section>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <BucketedCollectionView
+                            view={view}
+                            sections={sections.filter((section) => section.key !== "timetable-anchors" || !hideTimetableAnchors)}
+                        />
                     ) : (
-                        <EmptyState variant="today" />
+                        <PageContent width="default">
+                            <EmptyState variant="today" />
+                        </PageContent>
                     )}
-                </PageContent>
-            </ScrollAreaWrapper>
+                </div>
+            ) : (
+                <ScrollAreaWrapper>
+                    <PageContent width="default">
+                        {isLoading ? (
+                            <TaskListSkeleton />
+                        ) : totalVisible > 0 ? (
+                            <BucketedCollectionView
+                                view={view}
+                                sections={sections}
+                            />
+                        ) : (
+                            <EmptyState variant="today" />
+                        )}
+                    </PageContent>
+                </ScrollAreaWrapper>
+            )}
 
             {!shell.isWide && selectedTaskId && (
                 <ResponsiveOverlayPanel
                     ariaLabel="Today details"
                     open={mobilePanelOpen}
                     onClose={() => setMobilePanelOpen(false)}
-                    title="Task details"
+                    mode={mobileDetailMode}
                 >
                     <TaskEditPanel
                         key={`today-mobile-edit-${selectedTaskId}`}
                         taskId={selectedTaskId}
+                        detailMode={mobileDetailMode}
+                        onDetailModeChange={setMobileDetailMode}
                         onClose={() => {
                             setSelectedTaskId(null);
                             setMobilePanelOpen(false);

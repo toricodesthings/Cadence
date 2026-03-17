@@ -29,6 +29,31 @@ function computeMidpointIndex(prevIndex: number | null, nextIndex: number | null
     return (prevIndex + nextIndex) / 2;
 }
 
+function buildOptimisticReorder(
+    subtasks: Subtask[],
+    activeId: string,
+    overId: string,
+): { optimisticSubtasks: Subtask[]; newOrderIndex: number } | null {
+    const oldIndex = subtasks.findIndex((s) => s.id === activeId);
+    const newIndex = subtasks.findIndex((s) => s.id === overId);
+
+    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return null;
+
+    const reordered = arrayMove(subtasks, oldIndex, newIndex);
+    let prevIndex: number | null = null;
+    let nextIndex: number | null = null;
+
+    if (newIndex > 0) prevIndex = reordered[newIndex - 1].orderIndex;
+    if (newIndex < reordered.length - 1) nextIndex = reordered[newIndex + 1].orderIndex;
+
+    const newOrderIndex = computeMidpointIndex(prevIndex, nextIndex);
+    const optimisticSubtasks = reordered
+        .map((subtask) => (subtask.id === activeId ? { ...subtask, orderIndex: newOrderIndex } : subtask))
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+
+    return { optimisticSubtasks, newOrderIndex };
+}
+
 interface SortableSubtaskItemProps {
     subtask: Subtask;
     onToggle: (id: string, isComplete: boolean) => void;
@@ -71,7 +96,7 @@ function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: Sor
             <div
                 {...attributes}
                 {...listeners}
-                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab hover:bg-white/[0.04] p-1 rounded-xl text-twilight-text-muted/50 hover:text-twilight-text-muted shrink-0"
+                className="opacity-60 group-hover:opacity-100 transition-opacity cursor-grab hover:bg-white/[0.04] p-1 rounded-xl text-twilight-text-muted/50 hover:text-twilight-text-muted shrink-0"
             >
                 <GripVertical size={16} />
             </div>
@@ -126,20 +151,14 @@ export function SubtaskList({ taskId }: { taskId: string }) {
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
+        const reorder = buildOptimisticReorder(subtasks, String(active.id), String(over.id));
+        if (!reorder) return;
 
-        const oldIndex = subtasks.findIndex((s) => s.id === active.id);
-        const newIndex = subtasks.findIndex((s) => s.id === over.id);
-
-        const newItems = arrayMove(subtasks, oldIndex, newIndex);
-
-        let prevIndex: number | null = null;
-        let nextIndex: number | null = null;
-
-        if (newIndex > 0) prevIndex = newItems[newIndex - 1].orderIndex;
-        if (newIndex < newItems.length - 1) nextIndex = newItems[newIndex + 1].orderIndex;
-
-        const newOrderIndex = computeMidpointIndex(prevIndex, nextIndex);
-        reorderSubtasks.mutate({ id: String(active.id), newOrderIndex });
+        reorderSubtasks.mutate({
+            id: String(active.id),
+            newOrderIndex: reorder.newOrderIndex,
+            optimisticSubtasks: reorder.optimisticSubtasks,
+        });
     };
 
     if (isLoading) return null;

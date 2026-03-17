@@ -189,10 +189,10 @@ export function Sidebar({
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: -28, opacity: 0 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="safe-top safe-bottom fixed inset-y-0 left-0 z-50 flex w-[min(92vw,24rem)] flex-col border-r border-twilight-border bg-twilight-deep/96 shadow-2xl shadow-black/40 backdrop-blur-2xl"
+                        className="mobile-sheet-shell safe-top safe-bottom fixed inset-y-0 left-0 z-50 flex w-[min(92vw,24rem)] flex-col border-r border-twilight-border bg-twilight-deep/96 shadow-2xl shadow-black/40 backdrop-blur-2xl"
                         aria-label="Application navigation"
                     >
-                        <div className="flex items-center justify-between border-b border-twilight-border px-4 py-4">
+                        <div className="mobile-sheet-header flex items-center justify-between border-b border-twilight-border px-4 py-4">
                             <div className="flex items-center gap-3">
                                 <img src="/logo.png" alt="Cadence" className="h-10 w-10 rounded-2xl object-cover" />
                                 <div>
@@ -214,7 +214,9 @@ export function Sidebar({
                             </button>
                         </div>
 
-                        <SidebarPanel showWorkspaceNav onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
+                        <div className="mobile-sheet-body">
+                            <SidebarPanel showWorkspaceNav onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
+                        </div>
                     </motion.aside>
                 </>
             )}

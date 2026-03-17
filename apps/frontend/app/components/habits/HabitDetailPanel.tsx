@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, SlidersHorizontal, MoreHorizontal,
     Flame, Zap, ChevronLeft, ChevronRight, Check, X,
-    Trash2, Pencil,
+    Trash2, Pencil, Maximize2, Minimize2,
 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as Dialog from "../primitives/Dialog";
@@ -15,6 +15,7 @@ import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useDeleteHabit } from "../../hooks/habits/use-delete-habit";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import type { Habit } from "../../types/habit";
+import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -213,9 +214,16 @@ function HeatmapCalendar({ habitId, year, month, onNavigate }: HeatmapCalendarPr
 interface HabitDetailPanelProps {
     habit: Habit;
     onClose: () => void;
+    detailMode?: "peek" | "focus";
+    onDetailModeChange?: (mode: "peek" | "focus") => void;
 }
 
-export function HabitDetailPanel({ habit, onClose }: HabitDetailPanelProps) {
+export function HabitDetailPanel({
+    habit,
+    onClose,
+    detailMode = "peek",
+    onDetailModeChange,
+}: HabitDetailPanelProps) {
     const now = new Date();
     const [calYear, setCalYear] = useState(now.getFullYear());
     const [calMonth, setCalMonth] = useState(now.getMonth());
@@ -288,7 +296,7 @@ export function HabitDetailPanel({ habit, onClose }: HabitDetailPanelProps) {
 
     return (
         <motion.div
-            className="h-full flex flex-col bg-twilight-deep overflow-hidden"
+            className="h-full overflow-hidden"
             initial={{ x: 40, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 40, opacity: 0 }}
@@ -296,77 +304,88 @@ export function HabitDetailPanel({ habit, onClose }: HabitDetailPanelProps) {
             role="complementary"
             aria-label="Habit details"
         >
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <div className="flex items-center gap-2 px-5 h-14 border-b border-twilight-border shrink-0">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onClose}
-                    aria-label="Close habit details"
-                    className="w-7 h-7 shrink-0"
-                >
-                    <ArrowLeft size={15} />
-                </Button>
-
-                {/* Lantern dot + title */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="w-2 h-2 rounded-full bg-lantern shrink-0 shadow-[0_0_6px_rgba(232,164,74,0.5)]" />
-                    <span className="font-display text-sm font-medium text-twilight-text truncate">
-                        {habit.title}
-                    </span>
-                </div>
-
-                {/* Settings toggle */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowSettings((v) => !v)}
-                    aria-label={showSettings ? "Hide settings" : "Edit habit settings"}
-                    aria-expanded={showSettings}
-                    className={`w-7 h-7 shrink-0 ${showSettings
-                        ? "text-lantern bg-lantern/10"
-                        : ""
-                        }`}
-                >
-                    <SlidersHorizontal size={14} />
-                </Button>
-
-                {/* ⋯ menu */}
-                <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
+            <ImmersiveDetailLayout
+                mode={detailMode}
+                header={(
+                    <div className="flex items-center gap-2 px-5 h-14 border-b border-twilight-border shrink-0">
                         <Button
                             variant="ghost"
                             size="icon"
-                            aria-label="Habit actions"
+                            onClick={onClose}
+                            aria-label="Close habit details"
                             className="w-7 h-7 shrink-0"
                         >
-                            <MoreHorizontal size={15} />
+                            <ArrowLeft size={15} />
                         </Button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Content align="end">
-                        <DropdownMenu.Item
-                            className="flex items-center gap-2 text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                            onSelect={() => setDeleteOpen(true)}
-                        >
-                            <Trash2 size={13} />
-                            Delete habit
-                        </DropdownMenu.Item>
-                    </DropdownMenu.Content>
-                </DropdownMenu.Root>
-            </div>
 
-            {/* ── Settings panel (collapsible) ───────────────────────────── */}
-            <AnimatePresence initial={false}>
-                {showSettings && (
-                    <motion.div
-                        key="settings"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
-                        className="overflow-hidden shrink-0 border-b border-twilight-border"
-                    >
-                        <form onSubmit={handleSettingsSave} className="px-5 py-4 flex flex-col gap-4">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-lantern shrink-0 shadow-[0_0_6px_rgba(232,164,74,0.5)]" />
+                            <span className="font-display text-sm font-medium text-twilight-text truncate">
+                                {habit.title}
+                            </span>
+                        </div>
+
+                        {onDetailModeChange ? (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onDetailModeChange(detailMode === "focus" ? "peek" : "focus")}
+                                aria-label={detailMode === "focus" ? "Back to split view" : "Expand habit details"}
+                                className={`w-7 h-7 shrink-0 ${detailMode === "focus" ? "text-lantern bg-lantern/10" : ""}`}
+                            >
+                                {detailMode === "focus" ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                            </Button>
+                        ) : null}
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowSettings((v) => !v)}
+                            aria-label={showSettings ? "Hide settings" : "Edit habit settings"}
+                            aria-expanded={showSettings}
+                            className={`w-7 h-7 shrink-0 ${showSettings
+                                ? "text-lantern bg-lantern/10"
+                                : ""
+                                }`}
+                        >
+                            <SlidersHorizontal size={14} />
+                        </Button>
+
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Habit actions"
+                                    className="w-7 h-7 shrink-0"
+                                >
+                                    <MoreHorizontal size={15} />
+                                </Button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content align="end">
+                                <DropdownMenu.Item
+                                    className="flex items-center gap-2 text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                                    onSelect={() => setDeleteOpen(true)}
+                                >
+                                    <Trash2 size={13} />
+                                    Delete habit
+                                </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+                    </div>
+                )}
+            >
+                <AnimatePresence initial={false}>
+                    {showSettings && (
+                        <motion.div
+                            key="settings"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
+                            className="overflow-hidden shrink-0 border-b border-twilight-border"
+                        >
+                            <form onSubmit={handleSettingsSave} className="px-5 py-4 flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-semibold uppercase tracking-widest text-twilight-text-muted/60">
                                     Name
@@ -414,13 +433,12 @@ export function HabitDetailPanel({ habit, onClose }: HabitDetailPanelProps) {
                                     Save
                                 </Button>
                             </div>
-                        </form>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                            </form>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-            {/* ── Scrollable body ────────────────────────────────────────── */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-5 flex flex-col gap-6">
+                <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-5 flex flex-col gap-6">
 
                 {/* Stats grid — 2×2 */}
                 <div className="grid grid-cols-2 gap-2">
@@ -481,35 +499,35 @@ export function HabitDetailPanel({ habit, onClose }: HabitDetailPanelProps) {
                     Created {new Date(habit.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                     {habit.longestStreak > 0 && ` · Longest streak: ${habit.longestStreak} day${habit.longestStreak !== 1 ? "s" : ""}`}
                 </p>
-            </div>
+                </div>
 
-            {/* ── Delete confirmation ────────────────────────────────────── */}
-            <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Delete "{habit.title}"?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            All history and logs for this habit will be permanently removed. This cannot be undone.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="ghost" size="md">
-                                Cancel
-                            </Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button
-                                variant="danger"
-                                size="md"
-                                onClick={handleDelete}
-                            >
-                                Delete habit
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
+                <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
+                    <AlertDialog.Content>
+                        <AlertDialog.Header>
+                            <AlertDialog.Title>Delete "{habit.title}"?</AlertDialog.Title>
+                            <AlertDialog.Description>
+                                All history and logs for this habit will be permanently removed. This cannot be undone.
+                            </AlertDialog.Description>
+                        </AlertDialog.Header>
+                        <AlertDialog.Footer>
+                            <AlertDialog.Cancel asChild>
+                                <Button variant="ghost" size="md">
+                                    Cancel
+                                </Button>
+                            </AlertDialog.Cancel>
+                            <AlertDialog.Action asChild>
+                                <Button
+                                    variant="danger"
+                                    size="md"
+                                    onClick={handleDelete}
+                                >
+                                    Delete habit
+                                </Button>
+                            </AlertDialog.Action>
+                        </AlertDialog.Footer>
+                    </AlertDialog.Content>
+                </AlertDialog.Root>
+            </ImmersiveDetailLayout>
         </motion.div>
     );
 }

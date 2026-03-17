@@ -11,3 +11,5 @@
 
 # Cloudflare
 /.wrangler/
+
+/docs

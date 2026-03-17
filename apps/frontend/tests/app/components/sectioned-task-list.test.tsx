@@ -25,6 +25,10 @@ vi.mock("../../../app/components/tasks/TaskList", () => ({
     ),
 }));
 
+vi.mock("../../../app/components/tasks/AddTaskInput", () => ({
+    AddTaskInput: () => <div data-testid="add-task-input" />,
+}));
+
 function makeTask(overrides: Partial<Task>): Task {
     return {
         id: overrides.id ?? "task-1",

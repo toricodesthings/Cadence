@@ -6,20 +6,22 @@ import {
 import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections";
 import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks";
 import { useTags } from "../../hooks/tags";
 import { SortableTaskCard } from "../tasks/SortableTaskCard";
 import { AddTaskInput } from "../tasks/AddTaskInput";
+import { TaskList } from "../tasks/TaskList";
 import { TaskCard } from "../tasks/TaskCard";
 import { TaskContextMenuWrapper } from "../tasks/TaskContextMenuWrapper";
 import * as DropdownMenu from "../primitives/DropdownMenu";
-import { Button } from "../primitives/Button";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Task, TaskSection, Subtask } from "../../types/task";
 import type { Tag } from "../../types/tag";
+import { BoardCanvas } from "../shared/BoardCanvas";
 
 interface KanbanBoardProps {
     tasks: Task[];
@@ -59,14 +61,14 @@ function KanbanColumn({
     const [isRenaming, setIsRenaming] = useState(false);
 
     return (
-        <div className="flex flex-col h-full bg-twilight-backdrop/20 rounded-t-2xl border-x-[1px] border-t-[1px] border-twilight-border/40 min-w-[280px]">
+        <div className="flex flex-col h-full rounded-[28px] border border-twilight-border/45 bg-twilight-surface/20 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl min-w-[280px]">
             {/* Header */}
-            <div className="relative flex items-center px-5 py-4 shrink-0 border-b border-twilight-border/30 group">
+            <div className="relative flex items-start justify-between gap-3 border-b border-twilight-border/30 px-5 py-4 group">
                 {isRenaming && onRename ? (
                     <input
                         autoFocus
                         defaultValue={section.name}
-                        className="bg-transparent text-[13px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-lantern/30"
+                        className="border-b border-lantern/30 bg-transparent font-display text-base font-semibold text-twilight-text outline-none"
                         onBlur={(e) => { onRename(e.target.value); setIsRenaming(false); }}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") { onRename((e.target as HTMLInputElement).value); setIsRenaming(false); }
@@ -74,26 +76,29 @@ function KanbanColumn({
                         }}
                     />
                 ) : (
-                    <h3 className="text-[13px] font-display font-medium text-twilight-text-muted/90 uppercase tracking-wider flex items-center gap-2">
-                        {section.name}
-                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-twilight-backdrop/30 text-twilight-text-muted text-[11px] font-mono leading-none border border-twilight-border/40">
-                            {tasks.length}
-                        </span>
-                    </h3>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h3 className="truncate font-display text-base font-semibold text-twilight-text">
+                                {section.name}
+                            </h3>
+                            <span className="rounded-full border border-twilight-border/40 bg-white/[0.03] px-2.5 py-0.5 text-[11px] tabular-nums text-twilight-text-soft">
+                                {tasks.length}
+                            </span>
+                        </div>
+                    </div>
                 )}
 
-                {((section.id !== "ungrouped" && onRename && onDelete) || (section.id === "ungrouped" && tasks.length === 0 && onDelete)) && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center">
+                    {((section.id !== "ungrouped" && onRename && onDelete) || (section.id === "ungrouped" && tasks.length === 0 && onDelete)) ? (
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="p-1"
+                                <button
+                                    type="button"
+                                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
                                     aria-label={`Open actions for column ${section.name}`}
                                 >
-                                    <MoreVertical size={14} />
-                                </Button>
+                                    <MoreHorizontal size={14} aria-hidden="true" />
+                                </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end" sideOffset={4}>
                                 {section.id !== "ungrouped" && (<>
@@ -110,8 +115,8 @@ function KanbanColumn({
                                 </DropdownMenu.Item>
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>
-                    </div>
-                )}
+                    ) : null}
+                </div>
             </div>
 
             {/* Droppable card area */}
@@ -142,7 +147,7 @@ function KanbanColumn({
             </div>
 
             {/* Footer / Add task area */}
-            <div className="px-3 pb-3 shrink-0">
+            <div className="px-3 py-3 shrink-0 border-t border-twilight-border/30">
                 <AddTaskInput
                     projectId={projectId || undefined}
                     sectionId={section.id === "ungrouped" ? undefined : section.id}
@@ -161,6 +166,7 @@ function KanbanColumn({
  * Dragging a card between columns changes its `sectionId`.
  */
 export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, onSelectTask = () => { } }: KanbanBoardProps) {
+    const shell = useShellMode();
     const { data: sections = [] } = useSections(projectId);
     const createSection = useCreateSection(projectId);
     const updateSection = useUpdateSection(projectId);
@@ -170,6 +176,7 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [isAddingColumn, setIsAddingColumn] = useState(false);
     const [isUnsectionedHidden, setIsUnsectionedHidden] = useState(false);
+    const [activeSectionId, setActiveSectionId] = useState<string>("ungrouped");
     const [newColumnName, setNewColumnName] = useState("");
     const dragScroll = useDragScroll();
     const scrollContainerRef = dragScroll.ref;
@@ -215,6 +222,46 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
 
         return { ungroupedTasks: ungrouped, sectionTaskMap: map };
     }, [tasks]);
+
+    const visibleColumns = useMemo(() => {
+        const columns: Array<{
+            id: string;
+            name: string;
+            tasks: Task[];
+            section: TaskSection | { id: "ungrouped"; name: string };
+        }> = [];
+
+        if (!(isUnsectionedHidden && ungroupedTasks.length === 0) && (ungroupedTasks.length > 0 || sections.length > 0)) {
+            columns.push({
+                id: "ungrouped",
+                name: "Unsectioned",
+                tasks: ungroupedTasks,
+                section: { id: "ungrouped", name: "Unsectioned" },
+            });
+        }
+
+        for (const section of sections) {
+            columns.push({
+                id: section.id,
+                name: section.name,
+                tasks: sectionTaskMap.get(section.id) || [],
+                section,
+            });
+        }
+
+        return columns;
+    }, [isUnsectionedHidden, sections, sectionTaskMap, ungroupedTasks]);
+
+    useEffect(() => {
+        if (visibleColumns.length === 0) {
+            setActiveSectionId("ungrouped");
+            return;
+        }
+
+        if (!visibleColumns.some((column) => column.id === activeSectionId)) {
+            setActiveSectionId(visibleColumns[0].id);
+        }
+    }, [activeSectionId, visibleColumns]);
 
     const handleDragStart = (e: DragStartEvent) => {
         const task = tasks.find((t) => t.id === e.active.id);
@@ -302,6 +349,69 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
         setIsAddingColumn(false);
     };
 
+    if (shell.isCompact) {
+        return (
+            <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 sm:px-6">
+                <BoardCanvas
+                    columns={visibleColumns.map((column) => ({
+                        id: column.id,
+                        title: column.name,
+                        count: column.tasks.length,
+                        description: "Focus one section at a time",
+                        content: (
+                            <TaskList
+                                tasks={column.tasks}
+                                selectedTaskId={selectedTaskId}
+                                onSelectTask={onSelectTask}
+                                cardVariant="board"
+                            />
+                        ),
+                        footer: (
+                            <AddTaskInput
+                                projectId={projectId || undefined}
+                                sectionId={column.id === "ungrouped" ? undefined : column.id}
+                                tasks={column.tasks}
+                                compact
+                                placeholder={`Add task to ${column.name}...`}
+                            />
+                        ),
+                    }))}
+                />
+
+                <div ref={addColumnRef}>
+                    {isAddingColumn ? (
+                        <div className="rounded-[24px] border border-twilight-border/40 bg-twilight-surface/20 px-4 py-4 backdrop-blur-xl">
+                            <input
+                                autoFocus
+                                value={newColumnName}
+                                onChange={(e) => setNewColumnName(e.target.value)}
+                                placeholder="Section name..."
+                                className="w-full border-b border-twilight-border/40 bg-transparent pb-2 text-[13px] text-twilight-text outline-none placeholder:text-twilight-text-muted/40"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleCreateColumn();
+                                    if (e.key === "Escape") { setIsAddingColumn(false); setNewColumnName(""); }
+                                }}
+                                onBlur={() => {
+                                    if (newColumnName.trim()) handleCreateColumn();
+                                    else { setIsAddingColumn(false); setNewColumnName(""); }
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setIsAddingColumn(true)}
+                            className="touch-target flex min-h-12 w-full items-center justify-center gap-2 rounded-[24px] border border-dashed border-twilight-border/40 bg-white/[0.02] text-sm font-medium text-twilight-text-soft"
+                        >
+                            <Plus size={16} />
+                            Add section
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <DndContext
             sensors={sensors}
@@ -319,11 +429,11 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
             >
                 <div className="flex gap-4 px-4 py-4 h-full min-h-full items-stretch">
                 {/* Unsectioned column (always first) */}
-                {(!(isUnsectionedHidden && ungroupedTasks.length === 0) && (ungroupedTasks.length > 0 || sections.length > 0)) && (
-                    <div className="w-[min(24rem,80vw)] shrink-0">
+                {visibleColumns.filter((column) => column.id === "ungrouped").map((column) => (
+                    <div key={column.id} className="w-[min(24rem,80vw)] shrink-0">
                         <KanbanColumn
-                            section={{ id: "ungrouped", name: "Unsectioned" }}
-                            tasks={ungroupedTasks}
+                            section={column.section}
+                            tasks={column.tasks}
                             subtasksByTaskId={subtasksByTaskId}
                             tagsByTaskId={tagsByTaskId}
                             selectedTaskId={selectedTaskId}
@@ -332,21 +442,21 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
                             onDelete={() => setIsUnsectionedHidden(true)}
                         />
                     </div>
-                )}
+                ))}
 
                 {/* Section columns */}
-                {sections.map((section) => (
-                    <div key={section.id} className="w-[min(24rem,80vw)] shrink-0">
+                {visibleColumns.filter((column) => column.id !== "ungrouped").map((column) => (
+                    <div key={column.id} className="w-[min(24rem,80vw)] shrink-0">
                         <KanbanColumn
-                            section={section}
-                            tasks={sectionTaskMap.get(section.id) || []}
+                            section={column.section}
+                            tasks={column.tasks}
                             subtasksByTaskId={subtasksByTaskId}
                             tagsByTaskId={tagsByTaskId}
                             selectedTaskId={selectedTaskId}
                             projectId={projectId}
                             onSelectTask={onSelectTask}
-                            onRename={(name) => updateSection.mutate({ id: section.id, name })}
-                            onDelete={() => deleteSection.mutate(section.id)}
+                            onRename={(name) => updateSection.mutate({ id: column.id, name })}
+                            onDelete={() => deleteSection.mutate(column.id)}
                         />
                     </div>
                 ))}

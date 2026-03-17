@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useDragScroll } from "../hooks/ui/use-drag-scroll";
 import {
     AlertTriangle,
     CalendarRange,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../components/layout/MainLayout";
+import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
@@ -22,6 +22,7 @@ import { TaskCheckbox } from "../components/tasks/TaskCheckbox";
 import { PageContent } from "../components/layout/PageLayout";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
+import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { useTasks } from "../hooks/tasks";
 import { useProjects } from "../hooks/projects";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
@@ -252,84 +253,11 @@ function UpcomingTaskRow({
     );
 }
 
-function UpcomingSectionDivider({
-    title,
-    icon: Icon,
-    accentClass,
-    count,
-}: {
-    title: string;
-    icon: typeof AlertTriangle;
-    accentClass: string;
-    count: number;
-}) {
-    return (
-        <div className="flex items-center gap-3 pt-2">
-            <div className="flex items-center gap-2">
-                <Icon size={14} className={accentClass} aria-hidden="true" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                    {title}
-                </h2>
-            </div>
-            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{count}</span>
-            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-        </div>
-    );
-}
-
 function UpcomingEmptyState({ title }: { title: string }) {
     return (
         <div className="px-14 py-3 text-[13px] italic text-twilight-text-muted/65">
             Nothing in {title.toLowerCase()}.
         </div>
-    );
-}
-
-function UpcomingSection({
-    title,
-    icon,
-    accentClass,
-    items,
-    selectedTaskId,
-    onSelectTask,
-    onOpenHabits,
-    onCompleteHabit,
-}: {
-    title: string;
-    icon: typeof AlertTriangle;
-    accentClass: string;
-    items: UpcomingViewerItem[];
-    selectedTaskId: string | null;
-    onSelectTask: (taskId: string) => void;
-    onOpenHabits: () => void;
-    onCompleteHabit: (item: UpcomingViewerItem) => Promise<void>;
-}) {
-    return (
-        <section className="flex flex-col">
-            <UpcomingSectionDivider
-                title={title}
-                icon={icon}
-                accentClass={accentClass}
-                count={items.length}
-            />
-
-            <div className="mt-2 flex flex-col divide-y divide-white/[0.05]">
-                {items.length > 0 ? (
-                    items.map((item) => (
-                        <UpcomingTaskRow
-                            key={item.id}
-                            item={item}
-                            isSelected={item.kind === "task" && selectedTaskId === item.id}
-                            onSelect={onSelectTask}
-                            onOpenHabits={onOpenHabits}
-                            onCompleteHabit={onCompleteHabit}
-                        />
-                    ))
-                ) : (
-                    <UpcomingEmptyState title={title} />
-                )}
-            </div>
-        </section>
     );
 }
 
@@ -341,9 +269,9 @@ export default function Upcoming() {
     const { sortMode, setSortMode } = useSortMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+    const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
     const queryClient = useQueryClient();
     const client = useApiClient();
-    const boardScroll = useDragScroll();
     const shell = useShellMode();
 
     const today = new Date();
@@ -452,7 +380,10 @@ export default function Upcoming() {
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
-        if (!shell.isWide) setMobilePanelOpen(true);
+        if (!shell.isWide) {
+            setMobileDetailMode("peek");
+            setMobilePanelOpen(true);
+        }
     };
 
     const handleCompleteHabit = async (item: UpcomingViewerItem) => {
@@ -476,12 +407,107 @@ export default function Upcoming() {
         </ResizableSidePanel>
     ) : null;
 
+    const openHabits = () => {
+        window.location.href = "/habits";
+    };
+
+    const renderUpcomingBucket = (title: string, items: UpcomingViewerItem[]) => {
+        if (items.length === 0) {
+            return <UpcomingEmptyState title={title} />;
+        }
+
+        return (
+            <div className="flex flex-col divide-y divide-white/[0.05]">
+                {items.map((item) => (
+                    <UpcomingTaskRow
+                        key={item.id}
+                        item={item}
+                        isSelected={item.kind === "task" && selectedTaskId === item.id}
+                        onSelect={handleSelectTask}
+                        onOpenHabits={openHabits}
+                        onCompleteHabit={handleCompleteHabit}
+                    />
+                ))}
+            </div>
+        );
+    };
+
+    const sections = UPCOMING_SECTIONS.map((section) => ({
+        key: section.key,
+        title: section.title,
+        icon: section.icon,
+        accentClass: section.accentClass,
+        count: groupedItems[section.key].length,
+        listContent: renderUpcomingBucket(section.title, groupedItems[section.key]),
+        boardContent: renderUpcomingBucket(section.title, groupedItems[section.key]),
+    }));
+
+    const sortOptions = [
+        { value: "smart", label: "Smart" },
+        { value: "priority", label: "Priority" },
+        { value: "manual", label: "Manual" },
+    ] as const;
+
     return (
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
             headerCenter={<ViewToggle view={view} onViewChange={setView} />}
-            headerRight={<SortMenu mode={sortMode} onModeChange={setSortMode} />}
+            headerRight={shell.isPhone ? (
+                <ControlsSheet
+                    routeKey="upcoming"
+                    title="Upcoming controls"
+                    sections={[
+                        {
+                            id: "view",
+                            label: "View",
+                            content: (
+                                <div className="space-y-3">
+                                    <p className="text-sm text-twilight-text-soft">Keep the horizon readable in list or board view.</p>
+                                    <ViewToggle view={view} onViewChange={setView} compact />
+                                </div>
+                            ),
+                        },
+                        {
+                            id: "sort",
+                            label: "Sort",
+                            content: (
+                                <div className="space-y-2">
+                                    {sortOptions.map((option) => (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => setSortMode(option.value)}
+                                            className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
+                                                sortMode === option.value
+                                                    ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                                    : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
+                                            }`}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            ),
+                        },
+                        {
+                            id: "details",
+                            label: "Details",
+                            content: selectedTaskId ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setMobilePanelOpen(true)}
+                                    className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
+                                >
+                                    Open task details
+                                </button>
+                            ) : (
+                                <p className="text-sm text-twilight-text-muted">Select a task to open its detail surface.</p>
+                            ),
+                        },
+                    ]}
+                />
+            ) : <SortMenu mode={sortMode} onModeChange={setSortMode} />}
             contentWidth="default"
             shellHeader={{
                 title: "Upcoming",
@@ -490,86 +516,46 @@ export default function Upcoming() {
                 accentColor: "var(--color-nav-upcoming)",
             }}
         >
-            <ScrollAreaWrapper>
-                <PageContent width="default">
+            {view === "kanban" ? (
+                <div className="flex-1 min-h-0 min-w-0">
                     {isLoading ? (
-                        <TaskListSkeleton />
+                        <PageContent width="default">
+                            <TaskListSkeleton />
+                        </PageContent>
                     ) : totalVisible > 0 ? (
-                        view === "list" ? (
-                            <div className="flex flex-col gap-8">
-                                {UPCOMING_SECTIONS.map((section) => (
-                                    <UpcomingSection
-                                        key={section.key}
-                                        title={section.title}
-                                        icon={section.icon}
-                                        accentClass={section.accentClass}
-                                        items={groupedItems[section.key]}
-                                        selectedTaskId={selectedTaskId}
-                                        onSelectTask={handleSelectTask}
-                                        onOpenHabits={() => {
-                                            window.location.href = "/habits";
-                                        }}
-                                        onCompleteHabit={handleCompleteHabit}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div
-                                ref={boardScroll.ref}
-                                className="-mx-4 overflow-x-auto scrollbar-thin cursor-grab px-4 pb-2 sm:-mx-6 sm:px-6"
-                                onPointerDown={boardScroll.onPointerDown}
-                                onPointerMove={boardScroll.onPointerMove}
-                                onPointerUp={boardScroll.onPointerUp}
-                                onPointerCancel={boardScroll.onPointerCancel}
-                            >
-                                <div className="flex min-w-max gap-4">
-                                {UPCOMING_SECTIONS.map((section) => (
-                                    <section key={section.key} className="w-[min(24rem,80vw)] shrink-0 rounded-[28px] border border-twilight-border/50 bg-twilight-surface/20 p-4">
-                                        <UpcomingSectionDivider
-                                            title={section.title}
-                                            icon={section.icon}
-                                            accentClass={section.accentClass}
-                                            count={groupedItems[section.key].length}
-                                        />
-                                        <div className="mt-3 flex flex-col divide-y divide-white/[0.05]">
-                                            {groupedItems[section.key].length > 0 ? (
-                                                groupedItems[section.key].map((item) => (
-                                                    <UpcomingTaskRow
-                                                        key={item.id}
-                                                        item={item}
-                                                        isSelected={item.kind === "task" && selectedTaskId === item.id}
-                                                        onSelect={handleSelectTask}
-                                                        onOpenHabits={() => {
-                                                            window.location.href = "/habits";
-                                                        }}
-                                                        onCompleteHabit={handleCompleteHabit}
-                                                    />
-                                                ))
-                                            ) : (
-                                                <UpcomingEmptyState title={section.title} />
-                                            )}
-                                        </div>
-                                    </section>
-                                ))}
-                                </div>
-                            </div>
-                        )
+                        <BucketedCollectionView view={view} sections={sections} />
                     ) : (
-                        <EmptyState variant="upcoming" />
+                        <PageContent width="default">
+                            <EmptyState variant="upcoming" />
+                        </PageContent>
                     )}
-                </PageContent>
-            </ScrollAreaWrapper>
+                </div>
+            ) : (
+                <ScrollAreaWrapper>
+                    <PageContent width="default">
+                        {isLoading ? (
+                            <TaskListSkeleton />
+                        ) : totalVisible > 0 ? (
+                            <BucketedCollectionView view={view} sections={sections} />
+                        ) : (
+                            <EmptyState variant="upcoming" />
+                        )}
+                    </PageContent>
+                </ScrollAreaWrapper>
+            )}
 
             {!shell.isWide && selectedTaskId && (
                 <ResponsiveOverlayPanel
                     ariaLabel="Upcoming details"
                     open={mobilePanelOpen}
                     onClose={() => setMobilePanelOpen(false)}
-                    title="Task details"
+                    mode={mobileDetailMode}
                 >
                     <TaskEditPanel
                         key={`upcoming-mobile-edit-${selectedTaskId}`}
                         taskId={selectedTaskId}
+                        detailMode={mobileDetailMode}
+                        onDetailModeChange={setMobileDetailMode}
                         onClose={() => {
                             setSelectedTaskId(null);
                             setMobilePanelOpen(false);

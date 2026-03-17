@@ -1,11 +1,26 @@
 import { useState, useRef, useEffect } from "react";
-import { GripVertical, Calendar, Pin, Repeat, Bell, BellOff, AlertTriangle, Clock, ChevronRight, ChevronDown, CalendarClock } from "lucide-react";
+import {
+    Calendar,
+    Pin,
+    Repeat,
+    Bell,
+    BellOff,
+    AlertTriangle,
+    Clock,
+    ChevronRight,
+    ChevronDown,
+    CalendarClock,
+    Tag as TagIcon,
+    ArrowUp,
+    ArrowDown,
+    type LucideIcon,
+} from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
-import { EffortDots } from "./EffortDots";
-import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask } from "../../hooks/tasks/use-subtasks";
+import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { PRIORITY_CONFIG } from "../../lib/utils/priority";
 import { formatShortDate } from "../../lib/utils/date-format";
 import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
@@ -16,8 +31,6 @@ interface TaskCardProps {
     task: Task;
     tags?: Tag[];
     subtasks?: Subtask[];
-    dragProps?: React.HTMLAttributes<HTMLElement>;
-    dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
     isDragging?: boolean;
     isSelected?: boolean;
     isDropTarget?: boolean;
@@ -43,22 +56,66 @@ const PRIORITY_BG_CLASS: Record<number, string> = {
     4: "bg-[var(--color-priority-urgent)]/[0.03]",
 };
 
+const EFFORT_LABELS: Record<1 | 2 | 3, string> = {
+    1: "Light effort",
+    2: "Medium effort",
+    3: "Deep effort",
+};
+
+type CollapsedSignal = {
+    key: string;
+    icon: LucideIcon;
+    label: string;
+    className: string;
+    button?: boolean;
+    style?: React.CSSProperties;
+    accentDots?: string[];
+};
+
+function getTagTone(tag?: Tag) {
+    if (!tag || tag.color === "default") {
+        return {
+            backgroundColor: "rgba(255,255,255,0.04)",
+            borderColor: "rgba(255,255,255,0.08)",
+            color: "var(--color-twilight-text-soft)",
+            accentColor: "rgba(201,209,223,0.8)",
+        };
+    }
+
+    return {
+        backgroundColor: `${tag.color}16`,
+        borderColor: `${tag.color}33`,
+        color: tag.color,
+        accentColor: tag.color,
+    };
+}
+
 /** Inline subtask item — checkbox + title + delete */
 function InlineSubtaskItem({
     subtask,
     onToggle,
     onDelete,
+    onMoveUp,
+    onMoveDown,
+    canMoveUp,
+    canMoveDown,
+    compact,
 }: {
     subtask: Subtask;
     onToggle: (id: string, checked: boolean) => void;
     onDelete: (id: string) => void;
+    onMoveUp: (id: string) => void;
+    onMoveDown: (id: string) => void;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    compact: boolean;
 }) {
     return (
         <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-2 py-1 group/sub"
+            className="group/sub flex items-center gap-2 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-white/[0.03]"
         >
             <button
                 type="button"
@@ -81,11 +138,35 @@ function InlineSubtaskItem({
             >
                 {subtask.title}
             </span>
+            <div className={`flex items-center gap-1 ${compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100"} transition-opacity`}>
+                <button
+                    type="button"
+                    onClick={() => onMoveUp(subtask.id)}
+                    data-no-dnd="true"
+                    disabled={!canMoveUp}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:pointer-events-none disabled:opacity-25"
+                    aria-label="Move subtask up"
+                >
+                    <ArrowUp size={14} aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onMoveDown(subtask.id)}
+                    data-no-dnd="true"
+                    disabled={!canMoveDown}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:pointer-events-none disabled:opacity-25"
+                    aria-label="Move subtask down"
+                >
+                    <ArrowDown size={14} aria-hidden="true" />
+                </button>
+            </div>
             <button
                 type="button"
                 onClick={() => onDelete(subtask.id)}
                 data-no-dnd="true"
-                className="h-7 w-7 rounded-lg opacity-0 group-hover/sub:opacity-100 text-red-400/70 hover:bg-red-500/10 hover:text-red-300 transition-[opacity,color,background-color] cursor-pointer shrink-0"
+                className={`h-8 w-8 shrink-0 rounded-xl text-red-400/70 transition-[opacity,color,background-color] hover:bg-red-500/10 hover:text-red-300 ${
+                    compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100"
+                }`}
                 aria-label="Delete subtask"
             >
                 <span aria-hidden="true">✕</span>
@@ -99,8 +180,6 @@ export function TaskCard({
     task,
     tags = [],
     subtasks = [],
-    dragProps,
-    dragHandleProps,
     isDragging = false,
     isSelected,
     isDropTarget = false,
@@ -114,7 +193,9 @@ export function TaskCard({
     const createSubtask = useCreateSubtask(task.id);
     const updateSubtask = useUpdateSubtask(task.id);
     const deleteSubtask = useDeleteSubtask(task.id);
+    const reorderSubtask = useReorderSubtasks(task.id);
     const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
+    const shell = useShellMode();
 
     const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
     const [isAddingSubtask, setIsAddingSubtask] = useState(false);
@@ -132,12 +213,6 @@ export function TaskCard({
         }
     }, [isAddingSubtask]);
 
-    useEffect(() => {
-        if (subtasks.length > 0) {
-            setIsSubtasksExpanded(true);
-        }
-    }, [subtasks.length]);
-
     const handleAddSubtask = () => {
         setIsSubtasksExpanded(true);
         setIsAddingSubtask(true);
@@ -149,7 +224,7 @@ export function TaskCard({
             setIsAddingSubtask(false);
             return;
         }
-        const orderIndex = subtasks.length > 0 ? subtasks[subtasks.length - 1].orderIndex + 1 : 0;
+        const orderIndex = orderedSubtasks.length > 0 ? orderedSubtasks[orderedSubtasks.length - 1].orderIndex + 1 : 0;
         createSubtask.mutate({ title, orderIndex });
         setNewSubtaskTitle("");
         // Keep input focused for rapid entry
@@ -158,19 +233,117 @@ export function TaskCard({
     const scheduleSummary = getTaskScheduleSummary(task);
     const scheduleLabel = scheduleSummary.primaryLabel;
     const isPassiveTimetable = isPassiveTimetableTask(task);
-    const completedCount = subtasks.filter(s => s.isComplete).length;
-    const hasMetaChips = Boolean(
-        scheduleLabel ||
-        isPassiveTimetable ||
-        task.recurrenceRule ||
-        task.reminderAt ||
-        task.effort ||
-        task.notBefore ||
-        task.waitingReminder ||
-        subtasks.length > 0 ||
-        tags.length > 0,
-    );
-    const isCompactCard = !task.waitingOn && !hasMetaChips && !isSubtasksExpanded && !isAddingSubtask;
+    const orderedSubtasks = [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
+    const completedCount = orderedSubtasks.filter((subtask) => subtask.isComplete).length;
+    const tagSummary = tags.length === 1 ? tags[0]?.name ?? "1 tag" : `${tags.length} tags`;
+    const primaryTagTone = getTagTone(tags[0]);
+    const tagAccentDots = tags
+        .slice(0, 2)
+        .map((tag) => getTagTone(tag).accentColor);
+    const subtaskSummary = `${completedCount}/${orderedSubtasks.length} subtasks`;
+    const primaryCue = scheduleLabel
+        ? {
+            icon: isPassiveTimetable ? CalendarClock : Calendar,
+            label: scheduleLabel,
+            className: isPassiveTimetable
+                ? "text-moonlit"
+                : scheduleSummary.isDeadline || scheduleSummary.isDuration
+                    ? "text-lantern"
+                    : "text-twilight-text-soft",
+        }
+        : task.waitingOn
+            ? {
+                icon: Clock,
+                label: `Waiting on ${task.waitingOn}`,
+                className: "text-moonlit",
+            }
+            : task.recurrenceRule
+                ? {
+                    icon: Repeat,
+                    label: "Repeating task",
+                    className: "text-twilight-text-soft",
+                }
+                : null;
+
+    const secondarySignalCandidates: Array<CollapsedSignal | null> = [
+        !scheduleLabel && task.notBefore
+            ? {
+                key: "not-before",
+                icon: Calendar,
+                label: `Not before ${formatShortDate(task.notBefore)}`,
+                className: "text-moonlit",
+            }
+            : null,
+        scheduleLabel && task.waitingOn
+            ? {
+                key: "waiting",
+                icon: Clock,
+                label: `Waiting on ${task.waitingOn}`,
+                className: "text-moonlit",
+            }
+            : null,
+        orderedSubtasks.length > 0
+            ? {
+                key: "subtasks",
+                icon: ChevronRight,
+                label: subtaskSummary,
+                className: "text-twilight-text-soft",
+                button: true,
+            }
+            : null,
+        tags.length > 0
+            ? {
+                key: "tags",
+                icon: TagIcon,
+                label: tagSummary,
+                className: "",
+                style: {
+                    backgroundColor: primaryTagTone.backgroundColor,
+                    borderColor: primaryTagTone.borderColor,
+                    color: primaryTagTone.color,
+                },
+                accentDots: tagAccentDots,
+            }
+            : null,
+        task.effort
+            ? {
+                key: "effort",
+                icon: Clock,
+                label: EFFORT_LABELS[task.effort],
+                className: "text-twilight-text-soft",
+            }
+            : null,
+        task.waitingReminder
+            ? {
+                key: "waiting-reminder",
+                icon: Bell,
+                label: `Waiting reminder ${formatShortDate(task.waitingReminder)}`,
+                className: "text-moonlit",
+            }
+            : null,
+        task.reminderAt
+            ? {
+                key: "reminder",
+                icon: task.reminderSilenced ? BellOff : Bell,
+                label: task.reminderSilenced ? "Reminder silenced" : "Reminder set",
+                className: "text-twilight-text-soft",
+            }
+            : null,
+        task.recurrenceRule && primaryCue?.label !== "Repeating task"
+            ? {
+                key: "recurrence",
+                icon: Repeat,
+                label: "Repeats",
+                className: "text-twilight-text-soft",
+            }
+            : null,
+    ];
+
+    const secondarySignals = secondarySignalCandidates.filter((signal): signal is CollapsedSignal => signal !== null);
+
+    const visibleSignals = secondarySignals.slice(0, shell.isPhone ? 2 : 3);
+    const hasCollapsedSupport = Boolean(primaryCue || visibleSignals.length > 0);
+    const isCompactCard = !hasCollapsedSupport && !isSubtasksExpanded && !isAddingSubtask;
     const isBoardCard = variant === "board";
 
     const handleRename = () => {
@@ -189,17 +362,68 @@ export function TaskCard({
         onSelect?.(task.id);
     };
 
+    const handleMoveSubtask = (subtaskId: string, direction: -1 | 1) => {
+        const currentIndex = orderedSubtasks.findIndex((subtask) => subtask.id === subtaskId);
+        const targetIndex = currentIndex + direction;
+
+        if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedSubtasks.length) {
+            return;
+        }
+
+        const currentSubtask = orderedSubtasks[currentIndex];
+        const reordered = [...orderedSubtasks];
+        const [movedSubtask] = reordered.splice(currentIndex, 1);
+        reordered.splice(targetIndex, 0, movedSubtask);
+
+        let prevIndex: number | null = null;
+        let nextIndex: number | null = null;
+
+        if (targetIndex > 0) prevIndex = reordered[targetIndex - 1].orderIndex;
+        if (targetIndex < reordered.length - 1) nextIndex = reordered[targetIndex + 1].orderIndex;
+
+        const newOrderIndex =
+            prevIndex === null && nextIndex === null
+                ? 0
+                : prevIndex === null
+                    ? nextIndex! - 1
+                    : nextIndex === null
+                        ? prevIndex + 1
+                        : (prevIndex + nextIndex) / 2;
+
+        const optimisticSubtasks = reordered
+            .map((subtask) => (subtask.id === currentSubtask.id ? { ...subtask, orderIndex: newOrderIndex } : subtask))
+            .sort((a, b) => a.orderIndex - b.orderIndex);
+
+        reorderSubtask.mutate({
+            id: currentSubtask.id,
+            newOrderIndex,
+            optimisticSubtasks,
+        });
+    };
+
+    const shouldIgnoreCardOpen = (target: EventTarget | null) => {
+        if (!(target instanceof HTMLElement)) return false;
+        return Boolean(
+            target.closest(
+                '[data-no-open="true"], [data-no-dnd="true"], button, input, textarea, select, a, [role="menu"], [role="menuitem"]',
+            ),
+        );
+    };
+
     return (
         <article
             data-focus-kind="task"
             data-focus-id={task.id}
             data-task-card={isBoardCard ? "board" : "list"}
-            {...dragProps}
+            onClick={(e) => {
+                if (shouldIgnoreCardOpen(e.target)) return;
+                handleSelect(e);
+            }}
             className={`
-                group relative flex rounded-[26px] border border-twilight-border/40 transition-[background-color,border-color,box-shadow,opacity,transform,padding] duration-200 cursor-grab active:cursor-grabbing
+                group relative flex cursor-pointer rounded-[26px] border border-twilight-border/40 transition-[background-color,border-color,box-shadow,opacity,transform,padding] duration-200 active:cursor-grabbing
                 ${isBoardCard
-                    ? `${isCompactCard ? "items-center gap-2.5 px-3 pr-9 py-3" : "items-start gap-2.5 px-3 pr-9 py-3.5"}`
-                    : `${isCompactCard ? "items-center gap-3 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-3 px-4 py-4 sm:px-5 sm:py-5"}`
+                    ? `${isCompactCard ? "items-center gap-2 px-3.5 py-3" : "items-start gap-2 px-3.5 py-3.5"}`
+                    : `${isCompactCard ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5"}`
                 }
                 ${task.state === "WAITING" ? "border-moonlit/25" : ""}
                 ${isComplete ? "opacity-45" : ""}
@@ -219,190 +443,228 @@ export function TaskCard({
                 />
             )}
 
-            {/* Drag handle */}
-            <button
-                type="button"
-                {...dragHandleProps}
-                data-no-dnd="true"
-                className={`${isBoardCard ? "min-w-6 min-h-8 rounded-xl flex items-center justify-center cursor-pointer" : "btn-icon rounded-2xl"} ${isCompactCard ? "self-center" : "self-start"} transition-opacity text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text ${isBoardCard ? "-ml-1 opacity-0 group-hover:opacity-20 focus-visible:opacity-20" : "-ml-2"} ${isDragging ? "opacity-60" : isBoardCard ? "" : "opacity-0 group-hover:opacity-30 focus-visible:opacity-30"}`}
-                aria-label="Drag to reorder"
-            >
-                <GripVertical size={16} className="text-twilight-text-muted" aria-hidden="true" />
-            </button>
-
             <TaskCheckbox task={task} compact={isBoardCard} />
 
             {/* Content */}
             <div className={`min-w-0 flex-1 ${isCompactCard ? "flex min-h-[2.75rem] items-center" : ""}`}>
-                <button
-                    type="button"
-                    onClick={(e) => handleSelect(e)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
+                <div className="flex-1">
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                            e.stopPropagation();
                             handleSelect(e);
-                        }
-                    }}
-                    aria-label={`Open ${task.title}${task.priority > 0 ? `, ${priorityConfig.label} priority` : ""}`}
-                    aria-pressed={isTaskSelected}
-                    className={`w-full rounded-2xl text-left ${isBoardCard ? "p-0" : "p-1 -m-1"} ${isCompactCard ? "flex items-center" : ""}`}
-                >
-                    <div className={`flex gap-2 ${isCompactCard ? "items-center" : "items-start"}`}>
-                        {task.isPinned && (
-                            <Pin size={12} className={`${isCompactCard ? "" : "mt-1"} rotate-45 text-lantern shrink-0`} aria-label="Pinned" />
-                        )}
-                        {isPassiveTimetable && (
-                            <CalendarClock
-                                size={12}
-                                className={`${isCompactCard ? "" : "mt-0.5"} shrink-0 text-moonlit`}
-                                aria-label="Timetable anchor"
-                            />
-                        )}
-                        {showUrgentIcon && (
-                            <AlertTriangle
-                                size={13}
-                                className={`${isCompactCard ? "" : "mt-0.5"} shrink-0`}
-                                style={{ color: task.priority === 4 ? "var(--color-priority-urgent)" : "var(--color-priority-high)" }}
-                                aria-hidden="true"
-                            />
-                        )}
-                        <span
-                            className={`${isBoardCard ? "text-[15px] leading-[1.4]" : "text-[15px] leading-snug sm:text-base"} ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
-                        >
-                            {task.title}
-                        </span>
-                    </div>
-                </button>
-
-                {task.waitingOn && (
-                    <div className="mt-1 flex items-center gap-1.5 text-[12px] italic text-moonlit">
-                        <Clock size={12} aria-hidden="true" />
-                        <span>Waiting on: {task.waitingOn}</span>
-                    </div>
-                )}
-
-                {(scheduleLabel || task.recurrenceRule || task.reminderAt || task.effort || task.notBefore || task.waitingReminder || subtasks.length > 0) && (
-                    <div className={`${isBoardCard ? "mt-1.5" : "mt-2"} flex flex-wrap items-center gap-2`}>
-                        {task.notBefore && (
-                            <span className="inline-flex items-center gap-1.5 text-[12px] text-moonlit">
-                                Not before {formatShortDate(task.notBefore)}
-                            </span>
-                        )}
-                        {subtasks.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}
-                                data-no-dnd="true"
-                                className={`inline-flex items-center gap-2 rounded-2xl px-3 text-[12px] text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text transition-colors cursor-pointer ${isBoardCard ? "min-h-7" : "touch-target min-h-11"}`}
-                                aria-label={isSubtasksExpanded ? "Collapse subtasks" : "Expand subtasks"}
-                            >
-                                {isSubtasksExpanded
-                                    ? <ChevronDown size={14} className="shrink-0" />
-                                    : <ChevronRight size={14} className="shrink-0" />
-                                }
-                                <span className="flex h-1.5 w-6 overflow-hidden rounded-full bg-white/[0.04]">
-                                    <span
-                                        className="h-full bg-feedback-success/60 transition-all duration-300"
-                                        style={{ width: `${(completedCount / subtasks.length) * 100}%` }}
-                                    />
-                                </span>
-                                {completedCount}/{subtasks.length}
-                            </button>
-                        )}
-                        {tags.slice(0, 3).map(tag => (
-                            <span
-                                key={tag.id}
-                                className="inline-flex items-center text-[10px] font-medium tracking-wide rounded-md px-1.5 py-0.5 border"
-                                style={{
-                                    borderColor: tag.color === "default" ? "var(--color-twilight-border)" : `${tag.color}40`,
-                                    color: tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color,
-                                    backgroundColor: tag.color === "default" ? "var(--color-twilight-surface-muted)" : `${tag.color}15`,
-                                }}
-                            >
-                                {tag.name}
-                            </span>
-                        ))}
-                        {tags.length > 3 && (
-                            <span className="inline-flex items-center text-[10px] font-medium text-twilight-text-soft">
-                                +{tags.length - 3}
-                            </span>
-                        )}
-                        {task.effort && (
-                            <div className="inline-flex items-center">
-                                <EffortDots effort={task.effort} />
-                            </div>
-                        )}
-                        {scheduleLabel && (
-                            <span className={`inline-flex items-center gap-1.5 text-[12px] ${
-                                isPassiveTimetable
-                                    ? "font-medium text-moonlit"
-                                    : scheduleSummary.isDeadline || scheduleSummary.isDuration
-                                        ? "font-medium text-lantern"
-                                        : "text-twilight-text-soft"
-                            }`}>
-                                <Calendar size={12} aria-hidden="true" />
-                                {scheduleLabel}
-                            </span>
-                        )}
-                        {isPassiveTimetable && (
-                            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-moonlit">
-                                <CalendarClock size={12} aria-hidden="true" />
-                                Timetable anchor
-                            </span>
-                        )}
-                        {task.recurrenceRule && (
-                            <span className="inline-flex items-center text-twilight-text-soft" aria-label="Recurring">
-                                <Repeat size={12} aria-hidden="true" />
-                            </span>
-                        )}
-                        {task.reminderAt && (
-                            <span
-                                className={`inline-flex items-center ${task.reminderSilenced ? "text-twilight-text-soft" : "text-twilight-text-soft"}`}
-                                aria-label={task.reminderSilenced ? "Reminder silenced" : "Reminder set"}
-                            >
-                                {task.reminderSilenced
-                                    ? <BellOff size={11} aria-hidden="true" />
-                                    : <Bell size={11} aria-hidden="true" />
-                                }
-                            </span>
-                        )}
-                        {task.waitingReminder && (
-                            <span
-                                className="inline-flex items-center text-moonlit"
-                                title={`Reminder: ${formatShortDate(task.waitingReminder)}`}
-                            >
-                                <Bell size={11} aria-hidden="true" />
-                            </span>
-                        )}
-                    </div>
-                )}
-
-                {/* Inline expandable subtasks */}
-                <AnimatePresence>
-                    {isSubtasksExpanded && subtasks.length > 0 && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="overflow-hidden"
-                        >
-                            <div className="mt-3 ml-0.5 space-y-0 border-l border-twilight-border/30 pl-3">
-                                <AnimatePresence>
-                                    {subtasks.map((sub) => (
-                                        <InlineSubtaskItem
-                                            key={sub.id}
-                                            subtask={sub}
-                                            onToggle={(id, checked) => updateSubtask.mutate({ id, isComplete: checked })}
-                                            onDelete={(id) => deleteSubtask.mutate(id)}
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSelect(e);
+                            }
+                        }}
+                        aria-label={`Open ${task.title}${task.priority > 0 ? `, ${priorityConfig.label} priority` : ""}`}
+                        aria-pressed={isTaskSelected}
+                        className={`w-full rounded-2xl text-left cursor-pointer ${isBoardCard ? "p-0" : "p-1 -m-1"}`}
+                    >
+                        <div className="flex items-start gap-2">
+                            {(task.isPinned || isPassiveTimetable || showUrgentIcon) ? (
+                                <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
+                                    {task.isPinned && (
+                                        <Pin size={12} className="rotate-45 text-lantern" aria-label="Pinned" />
+                                    )}
+                                    {isPassiveTimetable && (
+                                        <CalendarClock
+                                            size={12}
+                                            className="text-moonlit"
+                                            aria-label="Timetable anchor"
                                         />
-                                    ))}
-                                </AnimatePresence>
+                                    )}
+                                    {showUrgentIcon && (
+                                        <AlertTriangle
+                                            size={13}
+                                            style={{ color: task.priority === 4 ? "var(--color-priority-urgent)" : "var(--color-priority-high)" }}
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </div>
+                            ) : null}
 
-                                {/* Inline add subtask */}
-                                {isAddingSubtask ? (
-                                    <div className="flex items-center gap-2 py-1">
-                                        <div className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                                <span
+                                    className={`block line-clamp-2 ${
+                                        isBoardCard ? "text-[15px] leading-[1.4]" : "text-[15px] leading-snug sm:text-base"
+                                    } ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
+                                >
+                                    {task.title}
+                                </span>
+
+                                {primaryCue ? (
+                                    <div className={`mt-1.5 flex items-center gap-1.5 text-[12px] font-medium ${primaryCue.className}`}>
+                                        {(() => {
+                                            const PrimaryCueIcon = primaryCue.icon;
+                                            return <PrimaryCueIcon size={12} aria-hidden="true" />;
+                                        })()}
+                                        <span className="truncate">{primaryCue.label}</span>
+                                    </div>
+                                ) : null}
+
+                                {visibleSignals.length > 0 ? (
+                                    <div className={`${primaryCue ? "mt-2" : "mt-1.5"} flex flex-wrap items-center gap-2`}>
+                                        {visibleSignals.map((signal) => {
+                                            if (signal.button) {
+                                                return (
+                                                    <button
+                                                        key={signal.key}
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setIsSubtasksExpanded((expanded) => !expanded);
+                                                        }}
+                                                        data-no-dnd="true"
+                                                        className={`inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text ${
+                                                            isBoardCard ? "min-h-8" : "touch-target min-h-10"
+                                                        }`}
+                                                        aria-expanded={isSubtasksExpanded}
+                                                        aria-label={isSubtasksExpanded ? "Collapse subtasks" : "Expand subtasks"}
+                                                    >
+                                                        {isSubtasksExpanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
+                                                        <span className="flex h-1.5 w-6 overflow-hidden rounded-full bg-white/[0.05]">
+                                                            <span
+                                                                className="h-full bg-feedback-success/60 transition-all duration-300"
+                                                                style={{ width: `${(completedCount / orderedSubtasks.length) * 100}%` }}
+                                                            />
+                                                        </span>
+                                                        <span>{signal.label}</span>
+                                                    </button>
+                                                );
+                                            }
+
+                                            const SignalIcon = signal.icon;
+                                            return (
+                                                <span
+                                                    key={signal.key}
+                                                    className={`inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium ${signal.className}`}
+                                                    style={signal.style}
+                                                >
+                                                    {signal.accentDots?.length ? (
+                                                        <span className="flex items-center gap-1" aria-hidden="true">
+                                                            {signal.accentDots.map((color, index) => (
+                                                                <span
+                                                                    key={`${signal.key}-dot-${index}`}
+                                                                    className="h-1.5 w-1.5 rounded-full"
+                                                                    style={{ backgroundColor: color }}
+                                                                />
+                                                            ))}
+                                                        </span>
+                                                    ) : (
+                                                        <SignalIcon size={12} aria-hidden="true" />
+                                                    )}
+                                                    <span className="truncate">{signal.label}</span>
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    </div>
+
+                    <AnimatePresence>
+                        {isSubtasksExpanded && orderedSubtasks.length > 0 ? (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                className="overflow-hidden"
+                            >
+                                <div className="mt-3 border-t border-white/[0.06] pt-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-muted">
+                                                Subtasks
+                                            </p>
+                                            <p className="mt-1 text-[12px] text-twilight-text-soft">
+                                                {subtaskSummary}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleAddSubtask}
+                                                data-no-dnd="true"
+                                                className="inline-flex min-h-9 cursor-pointer items-center justify-center rounded-full px-3 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 space-y-1 border-l border-twilight-border/25 pl-3">
+                                        <AnimatePresence initial={false}>
+                                            {orderedSubtasks.map((subtask, index) => (
+                                                <InlineSubtaskItem
+                                                    key={subtask.id}
+                                                    subtask={subtask}
+                                                    onToggle={(id, checked) => updateSubtask.mutate({ id, isComplete: checked })}
+                                                    onDelete={(id) => deleteSubtask.mutate(id)}
+                                                    onMoveUp={(id) => handleMoveSubtask(id, -1)}
+                                                    onMoveDown={(id) => handleMoveSubtask(id, 1)}
+                                                    canMoveUp={index > 0}
+                                                    canMoveDown={index < orderedSubtasks.length - 1}
+                                                    compact={shell.isPhone}
+                                                />
+                                            ))}
+                                        </AnimatePresence>
+                                    </div>
+
+                                    {isAddingSubtask ? (
+                                        <div className="mt-3 border-l border-twilight-border/25 pl-3">
+                                            <div className="flex items-center gap-2 rounded-xl px-1.5 py-1.5">
+                                                <div className="h-6 w-6 shrink-0 rounded-full border-[1.5px] border-twilight-text-muted/70" />
+                                                <input
+                                                    ref={addInputRef}
+                                                    type="text"
+                                                    data-no-dnd="true"
+                                                    value={newSubtaskTitle}
+                                                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter") handleSubmitSubtask();
+                                                        if (e.key === "Escape") {
+                                                            setIsAddingSubtask(false);
+                                                            setNewSubtaskTitle("");
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (newSubtaskTitle.trim()) handleSubmitSubtask();
+                                                        else {
+                                                            setIsAddingSubtask(false);
+                                                            setNewSubtaskTitle("");
+                                                        }
+                                                    }}
+                                                    placeholder="Add subtask..."
+                                                    className="flex-1 min-w-0 bg-transparent text-[14px] leading-6 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>
+
+                    <AnimatePresence>
+                        {isAddingSubtask && orderedSubtasks.length === 0 ? (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                className="overflow-hidden"
+                            >
+                                <div className="mt-3 border-t border-white/[0.06] pt-3">
+                                    <div className="flex items-center gap-2 rounded-xl px-1.5 py-1.5">
+                                        <div className="h-6 w-6 shrink-0 rounded-full border-[1.5px] border-twilight-text-muted/70" />
                                         <input
                                             ref={addInputRef}
                                             type="text"
@@ -411,66 +673,27 @@ export function TaskCard({
                                             onChange={(e) => setNewSubtaskTitle(e.target.value)}
                                             onKeyDown={(e) => {
                                                 if (e.key === "Enter") handleSubmitSubtask();
-                                                if (e.key === "Escape") { setIsAddingSubtask(false); setNewSubtaskTitle(""); }
+                                                if (e.key === "Escape") {
+                                                    setIsAddingSubtask(false);
+                                                    setNewSubtaskTitle("");
+                                                }
                                             }}
                                             onBlur={() => {
                                                 if (newSubtaskTitle.trim()) handleSubmitSubtask();
-                                                else { setIsAddingSubtask(false); setNewSubtaskTitle(""); }
+                                                else {
+                                                    setIsAddingSubtask(false);
+                                                    setNewSubtaskTitle("");
+                                                }
                                             }}
-                                            placeholder="Add subtask…"
+                                            placeholder="Add subtask..."
                                             className="flex-1 min-w-0 bg-transparent text-[14px] leading-6 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
                                         />
                                     </div>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={handleAddSubtask}
-                                        data-no-dnd="true"
-                                    className={`inline-flex items-center gap-2 rounded-2xl px-3 text-[13px] text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text transition-colors cursor-pointer ${isBoardCard ? "min-h-7" : "touch-target min-h-11"}`}
-                                >
-                                        <span className="text-sm" aria-hidden="true">+</span> Add subtask
-                                    </button>
-                                )}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Quick add subtask when none exist yet — shows after context menu triggers it */}
-                <AnimatePresence>
-                    {isAddingSubtask && subtasks.length === 0 && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="overflow-hidden"
-                        >
-                            <div className="mt-3 ml-0.5 border-l border-twilight-border/30 pl-3">
-                                <div className="flex items-center gap-2 py-1">
-                                    <div className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 shrink-0" />
-                                    <input
-                                        ref={addInputRef}
-                                        type="text"
-                                        data-no-dnd="true"
-                                        value={newSubtaskTitle}
-                                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") handleSubmitSubtask();
-                                            if (e.key === "Escape") { setIsAddingSubtask(false); setNewSubtaskTitle(""); }
-                                        }}
-                                        onBlur={() => {
-                                            if (newSubtaskTitle.trim()) handleSubmitSubtask();
-                                            else { setIsAddingSubtask(false); setNewSubtaskTitle(""); }
-                                        }}
-                                        placeholder="Add subtask…"
-                                        className="flex-1 min-w-0 bg-transparent text-[14px] leading-6 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
-                                    />
                                 </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>
+                </div>
             </div>
 
             {/* Context menu — visible on hover */}

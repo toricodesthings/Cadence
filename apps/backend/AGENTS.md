@@ -230,6 +230,13 @@ Why:
   - Subtasks must confirm the parent task belongs to the authenticated user.
   - Task-tag association must validate both the task and the tag belong to the user.
 
+### 7.4 Migration rules
+- Always update the Drizzle schema in `src/db/schema.ts` first.
+- Always generate a corresponding SQL migration in `apps/backend/drizzle/migrations` with `pnpm db:generate` and then migrate with `pnpm db:migrate`.
+- Always update related Zod schemas in `src/types/` if the shape changes.
+- Never generate a migration without a Drizzle schema change, and vice versa. They must stay in sync for database replication to work correctly.
+- Never use "drizzle-kit push", manual migration or similar destructive commands. Always generate SQL migrations and review them before applying.
+
 ---
 
 ## 8. Domain Model Snapshot

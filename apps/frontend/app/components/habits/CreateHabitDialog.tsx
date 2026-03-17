@@ -6,6 +6,38 @@ import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { CadencePicker } from "./CadencePicker";
 import { createHabitSchema, type CreateHabitValues } from "../../lib/validations/habit-schemas";
 
+const HABIT_STARTER_PACKS: Array<{
+    id: string;
+    title: string;
+    description: string;
+    recurrenceRule: string;
+}> = [
+    {
+        id: "morning-review",
+        title: "Morning review",
+        description: "Check Today, clear Holding, and start with intention.",
+        recurrenceRule: "FREQ=DAILY",
+    },
+    {
+        id: "workout-split",
+        title: "Workout split",
+        description: "Keep a steady training rhythm across the week.",
+        recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+    },
+    {
+        id: "hydration",
+        title: "Hydration",
+        description: "A small daily reset that keeps the baseline healthy.",
+        recurrenceRule: "FREQ=DAILY",
+    },
+    {
+        id: "reading",
+        title: "Reading",
+        description: "Build a calm evening reading habit.",
+        recurrenceRule: "FREQ=DAILY",
+    },
+];
+
 interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -41,6 +73,29 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                 </Dialog.DialogHeader>
 
                 <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
+                    <div className="flex flex-col gap-2">
+                        <label className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
+                            Starter packs
+                        </label>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            {HABIT_STARTER_PACKS.map((preset) => (
+                                <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => {
+                                        form.setValue("title", preset.title, { shouldDirty: true });
+                                        form.setValue("description", preset.description, { shouldDirty: true });
+                                        form.setValue("recurrenceRule", preset.recurrenceRule, { shouldDirty: true });
+                                    }}
+                                    className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/[0.05] hover:border-lantern/20"
+                                >
+                                    <p className="text-sm font-medium text-twilight-text">{preset.title}</p>
+                                    <p className="mt-1 text-xs leading-relaxed text-twilight-text-muted">{preset.description}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Name */}
                     <div className="flex flex-col gap-1.5">
                         <label htmlFor="habit-title" className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">

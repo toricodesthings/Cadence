@@ -19,7 +19,7 @@ export function PageContent({
     children: ReactNode;
 }) {
     return (
-        <div className={`mx-auto w-full ${PAGE_WIDTH_CLASS[width]} px-4 py-6 sm:px-6 lg:px-8 lg:py-8 ${className}`.trim()}>
+        <div className={`mx-auto w-full ${PAGE_WIDTH_CLASS[width]} px-4 py-[var(--cadence-page-padding-y)] sm:px-6 lg:px-8 lg:py-[var(--cadence-page-padding-y-desktop)] ${className}`.trim()}>
             {children}
         </div>
     );

@@ -81,6 +81,11 @@ export function DateTimeTab() {
         defaultView: "month" as const,
         showWeekNumbers: false,
         showWeekends: true,
+        clutter: {
+            showAllDay: true,
+            showTimedTasks: true,
+            showHabitAnchors: true,
+        },
         holidays: {
             enabled: true,
             usePreciseLocation: false,
@@ -235,6 +240,44 @@ export function DateTimeTab() {
                         checked={calSettings.showWeekends}
                         onCheckedChange={(val) =>
                             updateSettings.mutate({ calendar: { showWeekends: val } })
+                        }
+                    />
+                </SettingsRow>
+            </SettingsSection>
+
+            <SettingsSection title="Calendar clutter controls">
+                <SettingsRow
+                    title="Show all-day tasks"
+                    description="Keep floating tasks visible at the top of the planner."
+                >
+                    <Switch
+                        checked={calSettings.clutter?.showAllDay ?? true}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ calendar: { clutter: { showAllDay: val } } })
+                        }
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    title="Show timed task blocks"
+                    description="Display scheduled task blocks inside day and week timelines."
+                >
+                    <Switch
+                        checked={calSettings.clutter?.showTimedTasks ?? true}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ calendar: { clutter: { showTimedTasks: val } } })
+                        }
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    title="Show habit markers"
+                    description="Overlay recurring habit markers alongside scheduled work."
+                >
+                    <Switch
+                        checked={calSettings.clutter?.showHabitAnchors ?? true}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })
                         }
                     />
                 </SettingsRow>

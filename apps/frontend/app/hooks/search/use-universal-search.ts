@@ -1,8 +1,10 @@
 import { useMemo, useDeferredValue } from "react";
 import { useTasks } from "../tasks/use-tasks";
+import { useSubtasksByTaskIds } from "../tasks";
 import { useAllHabits } from "../habits/use-habits";
 import { useInbox } from "../inbox";
 import { useProjects } from "../projects";
+import { useSections } from "../sections";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
 import type { FocusKind } from "./use-route-focus";
 
@@ -83,6 +85,16 @@ function scoreItem(query: string, fields: { title: string; meta?: string[] }): n
     return 0;
 }
 
+function extractMarkdownHeadings(input: string | null | undefined) {
+    if (!input) return [];
+    return input
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => /^#{1,6}\s+/.test(line))
+        .map((line) => line.replace(/^#{1,6}\s+/, "").trim())
+        .filter(Boolean);
+}
+
 // ── Route resolution ──────────────────────────────────────────────
 
 function resolveTaskRoute(task: {
@@ -120,9 +132,12 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
     const query = useDeferredValue(rawQuery.trim());
 
     const { data: tasks = [] } = useTasks({ enabled });
+    const taskIds = useMemo(() => tasks.map((task) => task.id), [tasks]);
+    const { data: subtasksByTaskId = {} } = useSubtasksByTaskIds(taskIds);
     const { data: habits = [] } = useAllHabits();
     const { data: inboxItems = [] } = useInbox();
     const { data: projects = [] } = useProjects();
+    const { data: sections = [] } = useSections();
 
     const projectMap = useMemo(() => {
         const map = new Map<string, { name: string; emoji: string | null }>();
@@ -152,10 +167,23 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
         const taskResults = tasks
             .map(t => {
                 const proj = t.projectId ? projectMap.get(t.projectId) : null;
-                const meta = [t.content ?? "", proj?.name ?? ""].filter(Boolean);
+                const matchedSubtasks = subtasksByTaskId[t.id] ?? [];
+                const sectionName = t.sectionId ? sections.find((section) => section.id === t.sectionId)?.name : null;
+                const headings = extractMarkdownHeadings(t.content);
+                const meta = [
+                    t.content ?? "",
+                    proj?.name ?? "",
+                    sectionName ?? "",
+                    ...headings,
+                    ...matchedSubtasks.map((subtask) => subtask.title),
+                ].filter(Boolean);
                 const s = scoreItem(query, { title: t.title, meta });
                 if (s === 0) return null;
                 const { route, context, scope } = resolveTaskRoute(t);
+                const matchedHeading = headings.find((heading) => scoreMatch(query, heading) > 0);
+                const matchedSubtask = matchedSubtasks.find((subtask) => scoreMatch(query, subtask.title) > 0);
+                const matchedInNotes = scoreMatch(query, t.content ?? "") > 0;
+                const matchedSection = sectionName && scoreMatch(query, sectionName) > 0 ? sectionName : null;
                 // Boost active, penalize completed/archived
                 let adjusted = s;
                 if (t.state === "ACTIVE") adjusted += 5;
@@ -165,7 +193,16 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
                     kind: "task" as const,
                     focusKind: "task" as const,
                     title: t.title,
-                    context,
+                    context:
+                        matchedSubtask
+                            ? `${context} · Subtask: ${matchedSubtask.title}`
+                            : matchedHeading
+                                ? `${context} · Heading: ${matchedHeading}`
+                                : matchedSection
+                                    ? `${context} · Section: ${matchedSection}`
+                                    : matchedInNotes
+                                        ? `${context} · Notes`
+                                        : context,
                     route,
                     focusScope: scope,
                     score: adjusted,
@@ -234,7 +271,7 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
             .slice(0, MAX_RESULTS_PER_GROUP);
 
         return { pages: pageResults, tasks: taskResults, habits: habitResults, captures: captureResults, projects: projectResults };
-    }, [query, tasks, habits, inboxItems, projects, projectMap]);
+    }, [query, tasks, subtasksByTaskId, sections, habits, inboxItems, projects, projectMap]);
 
     const allResults = useMemo(() => {
         const all = [

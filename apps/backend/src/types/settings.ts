@@ -31,6 +31,11 @@ export const settingsPatchSchema = z.object({
         defaultView: z.enum(["month", "week", "day"]).optional(),
         showWeekNumbers: z.boolean().optional(),
         showWeekends: z.boolean().optional(),
+        clutter: z.object({
+            showAllDay: z.boolean().optional(),
+            showTimedTasks: z.boolean().optional(),
+            showHabitAnchors: z.boolean().optional(),
+        }).partial().optional(),
         holidays: z.object({
             enabled: z.boolean().optional(),
             usePreciseLocation: z.boolean().optional(),
@@ -50,6 +55,11 @@ export const settingsPatchSchema = z.object({
         hideTrash: z.boolean().optional(),
         hideCompleted: z.boolean().optional(),
         showDoneCelebration: z.boolean().optional(),
+        quickAdd: z.object({
+            preset: z.enum(["minimal", "planner", "power"]).optional(),
+            style: z.enum(["icon", "label"]).optional(),
+            actions: z.array(z.enum(["date", "priority", "project", "tag"])).optional(),
+        }).partial().optional(),
     }).partial().optional(),
     shortcuts: z.object({
         enabled: z.boolean().optional(),

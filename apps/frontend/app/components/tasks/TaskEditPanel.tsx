@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "rea
 import {
     ArrowLeft, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
     Pin, Repeat, CalendarRange, AlertTriangle, Trash2, Copy, SlidersHorizontal,
-    CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil
+    CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil, Maximize2, Minimize2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTasks, useUpdateTask, useDeleteTask } from "../../hooks/tasks";
+import { useTasks, useUpdateTask, useDeleteTask, useCreateSubtask } from "../../hooks/tasks";
 import { useProjects } from "../../hooks/projects";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
+import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { PriorityPicker } from "./PriorityPicker";
 import { TagPickerList } from "./TagPickerSubmenu";
@@ -27,17 +28,23 @@ import {
     isRecurringTask,
 } from "../../lib/utils/task-scheduling";
 import type { Task, TaskPriority, TaskState, EffortLevel } from "../../types/task";
+import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
 
 const MarkdownEditor = lazy(() => import("./MarkdownEditor").then((m) => ({ default: m.MarkdownEditor })));
 
 interface TaskEditPanelProps {
     taskId: string;
     onClose: () => void;
+    detailMode?: "peek" | "focus";
+    onDetailModeChange?: (mode: "peek" | "focus") => void;
 }
 
 function formatDateTime(iso: string) {
     return formatShortDate(iso);
 }
+
+const segmentedControlClass = "flex max-w-full flex-wrap justify-end gap-0.5 rounded-xl bg-white/[0.04] p-0.5";
+const stackedPanelTriggerClass = "flex w-full items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.04]";
 
 const MetaRow = React.memo(function MetaRow({
     icon: Icon,
@@ -49,20 +56,25 @@ const MetaRow = React.memo(function MetaRow({
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex items-center gap-3 py-3 px-5 border-b border-twilight-border/40" role="group" aria-label={label}>
+        <div className="grid grid-cols-[auto,5rem,minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-b border-twilight-border/40 px-5 py-3" role="group" aria-label={label}>
             <Icon
                 size={15}
-                className="shrink-0 text-twilight-text-muted"
+                className="mt-1 shrink-0 text-twilight-text-muted"
                 aria-hidden="true"
             />
-            <span className="text-[13px] text-twilight-text-muted w-20 shrink-0">{label}</span>
-            <div className="flex-1 flex justify-end min-w-0"><div className="max-w-full overflow-x-auto scrollbar-hidden flex justify-end">{children}</div></div>
+            <span className="pt-0.5 text-[13px] text-twilight-text-muted">{label}</span>
+            <div className="min-w-0 pt-0.5">{children}</div>
         </div>
     );
 });
 
 /** Full task editing panel — notes-first design; metadata revealed on demand */
-export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
+export function TaskEditPanel({
+    taskId,
+    onClose,
+    detailMode = "peek",
+    onDetailModeChange,
+}: TaskEditPanelProps) {
     const { data: activeTasks } = useTasks({ state: "ACTIVE" });
     const { data: waitingTasks } = useTasks({ state: "WAITING" });
     const { data: archiveTasks } = useTasks({ state: "ARCHIVED" });
@@ -70,6 +82,7 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
     const { data: projects } = useProjects();
     const updateTask = useUpdateTask();
     const deleteTask = useDeleteTask();
+    const createSubtask = useCreateSubtask(taskId);
     const { data: tags } = useTags();
     const addTagAssoc = useAddTaskTag();
     const removeTagAssoc = useRemoveTaskTag();
@@ -87,8 +100,11 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
     const [showDetails, setShowDetails] = useState(false);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [notesFocusMode, setNotesFocusMode] = useState(false);
+    const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
     const titleRef = useRef<HTMLInputElement>(null);
     const notesRef = useRef<HTMLTextAreaElement>(null);
+    const { data: subtasks = [] } = useSubtasks(taskId);
 
     // Sync state when task loads
     useEffect(() => {
@@ -99,6 +115,11 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
         }
     }, [task]);
 
+    useEffect(() => {
+        setActivePanel("notes");
+        setNotesFocusMode(false);
+    }, [taskId]);
+
     const debouncedSaveNotes = useDebouncedCallback((content: string) => {
         if (!task) return;
         updateTask.mutate({ id: task.id, content });
@@ -108,6 +129,17 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
         if (!task) return;
         updateTask.mutate({ id: task.id, waitingOn: content || null });
     }, 800);
+
+    const convertibleNoteLines = useMemo(
+        () =>
+            notes
+                .split("\n")
+                .map((line) => line.trim())
+                .filter((line) => /^(-|\*|\d+\.)\s+/.test(line))
+                .map((line) => line.replace(/^(-|\*|\d+\.)\s+/, "").trim())
+                .filter(Boolean),
+        [notes],
+    );
 
     const handleTitleBlur = () => {
         if (!task || title.trim() === task.title) return;
@@ -197,10 +229,16 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
 
     const charCount = notes.length;
     const maxChars = 10000;
+    const completedSubtasks = subtasks.filter((subtask) => subtask.isComplete).length;
+    const subtaskSummary = subtasks.length
+        ? `${completedSubtasks}/${subtasks.length} complete`
+        : "No subtasks yet";
+    const noteSummary = notes.trim() ? `${charCount.toLocaleString()} chars` : "Tap to write notes";
+    const detailsSummary = showDetails ? "Controls expanded" : "Priority, schedule, tags, state";
 
     return (
         <motion.div
-            className="h-full flex flex-col bg-twilight-deep overflow-hidden"
+            className="h-full overflow-hidden"
             initial={{ x: 40, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 40, opacity: 0 }}
@@ -213,9 +251,10 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                     <p>Loading task…</p>
                 </div>
             ) : (
-                <>
-                    {/* Header — compact: back | title | settings toggle | menu */}
-                    <div className="flex items-center gap-3 px-5 h-14 border-b border-twilight-border shrink-0">
+                <ImmersiveDetailLayout
+                    mode={detailMode}
+                    header={(
+                        <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
                         <button
                             onClick={onClose}
                             aria-label="Close task details"
@@ -241,8 +280,32 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                             </div>
                         </div>
 
+                        {onDetailModeChange ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onDetailModeChange(detailMode === "focus" ? "peek" : "focus");
+                                    setNotesFocusMode(false);
+                                    setActivePanel("details");
+                                }}
+                                aria-label={detailMode === "focus" ? "Back to split view" : "Expand editor"}
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
+                                    detailMode === "focus"
+                                        ? "text-lantern bg-lantern/10"
+                                        : "text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                }`}
+                            >
+                                {detailMode === "focus" ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
+                            </button>
+                        ) : null}
+
                         <button
-                            onClick={() => setShowDetails((v) => !v)}
+                            onClick={() => {
+                                const nextExpanded = !showDetails;
+                                setShowDetails(nextExpanded);
+                                setNotesFocusMode(false);
+                                setActivePanel(nextExpanded ? "details" : "notes");
+                            }}
                             aria-label={showDetails ? "Hide task details" : "Show task details"}
                             aria-expanded={showDetails}
                             className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 ${showDetails
@@ -265,7 +328,7 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end">
                                 {task.recurrenceRule && (
-                                    <DropdownMenu.Item onSelect={() => handleStateChange("ARCHIVED")}>
+                                    <DropdownMenu.Item onSelect={() => handleStateChange("ARCHIVED")} className="flex items-center gap-2">
                                         <Calendar size={14} aria-hidden="true" />
                                         Archive series
                                     </DropdownMenu.Item>
@@ -279,23 +342,25 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                                 </DropdownMenu.Item>
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>
-                    </div>
+                        </div>
+                    )}
+                >
 
                     {/* Collapsible metadata — revealed when user clicks settings icon */}
                     <AnimatePresence initial={false}>
-                        {showDetails && (
+                        {showDetails && !notesFocusMode && activePanel === "details" && (
                             <motion.div
                                 key="metadata"
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
                                 transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
-                                className="overflow-hidden shrink-0 border-b border-twilight-border"
+                                className="overflow-hidden flex-1 min-h-0 border-b border-twilight-border"
                             >
-                                <div className="flex flex-col max-h-[45vh] overflow-y-auto scrollbar-thin">
+                                <div className="flex h-full min-h-0 flex-col overflow-y-auto scrollbar-thin">
                                     {/* State */}
                                     <MetaRow icon={CircleDot} label="State">
-                                        <div className="flex bg-white/[0.04] p-0.5 rounded-xl gap-0.5">
+                                        <div className={segmentedControlClass}>
                                             <button
                                                 onClick={() => handleStateChange("ACTIVE")}
                                                 className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "ACTIVE" ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
@@ -325,7 +390,7 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
 
                                     {canToggleInteractionMode && (
                                         <MetaRow icon={Repeat} label="Mode">
-                                            <div className="flex bg-white/[0.04] p-0.5 rounded-xl gap-0.5">
+                                            <div className={segmentedControlClass}>
                                                 <button
                                                     onClick={() => updateTask.mutate({
                                                         id: task.id,
@@ -412,7 +477,7 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
 
                                     {/* Effort */}
                                     <MetaRow icon={Gauge} label="Effort">
-                                        <div className="flex bg-white/[0.04] p-0.5 rounded-xl gap-0.5">
+                                        <div className={segmentedControlClass}>
                                             <button
                                                 onClick={() => handleEffortChange(1)}
                                                 className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.effort === 1 ? "bg-white/[0.08] text-twilight-text shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
@@ -544,41 +609,161 @@ export function TaskEditPanel({ taskId, onClose }: TaskEditPanelProps) {
                         )}
                     </AnimatePresence>
 
-                    {/* Notes — fills all remaining space */}
-                    <div className="flex-1 flex flex-col min-h-0 px-5 pt-5 pb-3">
-                        <Suspense fallback={<div className="flex-1" />}>
-                            <MarkdownEditor
-                                notes={notes}
-                                isEditing={isEditingNotes}
-                                setIsEditing={setIsEditingNotes}
-                                onChange={handleNotesChange}
-                                maxLength={maxChars}
-                            />
-                        </Suspense>
-
-                        {/* Subtasks stub to be implemented fully later */}
-                        <SubtaskList taskId={task.id} />
-
-                        <div className="flex items-center justify-between pt-2 shrink-0">
-                            <p className="text-[10px] text-twilight-text-muted/90 leading-relaxed" aria-label="Task metadata">
-                                Created {formatDateTime(task.createdAt)}
-                                {task.updatedAt !== task.createdAt && (
-                                    <> · Updated {formatDateTime(task.updatedAt)}</>
-                                )}
-                            </p>
-                            <span
-                                className={`text-[10px] tabular-nums ${charCount > maxChars * 0.9
-                                    ? "text-lantern"
-                                    : "text-twilight-text-muted/90"
-                                    }`}
-                                aria-live="polite"
-                                aria-label={`${charCount} of ${maxChars} characters used`}
+                    <div className="flex h-full min-h-0 flex-col px-5 pb-3 pt-5">
+                        {activePanel !== "notes" ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDetails(false);
+                                    setNotesFocusMode(false);
+                                    setActivePanel("notes");
+                                }}
+                                className={stackedPanelTriggerClass}
                             >
-                                {charCount.toLocaleString()} / {maxChars.toLocaleString()}
-                            </span>
-                        </div>
+                                <div>
+                                    <p className="text-sm font-medium text-twilight-text">Notes</p>
+                                    <p className="text-xs text-twilight-text-muted">{noteSummary}</p>
+                                </div>
+                                <Pencil size={14} className="text-twilight-text-muted" aria-hidden="true" />
+                            </button>
+                        ) : null}
+
+                        <AnimatePresence initial={false}>
+                            {activePanel === "notes" ? (
+                                <motion.div
+                                    key="notes-panel"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                    className="flex min-h-0 flex-1 flex-col"
+                                >
+                                    <Suspense fallback={<div className="flex-1" />}>
+                                        <MarkdownEditor
+                                            notes={notes}
+                                            isEditing={isEditingNotes}
+                                            setIsEditing={setIsEditingNotes}
+                                            onChange={handleNotesChange}
+                                            maxLength={maxChars}
+                                            isFocusMode={notesFocusMode}
+                                            onToggleFocusMode={() => {
+                                                setNotesFocusMode((value) => {
+                                                    const next = !value;
+                                                    if (next) {
+                                                        setShowDetails(false);
+                                                        setActivePanel("notes");
+                                                    }
+                                                    return next;
+                                                });
+                                            }}
+                                        />
+                                    </Suspense>
+
+                                    {convertibleNoteLines.length > 0 && !notesFocusMode ? (
+                                        <div className="mt-3 flex items-center justify-between rounded-[1.2rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3">
+                                            <div>
+                                                <p className="text-sm text-twilight-text">Turn note bullets into subtasks</p>
+                                                <p className="text-xs text-twilight-text-muted">
+                                                    Cadence found {convertibleNoteLines.length} structured line{convertibleNoteLines.length === 1 ? "" : "s"} in this note.
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const baseOrder = Date.now();
+                                                    convertibleNoteLines.forEach((line, index) => {
+                                                        createSubtask.mutate({ title: line, orderIndex: baseOrder + index });
+                                                    });
+                                                }}
+                                                className="rounded-xl border border-lantern/20 bg-lantern/10 px-3 py-2 text-xs font-medium text-lantern transition-colors hover:bg-lantern/16"
+                                            >
+                                                Create subtasks
+                                            </button>
+                                        </div>
+                                    ) : null}
+
+                                    <div className="flex items-center justify-between pt-2 shrink-0">
+                                        <p className="text-[10px] text-twilight-text-muted/90 leading-relaxed" aria-label="Task metadata">
+                                            Created {formatDateTime(task.createdAt)}
+                                            {task.updatedAt !== task.createdAt && (
+                                                <> · Updated {formatDateTime(task.updatedAt)}</>
+                                            )}
+                                        </p>
+                                        <div className="flex items-center gap-3">
+                                            {notesFocusMode ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNotesFocusMode(false)}
+                                                    className="text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
+                                                >
+                                                    Exit focus
+                                                </button>
+                                            ) : null}
+                                            <span
+                                                className={`text-[10px] tabular-nums ${charCount > maxChars * 0.9
+                                                    ? "text-lantern"
+                                                    : "text-twilight-text-muted/90"
+                                                    }`}
+                                                aria-live="polite"
+                                                aria-label={`${charCount} of ${maxChars} characters used`}
+                                            >
+                                                {charCount.toLocaleString()} / {maxChars.toLocaleString()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
+
+                        {activePanel !== "subtasks" && !notesFocusMode ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDetails(false);
+                                    setNotesFocusMode(false);
+                                    setActivePanel("subtasks");
+                                }}
+                                className={`${stackedPanelTriggerClass} ${activePanel === "notes" ? "mt-3" : "mt-4"}`}
+                            >
+                                <div>
+                                    <p className="text-sm font-medium text-twilight-text">Subtasks</p>
+                                    <p className="text-xs text-twilight-text-muted">{subtaskSummary}</p>
+                                </div>
+                                <Plus size={14} className="text-twilight-text-muted" aria-hidden="true" />
+                            </button>
+                        ) : null}
+
+                        <AnimatePresence initial={false}>
+                            {activePanel === "subtasks" && !notesFocusMode ? (
+                                <motion.div
+                                    key="subtasks-panel"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                    className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02] px-4 py-3"
+                                >
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-twilight-text">Subtasks</p>
+                                            <p className="text-xs text-twilight-text-muted">{subtaskSummary}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActivePanel("notes")}
+                                            className="text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
+                                        >
+                                            Back to notes
+                                        </button>
+                                    </div>
+                                    <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
+                                        <SubtaskList taskId={task.id} />
+                                    </div>
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
                     </div>
-                </>
+                </ImmersiveDetailLayout>
             )}
         </motion.div>
     );

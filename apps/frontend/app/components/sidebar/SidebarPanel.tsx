@@ -81,11 +81,11 @@ export function SidebarPanel({
     return (
         <div
             id="sidebar-panel"
-            className="w-full flex flex-col shrink-0 pb-4 h-full"
+            className="flex h-full w-full shrink-0 flex-col pb-4"
             aria-label="Navigation panel"
         >
-            <ScrollArea.Root className="flex-1">
-                <ScrollArea.Viewport className="h-full px-3 py-5">
+            <ScrollArea.Root className="mobile-scroll-region flex-1">
+                <ScrollArea.Viewport className="h-full px-3 py-5 scrollbar-thin">
                     {/* Search bar — opens command palette for non-wide shells */}
                     {onSearchOpen && (
                         <>
@@ -294,5 +294,3 @@ export function SidebarPanel({
         </div>
     );
 }
-
-

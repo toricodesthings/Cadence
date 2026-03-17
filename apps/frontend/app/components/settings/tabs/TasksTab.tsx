@@ -17,7 +17,14 @@ export function TasksTab() {
         hideTrash: false,
         hideCompleted: false,
         showDoneCelebration: true,
+        quickAdd: {
+            preset: "planner" as const,
+            style: "label" as const,
+            actions: ["date", "priority", "project"] as Array<"date" | "priority" | "project" | "tag">,
+        },
     };
+
+    const quickAddActions = taskSettings.quickAdd?.actions ?? ["date", "priority", "project"];
 
     return (
         <div className="flex flex-col gap-10">
@@ -191,6 +198,102 @@ export function TasksTab() {
                             updateSettings.mutate({ tasks: { showDoneCelebration: val } })
                         }
                     />
+                </SettingsRow>
+            </SettingsSection>
+
+            <SettingsSection title="Quick add">
+                <SettingsRow
+                    title="Preset"
+                    description="Choose how much quick-add control shows up by default."
+                >
+                    <div className="w-full sm:max-w-[18rem]">
+                        <Select
+                            value={taskSettings.quickAdd?.preset ?? "planner"}
+                            onValueChange={(val) =>
+                                updateSettings.mutate({
+                                    tasks: {
+                                        quickAdd: {
+                                            preset: val as "minimal" | "planner" | "power",
+                                            actions:
+                                                val === "minimal"
+                                                    ? ["date"]
+                                                    : val === "power"
+                                                        ? ["date", "priority", "project", "tag"]
+                                                        : ["date", "priority", "project"],
+                                        },
+                                    },
+                                })
+                            }
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="minimal">Minimal</SelectItem>
+                                <SelectItem value="planner">Planner</SelectItem>
+                                <SelectItem value="power">Power User</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </SettingsRow>
+
+                <SettingsRow
+                    title="Tray style"
+                    description="Use icon-only buttons for a denser composer or labels for more clarity."
+                >
+                    <div className="w-full sm:max-w-[18rem]">
+                        <Select
+                            value={taskSettings.quickAdd?.style ?? "label"}
+                            onValueChange={(val) =>
+                                updateSettings.mutate({ tasks: { quickAdd: { style: val as "icon" | "label" } } })
+                            }
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="label">Icon + label</SelectItem>
+                                <SelectItem value="icon">Icon only</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </SettingsRow>
+
+                <SettingsRow
+                    title="Visible actions"
+                    description="These controls stay consistent across inline add and global quick add."
+                    className="items-start"
+                >
+                    <div className="flex flex-wrap gap-2 sm:max-w-[28rem]">
+                        {[
+                            { value: "date", label: "Date" },
+                            { value: "priority", label: "Priority" },
+                            { value: "project", label: "Project" },
+                            { value: "tag", label: "Tag" },
+                        ].map((action) => {
+                            const active = quickAddActions.includes(action.value as any);
+
+                            return (
+                                <button
+                                    key={action.value}
+                                    type="button"
+                                    onClick={() => {
+                                        const next = active
+                                            ? quickAddActions.filter((item) => item !== action.value)
+                                            : [...quickAddActions, action.value as any];
+                                        updateSettings.mutate({ tasks: { quickAdd: { actions: next as any } } });
+                                    }}
+                                    className={`min-h-10 rounded-xl border px-3 text-sm transition-colors ${
+                                        active
+                                            ? "border-lantern/25 bg-lantern/12 text-lantern"
+                                            : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
+                                    }`}
+                                >
+                                    {action.label}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </SettingsRow>
             </SettingsSection>
         </div>

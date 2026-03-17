@@ -8,6 +8,7 @@ import { PriorityPicker } from "./PriorityPicker";
 import { EffortPicker } from "./EffortPicker";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { MoveToSubmenu } from "./MoveToSubmenu";
+import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import type { Task } from "../../types/task";
 
@@ -173,6 +174,13 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                 MenuComponents={Menu as GenericMenu}
                 currentProjectId={task.projectId}
                 onSelect={(projectId) => updateTask.mutate({ id: task.id, projectId })}
+            />
+
+            <MoveToSectionSubmenu
+                MenuComponents={Menu as GenericMenu}
+                currentProjectId={task.projectId}
+                currentSectionId={task.sectionId ?? null}
+                onSelect={(sectionId) => updateTask.mutate({ id: task.id, sectionId })}
             />
 
             <Menu.Separator />

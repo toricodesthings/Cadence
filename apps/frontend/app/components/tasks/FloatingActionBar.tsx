@@ -1,6 +1,9 @@
-import { X, Calendar, CheckSquare, Trash2, CalendarDays, Sun, Moon, ArrowRight } from "lucide-react";
+import { X, Calendar, CheckSquare, Trash2, CalendarDays, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks } from "../../hooks/tasks/use-batch-state";
+import { useUpdateTask } from "../../hooks/tasks";
+import { useProjects } from "../../hooks/projects";
+import { useTags, useAddTaskTag } from "../../hooks/tags";
 import { toast } from "sonner";
 import * as Popover from "../primitives/Popover";
 import { Button } from "../primitives/Button";
@@ -18,6 +21,10 @@ export function FloatingActionBar() {
     const batchState = useBatchStateTransition();
     const batchDelete = useBatchDeleteTasks();
     const batchReschedule = useBatchRescheduleTasks();
+    const updateTask = useUpdateTask();
+    const addTaskTag = useAddTaskTag();
+    const { data: projects = [] } = useProjects();
+    const { data: tags = [] } = useTags();
 
     if (count === 0) return null;
 
@@ -42,6 +49,18 @@ export function FloatingActionBar() {
                     clearSelection();
                 }
             }
+        );
+    };
+
+    const handleArchive = () => {
+        batchState.mutate(
+            { taskIds: selectedArray, state: "ARCHIVED" },
+            {
+                onSuccess: () => {
+                    toast.success(`Archived ${count} tasks`);
+                    clearSelection();
+                },
+            },
         );
     };
 
@@ -75,6 +94,24 @@ export function FloatingActionBar() {
         );
     };
 
+    const handleMove = async (projectId: string | null) => {
+        await Promise.all(
+            selectedArray.map((taskId) =>
+                updateTask.mutateAsync({ id: taskId, projectId, sectionId: null }),
+            ),
+        );
+        toast.success(projectId ? `Moved ${count} tasks` : `Returned ${count} tasks to Holding`);
+        clearSelection();
+    };
+
+    const handleTag = async (tagId: string) => {
+        await Promise.all(
+            selectedArray.map((taskId) => addTaskTag.mutateAsync({ taskId, tagId })),
+        );
+        toast.success(`Tagged ${count} tasks`);
+        clearSelection();
+    };
+
     return (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 p-1.5 rounded-2xl bg-twilight-surface shadow-2xl border border-twilight-border animate-in slide-in-from-bottom-5 fade-in duration-300">
             {/* Count Badge */}
@@ -97,6 +134,16 @@ export function FloatingActionBar() {
                 >
                     <CheckSquare size={14} className="opacity-80" />
                     Complete
+                </Button>
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleArchive}
+                    className="shrink-0 text-twilight-text-soft hover:text-white"
+                >
+                    <Archive size={14} className="opacity-80" />
+                    Archive
                 </Button>
 
                 {/* Quick reschedule presets */}
@@ -141,6 +188,67 @@ export function FloatingActionBar() {
                         Reschedule
                     </Button>
                 </DeadlinePickerPopover>
+
+                <Popover.Root>
+                    <Popover.Trigger asChild>
+                        <Button variant="ghost" size="sm" className="shrink-0 text-twilight-text-soft hover:text-white">
+                            <FolderOpen size={14} className="opacity-80" />
+                            Move
+                        </Button>
+                    </Popover.Trigger>
+                    <Popover.Content className="w-52 p-1">
+                        <div className="space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => void handleMove(null)}
+                                className="flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05]"
+                            >
+                                Holding
+                            </button>
+                            {projects.map((project) => (
+                                <button
+                                    key={project.id}
+                                    type="button"
+                                    onClick={() => void handleMove(project.id)}
+                                    className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05]"
+                                >
+                                    {project.emoji ? <span aria-hidden="true">{project.emoji}</span> : null}
+                                    <span className="truncate">{project.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </Popover.Content>
+                </Popover.Root>
+
+                <Popover.Root>
+                    <Popover.Trigger asChild>
+                        <Button variant="ghost" size="sm" className="shrink-0 text-twilight-text-soft hover:text-white">
+                            <Hash size={14} className="opacity-80" />
+                            Tag
+                        </Button>
+                    </Popover.Trigger>
+                    <Popover.Content className="w-52 p-1">
+                        <div className="max-h-64 space-y-1 overflow-auto">
+                            {tags.map((tag) => (
+                                <button
+                                    key={tag.id}
+                                    type="button"
+                                    onClick={() => void handleTag(tag.id)}
+                                    className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05]"
+                                >
+                                    <span
+                                        className="h-2.5 w-2.5 rounded-full"
+                                        style={{ backgroundColor: tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
+                                    />
+                                    <span className="truncate">{tag.name}</span>
+                                </button>
+                            ))}
+                            {!tags.length ? (
+                                <p className="px-3 py-3 text-sm text-twilight-text-muted">Create a tag first.</p>
+                            ) : null}
+                        </div>
+                    </Popover.Content>
+                </Popover.Root>
 
                 <Button
                     variant="ghost"

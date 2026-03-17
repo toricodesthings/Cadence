@@ -37,6 +37,11 @@ export const SETTINGS_DEFAULTS = {
         defaultView: "month" as const,
         showWeekNumbers: false,
         showWeekends: true,
+        clutter: {
+            showAllDay: true,
+            showTimedTasks: true,
+            showHabitAnchors: true,
+        },
         holidays: {
             enabled: true,
             usePreciseLocation: false,
@@ -56,6 +61,11 @@ export const SETTINGS_DEFAULTS = {
         hideCompleted: false,
         hideTrash: false,
         showDoneCelebration: true,
+        quickAdd: {
+            preset: "planner" as const,
+            style: "label" as const,
+            actions: ["date", "priority", "project"] as Array<"date" | "priority" | "project" | "tag">,
+        },
     },
     shortcuts: {
         enabled: true,

@@ -3,9 +3,11 @@ import { useNavigate } from "react-router";
 import { Dialog, DialogContent } from "../primitives/Dialog";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
+import { useAddTaskTag, useTags } from "../../hooks/tags";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useTasks } from "../../hooks/tasks/use-tasks";
+import { useProjects } from "../../hooks/projects";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { CadencePicker } from "../habits/CadencePicker";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
@@ -13,14 +15,17 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { resolveDefaultDueDate, mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
 import { toast } from "sonner";
 import { CheckSquare, MessageSquare, Flame } from "lucide-react";
+import { QuickAddActionTray } from "../tasks/QuickAddActionTray";
+import { parseQuickAddInput } from "../../lib/utils/quick-add-parser";
 
 // ── Types ─────────────────────────────────────────────────────────
 
-type QuickAddTab = "task" | "capture" | "habit";
+export type QuickAddTab = "task" | "capture" | "habit";
 
 interface QuickAddSurfaceProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    initialTab?: QuickAddTab;
 }
 
 const TABS: { key: QuickAddTab; label: string; icon: React.ReactNode }[] = [
@@ -31,13 +36,13 @@ const TABS: { key: QuickAddTab; label: string; icon: React.ReactNode }[] = [
 
 // ── Main Surface ──────────────────────────────────────────────────
 
-export function QuickAddSurface({ open, onOpenChange }: QuickAddSurfaceProps) {
+export function QuickAddSurface({ open, onOpenChange, initialTab = "task" }: QuickAddSurfaceProps) {
     const [tab, setTab] = useState<QuickAddTab>("task");
 
     // Reset to task tab when opening
     useEffect(() => {
-        if (open) setTab("task");
-    }, [open]);
+        if (open) setTab(initialTab);
+    }, [initialTab, open]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,12 +94,38 @@ export function QuickAddSurface({ open, onOpenChange }: QuickAddSurfaceProps) {
 
 function TaskForm({ onClose }: { onClose: () => void }) {
     const [title, setTitle] = useState("");
+    const [priority, setPriority] = useState<number | null>(null);
+    const [projectId, setProjectId] = useState<string | null>(null);
+    const [tagIds, setTagIds] = useState<string[]>([]);
+    const [ignoredTokenIds, setIgnoredTokenIds] = useState<string[]>([]);
+    const [deadline, setDeadline] = useState<{
+        dueDate: string | null;
+        scheduledStart: string | null;
+        scheduledEnd: string | null;
+        recurrenceRule: string | null;
+        isAllDay: boolean;
+    }>({
+        dueDate: null,
+        scheduledStart: null,
+        scheduledEnd: null,
+        recurrenceRule: null,
+        isAllDay: true,
+    });
     const inputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
     const createTask = useCreateTask();
+    const addTaskTag = useAddTaskTag();
     const { data: tasks = [] } = useTasks({});
+    const { data: projects = [] } = useProjects();
+    const { data: tags = [] } = useTags();
     const { data: userSettings } = useSettings();
     const taskDefaults = userSettings?.tasks;
+    const parsedInput = parseQuickAddInput({
+        input: title,
+        projects,
+        tags,
+        ignoredTokenIds,
+    });
 
     useEffect(() => {
         requestAnimationFrame(() => inputRef.current?.focus());
@@ -102,24 +133,37 @@ function TaskForm({ onClose }: { onClose: () => void }) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const trimmed = title.trim();
+        const trimmed = parsedInput.cleanedTitle || title.trim();
         if (!trimmed) return;
 
         const placement = taskDefaults?.newTaskPlacement ?? "bottom";
         const orderIndex = placement === "top" ? 0 : computeNextOrderIndex(tasks);
-        const priority = mapPriorityNameToNumber(taskDefaults?.defaultPriority);
-        const dueDate = resolveDefaultDueDate(taskDefaults?.defaultDueDate);
+        const resolvedPriority = priority ?? parsedInput.priority ?? mapPriorityNameToNumber(taskDefaults?.defaultPriority);
+        const dueDate = deadline.dueDate ?? parsedInput.dueDate ?? resolveDefaultDueDate(taskDefaults?.defaultDueDate);
+        const resolvedProjectId = projectId ?? parsedInput.projectId ?? null;
+        const resolvedTagIds = Array.from(new Set([...tagIds, ...parsedInput.tagIds]));
+        const recurrenceRule = deadline.recurrenceRule ?? parsedInput.recurrenceRule;
 
         createTask.mutate(
             {
                 title: trimmed,
                 orderIndex,
-                ...(priority > 0 && { priority }),
+                ...(resolvedPriority > 0 && { priority: resolvedPriority as 1 | 2 | 3 | 4 }),
                 ...(dueDate && { dueDate }),
+                ...(deadline.scheduledStart && { scheduledStart: deadline.scheduledStart }),
+                ...(deadline.scheduledEnd && { scheduledEnd: deadline.scheduledEnd }),
+                ...(recurrenceRule && { recurrenceRule }),
+                isAllDay: deadline.isAllDay,
+                ...(resolvedProjectId && { projectId: resolvedProjectId }),
             },
             {
-                onSuccess: (created) => {
+                onSuccess: async (created) => {
                     if (!created) return; // Queued offline
+                    if (resolvedTagIds.length) {
+                        await Promise.all(
+                            resolvedTagIds.map((tagId) => addTaskTag.mutateAsync({ taskId: created.id, tagId })),
+                        );
+                    }
                     toast.success("Task added to Holding");
                     onClose();
                     const focusParams = buildFocusSearchParams({
@@ -144,6 +188,38 @@ function TaskForm({ onClose }: { onClose: () => void }) {
                 className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-lantern/30 focus:ring-1 focus:ring-lantern/20 transition-colors"
                 autoFocus
             />
+            <QuickAddActionTray
+                quickAddSettings={taskDefaults?.quickAdd}
+                dueDate={deadline.dueDate ?? parsedInput.dueDate ?? null}
+                scheduledStart={deadline.scheduledStart}
+                scheduledEnd={deadline.scheduledEnd}
+                recurrenceRule={deadline.recurrenceRule ?? parsedInput.recurrenceRule}
+                priority={priority as 1 | 2 | 3 | 4 | null}
+                projectId={projectId ?? parsedInput.projectId ?? null}
+                tagIds={Array.from(new Set([...tagIds, ...parsedInput.tagIds]))}
+                onScheduleChange={(updates) => setDeadline({ ...deadline, ...updates })}
+                onPriorityChange={(value) => setPriority(value)}
+                onProjectChange={(value) => setProjectId(value)}
+                onToggleTag={(tagId) =>
+                    setTagIds((current) =>
+                        current.includes(tagId) ? current.filter((item) => item !== tagId) : [...current, tagId],
+                    )
+                }
+            />
+            {parsedInput.tokens.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                    {parsedInput.tokens.map((token) => (
+                        <button
+                            key={token.id}
+                            type="button"
+                            onClick={() => setIgnoredTokenIds((current) => [...current, token.id])}
+                            className="inline-flex items-center rounded-full border border-lantern/18 bg-lantern/10 px-2.5 py-1 text-[11px] text-lantern transition-colors hover:bg-lantern/16"
+                        >
+                            {token.label}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
             <div className="flex justify-end gap-2">
                 <button
                     type="button"

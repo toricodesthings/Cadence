@@ -46,6 +46,7 @@ export const Content = forwardRef<
         <RadixPopover.Content
             ref={ref}
             sideOffset={sideOffset}
+            data-cadence-popover-content="true"
             className={[
                 "glass-surface rounded-2xl p-4 z-50 shadow-2xl",
                 "data-[state=open]:animate-in data-[state=closed]:animate-out",

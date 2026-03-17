@@ -134,6 +134,13 @@
       "when": 1773689607941,
       "tag": "0018_bored_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1773704297100,
+      "tag": "0019_tranquil_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

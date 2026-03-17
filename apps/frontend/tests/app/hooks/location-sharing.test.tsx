@@ -45,24 +45,26 @@ function installLocationEnvironment(): GeolocationTestSetup {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
 
-        if (url.includes("nominatim.openstreetmap.org")) {
+        if (url.includes("/api/proxy/geocode/reverse")) {
             return new Response(
                 JSON.stringify({
-                    address: {
-                        country_code: "ca",
-                        state: "Ontario",
+                    data: {
+                        countryCode: "CA",
+                        subdivisionName: "Ontario",
                     },
                 }),
                 { status: 200, headers: { "Content-Type": "application/json" } },
             );
         }
 
-        if (url.includes("api.open-meteo.com")) {
+        if (url.includes("/api/proxy/weather")) {
             return new Response(
                 JSON.stringify({
-                    current_weather: {
-                        temperature: 19.4,
-                        weathercode: 0,
+                    data: {
+                        current_weather: {
+                            temperature: 19.4,
+                            weathercode: 0,
+                        },
                     },
                 }),
                 { status: 200, headers: { "Content-Type": "application/json" } },
@@ -71,8 +73,6 @@ function installLocationEnvironment(): GeolocationTestSetup {
 
         throw new Error(`Unexpected fetch: ${url}`);
     });
-
-    vi.stubGlobal("fetch", fetchMock);
 
     return { getCurrentPositionMock, fetchMock };
 }
@@ -85,6 +85,9 @@ describe("shared geolocation state", () => {
 
     it("deduplicates precise-location resolution across hooks", async () => {
         const { getCurrentPositionMock, fetchMock } = installLocationEnvironment();
+        vi.doMock("../../../app/lib/api/client", () => ({
+            authenticatedFetch: fetchMock,
+        }));
         const { useGeolocation } = await import("../../../app/hooks/environment/use-geolocation");
 
         const first = renderHook(() => useGeolocation());
@@ -120,6 +123,9 @@ describe("shared geolocation state", () => {
 
     it("reuses the resolved shared coordinates when weather loads", async () => {
         const { getCurrentPositionMock, fetchMock } = installLocationEnvironment();
+        vi.doMock("../../../app/lib/api/client", () => ({
+            authenticatedFetch: fetchMock,
+        }));
         const { useGeolocation } = await import("../../../app/hooks/environment/use-geolocation");
         const { useWeather } = await import("../../../app/hooks/environment/use-weather");
 
@@ -142,12 +148,12 @@ describe("shared geolocation state", () => {
         expect(getCurrentPositionMock).toHaveBeenCalledTimes(1);
         expect(
             fetchMock.mock.calls.filter(([input]) =>
-                String(input).includes("nominatim.openstreetmap.org"),
+                String(input).includes("/api/proxy/geocode/reverse"),
             ),
         ).toHaveLength(1);
         expect(
             fetchMock.mock.calls.filter(([input]) =>
-                String(input).includes("api.open-meteo.com"),
+                String(input).includes("/api/proxy/weather"),
             ).length,
         ).toBeGreaterThanOrEqual(1);
     });
