@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import { CloudOff } from "lucide-react";
 
 /** The contextual greeting header — warm, cozy, like settling into a lit room */
-export function PlannerHeader() {
+export function PlannerHeader({ className = "" }: { className?: string }) {
     const { data: session } = authClient.useSession();
     const { weather, loading, error } = useWeather();
     const now = new Date();
@@ -20,7 +20,7 @@ export function PlannerHeader() {
     const WeatherIcon = weather?.icon;
 
     return (
-        <div className="mb-[var(--cadence-planner-gap)] flex items-start justify-between">
+        <div className={`mb-[var(--cadence-planner-gap)] flex items-start justify-between ${className}`.trim()}>
             <div>
                 {/* Greeting — the warm anchor */}
                 <h2 className="font-display text-[2rem] font-semibold tracking-tight text-twilight-text sm:text-[2.15rem]">

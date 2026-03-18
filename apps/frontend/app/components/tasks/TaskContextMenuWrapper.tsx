@@ -16,8 +16,13 @@ export function TaskContextMenuWrapper({ task, children, onAddSubtask, onRename 
             <ContextMenu.Trigger className="block w-full">
                 {children}
             </ContextMenu.Trigger>
-            <ContextMenu.Content className="w-64">
-                <TaskMenuItems task={task} onAddSubtask={onAddSubtask} onRename={onRename} MenuComponents={ContextMenu} />
+            <ContextMenu.Content className="w-[22rem]">
+                <TaskMenuItems
+                    task={task}
+                    onAddSubtask={onAddSubtask}
+                    onRename={onRename}
+                    MenuComponents={ContextMenu}
+                />
             </ContextMenu.Content>
         </ContextMenu.Root>
     );

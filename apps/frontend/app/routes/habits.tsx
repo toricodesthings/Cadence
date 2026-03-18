@@ -384,18 +384,37 @@ export default function Habits() {
 
                 <AnimatePresence>
                     {selectedHabit && !shell.isPhone && (
-                        <ResizableSidePanel
-                            defaultWidth={340}
-                            minWidth={280}
-                            maxWidth={480}
-                            ariaLabel="Resize habit detail panel"
+                        <motion.div
+                            key="habit-side-panel"
+                            initial={{ width: 0 }}
+                            animate={{ width: "auto" }}
+                            exit={{ width: 0 }}
+                            transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                            style={{ willChange: "width", overflow: "hidden" }}
+                            className="flex h-full self-stretch shrink-0 items-stretch"
                         >
-                            <HabitDetailPanel
-                                key={selectedHabit.id}
-                                habit={selectedHabit}
-                                onClose={() => setSelectedHabitId(null)}
-                            />
-                        </ResizableSidePanel>
+                            <motion.div
+                                initial={{ x: 24, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                exit={{ x: 24, opacity: 0 }}
+                                transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                                style={{ willChange: "transform, opacity" }}
+                                className="flex h-full min-w-0 flex-1 items-stretch"
+                            >
+                                <ResizableSidePanel
+                                    defaultWidth={340}
+                                    minWidth={280}
+                                    maxWidth={480}
+                                    ariaLabel="Resize habit detail panel"
+                                >
+                                    <HabitDetailPanel
+                                        key={selectedHabit.id}
+                                        habit={selectedHabit}
+                                        onClose={() => setSelectedHabitId(null)}
+                                    />
+                                </ResizableSidePanel>
+                            </motion.div>
+                        </motion.div>
                     )}
                 </AnimatePresence>
 

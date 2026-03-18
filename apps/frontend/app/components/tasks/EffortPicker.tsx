@@ -23,11 +23,11 @@ const DOT_COLORS: Record<number, string> = {
 
 export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSelect }) => {
     return (
-        <div className="flex flex-col gap-2 p-2">
+        <div className="flex w-full flex-col gap-2 p-2">
             <span className="text-[10px] font-medium uppercase tracking-wider text-twilight-text-muted/90">
                 Effort
             </span>
-            <div className="flex items-center gap-1">
+            <div className="grid w-full grid-cols-4 gap-1">
                 {EFFORT_OPTIONS.map((opt) => {
                     const isActive = currentEffort === opt.value;
                     return (
@@ -39,7 +39,7 @@ export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSel
                                         onSelect(opt.value);
                                     }}
                                     className={`
-                                        group flex h-9 w-9 items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
+                                        group flex h-9 w-full cursor-pointer items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
                                         ${isActive
                                             ? "border-lantern bg-lantern/10"
                                             : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"

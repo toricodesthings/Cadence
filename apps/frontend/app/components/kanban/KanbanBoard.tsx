@@ -28,6 +28,7 @@ interface KanbanBoardProps {
     projectId?: string | null;
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
+    desktopCanvasPaddingClassName?: string;
 }
 
 /** A single column (droppable zone) in the Kanban board */
@@ -165,7 +166,13 @@ function KanbanColumn({
  * This is NOT a separate page. It's a view mode activated by `?view=kanban`.
  * Dragging a card between columns changes its `sectionId`.
  */
-export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, onSelectTask = () => { } }: KanbanBoardProps) {
+export function KanbanBoard({
+    tasks,
+    projectId = null,
+    selectedTaskId = null,
+    onSelectTask = () => { },
+    desktopCanvasPaddingClassName = "px-4 py-4",
+}: KanbanBoardProps) {
     const shell = useShellMode();
     const { data: sections = [] } = useSections(projectId);
     const createSection = useCreateSection(projectId);
@@ -427,7 +434,7 @@ export function KanbanBoard({ tasks, projectId = null, selectedTaskId = null, on
                 onPointerUp={dragScroll.onPointerUp}
                 onPointerCancel={dragScroll.onPointerCancel}
             >
-                <div className="flex gap-4 px-4 py-4 h-full min-h-full items-stretch">
+                <div className={`flex h-full min-h-full items-stretch gap-4 ${desktopCanvasPaddingClassName}`.trim()}>
                 {/* Unsectioned column (always first) */}
                 {visibleColumns.filter((column) => column.id === "ungrouped").map((column) => (
                     <div key={column.id} className="w-[min(24rem,80vw)] shrink-0">

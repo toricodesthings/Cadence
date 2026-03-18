@@ -14,8 +14,7 @@ interface SectionedTaskListProps {
     projectId?: string | null;
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
-    /** If true, renders AddTaskInput (handled by parent) */
-    showAddTask?: boolean;
+    showUngroupedAddTask?: boolean;
     /** Additional content to render at the end */
     footer?: React.ReactNode;
 }
@@ -30,6 +29,7 @@ export function SectionedTaskList({
     projectId = null,
     selectedTaskId,
     onSelectTask,
+    showUngroupedAddTask = true,
     footer,
 }: SectionedTaskListProps) {
     const { data: sections = [] } = useSections(projectId);
@@ -169,14 +169,16 @@ export function SectionedTaskList({
                         selectedTaskId={selectedTaskId}
                         onSelectTask={onSelectTask}
                     />
-                    <div className={inlineAddClass}>
-                        <AddTaskInput
-                            projectId={projectId ?? undefined}
-                            tasks={ungroupedTasks}
-                            compact
-                            placeholder="Add unsectioned task..."
-                        />
-                    </div>
+                    {showUngroupedAddTask ? (
+                        <div className={inlineAddClass}>
+                            <AddTaskInput
+                                projectId={projectId ?? undefined}
+                                tasks={ungroupedTasks}
+                                compact
+                                placeholder="Add unsectioned task..."
+                            />
+                        </div>
+                    ) : null}
                 </div>
             )}
 

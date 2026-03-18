@@ -26,13 +26,13 @@ export const PriorityPicker: React.FC<PriorityPickerProps> = ({
     const priorities = [0, 1, 2, 3, 4] as const;
 
     return (
-        <div className={`flex flex-col gap-2 ${compact ? "" : "p-2"}`}>
+        <div className={`flex w-full flex-col gap-2 ${compact ? "" : "p-2"}`}>
             {!compact && (
                 <span className="text-[10px] font-medium uppercase tracking-wider text-twilight-text-muted/90">
                     Priority
                 </span>
             )}
-            <div className="flex items-center gap-1">
+            <div className="grid w-full grid-cols-5 gap-1">
                 {priorities.map((p) => {
                     const config = PRIORITY_CONFIG[p];
                     const Icon = icons[p];
@@ -47,7 +47,7 @@ export const PriorityPicker: React.FC<PriorityPickerProps> = ({
                                         onSelect(p);
                                     }}
                                     className={`
-									group flex h-9 w-9 items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
+									group flex h-9 w-full cursor-pointer items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
 									${isActive
                                             ? "border-lantern bg-lantern/10 "
                                             : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"

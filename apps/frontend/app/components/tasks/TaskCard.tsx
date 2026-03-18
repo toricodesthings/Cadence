@@ -56,6 +56,9 @@ const PRIORITY_BG_CLASS: Record<number, string> = {
     4: "bg-[var(--color-priority-urgent)]/[0.03]",
 };
 
+const PASSIVE_TIMETABLE_CARD_CLASS =
+    "border-moonlit/22 bg-[linear-gradient(180deg,rgba(126,184,212,0.08),rgba(126,184,212,0.03))] shadow-[inset_0_1px_0_rgba(126,184,212,0.08)]";
+
 const EFFORT_LABELS: Record<1 | 2 | 3, string> = {
     1: "Light effort",
     2: "Medium effort",
@@ -426,6 +429,7 @@ export function TaskCard({
                     : `${isCompactCard ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5"}`
                 }
                 ${task.state === "WAITING" ? "border-moonlit/25" : ""}
+                ${isPassiveTimetable ? PASSIVE_TIMETABLE_CARD_CLASS : ""}
                 ${isComplete ? "opacity-45" : ""}
                 ${isTaskSelected
                     ? "bg-white/[0.04] ring-1 ring-lantern/15"
@@ -436,9 +440,9 @@ export function TaskCard({
             `}
         >
             {/* Priority Bar */}
-            {task.priority > 0 && (
+            {(isPassiveTimetable || task.priority > 0) && (
                 <div
-                    className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${PRIORITY_BAR_CLASS[task.priority]}`}
+                    className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${isPassiveTimetable ? "bg-moonlit/90" : PRIORITY_BAR_CLASS[task.priority]}`}
                     aria-hidden="true"
                 />
             )}
@@ -472,11 +476,13 @@ export function TaskCard({
                                         <Pin size={12} className="rotate-45 text-lantern" aria-label="Pinned" />
                                     )}
                                     {isPassiveTimetable && (
-                                        <CalendarClock
-                                            size={12}
-                                            className="text-moonlit"
-                                            aria-label="Timetable anchor"
-                                        />
+                                        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-moonlit/25 bg-moonlit/12 text-moonlit">
+                                            <CalendarClock
+                                                size={11}
+                                                className="text-moonlit"
+                                                aria-label="Timetable anchor"
+                                            />
+                                        </span>
                                     )}
                                     {showUrgentIcon && (
                                         <AlertTriangle
@@ -520,14 +526,14 @@ export function TaskCard({
                                                             setIsSubtasksExpanded((expanded) => !expanded);
                                                         }}
                                                         data-no-dnd="true"
-                                                        className={`inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text ${
-                                                            isBoardCard ? "min-h-8" : "touch-target min-h-10"
+                                                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text ${
+                                                            shell.isPhone ? "touch-target min-h-9 px-3.5" : ""
                                                         }`}
                                                         aria-expanded={isSubtasksExpanded}
                                                         aria-label={isSubtasksExpanded ? "Collapse subtasks" : "Expand subtasks"}
                                                     >
-                                                        {isSubtasksExpanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
-                                                        <span className="flex h-1.5 w-6 overflow-hidden rounded-full bg-white/[0.05]">
+                                                        {isSubtasksExpanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
+                                                        <span className="flex h-1.5 w-5 overflow-hidden rounded-full bg-white/[0.05]">
                                                             <span
                                                                 className="h-full bg-feedback-success/60 transition-all duration-300"
                                                                 style={{ width: `${(completedCount / orderedSubtasks.length) * 100}%` }}

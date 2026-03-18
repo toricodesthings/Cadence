@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { FolderKanban, Pencil, Trash2 } from "lucide-react";
@@ -143,46 +143,66 @@ export default function ProjectView() {
         });
     };
 
+    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
     const sidePanel = shell.isWide && selectedTaskId ? (
-        <>
-            {/* Resize handle */}
-            <div
-                onMouseDown={handleMouseDown}
-                className="w-1 shrink-0 cursor-col-resize hover:bg-lantern/20 active:bg-lantern/30 transition-colors relative z-10 group"
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="Resize task panel"
-                aria-valuenow={panelWidth}
-                aria-valuemin={MIN_PANEL_WIDTH}
-                aria-valuemax={MAX_PANEL_WIDTH}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                    if (e.key === "ArrowLeft") {
-                        e.preventDefault();
-                        setPanelWidth((w) => Math.min(MAX_PANEL_WIDTH, w + 20));
-                    } else if (e.key === "ArrowRight") {
-                        e.preventDefault();
-                        setPanelWidth((w) => Math.max(MIN_PANEL_WIDTH, w - 20));
-                    }
-                }}
+        <AnimatePresence initial={false}>
+            <motion.div
+                key="project-side-panel"
+                initial={{ width: 0 }}
+                animate={{ width: panelWidth + 4 }}
+                exit={{ width: 0 }}
+                transition={panelMotion}
+                style={{ willChange: "width", overflow: "hidden" }}
+                className="flex h-full self-stretch shrink-0 items-stretch"
             >
-                <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full opacity-0 group-hover:opacity-100 bg-lantern/25 transition-opacity" />
-            </div>
+                <motion.div
+                    initial={{ x: 24, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: 24, opacity: 0 }}
+                    transition={panelMotion}
+                    style={{ willChange: "transform, opacity" }}
+                    className="flex h-full min-w-0 flex-1 items-stretch"
+                >
+                    {/* Resize handle */}
+                    <div
+                        onMouseDown={handleMouseDown}
+                        className="w-1 shrink-0 cursor-col-resize hover:bg-lantern/20 active:bg-lantern/30 transition-colors relative z-10 group"
+                        role="separator"
+                        aria-orientation="vertical"
+                        aria-label="Resize task panel"
+                        aria-valuenow={panelWidth}
+                        aria-valuemin={MIN_PANEL_WIDTH}
+                        aria-valuemax={MAX_PANEL_WIDTH}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                            if (e.key === "ArrowLeft") {
+                                e.preventDefault();
+                                setPanelWidth((w) => Math.min(MAX_PANEL_WIDTH, w + 20));
+                            } else if (e.key === "ArrowRight") {
+                                e.preventDefault();
+                                setPanelWidth((w) => Math.max(MIN_PANEL_WIDTH, w - 20));
+                            }
+                        }}
+                    >
+                        <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full opacity-0 group-hover:opacity-100 bg-lantern/25 transition-opacity" />
+                    </div>
 
-            {/* Task edit panel — spans full height */}
-            <div
-                className="shrink-0 border-l border-twilight-border overflow-hidden"
-                style={{ width: panelWidth }}
-            >
-                <AnimatePresence mode="wait">
-                    <TaskEditPanel
-                        key={`edit-${selectedTaskId}`}
-                        taskId={selectedTaskId}
-                        onClose={() => setSelectedTaskId(null)}
-                    />
-                </AnimatePresence>
-            </div>
-        </>
+                    {/* Task edit panel — spans full height */}
+                    <div
+                        className="shrink-0 border-l border-twilight-border overflow-hidden"
+                        style={{ width: panelWidth }}
+                    >
+                        <AnimatePresence mode="wait">
+                            <TaskEditPanel
+                                key={`edit-${selectedTaskId}`}
+                                taskId={selectedTaskId}
+                                onClose={() => setSelectedTaskId(null)}
+                            />
+                        </AnimatePresence>
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
     ) : undefined;
 
     return (

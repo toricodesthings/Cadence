@@ -874,16 +874,40 @@ export default function Schedule() {
                 ? `day-${currentDate}`
                 : `year-${year}`;
 
-    const sidePanel = shell.isWide && selectedTaskId ? (
-        <ResizableSidePanel
-            defaultWidth={360}
-            minWidth={300}
-            maxWidth={520}
-            ariaLabel="Resize schedule detail panel"
-        >
-            <TaskEditPanel taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-        </ResizableSidePanel>
-    ) : undefined;
+    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
+    const sidePanel = (
+        <AnimatePresence initial={false}>
+            {shell.isWide && selectedTaskId ? (
+                <motion.div
+                    key="schedule-side-panel"
+                    initial={{ width: 0 }}
+                    animate={{ width: "auto" }}
+                    exit={{ width: 0 }}
+                    transition={panelMotion}
+                    style={{ willChange: "width", overflow: "hidden" }}
+                    className="flex h-full self-stretch shrink-0 items-stretch"
+                >
+                    <motion.div
+                        initial={{ x: 24, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 24, opacity: 0 }}
+                        transition={panelMotion}
+                        style={{ willChange: "transform, opacity" }}
+                        className="flex h-full min-w-0 flex-1 items-stretch"
+                    >
+                        <ResizableSidePanel
+                            defaultWidth={360}
+                            minWidth={300}
+                            maxWidth={520}
+                            ariaLabel="Resize schedule detail panel"
+                        >
+                            <TaskEditPanel taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
+                        </ResizableSidePanel>
+                    </motion.div>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>
+    );
 
     return (
         <MainLayout requireAuth sidePanel={sidePanel}>

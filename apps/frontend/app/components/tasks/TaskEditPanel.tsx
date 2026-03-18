@@ -477,22 +477,22 @@ export function TaskEditPanel({
 
                                     {/* Effort */}
                                     <MetaRow icon={Gauge} label="Effort">
-                                        <div className={segmentedControlClass}>
+                                        <div className={`${segmentedControlClass} w-full`}>
                                             <button
                                                 onClick={() => handleEffortChange(1)}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.effort === 1 ? "bg-white/[0.08] text-twilight-text shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 1 ? "bg-white/[0.08] text-twilight-text shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Low
                                             </button>
                                             <button
                                                 onClick={() => handleEffortChange(2)}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.effort === 2 ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 2 ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Medium
                                             </button>
                                             <button
                                                 onClick={() => handleEffortChange(3)}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.effort === 3 ? "bg-lantern/30 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 3 ? "bg-lantern/30 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 High
                                             </button>

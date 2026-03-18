@@ -10,8 +10,10 @@ export interface BucketedCollectionSection {
     count: number;
     description?: ReactNode;
     headerAction?: ReactNode;
+    boardHeaderAction?: ReactNode;
     listSectionClassName?: string;
     boardSectionClassName?: string;
+    boardCollapsed?: boolean;
     listContent: ReactNode;
     boardContent: ReactNode;
 }
@@ -19,6 +21,7 @@ export interface BucketedCollectionSection {
 interface BucketedCollectionViewProps {
     sections: BucketedCollectionSection[];
     view: "list" | "kanban";
+    desktopColumnScroll?: boolean;
 }
 
 function BucketedSectionHeader({
@@ -43,7 +46,7 @@ function BucketedSectionHeader({
     );
 }
 
-export function BucketedCollectionView({ sections, view }: BucketedCollectionViewProps) {
+export function BucketedCollectionView({ sections, view, desktopColumnScroll = false }: BucketedCollectionViewProps) {
     if (view === "list") {
         return (
             <div className="flex flex-col gap-6">
@@ -64,13 +67,16 @@ export function BucketedCollectionView({ sections, view }: BucketedCollectionVie
 
     return (
         <BoardCanvas
+            desktopColumnScroll={desktopColumnScroll}
             columns={sections.map((section) => ({
                 id: section.key,
                 title: section.title,
                 count: section.count,
-                description: section.description,
-                headerAction: section.headerAction,
+                icon: <section.icon size={18} className={section.accentClass} aria-hidden="true" />,
+                description: undefined,
+                headerAction: section.boardHeaderAction ?? section.headerAction,
                 content: section.boardContent,
+                collapsed: section.boardCollapsed,
             }))}
         />
     );

@@ -13,6 +13,12 @@ export interface ChangelogEntry {
  */
 export const CADENCE_CHANGELOG: ChangelogEntry[] = [
     {
+        version: "v0.3 Beta",
+        title: "Task and Planner improvements",
+        description: "New features and quality-of-life improvements to task management, including better support for all-day tasks, and revamp to the Upcoming and Today pages.",
+        glyph: "fix",
+    },
+    {
         version: "v0.2 Beta",
         title: "Major bug fixes",
         description: "Stability improvements across the pre-release app, with a focus on fixing rough edges and regressions.",

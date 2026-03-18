@@ -53,7 +53,6 @@ export default function HomeRoute() {
     useRouteFocus();
 
     const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
-    const holdingSectionLabel = selectedHoldingDate ? `On ${formatShortDate(selectedHoldingDate)}` : "Unmanaged tasks";
     const emptyHoldingLabel = selectedHoldingDate ? `Nothing in Holding on ${formatShortDate(selectedHoldingDate)}.` : "Holding is clear.";
     const visibleHoldingTasks = useMemo(() => holdingTasks, [holdingTasks]);
     const holdingSidePanelWidth = holdingPanelWidth + 4;
@@ -167,18 +166,19 @@ export default function HomeRoute() {
     const primaryContent = useMemo(() => {
         if (view === "kanban") {
             return (
-                <div className="flex flex-col gap-8 flex-1 min-h-0">
+                <div className="flex flex-1 min-h-0 flex-col gap-6">
                     {visibleHoldingTasks.length > 0 ? (
                         <section className="flex-1 min-h-0">
-                            <div className="mb-4 flex items-center gap-3 px-4 sm:px-6 lg:px-8">
-                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">{holdingSectionLabel}</h2>
-                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{visibleHoldingTasks.length}</span>
-                                <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-                            </div>
-                            <KanbanBoard tasks={visibleHoldingTasks} projectId={null} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} />
+                            <KanbanBoard
+                                tasks={visibleHoldingTasks}
+                                projectId={null}
+                                selectedTaskId={selectedTaskId}
+                                onSelectTask={handleSelectTask}
+                                desktopCanvasPaddingClassName="px-0 pb-4 pt-0"
+                            />
                         </section>
                     ) : selectedHoldingDate ? (
-                        <section className="px-4 sm:px-6 lg:px-8">
+                        <section>
                             <div className="rounded-[1.75rem] border border-twilight-border/45 bg-twilight-surface/22 px-6 py-8 text-center">
                                 <p className="text-base text-twilight-text-soft">{emptyHoldingLabel}</p>
                             </div>
@@ -186,8 +186,10 @@ export default function HomeRoute() {
                     ) : null}
                     <section>
                         <div className="mb-4 flex items-center gap-3">
-                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
-                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/45 bg-twilight-surface/28 px-3 py-1.5">
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
+                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
+                            </div>
                             <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
                         </div>
                         <div className="-mx-4 sm:-mx-6">
@@ -202,16 +204,12 @@ export default function HomeRoute() {
             <div className="flex flex-col gap-8">
                 {visibleHoldingTasks.length > 0 ? (
                     <section>
-                        <div className="mb-4 flex items-center gap-3">
-                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">{holdingSectionLabel}</h2>
-                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{visibleHoldingTasks.length}</span>
-                            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-                        </div>
                         <SectionedTaskList
                             tasks={visibleHoldingTasks}
                             projectId={null}
                             selectedTaskId={selectedTaskId}
                             onSelectTask={handleSelectTask}
+                            showUngroupedAddTask={false}
                         />
                     </section>
                 ) : selectedHoldingDate ? (
@@ -224,8 +222,10 @@ export default function HomeRoute() {
 
                 <section>
                     <div className="mb-4 flex items-center gap-3">
-                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
-                        <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/45 bg-twilight-surface/28 px-3 py-1.5">
+                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
+                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
+                        </div>
                         <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
                     </div>
                     {inboxItems.length > 0 ? (
@@ -244,7 +244,7 @@ export default function HomeRoute() {
                 </section>
             </div>
         );
-    }, [emptyHoldingLabel, handleSelectTask, holdingSectionLabel, holdingTasks, inboxItems, selectedHoldingDate, selectedTaskId, view]);
+    }, [emptyHoldingLabel, handleSelectTask, holdingTasks, inboxItems, selectedHoldingDate, selectedTaskId, view]);
 
     return (
         <MainLayout
@@ -262,16 +262,17 @@ export default function HomeRoute() {
         >
             {view === "kanban" ? (
                 <>
-                    <PageContent width="default" className="shrink-0">
-                        <PlannerHeader />
-                        <div className="mt-4 mb-4 rounded-[24px] bg-twilight-surface/30 backdrop-blur-md p-1">
-                            <AddTaskInput projectId={undefined} tasks={holdingTasks} />
-                        </div>
+                    <PageContent width="full" verticalPadding="none" className="shrink-0 pb-0 pt-4 sm:pt-5 lg:pt-5">
+                        <PlannerHeader className="mb-0.5" />
                     </PageContent>
                     <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
                         {tasksLoading || inboxLoading ? (
-                            <PageContent width="default"><TaskListSkeleton /></PageContent>
-                        ) : primaryContent}
+                            <PageContent width="full" verticalPadding="none" className="pt-0 pb-4"><TaskListSkeleton /></PageContent>
+                        ) : (
+                            <PageContent width="full" verticalPadding="none" className="flex min-h-full flex-col pt-0 pb-4">
+                                {primaryContent}
+                            </PageContent>
+                        )}
                     </div>
                 </>
             ) : (

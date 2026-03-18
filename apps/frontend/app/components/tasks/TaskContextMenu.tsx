@@ -1,4 +1,5 @@
-import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Repeat, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Zap, Pencil } from "lucide-react";
+import { useState } from "react";
+import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { Button } from "../primitives/Button";
@@ -6,7 +7,7 @@ import { useDeleteTask, useUpdateTask, useDuplicateTask } from "../../hooks/task
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
 import { PriorityPicker } from "./PriorityPicker";
 import { EffortPicker } from "./EffortPicker";
-import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
+import { QuickScheduleSurface } from "./QuickScheduleSurface";
 import { MoveToSubmenu } from "./MoveToSubmenu";
 import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
@@ -19,15 +20,17 @@ export interface TaskMenuItemsProps {
     onAddSubtask?: () => void;
     onRename?: () => void;
     MenuComponents: GenericMenu;
+    onCloseMenu?: () => void;
 }
 
 /** Reusable inner items for either DropdownMenu or ContextMenu */
-export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu }: TaskMenuItemsProps) {
+export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu }: TaskMenuItemsProps) {
     const deleteTask = useDeleteTask();
     const updateTask = useUpdateTask();
     const duplicateTask = useDuplicateTask();
     const addTaskTag = useAddTaskTag();
     const removeTaskTag = useRemoveTaskTag();
+    const [menuView, setMenuView] = useState<"main" | "reschedule-presets" | "reschedule-custom">("main");
 
     const handleTogglePin = () => {
         updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
@@ -59,77 +62,141 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             scheduledEnd: null,
             isAllDay: true,
         });
+        onCloseMenu?.();
     };
+
+    if (menuView !== "main") {
+        return (
+            <div className="-m-1 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-twilight-border/40 px-4 py-3">
+                    <button
+                        type="button"
+                        onClick={() => setMenuView("main")}
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-twilight-text-muted transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                    >
+                        <ChevronLeft size={13} aria-hidden="true" />
+                        Back
+                    </button>
+                    <p className="text-sm font-semibold text-twilight-text">
+                        {menuView === "reschedule-custom" ? "Custom schedule" : "Reschedule task"}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => onCloseMenu?.()}
+                        className="inline-flex cursor-pointer items-center justify-center rounded-lg p-1.5 text-twilight-text-muted transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                        aria-label="Close task menu"
+                    >
+                        <X size={14} aria-hidden="true" />
+                    </button>
+                </div>
+
+                {menuView === "reschedule-presets" ? (
+                    <div className="p-3">
+                        <div className="px-1 pb-3">
+                            <p className="text-sm font-semibold text-twilight-text">Choose a date fast</p>
+                            <p className="mt-1 text-xs leading-relaxed text-twilight-text-muted">
+                                Pick a quick preset or open the full scheduler without leaving the task menu.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => handleQuickSchedule(0)}
+                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                            >
+                                <Sun size={16} className="text-lantern" aria-hidden="true" />
+                                <span>Today</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleQuickSchedule(1)}
+                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                            >
+                                <Moon size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                <span>Tomorrow</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleQuickSchedule(0, false, true)}
+                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                            >
+                                <ArrowRight size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                <span>Next week</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleQuickSchedule(0, true)}
+                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                            >
+                                <CalendarDays size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                <span>Weekend</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleQuickSchedule(3)}
+                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                            >
+                                <CalendarClock size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                <span>3 days</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMenuView("reschedule-custom")}
+                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-lantern/18 bg-lantern/10 px-3 py-3 text-xs font-medium text-lantern transition-colors hover:bg-lantern/14"
+                            >
+                                <Calendar size={16} aria-hidden="true" />
+                                <span>Custom</span>
+                            </button>
+                        </div>
+
+                        <div className="mt-3 border-t border-twilight-border/35 pt-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    updateTask.mutate({ id: task.id, scheduledStart: null, scheduledEnd: null, dueDate: null, isAllDay: true });
+                                    onCloseMenu?.();
+                                }}
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-red-400/80 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                            >
+                                <X size={14} aria-hidden="true" />
+                                <span>Remove date</span>
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <QuickScheduleSurface
+                        dueDate={task.dueDate}
+                        scheduledStart={task.scheduledStart}
+                        scheduledEnd={task.scheduledEnd}
+                        recurrenceRule={task.recurrenceRule}
+                        isOpen={menuView === "reschedule-custom"}
+                        onChange={(updates) => updateTask.mutate({ id: task.id, ...updates })}
+                        onRequestClose={() => setMenuView("reschedule-presets")}
+                    />
+                )}
+            </div>
+        );
+    }
 
     return (
         <>
             {/* ── Scheduling & Time ── */}
-            <Menu.Sub>
-                <Menu.SubTrigger className="flex items-center gap-2">
+            <Menu.Item
+                onSelect={(event) => {
+                    event.preventDefault();
+                    setMenuView("reschedule-presets");
+                }}
+            >
+                <div className="flex w-full items-center gap-2">
                     <CalendarClock size={16} />
                     <span>Reschedule</span>
-                    <span className="ml-auto text-[10px] text-twilight-text-muted/90">S</span>
-                </Menu.SubTrigger>
-                <Menu.Portal>
-                    <Menu.SubContent className="w-48">
-                        <Menu.Item onClick={() => handleQuickSchedule(0)}>
-                            <div className="flex items-center gap-2">
-                                <Sun size={14} className="text-lantern" />
-                                <span>Today</span>
-                            </div>
-                        </Menu.Item>
-                        <Menu.Item onClick={() => handleQuickSchedule(1)}>
-                            <div className="flex items-center gap-2">
-                                <Moon size={14} className="text-twilight-text-muted" />
-                                <span>Tomorrow</span>
-                            </div>
-                        </Menu.Item>
-                        <Menu.Item onClick={() => handleQuickSchedule(0, true)}>
-                            <div className="flex items-center gap-2">
-                                <CalendarDays size={14} className="text-twilight-text-muted" />
-                                <span>This Weekend</span>
-                            </div>
-                        </Menu.Item>
-                        <Menu.Item onClick={() => handleQuickSchedule(0, false, true)}>
-                            <div className="flex items-center gap-2">
-                                <ArrowRight size={14} className="text-twilight-text-muted" />
-                                <span>Next Week</span>
-                            </div>
-                        </Menu.Item>
-                        <Menu.Item onClick={() => handleQuickSchedule(3)}>
-                            <div className="flex items-center gap-2">
-                                <CalendarClock size={14} className="text-twilight-text-muted" />
-                                <span>In 3 days</span>
-                            </div>
-                        </Menu.Item>
-                        <Menu.Separator />
-                        <DeadlinePickerPopover
-                            dueDate={task.dueDate}
-                            scheduledStart={task.scheduledStart}
-                            scheduledEnd={task.scheduledEnd}
-                            recurrenceRule={task.recurrenceRule}
-                            onChange={(updates) => updateTask.mutate({ id: task.id, ...updates })}
-                        >
-                            <Menu.Item onSelect={(e) => e.preventDefault()}>
-                                <div className="flex items-center gap-2">
-                                    <Calendar size={14} />
-                                    <span>Custom picker...</span>
-                                </div>
-                            </Menu.Item>
-                        </DeadlinePickerPopover>
-                        <Menu.Separator />
-                        <Menu.Item
-                            onClick={() => updateTask.mutate({ id: task.id, scheduledStart: null, scheduledEnd: null, dueDate: null, isAllDay: true })}
-                            className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                        >
-                            <div className="flex items-center gap-2">
-                                <X size={14} />
-                                <span>Remove date</span>
-                            </div>
-                        </Menu.Item>
-                    </Menu.SubContent>
-                </Menu.Portal>
-            </Menu.Sub>
+                    <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
+                        <span>S</span>
+                        <ChevronRight size={13} aria-hidden="true" />
+                    </span>
+                </div>
+            </Menu.Item>
 
             <Menu.Item onClick={handleToggleReminder}>
                 <div className="flex items-center gap-2">
@@ -225,6 +292,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                     <span className="ml-auto text-[10px] opacity-60">Del</span>
                 </div>
             </Menu.Item>
+
         </>
     );
 }
@@ -236,16 +304,24 @@ export interface TaskContextMenuProps {
 }
 
 export function TaskContextMenu({ task, onAddSubtask, onRename }: TaskContextMenuProps) {
+    const [open, setOpen] = useState(false);
+
     return (
-        <DropdownMenu.Root>
+        <DropdownMenu.Root open={open} onOpenChange={setOpen}>
             <DropdownMenu.Trigger asChild>
                 <Button variant="ghost" size="icon" aria-label={`Open actions for ${task.title}`}>
                     <MoreVertical size={16} />
                 </Button>
             </DropdownMenu.Trigger>
 
-            <DropdownMenu.Content className="w-72" side="right" align="start" sideOffset={8}>
-                <TaskMenuItems task={task} onAddSubtask={onAddSubtask} onRename={onRename} MenuComponents={DropdownMenu} />
+            <DropdownMenu.Content className="w-[22rem]" side="right" align="start" sideOffset={8}>
+                <TaskMenuItems
+                    task={task}
+                    onAddSubtask={onAddSubtask}
+                    onRename={onRename}
+                    MenuComponents={DropdownMenu}
+                    onCloseMenu={() => setOpen(false)}
+                />
             </DropdownMenu.Content>
         </DropdownMenu.Root>
     );

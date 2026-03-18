@@ -39,7 +39,7 @@ export default function PrivacyPolicyRoute() {
                         aside={(
                             <div className="space-y-3">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                                    Plain-language summary
+                                    Summary
                                 </p>
                                 <p className="text-sm leading-6 text-twilight-text-soft">
                                     Cadence stores the workspace content and settings you create, keeps some data locally
