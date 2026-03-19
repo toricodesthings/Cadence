@@ -21,7 +21,7 @@ function getFirstDayOfWeek(y: number, m: number) {
 interface MiniMonthProps {
     year: number;
     month: number;
-    taskDateSet: Set<string>; // ISO dates with tasks YYYY-MM-DD
+    taskDateCounts: Map<string, number>;
     holidayDateSet?: Set<string>;
     /** ISO date string of user's birthday this year */
     birthdayDate?: string | null;
@@ -35,7 +35,7 @@ interface MiniMonthProps {
 function MiniMonth({
     year,
     month,
-    taskDateSet,
+    taskDateCounts,
     holidayDateSet,
     birthdayDate,
     today,
@@ -81,9 +81,12 @@ function MiniMonth({
                     if (!day) return <div key={i} />;
                     const dayStr = `${year}-${monthStr}-${String(day).padStart(2, "0")}`;
                     const isToday = dayStr === todayStr;
-                    const hasTask = taskDateSet.has(dayStr);
+                    const taskCount = taskDateCounts.get(dayStr) ?? 0;
                     const hasHoliday = holidayDateSet?.has(dayStr) ?? false;
                     const isBirthday = birthdayDate === dayStr;
+
+                    // Heatmap: opacity scales with density (1→0.25, 2→0.4, 3→0.55, 4+→0.7)
+                    const heatOpacity = taskCount === 0 ? 0 : Math.min(0.7, 0.15 + taskCount * 0.15);
 
                     return (
                         <button
@@ -97,11 +100,9 @@ function MiniMonth({
                                     ? "bg-lantern/20 text-lantern ring-1 ring-lantern font-bold"
                                     : "text-twilight-text-muted/90 hover:bg-white/[0.05] hover:text-twilight-text-soft"}
                             `}
+                            style={taskCount > 0 && !isToday ? { backgroundColor: `rgba(232, 164, 74, ${heatOpacity})` } : undefined}
                         >
                             {day}
-                            {hasTask && !isToday && (
-                                <span className="absolute bottom-[1px] left-1/2 -translate-x-1/2 w-[3px] h-[3px] rounded-full bg-lantern/60" />
-                            )}
                             {hasHoliday && (
                                 <span className="absolute right-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.4)]" />
                             )}
@@ -131,17 +132,17 @@ export interface YearViewProps {
 export function YearView({ year, tasks, holidayDateSet, birthdayDate, onSelectMonth, onSelectDay }: YearViewProps) {
     const today = new Date();
 
-    // Build a set of all ISO dates that have at least one task
-    const taskDateSet = useMemo(() => {
-        const set = new Set<string>();
+    // Build a map of ISO dates → task count for heatmap density
+    const taskDateCounts = useMemo(() => {
+        const map = new Map<string, number>();
         for (const t of tasks) {
             const scheduledStart = toTaskDateOnly(t.scheduledStart);
             const dueDate = toTaskDateOnly(t.dueDate);
 
-            if (scheduledStart) set.add(scheduledStart);
-            if (dueDate) set.add(dueDate);
+            if (scheduledStart) map.set(scheduledStart, (map.get(scheduledStart) ?? 0) + 1);
+            if (dueDate && dueDate !== scheduledStart) map.set(dueDate, (map.get(dueDate) ?? 0) + 1);
         }
-        return set;
+        return map;
     }, [tasks]);
 
     return (
@@ -152,7 +153,7 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, onSelectMo
                         key={m}
                         year={year}
                         month={m}
-                        taskDateSet={taskDateSet}
+                        taskDateCounts={taskDateCounts}
                         holidayDateSet={holidayDateSet}
                         birthdayDate={birthdayDate}
                         today={today}

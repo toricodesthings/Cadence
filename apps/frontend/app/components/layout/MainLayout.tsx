@@ -76,6 +76,7 @@ export function MainLayout({
     headerRight,
     customSidebar,
     hideHeader = false,
+    hideContextualOrb = false,
     contentWidth = "default",
     pageTitle,
     pageDescription,
@@ -88,6 +89,7 @@ export function MainLayout({
     headerRight?: React.ReactNode,
     customSidebar?: React.ReactNode,
     hideHeader?: boolean,
+    hideContextualOrb?: boolean,
     contentWidth?: PageWidth,
     pageTitle?: string,
     pageDescription?: string,
@@ -339,7 +341,7 @@ export function MainLayout({
             <Suspense fallback={null}>
                 <SettingsDialog />
             </Suspense>
-            {shell.isPhone ? (
+            {shell.isPhone && !hideContextualOrb ? (
                 <ContextualAddOrb
                     onOpen={(tab) => {
                         setQuickAddInitialTab(tab);

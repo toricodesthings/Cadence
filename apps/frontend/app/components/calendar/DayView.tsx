@@ -3,6 +3,7 @@ import { Flag } from "lucide-react";
 import { TimeGutter } from "./TimeGutter";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
+import * as Popover from "../primitives/Popover";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar-dnd";
@@ -16,9 +17,11 @@ interface DroppableTimeGridProps {
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
+    onResizeTask?: (id: string, durationMinutes: number) => void;
     nowTop: number;
     isToday: boolean;
     activeDropPreview?: CalendarDropPreview | null;
+    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
     onGridClick?: (info: CalendarEventInfo) => void;
 }
 
@@ -28,9 +31,11 @@ function DroppableTimeGrid({
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
+    onResizeTask,
     nowTop,
     isToday,
     activeDropPreview,
+    draftPlacement,
     onGridClick,
 }: DroppableTimeGridProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -102,6 +107,7 @@ function DroppableTimeGrid({
                     onSelect={onSelectTask}
                     onComplete={onCompleteTask}
                     onArchive={onArchiveTask}
+                    onResize={onResizeTask}
                     style={{
                         top: layout.top,
                         height: layout.height,
@@ -110,6 +116,21 @@ function DroppableTimeGrid({
                     }}
                 />
             ))}
+
+            {/* Ghost block preview for click-to-create */}
+            {draftPlacement && draftPlacement.dateStr === dateStr && (
+                <div
+                    className="absolute left-1 right-1 z-15 rounded-xl border border-dashed border-lantern/30 bg-lantern/10 backdrop-blur-sm pointer-events-none flex items-center px-3"
+                    style={{
+                        top: (draftPlacement.startMinute / 60) * HOUR_HEIGHT,
+                        height: ((draftPlacement.endMinute - draftPlacement.startMinute) / 60) * HOUR_HEIGHT,
+                    }}
+                >
+                    <span className="text-[12px] text-lantern/70 font-medium">
+                        {`${String(Math.floor(draftPlacement.startMinute / 60)).padStart(2, "0")}:${String(draftPlacement.startMinute % 60).padStart(2, "0")} – ${String(Math.floor(draftPlacement.endMinute / 60)).padStart(2, "0")}:${String(draftPlacement.endMinute % 60).padStart(2, "0")}`}
+                    </span>
+                </div>
+            )}
 
             {/* Current time bar */}
             {isToday && (
@@ -137,9 +158,12 @@ export interface DayViewProps {
     /** Whether this day is the user's birthday */
     isBirthday?: boolean;
     activeDropPreview?: CalendarDropPreview | null;
+    /** Ghost block placement for click-to-create preview */
+    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
+    onResizeTask?: (id: string, durationMinutes: number) => void;
     /** Callback when user clicks an empty grid cell (opens event popover) */
     onGridClick?: (info: CalendarEventInfo) => void;
 }
@@ -150,9 +174,11 @@ export function DayView({
     holidays = [],
     isBirthday = false,
     activeDropPreview,
+    draftPlacement,
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
+    onResizeTask,
     onGridClick,
 }: DayViewProps) {
     const today = new Date();
@@ -207,7 +233,7 @@ export function DayView({
                         {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate ? (
                             <AllDayDropPreview preview={activeDropPreview} />
                         ) : null}
-                        {allDay.map((t) => (
+                        {allDay.slice(0, 3).map((t) => (
                             <CalendarTaskChip
                                 key={t.id}
                                 task={t}
@@ -218,6 +244,32 @@ export function DayView({
                                 onArchive={onArchiveTask}
                             />
                         ))}
+                        {allDay.length > 3 && (
+                            <Popover.Root>
+                                <Popover.Trigger asChild>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-[11px] text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer px-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
+                                    >
+                                        +{allDay.length - 3} more
+                                    </button>
+                                </Popover.Trigger>
+                                <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
+                                    {allDay.slice(3).map((t) => (
+                                        <CalendarTaskChip
+                                            key={t.id}
+                                            task={t}
+                                            variant="pill"
+                                            sourceId={`allday-${currentDate}`}
+                                            onSelect={onSelectTask}
+                                            onComplete={onCompleteTask}
+                                            onArchive={onArchiveTask}
+                                        />
+                                    ))}
+                                </Popover.Content>
+                            </Popover.Root>
+                        )}
                     </div>
                 </AllDayDropLane>
             </div>
@@ -230,9 +282,11 @@ export function DayView({
                         dateStr={currentDate}
                         timedTasks={timed}
                         activeDropPreview={activeDropPreview}
+                        draftPlacement={draftPlacement}
                         onSelectTask={onSelectTask}
                         onCompleteTask={onCompleteTask}
                         onArchiveTask={onArchiveTask}
+                        onResizeTask={onResizeTask}
                         nowTop={nowTop}
                         isToday={isToday}
                         onGridClick={onGridClick}

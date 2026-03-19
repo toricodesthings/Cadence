@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CalendarGrid } from "../components/calendar/CalendarGrid";
 import { WeekView } from "../components/calendar/WeekView";
 import { DayView } from "../components/calendar/DayView";
+import { DayFocusView } from "../components/calendar/DayFocusView";
+import { MonthPeekView } from "../components/calendar/MonthPeekView";
 import { YearView } from "../components/calendar/YearView";
 import { ScheduleHeader, type CalendarViewMode } from "../components/calendar/ScheduleHeader";
 import { CalendarTaskChipOverlay } from "../components/calendar/CalendarTaskChip";
@@ -55,9 +57,7 @@ import { getTaskSeriesId, isRecurringTask, isRecurringTaskInstance } from "../li
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ControlsSheet } from "../components/shared/ControlsSheet";
 import {
-    HolidayAccuracyHint,
     HolidayLocationPrompt,
     HolidayPreferencesPanel,
 } from "../components/calendar/HolidayControls";
@@ -97,7 +97,7 @@ export default function Schedule() {
     const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
-    const [holidayPopoverOpen, setHolidayPopoverOpen] = useState(false);
+    const [draftPlacement, setDraftPlacement] = useState<{ dateStr: string; startMinute: number; endMinute: number } | null>(null);
     const [holidayPromptOpen, setHolidayPromptOpen] = useState(false);
     const scrollLockRef = useRef(false);
     const hasAppliedCompactDefault = useRef(false);
@@ -351,8 +351,11 @@ export default function Schedule() {
     const handleSelectDate = useCallback((day: number) => {
         const newDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
         setCurrentDate(newDate);
-        setViewMode("day");
-    }, [year, month]);
+        // On phone month view, stay in month (peek mode) instead of switching to day
+        if (!(shell.isPhone && viewMode === "month")) {
+            setViewMode("day");
+        }
+    }, [year, month, shell.isPhone, viewMode]);
 
     // ── View mode change ────────────────────────────────────────────────────
     const handleViewMode = useCallback((mode: CalendarViewMode) => {
@@ -475,6 +478,15 @@ export default function Schedule() {
         const task = allVisibleTasks.get(taskId);
         if (!task || task.isHabit || isRecurringTask(task) || isRecurringTaskInstance(task)) return;
 
+        // Capture previous state for undo
+        const prev = {
+            dueDate: task.dueDate,
+            scheduledStart: task.scheduledStart,
+            scheduledEnd: task.scheduledEnd,
+            isAllDay: task.isAllDay,
+        };
+        const undoMove = () => updateTask({ id: taskId, ...prev });
+
         if (droppedId.startsWith("slot-")) {
             const { iso, date } = getDateFromTimedDropId(droppedId);
             const durationMs = getTaskDurationMs(task);
@@ -485,6 +497,7 @@ export default function Schedule() {
                 scheduledEnd: new Date(new Date(iso).getTime() + durationMs).toISOString(),
                 isAllDay: false,
             });
+            toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
             return;
         }
 
@@ -497,6 +510,7 @@ export default function Schedule() {
                 scheduledEnd: null,
                 isAllDay: true,
             });
+            toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
             return;
         }
 
@@ -512,18 +526,17 @@ export default function Schedule() {
                     scheduledEnd: null,
                     isAllDay: true,
                 });
-                return;
+            } else {
+                const preservedStart = preserveLocalTime(datePart, task.scheduledStart);
+                updateTask({
+                    id: taskId,
+                    dueDate: datePart,
+                    scheduledStart: preservedStart,
+                    scheduledEnd: new Date(new Date(preservedStart).getTime() + durationMs).toISOString(),
+                    isAllDay: false,
+                });
             }
-
-            const preservedStart = preserveLocalTime(datePart, task.scheduledStart);
-
-            updateTask({
-                id: taskId,
-                dueDate: datePart,
-                scheduledStart: preservedStart,
-                scheduledEnd: new Date(new Date(preservedStart).getTime() + durationMs).toISOString(),
-                isAllDay: false,
-            });
+            toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
         }
     }, [allVisibleTasks, updateTask]);
 
@@ -561,6 +574,9 @@ export default function Schedule() {
             return;
         }
         updateTask({ id: taskId, state: "COMPLETE" });
+        toast("Task completed", {
+            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "TODO" }) },
+        });
     }, [updateTask, client, queryClient, allVisibleTasks]);
 
     const handleArchiveTask = useCallback(async (taskId: string) => {
@@ -584,7 +600,22 @@ export default function Schedule() {
             return;
         }
         updateTask({ id: taskId, state: "ARCHIVED" });
+        toast("Task archived", {
+            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "TODO" }) },
+        });
     }, [updateTask, client, queryClient, allVisibleTasks]);
+
+    const handleResizeTask = useCallback((taskId: string, durationMinutes: number) => {
+        const task = allVisibleTasks.get(taskId);
+        if (!task || !task.scheduledStart) return;
+        const start = new Date(task.scheduledStart);
+        const newEnd = new Date(start.getTime() + durationMinutes * 60_000);
+        const prevEnd = task.scheduledEnd;
+        updateTask({ id: taskId, scheduledEnd: newEnd.toISOString() });
+        toast("Duration updated", {
+            action: { label: "Undo", onClick: () => updateTask({ id: taskId, scheduledEnd: prevEnd ?? undefined }) },
+        });
+    }, [updateTask, allVisibleTasks]);
 
     // ── Year view helpers ───────────────────────────────────────────────────
     const handleYearSelectMonth = useCallback((m: number) => {
@@ -599,6 +630,9 @@ export default function Schedule() {
 
     // ── Event popover handler ────────────────────────────────────────────
     const handleGridClick = useCallback((info: CalendarEventInfo) => {
+        const startMinute = info.startHour * 60 + info.startMinute;
+        const endMinute = startMinute + 30; // default 30-min duration
+        setDraftPlacement({ dateStr: info.date, startMinute, endMinute });
         setEventPopoverInfo(info);
     }, []);
 
@@ -617,6 +651,75 @@ export default function Schedule() {
     useEffect(() => {
         setHolidayPromptOpen(holidayOverlay.shouldShowPrompt);
     }, [holidayOverlay.shouldShowPrompt]);
+
+    // ── Schedule-specific keyboard shortcuts ────────────────────────────────
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement;
+            const inInput =
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                target.isContentEditable;
+            if (inInput) return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            switch (e.key.toLowerCase()) {
+                case "d":
+                    e.preventDefault();
+                    setDirection(0);
+                    setViewMode("day");
+                    break;
+                case "w":
+                    e.preventDefault();
+                    setDirection(0);
+                    setViewMode("week");
+                    break;
+                case "m":
+                    e.preventDefault();
+                    setDirection(0);
+                    setViewMode("month");
+                    break;
+                case "y":
+                    e.preventDefault();
+                    setDirection(0);
+                    setViewMode("year");
+                    break;
+                case "t":
+                    e.preventDefault();
+                    handleToday();
+                    break;
+                case "c":
+                    e.preventDefault();
+                    setEventPopoverInfo({
+                        dateStr: currentDate,
+                        startMinute: (() => {
+                            const now = new Date();
+                            return now.getHours() * 60 + Math.ceil(now.getMinutes() / 15) * 15;
+                        })(),
+                    });
+                    break;
+                case "escape":
+                    e.preventDefault();
+                    if (eventPopoverInfo) {
+                        setEventPopoverInfo(null);
+                        setDraftPlacement(null);
+                    } else if (selectedTaskId) {
+                        setSelectedTaskId(null);
+                    }
+                    break;
+                case "arrowleft":
+                    e.preventDefault();
+                    handleNavigate(-1);
+                    break;
+                case "arrowright":
+                    e.preventDefault();
+                    handleNavigate(1);
+                    break;
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [currentDate, eventPopoverInfo, selectedTaskId, handleToday, handleNavigate]);
 
     const handleUsePreciseHolidayLocation = useCallback(async () => {
         const result = await holidayOverlay.requestPreciseLocation();
@@ -643,96 +746,12 @@ export default function Schedule() {
         holidayOverlay.setLocationMode("manual");
         holidayOverlay.dismissPrompt();
         setHolidayPromptOpen(false);
-        setHolidayPopoverOpen(true);
     }, [holidayOverlay]);
 
-    const holidayControls = (
-        <div className="relative">
-            <Popover.Root open={holidayPopoverOpen} onOpenChange={setHolidayPopoverOpen}>
-                <div className="inline-flex min-h-11 items-center gap-1 rounded-2xl border border-twilight-border bg-white/[0.03] p-1">
-                    <label className="inline-flex min-h-9 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text">
-                        <input
-                            type="checkbox"
-                            className="sr-only"
-                            checked={holidayOverlay.holidaySettings.enabled}
-                            onChange={(event) => holidayOverlay.setEnabled(event.target.checked)}
-                            aria-label="Toggle holiday overlay"
-                        />
-                        <span
-                            aria-hidden="true"
-                            className={`flex h-5 w-5 items-center justify-center rounded-md border transition-colors ${
-                                holidayOverlay.holidaySettings.enabled
-                                    ? "border-lantern/45 bg-lantern/18 text-lantern"
-                                    : "border-twilight-border-light bg-white/[0.02] text-transparent"
-                            }`}
-                        >
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                <path
-                                    d="M2.5 6.2L4.8 8.4L9.4 3.6"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
-                        </span>
-                        <span>Holidays</span>
-                    </label>
-
-                    {holidayOverlay.permissionState === "denied" ? <HolidayAccuracyHint variant="icon" /> : null}
-
-                    <Popover.Trigger asChild>
-                        <button
-                            type="button"
-                            className="btn-icon h-11 w-11 rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                            aria-label="Holiday overlay settings"
-                        >
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                <path d="M4 7h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                <path d="M17 7h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                <path d="M4 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                <path d="M11 17h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                <circle cx="15" cy="7" r="2" stroke="currentColor" strokeWidth="1.8" />
-                                <circle cx="9" cy="17" r="2" stroke="currentColor" strokeWidth="1.8" />
-                            </svg>
-                        </button>
-                    </Popover.Trigger>
-                </div>
-                <Popover.Content align="end" className="w-[min(26rem,calc(100vw-2rem))]">
-                    {holidayOverlay.permissionState === "denied" ? (
-                        <div className="mb-4 flex items-center gap-2 text-xs text-twilight-text-soft">
-                            <HolidayAccuracyHint />
-                        </div>
-                    ) : null}
-                    <HolidayPreferencesPanel
-                        enabled={holidayOverlay.holidaySettings.enabled}
-                        usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
-                        locationMode={holidayOverlay.holidaySettings.locationMode}
-                        countryCode={holidayOverlay.holidaySettings.countryCode}
-                        subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
-                        countryOptions={holidayOverlay.countryOptions}
-                        subdivisionOptions={holidayOverlay.subdivisionOptions}
-                        effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
-                        effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
-                        permissionState={holidayOverlay.permissionState}
-                        locationRefreshedAt={holidayOverlay.refreshedAt}
-                        countriesLoading={holidayOverlay.countriesLoading}
-                        subdivisionsLoading={holidayOverlay.subdivisionsLoading}
-                        isLocating={holidayOverlay.isLocating}
-                        compact
-                        showEnabledToggle={false}
-                        onEnabledChange={holidayOverlay.setEnabled}
-                        onLocationModeChange={holidayOverlay.setLocationMode}
-                        onCountryChange={holidayOverlay.setCountryCode}
-                        onSubdivisionChange={holidayOverlay.setSubdivisionCode}
-                        onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
-                        onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
-                    />
-                </Popover.Content>
-            </Popover.Root>
-
+    const holidayPrompts = (
+        <>
             {!shell.isPhone && holidayPromptOpen ? (
-                <div className="absolute right-0 top-[calc(100%+0.85rem)] z-30 w-[min(25rem,calc(100vw-2rem))]">
+                <div className="fixed right-6 top-16 z-30 w-[min(25rem,calc(100vw-2rem))]">
                     <HolidayLocationPrompt
                         isLocating={holidayOverlay.isLocating}
                         onUsePreciseLocation={handleUsePreciseHolidayLocation}
@@ -754,115 +773,80 @@ export default function Schedule() {
                     />
                 </Dialog.DialogContent>
             </Dialog.Dialog>
-        </div>
+        </>
     );
 
-    const scheduleControls = (
-        <ControlsSheet
-            routeKey="schedule"
-            title="Schedule controls"
-            triggerClassName="min-h-10 rounded-[1.15rem] border-twilight-border/35 bg-white/[0.03] px-4"
-            sections={[
-                {
-                    id: "views",
-                    label: "Views",
-                    content: (
-                        <div className="space-y-2">
-                            {(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => (
-                                <button
-                                    key={mode}
-                                    type="button"
-                                    onClick={() => handleViewMode(mode)}
-                                    className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
-                                        viewMode === mode
-                                            ? "border-lantern/30 bg-lantern/14 text-lantern"
-                                            : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
-                                    }`}
-                                >
-                                    {mode[0].toUpperCase() + mode.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                    ),
-                },
-                {
-                    id: "clutter",
-                    label: "Clutter",
-                    content: (
-                        <div className="space-y-3">
-                            <label className="flex items-center justify-between rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 py-3 text-sm text-twilight-text-soft">
-                                <span>Show all-day tasks</span>
-                                <input
-                                    type="checkbox"
-                                    checked={calendarClutter.showAllDay}
-                                    onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showAllDay: event.target.checked } } })}
-                                    aria-label="Toggle all-day tasks"
-                                />
-                            </label>
-                            <label className="flex items-center justify-between rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 py-3 text-sm text-twilight-text-soft">
-                                <span>Show timed task blocks</span>
-                                <input
-                                    type="checkbox"
-                                    checked={calendarClutter.showTimedTasks}
-                                    onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showTimedTasks: event.target.checked } } })}
-                                    aria-label="Toggle timed task blocks"
-                                />
-                            </label>
-                            <label className="flex items-center justify-between rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 py-3 text-sm text-twilight-text-soft">
-                                <span>Show habit markers</span>
-                                <input
-                                    type="checkbox"
-                                    checked={calendarClutter.showHabitAnchors}
-                                    onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: event.target.checked } } })}
-                                    aria-label="Toggle habit markers"
-                                />
-                            </label>
-                        </div>
-                    ),
-                },
-                {
-                    id: "holidays",
-                    label: "Holidays",
-                    content: (
-                        <div className="space-y-4">
-                            <label className="flex items-center justify-between rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 py-3 text-sm text-twilight-text-soft">
-                                <span>Show holiday overlay</span>
-                                <input
-                                    type="checkbox"
-                                    checked={holidayOverlay.holidaySettings.enabled}
-                                    onChange={(event) => holidayOverlay.setEnabled(event.target.checked)}
-                                    aria-label="Toggle holiday overlay"
-                                />
-                            </label>
-                            <HolidayPreferencesPanel
-                                enabled={holidayOverlay.holidaySettings.enabled}
-                                usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
-                                locationMode={holidayOverlay.holidaySettings.locationMode}
-                                countryCode={holidayOverlay.holidaySettings.countryCode}
-                                subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
-                                countryOptions={holidayOverlay.countryOptions}
-                                subdivisionOptions={holidayOverlay.subdivisionOptions}
-                                effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
-                                effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
-                                permissionState={holidayOverlay.permissionState}
-                                locationRefreshedAt={holidayOverlay.refreshedAt}
-                                countriesLoading={holidayOverlay.countriesLoading}
-                                subdivisionsLoading={holidayOverlay.subdivisionsLoading}
-                                isLocating={holidayOverlay.isLocating}
-                                compact
-                                showEnabledToggle={false}
-                                onEnabledChange={holidayOverlay.setEnabled}
-                                onLocationModeChange={holidayOverlay.setLocationMode}
-                                onCountryChange={holidayOverlay.setCountryCode}
-                                onSubdivisionChange={holidayOverlay.setSubdivisionCode}
-                                onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
-                                onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
-                            />
-                        </div>
-                    ),
-                },
-            ]}
-        />
+    const overflowContent = (
+        <div className="space-y-4">
+            <div>
+                <h4 className="text-xs font-medium uppercase tracking-wider text-twilight-text-muted mb-2">Clutter</h4>
+                <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show all-day tasks</span>
+                        <input
+                            type="checkbox"
+                            checked={calendarClutter.showAllDay}
+                            onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showAllDay: event.target.checked } } })}
+                        />
+                    </label>
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show timed blocks</span>
+                        <input
+                            type="checkbox"
+                            checked={calendarClutter.showTimedTasks}
+                            onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showTimedTasks: event.target.checked } } })}
+                        />
+                    </label>
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show habit markers</span>
+                        <input
+                            type="checkbox"
+                            checked={calendarClutter.showHabitAnchors}
+                            onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: event.target.checked } } })}
+                        />
+                    </label>
+                </div>
+            </div>
+            <div>
+                <h4 className="text-xs font-medium uppercase tracking-wider text-twilight-text-muted mb-2">Holidays</h4>
+                <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show holidays</span>
+                        <input
+                            type="checkbox"
+                            checked={holidayOverlay.holidaySettings.enabled}
+                            onChange={(event) => holidayOverlay.setEnabled(event.target.checked)}
+                        />
+                    </label>
+                    {holidayOverlay.holidaySettings.enabled && (
+                        <HolidayPreferencesPanel
+                            enabled={holidayOverlay.holidaySettings.enabled}
+                            usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
+                            locationMode={holidayOverlay.holidaySettings.locationMode}
+                            countryCode={holidayOverlay.holidaySettings.countryCode}
+                            subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
+                            countryOptions={holidayOverlay.countryOptions}
+                            subdivisionOptions={holidayOverlay.subdivisionOptions}
+                            effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
+                            effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
+                            permissionState={holidayOverlay.permissionState}
+                            locationRefreshedAt={holidayOverlay.refreshedAt}
+                            countriesLoading={holidayOverlay.countriesLoading}
+                            subdivisionsLoading={holidayOverlay.subdivisionsLoading}
+                            isLocating={holidayOverlay.isLocating}
+                            compact
+                            showEnabledToggle={false}
+                            onEnabledChange={holidayOverlay.setEnabled}
+                            onLocationModeChange={holidayOverlay.setLocationMode}
+                            onCountryChange={holidayOverlay.setCountryCode}
+                            onSubdivisionChange={holidayOverlay.setSubdivisionCode}
+                            onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
+                            onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
+                        />
+                    )}
+                </div>
+            </div>
+        </div>
     );
 
     // ── View key for AnimatePresence ────────────────────────────────────────
@@ -910,7 +894,7 @@ export default function Schedule() {
     );
 
     return (
-        <MainLayout requireAuth sidePanel={sidePanel}>
+        <MainLayout requireAuth hideHeader hideContextualOrb sidePanel={sidePanel}>
             <DndContext
                 sensors={sensors}
                 collisionDetection={(args) => {
@@ -932,9 +916,8 @@ export default function Schedule() {
                         onViewMode={handleViewMode}
                         onNavigate={handleNavigate}
                         onToday={handleToday}
-                        onAddTask={shell.isPhone ? undefined : handleAddTaskToolbar}
-                        holidayControls={holidayControls}
-                        controlsTrigger={shell.isCompact ? scheduleControls : undefined}
+                        onAddTask={handleAddTaskToolbar}
+                        overflowContent={overflowContent}
                         compact={shell.isCompact}
                     />
 
@@ -958,6 +941,23 @@ export default function Schedule() {
                                 >
                                     {/* ── MONTH ── */}
                                     {viewMode === "month" && (
+                                        shell.isPhone ? (
+                                            <MonthPeekView
+                                                year={year}
+                                                month={month}
+                                                currentDate={currentDate}
+                                                datesWithTasks={datesWithTasks}
+                                                habitDays={habitDays}
+                                                holidayDays={holidayOverlay.holidaySettings.enabled ? holidayDays : undefined}
+                                                birthdayDay={birthdayDay}
+                                                tasksByDay={tasksByDay}
+                                                onSelectDate={handleSelectDate}
+                                                onSelectTask={handleSelectTask}
+                                                onCompleteTask={handleCompleteTask}
+                                                onArchiveTask={handleArchiveTask}
+                                                onNavigateMonth={handleNavigate}
+                                            />
+                                        ) : (
                                         <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4">
                                             <CalendarGrid
                                                 year={year}
@@ -976,6 +976,7 @@ export default function Schedule() {
                                                 onContextAdd={handleGridClick}
                                             />
                                         </div>
+                                        )
                                     )}
 
                                     {/* ── WEEK ── */}
@@ -986,26 +987,44 @@ export default function Schedule() {
                                             holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
                                             birthdayDate={birthdayDate}
                                             activeDropPreview={activeDropPreview}
+                                            draftPlacement={draftPlacement}
                                             onSelectTask={handleSelectTask}
                                             onCompleteTask={handleCompleteTask}
                                             onArchiveTask={handleArchiveTask}
+                                            onResizeTask={handleResizeTask}
                                             onGridClick={handleGridClick}
                                         />
                                     )}
 
                                     {/* ── DAY ── */}
                                     {viewMode === "day" && (
-                                        <DayView
-                                            currentDate={currentDate}
-                                            tasks={[...visibleDayTasks, ...visibleHabitTasks]}
-                                            holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
-                                            isBirthday={birthdayDate === currentDate}
-                                            activeDropPreview={activeDropPreview}
-                                            onSelectTask={handleSelectTask}
-                                            onCompleteTask={handleCompleteTask}
-                                            onArchiveTask={handleArchiveTask}
-                                            onGridClick={handleGridClick}
-                                        />
+                                        shell.isPhone ? (
+                                            <DayFocusView
+                                                currentDate={currentDate}
+                                                tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
+                                                holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
+                                                isBirthday={birthdayDate === currentDate}
+                                                onSelectTask={handleSelectTask}
+                                                onCompleteTask={handleCompleteTask}
+                                                onArchiveTask={handleArchiveTask}
+                                                onNavigateNext={() => handleNavigate(1)}
+                                                onNavigatePrev={() => handleNavigate(-1)}
+                                            />
+                                        ) : (
+                                            <DayView
+                                                currentDate={currentDate}
+                                                tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
+                                                holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
+                                                isBirthday={birthdayDate === currentDate}
+                                                activeDropPreview={activeDropPreview}
+                                                draftPlacement={draftPlacement}
+                                                onSelectTask={handleSelectTask}
+                                                onCompleteTask={handleCompleteTask}
+                                                onArchiveTask={handleArchiveTask}
+                                                onResizeTask={handleResizeTask}
+                                                onGridClick={handleGridClick}
+                                            />
+                                        )
                                     )}
 
                                     {/* ── YEAR ── */}
@@ -1045,7 +1064,7 @@ export default function Schedule() {
                     {eventPopoverInfo && (
                         <CalendarEventPopover
                             info={eventPopoverInfo}
-                            onClose={() => setEventPopoverInfo(null)}
+                            onClose={() => { setEventPopoverInfo(null); setDraftPlacement(null); }}
                         />
                     )}
                 </AnimatePresence>
@@ -1073,6 +1092,7 @@ export default function Schedule() {
                     />
                 </ResponsiveOverlayPanel>
             )}
+            {holidayPrompts}
         </MainLayout>
     );
 }

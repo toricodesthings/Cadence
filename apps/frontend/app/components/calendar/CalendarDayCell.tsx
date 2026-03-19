@@ -1,10 +1,10 @@
-import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
+import * as Popover from "../primitives/Popover";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
 
-const MAX_VISIBLE_TASKS = 3;
+const MAX_VISIBLE_TASKS = 2;
 
 interface CalendarDayCellProps {
     day: number | null;
@@ -51,7 +51,6 @@ export function CalendarDayCell({
     month,
     onContextAdd,
 }: CalendarDayCellProps) {
-    const [expanded, setExpanded] = useState(false);
 
     if (!day) {
         return <div className={variant === "full" ? "invisible" : "invisible"} />;
@@ -122,7 +121,7 @@ export function CalendarDayCell({
         disabled: !dateStr,
     });
 
-    const visibleTasks = expanded ? tasks : tasks.slice(0, MAX_VISIBLE_TASKS);
+    const visibleTasks = tasks.slice(0, MAX_VISIBLE_TASKS);
     const hiddenCount = tasks.length - MAX_VISIBLE_TASKS;
 
     return (
@@ -132,7 +131,7 @@ export function CalendarDayCell({
             onContextMenu={handleContextMenu}
             className={`
                 relative flex flex-col items-start rounded-2xl text-sm
-                border transition-[background-color,border-color,box-shadow] duration-200 overflow-hidden cursor-pointer
+                border transition-[background-color,border-color,box-shadow] duration-200 cursor-pointer overflow-hidden
                 ${isOver ? "bg-[color-mix(in_srgb,var(--color-moonlit)_12%,transparent)] border-moonlit/20" : "border-transparent"}
                 ${isWeekend && !isToday && !isSelected ? "bg-white/[0.01]" : ""}
                 ${isToday
@@ -142,19 +141,21 @@ export function CalendarDayCell({
                     ? "bg-white/[0.05] border-white/[0.06]"
                     : ""}
             `}
+            style={{ height: 120, minHeight: 120 }}
         >
             {/* Date number — clicking navigates */}
             <button
                 type="button"
                 onClick={() => onSelect(day)}
                 className={`
-                    p-2.5 w-full text-left flex items-center justify-between cursor-pointer
+                    px-2 py-1 w-full text-left flex items-center justify-between cursor-pointer
                     ${isToday ? "text-lantern font-semibold" : isSelected ? "text-twilight-text" : "text-twilight-text-soft"}
                 `}
             >
                 <span className={`
-                    font-display text-[15px] font-medium tracking-tight leading-none
-                    ${isToday ? "w-7 h-7 flex items-center justify-center rounded-full bg-lantern/20 text-lantern ring-1 ring-lantern text-[13px] shrink-0 shadow-[0_0_8px_rgba(232,164,74,0.15)]" : ""}
+                    font-display text-[13px] font-medium tracking-tight leading-none
+                    w-6 h-6 inline-flex items-center justify-center shrink-0
+                    ${isToday ? "rounded-full bg-lantern/20 text-lantern ring-1 ring-lantern shadow-[0_0_8px_rgba(232,164,74,0.15)]" : ""}
                 `}>
                     {day}
                 </span>
@@ -182,7 +183,7 @@ export function CalendarDayCell({
 
             {/* Task chips */}
             {tasks.length > 0 && (
-                <div className="w-full px-1.5 pb-1.5 flex flex-col gap-[3px]">
+                <div className="w-full px-1 pb-1 flex flex-col gap-[2px]">
                     {visibleTasks.map((task) => (
                         <CalendarTaskChip
                             key={task.id}
@@ -195,24 +196,32 @@ export function CalendarDayCell({
                         />
                     ))}
 
-                    {/* +N more toggle — expands cell downward */}
-                    {hiddenCount > 0 && !expanded && (
-                        <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-                            className="text-[11px] text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer px-1 py-0.5 rounded-xl hover:bg-white/[0.04]"
-                        >
-                            +{hiddenCount} more
-                        </button>
-                    )}
-                    {expanded && (
-                        <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-                            className="text-[11px] text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer px-1 py-0.5 rounded-xl hover:bg-white/[0.04]"
-                        >
-                            Show less
-                        </button>
+                    {/* +N more popover */}
+                    {hiddenCount > 0 && (
+                        <Popover.Root>
+                            <Popover.Trigger asChild>
+                                <button
+                                    type="button"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-[11px] text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer px-1 py-0.5 rounded-xl hover:bg-white/[0.04]"
+                                >
+                                    +{hiddenCount} more
+                                </button>
+                            </Popover.Trigger>
+                            <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
+                                {tasks.slice(MAX_VISIBLE_TASKS).map((task) => (
+                                    <CalendarTaskChip
+                                        key={task.id}
+                                        task={task}
+                                        variant="pill"
+                                        sourceId={dateStr ? `day-${dateStr}` : undefined}
+                                        onSelect={onSelectTask ?? (() => { })}
+                                        onComplete={onCompleteTask}
+                                        onArchive={onArchiveTask}
+                                    />
+                                ))}
+                            </Popover.Content>
+                        </Popover.Root>
                     )}
                 </div>
             )}

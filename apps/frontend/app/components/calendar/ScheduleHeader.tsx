@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MoreHorizontal, PanelLeftOpen } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
     SunDim, Sun, Waves, Flame,
@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
-import { CompactPageControls } from "../shared/CompactPageControls";
+import * as Popover from "../primitives/Popover";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
 
@@ -41,8 +41,10 @@ export interface ScheduleHeaderProps {
     onToday: () => void;
     /** Opens the event popover for creating a task */
     onAddTask?: () => void;
-    holidayControls?: ReactNode;
-    controlsTrigger?: ReactNode;
+    /** Overflow content (holiday + clutter controls) */
+    overflowContent?: ReactNode;
+    /** Sidebar toggle handler for phone layout */
+    onToggleSidebar?: () => void;
     compact?: boolean;
 }
 
@@ -87,137 +89,163 @@ export function ScheduleHeader({
     onNavigate,
     onToday,
     onAddTask,
-    holidayControls,
-    controlsTrigger,
+    overflowContent,
+    onToggleSidebar,
     compact = false,
 }: ScheduleHeaderProps) {
     const CurrentIcon = MONTH_ICONS[month];
-    // Line 1: "February 2026" or "2026"
     const mainHeading = viewMode === "year" ? String(year) : `${MONTHS[month]} ${year}`;
-    // Line 2: contextual warm label
     const subtitleLabel = buildSubtitleLabel(viewMode, currentDate);
     const clock = useRealtimeClock();
 
-    return (
-        <div className="shrink-0 border-b border-twilight-border px-4 py-4 sm:px-6 lg:px-8">
-            {compact ? (
-                <>
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-2.5">
-                                <CurrentIcon size={18} className="text-lantern/70 shrink-0" />
-                                <h2 className="font-display text-xl font-semibold text-twilight-text tracking-tight leading-tight">
-                                    {mainHeading}
-                                </h2>
-                            </div>
-                            <div className="mt-2 pl-[28px]">
-                                <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-twilight-border/30 bg-white/[0.025] px-1.5 py-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => onNavigate(-1)}
-                                        className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                        aria-label="Previous"
-                                    >
-                                        <ChevronLeft size={15} />
-                                    </button>
-                                    <p className="min-w-0 truncate px-1 text-[13px] font-medium text-twilight-text-soft">
-                                        <span>{subtitleLabel}</span>
-                                        <span className="mx-1.5 text-twilight-text-soft/70">·</span>
-                                        <span className="tabular-nums">{clock}</span>
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={() => onNavigate(1)}
-                                        className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                        aria-label="Next"
-                                    >
-                                        <ChevronRight size={15} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {onAddTask ? (
-                            <button
-                                type="button"
-                                onClick={onAddTask}
-                                className="touch-target inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl border border-lantern/20 bg-lantern/15 px-3.5 text-[13px] font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30"
-                            >
-                                <Plus size={14} />
-                                Add
-                            </button>
-                        ) : null}
-                    </div>
-
-                    <div className="mt-3">
-                        <CompactPageControls
-                            className="w-fit max-w-full border-transparent bg-transparent p-0 gap-2.5 backdrop-blur-none"
-                            secondaryControl={(
-                                <button
-                                    type="button"
-                                    onClick={onToday}
-                                    className="touch-target inline-flex min-h-10 items-center justify-center rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.03] px-4 text-[13px] font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
-                                >
-                                    Today
-                                </button>
-                            )}
-                            controlsTrigger={controlsTrigger}
-                        />
-                    </div>
-                </>
-            ) : (
-            <>
-            <div className="flex gap-4 items-start justify-between">
-                {/* Left: two-line heading block */}
-                <div>
-                    <div className="flex items-center gap-2.5">
-                        <CurrentIcon size={20} className="text-lantern/70 shrink-0" />
-                        <h2 className="font-display text-2xl font-semibold text-twilight-text tracking-tight leading-tight sm:text-[2rem]">
-                            {mainHeading}
-                        </h2>
-                    </div>
-                    <p className="mt-1 flex flex-wrap items-center pl-[30px] text-[14px] text-twilight-text-soft">
-                        <span>{subtitleLabel}</span>
-                        <span className="mx-1.5 text-twilight-text-soft">·</span>
-                        <span className="tabular-nums">{clock}</span>
-                    </p>
-                </div>
-
-                {/* Right: Today + Prev/Next */}
-                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    <button
-                        type="button"
-                        onClick={onToday}
-                        className="touch-target rounded-2xl border border-twilight-border px-4 text-[14px] font-medium text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] transition-colors duration-200 cursor-pointer"
-                    >
-                        Today
-                    </button>
-
-                    <div className="flex items-center gap-0.5">
+    if (compact) {
+        // ── Phone: two tight rows ──────────────────────────────────────────
+        return (
+            <div className="shrink-0 border-b border-twilight-border px-3 py-2">
+                {/* Row 1: sidebar toggle + heading + nav + overflow + add */}
+                <div className="flex items-center gap-2 min-h-[44px]">
+                    {onToggleSidebar && (
+                        <button
+                            type="button"
+                            onClick={onToggleSidebar}
+                            className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.05]"
+                            aria-label="Open navigation"
+                        >
+                            <PanelLeftOpen size={18} />
+                        </button>
+                    )}
+                    <CurrentIcon size={16} className="text-lantern/70 shrink-0" />
+                    <h2 className="font-display text-base font-semibold text-twilight-text tracking-tight truncate min-w-0 flex-1">
+                        {mainHeading}
+                    </h2>
+                    <div className="flex items-center gap-0.5 shrink-0">
                         <button
                             type="button"
                             onClick={() => onNavigate(-1)}
-                            className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
                             aria-label="Previous"
                         >
-                            <ChevronLeft size={18} />
+                            <ChevronLeft size={15} />
                         </button>
                         <button
                             type="button"
                             onClick={() => onNavigate(1)}
-                            className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
                             aria-label="Next"
                         >
-                            <ChevronRight size={18} />
+                            <ChevronRight size={15} />
                         </button>
                     </div>
+                    {overflowContent && (
+                        <Popover.Root>
+                            <Popover.Trigger asChild>
+                                <button
+                                    type="button"
+                                    className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                    aria-label="More options"
+                                >
+                                    <MoreHorizontal size={16} />
+                                </button>
+                            </Popover.Trigger>
+                            <Popover.Content side="bottom" align="end" className="w-80 p-3">
+                                {overflowContent}
+                            </Popover.Content>
+                        </Popover.Root>
+                    )}
+                    {onAddTask && (
+                        <button
+                            type="button"
+                            onClick={onAddTask}
+                            className="btn-icon min-h-8 min-w-8 rounded-full text-lantern hover:bg-lantern/15"
+                            aria-label="Add task"
+                        >
+                            <Plus size={16} />
+                        </button>
+                    )}
+                </div>
+                {/* Row 2: view switcher tabs */}
+                <div className="flex items-center gap-1 mt-1.5">
+                    <nav
+                        className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                        aria-label="Calendar view"
+                    >
+                        {(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => (
+                            <button
+                                key={mode}
+                                type="button"
+                                onClick={() => onViewMode(mode)}
+                                className={`
+                                    rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
+                                    ${viewMode === mode
+                                        ? "bg-lantern/20 text-lantern border-lantern/25"
+                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
+                                `}
+                                aria-current={viewMode === mode ? "true" : undefined}
+                            >
+                                {VIEW_LABELS[mode]}
+                            </button>
+                        ))}
+                    </nav>
+                    <button
+                        type="button"
+                        onClick={onToday}
+                        className="ml-auto rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text cursor-pointer"
+                    >
+                        Today
+                    </button>
                 </div>
             </div>
+        );
+    }
 
-            {/* ── Row 2: View switcher (left) + Calendar controls (right) ── */}
-            <div className={`mt-4 flex gap-3 ${compact ? "flex-col" : "items-center justify-between"}`}>
+    // ── Desktop: single compressed row ~56px ────────────────────────────────
+    return (
+        <div className="shrink-0 border-b border-twilight-border px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 items-center gap-3">
+                {/* Left: heading block */}
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <CurrentIcon size={18} className="text-lantern/70 shrink-0" />
+                    <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap">
+                        {mainHeading}
+                    </h2>
+                    <span className="hidden sm:flex items-center text-[13px] text-twilight-text-soft whitespace-nowrap">
+                        <span className="mx-1.5 text-twilight-text-soft/50">·</span>
+                        <span>{subtitleLabel}</span>
+                        <span className="mx-1.5 text-twilight-text-soft/50">·</span>
+                        <span className="tabular-nums">{clock}</span>
+                    </span>
+                </div>
+
+                {/* Center: navigation */}
+                <div className="flex items-center gap-1 ml-auto">
+                    <button
+                        type="button"
+                        onClick={() => onNavigate(-1)}
+                        className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                        aria-label="Previous"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onToday}
+                        className="rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text transition-colors cursor-pointer"
+                    >
+                        Today
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onNavigate(1)}
+                        className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                        aria-label="Next"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+
+                {/* Right: view switcher */}
                 <nav
-                    className="flex flex-wrap items-center gap-2 rounded-2xl border border-twilight-border bg-twilight-base/35 p-1"
+                    className="flex items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
                     aria-label="Calendar view"
                 >
                     {(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => (
@@ -226,7 +254,7 @@ export function ScheduleHeader({
                             type="button"
                             onClick={() => onViewMode(mode)}
                             className={`
-                                touch-target rounded-xl px-4 text-[14px] font-medium transition-colors duration-200 cursor-pointer border
+                                rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border
                                 ${viewMode === mode
                                     ? "bg-lantern/20 text-lantern border-lantern/25"
                                     : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
@@ -238,22 +266,36 @@ export function ScheduleHeader({
                     ))}
                 </nav>
 
-                <div className={`flex flex-wrap gap-2 ${compact ? "" : "justify-end"}`}>
-                    {holidayControls}
-                    {onAddTask && (
-                        <button
-                            type="button"
-                            onClick={onAddTask}
-                            className="touch-target inline-flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-lantern/20 bg-lantern/15 px-4 text-[14px] font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors duration-200 cursor-pointer"
-                        >
-                            <Plus size={15} />
-                            Add Task
-                        </button>
-                    )}
-                </div>
+                {/* Overflow menu for holiday/clutter controls */}
+                {overflowContent && (
+                    <Popover.Root>
+                        <Popover.Trigger asChild>
+                            <button
+                                type="button"
+                                className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                aria-label="More options"
+                            >
+                                <MoreHorizontal size={16} />
+                            </button>
+                        </Popover.Trigger>
+                        <Popover.Content side="bottom" align="end" className="w-80 p-3">
+                            {overflowContent}
+                        </Popover.Content>
+                    </Popover.Root>
+                )}
+
+                {/* Add task button */}
+                {onAddTask && (
+                    <button
+                        type="button"
+                        onClick={onAddTask}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-lantern/20 bg-lantern/15 px-4 py-1.5 text-sm font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors cursor-pointer"
+                    >
+                        <Plus size={14} />
+                        <span className="hidden lg:inline">Add Task</span>
+                    </button>
+                )}
             </div>
-            </>
-            )}
         </div>
     );
 }

@@ -2,6 +2,7 @@ import { useRef, useEffect, useMemo } from "react";
 import { TimeGutter } from "./TimeGutter";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
+import * as Popover from "../primitives/Popover";
 import * as Tooltip from "../primitives/Tooltip";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
@@ -15,9 +16,11 @@ interface DroppableDayColumnProps {
     tasks: Task[];
     isToday: boolean;
     activeDropPreview?: CalendarDropPreview | null;
+    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
+    onResizeTask?: (id: string, durationMinutes: number) => void;
     onGridClick?: (info: CalendarEventInfo) => void;
 }
 
@@ -26,9 +29,11 @@ function DroppableDayColumn({
     tasks,
     isToday,
     activeDropPreview,
+    draftPlacement,
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
+    onResizeTask,
     onGridClick,
 }: DroppableDayColumnProps) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -102,6 +107,7 @@ function DroppableDayColumn({
                     onSelect={onSelectTask}
                     onComplete={onCompleteTask}
                     onArchive={onArchiveTask}
+                    onResize={onResizeTask}
                     style={{
                         top: layout.top,
                         height: layout.height,
@@ -110,6 +116,21 @@ function DroppableDayColumn({
                     }}
                 />
             ))}
+
+            {/* Ghost block preview for click-to-create */}
+            {draftPlacement && draftPlacement.dateStr === dateStr && (
+                <div
+                    className="absolute left-1 right-1 z-15 rounded-xl border border-dashed border-lantern/30 bg-lantern/10 backdrop-blur-sm pointer-events-none flex items-center px-3"
+                    style={{
+                        top: (draftPlacement.startMinute / 60) * HOUR_HEIGHT,
+                        height: ((draftPlacement.endMinute - draftPlacement.startMinute) / 60) * HOUR_HEIGHT,
+                    }}
+                >
+                    <span className="text-[12px] text-lantern/70 font-medium">
+                        {`${String(Math.floor(draftPlacement.startMinute / 60)).padStart(2, "0")}:${String(draftPlacement.startMinute % 60).padStart(2, "0")} – ${String(Math.floor(draftPlacement.endMinute / 60)).padStart(2, "0")}:${String(draftPlacement.endMinute % 60).padStart(2, "0")}`}
+                    </span>
+                </div>
+            )}
 
         </div>
     );
@@ -124,9 +145,12 @@ export interface WeekViewProps {
     /** ISO date string of user's birthday this year (e.g. "2026-03-15") */
     birthdayDate?: string | null;
     activeDropPreview?: CalendarDropPreview | null;
+    /** Ghost block placement for click-to-create preview */
+    draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
+    onResizeTask?: (id: string, durationMinutes: number) => void;
     /** Callback when user clicks an empty grid cell (opens event popover) */
     onGridClick?: (info: CalendarEventInfo) => void;
 }
@@ -137,9 +161,11 @@ export function WeekView({
     holidaysByDate = {},
     birthdayDate,
     activeDropPreview,
+    draftPlacement,
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
+    onResizeTask,
     onGridClick,
 }: WeekViewProps) {
     const today = new Date();
@@ -206,9 +232,10 @@ export function WeekView({
                                 </div>
                                 <div className="mt-0.5 flex items-center justify-center gap-1.5">
                                     <div className={`
-                                        text-[20px] font-display font-semibold leading-tight
+                                        font-display font-semibold leading-none
+                                        flex h-8 w-8 items-center justify-center text-lg
                                         ${isToday
-                                            ? "flex h-9 w-9 items-center justify-center rounded-full bg-lantern/20 text-[17px] text-lantern ring-1 ring-lantern shadow-[0_0_8px_rgba(232,164,74,0.15)]"
+                                            ? "rounded-full bg-lantern/20 text-lantern ring-1 ring-lantern shadow-[0_0_8px_rgba(232,164,74,0.15)]"
                                             : ""}
                                     `}>
                                         {d.getDate()}
@@ -218,7 +245,7 @@ export function WeekView({
                                             <Tooltip.Trigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-solstice focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-solstice/60"
+                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-solstice focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-solstice/60 cursor-pointer"
                                                     aria-label={`Holiday: ${holidaysByDate[ds].map((holiday) => holiday.name).join(", ")}`}
                                                 >
                                                     <span className="h-2 w-2 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]" />
@@ -234,7 +261,7 @@ export function WeekView({
                                             <Tooltip.Trigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/60"
+                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/60 cursor-pointer"
                                                     aria-label="Your birthday"
                                                 >
                                                     <span className="h-2 w-2 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]" />
@@ -256,7 +283,7 @@ export function WeekView({
                                     {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === ds ? (
                                         <AllDayDropPreview preview={activeDropPreview} />
                                     ) : null}
-                                    {allDay.map((t) => (
+                                    {allDay.slice(0, 1).map((t) => (
                                         <CalendarTaskChip
                                             key={t.id}
                                             task={t}
@@ -267,6 +294,32 @@ export function WeekView({
                                             onArchive={onArchiveTask}
                                         />
                                     ))}
+                                    {allDay.length > 1 && (
+                                        <Popover.Root>
+                                            <Popover.Trigger asChild>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="text-[10px] leading-none text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer pl-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
+                                                >
+                                                    +{allDay.length - 1} more
+                                                </button>
+                                            </Popover.Trigger>
+                                            <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
+                                                {allDay.slice(1).map((t) => (
+                                                    <CalendarTaskChip
+                                                        key={t.id}
+                                                        task={t}
+                                                        variant="pill"
+                                                        sourceId={`allday-${ds}`}
+                                                        onSelect={onSelectTask}
+                                                        onComplete={onCompleteTask}
+                                                        onArchive={onArchiveTask}
+                                                    />
+                                                ))}
+                                            </Popover.Content>
+                                        </Popover.Root>
+                                    )}
                                 </div>
                             </AllDayDropLane>
                         </div>
@@ -290,9 +343,11 @@ export function WeekView({
                                     tasks={timedByDate[ds] ?? []}
                                     isToday={ds === todayStr}
                                     activeDropPreview={activeDropPreview}
+                                    draftPlacement={draftPlacement}
                                     onSelectTask={onSelectTask}
                                     onCompleteTask={onCompleteTask}
                                     onArchiveTask={onArchiveTask}
+                                    onResizeTask={onResizeTask}
                                     onGridClick={onGridClick}
                                 />
                                 {/* Current time bar */}

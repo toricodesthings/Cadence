@@ -125,7 +125,11 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 let rule: Exclude<ReturnType<typeof rrulestr>, null> | undefined;
                 let instances: Date[] = [];
                 try {
-                    rule = rrulestr(habit.recurrenceRule);
+                    // Anchor dtstart to midnight of the habit's creation date so
+                    // FREQ=DAILY occurrences land at 00:00 UTC each day, making
+                    // date-boundary inclusivity deterministic regardless of request time.
+                    const dtstart = new Date(`${String(habit.createdAt).substring(0, 10)}T00:00:00.000Z`);
+                    rule = rrulestr(habit.recurrenceRule, { dtstart });
                     instances = rule.between(startDate, endDate, true);
                 } catch (e) {
                     console.error("Invalid recurrence rule", habit.recurrenceRule, e);

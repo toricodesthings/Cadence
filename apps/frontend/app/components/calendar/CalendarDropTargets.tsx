@@ -71,7 +71,7 @@ export function TimeSlotDropLayer({
     );
 
     return (
-        <div className="absolute inset-0 z-30" style={{ height: DAY_GRID_HEIGHT }} aria-hidden="true">
+        <div className="absolute inset-0 z-30 pointer-events-none" style={{ height: DAY_GRID_HEIGHT }} aria-hidden="true">
             {slots.map((slot) => (
                 <TimeSlotDropZone
                     key={slot.key}

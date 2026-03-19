@@ -17,7 +17,8 @@ export function useVirtualHabitTasks(options: {
         return rawHabits.flatMap((h) =>
             h.logs?.filter(l => l.status !== "SKIPPED").map(l => {
                 const isAllDay = !h.targetTime;
-                const scheduledStart = h.targetTime ? `${l.targetDate.substring(0, 10)}T${h.targetTime}:00.000Z` : l.targetDate;
+                // Use floating local time (no Z suffix) so habits appear at the correct local hour
+                const scheduledStart = h.targetTime ? `${l.targetDate.substring(0, 10)}T${h.targetTime}:00` : l.targetDate;
 
                 return {
                     id: `habit-${h.id}--${l.targetDate}`,
