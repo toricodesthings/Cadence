@@ -212,7 +212,7 @@ async function queryHabitAdherenceRate(tx: RlsTx, userId: string, since: string)
             total: sql<number>`COUNT(*) FILTER (WHERE ${habitLogs.status} IN ('COMPLETED', 'SKIPPED'))`,
         })
         .from(habitLogs)
-        .where(and(eq(habitLogs.userId, userId), gte(habitLogs.createdAt, since)));
+        .where(and(eq(habitLogs.userId, userId), gte(habitLogs.targetDate, since.substring(0, 10))));
     const completed = Number(stats?.completed ?? 0);
     const total = Number(stats?.total ?? 0);
     return total > 0 ? completed / total : 0;

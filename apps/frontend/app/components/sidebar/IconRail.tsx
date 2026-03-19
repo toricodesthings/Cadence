@@ -21,6 +21,8 @@ import { Button } from "../primitives/Button";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
+import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
+import { useSettings } from "../../hooks/core/use-settings";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
@@ -108,6 +110,12 @@ export function IconRail({
 
     // Notification center
     const { grouped, hasUnread, markRead, markAllRead, dismiss } = useNotificationCenter();
+
+    // Habit due indicator
+    const { data: unresolvedHabits } = useHabitUnresolvedSummary();
+    const { data: railSettings } = useSettings();
+    const showHabitDot = railSettings?.notifications?.showHabitNavDueCount !== false;
+    const hasHabitsDue = showHabitDot && (unresolvedHabits?.length ?? 0) > 0;
 
     const handleSeedData = async () => {
         setIsLoading(true);
@@ -303,7 +311,7 @@ export function IconRail({
             <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1.5 w-full px-2">
                 {NAV_LINKS.map(({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
                     const isActive = location.pathname === to;
-                    const showDot = notificationFn && notificationFn();
+                    const showDot = to === "/habits" ? hasHabitsDue : notificationFn && notificationFn();
                     return (
                         <Tip key={to} label={label} side="right">
                             <Link

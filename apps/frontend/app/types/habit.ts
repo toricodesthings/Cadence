@@ -1,5 +1,7 @@
 export type HabitStatus = "COMPLETED" | "SKIPPED" | "PENDING";
 
+export type TargetMode = "AMBIENT" | "ANCHOR" | "BLOCK";
+
 export interface HabitLog {
     id: string; // can be uuid or a virtual string prefix
     habitId: string;
@@ -7,6 +9,7 @@ export interface HabitLog {
     status: HabitStatus;
     targetDate: string; // YYYY-MM-DD
     completedAt: string | null;
+    resolvedAt?: string | null;
     createdAt?: string;
 }
 
@@ -28,8 +31,23 @@ export interface Habit {
     createdAt: string;
     updatedAt: string;
 
+    // New fields
+    targetMode: TargetMode;
+    projectId: string | null;
+    sortOrder: number;
+    pausedUntil: string | null;
+    tagIds?: string[];
+
     // Virtual array returned by the weekly endpoint
     logs?: HabitLog[];
+
+    // Derived summary fields (weekly endpoint only)
+    isDueToday?: boolean;
+    isOverdue?: boolean;
+    pendingCountInWindow?: number;
+    completedCountInWindow?: number;
+    scheduledCountInWindow?: number;
+    adherenceRateInWindow?: number;
 }
 
 export interface InsertHabit {
@@ -40,6 +58,11 @@ export interface InsertHabit {
     reminderEnabled?: boolean;
     colorAccent?: string;
     archived?: boolean;
+    targetMode?: TargetMode;
+    projectId?: string | null;
+    tagIds?: string[];
+    sortOrder?: number;
+    pausedUntil?: string | null;
 }
 
 export interface UpdateHabit extends Partial<InsertHabit> {
@@ -49,4 +72,14 @@ export interface UpdateHabit extends Partial<InsertHabit> {
 export interface ResolveHabitAction {
     targetDate: string; // YYYY-MM-DD
     status: HabitStatus;
+}
+
+export interface UnresolvedHabitSummary {
+    habitId: string;
+    title: string;
+    targetTime: string | null;
+    targetMode: string;
+    latestTargetDate: string;
+    missedCount: number;
+    actionableDates: string[];
 }

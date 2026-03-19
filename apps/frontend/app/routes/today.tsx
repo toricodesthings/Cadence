@@ -442,6 +442,8 @@ export default function TodayRoute() {
         );
     };
 
+    const MAX_OVERDUE_HABITS = 3;
+
     const renderOverdueBucket = (cardVariant?: "list" | "board") => {
         const hasTasks = grouped.overdue.length > 0;
         const hasHabits = grouped.overdueHabits.length > 0;
@@ -454,6 +456,9 @@ export default function TodayRoute() {
             );
         }
 
+        const visibleOverdueHabits = grouped.overdueHabits.slice(0, MAX_OVERDUE_HABITS);
+        const overflowCount = grouped.overdueHabits.length - visibleOverdueHabits.length;
+
         return (
             <div className="flex flex-col gap-3">
                 {hasTasks ? <TaskList tasks={grouped.overdue} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} {...(cardVariant ? { cardVariant } : {})} /> : null}
@@ -461,10 +466,20 @@ export default function TodayRoute() {
                     <>
                         {hasTasks ? <HabitGroupDivider label="Missed routines" /> : null}
                         <div className="flex flex-col divide-y divide-white/[0.05]">
-                            {grouped.overdueHabits.map((item) => (
+                            {visibleOverdueHabits.map((item) => (
                                 <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />
                             ))}
                         </div>
+                        {overflowCount > 0 ? (
+                            <button
+                                type="button"
+                                onClick={openHabits}
+                                className="mx-3 mt-1 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-[13px] font-medium text-moonlit/90 transition-colors hover:bg-moonlit/[0.07]"
+                            >
+                                <Repeat size={13} aria-hidden="true" />
+                                {overflowCount} more routine{overflowCount > 1 ? "s" : ""} need a check-in
+                            </button>
+                        ) : null}
                     </>
                 ) : null}
             </div>

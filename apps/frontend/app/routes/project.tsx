@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { FolderKanban, Pencil, Trash2 } from "lucide-react";
+import { FolderKanban, Pencil, Trash2, Repeat } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects";
 import { useUpdateProject, useDeleteProject } from "../hooks/projects";
@@ -28,6 +28,9 @@ import { PageContent } from "../components/layout/PageLayout";
 import { useViewMode } from "../hooks/ui/use-view-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
+import { toISODate } from "../lib/utils/date-format";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
 
 const MIN_PANEL_WIDTH = 300;
@@ -64,6 +67,20 @@ export default function ProjectView() {
     const { sortMode, setSortMode } = useSortMode();
 
     useRouteFocus();
+
+    const todayISO = toISODate(new Date());
+    const weekAgoISO = toISODate(new Date(Date.now() - 7 * 86_400_000));
+    const { data: allHabits = [] } = useHabitsWeekly({ start: weekAgoISO, end: todayISO });
+    const linkedHabits = useMemo(
+        () => allHabits.filter((h) => h.projectId === projectId && !h.archived),
+        [allHabits, projectId],
+    );
+    const dueLinkedHabits = useMemo(
+        () => linkedHabits.filter((h) =>
+            h.logs?.some((l: any) => l.status === "PENDING" && l.targetDate?.substring(0, 10) <= todayISO),
+        ),
+        [linkedHabits, todayISO],
+    );
 
     const tasks = sortTasks(
         activeTagId
@@ -471,6 +488,28 @@ export default function ProjectView() {
                                     <p className="text-twilight-text-muted text-sm max-w-sm">
                                         Add some tasks to get started with {project?.name || "this project"}.
                                     </p>
+                                </div>
+                            )}
+
+                            {dueLinkedHabits.length > 0 && (
+                                <div className="mt-8 rounded-[28px] border border-moonlit/20 bg-moonlit/[0.04] px-5 py-5">
+                                    <div className="mb-3 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
+                                        <Repeat size={11} aria-hidden="true" />
+                                        <span>Routines linked to this project</span>
+                                    </div>
+                                    <div className="flex flex-col divide-y divide-moonlit/10">
+                                        {dueLinkedHabits.map((habit) => (
+                                            <div key={habit.id} className="flex items-center gap-3 py-2.5">
+                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-moonlit/30 text-moonlit/70">
+                                                    <span className="h-2 w-2 rounded-full bg-moonlit/70" />
+                                                </span>
+                                                <span className="flex-1 truncate text-[14px] font-medium text-twilight-text">{habit.title}</span>
+                                                {habit.targetTime && (
+                                                    <span className="text-[12px] text-twilight-text-muted">{habit.targetTime}</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </PageContent>

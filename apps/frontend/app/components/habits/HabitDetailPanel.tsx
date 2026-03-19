@@ -2,17 +2,20 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, SlidersHorizontal, MoreHorizontal,
-    Flame, Zap, ChevronLeft, ChevronRight, Check, X,
-    Trash2, Pencil, Maximize2, Minimize2,
+    Zap, ChevronLeft, ChevronRight, Check, X,
+    Trash2, Maximize2, Minimize2,
+    Clock, Pause, Play, FolderOpen, Tag,
 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
-import * as Dialog from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { CadencePicker } from "./CadencePicker";
 import { useHabitMonthly } from "../../hooks/habits/use-habit-monthly";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useDeleteHabit } from "../../hooks/habits/use-delete-habit";
+import { usePauseHabit, useResumeHabit } from "../../hooks/habits/use-pause-habit";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import type { Habit } from "../../types/habit";
 import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
@@ -33,33 +36,16 @@ function getFirstDayOfWeek(year: number, month: number) {
     return new Date(year, month, 1).getDay();
 }
 
-// ─── Stat Card ───────────────────────────────────────────────────────────────
+// ─── Info Row ────────────────────────────────────────────────────────────────
 
-function StatCard({
-    icon: Icon,
-    label,
-    value,
-    accent = false,
-}: {
-    icon: React.ElementType;
-    label: string;
-    value: string | number;
-    accent?: boolean;
-}) {
+function InfoRow({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
     return (
-        <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.07] p-4">
-            <div className="flex items-center gap-2">
-                <Icon
-                    size={13}
-                    className={accent ? "text-lantern/80" : "text-twilight-text-muted/60"}
-                />
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted/60">
-                    {label}
-                </span>
+        <div className="flex items-start gap-3 py-2">
+            <Icon size={13} className="text-twilight-text-muted/50 mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-twilight-text-muted/50">{label}</span>
+                <div className="text-sm text-twilight-text-soft">{children}</div>
             </div>
-            <p className={`font-display text-xl font-semibold leading-none ${accent ? "text-lantern" : "text-twilight-text"}`}>
-                {value}
-            </p>
         </div>
     );
 }
@@ -238,14 +224,24 @@ export function HabitDetailPanel({
     const [editTitle, setEditTitle] = useState(habit.title);
     const [editDescription, setEditDescription] = useState(habit.description ?? "");
     const [editRrule, setEditRrule] = useState(habit.recurrenceRule);
+    const [editTargetTime, setEditTargetTime] = useState(habit.targetTime ?? "");
+    const [editReminder, setEditReminder] = useState(habit.reminderEnabled);
+    const [editProjectId, setEditProjectId] = useState(habit.projectId ?? "");
     useEffect(() => {
         setEditTitle(habit.title);
         setEditDescription(habit.description ?? "");
         setEditRrule(habit.recurrenceRule);
+        setEditTargetTime(habit.targetTime ?? "");
+        setEditReminder(habit.reminderEnabled);
+        setEditProjectId(habit.projectId ?? "");
     }, [habit.id]);
 
     const { mutate: updateHabit } = useUpdateHabit();
     const { mutate: deleteHabit } = useDeleteHabit();
+    const { pause: pauseHabit } = usePauseHabit();
+    const { resume: resumeHabit } = useResumeHabit();
+    const { data: projects = [] } = useProjects();
+    const { data: tags = [] } = useTags();
 
     const debouncedSaveNotes = useDebouncedCallback((value: string) => {
         updateHabit({ id: habit.id, notes: value || null });
@@ -264,6 +260,9 @@ export function HabitDetailPanel({
             title: editTitle.trim(),
             description: editDescription.trim() || null,
             recurrenceRule: editRrule,
+            targetTime: editTargetTime || null,
+            reminderEnabled: editReminder,
+            projectId: editProjectId || null,
         });
         setShowSettings(false);
     };
@@ -282,17 +281,9 @@ export function HabitDetailPanel({
         });
     };
 
-    // Monthly stats derived from the habit object (backend-computed counters)
-    // Monthly rate: completions this month / scheduled days this month (approximate via totalCompletions / age)
-    const createdAt = new Date(habit.createdAt);
-    const ageMonths = Math.max(1,
-        (now.getFullYear() - createdAt.getFullYear()) * 12 +
-        (now.getMonth() - createdAt.getMonth()) + 1
-    );
-    const monthlyAvg = Math.round(habit.totalCompletions / ageMonths);
-    const monthlyRate = habit.totalCompletions > 0
-        ? Math.min(100, Math.round((habit.totalCompletions / Math.max(1, ageMonths * 30)) * 100))
-        : 0;
+    const isPaused = habit.pausedUntil && new Date(habit.pausedUntil) > now;
+    const linkedProject = projects.find((p) => p.id === habit.projectId);
+    const habitTags = tags.filter((t) => habit.tagIds?.includes(t.id));
 
     return (
         <motion.div
@@ -323,6 +314,11 @@ export function HabitDetailPanel({
                             <span className="font-display text-sm font-medium text-twilight-text truncate">
                                 {habit.title}
                             </span>
+                            {isPaused && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-twilight-text-muted font-medium">
+                                    <Pause size={9} /> Paused
+                                </span>
+                            )}
                         </div>
 
                         {onDetailModeChange ? (
@@ -363,12 +359,29 @@ export function HabitDetailPanel({
                                 </Button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end">
+                                {isPaused ? (
+                                    <DropdownMenu.Item
+                                        className="flex items-center gap-2 text-[13px]"
+                                        onSelect={() => resumeHabit(habit.id)}
+                                    >
+                                        <Play size={13} />
+                                        Resume routine
+                                    </DropdownMenu.Item>
+                                ) : (
+                                    <DropdownMenu.Item
+                                        className="flex items-center gap-2 text-[13px]"
+                                        onSelect={() => pauseHabit(habit.id)}
+                                    >
+                                        <Pause size={13} />
+                                        Pause for a week
+                                    </DropdownMenu.Item>
+                                )}
                                 <DropdownMenu.Item
                                     className="flex items-center gap-2 text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
                                     onSelect={() => setDeleteOpen(true)}
                                 >
                                     <Trash2 size={13} />
-                                    Delete habit
+                                    Delete routine
                                 </DropdownMenu.Item>
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>
@@ -404,7 +417,7 @@ export function HabitDetailPanel({
                                     rows={2}
                                     value={editDescription}
                                     onChange={(e) => setEditDescription(e.target.value)}
-                                    placeholder="Why are you building this habit?"
+                                    placeholder="Why are you building this routine?"
                                     className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] transition-[border-color,box-shadow] duration-200 resize-none"
                                 />
                             </div>
@@ -414,6 +427,56 @@ export function HabitDetailPanel({
                                 </label>
                                 <CadencePicker value={editRrule} onChange={setEditRrule} />
                             </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-semibold uppercase tracking-widest text-twilight-text-muted/60">
+                                    Target time
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="time"
+                                        value={editTargetTime}
+                                        onChange={(e) => setEditTargetTime(e.target.value)}
+                                        className="flex-1 rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] transition-[border-color,box-shadow] duration-200"
+                                    />
+                                    {editTargetTime && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditTargetTime("")}
+                                            className="px-3 py-2 rounded-xl text-[12px] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors"
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            {editTargetTime && (
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={editReminder}
+                                        onChange={(e) => setEditReminder(e.target.checked)}
+                                        className="h-5 w-5 rounded-lg border-white/[0.15] bg-white/[0.05] text-lantern focus:ring-lantern/40 accent-[var(--color-lantern)]"
+                                    />
+                                    <span className="text-sm text-twilight-text-soft">Remind me at this time</span>
+                                </label>
+                            )}
+                            {projects.length > 0 && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-semibold uppercase tracking-widest text-twilight-text-muted/60">
+                                        Link to project
+                                    </label>
+                                    <select
+                                        value={editProjectId}
+                                        onChange={(e) => setEditProjectId(e.target.value)}
+                                        className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] transition-[border-color,box-shadow] duration-200 appearance-none"
+                                    >
+                                        <option value="">None</option>
+                                        {projects.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                             <div className="flex justify-end gap-2">
                                 <Button
                                     variant="ghost"
@@ -440,30 +503,61 @@ export function HabitDetailPanel({
 
                 <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-5 flex flex-col gap-6">
 
-                {/* Stats grid — 2×2 */}
-                <div className="grid grid-cols-2 gap-2">
-                    <StatCard
-                        icon={Flame}
-                        label="Monthly avg"
-                        value={`${monthlyAvg} day${monthlyAvg !== 1 ? "s" : ""}`}
-                        accent
-                    />
-                    <StatCard
-                        icon={Zap}
-                        label="Total check-ins"
-                        value={`${habit.totalCompletions}`}
-                    />
-                    <StatCard
-                        icon={Flame}
-                        label="Monthly rate"
-                        value={`${monthlyRate}%`}
-                    />
-                    <StatCard
-                        icon={Flame}
-                        label="Current streak"
-                        value={`${habit.currentStreak} day${habit.currentStreak !== 1 ? "s" : ""}`}
-                        accent={habit.currentStreak > 0}
-                    />
+                {/* Identity section — title, purpose, cadence, timing, project, tags */}
+                <div className="flex flex-col gap-1">
+                    {habit.description && (
+                        <p className="text-sm text-twilight-text-soft leading-relaxed">{habit.description}</p>
+                    )}
+
+                    <div className="flex flex-col divide-y divide-white/[0.04] mt-2">
+                        <InfoRow icon={Clock} label="Cadence">
+                            {habit.recurrenceRule.includes("DAILY") ? "Daily" :
+                             habit.recurrenceRule.includes("WEEKLY") ? `Weekly — ${habit.recurrenceRule.match(/BYDAY=([^;]+)/)?.[1] ?? ""}` :
+                             habit.recurrenceRule}
+                        </InfoRow>
+
+                        {habit.targetTime && (
+                            <InfoRow icon={Clock} label="Target time">
+                                {habit.targetTime}
+                                {habit.reminderEnabled && (
+                                    <span className="ml-2 text-[10px] text-twilight-text-muted/50">· reminder on</span>
+                                )}
+                            </InfoRow>
+                        )}
+
+                        {linkedProject && (
+                            <InfoRow icon={FolderOpen} label="Project">
+                                {linkedProject.name}
+                            </InfoRow>
+                        )}
+
+                        {habitTags.length > 0 && (
+                            <InfoRow icon={Tag} label="Tags">
+                                <div className="flex flex-wrap gap-1">
+                                    {habitTags.map((t) => (
+                                        <span key={t.id} className="inline-flex items-center rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-twilight-text-muted">
+                                            {t.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </InfoRow>
+                        )}
+
+                        {isPaused && habit.pausedUntil && (
+                            <InfoRow icon={Pause} label="Paused until">
+                                <div className="flex items-center gap-2">
+                                    <span>{new Date(habit.pausedUntil).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => resumeHabit(habit.id)}
+                                        className="inline-flex items-center gap-1 rounded-full bg-lantern/10 px-2 py-0.5 text-[11px] font-medium text-lantern hover:bg-lantern/20 transition-colors"
+                                    >
+                                        <Play size={9} /> Resume
+                                    </button>
+                                </div>
+                            </InfoRow>
+                        )}
+                    </div>
                 </div>
 
                 {/* Heatmap calendar */}
@@ -484,7 +578,7 @@ export function HabitDetailPanel({
                     <textarea
                         value={notes}
                         onChange={handleNotesChange}
-                        placeholder="Reflections, intentions, context for this habit…"
+                        placeholder="Reflections, intentions, context for this routine…"
                         aria-label="Habit notes"
                         className="
                             flex-1 w-full min-h-[120px] bg-transparent resize-none outline-none
@@ -494,10 +588,30 @@ export function HabitDetailPanel({
                     />
                 </div>
 
+                {/* Stats — demoted below fold */}
+                <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.02] border border-white/[0.05] p-4">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-twilight-text-muted/40">Stats</span>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                            <span className="text-twilight-text-muted/60">Total check-ins</span>
+                            <span className="text-twilight-text tabular-nums">{habit.totalCompletions}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-twilight-text-muted/60">Current streak</span>
+                            <span className="text-twilight-text tabular-nums">{habit.currentStreak} day{habit.currentStreak !== 1 ? "s" : ""}</span>
+                        </div>
+                        {habit.longestStreak > 0 && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-twilight-text-muted/60">Longest streak</span>
+                                <span className="text-twilight-text tabular-nums">{habit.longestStreak} day{habit.longestStreak !== 1 ? "s" : ""}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Created date */}
                 <p className="text-[10px] text-twilight-text-muted/40 pb-2">
                     Created {new Date(habit.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                    {habit.longestStreak > 0 && ` · Longest streak: ${habit.longestStreak} day${habit.longestStreak !== 1 ? "s" : ""}`}
                 </p>
                 </div>
 

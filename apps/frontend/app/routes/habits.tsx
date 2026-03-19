@@ -10,12 +10,11 @@ import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { HabitToastResolver } from "../components/habits/HabitToastResolver";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, PanelLeftOpen, Flame } from "lucide-react";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { CompactPageControls } from "../components/shared/CompactPageControls";
-import { ControlsSheet } from "../components/shared/ControlsSheet";
+import { useSidebarStore } from "../stores/sidebar-store";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -30,6 +29,7 @@ const slideVariants = {
 
 export default function Habits() {
     const shell = useShellMode();
+    const { setMobileNavOpen } = useSidebarStore();
     const today = new Date();
     const [currentDate, setCurrentDate] = useState<string>(toISODate(today));
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -95,12 +95,6 @@ export default function Habits() {
         return `Week of ${startFmt} – ${endFmt}`;
     })();
 
-    const todayLabel = new Intl.DateTimeFormat("en-US", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-    }).format(today);
-
     const mainHeading = `${MONTHS[monthIdx]} ${year}`;
     const selectedHabit = visibleHabits.find((h) => h.id === selectedHabitId) ?? null;
 
@@ -115,243 +109,181 @@ export default function Habits() {
         "Track weekly habits in a spacious rhythm that keeps each day readable.",
     );
 
-    useRouteFocus();
+    useRouteFocus({
+        onFocusMatch: (params) => {
+            if (params.focusKind === "habit" && params.focusId) {
+                setSelectedHabitId(params.focusId);
+            }
+        },
+    });
 
     return (
-        <MainLayout requireAuth>
+        <MainLayout requireAuth hideHeader hideContextualOrb>
             <HabitToastResolver />
 
             <div className="flex h-full overflow-hidden">
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                    <header className="shrink-0 border-b border-twilight-border px-4 py-4 sm:px-6 lg:px-8">
+                    <header className="shrink-0 border-b border-twilight-border">
                         {shell.isPhone ? (
-                            <>
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="min-w-0">
-                                        <h2 className="font-display text-xl font-semibold text-twilight-text tracking-tight leading-tight">
-                                            {mainHeading}
-                                        </h2>
-                                        <div className="mt-2">
-                                            <div className="inline-flex max-w-full items-center gap-1 rounded-full border border-twilight-border/30 bg-white/[0.025] px-1.5 py-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleNavigate(-1)}
-                                                    className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                                    aria-label="Previous week"
-                                                >
-                                                    <ChevronLeft size={15} />
-                                                </button>
-                                                <div className="min-w-0 px-1">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <p className="truncate text-[13px] font-medium text-twilight-text-soft">
-                                                            {weekRangeLabel}
-                                                        </p>
-                                                        {isCurrentWeek && (
-                                                            <>
-                                                                <span className="w-1 h-1 rounded-full bg-twilight-border/80" />
-                                                                <p className="text-[13px] font-medium text-lantern">
-                                                                    {todayLabel}
-                                                                </p>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleNavigate(1)}
-                                                    className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                                    aria-label="Next week"
-                                                >
-                                                    <ChevronRight size={15} />
-                                                </button>
-                                            </div>
+                            /* ── Phone: two tight rows ──────────────────────────── */
+                            <div className="px-4 pt-2.5 pb-3">
+                                {/* Row 1: sidebar toggle + page identity + heading + nav arrows */}
+                                <div className="flex items-center gap-2 min-h-[44px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setMobileNavOpen(true)}
+                                        className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.05]"
+                                        aria-label="Open navigation"
+                                    >
+                                        <PanelLeftOpen size={18} />
+                                    </button>
+                                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                                        <Flame size={14} className="text-lantern/70 shrink-0" />
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Habits</p>
+                                            <h2 className="font-display text-sm font-semibold text-twilight-text tracking-tight truncate leading-tight">
+                                                {mainHeading}
+                                            </h2>
                                         </div>
                                     </div>
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleNavigate(-1)}
+                                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                            aria-label="Previous week"
+                                        >
+                                            <ChevronLeft size={15} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleNavigate(1)}
+                                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                            aria-label="Next week"
+                                        >
+                                            <ChevronRight size={15} />
+                                        </button>
+                                    </div>
                                 </div>
-
-                                <div className="mt-3">
-                                    <CompactPageControls
-                                        className="w-fit max-w-full border-transparent bg-transparent p-0 gap-2.5 backdrop-blur-none"
-                                        primaryControl={(
-                                            <div className="flex items-center rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.03] p-1" role="radiogroup" aria-label="Habit view mode">
-                                                <button
-                                                    type="button"
-                                                    role="radio"
-                                                    aria-checked={viewMode === "active"}
-                                                    onClick={() => setViewMode("active")}
-                                                    className={`touch-target rounded-xl px-3.5 text-[13px] font-medium transition-all duration-200 ${
-                                                        viewMode === "active"
-                                                            ? "bg-white/[0.08] text-twilight-text shadow-sm"
-                                                            : "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-                                                    }`}
-                                                >
-                                                    Active
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    role="radio"
-                                                    aria-checked={viewMode === "archived"}
-                                                    onClick={() => setViewMode("archived")}
-                                                    className={`touch-target rounded-xl px-3.5 text-[13px] font-medium transition-all duration-200 ${
-                                                        viewMode === "archived"
-                                                            ? "bg-white/[0.08] text-twilight-text shadow-sm"
-                                                            : "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-                                                    }`}
-                                                >
-                                                    Archived
-                                                </button>
-                                            </div>
-                                        )}
-                                        secondaryControl={(
+                                {/* Row 2: Active/Archived tabs + Today button */}
+                                <div className="flex items-center gap-1 mt-1.5">
+                                    <nav
+                                        className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                                        role="radiogroup"
+                                        aria-label="Habit view mode"
+                                    >
+                                        {(["active", "archived"] as const).map((mode) => (
                                             <button
+                                                key={mode}
                                                 type="button"
-                                                onClick={handleToday}
-                                                disabled={isCurrentWeek}
-                                                className="touch-target inline-flex min-h-10 items-center justify-center rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.03] px-4 text-[13px] font-medium text-twilight-text-soft disabled:opacity-30"
+                                                role="radio"
+                                                aria-checked={viewMode === mode}
+                                                onClick={() => setViewMode(mode)}
+                                                className={`
+                                                    rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
+                                                    ${viewMode === mode
+                                                        ? "bg-lantern/20 text-lantern border-lantern/25"
+                                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
+                                                `}
                                             >
-                                                Today
+                                                {mode === "active" ? "Active" : "Archived"}
                                             </button>
-                                        )}
-                                        controlsTrigger={(
-                                            <ControlsSheet
-                                                routeKey="habits"
-                                                title="Habit controls"
-                                                triggerClassName="min-h-10 rounded-[1.15rem] border-twilight-border/35 bg-white/[0.03] px-4"
-                                                sections={[
-                                                    {
-                                                        id: "view",
-                                                        label: "View",
-                                                        content: (
-                                                            <div className="space-y-2">
-                                                                {(["active", "archived"] as const).map((mode) => (
-                                                                    <button
-                                                                        key={mode}
-                                                                        type="button"
-                                                                        onClick={() => setViewMode(mode)}
-                                                                        className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
-                                                                            viewMode === mode
-                                                                                ? "border-lantern/30 bg-lantern/14 text-lantern"
-                                                                                : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
-                                                                        }`}
-                                                                    >
-                                                                        {mode === "active" ? "Active habits" : "Archived"}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        ),
-                                                    },
-                                                    {
-                                                        id: "create",
-                                                        label: "Create",
-                                                        content: (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setIsCreateOpen(true)}
-                                                                className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-lantern/20 bg-lantern/15 px-4 text-sm font-medium text-lantern"
-                                                            >
-                                                                <Plus size={15} aria-hidden="true" />
-                                                                Add habit
-                                                            </button>
-                                                        ),
-                                                    },
-                                                ]}
-                                            />
-                                        )}
-                                    />
+                                        ))}
+                                    </nav>
+                                    <button
+                                        type="button"
+                                        onClick={handleToday}
+                                        disabled={isCurrentWeek}
+                                        className="ml-auto rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text cursor-pointer disabled:opacity-30"
+                                    >
+                                        Today
+                                    </button>
                                 </div>
-                            </>
+                            </div>
                         ) : (
-                            <>
-                                <div className={`flex gap-4 ${shell.isCompact ? "flex-col" : "items-start justify-between"}`}>
-                                    <div>
-                                        <h2 className="font-display text-2xl font-semibold text-twilight-text tracking-tight leading-tight sm:text-[2rem]">
-                                            {mainHeading}
-                                        </h2>
-                                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                                            <p className="text-[14px] text-twilight-text-soft">
-                                                {weekRangeLabel}
-                                            </p>
-                                            {isCurrentWeek && (
-                                                <>
-                                                    <span className="h-1 w-1 rounded-full bg-twilight-border/80" />
-                                                    <p className="text-[14px] font-medium text-lantern">
-                                                        Today is {todayLabel}
-                                                    </p>
-                                                </>
-                                            )}
+                            /* ── Tablet + Desktop: single compressed row ~56px ── */
+                            <div className="px-4 sm:px-6 lg:px-8">
+                                <div className="flex h-16 items-center gap-3">
+                                    {/* Left: icon + page identity + heading + week range */}
+                                    <div className="flex min-w-0 items-center gap-2.5">
+                                        <Flame size={18} className="text-lantern/70 shrink-0" />
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Habits</p>
+                                            <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap leading-tight">
+                                                {mainHeading}
+                                            </h2>
                                         </div>
+                                        <span className="hidden sm:flex items-center text-[13px] text-twilight-text-soft whitespace-nowrap">
+                                            <span className="mx-1.5 text-twilight-text-soft/50">&middot;</span>
+                                            <span>{weekRangeLabel}</span>
+                                        </span>
                                     </div>
 
-                                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                    {/* Center: navigation */}
+                                    <div className="flex items-center gap-1 ml-auto">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleNavigate(-1)}
+                                            className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                            aria-label="Previous week"
+                                        >
+                                            <ChevronLeft size={16} />
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={handleToday}
                                             disabled={isCurrentWeek}
-                                            className="touch-target rounded-2xl border border-twilight-border px-4 text-[14px] font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text transition-colors duration-200 cursor-pointer disabled:pointer-events-none disabled:opacity-30"
+                                            className="rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-30"
                                         >
                                             Today
                                         </button>
-                                        <div className="flex items-center gap-0.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleNavigate(-1)}
-                                                className="btn-icon text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                                                aria-label="Previous week"
-                                            >
-                                                <ChevronLeft size={18} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleNavigate(1)}
-                                                className="btn-icon text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                                                aria-label="Next week"
-                                            >
-                                                <ChevronRight size={18} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className={`mt-4 flex gap-3 ${shell.isCompact ? "flex-col" : "items-center justify-between"}`}>
-                                    <div className="flex items-center rounded-2xl border border-twilight-border bg-white/[0.02] p-1" role="radiogroup" aria-label="Habit view mode">
                                         <button
                                             type="button"
-                                            role="radio"
-                                            aria-checked={viewMode === "active"}
-                                            onClick={() => setViewMode("active")}
-                                            className={`touch-target rounded-xl px-4 text-[14px] font-medium transition-all duration-200 cursor-pointer ${
-                                                viewMode === "active"
-                                                    ? "bg-white/[0.08] text-twilight-text shadow-sm"
-                                                    : "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-                                            }`}
+                                            onClick={() => handleNavigate(1)}
+                                            className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                            aria-label="Next week"
                                         >
-                                            Active Habits
-                                        </button>
-                                        <button
-                                            type="button"
-                                            role="radio"
-                                            aria-checked={viewMode === "archived"}
-                                            onClick={() => setViewMode("archived")}
-                                            className={`touch-target rounded-xl px-4 text-[14px] font-medium transition-all duration-200 cursor-pointer ${
-                                                viewMode === "archived"
-                                                    ? "bg-white/[0.08] text-twilight-text shadow-sm"
-                                                    : "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-                                            }`}
-                                        >
-                                            Archived
+                                            <ChevronRight size={16} />
                                         </button>
                                     </div>
 
+                                    {/* Right: view tabs */}
+                                    <nav
+                                        className="flex items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                                        role="radiogroup"
+                                        aria-label="Habit view mode"
+                                    >
+                                        {(["active", "archived"] as const).map((mode) => (
+                                            <button
+                                                key={mode}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={viewMode === mode}
+                                                onClick={() => setViewMode(mode)}
+                                                className={`
+                                                    rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border
+                                                    ${viewMode === mode
+                                                        ? "bg-lantern/20 text-lantern border-lantern/25"
+                                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
+                                                `}
+                                                aria-current={viewMode === mode ? "true" : undefined}
+                                            >
+                                                {mode === "active" ? "Active" : "Archived"}
+                                            </button>
+                                        ))}
+                                    </nav>
+
+                                    {/* Add Routine button */}
                                     <button
                                         type="button"
                                         onClick={() => setIsCreateOpen(true)}
-                                        className="touch-target inline-flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-lantern/20 bg-lantern/15 px-4 text-[14px] font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lantern"
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-lantern/20 bg-lantern/15 px-4 py-1.5 text-sm font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors cursor-pointer"
                                     >
-                                        <Plus size={15} />
-                                        Add Habit
+                                        <Plus size={14} />
+                                        <span className="hidden lg:inline">Add Routine</span>
                                     </button>
                                 </div>
-                            </>
+                            </div>
                         )}
                     </header>
 
@@ -444,7 +376,7 @@ export default function Habits() {
                             className="pointer-events-auto touch-target inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-lantern/25 bg-lantern px-5 text-sm font-semibold text-twilight-void shadow-[0_18px_48px_rgba(232,164,74,0.28)]"
                         >
                             <Plus size={15} aria-hidden="true" />
-                            Add Habit
+                            Add Routine
                         </button>
                     </div>
                 ) : null}

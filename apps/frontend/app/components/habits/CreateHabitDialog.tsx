@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, Clock, FolderOpen, Tag } from "lucide-react";
 import * as Dialog from "../primitives/Dialog";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
 import { CadencePicker } from "./CadencePicker";
 import { createHabitSchema, type CreateHabitValues } from "../../lib/validations/habit-schemas";
 
@@ -45,6 +49,12 @@ interface Props {
 
 export function CreateHabitDialog({ open, onOpenChange }: Props) {
     const { mutate: createHabit } = useCreateHabit();
+    const { data: projects = [] } = useProjects();
+    const { data: tags = [] } = useTags();
+
+    const [showTiming, setShowTiming] = useState(false);
+    const [showConnections, setShowConnections] = useState(false);
+    const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
     const form = useForm<CreateHabitValues>({
         resolver: zodResolver(createHabitSchema),
@@ -53,26 +63,51 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
             description: "",
             recurrenceRule: "FREQ=DAILY",
             colorAccent: "lantern",
+            targetTime: null,
+            reminderEnabled: false,
+            projectId: null,
+            tagIds: [],
         },
     });
 
-    const onSubmit = (data: CreateHabitValues) => {
-        createHabit(data);
+    const watchTargetTime = form.watch("targetTime");
+
+    const handleClose = () => {
         form.reset();
+        setShowTiming(false);
+        setShowConnections(false);
+        setSelectedTagIds([]);
         onOpenChange(false);
     };
 
+    const onSubmit = (data: CreateHabitValues) => {
+        createHabit({
+            ...data,
+            tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        });
+        handleClose();
+    };
+
+    const toggleTag = (tagId: string) => {
+        setSelectedTagIds((prev) =>
+            prev.includes(tagId)
+                ? prev.filter((id) => id !== tagId)
+                : [...prev, tagId]
+        );
+    };
+
     return (
-        <Dialog.Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog.Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
             <Dialog.DialogContent className="max-w-lg">
                 <Dialog.DialogHeader>
-                    <Dialog.DialogTitle>New habit</Dialog.DialogTitle>
+                    <Dialog.DialogTitle>New routine</Dialog.DialogTitle>
                     <Dialog.DialogDescription>
-                        Define a recurring routine to track in your daily flow.
+                        Start with a name — add timing and connections when you're ready.
                     </Dialog.DialogDescription>
                 </Dialog.DialogHeader>
 
                 <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
+                    {/* Starter packs */}
                     <div className="flex flex-col gap-2">
                         <label className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
                             Starter packs
@@ -96,7 +131,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                         </div>
                     </div>
 
-                    {/* Name */}
+                    {/* Level 1: Name + Cadence (always visible) */}
                     <div className="flex flex-col gap-1.5">
                         <label htmlFor="habit-title" className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
                             Name
@@ -113,24 +148,6 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                         )}
                     </div>
 
-                    {/* Description */}
-                    <div className="flex flex-col gap-1.5">
-                        <label htmlFor="habit-desc" className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
-                            Purpose <span className="normal-case tracking-normal font-normal text-twilight-text-muted/40">— optional</span>
-                        </label>
-                        <textarea
-                            id="habit-desc"
-                            placeholder="Why are you building this habit?"
-                            {...form.register("description")}
-                            rows={2}
-                            className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none transition-[border-color,box-shadow] duration-200 focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] resize-none"
-                        />
-                        {form.formState.errors.description && (
-                            <span className="text-rose-500 text-xs mt-1">{form.formState.errors.description.message}</span>
-                        )}
-                    </div>
-
-                    {/* Cadence */}
                     <div className="flex flex-col gap-2">
                         <label className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
                             Cadence
@@ -139,25 +156,178 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                             control={form.control}
                             name="recurrenceRule"
                             render={({ field }) => (
-                                <CadencePicker
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                />
+                                <CadencePicker value={field.value} onChange={field.onChange} />
                             )}
                         />
-                        {form.formState.errors.recurrenceRule && (
-                            <span className="text-rose-500 text-xs mt-1">{form.formState.errors.recurrenceRule.message}</span>
-                        )}
+                    </div>
+
+                    {/* Level 2: Timing disclosure */}
+                    <div className="flex flex-col gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setShowTiming((v) => !v)}
+                            className="flex items-center gap-2 text-left group"
+                        >
+                            <Clock size={13} className="text-twilight-text-muted/60" />
+                            <span className="text-[12px] font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
+                                Timing &amp; reminder
+                            </span>
+                            <motion.div animate={{ rotate: showTiming ? 180 : 0 }} transition={{ duration: 0.15 }}>
+                                <ChevronDown size={12} className="text-twilight-text-muted/50" />
+                            </motion.div>
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                            {showTiming && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                                        <div className="flex flex-col gap-1.5">
+                                            <label htmlFor="habit-time" className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
+                                                Target time <span className="normal-case tracking-normal font-normal text-twilight-text-muted/40">— optional</span>
+                                            </label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    id="habit-time"
+                                                    type="time"
+                                                    {...form.register("targetTime")}
+                                                    className="flex-1 rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)]"
+                                                />
+                                                {watchTargetTime && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => form.setValue("targetTime", null)}
+                                                        className="px-3 py-2 rounded-xl text-[12px] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {watchTargetTime && (
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    {...form.register("reminderEnabled")}
+                                                    className="h-5 w-5 rounded-lg border-white/[0.15] bg-white/[0.05] text-lantern focus:ring-lantern/40 accent-[var(--color-lantern)]"
+                                                />
+                                                <span className="text-sm text-twilight-text-soft">
+                                                    Remind me at this time
+                                                </span>
+                                            </label>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Level 3: Connections disclosure */}
+                    <div className="flex flex-col gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setShowConnections((v) => !v)}
+                            className="flex items-center gap-2 text-left group"
+                        >
+                            <FolderOpen size={13} className="text-twilight-text-muted/60" />
+                            <span className="text-[12px] font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
+                                Project, tags &amp; purpose
+                            </span>
+                            <motion.div animate={{ rotate: showConnections ? 180 : 0 }} transition={{ duration: 0.15 }}>
+                                <ChevronDown size={12} className="text-twilight-text-muted/50" />
+                            </motion.div>
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                            {showConnections && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                                        {/* Purpose */}
+                                        <div className="flex flex-col gap-1.5">
+                                            <label htmlFor="habit-desc" className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
+                                                Purpose <span className="normal-case tracking-normal font-normal text-twilight-text-muted/40">— optional</span>
+                                            </label>
+                                            <textarea
+                                                id="habit-desc"
+                                                placeholder="Why are you building this routine?"
+                                                {...form.register("description")}
+                                                rows={2}
+                                                className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none transition-[border-color,box-shadow] duration-200 focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] resize-none"
+                                            />
+                                        </div>
+
+                                        {/* Project link */}
+                                        {projects.length > 0 && (
+                                            <div className="flex flex-col gap-1.5">
+                                                <label htmlFor="habit-project" className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
+                                                    Link to project
+                                                </label>
+                                                <select
+                                                    id="habit-project"
+                                                    {...form.register("projectId")}
+                                                    className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] appearance-none"
+                                                >
+                                                    <option value="">None</option>
+                                                    {projects.map((p) => (
+                                                        <option key={p.id} value={p.id}>
+                                                            {p.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Tags */}
+                                        {tags.length > 0 && (
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
+                                                    Tags
+                                                </label>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {tags.map((tag) => {
+                                                        const selected = selectedTagIds.includes(tag.id);
+                                                        return (
+                                                            <button
+                                                                key={tag.id}
+                                                                type="button"
+                                                                onClick={() => toggleTag(tag.id)}
+                                                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                                                                    selected
+                                                                        ? "bg-lantern/15 text-lantern border border-lantern/25"
+                                                                        : "bg-white/[0.04] text-twilight-text-muted border border-white/[0.08] hover:bg-white/[0.07] hover:text-twilight-text"
+                                                                }`}
+                                                            >
+                                                                <Tag size={10} />
+                                                                {tag.name}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     {/* Actions */}
                     <div className="flex justify-end gap-2 pt-1">
                         <button
                             type="button"
-                            onClick={() => {
-                                form.reset();
-                                onOpenChange(false);
-                            }}
+                            onClick={handleClose}
                             className="px-4 py-2 rounded-xl text-[13px] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors duration-200 cursor-pointer"
                         >
                             Cancel
@@ -167,7 +337,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                             disabled={!form.formState.isDirty || form.formState.isSubmitting}
                             className="px-4 py-2 rounded-xl text-[13px] bg-lantern/20 text-lantern hover:bg-lantern/30 transition-colors duration-200 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                         >
-                            Create habit
+                            Create routine
                         </button>
                     </div>
                 </form>

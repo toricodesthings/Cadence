@@ -17,6 +17,7 @@ import { CreateTagInline } from "./CreateTagInline";
 import { useTags } from "../../hooks/tags";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
 import { useSettings } from "../../hooks/core/use-settings";
+import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
 
 /** Main sidebar panel with live projects and inbox count */
 export function SidebarPanel({
@@ -78,6 +79,10 @@ export function SidebarPanel({
         <Skeleton className="h-4 w-6 rounded-xl bg-white/[0.04]" />
     ) : inboxItems?.length ?? 0;
 
+    const { data: unresolvedHabits } = useHabitUnresolvedSummary();
+    const showHabitDot = userSettings?.notifications?.showHabitNavDueCount !== false;
+    const hasHabitsDue = showHabitDot && (unresolvedHabits?.length ?? 0) > 0;
+
     return (
         <div
             id="sidebar-panel"
@@ -116,6 +121,7 @@ export function SidebarPanel({
                                     icon={Flame}
                                     label="Habits"
                                     href="/habits"
+                                    showDot={hasHabitsDue}
                                     activeColor="text-lantern"
                                     activeBg="bg-lantern/15"
                                     hoverColor="group-hover:text-lantern"

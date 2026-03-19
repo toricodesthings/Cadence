@@ -6,6 +6,8 @@ interface NavLinkProps {
     label: string;
     href: string;
     count?: React.ReactNode;
+    /** Show a subtle dot indicator next to the icon */
+    showDot?: boolean;
     /** Tailwind class for active icon/text color, e.g. "text-[var(--color-nav-planner)]" */
     activeColor?: string;
     /** Tailwind class for active background, e.g. "bg-[var(--color-nav-planner)]/15" */
@@ -20,6 +22,7 @@ export function NavLink({
     label,
     href,
     count,
+    showDot,
     activeColor = "text-[var(--color-nav-planner)]",
     activeBg = "bg-[var(--color-nav-planner)]/15",
     hoverColor = "group-hover:text-[var(--color-nav-planner)]/70",
@@ -41,11 +44,16 @@ export function NavLink({
                 }
             `}
         >
-            <Icon
-                size={18}
-                aria-hidden="true"
-                className={`shrink-0 transition-colors ${active ? activeColor : `text-twilight-text-muted ${hoverColor}`}`}
-            />
+            <span className="relative shrink-0">
+                <Icon
+                    size={18}
+                    aria-hidden="true"
+                    className={`transition-colors ${active ? activeColor : `text-twilight-text-muted ${hoverColor}`}`}
+                />
+                {showDot && (
+                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-lantern/70" aria-hidden="true" />
+                )}
+            </span>
             <span className="flex-1 truncate">{label}</span>
             {count !== undefined && count !== 0 && (
                 <span className="text-[13px] tabular-nums text-twilight-text-muted" aria-label={`${count} items`}>{count}</span>

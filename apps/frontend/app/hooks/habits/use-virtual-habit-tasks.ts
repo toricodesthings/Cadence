@@ -23,7 +23,7 @@ export function useVirtualHabitTasks(options: {
                 return {
                     id: `habit-${h.id}--${l.targetDate}`,
                     userId: h.userId,
-                    projectId: null,
+                    projectId: h.projectId ?? null,
                     title: h.title,
                     content: h.description,
                     state: l.status === "COMPLETED" ? "COMPLETE" : "ACTIVE",

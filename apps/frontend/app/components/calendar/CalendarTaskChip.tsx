@@ -68,6 +68,7 @@ export function CalendarTaskChip({
     const isRecurring = isRecurringTask(task) || isRecurringTaskInstance(task);
     const isPassiveTimetable = isPassiveTimetableTask(task);
     const allowQuickActions = !task.isHabit && !isRecurring && supportsManualTaskCompletion(task);
+    const isCompletedHabit = task.isHabit && task.state === "COMPLETE";
 
     const { listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `task-${task.id}`,
@@ -96,7 +97,7 @@ export function CalendarTaskChip({
                     transition-[background-color,border-color,box-shadow,transform,opacity] duration-150
                     ${isDragging ? "z-50 scale-[1.03] shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
                     ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                    ${task.isHabit ? "border-l-2 border-lantern bg-lantern/5 pl-2 shadow-sm" : ""}
+                    ${task.isHabit ? `border-l-2 border-lantern bg-lantern/5 pl-2 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
                     ${isRecurring ? "bg-[rgba(126,184,212,0.08)] border-[rgba(126,184,212,0.18)]" : PRIORITY_PILL_BG[priority]}
                 `}
                 onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
@@ -224,7 +225,7 @@ export function CalendarTaskChip({
                 ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
                 ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
                 ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                ${habitRibbon ? "border-l-2 border-dashed border-lantern/40 bg-lantern/[0.04] opacity-70 shadow-none" : ""}
+                ${habitRibbon ? `border-l-2 border-dashed border-lantern/40 bg-lantern/[0.04] ${isCompletedHabit ? "opacity-40" : "opacity-70"} shadow-none` : ""}
             `}
             onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
             onMouseEnter={() => setIsHovered(true)}

@@ -1,10 +1,36 @@
+import { useMemo } from "react";
 import { toISODate } from "../../lib/utils/date-format";
 import type { Habit } from "../../types/habit";
 import { HabitItem } from "./HabitItem";
 import { HabitMenu } from "./HabitMenu";
 import { HabitDayPlaceholder } from "./HabitDayPlaceholder";
-import { Flame } from "lucide-react";
+import { Flame, Clock, Pause } from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useProjects } from "../../hooks/projects/use-projects";
+
+/**
+ * Sort: due+overdue timed → due+overdue anytime → remaining timed by targetTime → remaining anytime by sortOrder
+ * Paused habits sink to bottom.
+ */
+function sortHabits(habits: Habit[]): Habit[] {
+    const now = new Date();
+    return [...habits].sort((a, b) => {
+        const aPaused = a.pausedUntil && new Date(a.pausedUntil) > now ? 1 : 0;
+        const bPaused = b.pausedUntil && new Date(b.pausedUntil) > now ? 1 : 0;
+        if (aPaused !== bPaused) return aPaused - bPaused;
+
+        const aDue = a.isDueToday || a.isOverdue ? 0 : 1;
+        const bDue = b.isDueToday || b.isOverdue ? 0 : 1;
+        if (aDue !== bDue) return aDue - bDue;
+
+        const aTimed = a.targetTime ? 0 : 1;
+        const bTimed = b.targetTime ? 0 : 1;
+        if (aTimed !== bTimed) return aTimed - bTimed;
+
+        if (a.targetTime && b.targetTime) return a.targetTime.localeCompare(b.targetTime);
+        return a.sortOrder - b.sortOrder;
+    });
+}
 
 interface HabitsCanvasProps {
     weekDates: Date[];
@@ -16,7 +42,11 @@ interface HabitsCanvasProps {
 
 export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit, emptyStateMode = "active" }: HabitsCanvasProps) {
     const shell = useShellMode();
+    const { data: projects = [] } = useProjects();
+    const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+    const sortedHabits = useMemo(() => sortHabits(habits), [habits]);
     const today = toISODate(new Date());
+    const now = new Date();
     const days = weekDates.map((d) => ({
         date: d,
         iso: toISODate(d),
@@ -24,7 +54,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
         dayNum: d.getDate(),
     }));
     const habitLogMap = new Map(
-        habits.map((habit) => [
+        sortedHabits.map((habit) => [
             habit.id,
             new Map((habit.logs ?? []).map((log) => [log.targetDate.substring(0, 10), log] as const)),
         ] as const),
@@ -67,14 +97,17 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                             </div>
                         ) : (
                             <div className="flex flex-col gap-3">
-                                {habits.map((habit) => {
+                                {sortedHabits.map((habit) => {
                                     const isSelected = habit.id === selectedHabitId;
                                     const logsByDate = habitLogMap.get(habit.id) ?? new Map();
+                                    const isPaused = habit.pausedUntil && new Date(habit.pausedUntil) > now;
+                                    const project = habit.projectId ? projectMap.get(habit.projectId) : null;
 
                                     return (
                                         <section
                                             key={habit.id}
                                             className={`rounded-[1.5rem] border px-4 py-4 transition-colors ${
+                                                isPaused ? "opacity-50" :
                                                 isSelected
                                                     ? "border-lantern/25 bg-lantern/[0.06]"
                                                     : "border-twilight-border/35 bg-white/[0.03]"
@@ -89,10 +122,24 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                     <h3 className="truncate text-[15px] font-medium text-twilight-text">
                                                         {habit.title}
                                                     </h3>
-                                                    <p className="mt-1 inline-flex items-center gap-1.5 text-[12px] text-twilight-text-soft">
-                                                        <Flame size={11} className="text-lantern shrink-0" />
-                                                        {habit.currentStreak}d streak
-                                                    </p>
+                                                    <div className="mt-1 flex items-center gap-2 flex-wrap">
+                                                        {isPaused && (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] text-twilight-text-muted">
+                                                                <Pause size={9} /> Paused
+                                                            </span>
+                                                        )}
+                                                        {habit.targetTime && !isPaused && (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] text-twilight-text-soft">
+                                                                <Clock size={9} className="shrink-0 text-twilight-text-muted/50" />
+                                                                {habit.targetTime}
+                                                            </span>
+                                                        )}
+                                                        {project && (
+                                                            <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-twilight-text-muted">
+                                                                {project.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </button>
                                                 <HabitMenu habit={habit} />
                                             </div>
@@ -164,13 +211,16 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                         ) : (
                             <div className="min-w-[38rem]">
                                 <div className="flex flex-col divide-y divide-twilight-border/20">
-                                    {habits.map((habit) => {
+                                    {sortedHabits.map((habit) => {
                                         const isSelected = habit.id === selectedHabitId;
                                         const logsByDate = habitLogMap.get(habit.id) ?? new Map();
+                                        const isPaused = habit.pausedUntil && new Date(habit.pausedUntil) > now;
+                                        const project = habit.projectId ? projectMap.get(habit.projectId) : null;
                                         return (
                                             <div
                                                 key={habit.id}
                                                 className={`group -mx-1 flex items-center rounded-xl px-1 py-3 transition-colors ${
+                                                    isPaused ? "opacity-50" :
                                                     isSelected ? "bg-lantern/[0.05]" : "hover:bg-white/[0.02]"
                                                 }`}
                                             >
@@ -191,12 +241,24 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                             }`}>
                                                                 {habit.title}
                                                             </h3>
-                                                            {habit.currentStreak > 0 && (
-                                                                <p className="mt-0.5 flex items-center gap-1 text-[11px] text-twilight-text-soft">
-                                                                    <Flame size={10} className="shrink-0 text-lantern" />
-                                                                    {habit.currentStreak}d streak
-                                                                </p>
-                                                            )}
+                                                            <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                                {isPaused && (
+                                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-twilight-text-muted">
+                                                                        <Pause size={8} /> Paused
+                                                                    </span>
+                                                                )}
+                                                                {habit.targetTime && !isPaused && (
+                                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-twilight-text-muted">
+                                                                        <Clock size={8} className="shrink-0" />
+                                                                        {habit.targetTime}
+                                                                    </span>
+                                                                )}
+                                                                {project && (
+                                                                    <span className="inline-flex items-center rounded-full bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-twilight-text-muted truncate max-w-[7rem]">
+                                                                        {project.name}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </button>
                                                     <HabitMenu habit={habit} />

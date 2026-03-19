@@ -436,8 +436,20 @@ export const habits = pgTable(
         recurrenceRule: text('recurrence_rule').notNull(),
         targetTime: text('target_time'), // e.g., "19:00" string for time-specific habits, null for all-day
 
+        // Presence mode: AMBIENT (default), ANCHOR (has targetTime), BLOCK (reserves schedule time)
+        targetMode: text('target_mode').default('AMBIENT').notNull(),
+
         // Reminders
         reminderEnabled: boolean('reminder_enabled').default(false).notNull(),
+
+        // Project linkage (optional)
+        projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+
+        // Ordering
+        sortOrder: doublePrecision('sort_order').default(0).notNull(),
+
+        // Pause support
+        pausedUntil: date('paused_until', { mode: 'string' }),
 
         // Tracking Metrics (Calculated server-side iteratively to avoid expensive COUNT(*) queries)
         totalCompletions: integer('total_completions').default(0).notNull(),
@@ -464,6 +476,7 @@ export const habits = pgTable(
     (table) => {
         return {
             userIdIdx: index('habits_user_id_idx').on(table.userId),
+            projectIdIdx: index('habits_project_id_idx').on(table.projectId),
             rlsPolicy: pgPolicy("habits_owner_access", {
                 as: "permissive",
                 for: "all",
@@ -473,6 +486,29 @@ export const habits = pgTable(
         };
     },
 ).enableRLS();
+
+// 9b. Habit–Tag associations (many-to-many)
+export const habitTags = pgTable("habit_tags", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    habitId: uuid("habit_id")
+        .references(() => habits.id, { onDelete: "cascade" })
+        .notNull(),
+    tagId: uuid("tag_id")
+        .references(() => tags.id, { onDelete: "cascade" })
+        .notNull(),
+    userId: uuid("user_id")
+        .references(() => users.id, { onDelete: "cascade" })
+        .notNull(),
+}, (table) => ({
+    uniquePair: uniqueIndex("habit_tags_unique_pair").on(table.habitId, table.tagId),
+    tagIdIdx: index("habit_tags_tag_id_idx").on(table.tagId),
+    rlsPolicy: pgPolicy("habit_tags_owner_access", {
+        as: "permissive",
+        for: "all",
+        using: rlsUsing,
+        withCheck: rlsUsing,
+    }),
+})).enableRLS();
 
 // 10. Habit Logs
 // Explicitly tracks the historical interaction with a habit on a given target date.
@@ -496,6 +532,12 @@ export const habitLogs = pgTable(
             mode: 'string',
         }),
 
+        // Timestamp of last explicit resolution action (complete/skip/clear)
+        resolvedAt: timestamp('resolved_at', {
+            withTimezone: true,
+            mode: 'string',
+        }),
+
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
             .defaultNow()
             .notNull(),
@@ -503,6 +545,10 @@ export const habitLogs = pgTable(
     (table) => {
         return {
             habitDateIdx: index('habit_logs_habit_date_idx').on(
+                table.habitId,
+                table.targetDate,
+            ),
+            habitDateUnique: uniqueIndex('habit_logs_habit_date_unique').on(
                 table.habitId,
                 table.targetDate,
             ),

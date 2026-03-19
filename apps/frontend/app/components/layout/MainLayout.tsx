@@ -97,11 +97,10 @@ export function MainLayout({
 }) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isCollapsed, toggleCollapse } = useSidebarStore();
+    const { isCollapsed, toggleCollapse, mobileNavOpen: navOpen, setMobileNavOpen: setNavOpen } = useSidebarStore();
     const [commandOpen, setCommandOpen] = useState(false);
     const [quickAddOpen, setQuickAddOpen] = useState(false);
     const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("task");
-    const [navOpen, setNavOpen] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
@@ -154,7 +153,7 @@ export function MainLayout({
 
     useEffect(() => {
         setNavOpen(false);
-    }, [location.pathname]);
+    }, [location.pathname, setNavOpen]);
 
     const pageMeta = useMemo(() => {
         if (location.pathname.startsWith("/project/")) {

@@ -101,8 +101,8 @@ export function ScheduleHeader({
     if (compact) {
         // ── Phone: two tight rows ──────────────────────────────────────────
         return (
-            <div className="shrink-0 border-b border-twilight-border px-3 py-2">
-                {/* Row 1: sidebar toggle + heading + nav + overflow + add */}
+            <div className="shrink-0 border-b border-twilight-border px-4 pt-2.5 pb-3 sm:px-6 sm:pt-3 sm:pb-3">
+                {/* Row 1: sidebar toggle + page identity + heading + nav + overflow + add */}
                 <div className="flex items-center gap-2 min-h-[44px]">
                     {onToggleSidebar && (
                         <button
@@ -114,10 +114,15 @@ export function ScheduleHeader({
                             <PanelLeftOpen size={18} />
                         </button>
                     )}
-                    <CurrentIcon size={16} className="text-lantern/70 shrink-0" />
-                    <h2 className="font-display text-base font-semibold text-twilight-text tracking-tight truncate min-w-0 flex-1">
-                        {mainHeading}
-                    </h2>
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <CurrentIcon size={14} className="text-lantern/70 shrink-0" />
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Schedule</p>
+                            <h2 className="font-display text-sm font-semibold text-twilight-text tracking-tight truncate leading-tight">
+                                {mainHeading}
+                            </h2>
+                        </div>
+                    </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                         <button
                             type="button"
@@ -202,12 +207,15 @@ export function ScheduleHeader({
     return (
         <div className="shrink-0 border-b border-twilight-border px-4 sm:px-6 lg:px-8">
             <div className="flex h-16 items-center gap-3">
-                {/* Left: heading block */}
+                {/* Left: heading block with page identity */}
                 <div className="flex min-w-0 items-center gap-2.5">
                     <CurrentIcon size={18} className="text-lantern/70 shrink-0" />
-                    <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap">
-                        {mainHeading}
-                    </h2>
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Schedule</p>
+                        <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap leading-tight">
+                            {mainHeading}
+                        </h2>
+                    </div>
                     <span className="hidden sm:flex items-center text-[13px] text-twilight-text-soft whitespace-nowrap">
                         <span className="mx-1.5 text-twilight-text-soft/50">·</span>
                         <span>{subtitleLabel}</span>

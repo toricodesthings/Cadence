@@ -61,6 +61,10 @@ function createHabit(overrides: Partial<Habit> = {}): Habit {
         archived: false,
         createdAt: "2026-03-07T00:00:00Z",
         updatedAt: "2026-03-07T00:00:00Z",
+        targetMode: "AMBIENT",
+        projectId: null,
+        sortOrder: 0,
+        pausedUntil: null,
         logs: [],
         ...overrides,
     };

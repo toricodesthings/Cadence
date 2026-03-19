@@ -1,55 +1,46 @@
 import { useEffect, useRef } from "react";
-import { useApiClient } from "../../hooks/auth/use-api-client";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
+import { useSettings } from "../../hooks/core/use-settings";
 
 export function HabitToastResolver() {
-    const client = useApiClient();
-    const fetchedRef = useRef(false);
+    const { data } = useHabitUnresolvedSummary();
+    const { data: settings } = useSettings();
+    const navigate = useNavigate();
+    const shownRef = useRef(false);
 
+    const bundleEnabled = settings?.notifications?.bundleMissedRoutinePrompts !== false;
+
+    // We only show the bundled toast once per mount
     useEffect(() => {
-        // Run once on mount
-        if (fetchedRef.current) return;
-        fetchedRef.current = true;
+        if (shownRef.current) return;
+        if (!bundleEnabled) return;
+        if (!data || !Array.isArray(data) || data.length === 0) return;
+        shownRef.current = true;
 
-        const fetchUnresolved = async () => {
-            try {
-                const res = await client.api.habits.unresolved.$get();
-                if (!res.ok) return;
-                const { data } = await res.json();
+        const count = data.length;
 
-                // data could be an array of habits missed yesterday
-                if (Array.isArray(data) && data.length > 0) {
-                    data.forEach((missedHabit: any) => {
-                        toast.warning("Missed habit", {
-                            id: `missed-habit-${String(missedHabit.id ?? missedHabit.title)}`,
-                            description: (
-                                <>
-                                    Did you manage to{" "}
-                                    <strong className="font-semibold text-lantern">
-                                        {String(missedHabit.title).toLowerCase()}
-                                    </strong>{" "}
-                                    yesterday?
-                                </>
-                            ),
-                            cancel: {
-                                label: "Missed it",
-                                onClick: () => undefined,
-                            },
-                            action: {
-                                label: "Yes, I did",
-                                onClick: () => undefined,
-                            },
-                            duration: Number.POSITIVE_INFINITY,
-                        });
-                    });
-                }
-            } catch (e) {
-                // Ignore silent ambient check
-            }
-        };
+        toast.info(
+            count === 1
+                ? `1 routine still needs a check-in`
+                : `${count} routines still need a check-in`,
+            {
+                id: "habit-unresolved-bundle",
+                description: data.slice(0, 3).map((h: any) => String(h.title)).join(", ") +
+                    (count > 3 ? ` +${count - 3} more` : ""),
+                action: {
+                    label: "Open Habits",
+                    onClick: () => navigate("/habits"),
+                },
+                cancel: {
+                    label: "Dismiss",
+                    onClick: () => undefined,
+                },
+                duration: 12000,
+            },
+        );
+    }, [data, navigate, bundleEnabled]);
 
-        fetchUnresolved();
-    }, [client]);
-
-    return null; // Renders silently high up
+    return null;
 }

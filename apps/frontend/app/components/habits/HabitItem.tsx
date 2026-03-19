@@ -45,7 +45,7 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                             : isSkipped
                                 ? 'bg-twilight-void/50 border border-twilight-border opacity-50'
                                 : 'bg-twilight-surface hover:bg-twilight-surface-hover border border-twilight-border-light hover:border-twilight-border shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]'
-                        } ${isCompleted ? 'rounded-md' : 'rounded-full'}`}
+                        } rounded-full`}
                 >
                     <AnimatePresence mode="popLayout">
                         {isCompleted && (

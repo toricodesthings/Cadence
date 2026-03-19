@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { Input } from "../../primitives/Input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import {
@@ -24,6 +25,9 @@ export function NotificationsTab() {
         quietHoursEnabled: false,
         quietHoursStart: null,
         quietHoursEnd: null,
+        habitReminderLeadMinutes: 15 as const,
+        showHabitNavDueCount: true,
+        bundleMissedRoutinePrompts: true,
     };
 
     useEffect(() => {
@@ -146,12 +150,61 @@ export function NotificationsTab() {
                 </SettingsRow>
                 <SettingsRow
                     title="Habit reminders"
-                    description="Reminders for habits approaching their target time."
+                    description="Reminders for routines approaching their target time."
                 >
                     <Switch
                         checked={notif.habitReminders}
                         onCheckedChange={(val) =>
                             updateSettings.mutate({ notifications: { habitReminders: val } })
+                        }
+                    />
+                </SettingsRow>
+                <SettingsRow
+                    title="Default reminder lead time"
+                    description="How far in advance routine reminders fire before the target time."
+                >
+                    <div className="w-full sm:max-w-[10rem]">
+                        <Select
+                            value={String(notif.habitReminderLeadMinutes)}
+                            onValueChange={(val) =>
+                                updateSettings.mutate({ notifications: { habitReminderLeadMinutes: Number(val) as any } })
+                            }
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="5">5 minutes</SelectItem>
+                                <SelectItem value="10">10 minutes</SelectItem>
+                                <SelectItem value="15">15 minutes</SelectItem>
+                                <SelectItem value="30">30 minutes</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </SettingsRow>
+            </SettingsSection>
+
+            {/* ── Routine behavior ── */}
+            <SettingsSection title="Routine behavior">
+                <SettingsRow
+                    title="Show due count on Habits nav"
+                    description="Display a dot indicator on the Habits sidebar link when routines need a check-in."
+                >
+                    <Switch
+                        checked={notif.showHabitNavDueCount}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ notifications: { showHabitNavDueCount: val } })
+                        }
+                    />
+                </SettingsRow>
+                <SettingsRow
+                    title="Bundle missed-routine prompts"
+                    description="Combine overdue routine notifications into a single dismissible prompt instead of showing each one individually."
+                >
+                    <Switch
+                        checked={notif.bundleMissedRoutinePrompts}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ notifications: { bundleMissedRoutinePrompts: val } })
                         }
                     />
                 </SettingsRow>

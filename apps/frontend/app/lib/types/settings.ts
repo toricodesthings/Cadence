@@ -23,6 +23,9 @@ export interface UserSettings {
         quietHoursEnabled: boolean;
         quietHoursStart: string | null;
         quietHoursEnd: string | null;
+        habitReminderLeadMinutes: 5 | 10 | 15 | 30;
+        showHabitNavDueCount: boolean;
+        bundleMissedRoutinePrompts: boolean;
     };
     dateTime: {
         weekStart: "Sunday" | "Monday" | "Saturday";
@@ -129,6 +132,9 @@ export const SETTINGS_DEFAULTS: UserSettings = {
         quietHoursEnabled: false,
         quietHoursStart: null,
         quietHoursEnd: null,
+        habitReminderLeadMinutes: 15,
+        showHabitNavDueCount: true,
+        bundleMissedRoutinePrompts: true,
     },
     dateTime: {
         weekStart: "Sunday",

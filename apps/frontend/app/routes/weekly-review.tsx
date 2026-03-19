@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Button } from "../components/primitives/Button";
-import { ArrowRight, ArrowLeft, Calendar, Sparkles, Trash2, Moon, Play, Clock, Sprout } from "lucide-react";
+import { ArrowRight, ArrowLeft, Calendar, Sparkles, Trash2, Moon, Play, Clock, Sprout, Check, Pause, Repeat } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toISODate } from "../lib/utils/date-format";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
@@ -30,6 +30,8 @@ export default function WeeklyReview() {
         unscheduledTasks,
         visibleWaiting,
         habitStats,
+        habitReviewItems,
+        pauseHabit,
         pendingActionKey,
         actionError,
         runCardAction,
@@ -38,6 +40,13 @@ export default function WeeklyReview() {
         handleWaitingAction,
         setKeptWaitingIds,
     } = useWeeklyReviewActions(currentStep);
+
+    const [reviewedHabitIds, setReviewedHabitIds] = useState<Set<string>>(new Set());
+    const unreviewedHabits = habitReviewItems.filter((h) => !reviewedHabitIds.has(h.id));
+
+    const markHabitReviewed = (id: string) => {
+        setReviewedHabitIds((prev) => new Set(prev).add(id));
+    };
 
     const handleNext = () => setCurrentStep(Math.min(currentStep + 1, STEPS.length - 1));
     const handleFinish = () => {
@@ -215,29 +224,99 @@ export default function WeeklyReview() {
 
                         {/* ─── Step 4 · Habits ─── */}
                         {currentStep === 4 && (
-                            <motion.div key="habits" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="text-center max-w-xl">
-                                <h1 className="text-3xl font-display font-semibold text-twilight-text mb-12">How did habits go?</h1>
-                                {habitStats.total > 0 ? (
-                                    <div className="grid grid-cols-2 gap-6 mb-12">
-                                        <div className="bg-twilight-surface/50 border border-twilight-border p-8 rounded-3xl">
-                                            <div className="text-4xl font-display font-bold text-twilight-text mb-2">{habitStats.total}</div>
-                                            <div className="text-twilight-text-muted text-sm">Target</div>
+                            <div key="habits" className="w-full h-full flex items-center justify-center">
+                                {unreviewedHabits.length > 0 ? (
+                                    <div className="w-full">
+                                        <div className="text-center mb-8">
+                                            <p className="text-sm font-medium tracking-widest text-moonlit uppercase mb-2">Routine check-in</p>
+                                            <p className="text-twilight-text-soft">{unreviewedHabits.length} routine{unreviewedHabits.length > 1 ? "s" : ""} to review</p>
                                         </div>
-                                        <div className="bg-lantern/10 border border-lantern/20 glow-lantern p-8 rounded-3xl relative overflow-hidden">
-                                            <div className="absolute inset-0 bg-gradient-to-br from-lantern/5 to-transparent pointer-events-none" />
-                                            <div className="text-4xl font-display font-bold text-lantern mb-2 relative z-10">{habitStats.completed}</div>
-                                            <div className="text-lantern/80 text-sm font-medium relative z-10">Completed</div>
-                                        </div>
+
+                                        <motion.div
+                                            key={unreviewedHabits[0].id}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -20 }}
+                                            className="mx-auto max-w-lg"
+                                        >
+                                            <div className="rounded-3xl border border-twilight-border bg-twilight-surface/50 p-8">
+                                                <div className="mb-6 flex items-center gap-3">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-moonlit/10 text-moonlit">
+                                                        <Repeat size={18} />
+                                                    </div>
+                                                    <h3 className="font-display text-xl font-semibold text-twilight-text">{unreviewedHabits[0].title}</h3>
+                                                </div>
+
+                                                <div className="mb-8 grid grid-cols-3 gap-3 text-center">
+                                                    <div className="rounded-2xl border border-twilight-border bg-white/[0.03] px-3 py-4">
+                                                        <div className="text-2xl font-display font-bold text-lantern">{unreviewedHabits[0].completedThisWeek}</div>
+                                                        <div className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-muted">Completed</div>
+                                                    </div>
+                                                    <div className="rounded-2xl border border-twilight-border bg-white/[0.03] px-3 py-4">
+                                                        <div className="text-2xl font-display font-bold text-twilight-text-soft">{unreviewedHabits[0].skippedThisWeek}</div>
+                                                        <div className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-muted">Skipped</div>
+                                                    </div>
+                                                    <div className="rounded-2xl border border-twilight-border bg-white/[0.03] px-3 py-4">
+                                                        <div className="text-2xl font-display font-bold text-moonlit">{unreviewedHabits[0].pendingThisWeek}</div>
+                                                        <div className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-muted">Pending</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => markHabitReviewed(unreviewedHabits[0].id)}
+                                                        className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-lantern/30 bg-lantern/14 px-4 text-sm font-medium text-lantern transition-colors hover:bg-lantern/20"
+                                                    >
+                                                        <Check size={16} />
+                                                        Keep this routine
+                                                    </button>
+                                                    {!unreviewedHabits[0].hasTargetTime ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                markHabitReviewed(unreviewedHabits[0].id);
+                                                                navigate(`/habits`);
+                                                            }}
+                                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06]"
+                                                        >
+                                                            <Clock size={16} />
+                                                            Add a specific time
+                                                        </button>
+                                                    ) : null}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            markHabitReviewed(unreviewedHabits[0].id);
+                                                        }}
+                                                        className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06]"
+                                                    >
+                                                        <ArrowRight size={16} />
+                                                        Simplify this routine
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            pauseHabit.pause(unreviewedHabits[0].id);
+                                                            markHabitReviewed(unreviewedHabits[0].id);
+                                                        }}
+                                                        className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.06]"
+                                                    >
+                                                        <Pause size={16} />
+                                                        Pause for a week
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
                                     </div>
                                 ) : (
-                                    <div className="bg-twilight-surface border border-twilight-border p-8 rounded-3xl mb-12">
-                                        <p className="text-twilight-text-soft italic">No habits tracked this week. Visit the Habits tab to start a new rhythm.</p>
-                                    </div>
+                                    <ReviewEmptyState
+                                        title={habitReviewItems.length > 0 ? "Routines reviewed" : "No routines this week"}
+                                        subtitle={habitReviewItems.length > 0 ? "You've reflected on each routine. Onward." : "Visit the Routines tab to start a new rhythm."}
+                                        onNext={handleNext}
+                                    />
                                 )}
-                                <Button variant="secondary" size="lg" onClick={handleNext}>
-                                    Reflect &amp; Continue <ArrowRight size={18} />
-                                </Button>
-                            </motion.div>
+                            </div>
                         )}
 
                         {/* ─── Step 5 · Ready ─── */}

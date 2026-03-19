@@ -161,7 +161,7 @@ function UpcomingCompletionButton({
             onClick={handleResolve}
             data-no-dnd="true"
             disabled={isResolving}
-            aria-label={isResolving ? "Completing habit" : "Mark habit complete"}
+            aria-label={isResolving ? "Completing routine" : "Mark routine complete"}
             className="group relative mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors duration-200 cursor-pointer disabled:cursor-wait lg:h-8 lg:w-8"
         >
             <span
@@ -230,7 +230,7 @@ function UpcomingTaskRow({
                 type="button"
                 onClick={handleOpen}
                 className="min-w-0 flex-1 rounded-2xl px-1 py-0.5 text-left"
-                aria-label={item.kind === "habit" ? `Open habits for ${item.title}` : `Open ${item.title}`}
+                aria-label={item.kind === "habit" ? `Open routines for ${item.title}` : `Open ${item.title}`}
             >
                 {isHabit ? (
                     <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">

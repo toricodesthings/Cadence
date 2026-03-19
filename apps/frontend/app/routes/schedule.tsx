@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import * as Dialog from "../components/primitives/Dialog";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useSidebarStore } from "../stores/sidebar-store";
 import {
     getDateFromTimedDropId,
     parseCalendarTimedDropId,
@@ -88,6 +89,7 @@ function applyCalendarClutterFilters(tasks: Task[], clutter: {
 
 export default function Schedule() {
     const shell = useShellMode();
+    const { setMobileNavOpen } = useSidebarStore();
     const today = new Date();
     const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
     const [currentDate, setCurrentDate] = useState<string>(toISODate(today));
@@ -575,7 +577,7 @@ export default function Schedule() {
         }
         updateTask({ id: taskId, state: "COMPLETE" });
         toast("Task completed", {
-            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "TODO" }) },
+            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "ACTIVE" }) },
         });
     }, [updateTask, client, queryClient, allVisibleTasks]);
 
@@ -601,7 +603,7 @@ export default function Schedule() {
         }
         updateTask({ id: taskId, state: "ARCHIVED" });
         toast("Task archived", {
-            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "TODO" }) },
+            action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "ACTIVE" }) },
         });
     }, [updateTask, client, queryClient, allVisibleTasks]);
 
@@ -691,11 +693,14 @@ export default function Schedule() {
                 case "c":
                     e.preventDefault();
                     setEventPopoverInfo({
-                        dateStr: currentDate,
-                        startMinute: (() => {
+                        date: currentDate,
+                        startHour: (() => {
                             const now = new Date();
-                            return now.getHours() * 60 + Math.ceil(now.getMinutes() / 15) * 15;
+                            return Math.min(23, now.getHours() + 1);
                         })(),
+                        startMinute: 0,
+                        anchorX: window.innerWidth / 2,
+                        anchorY: 140,
                     });
                     break;
                 case "escape":
@@ -918,6 +923,7 @@ export default function Schedule() {
                         onToday={handleToday}
                         onAddTask={handleAddTaskToolbar}
                         overflowContent={overflowContent}
+                        onToggleSidebar={shell.isCompact ? () => setMobileNavOpen(true) : undefined}
                         compact={shell.isCompact}
                     />
 

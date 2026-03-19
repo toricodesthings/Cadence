@@ -2,8 +2,19 @@ import { useState, useMemo, useCallback } from "react";
 import { useInbox, useDeleteInboxItem } from "../inbox";
 import { useTasks, useUpdateTask, useCreateTask, useDeleteTask } from "../tasks";
 import { useHabitsWeekly } from "../habits/use-habits";
+import { usePauseHabit } from "../habits/use-pause-habit";
 import { toISODate } from "../../lib/utils/date-format";
 import type { Task } from "../../types/task";
+
+export interface HabitReviewItem {
+    id: string;
+    title: string;
+    completedThisWeek: number;
+    skippedThisWeek: number;
+    pendingThisWeek: number;
+    totalThisWeek: number;
+    hasTargetTime: boolean;
+}
 
 function getToday() {
     return toISODate(new Date());
@@ -56,6 +67,25 @@ export function useWeeklyReviewActions(currentStep: number) {
         }
         return { total, completed };
     }, [habits]);
+
+    const habitReviewItems = useMemo<HabitReviewItem[]>(() => {
+        return habits
+            .filter((h) => !h.archived)
+            .map((h) => {
+                const logs = h.logs ?? [];
+                return {
+                    id: h.id,
+                    title: h.title,
+                    completedThisWeek: logs.filter((l: any) => l.status === "COMPLETED").length,
+                    skippedThisWeek: logs.filter((l: any) => l.status === "SKIPPED").length,
+                    pendingThisWeek: logs.filter((l: any) => l.status === "PENDING").length,
+                    totalThisWeek: logs.length,
+                    hasTargetTime: !!h.targetTime,
+                };
+            });
+    }, [habits]);
+
+    const pauseHabit = usePauseHabit();
 
     const runCardAction = useCallback(async (actionKey: string, actionFn: () => Promise<void>) => {
         if (pendingActionKey) return;
@@ -117,6 +147,8 @@ export function useWeeklyReviewActions(currentStep: number) {
         unscheduledTasks,
         visibleWaiting,
         habitStats,
+        habitReviewItems,
+        pauseHabit,
         pendingActionKey,
         actionError,
         runCardAction,

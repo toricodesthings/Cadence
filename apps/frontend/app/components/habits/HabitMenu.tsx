@@ -3,9 +3,10 @@ import * as Dialog from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
-import { MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore, Pause, Play } from "lucide-react";
 import { useDeleteHabit } from "../../hooks/habits/use-delete-habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
+import { usePauseHabit, useResumeHabit } from "../../hooks/habits/use-pause-habit";
 import { CadencePicker } from "./CadencePicker";
 import type { Habit } from "../../types/habit";
 
@@ -22,6 +23,10 @@ export function HabitMenu({ habit }: HabitMenuProps) {
 
     const { mutate: deleteHabit } = useDeleteHabit();
     const { mutate: updateHabit } = useUpdateHabit();
+    const { pause: pauseHabit } = usePauseHabit();
+    const { resume: resumeHabit } = useResumeHabit();
+
+    const isPaused = habit.pausedUntil && new Date(habit.pausedUntil) > new Date();
 
     const handleEditOpen = () => {
         setTitle(habit.title);
@@ -181,7 +186,18 @@ export function HabitMenu({ habit }: HabitMenuProps) {
                         ) : (
                             <Archive size={12} aria-hidden="true" />
                         )}
-                        {habit.archived ? "Restore habit" : "Archive habit"}
+                        {habit.archived ? "Restore routine" : "Archive routine"}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                        className="flex items-center gap-2 text-[13px]"
+                        onSelect={() => isPaused ? resumeHabit(habit.id) : pauseHabit(habit.id)}
+                    >
+                        {isPaused ? (
+                            <Play size={12} aria-hidden="true" />
+                        ) : (
+                            <Pause size={12} aria-hidden="true" />
+                        )}
+                        {isPaused ? "Resume routine" : "Pause for a week"}
                     </DropdownMenu.Item>
                     <DropdownMenu.Separator />
                     <DropdownMenu.Item

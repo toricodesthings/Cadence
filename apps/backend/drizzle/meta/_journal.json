@@ -141,6 +141,13 @@
       "when": 1773704297100,
       "tag": "0019_tranquil_thunderbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1773901708027,
+      "tag": "0020_bright_shape",
+      "breakpoints": true
     }
   ]
 }

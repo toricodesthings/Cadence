@@ -54,6 +54,11 @@ export function useCreateHabit() {
                 longestStreak: 0,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
+                targetMode: input.targetTime ? "ANCHOR" : (input.targetMode ?? "AMBIENT"),
+                projectId: input.projectId ?? null,
+                sortOrder: input.sortOrder ?? 0,
+                pausedUntil: input.pausedUntil ?? null,
+                tagIds: input.tagIds ?? [],
                 logs: [], // Will be empty until hydrated by weekly query
             };
 
