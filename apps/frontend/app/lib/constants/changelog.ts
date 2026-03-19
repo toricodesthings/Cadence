@@ -1,4 +1,4 @@
-export type ChangelogGlyph = "release" | "fix";
+export type ChangelogGlyph = "release" | "fix" | "tune";
 
 export interface ChangelogEntry {
     version: string;
@@ -12,6 +12,12 @@ export interface ChangelogEntry {
  * Keep the newest entry first.
  */
 export const CADENCE_CHANGELOG: ChangelogEntry[] = [
+    {
+        version: "v0.4 Beta",
+        title: "Holding that actually Holds",
+        description: "Big changes to the holding page and task editor, capture is seamless and frictionless, and the task editor is more intuitive and powerful than ever.",
+        glyph: "fix",
+    },
     {
         version: "v0.3 Beta",
         title: "Task and Planner improvements",

@@ -407,6 +407,10 @@ export const inboxItems = pgTable('inbox_items', {
     orderIndex: integer('order_index').notNull().default(0),
     rawText: text('raw_text').notNull(), // The messy input "Call mom tmrw at 4"
     processed: boolean('processed').default(false).notNull(), // Has the Cloudflare AI Queue converted this into a structured Task yet?
+    captureKind: text('capture_kind').default('unknown').notNull(), // 'task' | 'thought' | 'reference' | 'unknown'
+    captureStatus: text('capture_status').default('clarifying').notNull(), // 'clarifying' | 'placed' | 'kept' | 'discarded'
+    placedTaskId: uuid('placed_task_id').references(() => tasks.id, { onDelete: 'set null' }), // Link to task created from this capture
+    aiSuggestion: text('ai_suggestion'), // JSON string — AI-suggested classification, scheduling, etc.
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),

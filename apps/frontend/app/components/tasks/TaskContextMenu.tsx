@@ -21,10 +21,12 @@ export interface TaskMenuItemsProps {
     onRename?: () => void;
     MenuComponents: GenericMenu;
     onCloseMenu?: () => void;
+    /** When true, renders a simplified shallow menu for Holding context (Phase 5) */
+    holdingContext?: boolean;
 }
 
 /** Reusable inner items for either DropdownMenu or ContextMenu */
-export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu }: TaskMenuItemsProps) {
+export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu, holdingContext }: TaskMenuItemsProps) {
     const deleteTask = useDeleteTask();
     const updateTask = useUpdateTask();
     const duplicateTask = useDuplicateTask();
@@ -64,6 +66,42 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         });
         onCloseMenu?.();
     };
+
+    /* ── Holding context: shallow action set (Phase 5) ── */
+    if (holdingContext) {
+        return (
+            <>
+                <Menu.Item onClick={handleTogglePin}>
+                    <div className="flex items-center gap-2">
+                        <Pin size={16} className={task.isPinned ? "fill-lantern text-lantern" : ""} />
+                        <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
+                    </div>
+                </Menu.Item>
+
+                <Menu.Item onClick={() => onRename?.()}>
+                    <div className="flex items-center gap-2">
+                        <Pencil size={16} />
+                        <span>Rename</span>
+                    </div>
+                </Menu.Item>
+
+                <MoveToSubmenu
+                    MenuComponents={Menu as GenericMenu}
+                    currentProjectId={task.projectId}
+                    onSelect={(projectId) => updateTask.mutate({ id: task.id, projectId })}
+                />
+
+                <Menu.Separator />
+
+                <Menu.Item onSelect={() => deleteTask.mutate(task.id)} variant="danger">
+                    <div className="flex items-center gap-2">
+                        <Trash2 size={16} />
+                        <span>Discard</span>
+                    </div>
+                </Menu.Item>
+            </>
+        );
+    }
 
     if (menuView !== "main") {
         return (
@@ -301,9 +339,10 @@ export interface TaskContextMenuProps {
     task: Task;
     onAddSubtask?: () => void;
     onRename?: () => void;
+    holdingContext?: boolean;
 }
 
-export function TaskContextMenu({ task, onAddSubtask, onRename }: TaskContextMenuProps) {
+export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }: TaskContextMenuProps) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -321,6 +360,7 @@ export function TaskContextMenu({ task, onAddSubtask, onRename }: TaskContextMen
                     onRename={onRename}
                     MenuComponents={DropdownMenu}
                     onCloseMenu={() => setOpen(false)}
+                    holdingContext={holdingContext}
                 />
             </DropdownMenu.Content>
         </DropdownMenu.Root>

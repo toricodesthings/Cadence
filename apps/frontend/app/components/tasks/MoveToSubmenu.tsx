@@ -29,7 +29,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
                         onClick={() => onSelect(null)}
                         className={!currentProjectId ? "bg-white/[0.04] text-lantern" : ""}
                     >
-                        No Project (Inbox)
+                        No Project (Holding)
                     </Menu.Item>
                     <Menu.Separator />
                     {projects.map((project) => (

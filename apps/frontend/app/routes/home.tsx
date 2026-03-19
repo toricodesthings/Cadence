@@ -1,24 +1,17 @@
-import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
-import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PlannerHeader } from "../components/layout/PlannerHeader";
 import { PageContent } from "../components/layout/PageLayout";
-import { AddTaskInput } from "../components/tasks/AddTaskInput";
-import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
-import { EmptyState } from "../components/tasks/EmptyState";
-import { InboxList } from "../components/inbox/InboxList";
-import { InboxBoard } from "../components/inbox/InboxBoard";
-import { KanbanBoard } from "../components/kanban/KanbanBoard";
-import { ViewToggle } from "../components/shared/ViewToggle";
+import { CaptureInput } from "../components/holding/CaptureInput";
+import { HoldingFeed } from "../components/holding/HoldingFeed";
+import { ClarifySheet } from "../components/holding/ClarifySheet";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ControlsSheet } from "../components/shared/ControlsSheet";
-import { CalendarView } from "../components/calendar/CalendarView";
 import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
@@ -27,80 +20,90 @@ import { useTasks } from "../hooks/tasks";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { formatShortDate } from "../lib/utils/date-format";
 
 export default function HomeRoute() {
     const shell = useShellMode();
-    const [searchParams] = useSearchParams();
-    const [view, setView] = useState<"list" | "kanban">("list");
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
-    const selectedHoldingDate = searchParams.get("date");
     const { data: inboxItems = [], isLoading: inboxLoading } = useInbox();
     const { data: holdingTasks = [], isLoading: tasksLoading } = useTasks({
         state: "ACTIVE",
         hasNoProject: true,
-        scheduledDate: selectedHoldingDate ?? undefined,
     });
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel } = useRightPanelStore();
 
     useDocumentMeta(
         "Holding · Cadence",
-        "Capture unmanaged work, keep it visible, and sort raw notes without losing calm.",
+        "Capture anything. Clarify later. Place when ready.",
     );
 
     useRouteFocus();
 
-    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
-    const emptyHoldingLabel = selectedHoldingDate ? `Nothing in Holding on ${formatShortDate(selectedHoldingDate)}.` : "Holding is clear.";
-    const visibleHoldingTasks = useMemo(() => holdingTasks, [holdingTasks]);
-    const holdingSidePanelWidth = holdingPanelWidth + 4;
+    // Find the selected inbox item for ClarifySheet
+    const selectedInboxItem = useMemo(
+        () => inboxItems.find((i) => i.id === selectedInboxItemId) ?? null,
+        [inboxItems, selectedInboxItemId],
+    );
 
+    // Determine which panel content to show
+    const hasPanelContent = selectedTaskId || selectedInboxItem || holdingPanelOpen;
+
+    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
+
+    const clearSelection = useCallback(() => {
+        setSelectedTaskId(null);
+        setSelectedInboxItemId(null);
+    }, []);
+
+    /* ── Side panel — ClarifySheet for captures, TaskEditPanel for tasks, Overview fallback ── */
     const sidePanel = (
         <AnimatePresence initial={false}>
-            {(holdingPanelOpen || selectedTaskId) && (
+            {hasPanelContent && (
                 <motion.div
                     key="holding-side-panel"
-                    initial={{ width: 0 }}
-                    animate={{ width: holdingSidePanelWidth }}
-                    exit={{ width: 0 }}
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 24 }}
                     transition={panelMotion}
-                    style={{ willChange: "width", overflow: "hidden" }}
+                    style={{ willChange: "transform, opacity", width: holdingPanelWidth + 4 }}
                     className="flex h-full self-stretch shrink-0 items-stretch"
                 >
-                    <motion.div
-                        initial={{ x: 24, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 24, opacity: 0 }}
-                        transition={panelMotion}
-                        style={{ willChange: "transform, opacity" }}
-                        className="flex h-full min-w-0 flex-1 items-stretch"
+                    <ResizableSidePanel
+                        ariaLabel="Resize holding panel"
+                        width={holdingPanelWidth}
+                        onWidthChange={setHoldingPanelWidth}
                     >
-                        <ResizableSidePanel
-                            ariaLabel="Resize holding planner panel"
-                            width={holdingPanelWidth}
-                            onWidthChange={setHoldingPanelWidth}
-                        >
-                            <AnimatePresence mode="wait">
-                                {selectedTaskId ? (
-                                    <TaskEditPanel
-                                        key={`holding-edit-${selectedTaskId}`}
-                                        taskId={selectedTaskId}
-                                        onClose={() => setSelectedTaskId(null)}
-                                    />
-                                ) : (
-                                    <HoldingPlannerPanel key="holding-planner" />
-                                )}
-                            </AnimatePresence>
-                        </ResizableSidePanel>
-                    </motion.div>
+                        <AnimatePresence mode="wait">
+                            {selectedInboxItem ? (
+                                <ClarifySheet
+                                    key={`clarify-${selectedInboxItem.id}`}
+                                    item={selectedInboxItem}
+                                    onClose={clearSelection}
+                                    onOpenFullEditor={(taskId) => {
+                                        setSelectedInboxItemId(null);
+                                        setSelectedTaskId(taskId);
+                                    }}
+                                />
+                            ) : selectedTaskId ? (
+                                <TaskEditPanel
+                                    key={`holding-edit-${selectedTaskId}`}
+                                    taskId={selectedTaskId}
+                                    onClose={() => setSelectedTaskId(null)}
+                                />
+                            ) : (
+                                <HoldingPlannerPanel key="holding-planner" />
+                            )}
+                        </AnimatePresence>
+                    </ResizableSidePanel>
                 </motion.div>
             )}
         </AnimatePresence>
     );
 
     const handleSelectTask = (taskId: string) => {
+        setSelectedInboxItemId(null);
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
         if (!shell.isWide) {
             setMobileDetailMode("peek");
@@ -108,149 +111,32 @@ export default function HomeRoute() {
         }
     };
 
-    const headerCenter = <ViewToggle view={view} onViewChange={setView} />;
-    const headerRight = shell.isPhone ? (
-        <ControlsSheet
-            routeKey="holding"
-            title="Holding controls"
-            sections={[
-                {
-                    id: "view",
-                    label: "View",
-                    content: (
-                        <div className="space-y-3">
-                            <p className="text-sm text-twilight-text-soft">Switch between list and board without adding more top chrome.</p>
-                            <ViewToggle view={view} onViewChange={setView} compact />
-                        </div>
-                    ),
-                },
-                {
-                    id: "panel",
-                    label: "Panel",
-                    content: (
-                        <div className="space-y-2">
-                            <button
-                                type="button"
-                                onClick={() => setMobilePanelOpen(true)}
-                                className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
-                            >
-                                {selectedTaskId ? <PanelRightClose size={16} aria-hidden="true" /> : <CalendarDays size={16} aria-hidden="true" />}
-                                {selectedTaskId ? "Open task details" : "Open processing context"}
-                            </button>
-                            <p className="text-sm text-twilight-text-muted">Use the side context to process captures without leaving Holding.</p>
-                        </div>
-                    ),
-                },
-            ]}
-        />
-    ) : !shell.isWide ? (
-        <button
-            type="button"
-            onClick={() => setMobilePanelOpen(true)}
-            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label={selectedTaskId ? "Open task details" : "Open processing context"}
-        >
-            {selectedTaskId ? <PanelRightClose size={16} aria-hidden="true" /> : <CalendarDays size={16} aria-hidden="true" />}
-        </button>
-    ) : (
+    const handleSelectInboxItem = (itemId: string) => {
+        setSelectedTaskId(null);
+        setSelectedInboxItemId((current) => (current === itemId ? null : itemId));
+        if (!shell.isWide) {
+            setMobileDetailMode("peek");
+            setMobilePanelOpen(true);
+        }
+    };
+
+    /* ── Header: no view toggle (C1/C3/H3/H6 — board mode removed from Holding) ── */
+    const headerRight = shell.isWide ? (
         <button
             type="button"
             onClick={toggleHoldingPanel}
             className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label={holdingPanelOpen ? "Hide processing context" : "Show processing context"}
+            aria-label={holdingPanelOpen ? "Hide context panel" : "Show context panel"}
         >
             {holdingPanelOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
         </button>
-    );
-
-    const primaryContent = useMemo(() => {
-        if (view === "kanban") {
-            return (
-                <div className="flex flex-1 min-h-0 flex-col gap-6">
-                    {visibleHoldingTasks.length > 0 ? (
-                        <section className="flex-1 min-h-0">
-                            <KanbanBoard
-                                tasks={visibleHoldingTasks}
-                                projectId={null}
-                                selectedTaskId={selectedTaskId}
-                                onSelectTask={handleSelectTask}
-                                desktopCanvasPaddingClassName="px-0 pb-4 pt-0"
-                            />
-                        </section>
-                    ) : selectedHoldingDate ? (
-                        <section>
-                            <div className="rounded-[1.75rem] border border-twilight-border/45 bg-twilight-surface/22 px-6 py-8 text-center">
-                                <p className="text-base text-twilight-text-soft">{emptyHoldingLabel}</p>
-                            </div>
-                        </section>
-                    ) : null}
-                    <section>
-                        <div className="mb-4 flex items-center gap-3">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/45 bg-twilight-surface/28 px-3 py-1.5">
-                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
-                                <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
-                            </div>
-                            <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-                        </div>
-                        <div className="-mx-4 sm:-mx-6">
-                            <InboxBoard items={inboxItems} />
-                        </div>
-                    </section>
-                </div>
-            );
-        }
-
-        return (
-            <div className="flex flex-col gap-8">
-                {visibleHoldingTasks.length > 0 ? (
-                    <section>
-                        <SectionedTaskList
-                            tasks={visibleHoldingTasks}
-                            projectId={null}
-                            selectedTaskId={selectedTaskId}
-                            onSelectTask={handleSelectTask}
-                            showUngroupedAddTask={false}
-                        />
-                    </section>
-                ) : selectedHoldingDate ? (
-                    <section>
-                        <div className="rounded-[1.75rem] border border-twilight-border/45 bg-twilight-surface/22 px-6 py-8 text-center">
-                            <p className="text-base text-twilight-text-soft">{emptyHoldingLabel}</p>
-                        </div>
-                    </section>
-                ) : null}
-
-                <section>
-                    <div className="mb-4 flex items-center gap-3">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/45 bg-twilight-surface/28 px-3 py-1.5">
-                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">Needs processing</h2>
-                            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{inboxItems.length}</span>
-                        </div>
-                        <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-                    </div>
-                    {inboxItems.length > 0 ? (
-                        <InboxList items={inboxItems} />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center rounded-[1.75rem] border border-twilight-border/60 bg-twilight-surface/25 px-6 py-12 text-center">
-                            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-twilight-surface ring-1 ring-twilight-border">
-                                <Inbox size={20} className="text-twilight-text-muted" />
-                            </div>
-                            <h3 className="text-lg font-medium text-twilight-text">No raw captures waiting.</h3>
-                            <p className="mt-2 max-w-sm text-sm text-twilight-text-muted">
-                                Anything you capture outside the task list will gather here until you process it.
-                            </p>
-                        </div>
-                    )}
-                </section>
-            </div>
-        );
-    }, [emptyHoldingLabel, handleSelectTask, holdingTasks, inboxItems, selectedHoldingDate, selectedTaskId, view]);
+    ) : null;
 
     return (
         <MainLayout
             requireAuth
+            hideContextualOrb
             sidePanel={sidePanel}
-            headerCenter={headerCenter}
             headerRight={headerRight}
             contentWidth="default"
             shellHeader={{
@@ -260,44 +146,69 @@ export default function HomeRoute() {
                 accentColor: "var(--color-nav-inbox)",
             }}
         >
-            {view === "kanban" ? (
-                <>
-                    <PageContent width="full" verticalPadding="none" className="shrink-0 pb-0 pt-4 sm:pt-5 lg:pt-5">
-                        <PlannerHeader className="mb-0.5" />
-                    </PageContent>
-                    <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
-                        {tasksLoading || inboxLoading ? (
-                            <PageContent width="full" verticalPadding="none" className="pt-0 pb-4"><TaskListSkeleton /></PageContent>
-                        ) : (
-                            <PageContent width="full" verticalPadding="none" className="flex min-h-full flex-col pt-0 pb-4">
-                                {primaryContent}
-                            </PageContent>
-                        )}
+            <ScrollAreaWrapper>
+                <PageContent width="default">
+                    {/* Greeting — demoted per M1: capture leads, warmth follows */}
+                    <PlannerHeader className="mb-2" />
+
+                    {/* ── Universal capture composer — the ONE primary action (Law 1) ── */}
+                    <div className="mt-2 mb-6">
+                        <CaptureInput />
                     </div>
-                </>
-            ) : (
-                <ScrollAreaWrapper>
-                    <PageContent width="default">
-                        <PlannerHeader />
 
-                        <div className="mt-4 mb-4 rounded-[24px] bg-twilight-surface/30 backdrop-blur-md p-1">
-                            <AddTaskInput projectId={undefined} tasks={holdingTasks} />
-                        </div>
+                    {/* ── Unified Holding feed: To clarify → Ready to place ── */}
+                    {tasksLoading || inboxLoading ? (
+                        <TaskListSkeleton />
+                    ) : (
+                        <HoldingFeed
+                            inboxItems={inboxItems}
+                            holdingTasks={holdingTasks}
+                            selectedTaskId={selectedTaskId}
+                            selectedInboxItemId={selectedInboxItemId}
+                            onSelectTask={handleSelectTask}
+                            onSelectInboxItem={handleSelectInboxItem}
+                        />
+                    )}
+                </PageContent>
+            </ScrollAreaWrapper>
 
-                        {tasksLoading || inboxLoading ? <TaskListSkeleton /> : primaryContent}
-                    </PageContent>
-                </ScrollAreaWrapper>
-            )}
-
+            {/* ── Mobile overlay — ClarifySheet / TaskEditPanel / Overview (C4 fix) ── */}
             {!shell.isWide && (
                 <ResponsiveOverlayPanel
-                    ariaLabel={selectedTaskId ? "Holding details" : "Holding context"}
+                    ariaLabel={
+                        selectedInboxItem ? "Clarify capture"
+                            : selectedTaskId ? "Task details"
+                            : "Holding context"
+                    }
                     open={mobilePanelOpen}
-                    onClose={() => setMobilePanelOpen(false)}
+                    onClose={() => {
+                        setMobilePanelOpen(false);
+                        clearSelection();
+                    }}
                     mode={selectedTaskId ? mobileDetailMode : "peek"}
+                    title={
+                        selectedInboxItem ? "Clarify"
+                            : selectedTaskId ? "Task details"
+                            : "Review"
+                    }
+                    showHeader
                 >
                     <AnimatePresence mode="wait">
-                        {selectedTaskId ? (
+                        {selectedInboxItem ? (
+                            <ClarifySheet
+                                key={`clarify-mobile-${selectedInboxItem.id}`}
+                                item={selectedInboxItem}
+                                onClose={() => {
+                                    setSelectedInboxItemId(null);
+                                    setMobilePanelOpen(false);
+                                }}
+                                onOpenFullEditor={(taskId) => {
+                                    setSelectedInboxItemId(null);
+                                    setSelectedTaskId(taskId);
+                                    setMobileDetailMode("peek");
+                                }}
+                            />
+                        ) : selectedTaskId ? (
                             <TaskEditPanel
                                 key={`holding-mobile-edit-${selectedTaskId}`}
                                 taskId={selectedTaskId}

@@ -148,6 +148,13 @@
       "when": 1773901708027,
       "tag": "0020_bright_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1773958400104,
+      "tag": "0021_youthful_magneto",
+      "breakpoints": true
     }
   ]
 }

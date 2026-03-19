@@ -36,6 +36,10 @@ export function useCreateInboxItem() {
                 sectionId: null,
                 orderIndex: 0,
                 processed: false,
+                captureKind: "unknown",
+                captureStatus: "clarifying",
+                placedTaskId: null,
+                aiSuggestion: null,
                 createdAt: new Date().toISOString(),
             };
 

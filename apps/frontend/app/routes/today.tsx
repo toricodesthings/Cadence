@@ -269,29 +269,20 @@ export default function TodayRoute() {
             {shell.isWide && selectedTaskId ? (
                 <motion.div
                     key="today-side-panel"
-                    initial={{ width: 0 }}
-                    animate={{ width: "auto" }}
-                    exit={{ width: 0 }}
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 24 }}
                     transition={panelMotion}
-                    style={{ willChange: "width", overflow: "hidden" }}
+                    style={{ willChange: "transform, opacity", width: 324 }}
                     className="flex h-full self-stretch shrink-0 items-stretch"
                 >
-                    <motion.div
-                        initial={{ x: 24, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 24, opacity: 0 }}
-                        transition={panelMotion}
-                        style={{ willChange: "transform, opacity" }}
-                        className="flex h-full min-w-0 flex-1 items-stretch"
-                    >
-                        <ResizableSidePanel ariaLabel="Resize today sidebar">
-                            <TaskEditPanel
-                                key={`today-edit-${selectedTaskId}`}
-                                taskId={selectedTaskId}
-                                onClose={() => setSelectedTaskId(null)}
-                            />
-                        </ResizableSidePanel>
-                    </motion.div>
+                    <ResizableSidePanel ariaLabel="Resize today sidebar">
+                        <TaskEditPanel
+                            key={`today-edit-${selectedTaskId}`}
+                            taskId={selectedTaskId}
+                            onClose={() => setSelectedTaskId(null)}
+                        />
+                    </ResizableSidePanel>
                 </motion.div>
             ) : null}
         </AnimatePresence>

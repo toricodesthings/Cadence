@@ -203,7 +203,7 @@ export function InboxBoard({ items }: InboxBoardProps) {
             >
                 <InboxColumn
                     key="ungrouped"
-                    section={{ id: "ungrouped", name: "Unsorted Dump" }}
+                    section={{ id: "ungrouped", name: "Uncategorized" }}
                     items={itemsBySection["ungrouped"] || []}
                 />
 

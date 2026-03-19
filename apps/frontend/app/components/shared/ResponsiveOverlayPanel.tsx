@@ -1,5 +1,6 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
+import { useCallback } from "react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 interface ResponsiveOverlayPanelProps {
@@ -11,6 +12,8 @@ interface ResponsiveOverlayPanelProps {
     showHeader?: boolean;
     mode?: "peek" | "focus";
 }
+
+const SWIPE_THRESHOLD = 80;
 
 export function ResponsiveOverlayPanel({
     ariaLabel,
@@ -24,6 +27,16 @@ export function ResponsiveOverlayPanel({
     const shell = useShellMode();
     const isMobile = shell.isCompact;
     const isFocus = mode === "focus";
+    const isPeekMobile = isMobile && !isFocus;
+
+    const handleDragEnd = useCallback(
+        (_: unknown, info: PanInfo) => {
+            if (info.offset.y > SWIPE_THRESHOLD || info.velocity.y > 300) {
+                onClose();
+            }
+        },
+        [onClose],
+    );
 
     return (
         <AnimatePresence>
@@ -47,6 +60,11 @@ export function ResponsiveOverlayPanel({
                         role="dialog"
                         aria-modal="true"
                         aria-label={ariaLabel}
+                        /* Swipe-to-dismiss for mobile peek sheets (C4 fix) */
+                        drag={isPeekMobile ? "y" : false}
+                        dragConstraints={{ top: 0 }}
+                        dragElastic={0.15}
+                        onDragEnd={isPeekMobile ? handleDragEnd : undefined}
                         className={[
                             "mobile-sheet-shell fixed z-50 flex w-full flex-col bg-twilight-deep/96 shadow-2xl shadow-black/40 backdrop-blur-2xl",
                             isMobile
@@ -56,6 +74,13 @@ export function ResponsiveOverlayPanel({
                                 : "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border",
                         ].join(" ")}
                     >
+                        {/* ── Mobile grabber bar — swipe affordance (C4 fix) ── */}
+                        {isPeekMobile && (
+                            <div className="flex justify-center py-2.5" aria-hidden="true">
+                                <div className="h-1 w-10 rounded-full bg-twilight-text-muted/25" />
+                            </div>
+                        )}
+
                         {showHeader && title ? (
                             <div className="mobile-sheet-header flex items-center justify-between gap-3 border-b border-twilight-border px-4 py-4 sm:px-5">
                                 <div>

@@ -11,7 +11,7 @@ interface RightPanelState {
 export const useRightPanelStore = create<RightPanelState>()(
     persist(
         (set) => ({
-            holdingPanelOpen: true,
+            holdingPanelOpen: false,
             holdingPanelWidth: 320,
             toggleHoldingPanel: () => set((s) => ({ holdingPanelOpen: !s.holdingPanelOpen })),
             setHoldingPanelWidth: (width) => set({ holdingPanelWidth: width }),

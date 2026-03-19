@@ -36,6 +36,8 @@ interface TaskCardProps {
     isDropTarget?: boolean;
     onSelect?: (id: string) => void;
     variant?: "list" | "board";
+    /** Simplify context menu and reduce metadata for Holding route */
+    holdingContext?: boolean;
 }
 
 /** Priority bar CSS var classes — references CSS custom properties set in app.css */
@@ -188,6 +190,7 @@ export function TaskCard({
     isDropTarget = false,
     onSelect,
     variant = "list",
+    holdingContext,
 }: TaskCardProps) {
     const isComplete = task.state === "COMPLETE";
     const priorityConfig = PRIORITY_CONFIG[task.priority];
@@ -452,18 +455,11 @@ export function TaskCard({
             {/* Content */}
             <div className={`min-w-0 flex-1 ${isCompactCard ? "flex min-h-[2.75rem] items-center" : ""}`}>
                 <div className="flex-1">
-                    <div
-                        role="button"
-                        tabIndex={0}
+                    <button
+                        type="button"
                         onClick={(e) => {
                             e.stopPropagation();
                             handleSelect(e);
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                handleSelect(e);
-                            }
                         }}
                         aria-label={`Open ${task.title}${task.priority > 0 ? `, ${priorityConfig.label} priority` : ""}`}
                         aria-pressed={isTaskSelected}
@@ -572,7 +568,7 @@ export function TaskCard({
                                 ) : null}
                             </div>
                         </div>
-                    </div>
+                    </button>
 
                     <AnimatePresence>
                         {isSubtasksExpanded && orderedSubtasks.length > 0 ? (
@@ -704,7 +700,7 @@ export function TaskCard({
 
             {/* Context menu — visible on hover */}
             <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100" : `opacity-0 group-hover:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
-                <TaskContextMenu task={task} onAddSubtask={handleAddSubtask} onRename={handleRename} />
+                <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : handleAddSubtask} onRename={handleRename} holdingContext={holdingContext} />
             </div>
         </article>
     );

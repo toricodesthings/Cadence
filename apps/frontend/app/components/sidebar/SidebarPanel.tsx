@@ -9,6 +9,7 @@ import { ProjectLink } from "./ProjectLink";
 import { CreateProjectPopover } from "./CreateProjectPopover";
 import { useProjects } from "../../hooks/projects";
 import { useInbox } from "../../hooks/inbox";
+import { useTasks } from "../../hooks/tasks";
 import { resolveAccentColor } from "../../lib/utils/color-resolver";
 import { Skeleton } from "../primitives/Skeleton";
 import { Button } from "../primitives/Button";
@@ -32,6 +33,10 @@ export function SidebarPanel({
     const [listsOpen, setListsOpen] = useState(true);
     const { data: projects, isLoading: projectsLoading } = useProjects();
     const { data: inboxItems, isLoading: inboxLoading } = useInbox();
+    const { data: holdingTasks = [], isLoading: holdingLoading } = useTasks({
+        state: "ACTIVE",
+        hasNoProject: true,
+    });
     const { data: tags = [], isLoading: tagsLoading } = useTags();
     const { activeTagId, setActiveTag } = useTagFilterStore();
     const { data: userSettings } = useSettings();
@@ -75,9 +80,9 @@ export function SidebarPanel({
 
     const filteredTags = tags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()));
 
-    const inboxCount = inboxLoading ? (
+    const inboxCount = inboxLoading || holdingLoading ? (
         <Skeleton className="h-4 w-6 rounded-xl bg-white/[0.04]" />
-    ) : inboxItems?.length ?? 0;
+    ) : (inboxItems?.length ?? 0) + holdingTasks.length;
 
     const { data: unresolvedHabits } = useHabitUnresolvedSummary();
     const showHabitDot = userSettings?.notifications?.showHabitNavDueCount !== false;

@@ -19,6 +19,8 @@ import * as Separator from "../primitives/Separator";
 import * as Tooltip from "../primitives/Tooltip";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
+import { Skeleton } from "../primitives/Skeleton";
+import { Switch } from "../primitives/Switch";
 import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/utils/priority";
 import {
@@ -44,7 +46,7 @@ function formatDateTime(iso: string) {
 }
 
 const segmentedControlClass = "flex max-w-full flex-wrap justify-end gap-0.5 rounded-xl bg-white/[0.04] p-0.5";
-const stackedPanelTriggerClass = "flex w-full items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.04]";
+const stackedPanelTriggerClass = "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.04]";
 
 const MetaRow = React.memo(function MetaRow({
     icon: Icon,
@@ -56,7 +58,7 @@ const MetaRow = React.memo(function MetaRow({
     children: React.ReactNode;
 }) {
     return (
-        <div className="grid grid-cols-[auto,5rem,minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-b border-twilight-border/40 px-5 py-3" role="group" aria-label={label}>
+        <div className="grid grid-cols-[auto,5rem,minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-4 py-2.5" role="group" aria-label={label}>
             <Icon
                 size={15}
                 className="mt-1 shrink-0 text-twilight-text-muted"
@@ -98,7 +100,6 @@ export function TaskEditPanel({
     const [title, setTitle] = useState(task?.title ?? "");
     const [notes, setNotes] = useState(task?.content ?? "");
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
-    const [showDetails, setShowDetails] = useState(false);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [notesFocusMode, setNotesFocusMode] = useState(false);
     const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
@@ -234,7 +235,7 @@ export function TaskEditPanel({
         ? `${completedSubtasks}/${subtasks.length} complete`
         : "No subtasks yet";
     const noteSummary = notes.trim() ? `${charCount.toLocaleString()} chars` : "Tap to write notes";
-    const detailsSummary = showDetails ? "Controls expanded" : "Priority, schedule, tags, state";
+    const detailsSummary = "Priority, schedule, tags, state";
 
     return (
         <motion.div
@@ -247,8 +248,17 @@ export function TaskEditPanel({
             aria-label="Task details"
         >
             {!task ? (
-                <div className="flex-1 flex items-center justify-center text-twilight-text-muted text-sm">
-                    <p>Loading task…</p>
+                <div className="flex h-full flex-col">
+                    <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
+                        <Skeleton className="h-7 w-7 rounded-lg" />
+                        <Skeleton className="h-4 flex-1 rounded-lg" />
+                        <Skeleton className="h-7 w-7 rounded-lg" />
+                    </div>
+                    <div className="flex flex-col gap-3 p-5">
+                        <Skeleton className="h-40 w-full rounded-2xl" />
+                        <Skeleton className="h-14 w-full rounded-2xl" />
+                        <Skeleton className="h-14 w-full rounded-2xl" />
+                    </div>
                 </div>
             ) : (
                 <ImmersiveDetailLayout
@@ -256,9 +266,10 @@ export function TaskEditPanel({
                     header={(
                         <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
                         <button
+                            type="button"
                             onClick={onClose}
                             aria-label="Close task details"
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
+                            className="w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
                         >
                             <ArrowLeft size={15} aria-hidden="true" />
                         </button>
@@ -272,7 +283,7 @@ export function TaskEditPanel({
                             onBlur={handleTitleBlur}
                             onKeyDown={handleTitleKeyDown}
                             aria-label="Task title"
-                            className="peer flex-1 min-w-0 bg-transparent font-display text-sm font-medium text-twilight-text outline-none placeholder:text-twilight-text-muted/80 truncate"
+                            className="peer flex-1 min-w-0 cursor-text bg-transparent font-display text-sm font-medium text-twilight-text outline-none placeholder:text-twilight-text-muted/80 truncate"
                             placeholder="Task title"
                             />
                             <div className="absolute right-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity text-twilight-text-muted peer-focus:opacity-0 flex items-center justify-center">
@@ -286,10 +297,9 @@ export function TaskEditPanel({
                                 onClick={() => {
                                     onDetailModeChange(detailMode === "focus" ? "peek" : "focus");
                                     setNotesFocusMode(false);
-                                    setActivePanel("details");
                                 }}
                                 aria-label={detailMode === "focus" ? "Back to split view" : "Expand editor"}
-                                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
+                                className={`w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center transition-colors shrink-0 ${
                                     detailMode === "focus"
                                         ? "text-lantern bg-lantern/10"
                                         : "text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
@@ -299,29 +309,13 @@ export function TaskEditPanel({
                             </button>
                         ) : null}
 
-                        <button
-                            onClick={() => {
-                                const nextExpanded = !showDetails;
-                                setShowDetails(nextExpanded);
-                                setNotesFocusMode(false);
-                                setActivePanel(nextExpanded ? "details" : "notes");
-                            }}
-                            aria-label={showDetails ? "Hide task details" : "Show task details"}
-                            aria-expanded={showDetails}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 ${showDetails
-                                ? "text-lantern bg-lantern/10"
-                                : "text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                }`}
-                        >
-                            <SlidersHorizontal size={14} aria-hidden="true" />
-                        </button>
-
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
                                 <button
+                                    type="button"
                                     aria-label="Task actions"
                                     aria-haspopup="menu"
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
+                                    className="w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
                                 >
                                     <MoreHorizontal size={15} aria-hidden="true" />
                                 </button>
@@ -346,37 +340,169 @@ export function TaskEditPanel({
                     )}
                 >
 
-                    {/* Collapsible metadata — revealed when user clicks settings icon */}
-                    <AnimatePresence initial={false}>
-                        {showDetails && !notesFocusMode && activePanel === "details" && (
-                            <motion.div
-                                key="metadata"
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
-                                className="overflow-hidden flex-1 min-h-0 border-b border-twilight-border"
+                    <div className="flex h-full min-h-0 flex-col overflow-y-auto scrollbar-thin px-5 pb-5 pt-5 gap-3">
+                        {/* ── Notes pane ── */}
+                        {activePanel !== "notes" ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setNotesFocusMode(false);
+                                    setActivePanel("notes");
+                                }}
+                                className={stackedPanelTriggerClass}
                             >
-                                <div className="flex h-full min-h-0 flex-col overflow-y-auto scrollbar-thin">
+                                <div>
+                                    <p className="text-sm font-medium text-twilight-text">Notes</p>
+                                    <p className="text-xs text-twilight-text-muted">{noteSummary}</p>
+                                </div>
+                                <Pencil size={14} className="text-twilight-text-muted" aria-hidden="true" />
+                            </button>
+                        ) : null}
+
+                        <AnimatePresence initial={false}>
+                            {activePanel === "notes" ? (
+                                <motion.div
+                                    key="notes-panel"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                                    className="flex min-h-[12rem] flex-col"
+                                >
+                                    <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
+                                        <MarkdownEditor
+                                            notes={notes}
+                                            isEditing={isEditingNotes}
+                                            setIsEditing={setIsEditingNotes}
+                                            onChange={handleNotesChange}
+                                            maxLength={maxChars}
+                                            isFocusMode={notesFocusMode}
+                                            onToggleFocusMode={() => {
+                                                setNotesFocusMode((value) => {
+                                                    const next = !value;
+                                                    if (next) {
+                                                        setActivePanel("notes");
+                                                    }
+                                                    return next;
+                                                });
+                                            }}
+                                        />
+                                    </Suspense>
+
+                                    {convertibleNoteLines.length > 0 && !notesFocusMode ? (
+                                        <div className="mt-3 flex items-center justify-between rounded-[1.2rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3">
+                                            <div>
+                                                <p className="text-sm text-twilight-text">Turn note bullets into subtasks</p>
+                                                <p className="text-xs text-twilight-text-muted">
+                                                    Cadence found {convertibleNoteLines.length} structured line{convertibleNoteLines.length === 1 ? "" : "s"} in this note.
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const baseOrder = Date.now();
+                                                    convertibleNoteLines.forEach((line, index) => {
+                                                        createSubtask.mutate({ title: line, orderIndex: baseOrder + index });
+                                                    });
+                                                }}
+                                                className="cursor-pointer rounded-xl border border-lantern/20 bg-lantern/10 px-3 py-2 text-xs font-medium text-lantern transition-colors hover:bg-lantern/16"
+                                            >
+                                                Create subtasks
+                                            </button>
+                                        </div>
+                                    ) : null}
+
+                                    <div className="flex items-center justify-between pt-2 shrink-0">
+                                        <p className="text-[10px] text-twilight-text-muted/90 leading-relaxed" aria-label="Task metadata">
+                                            Created {formatDateTime(task.createdAt)}
+                                            {task.updatedAt !== task.createdAt && (
+                                                <> · Updated {formatDateTime(task.updatedAt)}</>
+                                            )}
+                                        </p>
+                                        <div className="flex items-center gap-3">
+                                            {notesFocusMode ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNotesFocusMode(false)}
+                                                    className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
+                                                >
+                                                    Exit focus
+                                                </button>
+                                            ) : null}
+                                            <span
+                                                className={`text-[10px] tabular-nums ${charCount > maxChars * 0.9
+                                                    ? "text-lantern"
+                                                    : "text-twilight-text-muted/90"
+                                                    }`}
+                                                aria-live="polite"
+                                                aria-label={`${charCount} of ${maxChars} characters used`}
+                                            >
+                                                {charCount.toLocaleString()} / {maxChars.toLocaleString()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
+
+                        {/* ── Details pane ── */}
+                        {activePanel !== "details" && !notesFocusMode ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setNotesFocusMode(false);
+                                    setActivePanel("details");
+                                }}
+                                className={stackedPanelTriggerClass}
+                            >
+                                <div>
+                                    <p className="text-sm font-medium text-twilight-text">Details</p>
+                                    <p className="text-xs text-twilight-text-muted">{detailsSummary}</p>
+                                </div>
+                                <SlidersHorizontal size={14} className="text-twilight-text-muted" aria-hidden="true" />
+                            </button>
+                        ) : null}
+
+                        <AnimatePresence initial={false}>
+                            {activePanel === "details" && !notesFocusMode ? (
+                                <motion.div
+                                    key="details-panel"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                                    className="flex flex-col overflow-hidden rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02]"
+                                >
+                                    <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                                        <p className="text-sm font-medium text-twilight-text">Details</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActivePanel("notes")}
+                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
+                                        >
+                                            Back to notes
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-col divide-y divide-twilight-border/25 overflow-y-auto scrollbar-thin">
                                     {/* State */}
                                     <MetaRow icon={CircleDot} label="State">
                                         <div className={segmentedControlClass}>
                                             <button
                                                 onClick={() => handleStateChange("ACTIVE")}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "ACTIVE" ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`cursor-pointer px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "ACTIVE" ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Active
                                             </button>
                                             <button
                                                 onClick={() => handleStateChange("WAITING")}
-                                                className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "WAITING" ? "bg-moonlit/15 text-moonlit shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`cursor-pointer px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "WAITING" ? "bg-moonlit/15 text-moonlit shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Waiting
                                             </button>
                                             {!isPassiveTimetable ? (
                                                 <button
                                                     onClick={() => handleStateChange("COMPLETE")}
-                                                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "COMPLETE" ? "bg-feedback-success/15 text-feedback-success shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                    className={`cursor-pointer px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "COMPLETE" ? "bg-feedback-success/15 text-feedback-success shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                                 >
                                                     Complete
                                                 </button>
@@ -397,7 +523,7 @@ export function TaskEditPanel({
                                                         interactionMode: "timetable",
                                                         ...(task.state === "COMPLETE" ? { state: "ACTIVE" } : {}),
                                                     })}
-                                                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${
+                                                    className={`cursor-pointer px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${
                                                         task.interactionMode === "timetable"
                                                             ? "bg-moonlit/15 text-moonlit shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
                                                             : "text-twilight-text-muted hover:text-twilight-text"
@@ -407,7 +533,7 @@ export function TaskEditPanel({
                                                 </button>
                                                 <button
                                                     onClick={() => updateTask.mutate({ id: task.id, interactionMode: "task" })}
-                                                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${
+                                                    className={`cursor-pointer px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${
                                                         task.interactionMode === "task"
                                                             ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
                                                             : "text-twilight-text-muted hover:text-twilight-text"
@@ -422,10 +548,11 @@ export function TaskEditPanel({
                                     <AnimatePresence>
                                         {task.state === "WAITING" && (
                                             <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: "auto", opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className="overflow-hidden bg-white/[0.02] border-b border-twilight-border/40"
+                                                initial={{ opacity: 0, scaleY: 0.95 }}
+                                                animate={{ opacity: 1, scaleY: 1 }}
+                                                exit={{ opacity: 0, scaleY: 0.95 }}
+                                                style={{ transformOrigin: "top" }}
+                                                className="bg-white/[0.02]"
                                             >
                                                 <div className="flex flex-col gap-2 pl-[42px] pr-5 py-3">
                                                     <div className="flex items-center gap-2">
@@ -469,7 +596,7 @@ export function TaskEditPanel({
                                                 updateTask.mutate({ id: task.id, notBefore: updates.scheduledStart ?? null });
                                             }}
                                         >
-                                            <Button variant="ghost" size="sm" className="text-[13px] text-twilight-text-soft hover:text-twilight-text p-0">
+                                            <Button variant="ghost" size="sm" className="cursor-pointer text-[13px] text-twilight-text-soft hover:text-twilight-text p-0">
                                                 {task.notBefore ? formatDateTime(task.notBefore) : "Not set"}
                                             </Button>
                                         </DeadlinePickerPopover>
@@ -508,7 +635,7 @@ export function TaskEditPanel({
                                             recurrenceRule={task.recurrenceRule}
                                             onChange={handleDeadlineChange}
                                         >
-                                            <Button variant="ghost" size="sm" className="text-[13px] text-twilight-text-soft hover:text-twilight-text p-0">
+                                            <Button variant="ghost" size="sm" className="cursor-pointer text-[13px] text-twilight-text-soft hover:text-twilight-text p-0">
                                                 {scheduleLabel}
                                             </Button>
                                         </DeadlinePickerPopover>
@@ -555,7 +682,7 @@ export function TaskEditPanel({
                                             })}
                                             <DropdownMenu.Root>
                                                 <DropdownMenu.Trigger asChild>
-                                                    <Button variant="ghost" size="sm" className="rounded-full px-2.5 py-1 text-[12px] border border-twilight-border border-dashed">
+                                                    <Button variant="ghost" size="sm" className="cursor-pointer rounded-full px-2.5 py-1 text-[12px] border border-twilight-border border-dashed">
                                                         <Plus size={12} />
                                                         Add tag
                                                     </Button>
@@ -574,19 +701,11 @@ export function TaskEditPanel({
 
                                     {/* Pinned */}
                                     <MetaRow icon={Pin} label="Pinned">
-                                        <button
-                                            onClick={handlePinToggle}
+                                        <Switch
+                                            checked={task.isPinned}
+                                            onCheckedChange={() => handlePinToggle()}
                                             aria-label={task.isPinned ? "Unpin task" : "Pin task"}
-                                            aria-pressed={task.isPinned}
-                                            className={`relative w-9 h-5 rounded-full transition-colors ${task.isPinned ? "bg-lantern/30" : "bg-white/[0.08]"
-                                                }`}
-                                        >
-                                            <span
-                                                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform bg-white  ${task.isPinned ? "translate-x-4" : "translate-x-0"
-                                                    }`}
-                                                aria-hidden="true"
-                                            />
-                                        </button>
+                                        />
                                     </MetaRow>
 
                                     {/* Recurrence */}
@@ -605,125 +724,19 @@ export function TaskEditPanel({
                                         </MetaRow>
                                     )}
                                 </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    <div className="flex h-full min-h-0 flex-col px-5 pb-3 pt-5">
-                        {activePanel !== "notes" ? (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowDetails(false);
-                                    setNotesFocusMode(false);
-                                    setActivePanel("notes");
-                                }}
-                                className={stackedPanelTriggerClass}
-                            >
-                                <div>
-                                    <p className="text-sm font-medium text-twilight-text">Notes</p>
-                                    <p className="text-xs text-twilight-text-muted">{noteSummary}</p>
-                                </div>
-                                <Pencil size={14} className="text-twilight-text-muted" aria-hidden="true" />
-                            </button>
-                        ) : null}
-
-                        <AnimatePresence initial={false}>
-                            {activePanel === "notes" ? (
-                                <motion.div
-                                    key="notes-panel"
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -8 }}
-                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                    className="flex min-h-0 flex-1 flex-col"
-                                >
-                                    <Suspense fallback={<div className="flex-1" />}>
-                                        <MarkdownEditor
-                                            notes={notes}
-                                            isEditing={isEditingNotes}
-                                            setIsEditing={setIsEditingNotes}
-                                            onChange={handleNotesChange}
-                                            maxLength={maxChars}
-                                            isFocusMode={notesFocusMode}
-                                            onToggleFocusMode={() => {
-                                                setNotesFocusMode((value) => {
-                                                    const next = !value;
-                                                    if (next) {
-                                                        setShowDetails(false);
-                                                        setActivePanel("notes");
-                                                    }
-                                                    return next;
-                                                });
-                                            }}
-                                        />
-                                    </Suspense>
-
-                                    {convertibleNoteLines.length > 0 && !notesFocusMode ? (
-                                        <div className="mt-3 flex items-center justify-between rounded-[1.2rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3">
-                                            <div>
-                                                <p className="text-sm text-twilight-text">Turn note bullets into subtasks</p>
-                                                <p className="text-xs text-twilight-text-muted">
-                                                    Cadence found {convertibleNoteLines.length} structured line{convertibleNoteLines.length === 1 ? "" : "s"} in this note.
-                                                </p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const baseOrder = Date.now();
-                                                    convertibleNoteLines.forEach((line, index) => {
-                                                        createSubtask.mutate({ title: line, orderIndex: baseOrder + index });
-                                                    });
-                                                }}
-                                                className="rounded-xl border border-lantern/20 bg-lantern/10 px-3 py-2 text-xs font-medium text-lantern transition-colors hover:bg-lantern/16"
-                                            >
-                                                Create subtasks
-                                            </button>
-                                        </div>
-                                    ) : null}
-
-                                    <div className="flex items-center justify-between pt-2 shrink-0">
-                                        <p className="text-[10px] text-twilight-text-muted/90 leading-relaxed" aria-label="Task metadata">
-                                            Created {formatDateTime(task.createdAt)}
-                                            {task.updatedAt !== task.createdAt && (
-                                                <> · Updated {formatDateTime(task.updatedAt)}</>
-                                            )}
-                                        </p>
-                                        <div className="flex items-center gap-3">
-                                            {notesFocusMode ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setNotesFocusMode(false)}
-                                                    className="text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
-                                                >
-                                                    Exit focus
-                                                </button>
-                                            ) : null}
-                                            <span
-                                                className={`text-[10px] tabular-nums ${charCount > maxChars * 0.9
-                                                    ? "text-lantern"
-                                                    : "text-twilight-text-muted/90"
-                                                    }`}
-                                                aria-live="polite"
-                                                aria-label={`${charCount} of ${maxChars} characters used`}
-                                            >
-                                                {charCount.toLocaleString()} / {maxChars.toLocaleString()}
-                                            </span>
-                                        </div>
-                                    </div>
                                 </motion.div>
                             ) : null}
                         </AnimatePresence>
 
+                        {/* ── Subtasks pane ── */}
                         {activePanel !== "subtasks" && !notesFocusMode ? (
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setShowDetails(false);
                                     setNotesFocusMode(false);
                                     setActivePanel("subtasks");
                                 }}
-                                className={`${stackedPanelTriggerClass} ${activePanel === "notes" ? "mt-3" : "mt-4"}`}
+                                className={stackedPanelTriggerClass}
                             >
                                 <div>
                                     <p className="text-sm font-medium text-twilight-text">Subtasks</p>
@@ -740,8 +753,8 @@ export function TaskEditPanel({
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -8 }}
-                                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                    className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02] px-4 py-3"
+                                    transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                                    className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02] px-4 py-3"
                                 >
                                     <div className="mb-2 flex items-center justify-between">
                                         <div>
@@ -751,7 +764,7 @@ export function TaskEditPanel({
                                         <button
                                             type="button"
                                             onClick={() => setActivePanel("notes")}
-                                            className="text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
+                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
                                         >
                                             Back to notes
                                         </button>

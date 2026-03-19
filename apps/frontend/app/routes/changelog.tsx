@@ -1,4 +1,4 @@
-import { History, Sparkles, Wrench } from "lucide-react";
+import { History, Sparkles, Wrench, Bolt } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
@@ -19,6 +19,11 @@ const CHANGELOG_GLYPHS: Record<ChangelogEntry["glyph"], { icon: typeof Sparkles;
         accentClassName: "text-moonlit",
         surfaceClassName: "border-moonlit/20 bg-moonlit/10",
     },
+    tune: {
+        icon: Bolt,
+        accentClassName: "text-starlight",
+        surfaceClassName: "border-starlight/20 bg-starlight/10",
+    }
 };
 
 export default function ChangelogRoute() {
