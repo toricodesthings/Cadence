@@ -3,7 +3,7 @@ const DEV_NEON_AUTH_URL = "https://ep-green-forest-aeushytt.neonauth.c-2.us-east
 const DEV_WEB_APP_BASE_URL = "http://localhost:8788";
 const PROD_WEB_APP_BASE_URL = "https://dashboard.cadenceapp.cloud";
 const DEFAULT_RUNTIME_TARGET = "web";
-const DEFAULT_PUBLIC_APP_VERSION = "v0.2 Beta";
+const DEFAULT_PUBLIC_APP_VERSION = "v0.5 Beta";
 
 function requirePublicEnv(name: "VITE_API_BASE_URL" | "VITE_NEON_AUTH_URL", devFallback: string) {
     const configured = (import.meta.env as Record<string, string | undefined>)[name];
