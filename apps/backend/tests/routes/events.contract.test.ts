@@ -45,7 +45,7 @@ function eventRequest(app: Hono<any>, url: string, init?: RequestInit) {
     return app.request(url, init, {}, mockExecutionCtx as any);
 }
 
-function createTrackingAllowedDb(allowed: boolean) {
+function createSelectTx(allowed: boolean) {
     return {
         select: vi.fn(() => ({
             from: vi.fn(() => ({
@@ -69,6 +69,19 @@ function createInsertTx() {
     };
 }
 
+/** Set up withRls to handle isTrackingAllowed (select) then optionally event write (insert). */
+function setupTrackingMock(allowed: boolean) {
+    const selectTx = createSelectTx(allowed);
+    if (allowed) {
+        const insertTx = createInsertTx();
+        withRlsMock
+            .mockImplementationOnce(async (_db: any, _userId: any, cb: any) => cb(selectTx))
+            .mockImplementationOnce(async (_db: any, _userId: any, cb: any) => cb(insertTx));
+    } else {
+        withRlsMock.mockImplementationOnce(async (_db: any, _userId: any, cb: any) => cb(selectTx));
+    }
+}
+
 describe("events route contracts", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -77,10 +90,8 @@ describe("events route contracts", () => {
     // ── POST /events ──
 
     it("accepts a valid single event when tracking is allowed", async () => {
-        const db = createTrackingAllowedDb(true);
-        const tx = createInsertTx();
-        getDbClientMock.mockReturnValue(db);
-        withRlsMock.mockImplementation(async (_db: any, _userId: any, callback: any) => callback(tx));
+        getDbClientMock.mockReturnValue({});
+        setupTrackingMock(true);
 
         const app = createEventApp();
         const response = await eventRequest(app, "http://localhost/events", {
@@ -95,8 +106,8 @@ describe("events route contracts", () => {
     });
 
     it("returns tracked:false when user has opted out of diagnostics", async () => {
-        const db = createTrackingAllowedDb(false);
-        getDbClientMock.mockReturnValue(db);
+        getDbClientMock.mockReturnValue({});
+        setupTrackingMock(false);
 
         const app = createEventApp();
         const response = await eventRequest(app, "http://localhost/events", {
@@ -111,10 +122,8 @@ describe("events route contracts", () => {
     });
 
     it("accepts optional metadata on a single event", async () => {
-        const db = createTrackingAllowedDb(true);
-        const tx = createInsertTx();
-        getDbClientMock.mockReturnValue(db);
-        withRlsMock.mockImplementation(async (_db: any, _userId: any, callback: any) => callback(tx));
+        getDbClientMock.mockReturnValue({});
+        setupTrackingMock(true);
 
         const app = createEventApp();
         const response = await eventRequest(app, "http://localhost/events", {
@@ -158,10 +167,8 @@ describe("events route contracts", () => {
     // ── POST /events/batch ──
 
     it("accepts a valid batch of events", async () => {
-        const db = createTrackingAllowedDb(true);
-        const tx = createInsertTx();
-        getDbClientMock.mockReturnValue(db);
-        withRlsMock.mockImplementation(async (_db: any, _userId: any, callback: any) => callback(tx));
+        getDbClientMock.mockReturnValue({});
+        setupTrackingMock(true);
 
         const app = createEventApp();
         const response = await eventRequest(app, "http://localhost/events/batch", {
@@ -209,8 +216,8 @@ describe("events route contracts", () => {
     });
 
     it("returns tracked:false for batch when user opted out", async () => {
-        const db = createTrackingAllowedDb(false);
-        getDbClientMock.mockReturnValue(db);
+        getDbClientMock.mockReturnValue({});
+        setupTrackingMock(false);
 
         const app = createEventApp();
         const response = await eventRequest(app, "http://localhost/events/batch", {

@@ -9,10 +9,13 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDocumentMeta } from "../../hooks/core/use-document-meta";
+import { useFocusViews } from "../../hooks/core/use-focus-views";
+import { useSettings } from "../../hooks/core/use-settings";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 import { useBrowserNotifications } from "../../hooks/notifications/use-browser-notifications";
 import { useThemeSync } from "../../hooks/ui/use-theme-sync";
 import { useViewMode } from "../../hooks/ui/use-view-mode";
+import { useFocusViewStore } from "../../stores/focus-view-store";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
@@ -25,6 +28,7 @@ const CommandPalette = lazy(() => import("../command-palette/CommandPalette").th
 const SettingsDialog = lazy(() => import("../settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 const QuickAddSurface = lazy(() => import("../quick-add/QuickAddSurface").then((m) => ({ default: m.QuickAddSurface })));
 const FloatingActionBar = lazy(() => import("../tasks/FloatingActionBar").then((m) => ({ default: m.FloatingActionBar })));
+const TaskNoteRoom = lazy(() => import("../tasks/TaskNoteRoom").then((m) => ({ default: m.TaskNoteRoom })));
 
 const PAGE_META: Record<string, { title: string; description: string }> = {
     "/": {
@@ -104,7 +108,10 @@ export function MainLayout({
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
+    useFocusViews();
+    const { data: settings } = useSettings();
     const { view, setView } = useViewMode();
+    const clearActiveFocusView = useFocusViewStore((state) => state.clearActiveDefinition);
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
     const batchState = useBatchStateTransition();
 
@@ -150,6 +157,13 @@ export function MainLayout({
 
     // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();
+
+    useEffect(() => {
+        const intelligence = settings?.tasks?.intelligence;
+        if (intelligence?.nlpEnabled === false || intelligence?.focusViewsEnabled === false) {
+            clearActiveFocusView();
+        }
+    }, [clearActiveFocusView, settings?.tasks?.intelligence?.focusViewsEnabled, settings?.tasks?.intelligence?.nlpEnabled]);
 
     useEffect(() => {
         setNavOpen(false);
@@ -330,6 +344,9 @@ export function MainLayout({
 
             <Suspense fallback={null}>
                 <FloatingActionBar />
+            </Suspense>
+            <Suspense fallback={null}>
+                <TaskNoteRoom />
             </Suspense>
             <Suspense fallback={null}>
                 <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />

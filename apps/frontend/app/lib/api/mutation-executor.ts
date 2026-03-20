@@ -97,16 +97,26 @@ async function executeMutationOp(client: ApiClient, op: MutationOp): Promise<unk
             return unwrapResponse(res);
         }
         case "process_inbox_to_task": {
-            const { inboxItemId, rawText, keepNote } = op.payload;
-            const taskRes = await client.api.tasks.$post({
-                json: { title: rawText, orderIndex: 0, state: "ACTIVE" as const, isAllDay: true },
+            const { inboxItemId, rawText, title, keepNote, scheduledDate, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp } = op.payload;
+            const taskTitle = title?.trim() || rawText;
+            const taskRes = await (client.api.inbox[":id"] as any).process.$post({
+                param: { id: inboxItemId },
+                json: {
+                    clientMutationId: crypto.randomUUID(),
+                    title: taskTitle,
+                    keepNote,
+                    scheduledDate,
+                    projectId,
+                    tagIds,
+                    priority,
+                    durationEstimate,
+                    recurrenceRule,
+                    waitingOn,
+                    nlp,
+                },
             });
-            await unwrapResponse(taskRes);
-            if (!keepNote) {
-                const delRes = await client.api.inbox[":id"].$delete({ param: { id: inboxItemId } });
-                if (delRes.status !== 404 && !delRes.ok) throw new Error("Failed to delete inbox item");
-            }
-            return null;
+            const task = await unwrapResponse(taskRes);
+            return task;
         }
         case "create_inbox_section": {
             const res = await client.api.inbox.sections.$post({ json: op.payload });

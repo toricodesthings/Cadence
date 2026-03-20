@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import {
     ArrowLeft, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
-    Pin, Repeat, CalendarRange, AlertTriangle, Trash2, Copy, SlidersHorizontal,
-    CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil, Maximize2, Minimize2
+    Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
+    CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil, Maximize2, Minimize2,
+    ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks, useUpdateTask, useDeleteTask, useCreateSubtask } from "../../hooks/tasks";
 import { useProjects } from "../../hooks/projects";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
+import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { PriorityPicker } from "./PriorityPicker";
 import { TagPickerList } from "./TagPickerSubmenu";
 import { TagBubble } from "../sidebar/TagBubble";
 import { useTags, useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
 import { SubtaskList } from "./SubtaskList";
+import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
+import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import * as Separator from "../primitives/Separator";
 import * as Tooltip from "../primitives/Tooltip";
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -31,6 +35,7 @@ import {
 } from "../../lib/utils/task-scheduling";
 import type { Task, TaskPriority, TaskState, EffortLevel } from "../../types/task";
 import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
+import { useNoteRoomStore } from "../../stores/note-room-store";
 
 const MarkdownEditor = lazy(() => import("./MarkdownEditor").then((m) => ({ default: m.MarkdownEditor })));
 
@@ -88,6 +93,7 @@ export function TaskEditPanel({
     const { data: tags } = useTags();
     const addTagAssoc = useAddTaskTag();
     const removeTagAssoc = useRemoveTaskTag();
+    const openNoteRoom = useNoteRoomStore((s) => s.open);
 
     // Find the task across all caches
     const task = useMemo(
@@ -98,33 +104,26 @@ export function TaskEditPanel({
     );
 
     const [title, setTitle] = useState(task?.title ?? "");
-    const [notes, setNotes] = useState(task?.content ?? "");
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
     const [isEditingNotes, setIsEditingNotes] = useState(false);
-    const [notesFocusMode, setNotesFocusMode] = useState(false);
     const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
     const titleRef = useRef<HTMLInputElement>(null);
-    const notesRef = useRef<HTMLTextAreaElement>(null);
     const { data: subtasks = [] } = useSubtasks(taskId);
 
-    // Sync state when task loads
+    // Unified note state — shared between inline editor and Writing Room
+    const { draft: notes, onChange: onNotesChange, saveStatus } = useTaskNote(taskId);
+
+    // Sync title & waitingOn when task loads
     useEffect(() => {
         if (task) {
             setTitle(task.title);
-            setNotes(task.content ?? "");
             setWaitingOn(task.waitingOn ?? "");
         }
     }, [task]);
 
     useEffect(() => {
         setActivePanel("notes");
-        setNotesFocusMode(false);
     }, [taskId]);
-
-    const debouncedSaveNotes = useDebouncedCallback((content: string) => {
-        if (!task) return;
-        updateTask.mutate({ id: task.id, content });
-    }, 800);
 
     const debouncedSaveWaitingOn = useDebouncedCallback((content: string) => {
         if (!task) return;
@@ -157,11 +156,6 @@ export function TaskEditPanel({
             setTitle(task?.title ?? "");
             (e.target as HTMLInputElement).blur();
         }
-    };
-
-    const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setNotes(e.target.value);
-        debouncedSaveNotes(e.target.value);
     };
 
     const handleWaitingOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,7 +223,7 @@ export function TaskEditPanel({
                 : "Deadline";
 
     const charCount = notes.length;
-    const maxChars = 10000;
+    const maxChars = 50000;
     const completedSubtasks = subtasks.filter((subtask) => subtask.isComplete).length;
     const subtaskSummary = subtasks.length
         ? `${completedSubtasks}/${subtasks.length} complete`
@@ -296,7 +290,6 @@ export function TaskEditPanel({
                                 type="button"
                                 onClick={() => {
                                     onDetailModeChange(detailMode === "focus" ? "peek" : "focus");
-                                    setNotesFocusMode(false);
                                 }}
                                 aria-label={detailMode === "focus" ? "Back to split view" : "Expand editor"}
                                 className={`w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center transition-colors shrink-0 ${
@@ -345,10 +338,7 @@ export function TaskEditPanel({
                         {activePanel !== "notes" ? (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setNotesFocusMode(false);
-                                    setActivePanel("notes");
-                                }}
+                                onClick={() => setActivePanel("notes")}
                                 className={stackedPanelTriggerClass}
                             >
                                 <div>
@@ -367,30 +357,29 @@ export function TaskEditPanel({
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -8 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 35 }}
-                                    className="flex min-h-[12rem] flex-col"
+                                    className="flex shrink-0 flex-col gap-3"
                                 >
                                     <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
                                         <MarkdownEditor
                                             notes={notes}
                                             isEditing={isEditingNotes}
                                             setIsEditing={setIsEditingNotes}
-                                            onChange={handleNotesChange}
+                                            onNotesChange={onNotesChange}
                                             maxLength={maxChars}
-                                            isFocusMode={notesFocusMode}
-                                            onToggleFocusMode={() => {
-                                                setNotesFocusMode((value) => {
-                                                    const next = !value;
-                                                    if (next) {
-                                                        setActivePanel("notes");
-                                                    }
-                                                    return next;
-                                                });
-                                            }}
                                         />
                                     </Suspense>
 
-                                    {convertibleNoteLines.length > 0 && !notesFocusMode ? (
-                                        <div className="mt-3 flex items-center justify-between rounded-[1.2rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => openNoteRoom(task.id, task.title)}
+                                        className="flex cursor-pointer items-center justify-center gap-2 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-2.5 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
+                                    >
+                                        <ExternalLink size={13} aria-hidden="true" />
+                                        Open writing room
+                                    </button>
+
+                                    {convertibleNoteLines.length > 0 ? (
+                                        <div className="flex items-center justify-between rounded-[1.2rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3">
                                             <div>
                                                 <p className="text-sm text-twilight-text">Turn note bullets into subtasks</p>
                                                 <p className="text-xs text-twilight-text-muted">
@@ -412,23 +401,22 @@ export function TaskEditPanel({
                                         </div>
                                     ) : null}
 
-                                    <div className="flex items-center justify-between pt-2 shrink-0">
-                                        <p className="text-[10px] text-twilight-text-muted/90 leading-relaxed" aria-label="Task metadata">
-                                            Created {formatDateTime(task.createdAt)}
-                                            {task.updatedAt !== task.createdAt && (
-                                                <> · Updated {formatDateTime(task.updatedAt)}</>
+                                    <div className="flex items-center justify-between shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[10px] text-twilight-text-muted/90 leading-relaxed" aria-label="Task metadata">
+                                                Created {formatDateTime(task.createdAt)}
+                                                {task.updatedAt !== task.createdAt && (
+                                                    <> · Updated {formatDateTime(task.updatedAt)}</>
+                                                )}
+                                            </p>
+                                            {isSeriesScopedNote(task) && (
+                                                <span className="rounded-md bg-moonlit/10 px-1.5 py-0.5 text-[10px] font-medium text-moonlit">
+                                                    {getNoteScopeLabel(task)}
+                                                </span>
                                             )}
-                                        </p>
+                                        </div>
                                         <div className="flex items-center gap-3">
-                                            {notesFocusMode ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setNotesFocusMode(false)}
-                                                    className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
-                                                >
-                                                    Exit focus
-                                                </button>
-                                            ) : null}
+                                            <TaskNoteSaveStatus status={saveStatus} />
                                             <span
                                                 className={`text-[10px] tabular-nums ${charCount > maxChars * 0.9
                                                     ? "text-lantern"
@@ -446,13 +434,10 @@ export function TaskEditPanel({
                         </AnimatePresence>
 
                         {/* ── Details pane ── */}
-                        {activePanel !== "details" && !notesFocusMode ? (
+                        {activePanel !== "details" ? (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setNotesFocusMode(false);
-                                    setActivePanel("details");
-                                }}
+                                onClick={() => setActivePanel("details")}
                                 className={stackedPanelTriggerClass}
                             >
                                 <div>
@@ -464,7 +449,7 @@ export function TaskEditPanel({
                         ) : null}
 
                         <AnimatePresence initial={false}>
-                            {activePanel === "details" && !notesFocusMode ? (
+                            {activePanel === "details" ? (
                                 <motion.div
                                     key="details-panel"
                                     initial={{ opacity: 0, y: 10 }}
@@ -729,13 +714,10 @@ export function TaskEditPanel({
                         </AnimatePresence>
 
                         {/* ── Subtasks pane ── */}
-                        {activePanel !== "subtasks" && !notesFocusMode ? (
+                        {activePanel !== "subtasks" ? (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setNotesFocusMode(false);
-                                    setActivePanel("subtasks");
-                                }}
+                                onClick={() => setActivePanel("subtasks")}
                                 className={stackedPanelTriggerClass}
                             >
                                 <div>
@@ -747,7 +729,7 @@ export function TaskEditPanel({
                         ) : null}
 
                         <AnimatePresence initial={false}>
-                            {activePanel === "subtasks" && !notesFocusMode ? (
+                            {activePanel === "subtasks" ? (
                                 <motion.div
                                     key="subtasks-panel"
                                     initial={{ opacity: 0, y: 10 }}

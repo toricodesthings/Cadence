@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { createRequestContext } from "../../src/lib/request-log";
 import type { AuthVariables } from "../../src/lib/auth";
 import { formatErrorResponse } from "../../src/lib/errors";
+import { inboxItems as inboxItemsTable, tasks as tasksTable, taskTags as taskTagsTable, taskNlpMetadata as taskNlpMetadataTable } from "../../src/db/schema";
 
 const { getDbClientMock, withRlsMock, checkIdempotencyMock, recordMutationMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
@@ -117,6 +118,121 @@ function createDeleteTx(deletedRows: unknown[]) {
                 returning: vi.fn().mockResolvedValue(deletedRows),
             })),
         })),
+    };
+}
+
+function createInboxProcessTx(capture: {
+    taskValues?: Record<string, unknown>;
+    tagValues?: Record<string, unknown>[];
+    metadataValues?: Record<string, unknown>;
+    inboxUpdate?: Record<string, unknown>;
+}) {
+    const settingsRow = {
+        settings: {
+            dateTime: { dateStyle: "mdy" },
+            tasks: { intelligence: { confidenceThreshold: "medium", dismissedEntityIds: [] } },
+        },
+    };
+    const projectRows = [{ id: "proj-1", name: "Apollo" }];
+    const tagRows = [{ id: "tag-1", name: "planning" }];
+
+    const makeWherePromise = (result: unknown[]) => Promise.resolve(result);
+    const makeLimited = (result: unknown[]) => ({
+        limit: vi.fn().mockResolvedValue(result),
+    });
+
+    return {
+        select: vi.fn()
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeWherePromise([ITEM_ROW])),
+                })),
+            }))
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeLimited([settingsRow])),
+                })),
+            }))
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeWherePromise(projectRows)),
+                })),
+            }))
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeWherePromise(tagRows)),
+                })),
+            }))
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeLimited([])),
+                })),
+            })),
+        insert: vi.fn((table) => {
+            if (table === tasksTable) {
+                return {
+                    values: vi.fn((values) => {
+                        capture.taskValues = values;
+                        return {
+                            returning: vi.fn().mockResolvedValue([{ id: "task-created" }]),
+                        };
+                    }),
+                };
+            }
+
+            if (table === taskTagsTable) {
+                return {
+                    values: vi.fn((values) => {
+                        capture.tagValues = values;
+                        return {
+                            returning: vi.fn().mockResolvedValue(values),
+                        };
+                    }),
+                };
+            }
+
+            if (table === taskNlpMetadataTable) {
+                return {
+                    values: vi.fn((values) => {
+                        capture.metadataValues = values;
+                        return {
+                            returning: vi.fn().mockResolvedValue([{ id: "meta-1", ...values }]),
+                        };
+                    }),
+                };
+            }
+
+            return {
+                values: vi.fn(() => ({
+                    returning: vi.fn().mockResolvedValue([{ id: "unknown" }]),
+                })),
+            };
+        }),
+        update: vi.fn((table) => {
+            if (table === inboxItemsTable) {
+                return {
+                    set: vi.fn((values) => {
+                        capture.inboxUpdate = values;
+                        return {
+                            where: vi.fn(() => ({
+                                returning: vi.fn().mockResolvedValue([{
+                                    ...ITEM_ROW,
+                                    ...values,
+                                }]),
+                            })),
+                        };
+                    }),
+                };
+            }
+
+            return {
+                set: vi.fn(() => ({
+                    where: vi.fn(() => ({
+                        returning: vi.fn().mockResolvedValue([]),
+                    })),
+                })),
+            };
+        }),
     };
 }
 
@@ -366,6 +482,56 @@ describe("inbox route contracts", () => {
 
         expect(response.status).toBe(201);
         expect(recordMutationMock).toHaveBeenCalled();
+    });
+
+    it("atomically processes an inbox item into a task with canonical NLP parsing", async () => {
+        const capture: {
+            taskValues?: Record<string, unknown>;
+            tagValues?: Record<string, unknown>[];
+            metadataValues?: Record<string, unknown>;
+            inboxUpdate?: Record<string, unknown>;
+        } = {};
+        const tx = createInboxProcessTx(capture);
+        getDbClientMock.mockReturnValue(tx);
+        withRlsMock.mockImplementation(async (_db: any, _userId: any, cb: any) => cb(tx));
+
+        const app = createInboxApp();
+        const response = await app.request(`http://localhost/inbox/${TEST_ITEM_ID}/process`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                title: "Work on Apollo",
+                keepNote: false,
+                nlp: {
+                    rawInput: "Work on Apollo /apollo #planning 2026-03-09",
+                    sourceSurface: "inbox",
+                    dateStyle: "mdy",
+                    dismissedEntityIds: [],
+                    userOverrides: {},
+                },
+            }),
+        });
+
+        expect(response.status).toBe(201);
+        expect(capture.taskValues).toMatchObject({
+            title: "Work on Apollo",
+            projectId: "proj-1",
+            dueDate: "2026-03-09T12:00:00.000Z",
+            isAllDay: true,
+        });
+        expect(capture.tagValues).toEqual([{ taskId: "task-created", tagId: "tag-1" }]);
+        expect(capture.metadataValues).toMatchObject({
+            rawInput: "Work on Apollo /apollo #planning 2026-03-09",
+            sourceSurface: "inbox",
+            confidenceTier: "high",
+        });
+        expect(capture.inboxUpdate).toMatchObject({
+            captureStatus: "placed",
+            placedTaskId: "task-created",
+            processed: true,
+            analysisStatus: "applied",
+            sourceSurface: "inbox",
+        });
     });
 
     it("rejects section creation with empty name", async () => {

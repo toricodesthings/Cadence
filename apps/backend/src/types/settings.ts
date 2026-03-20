@@ -1,5 +1,37 @@
 import { z } from "zod";
 
+export const focusViewSourceSchema = z.enum(["preset", "composed", "manual"]);
+export const focusViewSortModeSchema = z.enum(["smart", "priority", "manual"]);
+export const focusViewDefinitionSchema = z.object({
+    states: z.array(z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"])).min(1).max(8),
+    projectIds: z.array(z.string().uuid()).max(100).default([]),
+    tagIds: z.array(z.string().uuid()).max(100).default([]),
+    needsDate: z.boolean(),
+    needsProject: z.boolean(),
+    priorityMin: z.number().int().min(0).max(4).nullable(),
+    effortMax: z.number().int().min(1).max(3).nullable(),
+    dueWindow: z.enum(["overdue", "today", "this_week", "this_month"]).nullable(),
+    waitingOnly: z.boolean(),
+    missingStructureOnly: z.boolean(),
+    sortMode: focusViewSortModeSchema,
+});
+export type FocusViewDefinitionInput = z.infer<typeof focusViewDefinitionSchema>;
+
+export const savedFocusViewInputSchema = z.object({
+    name: z.string().min(1).max(120),
+    definition: focusViewDefinitionSchema,
+    isPinned: z.boolean().optional(),
+    source: focusViewSourceSchema.optional(),
+    orderIndex: z.number().optional(),
+    clientMutationId: z.string().max(100).optional(),
+});
+export type SavedFocusViewInput = z.infer<typeof savedFocusViewInputSchema>;
+
+export const savedFocusViewPatchSchema = savedFocusViewInputSchema.partial().extend({
+    definition: focusViewDefinitionSchema.optional(),
+});
+export type SavedFocusViewPatch = z.infer<typeof savedFocusViewPatchSchema>;
+
 export const settingsPatchSchema = z.object({
     profile: z.object({
         pronouns: z.string().optional(),
@@ -20,6 +52,9 @@ export const settingsPatchSchema = z.object({
         quietHoursEnabled: z.boolean().optional(),
         quietHoursStart: z.string().nullable().optional(),
         quietHoursEnd: z.string().nullable().optional(),
+        habitReminderLeadMinutes: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]).optional(),
+        showHabitNavDueCount: z.boolean().optional(),
+        bundleMissedRoutinePrompts: z.boolean().optional(),
     }).partial().optional(),
     dateTime: z.object({
         weekStart: z.enum(["Sunday", "Monday", "Saturday"]).optional(),
@@ -59,6 +94,21 @@ export const settingsPatchSchema = z.object({
             preset: z.enum(["minimal", "planner", "power"]).optional(),
             style: z.enum(["icon", "label"]).optional(),
             actions: z.array(z.enum(["date", "priority", "project", "tag"])).optional(),
+        }).partial().optional(),
+        intelligence: z.object({
+            nlpEnabled: z.boolean().optional(),
+            autoParseOnCapture: z.boolean().optional(),
+            confidenceThreshold: z.enum(["high", "medium", "low"]).optional(),
+            showExplanations: z.boolean().optional(),
+            smartSortEnabled: z.boolean().optional(),
+            focusViewsEnabled: z.boolean().optional(),
+            lowStimulationMode: z.boolean().optional(),
+            dismissedEntityIds: z.array(z.string()).optional(),
+            dismissedEntities: z.array(z.object({
+                entityType: z.string(),
+                dismissedAt: z.string(),
+                scope: z.enum(["once", "always"]),
+            })).optional(),
         }).partial().optional(),
     }).partial().optional(),
     shortcuts: z.object({

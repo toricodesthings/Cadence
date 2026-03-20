@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Dialog, DialogContent } from "../primitives/Dialog";
 import { useNavigate } from "react-router";
 import {
-    Search, CheckSquare, Flame, Inbox, FolderOpen, Navigation,
+    Search, CheckSquare, Flame, Inbox, FolderOpen, Navigation, FileText, Telescope,
 } from "lucide-react";
 import { useUniversalSearch, type SearchResult, type SearchResultKind } from "../../hooks/search/use-universal-search";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
+import { useNoteRoomStore } from "../../stores/note-room-store";
+import { useFocusViewStore } from "../../stores/focus-view-store";
 
 interface CommandPaletteProps {
     open: boolean;
@@ -17,6 +19,7 @@ const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
     habit: <Flame size={14} aria-hidden="true" />,
     inbox: <Inbox size={14} aria-hidden="true" />,
     project: <FolderOpen size={14} aria-hidden="true" />,
+    "focus-view": <Telescope size={14} aria-hidden="true" />,
     page: <Navigation size={14} aria-hidden="true" />,
 };
 
@@ -26,9 +29,10 @@ const GROUP_LABELS: Record<string, string> = {
     habits: "Habits",
     captures: "Captures",
     projects: "Projects",
+    focusViews: "Focus Views",
 };
 
-const GROUP_ORDER = ["pages", "tasks", "habits", "captures", "projects"] as const;
+const GROUP_ORDER = ["pages", "tasks", "habits", "captures", "projects", "focusViews"] as const;
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const [rawQuery, setRawQuery] = useState("");
@@ -36,8 +40,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const navigate = useNavigate();
     const listRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const applySavedView = useFocusViewStore((s) => s.applySavedView);
 
     const { results, query } = useUniversalSearch(rawQuery, open);
+    const openNoteRoom = useNoteRoomStore((s) => s.open);
 
     // Reset on open/close
     useEffect(() => {
@@ -70,6 +76,23 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const navigateToResult = useCallback((result: SearchResult) => {
         onOpenChange(false);
 
+        // If the match was in notes/headings, open note room instead
+        if (result.noteAction) {
+            openNoteRoom(
+                result.noteAction.taskId,
+                result.noteAction.taskTitle,
+                result.noteAction.scrollToHeading,
+            );
+            return;
+        }
+
+        if (result.kind === "focus-view") {
+            const realId = result.id.replace(/^focus-view-/, "");
+            applySavedView(realId);
+            navigate("/today");
+            return;
+        }
+
         if (result.kind === "page") {
             navigate(result.route);
             return;
@@ -83,7 +106,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             focusSource: "search",
         });
         navigate(`${result.route}?${focusParams}`);
-    }, [navigate, onOpenChange]);
+    }, [applySavedView, navigate, onOpenChange, openNoteRoom]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "ArrowDown") {
@@ -181,7 +204,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                                         `}
                                     >
                                         <div className="text-twilight-text-muted shrink-0">
-                                            {KIND_ICON[item.kind]}
+                                            {item.noteAction ? <FileText size={14} aria-hidden="true" /> : KIND_ICON[item.kind]}
                                         </div>
                                         <div className="flex-1 min-w-0 text-left">
                                             <span className="truncate block">{item.title}</span>

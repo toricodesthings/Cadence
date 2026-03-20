@@ -5,21 +5,10 @@ export const REQUEST_ID_HEADER = "x-request-id";
 const QUERY_SUMMARY_KEYS = new Set([
     "state",
     "projectId",
-    "scheduledDate",
-    "scheduledRangeStart",
-    "scheduledRangeEnd",
     "priority",
     "isPinned",
     "effort",
-    "notBeforeBefore",
-    "hasNoDate",
-    "hasNoProject",
-    "effectiveOnOrBeforeDate",
     "archived",
-    "start",
-    "end",
-    "year",
-    "month",
     "limit",
     "offset",
 ]);
@@ -27,16 +16,10 @@ const QUERY_SUMMARY_KEYS = new Set([
 const JSON_SUMMARY_KEYS = new Set([
     "state",
     "isAllDay",
-    "dueDate",
-    "scheduledStart",
-    "scheduledEnd",
     "projectId",
     "priority",
     "isPinned",
-    "reminderAt",
-    "reminderSilenced",
     "archived",
-    "targetDate",
     "status",
     "orderIndex",
     "taskIds",
@@ -66,6 +49,8 @@ type StructuredLogEvent = {
     timingMs?: number;
     target?: string;
     input?: Record<string, unknown>;
+    /** Optional client-supplied correlation ID, validated and stored separately. */
+    clientRequestId?: string;
 };
 
 function shorten(value: string) {
@@ -146,16 +131,40 @@ export function setRequestErrorCode(c: Context<any>, errorCode: string) {
     c.set("errorCode", errorCode);
 }
 
+/**
+ * Maximum length for a client-supplied request ID.
+ * IDs exceeding this are discarded to prevent log pollution.
+ */
+const MAX_CLIENT_REQUEST_ID_LENGTH = 128;
+
+/**
+ * Strict pattern for acceptable client request IDs.
+ * Only allows UUIDs, alphanumeric strings, hyphens, and underscores.
+ */
+const CLIENT_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+function sanitizeClientRequestId(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    const trimmed = raw.trim();
+    if (trimmed.length === 0 || trimmed.length > MAX_CLIENT_REQUEST_ID_LENGTH) return undefined;
+    if (!CLIENT_REQUEST_ID_PATTERN.test(trimmed)) return undefined;
+    return trimmed;
+}
+
 export function createRequestContext() {
     return async (c: Context<any>, next: () => Promise<void>) => {
-        const forwardedRequestId = c.req.header(REQUEST_ID_HEADER);
-        const requestId = forwardedRequestId && forwardedRequestId.trim().length > 0 ? forwardedRequestId : crypto.randomUUID();
+        // Always generate a server-controlled canonical request ID
+        const requestId = crypto.randomUUID();
+
+        // Optionally preserve client correlation ID after strict validation
+        const clientRequestId = sanitizeClientRequestId(c.req.header(REQUEST_ID_HEADER));
 
         c.set("requestId", requestId);
         c.set("requestStartedAt", Date.now());
 
         await next();
 
+        // Return the server-generated ID — clients can use it for support/debugging
         c.header(REQUEST_ID_HEADER, requestId);
 
         const status = c.res.status;
@@ -177,6 +186,7 @@ export function createRequestContext() {
             userHash: userId ? await hashIdentifier(userId) : null,
             errorCode: c.var.errorCode,
             timingMs,
+            ...(clientRequestId ? { clientRequestId } : {}),
         });
     };
 }

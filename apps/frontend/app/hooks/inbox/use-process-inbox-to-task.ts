@@ -6,6 +6,7 @@ import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import type { Task } from "../../types/task";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 interface ProcessInboxParams {
     inboxItemId: string;
@@ -14,14 +15,19 @@ interface ProcessInboxParams {
     title?: string;
     keepNote?: boolean;
     scheduledDate?: string;
+    projectId?: string | null;
+    tagIds?: string[];
+    priority?: number | null;
+    durationEstimate?: number | null;
+    recurrenceRule?: string | null;
+    waitingOn?: string | null;
+    nlp?: CanonicalNlpEnvelope;
 }
 
 /**
  * Process an inbox capture into a task (C5 structured capture model):
- * 1. Create a new task (using edited title or rawText)
- * 2. Transition the capture's status to "placed" and link the task
- *    — preserves the immutable source text for audit trail
- * 3. If keepNote, mark as "kept" instead of "placed"
+ * Uses the backend atomic inbox→task endpoint so the task and inbox transition
+ * happen in one transaction instead of a split create + patch flow.
  */
 export function useProcessInboxToTask() {
     const client = useApiClient();
@@ -29,37 +35,30 @@ export function useProcessInboxToTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<ProcessInboxParams, Task>(
-            ({ inboxItemId, rawText, title, keepNote, scheduledDate }) => ({
+            ({ inboxItemId, rawText, title, keepNote, scheduledDate, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp }) => ({
                 type: "process_inbox_to_task",
-                payload: { inboxItemId, rawText, title, keepNote, scheduledDate },
+                payload: { inboxItemId, rawText, title, keepNote, scheduledDate, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp },
             }),
-            async ({ inboxItemId, rawText, title, keepNote = false, scheduledDate }) => {
+            async ({ inboxItemId, rawText, title, keepNote = false, scheduledDate, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp }) => {
                 const taskTitle = title?.trim() || rawText;
 
-                // Create the task — optionally scheduled
-                const taskRes = await client.api.tasks.$post({
+                const taskRes = await (client.api.inbox[":id"] as any).process.$post({
+                    param: { id: inboxItemId },
                     json: {
+                        clientMutationId: crypto.randomUUID(),
                         title: taskTitle,
-                        orderIndex: 0,
-                        state: "ACTIVE",
-                        isAllDay: true,
-                        ...(scheduledDate && {
-                            scheduledStart: scheduledDate,
-                            scheduledEnd: scheduledDate,
-                        }),
+                        keepNote,
+                        scheduledDate,
+                        projectId,
+                        tagIds,
+                        priority,
+                        durationEstimate,
+                        recurrenceRule,
+                        waitingOn,
+                        nlp,
                     },
                 });
                 const task = await unwrapResponse<Task>(taskRes);
-
-                // Transition capture status instead of deleting — preserves source text
-                await client.api.inbox[":id"].$patch({
-                    param: { id: inboxItemId },
-                    json: {
-                        captureStatus: keepNote ? "kept" : "placed",
-                        placedTaskId: task.id,
-                        processed: true,
-                    },
-                });
 
                 return task;
             },

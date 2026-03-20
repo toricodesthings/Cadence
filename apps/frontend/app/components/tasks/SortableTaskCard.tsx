@@ -14,6 +14,7 @@ interface SortableTaskCardProps {
     isDropTarget?: boolean;
     onSelect?: (id: string) => void;
     variant?: "list" | "board";
+    rationaleLabel?: string | null;
 }
 
 /**
@@ -32,6 +33,7 @@ export function SortableTaskCard({
     isDropTarget,
     onSelect,
     variant = "list",
+    rationaleLabel,
 }: SortableTaskCardProps) {
     const {
         attributes,
@@ -95,6 +97,7 @@ export function SortableTaskCard({
                 isDropTarget={isDropTarget}
                 onSelect={onSelect}
                 variant={variant}
+                rationaleLabel={rationaleLabel}
             />
         </motion.div>
     );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AlertTriangle, CalendarClock, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3, CalendarRange } from "lucide-react";
@@ -24,9 +24,16 @@ import { useViewMode } from "../hooks/ui/use-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useTagFilterStore } from "../stores/tag-filter-store";
+import { useFocusViewStore } from "../stores/focus-view-store";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
 import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task-scheduling";
 import { sortTasks } from "../lib/utils/sort-tasks";
+import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
+import { applyFocusView } from "@cadence/nlp/focus-views/apply";
+import { rankTasks } from "@cadence/nlp/ranking";
+import type { RankableTask } from "@cadence/nlp/ranking";
+const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
+import { useSettings } from "../hooks/core/use-settings";
 import type { Task } from "../types/task";
 import type { HabitLog } from "../types/habit";
 
@@ -166,6 +173,11 @@ export default function TodayRoute() {
     const todayISO = toISODate(new Date());
     const habitsRangeStart = toISODate(addDays(new Date(), -30));
     const { activeTagId } = useTagFilterStore();
+    const { activeDefinition } = useFocusViewStore();
+    const { data: userSettings } = useSettings();
+    const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
+    const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
+    const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
 
     useDocumentMeta(
         "Today · Cadence",
@@ -190,10 +202,13 @@ export default function TodayRoute() {
         enabled: !activeTagId,
     });
 
-    const filteredTasks = useMemo(
-        () => (activeTagId ? tasks.filter((task) => task.tagIds?.includes(activeTagId)) : tasks),
-        [activeTagId, tasks],
-    );
+    const filteredTasks = useMemo(() => {
+        let result = activeTagId ? tasks.filter((task) => task.tagIds?.includes(activeTagId)) : tasks;
+        if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
+            result = applyFocusView(result, activeDefinition);
+        }
+        return result;
+    }, [activeTagId, tasks, activeDefinition, intelligenceEnabled, focusViewsEnabled]);
 
     const grouped = useMemo(() => {
         const overdue: Task[] = [];
@@ -246,14 +261,43 @@ export default function TodayRoute() {
             return a.title.localeCompare(b.title);
         };
 
+        const useRanking = intelligenceEnabled && smartSortEnabled && sortMode === "smart";
+        const rationaleByTaskId: Record<string, string | null> = {};
+
+        const sortBucket = (bucket: Task[]): Task[] => {
+            if (!useRanking) return sortTasks(bucket, sortMode);
+            const rankable: RankableTask[] = bucket.map((t) => ({
+                id: t.id,
+                priority: t.priority,
+                isPinned: t.isPinned,
+                orderIndex: t.orderIndex,
+                state: t.state,
+                dueDate: t.dueDate,
+                scheduledStart: t.scheduledStart,
+                scheduledEnd: t.scheduledEnd,
+                isAllDay: t.isAllDay,
+                effort: t.effort,
+                waitingOn: t.waitingOn ?? null,
+                notBefore: t.notBefore ?? null,
+                durationEstimate: t.durationEstimate,
+            }));
+            const ranked = rankTasks(rankable, { routeContext: "today" });
+            for (const item of ranked) {
+                rationaleByTaskId[item.task.id] = getRankingReasonLabel(item.reasons);
+            }
+            const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
+            return [...bucket].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+        };
+
         return {
-            overdue: sortTasks(overdue, sortMode),
-            today: sortTasks(today, sortMode),
+            overdue: sortBucket(overdue),
+            today: sortBucket(today),
             timetableAnchors: sortTasks(timetableAnchors, sortMode),
             overdueHabits: overdueHabits.sort(compareHabits),
             ritualsToday: ritualsToday.sort(compareHabits),
+            rationaleByTaskId,
         };
-    }, [activeTagId, filteredTasks, habits, todayISO, sortMode]);
+    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled]);
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
@@ -289,7 +333,7 @@ export default function TodayRoute() {
     );
 
     const sortOptions = [
-        { value: "smart", label: "Smart" },
+        { value: "smart", label: "Smart order" },
         { value: "priority", label: "Priority" },
         { value: "manual", label: "Manual" },
     ] as const;
@@ -403,6 +447,7 @@ export default function TodayRoute() {
                     tasks={tasks}
                     selectedTaskId={selectedTaskId}
                     onSelectTask={handleSelectTask}
+                    rationaleByTaskId={grouped.rationaleByTaskId}
                     {...(cardVariant ? { cardVariant } : {})}
                 />
             );
@@ -452,7 +497,7 @@ export default function TodayRoute() {
 
         return (
             <div className="flex flex-col gap-3">
-                {hasTasks ? <TaskList tasks={grouped.overdue} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} {...(cardVariant ? { cardVariant } : {})} /> : null}
+                {hasTasks ? <TaskList tasks={grouped.overdue} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} rationaleByTaskId={grouped.rationaleByTaskId} {...(cardVariant ? { cardVariant } : {})} /> : null}
                 {hasHabits ? (
                     <>
                         {hasTasks ? <HabitGroupDivider label="Missed routines" /> : null}
@@ -622,6 +667,11 @@ export default function TodayRoute() {
                 accentColor: "var(--color-nav-planner)",
             }}
         >
+            <PageContent width="default">
+                <Suspense fallback={null}>
+                    <LazyFocusViewBar />
+                </Suspense>
+            </PageContent>
             {view === "kanban" ? (
                 <div className="flex-1 min-h-0 min-w-0">
                     {isLoading ? (

@@ -18,6 +18,7 @@
 		"db:studio": "drizzle-kit studio"
 	},
 	"dependencies": {
+		"@cadence/nlp": "workspace:*",
 		"@hono/zod-validator": "^0.7.6",
 		"@neondatabase/auth": "0.2.0-beta.1",
 		"@neondatabase/neon-js": "0.2.0-beta.1",

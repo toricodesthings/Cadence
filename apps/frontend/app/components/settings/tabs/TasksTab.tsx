@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { ChevronDown } from "lucide-react";
 
 export function TasksTab() {
     const { data: settings } = useSettings();
@@ -25,6 +27,19 @@ export function TasksTab() {
     };
 
     const quickAddActions = taskSettings.quickAdd?.actions ?? ["date", "priority", "project"];
+
+    const intelligence = taskSettings.intelligence ?? {
+        nlpEnabled: true,
+        autoParseOnCapture: true,
+        confidenceThreshold: "medium" as const,
+        showExplanations: true,
+        lowStimulationMode: false,
+        smartSortEnabled: true,
+        focusViewsEnabled: true,
+        dismissedEntities: [],
+    };
+
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     return (
         <div className="flex flex-col gap-10">
@@ -295,6 +310,119 @@ export function TasksTab() {
                         })}
                     </div>
                 </SettingsRow>
+            </SettingsSection>
+
+            <SettingsSection title="Intelligence">
+                <SettingsRow
+                    title="Smart features"
+                    description="Enable Cadence's built-in intelligence for parsing dates, projects, tags, and more from natural language."
+                >
+                    <Switch
+                        checked={intelligence.nlpEnabled}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ tasks: { intelligence: { nlpEnabled: val } } })
+                        }
+                    />
+                </SettingsRow>
+
+                {intelligence.nlpEnabled && (
+                    <>
+                        <SettingsRow
+                            title="Smart Capture"
+                            description="Automatically recognize dates, priorities, projects, and tags as you type."
+                        >
+                            <Switch
+                                checked={intelligence.autoParseOnCapture}
+                                onCheckedChange={(val) =>
+                                    updateSettings.mutate({ tasks: { intelligence: { autoParseOnCapture: val } } })
+                                }
+                            />
+                        </SettingsRow>
+
+                        <SettingsRow
+                            title="Focus Views"
+                            description="Enable preset and custom Focus Views like Quick Wins, Due Soon, and Deep Focus."
+                        >
+                            <Switch
+                                checked={intelligence.focusViewsEnabled}
+                                onCheckedChange={(val) =>
+                                    updateSettings.mutate({ tasks: { intelligence: { focusViewsEnabled: val } } })
+                                }
+                            />
+                        </SettingsRow>
+
+                        <SettingsRow
+                            title="Confidence threshold"
+                            description="Only apply suggestions that meet this confidence level automatically."
+                        >
+                            <div className="w-full sm:max-w-[18rem]">
+                                <Select
+                                    value={intelligence.confidenceThreshold}
+                                    onValueChange={(val) =>
+                                        updateSettings.mutate({ tasks: { intelligence: { confidenceThreshold: val as "high" | "medium" | "low" } } })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="high">High — only very confident</SelectItem>
+                                        <SelectItem value="medium">Medium — balanced</SelectItem>
+                                        <SelectItem value="low">Low — show everything</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </SettingsRow>
+
+                        <div>
+                            <button
+                                type="button"
+                                onClick={() => setShowAdvanced(!showAdvanced)}
+                                className="flex items-center gap-1.5 text-sm text-twilight-text-muted hover:text-twilight-text transition-colors px-1 py-1.5 cursor-pointer"
+                            >
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? "rotate-0" : "-rotate-90"}`} />
+                                Advanced
+                            </button>
+                            {showAdvanced && (
+                                <div className="mt-2 flex flex-col gap-0.5">
+                                    <SettingsRow
+                                        title="Smart ordering"
+                                        description="Use intelligent ranking instead of simple date/priority sort."
+                                    >
+                                        <Switch
+                                            checked={intelligence.smartSortEnabled}
+                                            onCheckedChange={(val) =>
+                                                updateSettings.mutate({ tasks: { intelligence: { smartSortEnabled: val } } })
+                                            }
+                                        />
+                                    </SettingsRow>
+                                    <SettingsRow
+                                        title="Show recognition chips"
+                                        description="Display visual indicators for recognized entities below the input field."
+                                    >
+                                        <Switch
+                                            checked={intelligence.showExplanations}
+                                            onCheckedChange={(val) =>
+                                                updateSettings.mutate({ tasks: { intelligence: { showExplanations: val } } })
+                                            }
+                                        />
+                                    </SettingsRow>
+                                    <SettingsRow
+                                        title="Low-stimulation mode"
+                                        description="Reduce chip density and collapse secondary recognition details."
+                                    >
+                                        <Switch
+                                            checked={intelligence.lowStimulationMode}
+                                            onCheckedChange={(val) =>
+                                                updateSettings.mutate({ tasks: { intelligence: { lowStimulationMode: val } } })
+                                            }
+                                        />
+                                    </SettingsRow>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
             </SettingsSection>
         </div>
     );

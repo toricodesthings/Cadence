@@ -13,6 +13,12 @@ export interface ChangelogEntry {
  */
 export const CADENCE_CHANGELOG: ChangelogEntry[] = [
     {
+        version: "v0.5 Beta",
+        title: "The NLP Parser is here!",
+        description: "Cadence can now understand natural language input across the app, making it easier than ever to capture and edit tasks on the go.",
+        glyph: "release",
+    },
+    {
         version: "v0.4 Beta",
         title: "Holding that actually Holds",
         description: "Big changes to the holding page and task editor, capture is seamless and frictionless, and the task editor is more intuitive and powerful than ever.",

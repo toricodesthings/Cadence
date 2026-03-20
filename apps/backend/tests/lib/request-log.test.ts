@@ -24,11 +24,12 @@ describe("request logging", () => {
         await logValidationFailure(
             createFakeContext(),
             "json",
-            [{ code: "invalid_type", message: "Expected string", path: "scheduledRangeStart" }],
+            [{ code: "invalid_type", message: "Expected string", path: "state" }],
             {
                 title: "Do not leak me",
                 taskIds: ["a", "b", "c"],
                 scheduledStart: "2026-03-10",
+                state: "ACTIVE",
                 Authorization: "Bearer secret",
             },
         );
@@ -44,15 +45,18 @@ describe("request logging", () => {
             route: "/api/tasks",
             status: 400,
             errorCode: "INVALID_REQUEST",
-            issues: [{ code: "invalid_type", message: "Expected string", path: "scheduledRangeStart" }],
+            issues: [{ code: "invalid_type", message: "Expected string", path: "state" }],
         });
         expect(payload.userHash).toHaveLength(16);
         expect(payload.userHash).not.toBe("user-123");
         expect(payload.input).toEqual({
             taskIdsCount: 3,
-            scheduledStart: "2026-03-10",
+            state: "ACTIVE",
         });
+        // Sensitive data must not leak
         expect(JSON.stringify(payload)).not.toContain("Bearer secret");
         expect(JSON.stringify(payload)).not.toContain("Do not leak me");
+        expect(JSON.stringify(payload)).not.toContain("scheduledStart");
+        expect(JSON.stringify(payload)).not.toContain("2026-03-10");
     });
 });

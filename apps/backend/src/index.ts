@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import type { Env } from "./types/env";
+import { getDeploymentStage, getAllowedOrigins } from "./types/env";
 import { authMiddleware } from "./lib/auth";
 import { formatErrorResponse } from "./lib/errors";
 import { taskRoutes } from "./routes/tasks";
@@ -17,14 +18,42 @@ import { settingsRoutes } from "./routes/settings";
 import { eventRoutes } from "./routes/events";
 import { suggestionRoutes } from "./routes/suggestions";
 import { proxyRoutes } from "./routes/proxy";
+import { noteRoutes } from "./routes/notes";
 import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCode } from "./lib/request-log";
 
-const CORS_ORIGIN = "https://dashboard.cadenceapp.cloud";
+const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
 export const app = new Hono<{ Bindings: Env; Variables: import("./lib/auth").AuthVariables }>();
 
-function areDebugRoutesEnabled(value?: string | null) {
-  return value?.trim().toLowerCase() === "true";
+/**
+ * Determine whether a given origin is allowed for CORS.
+ * Production: only the production origin + explicit ALLOWED_ORIGINS.
+ * Staging: same as production + explicit ALLOWED_ORIGINS.
+ * Development: additionally allows any http://localhost:* origin.
+ */
+function isAllowedOrigin(origin: string, env: Env): boolean {
+  if (origin === PRODUCTION_ORIGIN) return true;
+
+  const extraOrigins = getAllowedOrigins(env);
+  if (extraOrigins.includes(origin)) return true;
+
+  const stage = getDeploymentStage(env);
+  if (stage === "development" && origin.startsWith("http://localhost:")) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Debug routes are ONLY available when ALL of the following are true:
+ * 1. DEPLOYMENT_STAGE is NOT "production"
+ * 2. ENABLE_DEBUG_ROUTES is explicitly "true"
+ */
+function areDebugRoutesEnabled(env: Env): boolean {
+  const stage = getDeploymentStage(env);
+  if (stage === "production") return false;
+  return env.ENABLE_DEBUG_ROUTES?.trim().toLowerCase() === "true";
 }
 
 // ── Global Middleware ──
@@ -45,15 +74,12 @@ app.use("/api/*", async (c, next) => {
 app.use(
   "*",
   cors({
-    origin: (origin) => {
-      if (!origin) return CORS_ORIGIN;
-      if (
-        origin.startsWith("http://localhost:") ||
-        origin === CORS_ORIGIN
-      ) {
+    origin: (origin, c) => {
+      if (!origin) return PRODUCTION_ORIGIN;
+      if (isAllowedOrigin(origin, (c as any).env)) {
         return origin;
       }
-      return CORS_ORIGIN;
+      return PRODUCTION_ORIGIN;
     },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type"],
@@ -93,14 +119,14 @@ function rateLimitResponse(c: import("hono").Context) {
 
 // Keep admin debug tooling dark in production unless explicitly enabled.
 app.use("/api/debug", async (c, next) => {
-  if (!areDebugRoutesEnabled(c.env.ENABLE_DEBUG_ROUTES)) {
+  if (!areDebugRoutesEnabled(c.env)) {
     return c.notFound();
   }
   await next();
 });
 
 app.use("/api/debug/*", async (c, next) => {
-  if (!areDebugRoutesEnabled(c.env.ENABLE_DEBUG_ROUTES)) {
+  if (!areDebugRoutesEnabled(c.env)) {
     return c.notFound();
   }
   await next();
@@ -155,6 +181,7 @@ app.route("/api/inbox", inboxRoutes);
 app.route("/api/tags", tagRoutes);
 app.route("/api/habits", habitRoutes);
 app.route("/api", subtaskRoutes);
+app.route("/api", noteRoutes);
 app.route("/api/sections", sectionRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/events", eventRoutes);

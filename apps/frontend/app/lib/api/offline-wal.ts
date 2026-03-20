@@ -1,5 +1,6 @@
 import { get, set } from "idb-keyval";
 import type { CreateTaskInput, UpdateTaskInput } from "../../types/task";
+import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Operation Descriptors ──
 // Every mutation the app can perform, represented as a serializable object.
@@ -16,7 +17,7 @@ export type MutationOp =
     | { type: "create_inbox"; payload: { rawText: string; clientMutationId: string; sectionId?: string; orderIndex?: number } }
     | { type: "update_inbox"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox"; id: string }
-    | { type: "process_inbox_to_task"; payload: { inboxItemId: string; rawText: string; keepNote?: boolean } }
+    | { type: "process_inbox_to_task"; payload: { inboxItemId: string; rawText: string; title?: string; keepNote?: boolean; scheduledDate?: string; projectId?: string | null; tagIds?: string[]; priority?: number | null; durationEstimate?: number | null; recurrenceRule?: string | null; waitingOn?: string | null; nlp?: CanonicalNlpEnvelope } }
     | { type: "create_inbox_section"; payload: { name: string; orderIndex?: number; clientMutationId: string } }
     | { type: "update_inbox_section"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox_section"; id: string }

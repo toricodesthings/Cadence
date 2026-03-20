@@ -3,8 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useProcessInboxToTask } from "../../../app/hooks/inbox/use-process-inbox-to-task";
 
-const taskPostMock = vi.fn();
-const inboxDeleteMock = vi.fn();
+const inboxProcessMock = vi.fn();
 const useApiClientMock = vi.fn();
 
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({
@@ -29,32 +28,29 @@ function createWrapper() {
 
 describe("useProcessInboxToTask", () => {
     beforeEach(() => {
-        taskPostMock.mockReset();
-        inboxDeleteMock.mockReset();
+        inboxProcessMock.mockReset();
         useApiClientMock.mockReset();
         useApiClientMock.mockReturnValue({
             api: {
-                tasks: {
-                    $post: taskPostMock,
-                },
                 inbox: {
                     ":id": {
-                        $delete: inboxDeleteMock,
+                        process: {
+                            $post: inboxProcessMock,
+                        },
                     },
                 },
             },
         });
     });
 
-    it("creates a task and deletes the inbox item by default", async () => {
+    it("processes the inbox item atomically by default", async () => {
         const createdTask = { id: "task-1", title: "Buy groceries" };
-        taskPostMock.mockResolvedValue(
+        inboxProcessMock.mockResolvedValue(
             new Response(JSON.stringify({ data: createdTask }), {
                 status: 201,
                 headers: { "Content-Type": "application/json" },
             }),
         );
-        inboxDeleteMock.mockResolvedValue(new Response(null, { status: 204 }));
 
         const { result } = renderHook(() => useProcessInboxToTask(), {
             wrapper: createWrapper(),
@@ -64,15 +60,18 @@ describe("useProcessInboxToTask", () => {
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-        expect(taskPostMock).toHaveBeenCalledOnce();
-        expect(inboxDeleteMock).toHaveBeenCalledWith({
+        expect(inboxProcessMock).toHaveBeenCalledWith({
             param: { id: "inbox-1" },
+            json: expect.objectContaining({
+                clientMutationId: expect.any(String),
+                title: "Buy groceries",
+            }),
         });
     });
 
     it("keeps the inbox item when keepNote is true", async () => {
         const createdTask = { id: "task-2", title: "Meeting notes" };
-        taskPostMock.mockResolvedValue(
+        inboxProcessMock.mockResolvedValue(
             new Response(JSON.stringify({ data: createdTask }), {
                 status: 201,
                 headers: { "Content-Type": "application/json" },
@@ -87,12 +86,18 @@ describe("useProcessInboxToTask", () => {
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-        expect(taskPostMock).toHaveBeenCalledOnce();
-        expect(inboxDeleteMock).not.toHaveBeenCalled();
+        expect(inboxProcessMock).toHaveBeenCalledOnce();
+        expect(inboxProcessMock).toHaveBeenCalledWith({
+            param: { id: "inbox-2" },
+            json: expect.objectContaining({
+                keepNote: true,
+                title: "Meeting notes",
+            }),
+        });
     });
 
     it("surfaces an error when the task creation fails", async () => {
-        taskPostMock.mockResolvedValue(
+        inboxProcessMock.mockResolvedValue(
             new Response(JSON.stringify({ error: { message: "Server error" } }), {
                 status: 500,
                 headers: { "Content-Type": "application/json" },
@@ -106,6 +111,6 @@ describe("useProcessInboxToTask", () => {
         result.current.mutate({ inboxItemId: "inbox-3", rawText: "Broken" });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
-        expect(inboxDeleteMock).not.toHaveBeenCalled();
+        expect(inboxProcessMock).toHaveBeenCalledOnce();
     });
 });

@@ -12,6 +12,11 @@ export interface InboxItem {
     captureStatus: CaptureStatus;
     placedTaskId: string | null;
     aiSuggestion: string | null;
+    analysisStatus: "pending" | "parsed" | "reviewed" | "applied" | null;
+    analysisVersion: string | null;
+    analysisSummary: string | null;
+    analysis: Record<string, unknown> | null;
+    sourceSurface: string | null;
     createdAt: string;
 }
 

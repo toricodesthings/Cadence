@@ -411,6 +411,12 @@ export const inboxItems = pgTable('inbox_items', {
     captureStatus: text('capture_status').default('clarifying').notNull(), // 'clarifying' | 'placed' | 'kept' | 'discarded'
     placedTaskId: uuid('placed_task_id').references(() => tasks.id, { onDelete: 'set null' }), // Link to task created from this capture
     aiSuggestion: text('ai_suggestion'), // JSON string — AI-suggested classification, scheduling, etc.
+    // NLP analysis columns
+    analysisStatus: text('analysis_status').default('pending'), // 'pending' | 'parsed' | 'reviewed' | 'applied'
+    analysisVersion: text('analysis_version'), // parser version at analysis time
+    analysisSummary: text('analysis_summary'), // "Cadence understood: ..." human-readable summary
+    analysis: jsonb('analysis').$type<Record<string, unknown>>(), // full ParseResult JSON
+    sourceSurface: text('source_surface').default('inbox'), // surface where capture occurred
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
@@ -597,6 +603,41 @@ export const subtasks = pgTable(
     }),
 ).enableRLS();
 
+// 11b. Task Notes (Dedicated note storage — separate from tasks.content for lazy loading)
+export const taskNotes = pgTable(
+    "task_notes",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        taskId: uuid("task_id")
+            .references(() => tasks.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        body: text("body").default("").notNull(),
+        excerpt: text("excerpt").default("").notNull(), // First ~120 chars for list previews
+        wordCount: integer("word_count").default(0).notNull(),
+        headingCount: integer("heading_count").default(0).notNull(),
+        version: integer("version").default(1).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+    },
+    (table) => ({
+        taskIdIdx: uniqueIndex("task_notes_task_id_idx").on(table.taskId),
+        userIdIdx: index("task_notes_user_id_idx").on(table.userId),
+        rlsPolicy: pgPolicy("task_notes_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
 // 12. Task Metrics (Silent Tracking)
 export const taskMetrics = pgTable(
     "task_metrics",
@@ -712,6 +753,104 @@ export const mutationDedup = pgTable(
             table.clientMutationId,
         ),
         rlsPolicy: pgPolicy("mutation_dedup_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
+// ── 16. Task NLP Metadata (Parse result snapshots) ──
+export const taskNlpMetadata = pgTable(
+    "task_nlp_metadata",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        taskId: uuid("task_id")
+            .references(() => tasks.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        parserVersion: text("parser_version").default("2.0.0").notNull(),
+        sourceSurface: text("source_surface").default("quick_add").notNull(),
+        rawInput: text("raw_input").notNull(),
+        cleanedTitle: text("cleaned_title").notNull(),
+        parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
+        confidenceTier: text("confidence_tier").default("medium").notNull(),
+        isCurrent: boolean("is_current").default(true).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+    },
+    (table) => ({
+        taskIdIdx: uniqueIndex("task_nlp_metadata_task_id_unique").on(table.taskId),
+        userIdIdx: index("task_nlp_metadata_user_id_idx").on(table.userId),
+        rlsPolicy: pgPolicy("task_nlp_metadata_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
+export const taskNlpMetadataHistory = pgTable(
+    "task_nlp_metadata_history",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        taskId: uuid("task_id")
+            .references(() => tasks.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        parserVersion: text("parser_version").default("2.0.0").notNull(),
+        sourceSurface: text("source_surface").default("quick_add").notNull(),
+        rawInput: text("raw_input").notNull(),
+        cleanedTitle: text("cleaned_title").notNull(),
+        parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
+        confidenceTier: text("confidence_tier").default("medium").notNull(),
+        isCurrent: boolean("is_current").default(false).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+    },
+    (table) => ({
+        taskIdIdx: index("task_nlp_metadata_history_task_id_idx").on(table.taskId),
+        userIdIdx: index("task_nlp_metadata_history_user_id_idx").on(table.userId),
+        rlsPolicy: pgPolicy("task_nlp_metadata_history_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
+// ── 17. Saved Focus Views ──
+export const savedFocusViews = pgTable(
+    "saved_focus_views",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        name: text("name").notNull(),
+        definition: jsonb("definition").$type<Record<string, unknown>>().default({}).notNull(),
+        isPinned: boolean("is_pinned").default(false).notNull(),
+        source: text("source").default("preset").notNull(), // 'preset' | 'composed' | 'manual'
+        orderIndex: doublePrecision("order_index").default(0).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+    },
+    (table) => ({
+        userIdIdx: index("saved_focus_views_user_id_idx").on(table.userId),
+        rlsPolicy: pgPolicy("saved_focus_views_owner_access", {
             as: "permissive",
             for: "all",
             using: rlsUsing,

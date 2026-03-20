@@ -26,10 +26,24 @@ describe("task schemas", () => {
                 isAllDay: true,
                 dueDate: "2026-03-09",
                 scheduledEnd: "2026-03-10",
+                tagIds: ["11111111-1111-4111-8111-111111111111"],
+                nlp: {
+                    rawInput: "Plan 13 tomorrow",
+                    sourceSurface: "inline_add",
+                    dateStyle: "mdy",
+                    dismissedEntityIds: [],
+                    userOverrides: {},
+                },
             }),
         ).toMatchObject({
             dueDate: "2026-03-09",
             scheduledEnd: "2026-03-10",
+            tagIds: ["11111111-1111-4111-8111-111111111111"],
+            nlp: {
+                rawInput: "Plan 13 tomorrow",
+                sourceSurface: "inline_add",
+                dateStyle: "mdy",
+            },
         });
     });
 

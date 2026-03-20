@@ -40,6 +40,11 @@ export function useCreateInboxItem() {
                 captureStatus: "clarifying",
                 placedTaskId: null,
                 aiSuggestion: null,
+                analysisStatus: null,
+                analysisVersion: null,
+                analysisSummary: null,
+                analysis: null,
+                sourceSurface: null,
                 createdAt: new Date().toISOString(),
             };
 

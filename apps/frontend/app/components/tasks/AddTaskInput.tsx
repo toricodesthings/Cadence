@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Plus, Calendar } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks";
-import { useAddTaskTag } from "../../hooks/tags";
 import { useProjects } from "../../hooks/projects";
 import { useTags } from "../../hooks/tags";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
@@ -9,9 +8,11 @@ import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
 import type { Task } from "../../types/task";
+import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { QuickAddActionTray } from "./QuickAddActionTray";
-import { parseQuickAddInput } from "../../lib/utils/quick-add-parser";
+import { ParseSummaryChips } from "./ParseSummaryChips";
+import { useNlpParse } from "../../hooks/use-nlp-parse";
 
 interface AddTaskInputProps {
     projectId?: string;
@@ -50,16 +51,27 @@ export function AddTaskInput({
     });
 
     const createTask = useCreateTask();
-    const addTaskTag = useAddTaskTag();
     const { data: projects = [] } = useProjects();
     const { data: tags = [] } = useTags();
     const { data: userSettings } = useSettings();
     const taskDefaults = userSettings?.tasks;
-    const parsedInput = parseQuickAddInput({
+    const nlpEnabled = taskDefaults?.intelligence?.nlpEnabled !== false;
+    const autoParseOnCapture = taskDefaults?.intelligence?.autoParseOnCapture !== false;
+    const showExplanations = taskDefaults?.intelligence?.showExplanations !== false;
+    const confidenceThreshold = taskDefaults?.intelligence?.confidenceThreshold ?? "medium";
+    const lowStimulationMode = taskDefaults?.intelligence?.lowStimulationMode ?? false;
+    const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
+    const parsedInput = useNlpParse({
         input: value,
         projects,
         tags,
         ignoredTokenIds,
+        dismissedEntityIds: ignoredTokenIds,
+        sourceSurface: "inline_add",
+        dateStyle,
+        confidenceThreshold,
+        lowStimulationMode,
+        enabled: nlpEnabled && autoParseOnCapture,
     });
 
     const handleSubmit = () => {
@@ -82,6 +94,7 @@ export function AddTaskInput({
         createTask.mutate({
             title,
             orderIndex,
+            tagIds: resolvedTagIds,
             dueDate: resolvedDeadline.dueDate ?? undefined,
             scheduledStart: resolvedDeadline.scheduledStart ?? undefined,
             scheduledEnd: resolvedDeadline.scheduledEnd ?? undefined,
@@ -90,14 +103,23 @@ export function AddTaskInput({
             ...(resolvedPriority && resolvedPriority > 0 && { priority: resolvedPriority as 1 | 2 | 3 | 4 }),
             ...(resolvedProjectId && { projectId: resolvedProjectId }),
             ...(sectionId && { sectionId }),
-        }, {
-            onSuccess: async (created) => {
-                if (created && resolvedTagIds.length) {
-                    await Promise.all(
-                        resolvedTagIds.map((tagId) => addTaskTag.mutateAsync({ taskId: created.id, tagId })),
-                    );
-                }
-            },
+            ...(parsedInput.waitingOn && { waitingOn: parsedInput.waitingOn }),
+            ...(parsedInput.durationMinutes && { durationEstimate: parsedInput.durationMinutes }),
+            nlp: buildCanonicalNlpEnvelope({
+                rawInput: value,
+                sourceSurface: "inline_add",
+                dateStyle,
+                dismissedEntityIds: ignoredTokenIds,
+                userOverrides: {
+                    title,
+                    projectId: resolvedProjectId,
+                    tagIds: resolvedTagIds,
+                    dueDate: resolvedDeadline.dueDate ?? null,
+                    scheduledStart: resolvedDeadline.scheduledStart ?? null,
+                    scheduledEnd: resolvedDeadline.scheduledEnd ?? null,
+                    recurrenceRule: resolvedDeadline.recurrenceRule ?? null,
+                },
+            }),
         });
 
         setValue("");
@@ -237,20 +259,17 @@ export function AddTaskInput({
                             )
                         }
                     />
-                    {parsedInput.tokens.length ? (
-                        <div className="flex flex-wrap gap-1.5">
-                            {parsedInput.tokens.map((token) => (
-                                <button
-                                    key={token.id}
-                                    type="button"
-                                    onClick={() => setIgnoredTokenIds((current) => [...current, token.id])}
-                                    className="inline-flex items-center rounded-full border border-lantern/18 bg-lantern/10 px-2.5 py-1 text-[11px] text-lantern transition-colors hover:bg-lantern/16"
-                                >
-                                    {token.label}
-                                </button>
-                            ))}
-                        </div>
-                    ) : null}
+                    {showExplanations && parsedInput.parseResult.entities.length > 0 && (
+                        <ParseSummaryChips
+                            entities={parsedInput.parseResult.entities}
+                            summary={parsedInput.summary}
+                            ignoredTokenIds={ignoredTokenIds}
+                            onDismissToken={(tokenId) => setIgnoredTokenIds((current) => [...current, tokenId])}
+                            compact={compact}
+                            lowStimulation={lowStimulationMode || userSettings?.appearance?.motion === "reduced"}
+                            maxVisibleChips={3}
+                        />
+                    )}
                 </div>
             ) : null}
         </form>

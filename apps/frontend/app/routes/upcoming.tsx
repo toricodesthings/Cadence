@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     AlertTriangle,
@@ -8,6 +8,7 @@ import {
     Circle,
     Repeat,
     Sunrise,
+    Sparkles,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -27,17 +28,25 @@ import { useTasks } from "../hooks/tasks";
 import { useProjects } from "../hooks/projects";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useTagFilterStore } from "../stores/tag-filter-store";
+import { useFocusViewStore } from "../stores/focus-view-store";
 import { useApiClient } from "../hooks/auth/use-api-client";
 import { useViewMode } from "../hooks/ui/use-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { useSettings } from "../hooks/core/use-settings";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
 import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task-scheduling";
+import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
 import type { SortMode } from "../lib/utils/sort-tasks";
+import { applyFocusView } from "@cadence/nlp/focus-views/apply";
+import { rankTasks } from "@cadence/nlp/ranking";
+import type { RankableTask } from "@cadence/nlp/ranking";
 import type { Task } from "../types/task";
+
+const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 
 type UpcomingBucketKey = "overdue" | "today" | "tomorrow" | "nextWeek";
 
@@ -56,6 +65,7 @@ interface UpcomingViewerItem {
     task: Task | null;
     habitId?: string;
     habitTargetDate?: string;
+    rationaleLabel: string | null;
 }
 
 const UPCOMING_SECTIONS: Array<{
@@ -245,6 +255,13 @@ function UpcomingTaskRow({
                     </span>
                 </div>
 
+                {item.rationaleLabel ? (
+                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-lantern/20 bg-lantern/10 px-2.5 py-1 text-[10px] font-medium text-lantern">
+                        <Sparkles size={10} aria-hidden="true" />
+                        <span className="truncate">{item.rationaleLabel}</span>
+                    </span>
+                ) : null}
+
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
                     <span className={`inline-flex items-center gap-1.5 font-medium ${isHabit ? "text-moonlit" : "text-lantern"}`}>
                         {isHabit ? <Repeat size={12} aria-hidden="true" /> : <CalendarRange size={12} aria-hidden="true" />}
@@ -297,6 +314,7 @@ export default function Upcoming() {
     const { data: tasks = [], isLoading: tasksLoading } = useTasks({ state: "ACTIVE" });
     const { data: projects = [] } = useProjects();
     const { activeTagId } = useTagFilterStore();
+    const { activeDefinition } = useFocusViewStore();
     const { view, setView } = useViewMode();
     const { sortMode, setSortMode } = useSortMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -305,6 +323,10 @@ export default function Upcoming() {
     const queryClient = useQueryClient();
     const client = useApiClient();
     const shell = useShellMode();
+    const { data: userSettings } = useSettings();
+    const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
+    const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
+    const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
 
     const today = new Date();
     const todayISO = toISODate(today);
@@ -319,9 +341,17 @@ export default function Upcoming() {
 
     useRouteFocus();
 
-    const tagFilteredTasks = activeTagId
-        ? tasks.filter((task) => task.tagIds?.includes(activeTagId))
-        : tasks;
+    const tagFilteredTasks = useMemo(() => {
+        let next = activeTagId
+            ? tasks.filter((task) => task.tagIds?.includes(activeTagId))
+            : tasks;
+
+        if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
+            next = applyFocusView(next, activeDefinition);
+        }
+
+        return next;
+    }, [activeDefinition, activeTagId, focusViewsEnabled, intelligenceEnabled, tasks]);
 
     const projectById = useMemo(
         () => new Map(projects.map((project) => [project.id, project] as const)),
@@ -362,6 +392,7 @@ export default function Upcoming() {
                 projectColor: project?.colorAccent ?? null,
                 projectEmoji: project?.emoji ?? null,
                 task,
+                rationaleLabel: null,
             });
         }
 
@@ -397,17 +428,52 @@ export default function Upcoming() {
                     task: null,
                     habitId: habit.id,
                     habitTargetDate: log.targetDate,
+                    rationaleLabel: null,
                 });
             }
         }
 
-        const comparator = getUpcomingComparator(sortMode);
-        for (const bucket of Object.keys(grouped) as UpcomingBucketKey[]) {
-            grouped[bucket].sort(comparator);
+        const useRanking = intelligenceEnabled && smartSortEnabled && sortMode === "smart";
+        if (useRanking) {
+            for (const bucket of Object.keys(grouped) as UpcomingBucketKey[]) {
+                const rankable: RankableTask[] = grouped[bucket]
+                    .filter((item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task))
+                    .map((item) => ({
+                        id: item.task!.id,
+                        priority: item.task!.priority,
+                        isPinned: item.task!.isPinned,
+                        orderIndex: item.task!.orderIndex,
+                        state: item.task!.state,
+                        dueDate: item.task!.dueDate,
+                        scheduledStart: item.task!.scheduledStart,
+                        scheduledEnd: item.task!.scheduledEnd,
+                        isAllDay: item.task!.isAllDay,
+                        effort: item.task!.effort,
+                        waitingOn: item.task!.waitingOn ?? null,
+                        notBefore: item.task!.notBefore ?? null,
+                        durationEstimate: item.task!.durationEstimate,
+                    }));
+                const ranked = rankTasks(rankable, { routeContext: "upcoming" });
+                const sorted = ranked.flatMap((entry) => {
+                    const item = grouped[bucket].find((candidate) => candidate.task?.id === entry.task.id);
+                    if (!item) return [];
+                    const reasonLabel = getRankingReasonLabel(entry.reasons);
+                    return [{ ...item, rationaleLabel: reasonLabel }];
+                });
+
+                const unranked = grouped[bucket].filter((item) => item.kind !== "task");
+                grouped[bucket] = [...sorted, ...unranked];
+                continue;
+            }
+        } else {
+            const comparator = getUpcomingComparator(sortMode);
+            for (const bucket of Object.keys(grouped) as UpcomingBucketKey[]) {
+                grouped[bucket].sort(comparator);
+            }
         }
 
         return grouped;
-    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO]);
+    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled]);
 
     const totalVisible = groupedItems.overdue.length + groupedItems.today.length + groupedItems.tomorrow.length + groupedItems.nextWeek.length;
     const isLoading = tasksLoading || habitsLoading;
@@ -514,7 +580,7 @@ export default function Upcoming() {
     }));
 
     const sortOptions = [
-        { value: "smart", label: "Smart" },
+        { value: "smart", label: "Smart order" },
         { value: "priority", label: "Priority" },
         { value: "manual", label: "Manual" },
     ] as const;
@@ -587,6 +653,11 @@ export default function Upcoming() {
                 accentColor: "var(--color-nav-upcoming)",
             }}
         >
+            <PageContent width="default">
+                <Suspense fallback={null}>
+                    <LazyFocusViewBar />
+                </Suspense>
+            </PageContent>
             {view === "kanban" ? (
                 <div className="flex-1 min-h-0 min-w-0">
                     {isLoading ? (

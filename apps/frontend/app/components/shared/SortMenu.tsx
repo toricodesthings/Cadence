@@ -16,7 +16,7 @@ interface SortMenuProps {
 }
 
 const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof Sparkles }[] = [
-    { value: "smart", label: "Smart", icon: Sparkles },
+    { value: "smart", label: "Smart order", icon: Sparkles },
     { value: "priority", label: "Priority", icon: ArrowDownWideNarrow },
     { value: "manual", label: "Manual", icon: GripVertical },
 ];

@@ -1,3 +1,5 @@
+import type { CanonicalNlpEnvelope, SourceSurface } from "@cadence/nlp/core";
+
 export type TaskState = "ACTIVE" | "WAITING" | "COMPLETE" | "ARCHIVED";
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 // 0 = none, 1 = low, 2 = medium, 3 = high, 4 = urgent
@@ -68,6 +70,7 @@ export interface CreateTaskInput {
     content?: string | null;
     orderIndex: number;
     projectId?: string;
+    tagIds?: string[];
     scheduledStart?: string;
     scheduledEnd?: string;
     dueDate?: string;
@@ -88,7 +91,11 @@ export interface CreateTaskInput {
     effort?: EffortLevel;
     notBefore?: string | null;
     sectionId?: string | null;
+    durationEstimate?: number | null;
+    nlp?: CanonicalNlpEnvelope;
 }
+
+export type TaskSourceSurface = SourceSurface;
 
 /** Input shape for updating a task — all fields optional */
 export type UpdateTaskInput = Partial<
@@ -117,4 +124,20 @@ export type UpdateTaskInput = Partial<
         | "sectionId"
         | "orderIndex"
     >
->;
+> & {
+    expectedUpdatedAt?: string;
+};
+
+// ── Task Note (dedicated note storage) ──
+export interface TaskNote {
+    id: string;
+    taskId: string;
+    userId: string;
+    body: string;
+    excerpt: string;
+    wordCount: number;
+    headingCount: number;
+    version: number;
+    createdAt: string;
+    updatedAt: string;
+}

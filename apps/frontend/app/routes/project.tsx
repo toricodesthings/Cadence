@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
@@ -8,6 +8,7 @@ import { useProjects } from "../hooks/projects";
 import { useUpdateProject, useDeleteProject } from "../hooks/projects";
 import { useTasks } from "../hooks/tasks";
 import { useTagFilterStore } from "../stores/tag-filter-store";
+import { useFocusViewStore } from "../stores/focus-view-store";
 import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
 import { KanbanBoard } from "../components/kanban/KanbanBoard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
@@ -19,6 +20,12 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/sort-tasks";
+import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
+import { applyFocusView } from "@cadence/nlp/focus-views/apply";
+import { rankTasks } from "@cadence/nlp/ranking";
+import type { RankableTask } from "@cadence/nlp/ranking";
+const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
+import { useSettings } from "../hooks/core/use-settings";
 import * as Dialog from "../components/primitives/Dialog";
 import * as AlertDialog from "../components/primitives/AlertDialog";
 import { Button } from "../components/primitives/Button";
@@ -64,6 +71,11 @@ export default function ProjectView() {
 
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
     const { activeTagId } = useTagFilterStore();
+    const { activeDefinition } = useFocusViewStore();
+    const { data: userSettings } = useSettings();
+    const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
+    const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
+    const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
     const { sortMode, setSortMode } = useSortMode();
 
     useRouteFocus();
@@ -82,12 +94,45 @@ export default function ProjectView() {
         [linkedHabits, todayISO],
     );
 
-    const tasks = sortTasks(
-        activeTagId
+    const { tasks, rationaleByTaskId } = useMemo(() => {
+        let filtered = activeTagId
             ? (rawTasks ?? []).filter(t => (t as any).tagIds?.includes(activeTagId))
-            : (rawTasks ?? []),
-        sortMode
-    );
+            : (rawTasks ?? []);
+        const rationaleByTaskId: Record<string, string | null> = {};
+        if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
+            filtered = applyFocusView(filtered, activeDefinition);
+        }
+        if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") {
+            const rankable: RankableTask[] = filtered.map((t) => ({
+                id: t.id,
+                priority: t.priority,
+                isPinned: t.isPinned,
+                orderIndex: t.orderIndex,
+                state: t.state,
+                dueDate: t.dueDate,
+                scheduledStart: t.scheduledStart,
+                scheduledEnd: t.scheduledEnd,
+                isAllDay: t.isAllDay,
+                effort: t.effort,
+                waitingOn: t.waitingOn ?? null,
+                notBefore: t.notBefore ?? null,
+                durationEstimate: t.durationEstimate,
+            }));
+            const ranked = rankTasks(rankable, { routeContext: "project" });
+            for (const item of ranked) {
+                rationaleByTaskId[item.task.id] = getRankingReasonLabel(item.reasons);
+            }
+            const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
+            return {
+                tasks: [...filtered].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0)),
+                rationaleByTaskId,
+            };
+        }
+        return {
+            tasks: sortTasks(filtered, sortMode),
+            rationaleByTaskId,
+        };
+    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId]);
 
     const handleRenameOpen = () => {
         setRenameValue(project?.name ?? "");
@@ -354,7 +399,7 @@ export default function ProjectView() {
                                 content: (
                                     <div className="space-y-2">
                                         {[
-                                            { value: "smart", label: "Smart" },
+                                            { value: "smart", label: "Smart order" },
                                             { value: "priority", label: "Priority" },
                                             { value: "manual", label: "Manual" },
                                         ].map((option) => (
@@ -436,6 +481,11 @@ export default function ProjectView() {
                     accentColor: projectAccent,
                 }}
             >
+                <PageContent width="default">
+                    <Suspense fallback={null}>
+                        <LazyFocusViewBar />
+                    </Suspense>
+                </PageContent>
                 {view === "kanban" ? (
                     <div className="flex-1 min-h-0 min-w-0">
                         {isLoading ? (
@@ -478,6 +528,7 @@ export default function ProjectView() {
                                     projectId={projectId}
                                     selectedTaskId={selectedTaskId}
                                     onSelectTask={handleSelectTask}
+                                    rationaleByTaskId={rationaleByTaskId}
                                 />
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center">

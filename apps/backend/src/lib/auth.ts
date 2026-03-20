@@ -7,6 +7,9 @@ import { getRequestId, setRequestErrorCode } from "./request-log";
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 let cachedUrl = "";
 
+/** Maximum clock skew tolerance for JWT exp/nbf validation (seconds). */
+const CLOCK_TOLERANCE_SECONDS = 30;
+
 export type AuthVariables = {
     userId: string;
     userEmail?: string;
@@ -49,7 +52,30 @@ function classifyAuthFailure(error: unknown) {
         return new AppError(503, "AUTH_PROVIDER_UNAVAILABLE", "Authentication provider unavailable", true);
     }
 
+    if (message.toLowerCase().includes("iss") || message.toLowerCase().includes("issuer")) {
+        return new AppError(401, "INVALID_ISSUER", "Token issuer not trusted");
+    }
+
+    if (message.toLowerCase().includes("aud") || message.toLowerCase().includes("audience")) {
+        return new AppError(401, "INVALID_AUDIENCE", "Token not intended for this API");
+    }
+
     return new AppError(401, "UNAUTHORIZED", "Invalid token");
+}
+
+/**
+ * Synchronously ensures a `users` row exists for the authenticated subject.
+ * Called on every write request BEFORE the route handler runs, preventing
+ * FK violations from racing against a background upsert.
+ */
+async function ensureUserExists(env: Env, userId: string) {
+    const { getDbClient } = await import("./db");
+    const { withRls } = await import("./rls");
+    const { users } = await import("../db/schema");
+    const db = getDbClient(env as any);
+    await withRls(db as any, userId, async (tx) => {
+        await tx.insert(users).values({ id: userId }).onConflictDoNothing();
+    });
 }
 
 export const authMiddleware = createMiddleware<{
@@ -73,6 +99,8 @@ export const authMiddleware = createMiddleware<{
 
     const token = header.slice(7);
     const jwksUrl = c.env.NEON_AUTH_JWKS_URL;
+    const expectedIssuer = c.env.JWT_ISSUER;
+    const expectedAudience = c.env.JWT_AUDIENCE;
 
     try {
         if (!jwksUrl) {
@@ -81,7 +109,7 @@ export const authMiddleware = createMiddleware<{
 
         if (!jwksCache || cachedUrl !== jwksUrl) {
             jwksCache = createRemoteJWKSet(new URL(jwksUrl), {
-                cooldownDuration: 30000, // wait 30s before trying to fetch again if cached
+                cooldownDuration: 30000,
                 timeoutDuration: 5000,
             });
             cachedUrl = jwksUrl;
@@ -93,7 +121,11 @@ export const authMiddleware = createMiddleware<{
 
         while (attempt < maxRetries) {
             try {
-                const result = await jwtVerify(token, jwksCache);
+                const result = await jwtVerify(token, jwksCache, {
+                    ...(expectedIssuer && { issuer: expectedIssuer }),
+                    ...(expectedAudience && { audience: expectedAudience }),
+                    clockTolerance: CLOCK_TOLERANCE_SECONDS,
+                });
                 payload = result.payload;
                 break;
             } catch (err: any) {
@@ -116,24 +148,15 @@ export const authMiddleware = createMiddleware<{
             c.set("userEmail", payload.email);
         }
 
-        // Only sync user on write operations — GETs don't need to upsert
+        // Synchronous user bootstrap on write requests to prevent FK race conditions (F02)
         const isWrite = c.req.method !== "GET" && c.req.method !== "HEAD";
         if (isWrite) {
-            c.executionCtx.waitUntil(
-                (async () => {
-                    try {
-                        const { getDbClient } = await import("./db");
-                        const { withRls } = await import("./rls");
-                        const { users } = await import("../db/schema");
-                        const db = getDbClient(c.env as any);
-                        await withRls(db as any, payload!.sub!, async (tx) => {
-                            await tx.insert(users).values({ id: payload!.sub! }).onConflictDoNothing();
-                        });
-                    } catch (dbErr) {
-                        console.error("Failed to sync user via background Worker:", dbErr);
-                    }
-                })()
-            );
+            try {
+                await ensureUserExists(c.env, payload.sub);
+            } catch (dbErr) {
+                console.error("Failed to sync user synchronously:", dbErr);
+                // Non-fatal: the user row may already exist. Let the route attempt proceed.
+            }
         }
     } catch (e: any) {
         if (e instanceof AppError) {

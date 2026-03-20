@@ -1,0 +1,307 @@
+import type {
+  ParseResult,
+  ParseOptions,
+  ParsedEntity,
+  CanonicalNlpEnvelope,
+  CanonicalNlpSnapshot,
+  ConfidenceTier,
+} from "../core/index.js";
+import { PARSER_VERSION } from "../core/index.js";
+import { parseDates } from "./date-parser.js";
+import { parseRecurrence } from "./recurrence-parser.js";
+import { parsePriority } from "./priority-parser.js";
+import { parseDuration, parseWaitingOn } from "./entity-parser.js";
+import { resolveProjectsAndTags } from "../resolve/index.js";
+
+/**
+ * Main parse entry point — shared across frontend preview and backend canonicalization.
+ *
+ * Parse order:
+ * 1. Recurrence (before dates, since "every Monday" might confuse date parser)
+ * 2. Dates/times via chrono-node
+ * 3. Priority keywords
+ * 4. Duration estimates
+ * 5. Waiting-on patterns
+ * 6. Project/tag resolution (fuzzy via Fuse.js)
+ * 7. Explicit shorthand (#tag, /project)
+ */
+export function parse(options: ParseOptions): ParseResult {
+  const {
+    input,
+    sourceSurface,
+    referenceDate = new Date(),
+    context,
+    dismissedEntityIds = [],
+    dateStyle = "mdy",
+  } = options;
+
+  const dismissed = new Set(dismissedEntityIds);
+  const allEntities: ParsedEntity[] = [];
+  const consumedRanges: Array<{ start: number; end: number }> = [];
+  const warnings: string[] = [];
+
+  // 1. Recurrence
+  const recurrenceResult = parseRecurrence(input);
+  for (const entity of recurrenceResult.entities) {
+    if (!dismissed.has(entity.id)) {
+      allEntities.push(entity);
+      consumedRanges.push(...recurrenceResult.consumedRanges);
+    }
+  }
+
+  // 2. Dates — give chrono the input without consumed recurrence ranges
+  const dateResult = parseDates(input, { referenceDate, dateStyle });
+  for (const entity of dateResult.entities) {
+    // Skip dates that overlap with recurrence matches
+    const overlaps = consumedRanges.some(
+      (r) => entity.start < r.end && entity.end > r.start,
+    );
+    if (overlaps) continue;
+    if (!dismissed.has(entity.id)) {
+      allEntities.push(entity);
+      consumedRanges.push(...dateResult.consumedRanges);
+    }
+  }
+
+  // 3. Priority
+  const priorityResult = parsePriority(input);
+  for (const entity of priorityResult.entities) {
+    if (!dismissed.has(entity.id)) {
+      allEntities.push(entity);
+      consumedRanges.push(...priorityResult.consumedRanges);
+    }
+  }
+
+  // 4. Duration
+  const durationResult = parseDuration(input);
+  for (const entity of durationResult.entities) {
+    const overlaps = consumedRanges.some(
+      (r) => entity.start < r.end && entity.end > r.start,
+    );
+    if (overlaps) continue;
+    if (!dismissed.has(entity.id)) {
+      allEntities.push(entity);
+      consumedRanges.push(...durationResult.consumedRanges);
+    }
+  }
+
+  // 5. Waiting on
+  const waitingResult = parseWaitingOn(input);
+  for (const entity of waitingResult.entities) {
+    if (!dismissed.has(entity.id)) {
+      allEntities.push(entity);
+      consumedRanges.push(...waitingResult.consumedRanges);
+    }
+  }
+
+  // 6. Explicit #tag and /project shorthand
+  const shorthandEntities = parseShorthand(input, context, dismissed);
+  for (const entity of shorthandEntities) {
+    allEntities.push(entity);
+    consumedRanges.push({ start: entity.start, end: entity.end });
+  }
+
+  // 7. Fuzzy project/tag resolution (only if context is provided)
+  if (context) {
+    const fuzzyEntities = resolveProjectsAndTags(
+      input,
+      context,
+      consumedRanges,
+      dismissed,
+    );
+    allEntities.push(...fuzzyEntities);
+  }
+
+  // Build cleaned title by removing consumed entity text
+  const cleanedTitle = buildCleanedTitle(input, consumedRanges);
+
+  // Build summary
+  const summary = buildSummary(allEntities);
+
+  const overallConfidence = deriveOverallConfidence(allEntities, warnings);
+
+  return {
+    rawInput: input,
+    cleanedTitle,
+    parserVersion: PARSER_VERSION,
+    sourceSurface,
+    entities: allEntities,
+    warnings,
+    summary,
+    overallConfidence,
+  };
+}
+
+export function deriveOverallConfidence(
+  entities: ParsedEntity[],
+  warnings: string[] = [],
+): ConfidenceTier | null {
+  if (warnings.includes("timed_deadline_needs_review")) {
+    return "low";
+  }
+
+  if (entities.length === 0) {
+    return null;
+  }
+
+  if (entities.some((entity) => entity.confidence === "low")) {
+    return "low";
+  }
+
+  if (entities.some((entity) => entity.confidence === "medium")) {
+    return "medium";
+  }
+
+  return "high";
+}
+
+/**
+ * Parse explicit #tag and /project shorthand.
+ */
+function parseShorthand(
+  input: string,
+  context: ParseOptions["context"],
+  dismissed: Set<string>,
+): ParsedEntity[] {
+  const entities: ParsedEntity[] = [];
+
+  if (!context) return entities;
+
+  // #tag
+  for (const match of input.matchAll(/(^|\s)#([\p{L}\p{N}_-]+)/giu)) {
+    const rawName = match[2];
+    const tag = context.tags.find(
+      (t) => t.name.toLowerCase() === rawName.toLowerCase(),
+    );
+    if (!tag) continue;
+    const id = `tag:${tag.id}`;
+    if (dismissed.has(id)) continue;
+
+    const fullMatch = match[0];
+    const start = (match.index ?? 0) + (fullMatch.length - match[0].trimStart().length);
+    const end = (match.index ?? 0) + fullMatch.length;
+
+    entities.push({
+      id,
+      type: "tag",
+      sourceText: fullMatch.trim(),
+      start,
+      end,
+      confidence: "high",
+      normalizedValue: { id: tag.id, resolvedId: tag.id, name: tag.name },
+      explanation: `Tag: #${tag.name}`,
+    });
+  }
+
+  // /project
+  for (const match of input.matchAll(/(^|\s)\/([\p{L}\p{N}_-]+)/giu)) {
+    const rawName = match[2];
+    const project = context.projects.find(
+      (p) =>
+        p.name.toLowerCase().replace(/\s+/g, "-") === rawName.toLowerCase(),
+    );
+    if (!project) continue;
+    const id = `project:${project.id}`;
+    if (dismissed.has(id)) continue;
+
+    const fullMatch = match[0];
+    const start = (match.index ?? 0) + (fullMatch.length - match[0].trimStart().length);
+    const end = (match.index ?? 0) + fullMatch.length;
+
+    entities.push({
+      id,
+      type: "project",
+      sourceText: fullMatch.trim(),
+      start,
+      end,
+      confidence: "high",
+      normalizedValue: { id: project.id, resolvedId: project.id, name: project.name },
+      explanation: `Project: ${project.name}`,
+    });
+    break; // Only one project
+  }
+
+  return entities;
+}
+
+/**
+ * Build a clean title by removing consumed entity text ranges.
+ */
+function buildCleanedTitle(
+  input: string,
+  ranges: Array<{ start: number; end: number }>,
+): string {
+  if (ranges.length === 0) return input.trim();
+
+  // Sort ranges by start position descending to splice from end
+  const sorted = [...ranges].sort((a, b) => b.start - a.start);
+  let result = input;
+  for (const { start, end } of sorted) {
+    result = result.slice(0, start) + " " + result.slice(end);
+  }
+  return result.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Build a one-line summary of what was recognized.
+ */
+function buildSummary(entities: ParsedEntity[]): string | null {
+  const highConfidence = entities.filter((e) => e.confidence === "high");
+  if (highConfidence.length === 0) return null;
+
+  const parts: string[] = [];
+  for (const entity of highConfidence) {
+    switch (entity.type) {
+      case "due_date":
+      case "scheduled_start":
+        parts.push((entity.normalizedValue as { humanLabel: string }).humanLabel);
+        break;
+      case "recurrence":
+        parts.push((entity.normalizedValue as { humanLabel: string }).humanLabel);
+        break;
+      case "priority":
+        parts.push(`P${5 - (entity.normalizedValue as number)}`);
+        break;
+      case "project":
+        parts.push((entity.normalizedValue as { name: string }).name);
+        break;
+      case "tag":
+        parts.push(`#${(entity.normalizedValue as { name: string }).name}`);
+        break;
+      case "waiting_on":
+        parts.push(`Waiting on ${entity.normalizedValue}`);
+        break;
+      case "duration":
+        parts.push((entity.normalizedValue as { humanLabel: string }).humanLabel);
+        break;
+    }
+  }
+
+  return parts.length > 0 ? `Cadence understood: ${parts.join(" · ")}` : null;
+}
+
+export { parseDates } from "./date-parser.js";
+export { parseRecurrence } from "./recurrence-parser.js";
+export { parsePriority } from "./priority-parser.js";
+export { parseDuration, parseWaitingOn } from "./entity-parser.js";
+
+export function parseCanonicalNlpEnvelope(
+  envelope: CanonicalNlpEnvelope,
+  options: Omit<ParseOptions, "input" | "sourceSurface" | "dateStyle" | "dismissedEntityIds"> = {},
+): CanonicalNlpSnapshot {
+  const parsed = parse({
+    input: envelope.rawInput,
+    sourceSurface: envelope.sourceSurface,
+    dateStyle: envelope.dateStyle,
+    dismissedEntityIds: envelope.dismissedEntityIds,
+    referenceDate: options.referenceDate,
+    context: options.context,
+  });
+
+  return {
+    ...parsed,
+    dateStyle: envelope.dateStyle,
+    dismissedEntityIds: envelope.dismissedEntityIds,
+    userOverrides: envelope.userOverrides,
+  };
+}

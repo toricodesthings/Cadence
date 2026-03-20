@@ -15,6 +15,7 @@ interface SectionedTaskListProps {
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
     showUngroupedAddTask?: boolean;
+    rationaleByTaskId?: Record<string, string | null | undefined>;
     /** Additional content to render at the end */
     footer?: React.ReactNode;
 }
@@ -30,6 +31,7 @@ export function SectionedTaskList({
     selectedTaskId,
     onSelectTask,
     showUngroupedAddTask = true,
+    rationaleByTaskId,
     footer,
 }: SectionedTaskListProps) {
     const { data: sections = [] } = useSections(projectId);
@@ -97,6 +99,7 @@ export function SectionedTaskList({
                     tasks={tasks}
                     selectedTaskId={selectedTaskId}
                     onSelectTask={onSelectTask}
+                    rationaleByTaskId={rationaleByTaskId}
                 />
 
                 <div className="mt-4">
@@ -168,6 +171,7 @@ export function SectionedTaskList({
                         tasks={ungroupedTasks}
                         selectedTaskId={selectedTaskId}
                         onSelectTask={onSelectTask}
+                        rationaleByTaskId={rationaleByTaskId}
                     />
                     {showUngroupedAddTask ? (
                         <div className={inlineAddClass}>
@@ -272,6 +276,7 @@ export function SectionedTaskList({
                                             tasks={sectionTasks}
                                             selectedTaskId={selectedTaskId}
                                             onSelectTask={onSelectTask}
+                                            rationaleByTaskId={rationaleByTaskId}
                                         />
                                     ) : (
                                         <div className="py-4 px-6 text-[12px] text-twilight-text-muted/40 italic">

@@ -13,3 +13,4 @@ export {
   useDeleteSubtask,
   useReorderSubtasks,
 } from "./use-subtasks";
+export { useTaskNoteQuery, useUpsertTaskNote } from "./use-task-note-api";

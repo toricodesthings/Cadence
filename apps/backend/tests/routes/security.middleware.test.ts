@@ -31,6 +31,9 @@ function createEnv(overrides: Partial<Record<string, unknown>> = {}) {
     return {
         HYPERDRIVE: {},
         NEON_AUTH_JWKS_URL: "https://auth.cadenceapp.cloud/jwks.json",
+        JWT_ISSUER: "https://auth.cadenceapp.cloud",
+        JWT_AUDIENCE: "cadence-api",
+        DEPLOYMENT_STAGE: "development",
         ENABLE_DEBUG_ROUTES: "true",
         RATE_LIMITER: createLimiter(),
         RATE_LIMITER_READ: createLimiter(),
@@ -53,14 +56,14 @@ describe("backend middleware security", () => {
         });
     });
 
-    it("allows localhost origins and pins unknown origins to the production dashboard origin", async () => {
+    it("allows localhost origins in development stage and pins unknown origins to the production dashboard origin", async () => {
         const localhostResponse = await worker.fetch(
             new Request("http://localhost/health", {
                 headers: {
                     Origin: "http://localhost:8788",
                 },
             }),
-            createEnv(),
+            createEnv({ DEPLOYMENT_STAGE: "development" }),
             createExecutionContext(),
         );
 
@@ -76,6 +79,20 @@ describe("backend middleware security", () => {
 
         expect(localhostResponse.headers.get("access-control-allow-origin")).toBe("http://localhost:8788");
         expect(foreignResponse.headers.get("access-control-allow-origin")).toBe("https://dashboard.cadenceapp.cloud");
+    });
+
+    it("blocks localhost origins in production stage", async () => {
+        const response = await worker.fetch(
+            new Request("http://localhost/health", {
+                headers: {
+                    Origin: "http://localhost:8788",
+                },
+            }),
+            createEnv({ DEPLOYMENT_STAGE: "production" }),
+            createExecutionContext(),
+        );
+
+        expect(response.headers.get("access-control-allow-origin")).toBe("https://dashboard.cadenceapp.cloud");
     });
 
     it("rejects missing bearer tokens with a structured 401", async () => {

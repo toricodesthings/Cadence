@@ -33,6 +33,7 @@ interface TaskListProps {
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
     cardVariant?: "list" | "board";
+    rationaleByTaskId?: Record<string, string | null | undefined>;
 }
 
 function mergeTasksPreservingLocalOrder(current: Task[], incoming: Task[]) {
@@ -63,6 +64,7 @@ export function TaskList({
     selectedTaskId,
     onSelectTask,
     cardVariant = "list",
+    rationaleByTaskId,
 }: TaskListProps) {
     const [tasks, setTasks] = useState(initialTasks);
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -165,6 +167,7 @@ export function TaskList({
                                 isDropTarget={overTaskId === task.id && activeTaskId !== task.id}
                                 onSelect={onSelectTask}
                                 variant={cardVariant}
+                                rationaleLabel={rationaleByTaskId?.[task.id] ?? null}
                             />
                         </TaskContextMenuWrapper>
                     ))}
@@ -181,6 +184,7 @@ export function TaskList({
                             onSelect={onSelectTask}
                             isDragging
                             variant={cardVariant}
+                            rationaleLabel={rationaleByTaskId?.[activeTask.id] ?? null}
                         />
                     </div>
                 ) : null}

@@ -49,6 +49,17 @@ function cacheHeaders(maxAge: number): Record<string, string> {
     };
 }
 
+/**
+ * Restrictive cache headers for authenticated responses containing user-sensitive
+ * or location-derived data. Prevents browsers and intermediate proxies from caching
+ * personalised content per OWASP Session Management and Transport Layer Security guidance.
+ */
+function privateCacheHeaders(maxAge: number): Record<string, string> {
+    return {
+        "Cache-Control": `private, no-store, max-age=0`,
+    };
+}
+
 function getLanguage(locale: string): string {
     return locale.split("-")[0]?.toUpperCase() || "EN";
 }
@@ -65,7 +76,7 @@ proxyRoutes.get("/weather", apiValidator("query", weatherQuerySchema), async (c)
     }
 
     const data = await res.json();
-    return c.json({ data }, 200, cacheHeaders(600)); // 10 min client cache
+    return c.json({ data }, 200, privateCacheHeaders(0)); // user-sensitive coordinates
 });
 
 // ── GET /api/proxy/geocode/reverse ──
@@ -90,7 +101,7 @@ proxyRoutes.get("/geocode/reverse", apiValidator("query", reverseGeocodeQuerySch
             },
         },
         200,
-        cacheHeaders(43200), // 12h client cache
+        privateCacheHeaders(0), // user-sensitive coordinates
     );
 });
 

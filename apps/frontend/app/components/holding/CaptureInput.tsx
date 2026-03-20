@@ -41,46 +41,58 @@ export function CaptureInput() {
     useEffect(() => {
         const el = inputRef.current;
         if (!el) return;
+        const singleLineHeight = 24;
         el.style.height = "auto";
-        el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+        el.style.height = `${Math.max(singleLineHeight, Math.min(el.scrollHeight, 160))}px`;
     }, [value]);
 
     return (
         <div
+            data-focus-container
             className={`
-                group relative rounded-[1.5rem] border
-                transition-[color,background-color,border-color,box-shadow] duration-200
+                group relative overflow-hidden rounded-[1.65rem] border
+                transition-[color,background-color,border-color,box-shadow,transform] duration-200
                 ${isFocused
-                    ? "border-lantern/25 bg-white/[0.04] shadow-[0_0_0_1px_rgba(232,164,74,0.08),0_4px_24px_rgba(232,164,74,0.04)]"
-                    : "border-twilight-border bg-twilight-surface/30 hover:border-twilight-border-light hover:bg-white/[0.02]"
+                    ? "border-lantern/18 bg-white/[0.035] shadow-[0_0_0_1px_rgba(232,164,74,0.05),0_18px_46px_rgba(3,8,18,0.22),inset_0_1px_0_rgba(255,255,255,0.03)]"
+                    : "border-white/[0.06] bg-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:border-white/[0.08] hover:bg-white/[0.028]"
                 }
                 backdrop-blur-md
             `}
         >
-            <div className="flex items-start gap-3 px-5 py-4">
+            <div className="flex items-center gap-3 px-4 py-3 lg:px-5 lg:py-3.5">
                 <Sparkles
-                    size={18}
+                    size={17}
                     aria-hidden="true"
-                    className={`mt-0.5 shrink-0 transition-colors duration-200 ${isFocused ? "text-lantern" : "text-twilight-text-muted/70"}`}
+                    className={`shrink-0 transition-colors duration-200 ${isFocused ? "text-lantern" : "text-twilight-text-muted/70"}`}
                 />
-                <textarea
-                    ref={inputRef}
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="What's on your mind?"
-                    rows={1}
-                    aria-label="Capture anything — thoughts, tasks, ideas"
-                    className="flex-1 resize-none bg-transparent text-[15px] leading-relaxed text-twilight-text outline-none placeholder:text-twilight-text-muted/60"
-                />
+                <div
+                    className={`
+                        flex min-h-[3.9rem] flex-1 items-center rounded-[1.2rem] border px-4 transition-[background-color,border-color,box-shadow] duration-200
+                        ${isFocused
+                            ? "border-white/[0.08] bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]"
+                            : "border-white/[0.05] bg-white/[0.018]"
+                        }
+                    `}
+                >
+                    <textarea
+                        ref={inputRef}
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="What's on your mind?"
+                        rows={1}
+                        aria-label="Capture anything — thoughts, tasks, ideas"
+                        className="block max-h-[160px] w-full appearance-none resize-none border-0 bg-transparent p-0 text-[15px] leading-6 text-twilight-text shadow-none outline-none ring-0 placeholder:text-twilight-text-muted/60 focus:border-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                    />
+                </div>
             </div>
 
             {/* Subtle hint row — only visible when focused and empty */}
             {isFocused && !value.trim() && (
-                <div className="border-t border-twilight-border/30 px-5 py-2.5">
-                    <p className="text-[12px] text-twilight-text-muted/80">
+                <div className="border-t border-white/[0.05] px-5 pb-4 pt-2.5 lg:px-6">
+                    <p className="text-[12px] text-twilight-text-muted/78">
                         Press <kbd className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-twilight-text-soft">Enter</kbd> to capture
                         <span className="mx-1.5 text-twilight-border">·</span>
                         <kbd className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-twilight-text-soft">Shift + Enter</kbd> for new line

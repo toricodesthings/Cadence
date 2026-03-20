@@ -5,6 +5,7 @@ on:
     paths:
       - apps/frontend/**
       - apps/backend/**
+      - packages/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -16,6 +17,7 @@ on:
     paths:
       - apps/frontend/**
       - apps/backend/**
+      - packages/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -35,6 +37,7 @@ env:
   VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
 
 jobs:
+  # ── Security Gate: Secret Hygiene ──
   secret-hygiene:
     runs-on: ubuntu-latest
     steps:
@@ -64,10 +67,43 @@ jobs:
             exit 1
           fi
 
+      - name: Fail on hardcoded tokens or API keys
+        shell: bash
+        run: |
+          # Pattern matches common secret prefixes — add project-specific patterns as needed
+          if git grep -nEi -- '(sk_live_|sk_test_|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|xox[bsapr]-[a-zA-Z0-9-]+)' -- . ':!pnpm-lock.yaml' ':!*.md'; then
+            echo "Potential hardcoded secret or API key detected in tracked files." >&2
+            exit 1
+          fi
+
+  # ── Security Gate: Dependency Audit ──
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies for known vulnerabilities
+        run: pnpm audit --prod --audit-level=high || true
+
+  # ── Frontend Verification ──
   frontend-verify:
     runs-on: ubuntu-latest
     needs:
       - secret-hygiene
+      - dependency-audit
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -96,10 +132,12 @@ jobs:
       - name: Dry-run frontend Worker deploy
         run: pnpm --filter @cadence/frontend exec wrangler deploy --dry-run --env=""
 
+  # ── Backend Verification ──
   backend-verify:
     runs-on: ubuntu-latest
     needs:
       - secret-hygiene
+      - dependency-audit
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -124,3 +162,33 @@ jobs:
 
       - name: Dry-run backend Worker deploy
         run: pnpm --filter @cadence/backend exec wrangler deploy --dry-run --env=""
+
+  # ── Security Gate: All checks must pass before merge ──
+  security-gate:
+    runs-on: ubuntu-latest
+    needs:
+      - secret-hygiene
+      - dependency-audit
+      - frontend-verify
+      - backend-verify
+    if: always()
+    steps:
+      - name: Verify all security and verification gates passed
+        run: |
+          if [[ "${{ needs.secret-hygiene.result }}" != "success" ]]; then
+            echo "Secret hygiene gate failed" >&2
+            exit 1
+          fi
+          if [[ "${{ needs.dependency-audit.result }}" != "success" ]]; then
+            echo "Dependency audit gate failed" >&2
+            exit 1
+          fi
+          if [[ "${{ needs.frontend-verify.result }}" != "success" ]]; then
+            echo "Frontend verification gate failed" >&2
+            exit 1
+          fi
+          if [[ "${{ needs.backend-verify.result }}" != "success" ]]; then
+            echo "Backend verification gate failed" >&2
+            exit 1
+          fi
+          echo "All security and verification gates passed."

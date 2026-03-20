@@ -7,6 +7,10 @@ const { getDbClientMock, withRlsMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
     withRlsMock: vi.fn(),
 }));
+const { checkIdempotencyMock, recordMutationMock } = vi.hoisted(() => ({
+    checkIdempotencyMock: vi.fn().mockResolvedValue(null),
+    recordMutationMock: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("../../src/lib/db", () => ({
     getDbClient: getDbClientMock,
@@ -14,6 +18,11 @@ vi.mock("../../src/lib/db", () => ({
 
 vi.mock("../../src/lib/rls", () => ({
     withRls: withRlsMock,
+}));
+
+vi.mock("../../src/lib/idempotency", () => ({
+    checkIdempotency: checkIdempotencyMock,
+    recordMutation: recordMutationMock,
 }));
 
 import { settingsRoutes } from "../../src/routes/settings";
@@ -53,6 +62,47 @@ function createSettingsTx(existingSettings: Record<string, unknown>, capture: { 
                     })),
                 };
             }),
+        })),
+    };
+}
+
+function createFocusViewTx(rows: unknown[], capture: { insert?: Record<string, unknown>; update?: Record<string, unknown>; deleted?: boolean }) {
+    const makeRowsResult = (value: unknown[]) => ({
+        then: (resolve: (value: unknown[]) => unknown) => Promise.resolve(resolve(value)),
+        orderBy: vi.fn().mockResolvedValue(value),
+        limit: vi.fn().mockResolvedValue(value),
+    });
+
+    return {
+        select: vi.fn(() => ({
+            from: vi.fn(() => ({
+                where: vi.fn(() => ({
+                    ...makeRowsResult(rows),
+                })),
+            })),
+        })),
+        insert: vi.fn(() => ({
+            values: vi.fn((value: Record<string, unknown>) => {
+                capture.insert = value;
+                return {
+                    returning: vi.fn().mockResolvedValue([{ id: "focus-1", ...value }]),
+                };
+            }),
+        })),
+        update: vi.fn(() => ({
+            set: vi.fn((value: Record<string, unknown>) => {
+                capture.update = value;
+                return {
+                    where: vi.fn(() => ({
+                        returning: vi.fn().mockResolvedValue([{ id: "focus-1", ...value }]),
+                    })),
+                };
+            }),
+        })),
+        delete: vi.fn(() => ({
+            where: vi.fn(() => ({
+                returning: vi.fn().mockResolvedValue(rows),
+            })),
         })),
     };
 }
@@ -137,7 +187,9 @@ describe("settings route contracts", () => {
 
         const body = await response.json() as any;
         expect(body.error.code).toBe("INVALID_REQUEST");
-        expect(body.error.requestId).toBe("req-settings-invalid");
+        expect(body.error.requestId).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
         expect(body.error.issues).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
@@ -333,5 +385,70 @@ describe("settings route contracts", () => {
         expect(body.data.notifications.quietHoursEnabled).toBe(true);
         expect(body.data.notifications.quietHoursStart).toBe("22:00");
         expect(body.data.notifications.quietHoursEnd).toBe("07:00");
+    });
+
+    it("lists and mutates saved focus views", async () => {
+        const capture: { insert?: Record<string, unknown>; update?: Record<string, unknown> } = {};
+        const focusViewId = "33333333-3333-4333-8333-333333333333";
+        const rows = [{
+            id: focusViewId,
+            userId: "11111111-1111-4111-8111-111111111111",
+            name: "Quick Wins",
+            definition: {
+                states: ["ACTIVE"],
+                projectIds: [],
+                tagIds: [],
+                needsDate: false,
+                needsProject: false,
+                priorityMin: null,
+                effortMax: 1,
+                dueWindow: null,
+                waitingOnly: false,
+                missingStructureOnly: false,
+                sortMode: "smart",
+            },
+            isPinned: true,
+            source: "manual",
+            orderIndex: 0,
+            createdAt: "2026-03-01T00:00:00.000Z",
+            updatedAt: "2026-03-01T00:00:00.000Z",
+        }];
+        const tx = createFocusViewTx(rows, capture);
+        getDbClientMock.mockReturnValue(tx);
+        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
+
+        const app = createSettingsApp();
+
+        const listResponse = await app.request("http://localhost/settings/focus-views");
+        expect(listResponse.status).toBe(200);
+        const listBody = await listResponse.json() as any;
+        expect(listBody.data).toHaveLength(1);
+        expect(listBody.data[0].name).toBe("Quick Wins");
+
+        const createResponse = await app.request("http://localhost/settings/focus-views", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                name: "Due Soon",
+                definition: rows[0].definition,
+            }),
+        });
+        expect(createResponse.status).toBe(201);
+        expect(capture.insert).toMatchObject({
+            name: "Due Soon",
+            source: "manual",
+        });
+
+        const patchResponse = await app.request(`http://localhost/settings/focus-views/${focusViewId}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                name: "Quick Wins (Pinned)",
+            }),
+        });
+        expect(patchResponse.status).toBe(200);
+        expect(capture.update).toMatchObject({
+            name: "Quick Wins (Pinned)",
+        });
     });
 });

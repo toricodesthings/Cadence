@@ -26,6 +26,9 @@ export const SETTINGS_DEFAULTS = {
         quietHoursEnabled: false,
         quietHoursStart: null as string | null,
         quietHoursEnd: null as string | null,
+        habitReminderLeadMinutes: 15 as 5 | 10 | 15 | 30,
+        showHabitNavDueCount: true,
+        bundleMissedRoutinePrompts: true,
     },
     dateTime: {
         weekStart: "Sunday" as const,
@@ -65,6 +68,17 @@ export const SETTINGS_DEFAULTS = {
             preset: "planner" as const,
             style: "label" as const,
             actions: ["date", "priority", "project"] as Array<"date" | "priority" | "project" | "tag">,
+        },
+        intelligence: {
+            nlpEnabled: true,
+            autoParseOnCapture: true,
+            confidenceThreshold: "medium" as const,
+            showExplanations: true,
+            smartSortEnabled: true,
+            focusViewsEnabled: true,
+            lowStimulationMode: false,
+            dismissedEntityIds: [] as string[],
+            dismissedEntities: [] as Array<{ entityType: string; dismissedAt: string; scope: "once" | "always" }>,
         },
     },
     shortcuts: {

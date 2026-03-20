@@ -13,6 +13,7 @@ import {
     Tag as TagIcon,
     ArrowUp,
     ArrowDown,
+    Sparkles,
     type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -38,6 +39,8 @@ interface TaskCardProps {
     variant?: "list" | "board";
     /** Simplify context menu and reduce metadata for Holding route */
     holdingContext?: boolean;
+    /** Optional smart-sort rationale label */
+    rationaleLabel?: string | null;
 }
 
 /** Priority bar CSS var classes — references CSS custom properties set in app.css */
@@ -191,6 +194,7 @@ export function TaskCard({
     onSelect,
     variant = "list",
     holdingContext,
+    rationaleLabel,
 }: TaskCardProps) {
     const isComplete = task.state === "COMPLETE";
     const priorityConfig = PRIORITY_CONFIG[task.priority];
@@ -507,6 +511,13 @@ export function TaskCard({
                                         })()}
                                         <span className="truncate">{primaryCue.label}</span>
                                     </div>
+                                ) : null}
+
+                                {rationaleLabel ? (
+                                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-lantern/20 bg-lantern/10 px-2.5 py-1 text-[10px] font-medium text-lantern">
+                                        <Sparkles size={11} aria-hidden="true" />
+                                        <span className="truncate">{rationaleLabel}</span>
+                                    </span>
                                 ) : null}
 
                                 {visibleSignals.length > 0 ? (

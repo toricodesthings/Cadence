@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SOURCE_SURFACES } from "@cadence/nlp";
 import { normalizeEndBoundary, normalizeStartBoundary } from "../lib/task-filters";
 import { paginationSchema } from "./common";
 
@@ -11,9 +12,21 @@ const booleanQuerySchema = z
     .enum(["true", "false"])
     .transform((v) => v === "true");
 
+export const sourceSurfaceSchema = z.enum(SOURCE_SURFACES);
+export type SourceSurface = z.infer<typeof sourceSurfaceSchema>;
+
+export const canonicalNlpEnvelopeSchema = z.object({
+    rawInput: z.string().min(1).max(2_000),
+    sourceSurface: sourceSurfaceSchema,
+    dateStyle: z.enum(["mdy", "dmy", "ymd"]),
+    dismissedEntityIds: z.array(z.string().min(1).max(100)).default([]),
+    userOverrides: z.record(z.string(), z.unknown()).default({}),
+});
+export type CanonicalNlpEnvelopeInput = z.infer<typeof canonicalNlpEnvelopeSchema>;
+
 export const insertTaskSchema = z.object({
     title: z.string().min(1).max(500),
-    content: z.string().max(10_000).nullable().optional(),
+    content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.default("ACTIVE"),
     orderIndex: z.number(),
     isAllDay: z.boolean().default(true),
@@ -34,13 +47,15 @@ export const insertTaskSchema = z.object({
     effort: z.number().int().min(1).max(3).nullable().optional(),
     notBefore: z.iso.datetime().nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
+    tagIds: z.array(z.uuid()).max(50).optional(),
+    nlp: canonicalNlpEnvelopeSchema.optional(),
     clientMutationId: z.string().max(100).optional(),
 });
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 
 export const updateTaskSchema = z.object({
     title: z.string().min(1).max(500).optional(),
-    content: z.string().max(10_000).nullable().optional(),
+    content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.optional(),
     orderIndex: z.number().optional(),
     isAllDay: z.boolean().optional(),

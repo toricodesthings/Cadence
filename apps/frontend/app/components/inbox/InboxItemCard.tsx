@@ -1,7 +1,9 @@
 import type { InboxItem } from "../../types/inbox";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
-import { Sun, Sunrise, Clock, StickyNote, Trash2 } from "lucide-react";
+import { useSettings } from "../../hooks/core/use-settings";
+import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
+import { Sun, Sunrise, Clock, StickyNote, Trash2, Sparkles } from "lucide-react";
 
 interface InboxItemCardProps {
     item: InboxItem;
@@ -20,13 +22,58 @@ interface InboxItemCardProps {
 export function InboxItemCard({ item, isSelected, onSelect }: InboxItemCardProps) {
     const updateItem = useUpdateInboxItem();
     const processToTask = useProcessInboxToTask();
+    const { data: userSettings } = useSettings();
+    const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
+    const showExplanations = userSettings?.tasks?.intelligence?.showExplanations !== false;
     const isPending = processToTask.isPending || updateItem.isPending;
+    const analysis = item.analysis as {
+        rawInput?: string;
+        sourceSurface?: "inbox" | "inbox_card" | "clarify_sheet" | "holding-capture" | "holding-clarify";
+        dateStyle?: "mdy" | "dmy" | "ymd";
+        dismissedEntityIds?: string[];
+        userOverrides?: Record<string, unknown>;
+        projectId?: string | null;
+        tagIds?: string[] | null;
+        priority?: number | null;
+        durationEstimate?: number | null;
+        recurrenceRule?: string | null;
+        waitingOn?: string | null;
+    } | null;
+    const quietSummary = showExplanations && intelligenceEnabled
+        ? item.analysisSummary ?? (item.analysis as { summary?: string } | null | undefined)?.summary ?? null
+        : null;
+    const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
+
+    const buildInboxEnvelope = (scheduledDate?: string) =>
+        buildCanonicalNlpEnvelope({
+            rawInput: analysis?.rawInput ?? item.rawText,
+            sourceSurface: analysis?.sourceSurface ?? "inbox",
+            dateStyle: analysis?.dateStyle ?? dateStyle,
+            dismissedEntityIds: analysis?.dismissedEntityIds ?? [],
+            userOverrides: {
+                ...(analysis?.userOverrides ?? {}),
+                scheduledDate: scheduledDate ?? null,
+                projectId: analysis?.projectId ?? null,
+                tagIds: analysis?.tagIds ?? [],
+                priority: analysis?.priority ?? null,
+                durationEstimate: analysis?.durationEstimate ?? null,
+                recurrenceRule: analysis?.recurrenceRule ?? null,
+                waitingOn: analysis?.waitingOn ?? null,
+            },
+        });
 
     const place = (scheduledDate?: string) => {
         processToTask.mutate({
             inboxItemId: item.id,
             rawText: item.rawText,
             scheduledDate,
+            projectId: analysis?.projectId ?? null,
+            tagIds: analysis?.tagIds ?? undefined,
+            priority: analysis?.priority ?? null,
+            durationEstimate: analysis?.durationEstimate ?? null,
+            recurrenceRule: analysis?.recurrenceRule ?? null,
+            waitingOn: analysis?.waitingOn ?? null,
+            nlp: buildInboxEnvelope(scheduledDate),
         });
     };
 
@@ -35,6 +82,13 @@ export function InboxItemCard({ item, isSelected, onSelect }: InboxItemCardProps
             inboxItemId: item.id,
             rawText: item.rawText,
             keepNote: true,
+            projectId: analysis?.projectId ?? null,
+            tagIds: analysis?.tagIds ?? undefined,
+            priority: analysis?.priority ?? null,
+            durationEstimate: analysis?.durationEstimate ?? null,
+            recurrenceRule: analysis?.recurrenceRule ?? null,
+            waitingOn: analysis?.waitingOn ?? null,
+            nlp: buildInboxEnvelope(),
         });
     };
 
@@ -72,6 +126,14 @@ export function InboxItemCard({ item, isSelected, onSelect }: InboxItemCardProps
                 </time>
             </button>
 
+            {/* ── Quiet NLP summary ── */}
+            {quietSummary && (
+                <div className="flex items-center gap-1.5 px-0.5 -mt-1">
+                    <Sparkles size={11} className="text-lantern/50 shrink-0" aria-hidden="true" />
+                    <p className="text-[11px] text-twilight-text-muted/70 truncate">{quietSummary}</p>
+                </div>
+            )}
+
             {/* ── Outcome actions — always visible (M2) ── */}
             <div className="flex flex-wrap gap-2">
                 <ActionPill
@@ -79,28 +141,28 @@ export function InboxItemCard({ item, isSelected, onSelect }: InboxItemCardProps
                     icon={<Sun size={13} aria-hidden="true" />}
                     onClick={() => place(todayISO())}
                     disabled={isPending}
-                    className="bg-lantern/10 text-lantern ring-lantern/20 hover:bg-lantern/20"
+                    className="bg-lantern/10 text-lantern ring-lantern/20 hover:bg-lantern/20 min-h-10"
                 />
                 <ActionPill
                     label="Tomorrow"
                     icon={<Sunrise size={13} aria-hidden="true" />}
                     onClick={() => place(tomorrowISO())}
                     disabled={isPending}
-                    className="bg-moonlit/10 text-moonlit ring-moonlit/20 hover:bg-moonlit/20"
+                    className="bg-moonlit/10 text-moonlit ring-moonlit/20 hover:bg-moonlit/20 min-h-10"
                 />
                 <ActionPill
                     label="Later"
                     icon={<Clock size={13} aria-hidden="true" />}
                     onClick={() => place()}
                     disabled={isPending}
-                    className="bg-white/[0.04] text-twilight-text-soft ring-twilight-border/30 hover:bg-white/[0.07]"
+                    className="bg-white/[0.04] text-twilight-text-soft ring-twilight-border/30 hover:bg-white/[0.07] min-h-10"
                 />
                 <ActionPill
                     label="Keep note"
                     icon={<StickyNote size={13} aria-hidden="true" />}
                     onClick={keepNote}
                     disabled={isPending}
-                    className="bg-white/[0.04] text-twilight-text-soft ring-twilight-border/30 hover:bg-white/[0.07]"
+                    className="bg-white/[0.04] text-twilight-text-soft ring-twilight-border/30 hover:bg-white/[0.07] min-h-10"
                 />
 
                 {/* Spacer pushes discard right */}
@@ -140,7 +202,7 @@ function ActionPill({
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg ring-1 transition-colors cursor-pointer disabled:opacity-50 ${className}`}
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-2 rounded-xl ring-1 transition-colors cursor-pointer disabled:opacity-50 ${className}`}
         >
             {icon}
             {label}

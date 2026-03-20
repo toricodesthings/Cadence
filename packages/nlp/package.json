@@ -1,0 +1,33 @@
+{
+  "name": "@cadence/nlp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./parse": "./src/parse/index.ts",
+    "./resolve": "./src/resolve/index.ts",
+    "./ranking": "./src/ranking/index.ts",
+    "./focus-views": "./src/focus-views/index.ts",
+    "./focus-views/apply": "./src/focus-views/apply.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "chrono-node": "^2.9.0",
+    "fuse.js": "^7.1.0",
+    "rrule": "^2.8.1"
+  },
+  "devDependencies": {
+    "date-fns": "^4.1.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "peerDependencies": {
+    "date-fns": "^4.0.0"
+  }
+}

@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { createRequestContext } from "../../src/lib/request-log";
 import type { AuthVariables } from "../../src/lib/auth";
 import { formatErrorResponse } from "../../src/lib/errors";
+import { tasks as tasksTable, taskTags as taskTagsTable, taskNlpMetadata as taskNlpMetadataTable } from "../../src/db/schema";
 
 const {
     getDbClientMock,
@@ -10,12 +11,16 @@ const {
     trackRescheduleMock,
     trackCompletionMock,
     trackEventMock,
+    trackBatchEventsMock,
+    trackBatchCompletionMock,
 } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
     withRlsMock: vi.fn(),
     trackRescheduleMock: vi.fn().mockResolvedValue(undefined),
     trackCompletionMock: vi.fn().mockResolvedValue(undefined),
     trackEventMock: vi.fn().mockResolvedValue(undefined),
+    trackBatchEventsMock: vi.fn().mockResolvedValue(undefined),
+    trackBatchCompletionMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../src/lib/db", () => ({
@@ -30,6 +35,8 @@ vi.mock("../../src/lib/metrics", () => ({
     trackReschedule: trackRescheduleMock,
     trackCompletion: trackCompletionMock,
     trackEvent: trackEventMock,
+    trackBatchEvents: trackBatchEventsMock,
+    trackBatchCompletion: trackBatchCompletionMock,
 }));
 
 import { taskRoutes } from "../../src/routes/tasks";
@@ -107,6 +114,90 @@ function createUpdateTx(updatedRows: unknown[], capture: { set?: Record<string, 
     };
 }
 
+function createNlpCreateTx(capture: {
+    taskValues?: Record<string, unknown>;
+    tagValues?: Record<string, unknown>[];
+    metadataValues?: Record<string, unknown>;
+}) {
+    const settingsRow = {
+        settings: {
+            dateTime: { dateStyle: "mdy" },
+            tasks: { intelligence: { confidenceThreshold: "medium", dismissedEntityIds: [] } },
+        },
+    };
+    const projectRows = [{ id: "proj-1", name: "Apollo" }];
+    const tagRows = [{ id: "tag-1", name: "planning" }];
+
+    const makeWherePromise = (result: unknown[]) => Promise.resolve(result);
+    const makeLimited = (result: unknown[]) => ({
+        limit: vi.fn().mockResolvedValue(result),
+    });
+
+    return {
+        select: vi.fn()
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeLimited([settingsRow])),
+                })),
+            }))
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeWherePromise(projectRows)),
+                })),
+            }))
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeWherePromise(tagRows)),
+                })),
+            }))
+            .mockImplementationOnce(() => ({
+                from: vi.fn(() => ({
+                    where: vi.fn(() => makeLimited([])),
+                })),
+            })),
+        insert: vi.fn((table) => {
+            if (table === tasksTable) {
+                return {
+                    values: vi.fn((values) => {
+                        capture.taskValues = values;
+                        return {
+                            returning: vi.fn().mockResolvedValue([{ id: "task-created" }]),
+                        };
+                    }),
+                };
+            }
+
+            if (table === taskTagsTable) {
+                return {
+                    values: vi.fn((values) => {
+                        capture.tagValues = values;
+                        return {
+                            returning: vi.fn().mockResolvedValue(values),
+                        };
+                    }),
+                };
+            }
+
+            if (table === taskNlpMetadataTable) {
+                return {
+                    values: vi.fn((values) => {
+                        capture.metadataValues = values;
+                        return {
+                            returning: vi.fn().mockResolvedValue([{ id: "meta-1", ...values }]),
+                        };
+                    }),
+                };
+            }
+
+            return {
+                values: vi.fn(() => ({
+                    returning: vi.fn().mockResolvedValue([{ id: "unknown" }]),
+                })),
+            };
+        }),
+    };
+}
+
 describe("task route contracts", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -159,7 +250,9 @@ describe("task route contracts", () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.headers.get("x-request-id")).toBe("req-schedule");
+        expect(response.headers.get("x-request-id")).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
         expect(response.headers.get("x-task-read-compatibility")).toContain("legacy_all_day_with_start");
 
         const body = await response.json() as any;
@@ -259,7 +352,9 @@ describe("task route contracts", () => {
 
         const body = await response.json() as any;
         expect(body.error.code).toBe("INVALID_REQUEST");
-        expect(body.error.requestId).toBe("req-invalid-range");
+        expect(body.error.requestId).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
         expect(body.error.issues).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
@@ -299,6 +394,51 @@ describe("task route contracts", () => {
             scheduledStart: null,
             scheduledEnd: "2026-03-12T23:59:59.999Z",
             isAllDay: true,
+        });
+    });
+
+    it("reparses canonical NLP input on task creation and persists resolved project/tag data", async () => {
+        const capture: {
+            taskValues?: Record<string, unknown>;
+            tagValues?: Record<string, unknown>[];
+            metadataValues?: Record<string, unknown>;
+        } = {};
+        const tx = createNlpCreateTx(capture);
+
+        getDbClientMock.mockReturnValue(tx);
+        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
+
+        const app = createTaskApp();
+        const response = await app.request("http://localhost/tasks", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                title: "Work on Apollo",
+                orderIndex: 1,
+                nlp: {
+                    rawInput: "Work on Apollo /apollo #planning 2026-03-09",
+                    sourceSurface: "quick_add",
+                    dateStyle: "mdy",
+                    dismissedEntityIds: [],
+                    userOverrides: {},
+                },
+            }),
+        });
+
+        expect(response.status).toBe(201);
+        expect(capture.taskValues).toMatchObject({
+            title: "Work on Apollo",
+            projectId: "proj-1",
+            dueDate: "2026-03-09T12:00:00.000Z",
+            isAllDay: true,
+        });
+        expect(capture.tagValues).toEqual([{ taskId: "task-created", tagId: "tag-1" }]);
+        expect(capture.metadataValues).toMatchObject({
+            rawInput: "Work on Apollo /apollo #planning 2026-03-09",
+            sourceSurface: "quick_add",
+            confidenceTier: "high",
         });
     });
 
@@ -448,23 +588,15 @@ describe("task route contracts", () => {
     });
 
     it("reorder endpoint rebalances all tasks when orderedTaskIds is provided", async () => {
-        const capture: { set?: Record<string, unknown> } = {};
-        const updateSets: Array<{ orderIndex: number }> = [];
         const taskA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
         const taskB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
         const taskC = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+        const executedSql: string[] = [];
         const tx = {
-            update: vi.fn(() => ({
-                set: vi.fn((values) => {
-                    capture.set = values;
-                    updateSets.push({ orderIndex: values.orderIndex });
-                    return {
-                        where: vi.fn(() => ({
-                            returning: vi.fn().mockResolvedValue([{ id: taskB, orderIndex: values.orderIndex }]),
-                        })),
-                    };
-                }),
-            })),
+            execute: vi.fn((query: any) => {
+                executedSql.push(String(query));
+                return Promise.resolve();
+            }),
             select: vi.fn(() => ({
                 from: vi.fn(() => ({
                     where: vi.fn().mockResolvedValue([{ id: taskB, orderIndex: 1024, title: "Task B" }]),
@@ -473,7 +605,7 @@ describe("task route contracts", () => {
         };
 
         getDbClientMock.mockReturnValue(tx);
-        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
+        withRlsMock.mockImplementation(async (_db: any, _userId: any, callback: any) => callback(tx));
 
         const app = createTaskApp();
         const response = await app.request(`http://localhost/tasks/${taskB}/reorder`, {
@@ -486,12 +618,9 @@ describe("task route contracts", () => {
         });
 
         expect(response.status).toBe(200);
-        // Should update all 3 tasks in the ordered list with GAP=1024
-        expect(tx.update).toHaveBeenCalledTimes(3);
-        expect(updateSets).toEqual([
-            { orderIndex: 0 },
-            { orderIndex: 1024 },
-            { orderIndex: 2048 },
-        ]);
+        // Should have issued a single batch UPDATE via execute()
+        expect(tx.execute).toHaveBeenCalledTimes(1);
+        // And fetched the moved row back
+        expect(tx.select).toHaveBeenCalledTimes(1);
     });
 });

@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { canonicalNlpEnvelopeSchema, sourceSurfaceSchema } from "./task";
 
 export const captureKindSchema = z.enum(["task", "thought", "reference", "unknown"]);
 export const captureStatusSchema = z.enum(["clarifying", "placed", "kept", "discarded"]);
+export const inboxAnalysisStatusSchema = z.enum(["pending", "parsed", "reviewed", "applied"]);
+export type InboxAnalysisStatus = z.infer<typeof inboxAnalysisStatusSchema>;
 
 export const insertInboxItemSchema = z.object({
     rawText: z.string().min(1).max(5_000),
@@ -20,8 +23,32 @@ export const updateInboxItemSchema = z.object({
     captureStatus: captureStatusSchema.optional(),
     placedTaskId: z.string().uuid().nullable().optional(),
     aiSuggestion: z.string().max(10_000).nullable().optional(),
+    processed: z.boolean().optional(),
+    // NLP analysis fields
+    analysisStatus: inboxAnalysisStatusSchema.optional(),
+    analysisVersion: z.string().max(20).optional(),
+    analysisSummary: z.string().max(1_000).optional(),
+    analysis: z.record(z.string(), z.unknown()).optional(),
+    sourceSurface: sourceSurfaceSchema.optional(),
 });
 export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
+
+/** Schema for the atomic inbox→task processing endpoint */
+export const processInboxItemSchema = z.object({
+    title: z.string().min(1).max(2_000),
+    keepNote: z.boolean().optional(),
+    scheduledDate: z.union([z.iso.date(), z.iso.datetime()]).optional(),
+    projectId: z.string().uuid().optional(),
+    tagIds: z.array(z.string().uuid()).optional(),
+    priority: z.number().int().min(0).max(4).optional(),
+    durationEstimate: z.number().int().min(1).max(480).optional(),
+    recurrenceRule: z.string().max(500).optional(),
+    waitingOn: z.string().max(200).optional(),
+    nlp: canonicalNlpEnvelopeSchema.optional(),
+    parseResult: z.record(z.string(), z.unknown()).optional(),
+    clientMutationId: z.string().max(100).optional(),
+});
+export type ProcessInboxItem = z.infer<typeof processInboxItemSchema>;
 
 export const insertInboxSectionSchema = z.object({
     name: z.string().min(1).max(200),

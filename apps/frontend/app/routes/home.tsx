@@ -149,10 +149,10 @@ export default function HomeRoute() {
             <ScrollAreaWrapper>
                 <PageContent width="default">
                     {/* Greeting — demoted per M1: capture leads, warmth follows */}
-                    <PlannerHeader className="mb-2" />
+                    <PlannerHeader className="mb-4 lg:mb-5" />
 
                     {/* ── Universal capture composer — the ONE primary action (Law 1) ── */}
-                    <div className="mt-2 mb-6">
+                    <div className="mb-8 lg:mb-10">
                         <CaptureInput />
                     </div>
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { Dialog, DialogContent } from "../primitives/Dialog";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
-import { useAddTaskTag, useTags } from "../../hooks/tags";
+import { useTags } from "../../hooks/tags";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useTasks } from "../../hooks/tasks/use-tasks";
@@ -13,10 +13,12 @@ import { CadencePicker } from "../habits/CadencePicker";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import { useSettings } from "../../hooks/core/use-settings";
 import { resolveDefaultDueDate, mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
+import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { toast } from "sonner";
 import { CheckSquare, MessageSquare, Flame } from "lucide-react";
 import { QuickAddActionTray } from "../tasks/QuickAddActionTray";
-import { parseQuickAddInput } from "../../lib/utils/quick-add-parser";
+import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
+import { useNlpParse } from "../../hooks/use-nlp-parse";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -97,7 +99,7 @@ function TaskForm({ onClose }: { onClose: () => void }) {
     const [priority, setPriority] = useState<number | null>(null);
     const [projectId, setProjectId] = useState<string | null>(null);
     const [tagIds, setTagIds] = useState<string[]>([]);
-    const [ignoredTokenIds, setIgnoredTokenIds] = useState<string[]>([]);
+    const [dismissedEntityIds, setDismissedEntityIds] = useState<string[]>([]);
     const [deadline, setDeadline] = useState<{
         dueDate: string | null;
         scheduledStart: string | null;
@@ -114,17 +116,28 @@ function TaskForm({ onClose }: { onClose: () => void }) {
     const inputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
     const createTask = useCreateTask();
-    const addTaskTag = useAddTaskTag();
     const { data: tasks = [] } = useTasks({});
     const { data: projects = [] } = useProjects();
     const { data: tags = [] } = useTags();
     const { data: userSettings } = useSettings();
     const taskDefaults = userSettings?.tasks;
-    const parsedInput = parseQuickAddInput({
+    const intelligenceEnabled = taskDefaults?.intelligence?.nlpEnabled !== false;
+    const autoParseOnCapture = taskDefaults?.intelligence?.autoParseOnCapture !== false;
+    const showExplanations = taskDefaults?.intelligence?.showExplanations !== false;
+    const confidenceThreshold = taskDefaults?.intelligence?.confidenceThreshold ?? "medium";
+    const lowStimulationMode = taskDefaults?.intelligence?.lowStimulationMode ?? false;
+    const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
+
+    const nlp = useNlpParse({
         input: title,
-        projects,
-        tags,
-        ignoredTokenIds,
+        projects: projects.map((p) => ({ id: p.id, name: p.name })),
+        tags: tags.map((t) => ({ id: t.id, name: t.name })),
+        dismissedEntityIds,
+        confidenceThreshold,
+        lowStimulationMode,
+        enabled: intelligenceEnabled && autoParseOnCapture,
+        sourceSurface: "quick_add",
+        dateStyle,
     });
 
     useEffect(() => {
@@ -133,21 +146,22 @@ function TaskForm({ onClose }: { onClose: () => void }) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const trimmed = parsedInput.cleanedTitle || title.trim();
+        const trimmed = nlp.cleanedTitle || title.trim();
         if (!trimmed) return;
 
         const placement = taskDefaults?.newTaskPlacement ?? "bottom";
         const orderIndex = placement === "top" ? 0 : computeNextOrderIndex(tasks);
-        const resolvedPriority = priority ?? parsedInput.priority ?? mapPriorityNameToNumber(taskDefaults?.defaultPriority);
-        const dueDate = deadline.dueDate ?? parsedInput.dueDate ?? resolveDefaultDueDate(taskDefaults?.defaultDueDate);
-        const resolvedProjectId = projectId ?? parsedInput.projectId ?? null;
-        const resolvedTagIds = Array.from(new Set([...tagIds, ...parsedInput.tagIds]));
-        const recurrenceRule = deadline.recurrenceRule ?? parsedInput.recurrenceRule;
+        const resolvedPriority = priority ?? nlp.priority ?? mapPriorityNameToNumber(taskDefaults?.defaultPriority);
+        const dueDate = deadline.dueDate ?? nlp.dueDate ?? resolveDefaultDueDate(taskDefaults?.defaultDueDate);
+        const resolvedProjectId = projectId ?? nlp.projectId ?? null;
+        const resolvedTagIds = Array.from(new Set([...tagIds, ...nlp.tagIds]));
+        const recurrenceRule = deadline.recurrenceRule ?? nlp.recurrenceRule;
 
         createTask.mutate(
             {
                 title: trimmed,
                 orderIndex,
+                tagIds: resolvedTagIds,
                 ...(resolvedPriority > 0 && { priority: resolvedPriority as 1 | 2 | 3 | 4 }),
                 ...(dueDate && { dueDate }),
                 ...(deadline.scheduledStart && { scheduledStart: deadline.scheduledStart }),
@@ -155,16 +169,29 @@ function TaskForm({ onClose }: { onClose: () => void }) {
                 ...(recurrenceRule && { recurrenceRule }),
                 isAllDay: deadline.isAllDay,
                 ...(resolvedProjectId && { projectId: resolvedProjectId }),
+                ...(nlp.waitingOn && { waitingOn: nlp.waitingOn }),
+                ...(nlp.durationMinutes && { durationEstimate: nlp.durationMinutes }),
+                nlp: buildCanonicalNlpEnvelope({
+                    rawInput: title,
+                    sourceSurface: "quick_add",
+                    dateStyle,
+                    dismissedEntityIds,
+                    userOverrides: {
+                        title: trimmed,
+                        projectId: resolvedProjectId,
+                        tagIds: resolvedTagIds,
+                        dueDate: dueDate ?? null,
+                        scheduledStart: deadline.scheduledStart ?? null,
+                        scheduledEnd: deadline.scheduledEnd ?? null,
+                        recurrenceRule: recurrenceRule ?? null,
+                    },
+                }),
             },
             {
-                onSuccess: async (created) => {
+                onSuccess: (created) => {
                     if (!created) return; // Queued offline
-                    if (resolvedTagIds.length) {
-                        await Promise.all(
-                            resolvedTagIds.map((tagId) => addTaskTag.mutateAsync({ taskId: created.id, tagId })),
-                        );
-                    }
                     toast.success("Task added to Holding");
+                    setDismissedEntityIds([]);
                     onClose();
                     const focusParams = buildFocusSearchParams({
                         focusKind: "task",
@@ -190,13 +217,13 @@ function TaskForm({ onClose }: { onClose: () => void }) {
             />
             <QuickAddActionTray
                 quickAddSettings={taskDefaults?.quickAdd}
-                dueDate={deadline.dueDate ?? parsedInput.dueDate ?? null}
+                dueDate={deadline.dueDate ?? nlp.dueDate ?? null}
                 scheduledStart={deadline.scheduledStart}
                 scheduledEnd={deadline.scheduledEnd}
-                recurrenceRule={deadline.recurrenceRule ?? parsedInput.recurrenceRule}
+                recurrenceRule={deadline.recurrenceRule ?? nlp.recurrenceRule}
                 priority={priority as 1 | 2 | 3 | 4 | null}
-                projectId={projectId ?? parsedInput.projectId ?? null}
-                tagIds={Array.from(new Set([...tagIds, ...parsedInput.tagIds]))}
+                projectId={projectId ?? nlp.projectId ?? null}
+                tagIds={Array.from(new Set([...tagIds, ...nlp.tagIds]))}
                 onScheduleChange={(updates) => setDeadline({ ...deadline, ...updates })}
                 onPriorityChange={(value) => setPriority(value)}
                 onProjectChange={(value) => setProjectId(value)}
@@ -206,20 +233,15 @@ function TaskForm({ onClose }: { onClose: () => void }) {
                     )
                 }
             />
-            {parsedInput.tokens.length ? (
-                <div className="flex flex-wrap gap-1.5">
-                    {parsedInput.tokens.map((token) => (
-                        <button
-                            key={token.id}
-                            type="button"
-                            onClick={() => setIgnoredTokenIds((current) => [...current, token.id])}
-                            className="inline-flex items-center rounded-full border border-lantern/18 bg-lantern/10 px-2.5 py-1 text-[11px] text-lantern transition-colors hover:bg-lantern/16"
-                        >
-                            {token.label}
-                        </button>
-                    ))}
-                </div>
-            ) : null}
+            {showExplanations && (
+                <ParseSummaryChips
+                    parseResult={nlp.parseResult}
+                    summary={nlp.summary}
+                    onDismiss={(entityId) => setDismissedEntityIds((prev) => [...prev, entityId])}
+                    lowStimulation={lowStimulationMode || userSettings?.appearance?.motion === "reduced"}
+                    maxVisibleChips={4}
+                />
+            )}
             <div className="flex justify-end gap-2">
                 <button
                     type="button"

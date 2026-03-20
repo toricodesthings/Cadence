@@ -66,6 +66,21 @@ export interface UserSettings {
             style: "icon" | "label";
             actions: Array<"date" | "priority" | "project" | "tag">;
         };
+        intelligence: {
+            nlpEnabled: boolean;
+            autoParseOnCapture: boolean;
+            confidenceThreshold: "high" | "medium" | "low";
+            showExplanations: boolean;
+            lowStimulationMode: boolean;
+            smartSortEnabled: boolean;
+            focusViewsEnabled: boolean;
+            dismissedEntityIds: string[];
+            dismissedEntities: Array<{
+                entityType: string;
+                dismissedAt: string;
+                scope: "once" | "always";
+            }>;
+        };
     };
     shortcuts: {
         enabled: boolean;
@@ -174,6 +189,17 @@ export const SETTINGS_DEFAULTS: UserSettings = {
             preset: "planner",
             style: "label",
             actions: ["date", "priority", "project"],
+        },
+        intelligence: {
+            nlpEnabled: true,
+            autoParseOnCapture: true,
+            confidenceThreshold: "medium",
+            showExplanations: true,
+            lowStimulationMode: false,
+            smartSortEnabled: true,
+            focusViewsEnabled: true,
+            dismissedEntityIds: [],
+            dismissedEntities: [],
         },
     },
     shortcuts: {

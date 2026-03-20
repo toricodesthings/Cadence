@@ -5,6 +5,7 @@ import { useAllHabits } from "../habits/use-habits";
 import { useInbox } from "../inbox";
 import { useProjects } from "../projects";
 import { useSections } from "../sections";
+import { useFocusViewStore } from "../../stores/focus-view-store";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
 import type { FocusKind } from "./use-route-focus";
 
@@ -15,7 +16,7 @@ function nonNull<T>(value: T | null | undefined): value is T {
 
 // ── Result model ──────────────────────────────────────────────────
 
-export type SearchResultKind = "task" | "habit" | "inbox" | "project" | "page";
+export type SearchResultKind = "task" | "habit" | "inbox" | "project" | "focus-view" | "page";
 
 export interface SearchResult {
     id: string;
@@ -26,6 +27,12 @@ export interface SearchResult {
     route: string;
     focusScope?: string;
     score: number;
+    /** If set, opening this result should open the note room instead of navigating */
+    noteAction?: {
+        taskId: string;
+        taskTitle: string;
+        scrollToHeading?: string;
+    };
 }
 
 // ── Route aliases ─────────────────────────────────────────────────
@@ -60,6 +67,39 @@ const STATIC_PAGES: SearchResult[] = [
     { id: "page-completed", kind: "page", focusKind: "section", title: "Completed", context: "Finished work", route: "/completed", score: 0 },
     { id: "page-trash", kind: "page", focusKind: "section", title: "Trash", context: "Archived tasks", route: "/trash", score: 0 },
 ];
+
+function describeFocusView(definition: {
+    states: string[];
+    projectIds: string[];
+    tagIds: string[];
+    needsDate: boolean;
+    needsProject: boolean;
+    priorityMin: number | null;
+    effortMax: number | null;
+    dueWindow: "overdue" | "today" | "this_week" | "this_month" | null;
+    waitingOnly: boolean;
+    missingStructureOnly: boolean;
+}): string {
+    const parts: string[] = [];
+    if (definition.dueWindow) {
+        parts.push(
+            definition.dueWindow === "this_week"
+                ? "This week"
+                : definition.dueWindow === "this_month"
+                    ? "This month"
+                    : definition.dueWindow === "overdue"
+                        ? "Overdue"
+                        : "Today",
+        );
+    }
+    if (definition.waitingOnly) parts.push("Waiting");
+    if (definition.needsDate) parts.push("Needs a date");
+    if (definition.needsProject) parts.push("Needs a project");
+    if (definition.priorityMin !== null) parts.push(`P${definition.priorityMin}+`);
+    if (definition.effortMax !== null) parts.push(`Effort ≤ ${definition.effortMax}`);
+    if (definition.missingStructureOnly) parts.push("Missing structure");
+    return parts.length > 0 ? parts.join(" · ") : "Saved focus view";
+}
 
 // ── Scoring ───────────────────────────────────────────────────────
 
@@ -138,6 +178,7 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
     const { data: inboxItems = [] } = useInbox();
     const { data: projects = [] } = useProjects();
     const { data: sections = [] } = useSections();
+    const savedFocusViews = useFocusViewStore((state) => state.savedViews);
 
     const projectMap = useMemo(() => {
         const map = new Map<string, { name: string; emoji: string | null }>();
@@ -146,7 +187,7 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
     }, [projects]);
 
     const results = useMemo(() => {
-        if (!query) return { pages: STATIC_PAGES.slice(0, 5), tasks: [], habits: [], captures: [], projects: [] };
+        if (!query) return { pages: STATIC_PAGES.slice(0, 5), tasks: [], habits: [], captures: [], projects: [], focusViews: [] };
 
         const q = query.toLowerCase();
 
@@ -206,6 +247,12 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
                     route,
                     focusScope: scope,
                     score: adjusted,
+                    // When match is in heading or notes, allow opening into note room
+                    noteAction: matchedHeading
+                        ? { taskId: t.id, taskTitle: t.title, scrollToHeading: matchedHeading }
+                        : matchedInNotes
+                            ? { taskId: t.id, taskTitle: t.title }
+                            : undefined,
                 } satisfies SearchResult;
             })
             .filter(nonNull)
@@ -270,8 +317,30 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
             .sort((a, b) => b.score - a.score)
             .slice(0, MAX_RESULTS_PER_GROUP);
 
-        return { pages: pageResults, tasks: taskResults, habits: habitResults, captures: captureResults, projects: projectResults };
-    }, [query, tasks, subtasksByTaskId, sections, habits, inboxItems, projects, projectMap]);
+        const focusViewResults = savedFocusViews
+            .map((view) => {
+                const score = scoreItem(query, {
+                    title: view.name,
+                    meta: [describeFocusView(view.definition), view.source === "preset" ? "Preset view" : "Custom view"],
+                });
+                if (score === 0) return null;
+                return {
+                    id: `focus-view-${view.id}`,
+                    kind: "focus-view" as const,
+                    focusKind: "section" as const,
+                    title: view.name,
+                    context: `${view.isPinned ? "Pinned" : "Saved"} · ${describeFocusView(view.definition)}`,
+                    route: "/today",
+                    focusScope: "focus-view",
+                    score,
+                } satisfies SearchResult;
+            })
+            .filter(nonNull)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, MAX_RESULTS_PER_GROUP);
+
+        return { pages: pageResults, tasks: taskResults, habits: habitResults, captures: captureResults, projects: projectResults, focusViews: focusViewResults };
+    }, [query, tasks, subtasksByTaskId, sections, habits, inboxItems, projects, projectMap, savedFocusViews]);
 
     const allResults = useMemo(() => {
         const all = [
@@ -279,6 +348,7 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
             ...results.habits,
             ...results.captures,
             ...results.projects,
+            ...results.focusViews,
             ...results.pages,
         ];
         return all.sort((a, b) => b.score - a.score);

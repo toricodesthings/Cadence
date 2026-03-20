@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Sun, Sunrise, Clock, StickyNote, Trash2, ChevronRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
+import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
+import { useNlpParse } from "../../hooks/use-nlp-parse";
+import { useSettings } from "../../hooks/core/use-settings";
+import { useProjects } from "../../hooks/projects";
+import { useTags } from "../../hooks/tags";
+import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import type { InboxItem } from "../../types/inbox";
 
 interface ClarifySheetProps {
@@ -25,16 +31,76 @@ interface ClarifySheetProps {
 export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetProps) {
     const processToTask = useProcessInboxToTask();
     const updateItem = useUpdateInboxItem();
+    const { data: userSettings } = useSettings();
+    const { data: projects = [] } = useProjects();
+    const { data: tags = [] } = useTags();
+    const taskDefaults = userSettings?.tasks;
+    const intelligenceEnabled = taskDefaults?.intelligence?.nlpEnabled !== false;
+    const showExplanations = taskDefaults?.intelligence?.showExplanations !== false;
+    const confidenceThreshold = taskDefaults?.intelligence?.confidenceThreshold ?? "medium";
+    const lowStimulationMode = taskDefaults?.intelligence?.lowStimulationMode ?? false;
+    const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
+    const [dismissedEntityIds, setDismissedEntityIds] = useState<string[]>([]);
+
+    const nlp = useNlpParse({
+        input: item.rawText,
+        projects: projects.map((p) => ({ id: p.id, name: p.name })),
+        tags: tags.map((t) => ({ id: t.id, name: t.name })),
+        enabled: intelligenceEnabled,
+        sourceSurface: "clarify_sheet",
+        dateStyle,
+        dismissedEntityIds,
+        confidenceThreshold,
+        lowStimulationMode,
+    });
+
     const [editedTitle, setEditedTitle] = useState(item.rawText);
+    const titleDirtyRef = useRef(false);
     const isPending = processToTask.isPending || updateItem.isPending;
 
+    useEffect(() => {
+        titleDirtyRef.current = false;
+        setEditedTitle(nlp.cleanedTitle || item.rawText);
+    }, [item.id]);
+
+    useEffect(() => {
+        if (titleDirtyRef.current) return;
+        if (nlp.cleanedTitle) setEditedTitle(nlp.cleanedTitle);
+    }, [nlp.cleanedTitle]);
+
+    const buildNlpEnvelope = (scheduledDate?: string) =>
+        buildCanonicalNlpEnvelope({
+            rawInput: item.rawText,
+            sourceSurface: "clarify_sheet",
+            dateStyle,
+            dismissedEntityIds,
+            userOverrides: {
+                title: editedTitle,
+                scheduledDate: scheduledDate ?? null,
+                projectId: nlp.projectId,
+                tagIds: nlp.tagIds,
+                priority: nlp.priority,
+                durationEstimate: nlp.durationMinutes,
+                recurrenceRule: nlp.recurrenceRule,
+                waitingOn: nlp.waitingOn,
+            },
+        });
+
     const place = (scheduledDate?: string) => {
+        const resolvedSchedule = scheduledDate ?? (nlp.dueDate || undefined);
         processToTask.mutate(
             {
                 inboxItemId: item.id,
                 rawText: item.rawText,
                 title: editedTitle,
-                scheduledDate,
+                scheduledDate: resolvedSchedule,
+                projectId: nlp.projectId,
+                tagIds: nlp.tagIds,
+                priority: nlp.priority,
+                durationEstimate: nlp.durationMinutes,
+                recurrenceRule: nlp.recurrenceRule,
+                waitingOn: nlp.waitingOn,
+                nlp: buildNlpEnvelope(resolvedSchedule),
             },
             {
                 onSuccess: (task) => {
@@ -55,6 +121,13 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                 rawText: item.rawText,
                 title: editedTitle,
                 keepNote: true,
+                projectId: nlp.projectId,
+                tagIds: nlp.tagIds,
+                priority: nlp.priority,
+                durationEstimate: nlp.durationMinutes,
+                recurrenceRule: nlp.recurrenceRule,
+                waitingOn: nlp.waitingOn,
+                nlp: buildNlpEnvelope(),
             },
             { onSuccess: () => onClose() },
         );
@@ -116,25 +189,37 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                         </time>
                     </div>
 
-                    {/* ─── Slice 2: AI suggestion / editable title ─── */}
+                    {/* ─── Slice 2: Structured understanding + editable title ─── */}
                     <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
                         <div className="flex items-center gap-2 mb-3">
                             <Sparkles size={14} className="text-lantern/70" aria-hidden="true" />
                             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
-                                {item.aiSuggestion ? "Cadence suggests" : "Task title"}
+                                {nlp.summary ? "Cadence understood" : item.aiSuggestion ? "Cadence suggests" : "Task title"}
                             </p>
                         </div>
-                        {item.aiSuggestion && (
+                        {item.aiSuggestion && !nlp.summary && (
                             <p className="text-[13px] text-twilight-text-soft/80 mb-3 italic leading-relaxed">
                                 {item.aiSuggestion}
                             </p>
                         )}
+                        {showExplanations && (
+                            <ParseSummaryChips
+                                parseResult={nlp.parseResult}
+                                summary={nlp.summary}
+                                onDismiss={(entityId) => setDismissedEntityIds((prev) => [...prev, entityId])}
+                                lowStimulation={lowStimulationMode || userSettings?.appearance?.motion === "reduced"}
+                                maxVisibleChips={5}
+                            />
+                        )}
                         <input
                             type="text"
                             value={editedTitle}
-                            onChange={(e) => setEditedTitle(e.target.value)}
+                            onChange={(e) => {
+                                titleDirtyRef.current = true;
+                                setEditedTitle(e.target.value);
+                            }}
                             aria-label="Edit task title"
-                            className="w-full rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-twilight-text outline-none transition-colors focus:border-lantern/25 focus:bg-white/[0.04] placeholder:text-twilight-text-muted/60"
+                            className="w-full rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-twilight-text outline-none transition-colors focus:border-lantern/25 focus:bg-white/[0.04] placeholder:text-twilight-text-muted/60 mt-3"
                             placeholder="Edit the title before placing..."
                         />
                     </div>
@@ -144,6 +229,22 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
                             Place it
                         </p>
+
+                        {/* If NLP detected a date, show it as a prominent suggestion */}
+                        {nlp.dueDate && (
+                            <button
+                                type="button"
+                                onClick={() => place(nlp.dueDate!)}
+                                disabled={isPending}
+                                className="flex w-full items-center gap-3 rounded-2xl border border-lantern/25 bg-lantern/[0.10] px-4 py-3.5 text-left transition-colors hover:bg-lantern/[0.16] disabled:opacity-50 cursor-pointer mb-3"
+                            >
+                                <Sparkles size={16} className="text-lantern shrink-0" aria-hidden="true" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[14px] font-medium text-lantern">Use detected date</p>
+                                    <p className="text-[12px] text-lantern/60">{nlp.dueDate}</p>
+                                </div>
+                            </button>
+                        )}
 
                         {/* Primary: Today — largest, most obvious */}
                         <button
@@ -202,6 +303,13 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                     inboxItemId: item.id,
                                     rawText: item.rawText,
                                     title: editedTitle,
+                                    projectId: nlp.projectId,
+                                    tagIds: nlp.tagIds,
+                                    priority: nlp.priority,
+                                    durationEstimate: nlp.durationMinutes,
+                                    recurrenceRule: nlp.recurrenceRule,
+                                    waitingOn: nlp.waitingOn,
+                                    nlp: buildNlpEnvelope(),
                                 },
                                 {
                                     onSuccess: (task) => {

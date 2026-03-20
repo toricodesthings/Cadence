@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import { and, between, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
-import { tasks, tags, taskTags } from "../db/schema";
+import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope, type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
+import { tasks, tags, taskTags, taskNlpMetadata, taskNlpMetadataHistory, projects, users } from "../db/schema";
 import { getDbClient } from "../lib/db";
 import { AppError, throwIfNotFound, assertNoConflict } from "../lib/errors";
 import { checkIdempotency, recordMutation } from "../lib/idempotency";
@@ -24,6 +25,7 @@ import type { AuthVariables } from "../lib/auth";
 import { uuidParamSchema } from "../types/common";
 import { taskTagSchema } from "../types/tag";
 import {
+    sourceSurfaceSchema,
     batchRescheduleSchema,
     batchStateSchema,
     insertTaskSchema,
@@ -33,11 +35,232 @@ import {
     updateTaskSchema,
 } from "../types/task";
 import type { Env } from "../types/env";
+import { normalizeSettings } from "./settings";
 
 const taskTagParamSchema = z.object({
     id: z.string().uuid(),
     tagId: z.string().uuid(),
 });
+
+const nlpReparseSchema = z.object({
+    rawInput: z.string().max(2000),
+    sourceSurface: sourceSurfaceSchema.optional(),
+    dateStyle: z.enum(["mdy", "dmy", "ymd"]).optional(),
+    dismissedEntityIds: z.array(z.string().min(1).max(100)).optional(),
+    userOverrides: z.record(z.string(), z.unknown()).optional(),
+    nlp: z.object({
+        rawInput: z.string().max(2000),
+        sourceSurface: sourceSurfaceSchema.optional(),
+        dateStyle: z.enum(["mdy", "dmy", "ymd"]).optional(),
+        dismissedEntityIds: z.array(z.string().min(1).max(100)).optional(),
+        userOverrides: z.record(z.string(), z.unknown()).optional(),
+    }).optional(),
+    parseResult: z.record(z.string(), z.unknown()).optional(),
+    cleanedTitle: z.string().max(500).optional(),
+    confidenceTier: z.enum(["high", "medium", "low"]).optional(),
+    parserVersion: z.string().max(20).optional(),
+    clientMutationId: z.string().max(100).optional(),
+});
+
+function confidenceRank(confidence: "high" | "medium" | "low") {
+    return confidence === "high" ? 2 : confidence === "medium" ? 1 : 0;
+}
+
+function isDateOnlyValue(value: string) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+async function loadNlpRuntime(tx: any, userId: string) {
+    const [user] = await tx
+        .select({ settings: users.settings })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+    const [projectRows, tagRows] = await Promise.all([
+        tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId)),
+        tx.select({ id: tags.id, name: tags.name }).from(tags).where(eq(tags.userId, userId)),
+    ]);
+
+    const settings = normalizeSettings((user?.settings ?? {}) as Record<string, unknown>);
+    const intelligence = (settings as any).tasks?.intelligence ?? {};
+    const dismissedEntityIds = new Set<string>((intelligence.dismissedEntityIds as string[] | undefined) ?? []);
+
+    return {
+        settings,
+        context: {
+            projects: projectRows,
+            tags: tagRows,
+        },
+        dismissedEntityIds,
+    };
+}
+
+function inferTaskFieldsFromParse(
+    parsed: CanonicalNlpSnapshot,
+    explicit: {
+        projectId?: string | null;
+        tagIds?: string[];
+        priority?: number;
+        durationEstimate?: number | null;
+        waitingOn?: string | null;
+        recurrenceRule?: string | null;
+        isAllDay?: boolean;
+        dueDate?: string | null;
+        scheduledStart?: string | null;
+        scheduledEnd?: string | null;
+    },
+    confidenceThreshold: "high" | "medium" | "low",
+) {
+    const thresholdRank = confidenceRank(confidenceThreshold);
+    const entityRank = (entity: ParsedEntity) => confidenceRank(entity.confidence);
+    const parsedTagIds = new Set<string>();
+    let parsedProjectId: string | null | undefined;
+    let parsedPriority: number | undefined;
+    let parsedDuration: number | null | undefined;
+    let parsedWaitingOn: string | null | undefined;
+    let parsedRecurrence: string | null | undefined;
+    let parsedTemporal:
+        | { isAllDay: boolean; dueDate?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null }
+        | undefined;
+
+    for (const entity of parsed.entities) {
+        if (entityRank(entity) < thresholdRank) continue;
+
+        switch (entity.type) {
+            case "project": {
+                if (explicit.projectId !== undefined) continue;
+                const value = entity.normalizedValue as { resolvedId?: string; id?: string };
+                parsedProjectId = value.resolvedId ?? value.id ?? parsedProjectId;
+                break;
+            }
+            case "tag": {
+                if (explicit.tagIds !== undefined) continue;
+                const value = entity.normalizedValue as { resolvedId?: string; id?: string };
+                const tagId = value.resolvedId ?? value.id;
+                if (tagId) parsedTagIds.add(tagId);
+                break;
+            }
+            case "priority": {
+                if (explicit.priority !== undefined) continue;
+                parsedPriority = entity.normalizedValue as number;
+                break;
+            }
+            case "duration": {
+                if (explicit.durationEstimate !== undefined) continue;
+                const value = entity.normalizedValue as { minutes: number };
+                parsedDuration = value.minutes;
+                break;
+            }
+            case "waiting_on": {
+                if (explicit.waitingOn !== undefined) continue;
+                parsedWaitingOn = entity.normalizedValue as string;
+                break;
+            }
+            case "recurrence": {
+                if (explicit.recurrenceRule !== undefined) continue;
+                const value = entity.normalizedValue as { rrule: string };
+                parsedRecurrence = value.rrule;
+                break;
+            }
+            case "due_date":
+            case "scheduled_start": {
+                if (
+                    explicit.dueDate !== undefined ||
+                    explicit.scheduledStart !== undefined ||
+                    explicit.scheduledEnd !== undefined ||
+                    explicit.isAllDay !== undefined
+                ) {
+                    continue;
+                }
+
+                const value = entity.normalizedValue as { date: string; datetime: string | null; hasTime: boolean };
+                if (entity.type === "due_date" && value.hasTime) {
+                    continue;
+                }
+
+                if (entity.type === "scheduled_start" && value.datetime) {
+                    parsedTemporal = { isAllDay: false, scheduledStart: value.datetime };
+                } else {
+                    parsedTemporal = { isAllDay: true, dueDate: value.date };
+                }
+                break;
+            }
+        }
+    }
+
+    return {
+        projectId: explicit.projectId !== undefined ? explicit.projectId : parsedProjectId,
+        tagIds: explicit.tagIds !== undefined ? explicit.tagIds : Array.from(parsedTagIds),
+        priority: explicit.priority !== undefined ? explicit.priority : parsedPriority,
+        durationEstimate: explicit.durationEstimate !== undefined ? explicit.durationEstimate : parsedDuration,
+        waitingOn: explicit.waitingOn !== undefined ? explicit.waitingOn : parsedWaitingOn,
+        recurrenceRule: explicit.recurrenceRule !== undefined ? explicit.recurrenceRule : parsedRecurrence,
+        isAllDay: explicit.isAllDay !== undefined ? explicit.isAllDay : parsedTemporal?.isAllDay,
+        dueDate: explicit.dueDate !== undefined ? explicit.dueDate : parsedTemporal?.dueDate,
+        scheduledStart: explicit.scheduledStart !== undefined ? explicit.scheduledStart : parsedTemporal?.scheduledStart,
+        scheduledEnd: explicit.scheduledEnd !== undefined ? explicit.scheduledEnd : parsedTemporal?.scheduledEnd,
+    };
+}
+
+async function persistNlpSnapshot(
+    tx: any,
+    snapshot: CanonicalNlpSnapshot,
+    taskId: string,
+    userId: string,
+) {
+    const [existing] = await tx
+        .select()
+        .from(taskNlpMetadata)
+        .where(and(eq(taskNlpMetadata.taskId, taskId), eq(taskNlpMetadata.userId, userId)))
+        .limit(1);
+
+    const snapshotRecord = snapshot as unknown as Record<string, unknown>;
+    const currentValues = {
+        taskId,
+        userId,
+        parserVersion: snapshot.parserVersion,
+        sourceSurface: snapshot.sourceSurface,
+        rawInput: snapshot.rawInput,
+        cleanedTitle: snapshot.cleanedTitle,
+        parseResult: snapshotRecord,
+        confidenceTier: snapshot.overallConfidence ?? "medium",
+        isCurrent: true,
+    };
+    const updateValues = {
+        parserVersion: snapshot.parserVersion,
+        sourceSurface: snapshot.sourceSurface,
+        rawInput: snapshot.rawInput,
+        cleanedTitle: snapshot.cleanedTitle,
+        parseResult: snapshotRecord,
+        confidenceTier: snapshot.overallConfidence ?? "medium",
+        isCurrent: true,
+    };
+
+    if (existing) {
+        await tx.insert(taskNlpMetadataHistory).values({
+            taskId: existing.taskId,
+            userId: existing.userId,
+            parserVersion: existing.parserVersion,
+            sourceSurface: existing.sourceSurface,
+            rawInput: existing.rawInput,
+            cleanedTitle: existing.cleanedTitle,
+            parseResult: existing.parseResult as unknown as Record<string, unknown>,
+            confidenceTier: existing.confidenceTier,
+            isCurrent: false,
+        });
+
+        const [row] = await tx
+            .update(taskNlpMetadata)
+            .set(updateValues)
+            .where(and(eq(taskNlpMetadata.taskId, taskId), eq(taskNlpMetadata.userId, userId)))
+            .returning();
+        return row;
+    }
+
+    const [row] = await tx.insert(taskNlpMetadata).values(currentValues).returning();
+    return row;
+}
 
 function buildEffectiveTaskAnchorExpression() {
     return sql<string>`case
@@ -108,10 +331,8 @@ function getTemporalFieldsForPersistence(fields: {
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertTaskSchema), async (c) => {
         const userId = c.get("userId");
-        const { clientMutationId, ...body } = c.req.valid("json");
+        const { clientMutationId, tagIds, nlp, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
-        validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? null);
-        const temporalFields = getTemporalFieldsForPersistence(body);
 
         try {
             const task = await withRls(db, userId, async (tx) => {
@@ -122,14 +343,87 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     if (existing) return existing;
                 }
 
+                const nlpRuntime = nlp
+                    ? await loadNlpRuntime(tx, userId)
+                    : null;
+                const parsed = nlp
+                    ? parseCanonicalNlpEnvelope(
+                        {
+                            ...nlp,
+                            dismissedEntityIds: [
+                                ...(nlp.dismissedEntityIds ?? []),
+                                ...(nlpRuntime ? Array.from(nlpRuntime.dismissedEntityIds) : []),
+                            ],
+                        },
+                        {
+                            context: nlpRuntime?.context,
+                        },
+                    )
+                    : null;
+
+                const inferred = parsed
+                    ? inferTaskFieldsFromParse(
+                        parsed,
+                        {
+                            projectId: body.projectId,
+                            tagIds: tagIds,
+                            priority: body.priority,
+                            durationEstimate: body.durationEstimate,
+                            waitingOn: body.waitingOn,
+                            recurrenceRule: body.recurrenceRule,
+                            dueDate: body.dueDate,
+                            scheduledStart: body.scheduledStart,
+                            scheduledEnd: body.scheduledEnd,
+                            isAllDay: body.dueDate !== undefined || body.scheduledStart !== undefined || body.scheduledEnd !== undefined
+                                ? body.isAllDay
+                                : undefined,
+                        },
+                        (nlpRuntime?.settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
+                    )
+                    : null;
+
+                const explicitTagIds = tagIds ?? [];
+                const parsedTagIds = inferred?.tagIds ?? [];
+                const allTagIds = Array.from(new Set([...explicitTagIds, ...parsedTagIds]));
+                const taskBody = parsed
+                    ? {
+                        ...body,
+                        projectId: inferred?.projectId !== undefined ? inferred.projectId : body.projectId,
+                        priority: inferred?.priority ?? body.priority,
+                        durationEstimate: inferred?.durationEstimate ?? body.durationEstimate,
+                        waitingOn: inferred?.waitingOn ?? body.waitingOn,
+                        recurrenceRule: inferred?.recurrenceRule ?? body.recurrenceRule,
+                        ...getTemporalFieldsForPersistence({
+                            dueDate: inferred?.dueDate ?? body.dueDate ?? null,
+                            scheduledStart: inferred?.scheduledStart ?? body.scheduledStart ?? null,
+                            scheduledEnd: inferred?.scheduledEnd ?? body.scheduledEnd ?? null,
+                            isAllDay: inferred?.isAllDay ?? body.isAllDay ?? true,
+                        }),
+                    }
+                    : {
+                        ...body,
+                        ...getTemporalFieldsForPersistence(body),
+                    };
+
+                validateTaskRecurrenceRule(taskBody.recurrenceRule, taskBody.scheduledStart ?? null);
+
                 const [row] = await tx
                     .insert(tasks)
                     .values({
-                        ...body,
-                        ...temporalFields,
+                        ...taskBody,
                         userId,
                     })
                     .returning();
+
+                if (allTagIds.length > 0) {
+                    await tx.insert(taskTags).values(
+                        allTagIds.map((tagId) => ({ taskId: row.id, tagId })),
+                    );
+                }
+
+                if (parsed) {
+                    await persistNlpSnapshot(tx, parsed, row.id, userId);
+                }
 
                 await recordMutation(tx, userId, clientMutationId, row.id);
                 return row;
@@ -530,4 +824,95 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         throwIfNotFound(deleted, "Task");
         return c.json({ data: deleted });
+    })
+    .post("/:id/reparse", apiValidator("param", uuidParamSchema), apiValidator("json", nlpReparseSchema), async (c) => {
+        const userId = c.get("userId");
+        const { id } = c.req.valid("param");
+        const body = c.req.valid("json");
+        const db = getDbClient(c.env);
+
+        const metadata = await withRls(db, userId, async (tx) => {
+            const [task] = await tx
+                .select({ id: tasks.id })
+                .from(tasks)
+                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+            throwIfNotFound(task, "Task");
+
+            const nlpRuntime = await loadNlpRuntime(tx, userId);
+            const fallbackEnvelope = {
+                rawInput: body.rawInput,
+                sourceSurface: (body.sourceSurface ?? "quick_add") as CanonicalNlpEnvelope["sourceSurface"],
+                dateStyle: (body.dateStyle ?? (nlpRuntime.settings.dateTime?.dateStyle ?? "mdy")) as CanonicalNlpEnvelope["dateStyle"],
+                dismissedEntityIds: body.dismissedEntityIds ?? Array.from(nlpRuntime.dismissedEntityIds),
+                userOverrides: body.userOverrides ?? {},
+            } satisfies CanonicalNlpEnvelope;
+            const envelope: CanonicalNlpEnvelope = body.nlp
+                ? {
+                    ...fallbackEnvelope,
+                    ...body.nlp,
+                    sourceSurface: body.nlp.sourceSurface ?? fallbackEnvelope.sourceSurface,
+                    dateStyle: body.nlp.dateStyle ?? fallbackEnvelope.dateStyle,
+                    dismissedEntityIds: body.nlp.dismissedEntityIds ?? fallbackEnvelope.dismissedEntityIds,
+                    userOverrides: body.nlp.userOverrides ?? fallbackEnvelope.userOverrides,
+                }
+                : fallbackEnvelope;
+            const parsed = parseCanonicalNlpEnvelope(envelope, {
+                context: nlpRuntime.context,
+            });
+
+            const [row] = await (async () => {
+                const existing = await tx
+                    .select()
+                    .from(taskNlpMetadata)
+                    .where(and(eq(taskNlpMetadata.taskId, id), eq(taskNlpMetadata.userId, userId)))
+                    .limit(1);
+
+                if (existing[0]) {
+                    await tx.insert(taskNlpMetadataHistory).values({
+                        taskId: existing[0].taskId,
+                        userId: existing[0].userId,
+                        parserVersion: existing[0].parserVersion,
+                        sourceSurface: existing[0].sourceSurface,
+                        rawInput: existing[0].rawInput,
+                        cleanedTitle: existing[0].cleanedTitle,
+                        parseResult: existing[0].parseResult as unknown as Record<string, unknown>,
+                        confidenceTier: existing[0].confidenceTier,
+                        isCurrent: false,
+                    });
+
+                    const [updated] = await tx
+                        .update(taskNlpMetadata)
+                        .set({
+                            rawInput: parsed.rawInput,
+                            sourceSurface: parsed.sourceSurface,
+                            parseResult: parsed as unknown as Record<string, unknown>,
+                            cleanedTitle: parsed.cleanedTitle,
+                            confidenceTier: parsed.overallConfidence ?? "medium",
+                            parserVersion: parsed.parserVersion,
+                            isCurrent: true,
+                        })
+                        .where(and(eq(taskNlpMetadata.taskId, id), eq(taskNlpMetadata.userId, userId)))
+                        .returning();
+                    return [updated];
+                }
+
+                return tx
+                    .insert(taskNlpMetadata)
+                    .values({
+                        taskId: id,
+                        userId,
+                        rawInput: parsed.rawInput,
+                        sourceSurface: parsed.sourceSurface,
+                        parseResult: parsed as unknown as Record<string, unknown>,
+                        cleanedTitle: parsed.cleanedTitle,
+                        confidenceTier: parsed.overallConfidence ?? "medium",
+                        parserVersion: parsed.parserVersion,
+                        isCurrent: true,
+                    })
+                    .returning();
+            })();
+            return row;
+        });
+
+        return c.json({ data: metadata }, 201);
     });

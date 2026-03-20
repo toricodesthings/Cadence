@@ -20,13 +20,32 @@ export function useUpdateTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
+    function getExpectedUpdatedAt(id: string): string | undefined {
+        const cached = queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all });
+        for (const [, tasks] of cached) {
+            const task = tasks?.find((item) => item.id === id);
+            if (task) return task.updatedAt;
+        }
+        return undefined;
+    }
+
     return useMutation({
         mutationFn: withOfflineSupport<{ id: string } & UpdateTaskInput, Task>(
-            ({ id, ...updates }) => ({ type: "update_task", id, payload: updates }),
+            ({ id, ...updates }) => ({
+                type: "update_task",
+                id,
+                payload: {
+                    ...updates,
+                    ...(updates.expectedUpdatedAt ? {} : { expectedUpdatedAt: getExpectedUpdatedAt(id) }),
+                },
+            }),
             async ({ id, ...updates }) => {
                 const res = await client.api.tasks[":id"].$patch({
                     param: { id },
-                    json: updates,
+                    json: {
+                        ...updates,
+                        ...(updates.expectedUpdatedAt ? {} : { expectedUpdatedAt: getExpectedUpdatedAt(id) }),
+                    },
                 });
                 return unwrapResponse<Task>(res);
             },
@@ -55,7 +74,12 @@ export function useUpdateTask() {
 
         onError: (err, _input, context) => {
             if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to update task");
+            const message = err instanceof Error ? err.message : "Failed to update task";
+            if (/conflict|modified|stale/i.test(message)) {
+                toast.error("Task changed elsewhere. Reloading the latest version.");
+            } else {
+                toast.error(message || "Failed to update task");
+            }
             invalidateTaskCaches(queryClient);
         },
     });
