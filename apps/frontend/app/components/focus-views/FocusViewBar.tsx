@@ -5,6 +5,7 @@ import { useCreateFocusView, useDeleteFocusView, useFocusViews, useUpdateFocusVi
 import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects";
 import { Zap, Clock, CalendarX2, UserCheck, Brain, CloudFog, Search, X, BookmarkPlus, Pin, Trash2, Pencil } from "lucide-react";
+import * as ContextMenu from "../primitives/ContextMenu";
 
 const PRESET_ICONS: Record<string, React.ReactNode> = {
     Zap: <Zap size={13} />,
@@ -132,20 +133,50 @@ export function FocusViewBar() {
                 ))}
 
                 {pinnedViews.map((view) => (
-                    <button
-                        key={view.id}
-                        type="button"
-                        onClick={() => applySavedView(view.id)}
-                        title={view.source === "preset" ? "Saved preset view" : "Saved custom view"}
-                        className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer ${
-                            activeSavedViewId === view.id
-                                ? "bg-lantern/15 text-lantern border border-lantern/25"
-                                : "bg-white/[0.03] text-twilight-text-muted border border-twilight-border/30 hover:bg-white/[0.06]"
-                        }`}
-                    >
-                        <Pin size={12} />
-                        {view.name}
-                    </button>
+                    <ContextMenu.Root key={view.id}>
+                        <ContextMenu.Trigger asChild>
+                            <button
+                                type="button"
+                                onClick={() => applySavedView(view.id)}
+                                title={view.source === "preset" ? "Saved preset view" : "Saved custom view"}
+                                className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer ${
+                                    activeSavedViewId === view.id
+                                        ? "bg-lantern/15 text-lantern border border-lantern/25"
+                                        : "bg-white/[0.03] text-twilight-text-muted border border-twilight-border/30 hover:bg-white/[0.06]"
+                                }`}
+                            >
+                                <Pin size={12} />
+                                {view.name}
+                            </button>
+                        </ContextMenu.Trigger>
+                        <ContextMenu.Content>
+                            <ContextMenu.Item
+                                onSelect={() => {
+                                    const nextName = window.prompt("Rename Focus View", view.name);
+                                    if (nextName !== null && nextName.trim()) {
+                                        updateFocusView.mutate({ id: view.id, name: nextName.trim() });
+                                    }
+                                }}
+                            >
+                                <Pencil size={14} className="mr-2 opacity-60" />
+                                Rename
+                            </ContextMenu.Item>
+                            <ContextMenu.Item
+                                onSelect={() => updateFocusView.mutate({ id: view.id, isPinned: false })}
+                            >
+                                <Pin size={14} className="mr-2 opacity-60" />
+                                Unpin
+                            </ContextMenu.Item>
+                            <ContextMenu.Separator />
+                            <ContextMenu.Item
+                                variant="danger"
+                                onSelect={() => deleteFocusViewMutation.mutate(view.id)}
+                            >
+                                <Trash2 size={14} className="mr-2" />
+                                Delete
+                            </ContextMenu.Item>
+                        </ContextMenu.Content>
+                    </ContextMenu.Root>
                 ))}
 
                 {/* NL composer toggle */}
@@ -227,57 +258,7 @@ export function FocusViewBar() {
                 </div>
             )}
 
-            {pinnedViews.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                    {pinnedViews.map((view) => (
-                        <div
-                            key={`manage-${view.id}`}
-                            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] ${
-                                activeSavedViewId === view.id
-                                    ? "border-lantern/25 bg-lantern/10 text-lantern"
-                                    : "border-twilight-border/30 bg-white/[0.02] text-twilight-text-muted"
-                            }`}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => applySavedView(view.id)}
-                                className="cursor-pointer hover:text-twilight-text transition-colors"
-                            >
-                                {view.name}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const nextName = window.prompt("Rename Focus View", view.name);
-                                    if (nextName !== null && nextName.trim()) {
-                                        updateFocusView.mutate({ id: view.id, name: nextName.trim() });
-                                    }
-                                }}
-                                className="cursor-pointer hover:text-lantern transition-colors"
-                                aria-label={`Rename ${view.name}`}
-                            >
-                                <Pencil size={11} />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => updateFocusView.mutate({ id: view.id, isPinned: false })}
-                                className="cursor-pointer hover:text-lantern transition-colors"
-                                aria-label={`Unpin ${view.name}`}
-                            >
-                                <Pin size={11} />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => deleteFocusViewMutation.mutate(view.id)}
-                                className="cursor-pointer hover:text-red-400 transition-colors"
-                                aria-label={`Remove ${view.name}`}
-                            >
-                                <Trash2 size={11} />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
+
         </div>
     );
 }

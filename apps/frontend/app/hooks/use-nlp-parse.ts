@@ -148,8 +148,14 @@ export function useNlpParse({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const latestInputRef = useRef(input);
     const latestDismissedEntityIdsRef = useRef(dismissedEntityIds);
+    const latestProjectsRef = useRef(projects);
+    const latestTagsRef = useRef(tags);
+    const latestIgnoredTokenIdsRef = useRef(ignoredTokenIds);
     latestInputRef.current = input;
     latestDismissedEntityIdsRef.current = dismissedEntityIds;
+    latestProjectsRef.current = projects;
+    latestTagsRef.current = tags;
+    latestIgnoredTokenIdsRef.current = ignoredTokenIds;
 
     const runParse = useCallback(() => {
         const currentInput = latestInputRef.current;
@@ -171,8 +177,8 @@ export function useNlpParse({
         if (!mod) return; // Module not loaded yet
 
         const resolutionContext = {
-            projects: projects.map((p) => ({ id: p.id, name: p.name })),
-            tags: tags.map((t) => ({ id: t.id, name: t.name })),
+            projects: latestProjectsRef.current.map((p) => ({ id: p.id, name: p.name })),
+            tags: latestTagsRef.current.map((t) => ({ id: t.id, name: t.name })),
         };
 
         const result = mod.parse({
@@ -180,10 +186,10 @@ export function useNlpParse({
             sourceSurface,
             dateStyle,
             context: resolutionContext,
-            dismissedEntityIds: [...ignoredTokenIds, ...latestDismissedEntityIdsRef.current],
+            dismissedEntityIds: [...latestIgnoredTokenIdsRef.current, ...latestDismissedEntityIdsRef.current],
         });
 
-        const ignored = new Set([...ignoredTokenIds, ...latestDismissedEntityIdsRef.current]);
+        const ignored = new Set([...latestIgnoredTokenIdsRef.current, ...latestDismissedEntityIdsRef.current]);
         let dueDate: string | null = null;
         let recurrenceRule: string | null = null;
         let priority: TaskPriority | null = null;
@@ -252,7 +258,7 @@ export function useNlpParse({
             waitingOn,
             durationMinutes,
         });
-    }, [projects, tags, ignoredTokenIds, sourceSurface, dateStyle, enabled, confidenceThreshold]);
+    }, [sourceSurface, dateStyle, enabled, confidenceThreshold]);
 
     // Load module on mount (when enabled) and trigger initial parse
     useEffect(() => {

@@ -342,6 +342,7 @@ export default function AuthPage() {
 
     return (
         <main className="relative min-h-dvh overflow-hidden bg-twilight">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.9%27 numOctaves=%274%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E")' }} />
             <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-[-12%] top-[8%] h-[24rem] w-[24rem] rounded-full bg-moonlit/10 blur-[120px]" />
                 <div className="absolute right-[-8%] top-[18%] h-[26rem] w-[26rem] rounded-full bg-lantern/8 blur-[130px]" />
@@ -355,12 +356,12 @@ export default function AuthPage() {
                         <div className="mb-4 flex flex-col items-center text-center">
                             <CadenceAuthMark size="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" rounded="rounded-[1.45rem]" />
                             <p className="mt-4 font-display text-[1.85rem] font-semibold leading-[1.02] text-twilight-text sm:text-[2.1rem]">
-                                {isSignUp ? "Create your sanctuary." : "Step into your Cadence."}
+                                {isSignUp ? "Create your account" : "Sign in to Cadence"}
                             </p>
                             <p className="mt-2.5 max-w-[22rem] text-sm leading-7 text-twilight-text-soft sm:text-[15px]">
                                 {isSignUp
-                                    ? "Create your account and start in a calmer rhythm."
-                                    : "Settle in, capture what matters, and continue with clarity."}
+                                    ? "Set up your workspace and start planning."
+                                    : "Pick up where you left off."}
                             </p>
                         </div>
 
@@ -392,14 +393,14 @@ export default function AuthPage() {
                                     },
                                 }}
                                 localization={{
-                                    SIGN_IN: "Step into your Cadence",
+                                    SIGN_IN: "Sign in to Cadence",
                                     SIGN_IN_DESCRIPTION: "",
-                                    SIGN_IN_ACTION: "Enter Cadence",
-                                    SIGN_UP: "Create your sanctuary",
+                                    SIGN_IN_ACTION: "Sign in",
+                                    SIGN_UP: "Create your account",
                                     SIGN_UP_DESCRIPTION: "",
                                     SIGN_UP_ACTION: "Create account",
                                     OR_CONTINUE_WITH: "Or continue with",
-                                    NAME_DESCRIPTION: "Choose the name that should greet you inside Cadence.",
+                                    NAME_DESCRIPTION: "The name that greets you inside Cadence.",
                                     FORGOT_PASSWORD: "Forgot password?",
                                 }}
                             />
@@ -407,7 +408,7 @@ export default function AuthPage() {
 
                         <div className="mt-5 flex items-center justify-center gap-1.5 text-sm">
                             <span className="text-twilight-text-soft">
-                                {isSignUp ? "Already have a room?" : "New here?"}
+                                {isSignUp ? "Already have an account?" : "Don't have an account?"}
                             </span>
                             <Link
                                 to={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}

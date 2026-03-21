@@ -1,6 +1,5 @@
 import { CheckCircle, ArrowLeft, Sparkles, Inbox, ListTodo, Clock, Flame, Sprout } from "lucide-react";
 import { Button } from "../primitives/Button";
-import { toISODate } from "../../lib/utils/date-format";
 
 export const STEPS = [
     { id: "intro", title: "Welcome", icon: Sparkles, desc: "Begin your reset" },
@@ -11,7 +10,7 @@ export const STEPS = [
     { id: "ready", title: "Ready", icon: Sprout, desc: "Start fresh" },
 ] as const;
 
-export function WeeklyResetSidebar({ currentStep, compact = false }: { currentStep: number; compact?: boolean }) {
+export function WeeklyResetSidebar({ currentStep, compact = false, onExit }: { currentStep: number; compact?: boolean; onExit?: () => void }) {
     return (
         <div className={`${compact ? "w-[240px]" : "w-[280px]"} flex shrink-0 flex-col border-r border-twilight-border bg-twilight-surface/30 py-8 backdrop-blur-3xl relative overflow-hidden transition-all duration-500 z-50 shadow-2xl shadow-black/20`}>
             {/* Brand */}
@@ -67,8 +66,7 @@ export function WeeklyResetSidebar({ currentStep, compact = false }: { currentSt
                     variant="ghost"
                     size="md"
                     onClick={() => {
-                        localStorage.setItem("cadence_last_weekly_reset", toISODate(new Date()));
-                        window.location.href = "/";
+                        onExit?.();
                     }}
                     aria-label="Exit weekly reset"
                     className="w-full justify-start gap-3 whitespace-nowrap"

@@ -15,6 +15,15 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
+/** Normalize date ranges so scheduledStart ≤ scheduledEnd */
+function normalizeDateRange<T extends Record<string, unknown>>(updates: T): T {
+    const { scheduledStart, scheduledEnd } = updates as { scheduledStart?: string; scheduledEnd?: string };
+    if (scheduledStart && scheduledEnd && scheduledStart > scheduledEnd) {
+        return { ...updates, scheduledStart: scheduledEnd, scheduledEnd: scheduledStart };
+    }
+    return updates;
+}
+
 /** Update any task field with optimistic patching across all caches */
 export function useUpdateTask() {
     const client = useApiClient();
@@ -23,7 +32,8 @@ export function useUpdateTask() {
     function getExpectedUpdatedAt(id: string): string | undefined {
         const cached = queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all });
         for (const [, tasks] of cached) {
-            const task = tasks?.find((item) => item.id === id);
+            if (!Array.isArray(tasks)) continue;
+            const task = tasks.find((item) => item.id === id);
             if (task) return task.updatedAt;
         }
         return undefined;
@@ -31,15 +41,19 @@ export function useUpdateTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<{ id: string } & UpdateTaskInput, Task>(
-            ({ id, ...updates }) => ({
-                type: "update_task",
-                id,
-                payload: {
-                    ...updates,
-                    ...(updates.expectedUpdatedAt ? {} : { expectedUpdatedAt: getExpectedUpdatedAt(id) }),
-                },
-            }),
-            async ({ id, ...updates }) => {
+            ({ id, ...raw }) => {
+                const updates = normalizeDateRange(raw);
+                return {
+                    type: "update_task",
+                    id,
+                    payload: {
+                        ...updates,
+                        ...(updates.expectedUpdatedAt ? {} : { expectedUpdatedAt: getExpectedUpdatedAt(id) }),
+                    },
+                };
+            },
+            async ({ id, ...raw }) => {
+                const updates = normalizeDateRange(raw);
                 const res = await client.api.tasks[":id"].$patch({
                     param: { id },
                     json: {
@@ -51,7 +65,8 @@ export function useUpdateTask() {
             },
         ),
 
-        onMutate: async ({ id, ...updates }) => {
+        onMutate: async ({ id, ...raw }) => {
+            const updates = normalizeDateRange(raw);
             await cancelTaskQueries(queryClient);
             const snapshot = snapshotTaskCache(queryClient);
 

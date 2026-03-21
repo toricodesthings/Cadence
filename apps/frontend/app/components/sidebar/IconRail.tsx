@@ -33,7 +33,7 @@ const NAV_LINKS = [
     {
         to: "/",
         icon: LayoutDashboard,
-        label: "Holding",
+        label: "Capture",
         activeColor: "text-[var(--color-nav-planner)]",
         activeBg: "bg-[var(--color-nav-planner)]/15 glow-lantern",
         hoverColor: "hover:text-[var(--color-nav-planner)]/70",

@@ -1,11 +1,13 @@
 import { useMemo, useState, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useNavigate } from "react-router";
 import {
     AlertTriangle,
     CalendarRange,
     Clock3,
     Layers3,
     Circle,
+    PanelRightClose,
     Repeat,
     Sunrise,
     Sparkles,
@@ -28,13 +30,15 @@ import { useTasks } from "../hooks/tasks";
 import { useProjects } from "../hooks/projects";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useTagFilterStore } from "../stores/tag-filter-store";
+import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
 import { useApiClient } from "../hooks/auth/use-api-client";
-import { useViewMode } from "../hooks/ui/use-view-mode";
+import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useSettings } from "../hooks/core/use-settings";
+import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
@@ -76,7 +80,7 @@ const UPCOMING_SECTIONS: Array<{
 }> = [
     {
         key: "overdue",
-        title: "Overdue",
+        title: "Urgent",
         icon: AlertTriangle,
         accentClass: "text-[var(--color-priority-urgent)]",
     },
@@ -315,7 +319,8 @@ export default function Upcoming() {
     const { data: projects = [] } = useProjects();
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
-    const { view, setView } = useViewMode();
+    const navigate = useNavigate();
+    const { view, setView } = useRouteViewMode("upcoming");
     const { sortMode, setSortMode } = useSortMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
@@ -333,6 +338,20 @@ export default function Upcoming() {
     const tomorrowISO = toISODate(addDays(today, 1));
     const nextWeekISO = toISODate(addDays(today, 7));
     const habitsRangeStart = toISODate(addDays(today, -30));
+
+    const personalEvents = usePersonalEvents(today.getFullYear());
+    const upcomingEvents = useMemo(() => {
+        if (!personalEvents.enabled) return [];
+        const events: Array<{ event: import("../lib/types/settings").PersonalEvent; dateStr: string }> = [];
+        for (let i = 0; i <= 7; i++) {
+            const d = addDays(today, i);
+            const ds = toISODate(d);
+            for (const evt of personalEvents.getEventsForDate(ds)) {
+                events.push({ event: evt, dateStr: ds });
+            }
+        }
+        return events;
+    }, [personalEvents, today]);
 
     const { data: habits = [], isLoading: habitsLoading } = useHabitsWeekly({
         start: habitsRangeStart,
@@ -407,7 +426,8 @@ export default function Upcoming() {
 
                 const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
                 if (!bucket) continue;
-                if (bucket !== "overdue" && bucket !== "today") continue;
+                if (bucket === "nextWeek") continue;
+
 
                 const habitTimeLabel = habit.targetTime
                     ? formatTime(`${dateOnly}T${habit.targetTime}:00`)
@@ -522,9 +542,7 @@ export default function Upcoming() {
         </AnimatePresence>
     );
 
-    const openHabits = () => {
-        window.location.href = "/habits";
-    };
+    const openHabits = () => navigate("/habits");
 
     const renderUpcomingBucket = (title: string, bucketKey: UpcomingBucketKey, items: UpcomingViewerItem[]) => {
         if (items.length === 0) {
@@ -589,7 +607,6 @@ export default function Upcoming() {
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
-            headerCenter={<ViewToggle view={view} onViewChange={setView} />}
             headerRight={shell.isPhone ? (
                 <ControlsSheet
                     routeKey="upcoming"
@@ -600,7 +617,7 @@ export default function Upcoming() {
                             label: "View",
                             content: (
                                 <div className="space-y-3">
-                                    <p className="text-sm text-twilight-text-soft">Keep the horizon readable in list or board view.</p>
+                                    <p className="text-sm text-twilight-text-soft">Switch between list and board.</p>
                                     <ViewToggle view={view} onViewChange={setView} compact />
                                 </div>
                             ),
@@ -627,24 +644,27 @@ export default function Upcoming() {
                                 </div>
                             ),
                         },
-                        {
+                        ...(selectedTaskId ? [{
                             id: "details",
                             label: "Details",
-                            content: selectedTaskId ? (
+                            content: (
                                 <button
                                     type="button"
                                     onClick={() => setMobilePanelOpen(true)}
                                     className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
                                 >
+                                    <PanelRightClose size={16} aria-hidden="true" />
                                     Open task details
                                 </button>
-                            ) : (
-                                <p className="text-sm text-twilight-text-muted">Select a task to open its detail surface.</p>
                             ),
-                        },
+                        }] : []),
                     ]}
                 />
-            ) : <SortMenu mode={sortMode} onModeChange={setSortMode} />}
+            ) : (
+                <div className="flex items-center gap-2">
+                    <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
+                </div>
+            )}
             contentWidth="default"
             shellHeader={{
                 title: "Upcoming",
@@ -657,6 +677,20 @@ export default function Upcoming() {
                 <Suspense fallback={null}>
                     <LazyFocusViewBar />
                 </Suspense>
+                <ActiveFilterBar />
+                {upcomingEvents.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pb-2">
+                        {upcomingEvents.map(({ event: evt, dateStr }) => (
+                            <div
+                                key={`${evt.id}-${dateStr}`}
+                                className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal"
+                            >
+                                {evt.emoji ?? "🎉"} {evt.label}
+                                <span className="text-personal/60">{formatShortDate(dateStr)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </PageContent>
             {view === "kanban" ? (
                 <div className="flex-1 min-h-0 min-w-0">

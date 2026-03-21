@@ -17,11 +17,13 @@ import type { QueryClient } from "@tanstack/react-query";
 
 function createReplayClient(): ApiClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return hc<AppType>(API_BASE_URL, {
+    const root = hc<AppType>(API_BASE_URL, {
         fetch: (input: RequestInfo | URL, requestInit?: RequestInit) =>
             authenticatedFetch(input, { ...requestInit, authenticated: true }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any as ApiClient;
+    }) as any;
+    // Backend routes mount under /api/v1/ — expose the v1 subtree as `.api`
+    return { api: root.api.v1 } as ApiClient;
 }
 
 /**

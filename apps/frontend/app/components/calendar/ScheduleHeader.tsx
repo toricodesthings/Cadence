@@ -147,7 +147,7 @@ export function ScheduleHeader({
                                 <button
                                     type="button"
                                     className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                    aria-label="More options"
+                                    aria-label="Display & calendar options"
                                 >
                                     <MoreHorizontal size={16} />
                                 </button>
@@ -281,7 +281,7 @@ export function ScheduleHeader({
                             <button
                                 type="button"
                                 className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                aria-label="More options"
+                                aria-label="Display & calendar options"
                             >
                                 <MoreHorizontal size={16} />
                             </button>

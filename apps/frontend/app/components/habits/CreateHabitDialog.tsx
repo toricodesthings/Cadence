@@ -172,6 +172,11 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                             <span className="text-[12px] font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
                                 Timing &amp; reminder
                             </span>
+                            {!showTiming && watchTargetTime && (
+                                <span className="text-[11px] text-twilight-text-muted/70 ml-1">
+                                    — {watchTargetTime}{form.watch("reminderEnabled") ? ", reminder on" : ""}
+                                </span>
+                            )}
                             <motion.div animate={{ rotate: showTiming ? 180 : 0 }} transition={{ duration: 0.15 }}>
                                 <ChevronDown size={12} className="text-twilight-text-muted/50" />
                             </motion.div>
@@ -239,6 +244,20 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                             <span className="text-[12px] font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
                                 Project, tags &amp; purpose
                             </span>
+                            {!showConnections && (() => {
+                                const parts: string[] = [];
+                                const pid = form.watch("projectId");
+                                if (pid) {
+                                    const proj = projects.find(p => p.id === pid);
+                                    if (proj) parts.push(proj.name);
+                                }
+                                if (selectedTagIds.length > 0) parts.push(`${selectedTagIds.length} tag${selectedTagIds.length > 1 ? "s" : ""}`);
+                                return parts.length > 0 ? (
+                                    <span className="text-[11px] text-twilight-text-muted/70 ml-1 truncate">
+                                        — {parts.join(", ")}
+                                    </span>
+                                ) : null;
+                            })()}
                             <motion.div animate={{ rotate: showConnections ? 180 : 0 }} transition={{ duration: 0.15 }}>
                                 <ChevronDown size={12} className="text-twilight-text-muted/50" />
                             </motion.div>

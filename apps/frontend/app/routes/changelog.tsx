@@ -31,7 +31,6 @@ export default function ChangelogRoute() {
 
     return (
         <MainLayout
-            requireAuth
             contentWidth="wide"
             pageTitle="Changelog"
             pageDescription="Review concise Cadence release notes in a sparse, version-by-version history."
@@ -49,7 +48,7 @@ export default function ChangelogRoute() {
                         title="A simple history of what changed."
                         description={(
                             <p>
-                                Candence is in active development, and you can expect regular updates with new features, improvements, and bug fixes.
+                                Cadence is in active development, and you can expect regular updates with new features, improvements, and bug fixes.
                             </p>
                         )}
                         meta={[CADENCE_PUBLIC_VERSION, `${CADENCE_CHANGELOG.length} entries`, "Newest first"]}

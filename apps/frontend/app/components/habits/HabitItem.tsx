@@ -17,14 +17,22 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
 
     const isCompleted = log.status === "COMPLETED";
     const isSkipped = log.status === "SKIPPED";
-    const handleToggle = (e: React.MouseEvent) => {
+
+    const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
 
-        // Instant optimistic toggle between PENDING and COMPLETED
+        // On touch (coarse pointer), always open popover for explicit choice
+        const isTouch = window.matchMedia("(pointer: coarse)").matches;
+        if (isTouch) {
+            setOpen(true);
+            return;
+        }
+
+        // Desktop: instant toggle between PENDING and COMPLETED
         resolveHabit({
-            targetDate: log.targetDate, // full iso
-            status: isCompleted ? "PENDING" : "COMPLETED"
+            targetDate: log.targetDate,
+            status: isCompleted ? "PENDING" : "COMPLETED",
         });
     };
 
@@ -34,7 +42,7 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                 <button
                     data-focus-kind="habit"
                     data-focus-id={habit.id}
-                    onClick={handleToggle}
+                    onClick={handleClick}
                     onContextMenu={(e) => {
                         e.preventDefault();
                         setOpen(true);

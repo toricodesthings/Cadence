@@ -10,6 +10,7 @@ import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
+import type { PersonalEvent } from "../../lib/types/settings";
 
 interface DroppableTimeGridProps {
     dateStr: string;
@@ -157,6 +158,8 @@ export interface DayViewProps {
     holidays?: HolidayRecord[];
     /** Whether this day is the user's birthday */
     isBirthday?: boolean;
+    /** Personal events occurring on this day */
+    personalEvents?: PersonalEvent[];
     activeDropPreview?: CalendarDropPreview | null;
     /** Ghost block placement for click-to-create preview */
     draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
@@ -173,6 +176,7 @@ export function DayView({
     tasks,
     holidays = [],
     isBirthday = false,
+    personalEvents = [],
     activeDropPreview,
     draftPlacement,
     onSelectTask,
@@ -230,6 +234,11 @@ export function DayView({
                                 🎂 Your Birthday
                             </div>
                         )}
+                        {personalEvents.map((evt) => (
+                            <div key={evt.id} className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal">
+                                {evt.emoji ?? "🎉"} {evt.label}
+                            </div>
+                        ))}
                         {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate ? (
                             <AllDayDropPreview preview={activeDropPreview} />
                         ) : null}

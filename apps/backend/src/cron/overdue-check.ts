@@ -1,8 +1,8 @@
 import { eq, and, lt, sql, inArray } from "drizzle-orm";
-import { getDbClient } from "../lib/db";
+import { getDbClient } from "../platform/db";
 import { tasks, taskMetrics, mutationDedup } from "../db/schema";
-import { withRls } from "../lib/rls";
-import { computeWorkloadSignals } from "../lib/metrics";
+import { withRls } from "../platform/rls";
+import { computeWorkloadSignals } from "../platform/metrics";
 import type { Env } from "../types/env";
 
 export async function handleOverdueCheck(env: Env) {

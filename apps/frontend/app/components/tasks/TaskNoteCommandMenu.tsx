@@ -97,16 +97,27 @@ export function TaskNoteCommandMenu({
 
     if (!anchorRect || filtered.length === 0) return null;
 
+    // Viewport-aware positioning: flip upward if menu would overflow bottom
+    const menuHeight = Math.min(filtered.length * 44 + 8, 264); // max-h-64 = 256px + padding
+    const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+    const spaceBelow = viewportHeight - anchorRect.top;
+    const flipUp = spaceBelow < menuHeight + 8;
+    const top = flipUp ? Math.max(8, anchorRect.top - menuHeight) : anchorRect.top;
+    // Clamp left to stay within viewport
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1024;
+    const menuWidth = 256; // w-64
+    const left = Math.min(anchorRect.left, viewportWidth - menuWidth - 8);
+
     return (
         <AnimatePresence>
             <motion.div
                 ref={menuRef}
-                initial={{ opacity: 0, y: 4 }}
+                initial={{ opacity: 0, y: flipUp ? -4 : 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
+                exit={{ opacity: 0, y: flipUp ? -4 : 4 }}
                 transition={{ duration: 0.12 }}
                 className="fixed z-[60] w-64 overflow-hidden rounded-xl border border-twilight-border/60 bg-twilight-surface/95 shadow-lg backdrop-blur-xl"
-                style={{ top: anchorRect.top, left: anchorRect.left }}
+                style={{ top, left, maxHeight: `min(16rem, ${viewportHeight - 16}px)` }}
                 role="listbox"
                 aria-label="Slash commands"
             >

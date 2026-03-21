@@ -175,6 +175,44 @@ export function SettingsDialog() {
 
                     {/* Main Content Area */}
                     <div className="settings-content-bg relative flex flex-1 flex-col items-stretch overflow-y-auto">
+                        {/* Mobile header — visible below md */}
+                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-twilight-border/60 bg-twilight-deep/95 backdrop-blur-xl px-4 py-3 md:hidden">
+                            <h2 className="text-sm font-semibold text-twilight-text">Settings</h2>
+                            <button
+                                type="button"
+                                onClick={() => void handleClose()}
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text transition-colors"
+                                aria-label="Close settings"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {/* Mobile tab picker — horizontal scroll below md */}
+                        <div className="flex gap-1.5 overflow-x-auto border-b border-twilight-border/40 px-4 py-2 md:hidden">
+                            {SETTINGS_CATEGORIES.filter((item) => !item.isHeader && item.id).map((item) => {
+                                const Icon = item.icon as any;
+                                const isActive = activeTab === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => void handleTabChange(item.id!)}
+                                        className={cn(
+                                            "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
+                                            isActive
+                                                ? "bg-lantern/15 text-lantern"
+                                                : "text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
+                                        )}
+                                    >
+                                        {Icon && <Icon className="h-3.5 w-3.5" />}
+                                        {item.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Desktop close — visible at lg */}
                         <button
                             type="button"
                             className="group absolute right-6 top-6 z-10 hidden flex-col items-center gap-2 lg:flex"

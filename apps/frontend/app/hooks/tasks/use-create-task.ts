@@ -14,6 +14,7 @@ import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { ApiErrorResponse } from "../../types/api";
 
 /** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
@@ -21,6 +22,11 @@ export function useCreateTask() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        retry: (failureCount, error) => {
+            if (error instanceof ApiErrorResponse && error.status === 429 && failureCount < 3) return true;
+            return false;
+        },
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
         mutationFn: withOfflineSupport<CreateTaskInput, Task>(
             (input) => ({
                 type: "create_task",
@@ -118,7 +124,11 @@ export function useCreateTask() {
         onError: (err, _input, context) => {
             if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
             invalidateTaskCaches(queryClient);
-            toast.error(err.message || "Failed to create task");
+            if (err instanceof ApiErrorResponse && err.status === 429) {
+                toast.error("Slow down — too many tasks at once. Try again in a moment.");
+            } else {
+                toast.error(err.message || "Failed to create task");
+            }
         },
     });
 }

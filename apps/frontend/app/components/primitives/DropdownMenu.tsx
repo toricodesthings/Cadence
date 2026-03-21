@@ -44,7 +44,7 @@ export const SubContent = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={[
-            "glass-surface rounded-xl p-1 min-w-[200px] z-50",
+            "glass-surface rounded-xl p-1 min-w-[200px] z-50 shadow-xl shadow-black/30 ring-1 ring-white/[0.06]",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=open]:fade-in data-[state=closed]:fade-out",
             "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { AlertTriangle, CalendarClock, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3, CalendarRange } from "lucide-react";
+import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3 } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
@@ -20,10 +21,11 @@ import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
-import { useViewMode } from "../hooks/ui/use-view-mode";
+import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useTagFilterStore } from "../stores/tag-filter-store";
+import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
 import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task-scheduling";
@@ -34,13 +36,10 @@ import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
 import { useSettings } from "../hooks/core/use-settings";
+import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import type { Task } from "../types/task";
-import type { HabitLog } from "../types/habit";
 
-const TIMETABLE_VISIBILITY_STORAGE_KEY = "cadence-today-hide-timetable-anchors";
-const RITUALS_VISIBILITY_STORAGE_KEY = "cadence-today-hide-rituals";
-
-type TodayBucketKey = "overdue" | "today" | "ritualsToday";
+const RHYTHMS_STORAGE_KEY = "cadence-today-hide-rhythms";
 
 interface TodayHabitItem {
     id: string;
@@ -146,7 +145,7 @@ function TodayHabitRow({
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
                     <span className="inline-flex items-center gap-1.5 font-medium text-moonlit">
                         <Repeat size={12} aria-hidden="true" />
-                        {isOverdue ? `Missed ${formatShortDate(item.dueDate)}` : "Today ritual"}
+                        {isOverdue ? `Missed ${formatShortDate(item.dueDate)}` : "Today"}
                     </span>
 
                     {item.timeLabel ? (
@@ -163,13 +162,13 @@ function TodayHabitRow({
 
 export default function TodayRoute() {
     const shell = useShellMode();
-    const { view, setView } = useViewMode();
+    const navigate = useNavigate();
+    const { view, setView } = useRouteViewMode("today");
     const { sortMode, setSortMode } = useSortMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
-    const [hideTimetableAnchors, setHideTimetableAnchors] = useState(false);
-    const [hideRitualsToday, setHideRitualsToday] = useState(false);
+    const [hideRhythms, setHideRhythms] = useState(false);
     const todayISO = toISODate(new Date());
     const habitsRangeStart = toISODate(addDays(new Date(), -30));
     const { activeTagId } = useTagFilterStore();
@@ -178,6 +177,10 @@ export default function TodayRoute() {
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
+
+    const todayDate = new Date();
+    const personalEvents = usePersonalEvents(todayDate.getFullYear());
+    const todayEvents = personalEvents.enabled ? personalEvents.getEventsForDate(todayISO) : [];
 
     useDocumentMeta(
         "Today · Cadence",
@@ -188,8 +191,7 @@ export default function TodayRoute() {
 
     useEffect(() => {
         if (typeof window === "undefined") return;
-        setHideTimetableAnchors(window.localStorage.getItem(TIMETABLE_VISIBILITY_STORAGE_KEY) === "1");
-        setHideRitualsToday(window.localStorage.getItem(RITUALS_VISIBILITY_STORAGE_KEY) === "1");
+        setHideRhythms(window.localStorage.getItem(RHYTHMS_STORAGE_KEY) === "1");
     }, []);
 
     const { data: tasks = [], isLoading } = useTasks({
@@ -211,22 +213,22 @@ export default function TodayRoute() {
     }, [activeTagId, tasks, activeDefinition, intelligenceEnabled, focusViewsEnabled]);
 
     const grouped = useMemo(() => {
-        const overdue: Task[] = [];
+        const urgent: Task[] = [];
         const today: Task[] = [];
-        const timetableAnchors: Task[] = [];
+        const rhythmTasks: Task[] = [];
         const overdueHabits: TodayHabitItem[] = [];
-        const ritualsToday: TodayHabitItem[] = [];
+        const rhythmHabits: TodayHabitItem[] = [];
 
         for (const task of filteredTasks) {
             const anchor = getTaskTimelineAnchor(task);
             if (!anchor) continue;
             if (isPassiveTimetableTask(task)) {
                 if (anchor === todayISO) {
-                    timetableAnchors.push(task);
+                    rhythmTasks.push(task);
                 }
                 continue;
             }
-            if (anchor < todayISO) overdue.push(task);
+            if (anchor < todayISO) urgent.push(task);
             if (anchor === todayISO) today.push(task);
         }
 
@@ -251,7 +253,7 @@ export default function TodayRoute() {
                 if (item.bucket === "overdue") {
                     overdueHabits.push(item);
                 } else {
-                    ritualsToday.push(item);
+                    rhythmHabits.push(item);
                 }
             }
         }
@@ -290,11 +292,11 @@ export default function TodayRoute() {
         };
 
         return {
-            overdue: sortBucket(overdue),
+            urgent: sortBucket(urgent),
             today: sortBucket(today),
-            timetableAnchors: sortTasks(timetableAnchors, sortMode),
+            rhythmTasks: sortTasks(rhythmTasks, sortMode),
             overdueHabits: overdueHabits.sort(compareHabits),
-            ritualsToday: ritualsToday.sort(compareHabits),
+            rhythmHabits: rhythmHabits.sort(compareHabits),
             rationaleByTaskId,
         };
     }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled]);
@@ -306,6 +308,20 @@ export default function TodayRoute() {
             setMobilePanelOpen(true);
         }
     };
+
+    const toggleRhythms = () => {
+        setHideRhythms((current) => {
+            const next = !current;
+            if (typeof window !== "undefined") {
+                window.localStorage.setItem(RHYTHMS_STORAGE_KEY, next ? "1" : "0");
+            }
+            return next;
+        });
+    };
+
+    const openHabits = () => navigate("/habits");
+
+    const rhythmsTotalCount = grouped.rhythmTasks.length + grouped.rhythmHabits.length;
 
     const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
     const sidePanel = (
@@ -348,7 +364,7 @@ export default function TodayRoute() {
                     label: "View",
                     content: (
                         <div className="space-y-3">
-                            <p className="text-sm text-twilight-text-soft">Switch between list and board without leaving the page.</p>
+                            <p className="text-sm text-twilight-text-soft">Switch between list and board.</p>
                             <ViewToggle view={view} onViewChange={setView} compact />
                         </div>
                     ),
@@ -375,10 +391,10 @@ export default function TodayRoute() {
                         </div>
                     ),
                 },
-                {
+                ...(selectedTaskId ? [{
                     id: "details",
                     label: "Details",
-                    content: selectedTaskId ? (
+                    content: (
                         <button
                             type="button"
                             onClick={() => setMobilePanelOpen(true)}
@@ -387,58 +403,35 @@ export default function TodayRoute() {
                             <PanelRightClose size={16} aria-hidden="true" />
                             Open task details
                         </button>
-                    ) : (
-                        <p className="text-sm text-twilight-text-muted">Open a task to reveal its peek and focus editor.</p>
                     ),
-                },
+                }] : []),
             ]}
         />
-    ) : (!shell.isWide && selectedTaskId) ? (
-        <button
-            type="button"
-            onClick={() => setMobilePanelOpen(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label="Open task details"
-        >
-            <PanelRightClose size={16} aria-hidden="true" />
-            Details
-        </button>
-    ) : undefined;
+    ) : (
+        <div className="flex items-center gap-2">
+            <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
+            {!shell.isWide && selectedTaskId ? (
+                <button
+                    type="button"
+                    onClick={() => setMobilePanelOpen(true)}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+                    aria-label="Open task details"
+                >
+                    <PanelRightClose size={16} aria-hidden="true" />
+                    Details
+                </button>
+            ) : null}
+        </div>
+    );
 
-    const visibleTimetableAnchors = hideTimetableAnchors ? [] : grouped.timetableAnchors;
-    const visibleRitualsToday = hideRitualsToday ? [] : grouped.ritualsToday;
+    const visibleRhythmTasks = hideRhythms ? [] : grouped.rhythmTasks;
+    const visibleRhythmHabits = hideRhythms ? [] : grouped.rhythmHabits;
     const totalVisible =
-        grouped.overdue.length +
+        grouped.urgent.length +
         grouped.overdueHabits.length +
         grouped.today.length +
-        visibleRitualsToday.length +
-        visibleTimetableAnchors.length;
-
-    const toggleTimetableAnchors = () => {
-        setHideTimetableAnchors((current) => {
-            const next = !current;
-            if (typeof window !== "undefined") {
-                window.localStorage.setItem(TIMETABLE_VISIBILITY_STORAGE_KEY, next ? "1" : "0");
-            }
-            return next;
-        });
-    };
-
-    const toggleRitualsToday = () => {
-        setHideRitualsToday((current) => {
-            const next = !current;
-            if (typeof window !== "undefined") {
-                window.localStorage.setItem(RITUALS_VISIBILITY_STORAGE_KEY, next ? "1" : "0");
-            }
-            return next;
-        });
-    };
-
-    const openHabits = () => {
-        if (typeof window !== "undefined") {
-            window.location.href = "/habits";
-        }
-    };
+        visibleRhythmTasks.length +
+        visibleRhythmHabits.length;
 
     const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board", emptyLabel?: string) => {
         if (tasks.length > 0) {
@@ -480,14 +473,14 @@ export default function TodayRoute() {
 
     const MAX_OVERDUE_HABITS = 3;
 
-    const renderOverdueBucket = (cardVariant?: "list" | "board") => {
-        const hasTasks = grouped.overdue.length > 0;
+    const renderUrgentBucket = (cardVariant?: "list" | "board") => {
+        const hasTasks = grouped.urgent.length > 0;
         const hasHabits = grouped.overdueHabits.length > 0;
 
         if (!hasTasks && !hasHabits) {
             return (
                 <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    Nothing in overdue.
+                    Nothing urgent. You're on track.
                 </div>
             );
         }
@@ -497,7 +490,7 @@ export default function TodayRoute() {
 
         return (
             <div className="flex flex-col gap-3">
-                {hasTasks ? <TaskList tasks={grouped.overdue} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} rationaleByTaskId={grouped.rationaleByTaskId} {...(cardVariant ? { cardVariant } : {})} /> : null}
+                {hasTasks ? <TaskList tasks={grouped.urgent} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} rationaleByTaskId={grouped.rationaleByTaskId} {...(cardVariant ? { cardVariant } : {})} /> : null}
                 {hasHabits ? (
                     <>
                         {hasTasks ? <HabitGroupDivider label="Missed routines" /> : null}
@@ -522,125 +515,107 @@ export default function TodayRoute() {
         );
     };
 
+    const renderRhythmsBucket = (cardVariant?: "list" | "board") => {
+        const hasAnchorTasks = grouped.rhythmTasks.length > 0;
+        const hasHabits = grouped.rhythmHabits.length > 0;
+
+        if (!hasAnchorTasks && !hasHabits) {
+            return (
+                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
+                    No rhythms for today.
+                </div>
+            );
+        }
+
+        if (hideRhythms) {
+            return (
+                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
+                    Rhythms hidden ({rhythmsTotalCount}).
+                </div>
+            );
+        }
+
+        return (
+            <div className="flex flex-col gap-3">
+                {hasAnchorTasks ? (
+                    <TaskList
+                        tasks={grouped.rhythmTasks}
+                        selectedTaskId={selectedTaskId}
+                        onSelectTask={handleSelectTask}
+                        rationaleByTaskId={grouped.rationaleByTaskId}
+                        {...(cardVariant ? { cardVariant } : {})}
+                    />
+                ) : null}
+                {hasHabits ? (
+                    <>
+                        {hasAnchorTasks ? <HabitGroupDivider label="Today's routines" /> : null}
+                        <div className="flex flex-col divide-y divide-white/[0.05]">
+                            {grouped.rhythmHabits.map((item) => (
+                                <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />
+                            ))}
+                        </div>
+                    </>
+                ) : null}
+            </div>
+        );
+    };
+
+    const rhythmsHideShowLabel = hideRhythms
+        ? `Show (${rhythmsTotalCount})`
+        : "Hide";
+
     const sections = [
         {
-            key: "overdue",
-            title: "Overdue",
+            key: "urgent",
+            title: "Urgent",
             icon: AlertTriangle,
             accentClass: "text-[var(--color-priority-urgent)]",
-            count: grouped.overdue.length + grouped.overdueHabits.length,
-            listContent: renderOverdueBucket(),
-            boardContent: renderOverdueBucket("board"),
+            count: grouped.urgent.length + grouped.overdueHabits.length,
+            listContent: renderUrgentBucket(),
+            boardContent: renderUrgentBucket("board"),
         },
-        ...(grouped.timetableAnchors.length > 0 ? [{
-            key: "timetable-anchors",
-            title: "Timetable anchors",
-            icon: CalendarClock,
-            accentClass: "text-moonlit",
-            count: visibleTimetableAnchors.length,
-            description: "Recurring anchors stay visible here without blending into today’s check-off work.",
-            headerAction: (
-                <button
-                    type="button"
-                    onClick={toggleTimetableAnchors}
-                    className="touch-target inline-flex min-h-11 items-center gap-2 rounded-2xl border border-moonlit/20 bg-moonlit/10 px-4 text-xs font-medium uppercase tracking-[0.14em] text-moonlit"
-                    aria-pressed={hideTimetableAnchors}
-                >
-                    {hideTimetableAnchors ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
-                    {hideTimetableAnchors ? "Show" : "Hide"}
-                </button>
-            ),
-            boardHeaderAction: hideTimetableAnchors ? (
-                <button
-                    type="button"
-                    onClick={toggleTimetableAnchors}
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
-                    aria-label="Show timetable anchors"
-                    title="Show timetable anchors"
-                >
-                    <Eye size={14} aria-hidden="true" />
-                </button>
-            ) : (
-                <button
-                    type="button"
-                    onClick={toggleTimetableAnchors}
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
-                    aria-label="Hide timetable anchors"
-                    title="Hide timetable anchors"
-                >
-                    <EyeOff size={14} aria-hidden="true" />
-                </button>
-            ),
-            listSectionClassName: "rounded-[28px] border border-moonlit/20 bg-moonlit/[0.08] px-4 py-4 shadow-[0_18px_60px_rgba(7,14,26,0.18)]",
-            boardSectionClassName: "border-moonlit/25 bg-moonlit/[0.08]",
-            boardCollapsed: hideTimetableAnchors,
-            listContent: renderTaskBucket(
-                visibleTimetableAnchors,
-                undefined,
-                hideTimetableAnchors ? "Timetable anchors are hidden." : "No timetable anchors for today.",
-            ),
-            boardContent: renderTaskBucket(
-                hideTimetableAnchors ? [] : grouped.timetableAnchors,
-                "board",
-                "No timetable anchors for today.",
-            ),
-        }] : []),
         {
             key: "today",
             title: "Today",
             icon: Sunrise,
             accentClass: "text-lantern",
             count: grouped.today.length,
-            listContent: renderTaskBucket(grouped.today, undefined, "Nothing in today."),
-            boardContent: renderTaskBucket(grouped.today, "board", "Nothing in today."),
+            listContent: renderTaskBucket(grouped.today, undefined, "Nothing scheduled for today yet."),
+            boardContent: renderTaskBucket(grouped.today, "board", "Nothing scheduled for today yet."),
         },
-        ...(grouped.ritualsToday.length > 0 ? [{
-            key: "rituals-today",
-            title: "Rituals today",
+        ...(rhythmsTotalCount > 0 ? [{
+            key: "rhythms",
+            title: "Rhythms",
             icon: Repeat,
             accentClass: "text-moonlit",
-            count: visibleRitualsToday.length,
+            count: hideRhythms ? rhythmsTotalCount : (visibleRhythmTasks.length + visibleRhythmHabits.length),
             headerAction: (
                 <button
                     type="button"
-                    onClick={toggleRitualsToday}
+                    onClick={toggleRhythms}
                     className="touch-target inline-flex min-h-11 items-center gap-2 rounded-2xl border border-moonlit/20 bg-moonlit/10 px-4 text-xs font-medium uppercase tracking-[0.14em] text-moonlit"
-                    aria-pressed={hideRitualsToday}
+                    aria-pressed={hideRhythms}
                 >
-                    {hideRitualsToday ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
-                    {hideRitualsToday ? "Show" : "Hide"}
+                    {hideRhythms ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
+                    {rhythmsHideShowLabel}
                 </button>
             ),
-            boardHeaderAction: hideRitualsToday ? (
+            boardHeaderAction: (
                 <button
                     type="button"
-                    onClick={toggleRitualsToday}
+                    onClick={toggleRhythms}
                     className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
-                    aria-label="Show rituals today"
-                    title="Show rituals today"
+                    aria-label={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"}
+                    title={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"}
                 >
-                    <Eye size={14} aria-hidden="true" />
-                </button>
-            ) : (
-                <button
-                    type="button"
-                    onClick={toggleRitualsToday}
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
-                    aria-label="Hide rituals today"
-                    title="Hide rituals today"
-                >
-                    <EyeOff size={14} aria-hidden="true" />
+                    {hideRhythms ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
                 </button>
             ),
-            boardCollapsed: hideRitualsToday,
-            listContent: renderHabitBucket(
-                visibleRitualsToday,
-                hideRitualsToday ? "Rituals are hidden." : "No rituals due today.",
-            ),
-            boardContent: renderHabitBucket(
-                hideRitualsToday ? [] : grouped.ritualsToday,
-                "No rituals due today.",
-            ),
+            listSectionClassName: "rounded-[28px] border border-moonlit/20 bg-moonlit/[0.08] px-4 py-4 shadow-[0_18px_60px_rgba(7,14,26,0.18)]",
+            boardSectionClassName: "border-moonlit/25 bg-moonlit/[0.08]",
+            boardCollapsed: hideRhythms,
+            listContent: renderRhythmsBucket(),
+            boardContent: renderRhythmsBucket("board"),
         }] : []),
     ];
 
@@ -648,17 +623,7 @@ export default function TodayRoute() {
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
-            headerCenter={<ViewToggle view={view} onViewChange={setView} />}
-            headerRight={
-                shell.isPhone ? (
-                    headerRight
-                ) : (
-                    <div className="flex items-center gap-2">
-                        {headerRight}
-                        <SortMenu mode={sortMode} onModeChange={setSortMode} />
-                    </div>
-                )
-            }
+            headerRight={headerRight}
             contentWidth="default"
             shellHeader={{
                 title: "Today",
@@ -671,6 +636,19 @@ export default function TodayRoute() {
                 <Suspense fallback={null}>
                     <LazyFocusViewBar />
                 </Suspense>
+                <ActiveFilterBar />
+                {todayEvents.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pb-2">
+                        {todayEvents.map((evt) => (
+                            <div
+                                key={evt.id}
+                                className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal"
+                            >
+                                {evt.emoji ?? "🎉"} {evt.label}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </PageContent>
             {view === "kanban" ? (
                 <div className="flex-1 min-h-0 min-w-0">

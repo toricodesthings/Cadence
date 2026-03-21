@@ -16,6 +16,12 @@
       ],
       "outputs": []
     },
+    "check": {
+      "dependsOn": [
+        "^check"
+      ],
+      "outputs": []
+    },
     "lint": {
       "dependsOn": [
         "^lint"

@@ -41,7 +41,7 @@ describe("holiday provider", () => {
         });
 
         expect(authenticatedFetchMock).toHaveBeenCalledWith(
-            expect.stringContaining("/api/proxy/holidays?"),
+            expect.stringContaining("/api/v1/proxy/holidays?"),
             expect.objectContaining({ authenticated: true }),
         );
         expect(holidays).toEqual([

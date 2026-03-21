@@ -45,11 +45,13 @@ export async function authenticatedFetch(
  */
 export function createApiClient(token?: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return hc<AppType>(API_BASE_URL, {
+    const root = hc<AppType>(API_BASE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         fetch: platformFetch,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any;
+    // Backend routes mount under /api/v1/ — expose the v1 subtree as `.api`
+    return { api: root.api.v1 };
 }
 
 // Derive as any to avoid circular-unknown collapse

@@ -20,6 +20,10 @@ interface SortableTaskCardProps {
 /**
  * Thin dnd-kit sortable wrapper around TaskCard.
  *
+ * Drag is scoped to an explicit grip handle inside TaskCard so that
+ * the card body stays free for selection, text selection and right-click
+ * context menus without competing with DnD pointer events.
+ *
  * Completion animation (design manifesto §5):
  *  "Like a candle flame going out. No goofy bouncing or party effects."
  *  - immediate opacity fade to 0.4 over 300ms
@@ -39,6 +43,7 @@ export function SortableTaskCard({
         attributes,
         listeners,
         setNodeRef,
+        setActivatorNodeRef,
         transform,
         transition,
         isDragging,
@@ -60,16 +65,6 @@ export function SortableTaskCard({
     return (
         <motion.div
             ref={setNodeRef}
-            role={attributes.role}
-            tabIndex={attributes.tabIndex}
-            aria-disabled={attributes["aria-disabled"]}
-            aria-pressed={attributes["aria-pressed"]}
-            aria-roledescription={attributes["aria-roledescription"]}
-            aria-describedby={attributes["aria-describedby"]}
-            onPointerDown={listeners?.onPointerDown as React.PointerEventHandler<HTMLDivElement> | undefined}
-            onMouseDown={listeners?.onMouseDown as React.MouseEventHandler<HTMLDivElement> | undefined}
-            onTouchStart={listeners?.onTouchStart as React.TouchEventHandler<HTMLDivElement> | undefined}
-            onKeyDown={listeners?.onKeyDown as React.KeyboardEventHandler<HTMLDivElement> | undefined}
             style={style}
             data-dnd-card
             data-dnd-draggable="true"
@@ -98,6 +93,11 @@ export function SortableTaskCard({
                 onSelect={onSelect}
                 variant={variant}
                 rationaleLabel={rationaleLabel}
+                dragHandleProps={{
+                    ref: setActivatorNodeRef,
+                    listeners,
+                    attributes,
+                }}
             />
         </motion.div>
     );

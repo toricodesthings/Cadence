@@ -35,7 +35,7 @@ export default function HomeRoute() {
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel } = useRightPanelStore();
 
     useDocumentMeta(
-        "Holding · Cadence",
+        "Capture · Cadence",
         "Capture anything. Clarify later. Place when ready.",
     );
 
@@ -63,40 +63,49 @@ export default function HomeRoute() {
             {hasPanelContent && (
                 <motion.div
                     key="holding-side-panel"
-                    initial={{ opacity: 0, x: 24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 24 }}
+                    initial={{ width: 0 }}
+                    animate={{ width: holdingPanelWidth + 4 }}
+                    exit={{ width: 0 }}
                     transition={panelMotion}
-                    style={{ willChange: "transform, opacity", width: holdingPanelWidth + 4 }}
+                    style={{ willChange: "width", overflow: "hidden" }}
                     className="flex h-full self-stretch shrink-0 items-stretch"
                 >
-                    <ResizableSidePanel
-                        ariaLabel="Resize holding panel"
-                        width={holdingPanelWidth}
-                        onWidthChange={setHoldingPanelWidth}
+                    <motion.div
+                        initial={{ x: 24, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 24, opacity: 0 }}
+                        transition={panelMotion}
+                        style={{ willChange: "transform, opacity" }}
+                        className="flex h-full min-w-0 flex-1 items-stretch"
                     >
-                        <AnimatePresence mode="wait">
-                            {selectedInboxItem ? (
-                                <ClarifySheet
-                                    key={`clarify-${selectedInboxItem.id}`}
-                                    item={selectedInboxItem}
-                                    onClose={clearSelection}
-                                    onOpenFullEditor={(taskId) => {
-                                        setSelectedInboxItemId(null);
-                                        setSelectedTaskId(taskId);
-                                    }}
-                                />
-                            ) : selectedTaskId ? (
-                                <TaskEditPanel
-                                    key={`holding-edit-${selectedTaskId}`}
-                                    taskId={selectedTaskId}
-                                    onClose={() => setSelectedTaskId(null)}
-                                />
-                            ) : (
-                                <HoldingPlannerPanel key="holding-planner" />
-                            )}
-                        </AnimatePresence>
-                    </ResizableSidePanel>
+                        <ResizableSidePanel
+                            ariaLabel="Resize holding panel"
+                            width={holdingPanelWidth}
+                            onWidthChange={setHoldingPanelWidth}
+                        >
+                            <AnimatePresence mode="wait">
+                                {selectedInboxItem ? (
+                                    <ClarifySheet
+                                        key={`clarify-${selectedInboxItem.id}`}
+                                        item={selectedInboxItem}
+                                        onClose={clearSelection}
+                                        onOpenFullEditor={(taskId) => {
+                                            setSelectedInboxItemId(null);
+                                            setSelectedTaskId(taskId);
+                                        }}
+                                    />
+                                ) : selectedTaskId ? (
+                                    <TaskEditPanel
+                                        key={`holding-edit-${selectedTaskId}`}
+                                        taskId={selectedTaskId}
+                                        onClose={() => setSelectedTaskId(null)}
+                                    />
+                                ) : (
+                                    <HoldingPlannerPanel key="holding-planner" />
+                                )}
+                            </AnimatePresence>
+                        </ResizableSidePanel>
+                    </motion.div>
                 </motion.div>
             )}
         </AnimatePresence>
@@ -120,7 +129,7 @@ export default function HomeRoute() {
         }
     };
 
-    /* ── Header: no view toggle (C1/C3/H3/H6 — board mode removed from Holding) ── */
+    /* ── Header: panel toggle for desktop; planner shortcut for mobile ── */
     const headerRight = shell.isWide ? (
         <button
             type="button"
@@ -130,7 +139,19 @@ export default function HomeRoute() {
         >
             {holdingPanelOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
         </button>
-    ) : null;
+    ) : (
+        <button
+            type="button"
+            onClick={() => {
+                clearSelection();
+                setMobilePanelOpen(true);
+            }}
+            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+            aria-label="Open planner panel"
+        >
+            <PanelRightOpen size={16} aria-hidden="true" />
+        </button>
+    );
 
     return (
         <MainLayout
@@ -140,8 +161,7 @@ export default function HomeRoute() {
             headerRight={headerRight}
             contentWidth="default"
             shellHeader={{
-                title: "Holding",
-                eyebrow: "Capture",
+                title: "Capture",
                 icon: <Inbox size={18} aria-hidden="true" />,
                 accentColor: "var(--color-nav-inbox)",
             }}

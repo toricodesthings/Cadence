@@ -1,6 +1,8 @@
 import { EllipsisVertical, ArrowUpDown, Sparkles, ArrowDownWideNarrow, GripVertical, Check } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { SortMode } from "../../lib/utils/sort-tasks";
+import type { ViewMode } from "../../hooks/ui/use-view-mode";
+import { ViewToggle } from "./ViewToggle";
 
 interface SortMenuAction {
     label: string;
@@ -12,6 +14,8 @@ interface SortMenuAction {
 interface SortMenuProps {
     mode: SortMode;
     onModeChange: (mode: SortMode) => void;
+    view?: ViewMode;
+    onViewChange?: (view: ViewMode) => void;
     actions?: SortMenuAction[];
 }
 
@@ -21,7 +25,7 @@ const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof Sparkles }[] 
     { value: "manual", label: "Manual", icon: GripVertical },
 ];
 
-export function SortMenu({ mode, onModeChange, actions = [] }: SortMenuProps) {
+export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] }: SortMenuProps) {
     return (
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -33,6 +37,14 @@ export function SortMenu({ mode, onModeChange, actions = [] }: SortMenuProps) {
                 </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
+                {view !== undefined && onViewChange && (
+                    <>
+                        <div className="px-3 pt-2 pb-2.5">
+                            <ViewToggle view={view} onViewChange={onViewChange} compact />
+                        </div>
+                        <DropdownMenu.Separator />
+                    </>
+                )}
                 <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted">
                     <div className="flex items-center gap-1.5">
                         <ArrowUpDown size={11} aria-hidden="true" />

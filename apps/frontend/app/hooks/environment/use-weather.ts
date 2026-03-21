@@ -67,7 +67,7 @@ export function useWeather() {
         const fetchWeather = async (lat: number, lon: number) => {
             try {
                 const res = await authenticatedFetch(
-                    `${API_BASE_URL}/api/proxy/weather?latitude=${lat}&longitude=${lon}`,
+                    `${API_BASE_URL}/api/v1/proxy/weather?latitude=${lat}&longitude=${lon}`,
                     { authenticated: true },
                 );
                 const body = (await res.json()) as { data: OpenMeteoResponse };

@@ -14,6 +14,7 @@ import {
     ArrowUp,
     ArrowDown,
     Sparkles,
+    GripVertical,
     type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -41,6 +42,12 @@ interface TaskCardProps {
     holdingContext?: boolean;
     /** Optional smart-sort rationale label */
     rationaleLabel?: string | null;
+    /** dnd-kit drag handle props — scopes drag to an explicit grip handle */
+    dragHandleProps?: {
+        ref: (node: HTMLElement | null) => void;
+        listeners: Record<string, Function> | undefined;
+        attributes: Record<string, any>;
+    };
 }
 
 /** Priority bar CSS var classes — references CSS custom properties set in app.css */
@@ -195,6 +202,7 @@ export function TaskCard({
     variant = "list",
     holdingContext,
     rationaleLabel,
+    dragHandleProps,
 }: TaskCardProps) {
     const isComplete = task.state === "COMPLETE";
     const priorityConfig = PRIORITY_CONFIG[task.priority];
@@ -430,7 +438,7 @@ export function TaskCard({
                 handleSelect(e);
             }}
             className={`
-                group relative flex cursor-pointer rounded-[26px] border border-twilight-border/40 transition-[background-color,border-color,box-shadow,opacity,transform,padding] duration-200 active:cursor-grabbing
+                group relative flex cursor-pointer rounded-[26px] ring-1 ring-white/[0.06] transition-[background-color,border-color,box-shadow,opacity,transform,padding] duration-200
                 ${isBoardCard
                     ? `${isCompactCard ? "items-center gap-2 px-3.5 py-3" : "items-start gap-2 px-3.5 py-3.5"}`
                     : `${isCompactCard ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5"}`
@@ -454,6 +462,27 @@ export function TaskCard({
                 />
             )}
 
+            {/* Drag handle — scoped drag target so card body stays free for selection & context menu */}
+            {dragHandleProps && (
+                <div
+                    ref={dragHandleProps.ref}
+                    role={dragHandleProps.attributes?.role}
+                    tabIndex={dragHandleProps.attributes?.tabIndex}
+                    aria-roledescription={dragHandleProps.attributes?.["aria-roledescription"]}
+                    aria-describedby={dragHandleProps.attributes?.["aria-describedby"]}
+                    {...(dragHandleProps.listeners ?? {})}
+                    data-no-open="true"
+                    className={`shrink-0 cursor-grab touch-none rounded-md text-twilight-text-muted/40 transition-[opacity,color] hover:text-twilight-text-soft active:cursor-grabbing ${
+                        isBoardCard
+                            ? "pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 -ml-1"
+                            : "pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 -ml-2"
+                    }`}
+                    aria-label="Drag to reorder"
+                >
+                    <GripVertical size={16} aria-hidden="true" />
+                </div>
+            )}
+
             <TaskCheckbox task={task} compact={isBoardCard} />
 
             {/* Content */}
@@ -470,19 +499,10 @@ export function TaskCard({
                         className={`w-full rounded-2xl text-left cursor-pointer ${isBoardCard ? "p-0" : "p-1 -m-1"}`}
                     >
                         <div className="flex items-start gap-2">
-                            {(task.isPinned || isPassiveTimetable || showUrgentIcon) ? (
+                            {(task.isPinned || showUrgentIcon) ? (
                                 <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
                                     {task.isPinned && (
                                         <Pin size={12} className="rotate-45 text-lantern" aria-label="Pinned" />
-                                    )}
-                                    {isPassiveTimetable && (
-                                        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-moonlit/25 bg-moonlit/12 text-moonlit">
-                                            <CalendarClock
-                                                size={11}
-                                                className="text-moonlit"
-                                                aria-label="Timetable anchor"
-                                            />
-                                        </span>
                                     )}
                                     {showUrgentIcon && (
                                         <AlertTriangle
@@ -710,7 +730,7 @@ export function TaskCard({
             </div>
 
             {/* Context menu — visible on hover */}
-            <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100" : `opacity-0 group-hover:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
+            <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-within:opacity-100" : `pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
                 <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : handleAddSubtask} onRename={handleRename} holdingContext={holdingContext} />
             </div>
         </article>

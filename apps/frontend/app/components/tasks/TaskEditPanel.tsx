@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import {
-    ArrowLeft, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
+    X, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
     CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil, Maximize2, Minimize2,
     ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTasks, useUpdateTask, useDeleteTask, useCreateSubtask } from "../../hooks/tasks";
+import { useTasks, useUpdateTask, useArchiveTask, useCreateSubtask } from "../../hooks/tasks";
 import { useProjects } from "../../hooks/projects";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
@@ -51,7 +51,7 @@ function formatDateTime(iso: string) {
 }
 
 const segmentedControlClass = "flex max-w-full flex-wrap justify-end gap-0.5 rounded-xl bg-white/[0.04] p-0.5";
-const stackedPanelTriggerClass = "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.04]";
+const stackedPanelTriggerClass = "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.06] hover:border-twilight-border/50 focus-visible:ring-1 focus-visible:ring-lantern/30";
 
 const MetaRow = React.memo(function MetaRow({
     icon: Icon,
@@ -88,7 +88,7 @@ export function TaskEditPanel({
     const { data: doneTasks } = useTasks({ state: "COMPLETE" });
     const { data: projects } = useProjects();
     const updateTask = useUpdateTask();
-    const deleteTask = useDeleteTask();
+    const archiveTask = useArchiveTask();
     const createSubtask = useCreateSubtask(taskId);
     const { data: tags } = useTags();
     const addTagAssoc = useAddTaskTag();
@@ -203,7 +203,7 @@ export function TaskEditPanel({
 
     const handleDelete = () => {
         if (!task) return;
-        deleteTask.mutate(task.id);
+        archiveTask.mutate(task.id);
         onClose();
     };
 
@@ -259,15 +259,6 @@ export function TaskEditPanel({
                     mode={detailMode}
                     header={(
                         <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            aria-label="Close task details"
-                            className="w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
-                        >
-                            <ArrowLeft size={15} aria-hidden="true" />
-                        </button>
-
                         <div className="flex-1 min-w-0 relative group flex items-center">
                             <input
                                 ref={titleRef}
@@ -325,10 +316,19 @@ export function TaskEditPanel({
                                     onSelect={handleDelete}
                                 >
                                     <Trash2 size={14} aria-hidden="true" />
-                                    {task.recurrenceRule ? "Delete series" : "Delete task"}
+                                    {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
                                 </DropdownMenu.Item>
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close task details"
+                            className="w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
+                        >
+                            <X size={15} aria-hidden="true" />
+                        </button>
                         </div>
                     )}
                 >

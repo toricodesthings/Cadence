@@ -2,12 +2,13 @@ import { useState, useRef, useCallback, useEffect, useMemo, Suspense, lazy } fro
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { FolderKanban, Pencil, Trash2, Repeat } from "lucide-react";
+import { FolderKanban, Pencil, Trash2, Repeat, Check, X } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects";
 import { useUpdateProject, useDeleteProject } from "../hooks/projects";
 import { useTasks } from "../hooks/tasks";
 import { useTagFilterStore } from "../stores/tag-filter-store";
+import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
 import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
 import { KanbanBoard } from "../components/kanban/KanbanBoard";
@@ -32,7 +33,7 @@ import { Button } from "../components/primitives/Button";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
 import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
 import { PageContent } from "../components/layout/PageLayout";
-import { useViewMode } from "../hooks/ui/use-view-mode";
+import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
@@ -44,6 +45,51 @@ const MIN_PANEL_WIDTH = 300;
 const MAX_PANEL_WIDTH = 500;
 const DEFAULT_PANEL_WIDTH = 320;
 
+/* ── Actionable linked-habit row ── */
+function LinkedHabitRow({
+    habit,
+    targetDate,
+    onNavigate,
+}: {
+    habit: { id: string; title: string; targetTime?: string | null };
+    targetDate: string;
+    onNavigate: () => void;
+}) {
+    const resolveHabit = useResolveHabit(habit.id);
+    const isResolving = resolveHabit.isPending;
+
+    return (
+        <div className="flex items-center gap-3 py-2.5 group">
+            <button
+                type="button"
+                disabled={isResolving}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isResolving) resolveHabit.mutate({ targetDate, status: "COMPLETED" });
+                }}
+                aria-label={isResolving ? "Completing routine" : `Mark ${habit.title} complete`}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-moonlit/30 text-moonlit/70 transition-colors hover:border-moonlit hover:text-moonlit disabled:cursor-wait lg:h-6 lg:w-6"
+            >
+                {isResolving ? (
+                    <span className="h-2 w-2 rounded-full bg-moonlit/70 animate-pulse" />
+                ) : (
+                    <Check size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+            </button>
+            <button
+                type="button"
+                onClick={onNavigate}
+                className="flex-1 truncate text-[14px] font-medium text-twilight-text text-left hover:text-moonlit transition-colors"
+            >
+                {habit.title}
+            </button>
+            {habit.targetTime && (
+                <span className="text-[12px] text-twilight-text-muted">{habit.targetTime}</span>
+            )}
+        </div>
+    );
+}
+
 export default function ProjectView() {
     const { projectId } = useParams();
     const navigate = useNavigate();
@@ -51,7 +97,7 @@ export default function ProjectView() {
     const updateProject = useUpdateProject();
     const deleteProject = useDeleteProject();
     const shell = useShellMode();
-    const { view, setView } = useViewMode();
+    const { view, setView } = useRouteViewMode("project");
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
@@ -267,6 +313,32 @@ export default function ProjectView() {
         </AnimatePresence>
     ) : undefined;
 
+    /* ── Project not-found state ── */
+    if (projects && !project) {
+        return (
+            <MainLayout requireAuth contentWidth="default" pageTitle="Project not found">
+                <PageContent width="default">
+                    <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
+                        <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
+                            <X size={24} className="text-twilight-text-muted" />
+                        </div>
+                        <h3 className="text-lg font-medium text-twilight-text mb-2">Project not found</h3>
+                        <p className="text-twilight-text-muted text-sm max-w-sm mb-6">
+                            This project may have been deleted or the link is incorrect.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => navigate("/")}
+                            className="px-5 py-2.5 rounded-2xl text-sm font-medium bg-lantern/20 text-lantern hover:bg-lantern/30 transition-colors"
+                        >
+                            Go to Capture
+                        </button>
+                    </div>
+                </PageContent>
+            </MainLayout>
+        );
+    }
+
     return (
         <>
             {/* Rename dialog */}
@@ -378,7 +450,6 @@ export default function ProjectView() {
             <MainLayout
                 requireAuth
                 sidePanel={sidePanel}
-                headerCenter={<ViewToggle view={view} onViewChange={setView} />}
                 headerRight={project ? (shell.isPhone ? (
                     <ControlsSheet
                         routeKey={`project:${projectId ?? "unknown"}`}
@@ -450,6 +521,8 @@ export default function ProjectView() {
                         <SortMenu
                             mode={sortMode}
                             onModeChange={setSortMode}
+                            view={view}
+                            onViewChange={setView}
                             actions={[
                                 {
                                     label: "Rename / Edit project",
@@ -485,9 +558,17 @@ export default function ProjectView() {
                     <Suspense fallback={null}>
                         <LazyFocusViewBar />
                     </Suspense>
+                    <ActiveFilterBar />
                 </PageContent>
                 {view === "kanban" ? (
-                    <div className="flex-1 min-h-0 min-w-0">
+                    <div className="flex-1 min-h-0 min-w-0 flex flex-col">
+                        {projectId && (
+                            <PageContent width="default">
+                                <div className="mb-4">
+                                    <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
+                                </div>
+                            </PageContent>
+                        )}
                         {isLoading ? (
                             <PageContent width="default"><TaskListSkeleton /></PageContent>
                         ) : tasks && tasks.length > 0 ? (
@@ -549,17 +630,19 @@ export default function ProjectView() {
                                         <span>Routines linked to this project</span>
                                     </div>
                                     <div className="flex flex-col divide-y divide-moonlit/10">
-                                        {dueLinkedHabits.map((habit) => (
-                                            <div key={habit.id} className="flex items-center gap-3 py-2.5">
-                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-moonlit/30 text-moonlit/70">
-                                                    <span className="h-2 w-2 rounded-full bg-moonlit/70" />
-                                                </span>
-                                                <span className="flex-1 truncate text-[14px] font-medium text-twilight-text">{habit.title}</span>
-                                                {habit.targetTime && (
-                                                    <span className="text-[12px] text-twilight-text-muted">{habit.targetTime}</span>
-                                                )}
-                                            </div>
-                                        ))}
+                                        {dueLinkedHabits.map((habit) => {
+                                            const pendingLog = habit.logs?.find(
+                                                (l: any) => l.status === "PENDING" && l.targetDate?.substring(0, 10) <= todayISO,
+                                            );
+                                            return (
+                                                <LinkedHabitRow
+                                                    key={habit.id}
+                                                    habit={habit}
+                                                    targetDate={pendingLog?.targetDate?.substring(0, 10) ?? todayISO}
+                                                    onNavigate={() => navigate("/habits")}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}

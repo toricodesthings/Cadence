@@ -109,7 +109,7 @@ export function SupportSection({
     children,
 }: SupportSectionProps) {
     return (
-        <section className="surface-utility rounded-[1.75rem] border border-white/[0.06] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-6 sm:py-6">
+        <section className="px-1 py-5 sm:px-2 sm:py-6 border-t border-white/[0.04]">
             <div className="max-w-3xl">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-soft">
                     {eyebrow}

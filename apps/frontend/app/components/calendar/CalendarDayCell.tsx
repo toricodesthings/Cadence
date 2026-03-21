@@ -17,6 +17,8 @@ interface CalendarDayCellProps {
     hasHoliday?: boolean;
     /** User's birthday falls on this day — shows a violet birthday marker */
     hasBirthday?: boolean;
+    /** Has personal events on this day — shows a warm rose marker */
+    hasPersonalEvent?: boolean;
     onSelect: (day: number) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
@@ -41,6 +43,7 @@ export function CalendarDayCell({
     hasHabit = false,
     hasHoliday = false,
     hasBirthday = false,
+    hasPersonalEvent = false,
     onSelect,
     variant = "compact",
     tasks = [],
@@ -75,11 +78,12 @@ export function CalendarDayCell({
                 `}
             >
                 {day}
-                {(hasTask || hasHoliday || hasBirthday) && !isToday && (
+                {(hasTask || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday && (
                     <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1">
                         {hasTask && <span className="h-1 w-1 rounded-full bg-lantern/60" />}
                         {hasHoliday && <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />}
                         {hasBirthday && <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />}
+                        {hasPersonalEvent && <span className="h-1.5 w-1.5 rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.45)]" />}
                     </span>
                 )}
             </button>
@@ -176,6 +180,12 @@ export function CalendarDayCell({
                         <span
                             title="Birthday"
                             className="h-2 w-2 shrink-0 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]"
+                        />
+                    )}
+                    {hasPersonalEvent && (
+                        <span
+                            title="Personal event"
+                            className="h-2 w-2 shrink-0 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]"
                         />
                     )}
                 </span>

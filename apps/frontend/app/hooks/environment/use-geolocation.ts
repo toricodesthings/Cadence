@@ -85,7 +85,7 @@ function requestCurrentPosition() {
 }
 
 async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<PreciseHolidayLocation> {
-    const url = `${API_BASE_URL}/api/proxy/geocode/reverse?latitude=${latitude}&longitude=${longitude}`;
+    const url = `${API_BASE_URL}/api/v1/proxy/geocode/reverse?latitude=${latitude}&longitude=${longitude}`;
     const response = await authenticatedFetch(url, { authenticated: true });
 
     if (!response.ok) {

@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router";
 import * as Popover from "../components/primitives/Popover";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -62,7 +63,9 @@ import {
     HolidayLocationPrompt,
     HolidayPreferencesPanel,
 } from "../components/calendar/HolidayControls";
+import { PersonalEventsPanel } from "../components/calendar/PersonalEventsPanel";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
+import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar-math";
 
@@ -89,9 +92,26 @@ function applyCalendarClutterFilters(tasks: Task[], clutter: {
 
 export default function Schedule() {
     const shell = useShellMode();
+    const navigate = useNavigate();
     const { setMobileNavOpen } = useSidebarStore();
     const today = new Date();
-    const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
+
+    // ── Persisted view mode per device class ────────────────────────────────
+    const deviceClass = shell.isPhone ? "phone" : shell.isDesktop ? "desktop" : "tablet";
+    const storageKey = `cadence-schedule-view-${deviceClass}`;
+    const defaultView: CalendarViewMode = shell.isPhone ? "day" : shell.isDesktop ? "month" : "week";
+    const [viewMode, setViewModeRaw] = useState<CalendarViewMode>(() => {
+        try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored === "day" || stored === "week" || stored === "month" || stored === "year") return stored;
+        } catch { /* noop */ }
+        return defaultView;
+    });
+    const setViewMode = useCallback((mode: CalendarViewMode) => {
+        setViewModeRaw(mode);
+        try { localStorage.setItem(storageKey, mode); } catch { /* noop */ }
+    }, [storageKey]);
+
     const [currentDate, setCurrentDate] = useState<string>(toISODate(today));
     const [direction, setDirection] = useState(0);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -101,25 +121,11 @@ export default function Schedule() {
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
     const [draftPlacement, setDraftPlacement] = useState<{ dateStr: string; startMinute: number; endMinute: number } | null>(null);
     const [holidayPromptOpen, setHolidayPromptOpen] = useState(false);
-    const scrollLockRef = useRef(false);
-    const hasAppliedCompactDefault = useRef(false);
 
     useDocumentMeta(
         "Schedule · Cadence",
         "View your week, day, month, and year with a calmer scheduling workspace built for focus.",
     );
-
-    useEffect(() => {
-        if (shell.isDesktop) {
-            hasAppliedCompactDefault.current = false;
-            return;
-        }
-
-        if (hasAppliedCompactDefault.current) return;
-
-        setViewMode(shell.isPhone ? "day" : "week");
-        hasAppliedCompactDefault.current = true;
-    }, [shell.isDesktop, shell.isPhone]);
 
     const { mutate: updateTask } = useUpdateTask();
 
@@ -221,6 +227,13 @@ export default function Schedule() {
         const bDay = parseInt(parts[2]);
         return bMonth === month ? bDay : null;
     }, [birthdayDate, month]);
+
+    // ── Personal events overlay ────────────────────────────────────────────
+    const personalEvents = usePersonalEvents(year, month);
+
+    const personalEventsByDateRecord = useMemo<Record<string, import("../lib/types/settings").PersonalEvent[]>>(() => {
+        return Object.fromEntries(personalEvents.eventsByDate.entries());
+    }, [personalEvents.eventsByDate]);
 
     // ── Habits injection ───────────────────────────────────────────────────
     const habitRange = useMemo(() => {
@@ -357,25 +370,16 @@ export default function Schedule() {
         if (!(shell.isPhone && viewMode === "month")) {
             setViewMode("day");
         }
-    }, [year, month, shell.isPhone, viewMode]);
+    }, [year, month, shell.isPhone, viewMode, setViewMode]);
 
     // ── View mode change ────────────────────────────────────────────────────
     const handleViewMode = useCallback((mode: CalendarViewMode) => {
         setDirection(0);
         setViewMode(mode);
-    }, []);
+    }, [setViewMode]);
 
-    // ── Scroll-to-navigate (month only) ────────────────────────────────────
-    const handleWheel = (e: React.WheelEvent) => {
-        if (viewMode !== "month") return;
-        if (scrollLockRef.current) return;
-        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-        if (Math.abs(delta) > 30) {
-            handleNavigate(delta > 0 ? 1 : -1);
-            scrollLockRef.current = true;
-            setTimeout(() => { scrollLockRef.current = false; }, 600);
-        }
-    };
+    // Scroll-to-navigate removed per audit — invisible gesture that changes calendar
+    // structure without visible explanation. Users can navigate via header arrows or keyboard.
 
     // ── DnD sensors ────────────────────────────────────────────────────────
     const sensors = useSensors(
@@ -545,7 +549,7 @@ export default function Schedule() {
     // ── Task event handlers ─────────────────────────────────────────────────
     const handleSelectTask = useCallback((taskId: string) => {
         if (taskId.startsWith("habit-")) {
-            window.location.href = "/habits";
+            navigate("/habits");
             return;
         }
         const task = allVisibleTasks.get(taskId);
@@ -553,7 +557,7 @@ export default function Schedule() {
             setMobileDetailMode("peek");
         }
         setSelectedTaskId(task ? getTaskSeriesId(task) : taskId);
-    }, [allVisibleTasks, shell.isWide]);
+    }, [allVisibleTasks, shell.isWide, navigate]);
 
     const handleCompleteTask = useCallback(async (taskId: string) => {
         if (taskId.startsWith("habit-")) {
@@ -623,12 +627,12 @@ export default function Schedule() {
     const handleYearSelectMonth = useCallback((m: number) => {
         setCurrentDate(`${year}-${String(m + 1).padStart(2, "0")}-01`);
         setViewMode("month");
-    }, [year]);
+    }, [year, setViewMode]);
 
     const handleYearSelectDay = useCallback((dateStr: string) => {
         setCurrentDate(dateStr);
         setViewMode("day");
-    }, []);
+    }, [setViewMode]);
 
     // ── Event popover handler ────────────────────────────────────────────
     const handleGridClick = useCallback((info: CalendarEventInfo) => {
@@ -851,6 +855,28 @@ export default function Schedule() {
                     )}
                 </div>
             </div>
+            <div>
+                <h4 className="text-xs font-medium uppercase tracking-wider text-twilight-text-muted mb-2">Events</h4>
+                <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show personal events</span>
+                        <input
+                            type="checkbox"
+                            checked={personalEvents.enabled}
+                            onChange={(event) => personalEvents.setEnabled(event.target.checked)}
+                        />
+                    </label>
+                    {personalEvents.enabled && (
+                        <PersonalEventsPanel
+                            items={personalEvents.items}
+                            compact
+                            onAdd={personalEvents.addEvent}
+                            onUpdate={personalEvents.updateEvent}
+                            onRemove={personalEvents.removeEvent}
+                        />
+                    )}
+                </div>
+            </div>
         </div>
     );
 
@@ -911,7 +937,7 @@ export default function Schedule() {
                 onDragCancel={handleDragCancel}
                 onDragEnd={handleDragEnd}
             >
-                <div className="h-full flex flex-col overflow-hidden" onWheel={handleWheel}>
+                <div className="h-full flex flex-col overflow-hidden">
                     {/* Header */}
                     <ScheduleHeader
                         year={year}
@@ -973,6 +999,7 @@ export default function Schedule() {
                                                 habitDays={habitDays}
                                                 holidayDays={holidayOverlay.holidaySettings.enabled ? holidayDays : undefined}
                                                 birthdayDay={birthdayDay}
+                                                personalEventDays={personalEvents.enabled ? personalEvents.eventDays : undefined}
                                                 onSelectDate={handleSelectDate}
                                                 variant="full"
                                                 tasksByDay={tasksByDay}
@@ -992,6 +1019,7 @@ export default function Schedule() {
                                             tasksByDate={weekTasksByDate}
                                             holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
                                             birthdayDate={birthdayDate}
+                                            personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
                                             activeDropPreview={activeDropPreview}
                                             draftPlacement={draftPlacement}
                                             onSelectTask={handleSelectTask}
@@ -1010,6 +1038,7 @@ export default function Schedule() {
                                                 tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
                                                 holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
                                                 isBirthday={birthdayDate === currentDate}
+                                                personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}
                                                 onSelectTask={handleSelectTask}
                                                 onCompleteTask={handleCompleteTask}
                                                 onArchiveTask={handleArchiveTask}
@@ -1022,6 +1051,7 @@ export default function Schedule() {
                                                 tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
                                                 holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
                                                 isBirthday={birthdayDate === currentDate}
+                                                personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}
                                                 activeDropPreview={activeDropPreview}
                                                 draftPlacement={draftPlacement}
                                                 onSelectTask={handleSelectTask}
@@ -1041,6 +1071,7 @@ export default function Schedule() {
                                                 tasks={visibleYearTasks}
                                                 holidayDateSet={holidayOverlay.holidaySettings.enabled ? holidayOverlay.holidayDateSet : undefined}
                                                 birthdayDate={birthdayDate}
+                                                personalEventDateSet={personalEvents.enabled ? personalEvents.eventDateSet : undefined}
                                                 onSelectMonth={handleYearSelectMonth}
                                                 onSelectDay={handleYearSelectDay}
                                             />

@@ -148,22 +148,22 @@ function NotificationRow({
             </div>
 
             {/* Right side: timestamp + dismiss */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
                 <span className="text-xs text-twilight-text-muted tabular-nums">
                     <RelativeTime iso={n.triggerAt} />
                 </span>
                 <button
                     onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/10 text-twilight-text-muted hover:text-twilight-text transition-all"
+                    className="opacity-100 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 p-1 -m-0.5 rounded hover:bg-white/10 text-twilight-text-muted hover:text-twilight-text transition-all"
                     aria-label={`Dismiss notification: ${n.title}`}
                 >
-                    <X size={12} aria-hidden="true" />
+                    <X size={14} aria-hidden="true" />
                 </button>
             </div>
 
             {/* Unread dot */}
             {!n.read && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-lantern" />
+                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-lantern" />
             )}
         </div>
     );

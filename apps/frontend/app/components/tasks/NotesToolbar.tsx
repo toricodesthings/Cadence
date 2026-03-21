@@ -21,6 +21,7 @@ export type NotesToolbarAction =
 
 interface NotesToolbarProps {
     onAction: (action: NotesToolbarAction) => void;
+    activeActions?: Set<NotesToolbarAction>;
 }
 
 const ACTIONS: Array<{ id: NotesToolbarAction; label: string; icon: typeof Bold }> = [
@@ -32,20 +33,28 @@ const ACTIONS: Array<{ id: NotesToolbarAction; label: string; icon: typeof Bold 
     { id: "code", label: "Code", icon: Code2 },
 ];
 
-export function NotesToolbar({ onAction }: NotesToolbarProps) {
+export function NotesToolbar({ onAction, activeActions }: NotesToolbarProps) {
     return (
         <div className="flex items-center gap-0.5 rounded-xl border border-twilight-border/40 bg-white/[0.03] p-1">
-            {ACTIONS.map(({ id, label, icon: Icon }) => (
-                <button
-                    key={id}
-                    type="button"
-                    onClick={() => onAction(id)}
-                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
-                    aria-label={label}
-                >
-                    <Icon size={15} aria-hidden="true" />
-                </button>
-            ))}
+            {ACTIONS.map(({ id, label, icon: Icon }) => {
+                const isActive = activeActions?.has(id);
+                return (
+                    <button
+                        key={id}
+                        type="button"
+                        onClick={() => onAction(id)}
+                        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors ${
+                            isActive
+                                ? "bg-lantern/15 text-lantern"
+                                : "text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
+                        }`}
+                        aria-label={label}
+                        aria-pressed={isActive}
+                    >
+                        <Icon size={15} aria-hidden="true" />
+                    </button>
+                );
+            })}
         </div>
     );
 }

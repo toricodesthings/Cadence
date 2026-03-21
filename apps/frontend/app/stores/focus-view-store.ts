@@ -35,9 +35,9 @@ interface FocusViewState {
 function cloneDefinition(definition: FocusViewDefinition): FocusViewDefinition {
     return {
         ...definition,
-        states: [...definition.states],
-        projectIds: [...definition.projectIds],
-        tagIds: [...definition.tagIds],
+        states: [...(definition.states ?? [])],
+        projectIds: [...(definition.projectIds ?? [])],
+        tagIds: [...(definition.tagIds ?? [])],
     };
 }
 

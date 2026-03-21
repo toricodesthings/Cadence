@@ -54,6 +54,8 @@
   --color-ember-red: #d97756;
   --color-forest-green: #5dba72;
   --color-violet: #9b72cf;
+  --color-personal: #cf72a8;
+  --color-personal-soft: rgba(207, 114, 168, 0.12);
 
   /* === DAYLIGHT THEME (Light) === */
   --color-day-base: #f5f3f0;
@@ -166,6 +168,8 @@
   --color-ember-red: #c2410c;
   --color-forest-green: #15803d;
   --color-violet: #7c3aed;
+  --color-personal: #be185d;
+  --color-personal-soft: rgba(190, 24, 93, 0.10);
 
   /* ── Feedback ── */
   --color-feedback-success: #15803d;

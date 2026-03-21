@@ -14,7 +14,6 @@ export default function HelpFeedbackRoute() {
 
     return (
         <MainLayout
-            requireAuth
             contentWidth="wide"
             pageTitle="Help & Feedback"
             pageDescription="Find the current support path for Cadence and the best way to share feedback during the beta release."

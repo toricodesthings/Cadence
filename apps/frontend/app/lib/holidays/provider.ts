@@ -109,7 +109,7 @@ function sortOptions<T extends { label: string }>(options: T[]) {
 }
 
 async function proxyFetch<T>(path: string): Promise<T> {
-    const response = await authenticatedFetch(`${API_BASE_URL}/api/proxy${path}`, {
+    const response = await authenticatedFetch(`${API_BASE_URL}/api/v1/proxy${path}`, {
         authenticated: true,
     });
 

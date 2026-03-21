@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useInbox, useDeleteInboxItem } from "../inbox";
-import { useTasks, useUpdateTask, useCreateTask, useDeleteTask } from "../tasks";
+import { useTasks, useUpdateTask, useCreateTask, useArchiveTask } from "../tasks";
 import { useHabitsWeekly } from "../habits/use-habits";
 import { usePauseHabit } from "../habits/use-pause-habit";
 import { toISODate } from "../../lib/utils/date-format";
@@ -37,7 +37,7 @@ export function useWeeklyReviewActions(currentStep: number) {
 
     const updateTask = useUpdateTask();
     const createTask = useCreateTask();
-    const deleteTask = useDeleteTask();
+    const archiveTask = useArchiveTask();
     const deleteInboxItem = useDeleteInboxItem();
 
     const unscheduledTasks = useMemo(
@@ -120,7 +120,7 @@ export function useWeeklyReviewActions(currentStep: number) {
 
     const handleUnscheduledAction = useCallback(async (task: Task, action: "today" | "tomorrow" | "someday" | "delete") => {
         if (action === "delete") {
-            await deleteTask.mutateAsync(task.id);
+            await archiveTask.mutateAsync(task.id);
         } else if (action === "today") {
             await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null, isAllDay: true });
         } else if (action === "tomorrow") {
@@ -128,11 +128,11 @@ export function useWeeklyReviewActions(currentStep: number) {
         } else if (action === "someday") {
             await updateTask.mutateAsync({ id: task.id, state: "WAITING" });
         }
-    }, [deleteTask, updateTask]);
+    }, [archiveTask, updateTask]);
 
     const handleWaitingAction = useCallback(async (task: Task, action: "today" | "tomorrow" | "keep" | "delete") => {
         if (action === "delete") {
-            await deleteTask.mutateAsync(task.id);
+            await archiveTask.mutateAsync(task.id);
         } else if (action === "today") {
             await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null, isAllDay: true, state: "ACTIVE" });
         } else if (action === "tomorrow") {
@@ -140,7 +140,7 @@ export function useWeeklyReviewActions(currentStep: number) {
         } else if (action === "keep") {
             setKeptWaitingIds((prev) => new Set(prev).add(task.id));
         }
-    }, [deleteTask, updateTask]);
+    }, [archiveTask, updateTask]);
 
     return {
         inboxItems,

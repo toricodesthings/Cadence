@@ -3,6 +3,14 @@
  * The backend normalizes on read, so the frontend always receives the full shape.
  */
 
+export interface PersonalEvent {
+    id: string;
+    label: string;
+    monthDay: string;       // "MM-DD" format
+    emoji: string | null;
+    notify: boolean;
+}
+
 export interface UserSettings {
     profile: {
         pronouns: string;
@@ -49,6 +57,10 @@ export interface UserSettings {
             countryCode: string | null;
             subdivisionCode: string | null;
             promptDismissedAt: string | null;
+        };
+        personalEvents: {
+            enabled: boolean;
+            items: PersonalEvent[];
         };
     };
     tasks: {
@@ -173,6 +185,10 @@ export const SETTINGS_DEFAULTS: UserSettings = {
             countryCode: null,
             subdivisionCode: null,
             promptDismissedAt: null,
+        },
+        personalEvents: {
+            enabled: true,
+            items: [],
         },
     },
     tasks: {

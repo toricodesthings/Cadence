@@ -33,3 +33,20 @@ export const RUNTIME_TARGET =
     (import.meta.env.VITE_RUNTIME_TARGET as string | undefined) === "desktop"
         ? "desktop"
         : DEFAULT_RUNTIME_TARGET;
+
+// Dev-time health check: warn loudly if the API root is unreachable
+if (import.meta.env.DEV && typeof window !== "undefined") {
+    fetch(`${API_BASE_URL}/api/v1/health`, { method: "GET" }).then((res) => {
+        if (!res.ok) {
+            console.error(
+                `[cadence:dev] API health check returned ${res.status}. ` +
+                `Backend may not be running or VITE_API_BASE_URL (${API_BASE_URL}) is misconfigured.`,
+            );
+        }
+    }).catch(() => {
+        console.error(
+            `[cadence:dev] Cannot reach API at ${API_BASE_URL}. ` +
+            `Start the backend or fix VITE_API_BASE_URL in .env.`,
+        );
+    });
+}

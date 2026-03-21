@@ -38,7 +38,7 @@ async function flushEvents() {
     const batch = pendingEvents.splice(0, 50);
 
     try {
-        await authenticatedFetch(`${API_BASE_URL}/api/events/batch`, {
+        await authenticatedFetch(`${API_BASE_URL}/api/v1/events/batch`, {
             method: "POST",
             authenticated: true,
             headers: { "Content-Type": "application/json" },

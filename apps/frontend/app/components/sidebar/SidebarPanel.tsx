@@ -149,7 +149,7 @@ export function SidebarPanel({
                     <nav aria-label="Main navigation" className="flex flex-col gap-0.5">
                         <NavLink
                             icon={Inbox}
-                            label="Holding"
+                            label="Capture"
                             href="/"
                             count={inboxCount}
                             activeColor="text-[var(--color-nav-inbox)]"

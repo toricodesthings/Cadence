@@ -19,116 +19,10 @@ import { relations, sql } from 'drizzle-orm';
 
 /** RLS condition: row belongs to the JWT-authenticated user */
 const rlsUsing = sql`(user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`;
-import { z } from 'zod';
 
-export const UserSettingsSchema = z.object({
-    profile: z.object({
-        pronouns: z.string().optional(),
-    }).optional(),
-    appearance: z.object({
-        theme: z.enum(["twilight", "daylight", "system"]),
-        accentIntensity: z.enum(["soft", "balanced", "vivid"]),
-        motion: z.enum(["system", "full", "reduced"]),
-        density: z.enum(["comfortable", "compact"]),
-    }).optional(),
-    notifications: z.object({
-        email: z.boolean(),
-        browser: z.boolean().optional(),
-        taskReminders: z.boolean().optional(),
-        habitReminders: z.boolean().optional(),
-        dueDateAlerts: z.boolean().optional(),
-        quietHoursEnabled: z.boolean().optional(),
-        quietHoursStart: z.string().nullable().optional(),
-        quietHoursEnd: z.string().nullable().optional(),
-    }),
-    dateTime: z.object({
-        weekStart: z.enum(['Sunday', 'Monday', 'Saturday']),
-        timezone: z.string(),
-        timeDisplay: z.enum(['12h', '24h']),
-        dateStyle: z.enum(['mdy', 'dmy', 'ymd']).optional(),
-    }),
-    calendar: z.object({
-        defaultView: z.enum(["month", "week", "day"]).optional(),
-        showWeekNumbers: z.boolean().optional(),
-        showWeekends: z.boolean().optional(),
-        clutter: z.object({
-            showAllDay: z.boolean().optional(),
-            showTimedTasks: z.boolean().optional(),
-            showHabitAnchors: z.boolean().optional(),
-        }).optional(),
-        holidays: z.object({
-            enabled: z.boolean(),
-            usePreciseLocation: z.boolean(),
-            locationMode: z.enum(["auto", "manual"]),
-            countryCode: z.string().nullable(),
-            subdivisionCode: z.string().nullable(),
-            promptDismissedAt: z.string().nullable(),
-        }),
-    }),
-    tasks: z.object({
-        defaultDueDate: z.enum(['None', 'Today', 'Tomorrow', 'Next Week']).nullable(),
-        defaultView: z.enum(["list", "kanban"]).optional(),
-        defaultPriority: z.enum(["none", "low", "medium", "high", "urgent"]).optional(),
-        defaultDurationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90)]).nullable().optional(),
-        newTaskPlacement: z.enum(["top", "bottom"]).optional(),
-        openDetailOnCreate: z.boolean().optional(),
-        hideTrash: z.boolean(),
-        hideCompleted: z.boolean(),
-        showDoneCelebration: z.boolean().optional(),
-        quickAdd: z.object({
-            preset: z.enum(["minimal", "planner", "power"]).optional(),
-            style: z.enum(["icon", "label"]).optional(),
-            actions: z.array(z.enum(["date", "priority", "project", "tag"])).optional(),
-        }).optional(),
-    }),
-    shortcuts: z.object({
-        enabled: z.boolean().optional(),
-        showHints: z.boolean().optional(),
-        bindings: z.object({
-            commandPalette: z.string().optional(),
-            newTask: z.string().optional(),
-            focusSearch: z.string().optional(),
-            toggleView: z.string().optional(),
-            completeTask: z.string().optional(),
-            archiveTask: z.string().optional(),
-        }).optional(),
-    }).optional(),
-    integrations: z.object({
-        googleCalendar: z.object({
-            enabled: z.boolean(),
-            syncMode: z.enum(["one_way", "two_way"]),
-            includeCompleted: z.boolean().optional(),
-        }).optional(),
-        appleCalendar: z.object({
-            enabled: z.boolean(),
-            syncMode: z.enum(["one_way", "two_way"]),
-        }).optional(),
-        notion: z.object({
-            enabled: z.boolean(),
-            createBacklinks: z.boolean(),
-        }).optional(),
-        obsidian: z.object({
-            enabled: z.boolean(),
-            appendTaskLinks: z.boolean(),
-        }).optional(),
-        ics: z.object({
-            enabled: z.boolean(),
-            includeHabits: z.boolean(),
-        }).optional(),
-    }).optional(),
-    privacy: z.object({
-        usageDiagnostics: z.boolean(),
-        crashReports: z.boolean(),
-        storeRecentSearches: z.boolean(),
-        storeDismissedPrompts: z.boolean(),
-        exportFormat: z.enum(["json", "csv"]),
-        lastExportRequestedAt: z.string().nullable().optional(),
-    }).optional(),
-    // Legacy — kept for backward compat during migration
-    preferredView: z.enum(['list', 'kanban']).optional(),
-});
-
-export type UserSettings = z.infer<typeof UserSettingsSchema>;
+// Settings schema is defined once in the settings domain and imported here.
+import { userSettingsSchema, type UserSettings } from '../domains/settings/settings.schema';
+export { userSettingsSchema as UserSettingsSchema, type UserSettings };
 
 // === ENUMS ===
 export const taskStateEnum = pgEnum('task_state', ['ACTIVE', 'WAITING', 'COMPLETE', 'ARCHIVED']);
@@ -136,6 +30,19 @@ export const taskInteractionModeEnum = pgEnum('task_interaction_mode', ['task', 
 export const memoryTypeEnum = pgEnum('memory_type', ['CORE', 'EPHEMERAL']);
 export const suggestionStatusEnum = pgEnum('suggestion_status', ['PENDING', 'ACCEPTED', 'DISMISSED']);
 export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', 'PENDING']);
+export const targetModeEnum = pgEnum('target_mode', ['AMBIENT', 'ANCHOR', 'BLOCK']);
+export const captureKindEnum = pgEnum('capture_kind', ['task', 'thought', 'reference', 'unknown']);
+export const captureStatusEnum = pgEnum('capture_status', ['clarifying', 'placed', 'kept', 'discarded']);
+export const analysisStatusEnum = pgEnum('analysis_status', ['pending', 'parsed', 'reviewed', 'applied']);
+export const confidenceTierEnum = pgEnum('confidence_tier', ['high', 'medium', 'low']);
+export const sourceSurfaceEnum = pgEnum('source_surface', [
+    'inline-add', 'inline_add', 'quick-add-task', 'quick_add',
+    'holding-capture', 'holding-clarify', 'clarify_sheet',
+    'task-edit-title', 'task-edit-note', 'focus-view-composer',
+    'inbox_card', 'inbox',
+]);
+export const suggestionTypeEnum = pgEnum('suggestion_type', ['lighten_today', 'suggested_cleanup', 'move_overdue']);
+export const focusViewSourceEnum = pgEnum('focus_view_source', ['preset', 'composed', 'manual']);
 
 // === TABLES ===
 
@@ -407,16 +314,16 @@ export const inboxItems = pgTable('inbox_items', {
     orderIndex: integer('order_index').notNull().default(0),
     rawText: text('raw_text').notNull(), // The messy input "Call mom tmrw at 4"
     processed: boolean('processed').default(false).notNull(), // Has the Cloudflare AI Queue converted this into a structured Task yet?
-    captureKind: text('capture_kind').default('unknown').notNull(), // 'task' | 'thought' | 'reference' | 'unknown'
-    captureStatus: text('capture_status').default('clarifying').notNull(), // 'clarifying' | 'placed' | 'kept' | 'discarded'
+    captureKind: captureKindEnum('capture_kind').default('unknown').notNull(),
+    captureStatus: captureStatusEnum('capture_status').default('clarifying').notNull(),
     placedTaskId: uuid('placed_task_id').references(() => tasks.id, { onDelete: 'set null' }), // Link to task created from this capture
     aiSuggestion: text('ai_suggestion'), // JSON string — AI-suggested classification, scheduling, etc.
     // NLP analysis columns
-    analysisStatus: text('analysis_status').default('pending'), // 'pending' | 'parsed' | 'reviewed' | 'applied'
+    analysisStatus: analysisStatusEnum('analysis_status').default('pending'),
     analysisVersion: text('analysis_version'), // parser version at analysis time
     analysisSummary: text('analysis_summary'), // "Cadence understood: ..." human-readable summary
     analysis: jsonb('analysis').$type<Record<string, unknown>>(), // full ParseResult JSON
-    sourceSurface: text('source_surface').default('inbox'), // surface where capture occurred
+    sourceSurface: sourceSurfaceEnum('source_surface').default('inbox'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
@@ -447,7 +354,7 @@ export const habits = pgTable(
         targetTime: text('target_time'), // e.g., "19:00" string for time-specific habits, null for all-day
 
         // Presence mode: AMBIENT (default), ANCHOR (has targetTime), BLOCK (reserves schedule time)
-        targetMode: text('target_mode').default('AMBIENT').notNull(),
+        targetMode: targetModeEnum('target_mode').default('AMBIENT').notNull(),
 
         // Reminders
         reminderEnabled: boolean('reminder_enabled').default(false).notNull(),
@@ -711,7 +618,7 @@ export const suggestions = pgTable(
         userId: uuid("user_id")
             .references(() => users.id, { onDelete: "cascade" })
             .notNull(),
-        type: text("type").notNull(), // e.g. "lighten_today", "suggested_cleanup", "move_overdue"
+        type: suggestionTypeEnum("type").notNull(),
         title: text("title").notNull(),
         body: text("body"),
         status: suggestionStatusEnum("status").default("PENDING").notNull(),
@@ -773,11 +680,11 @@ export const taskNlpMetadata = pgTable(
             .references(() => users.id, { onDelete: "cascade" })
             .notNull(),
         parserVersion: text("parser_version").default("2.0.0").notNull(),
-        sourceSurface: text("source_surface").default("quick_add").notNull(),
+        sourceSurface: sourceSurfaceEnum("source_surface").default("quick_add").notNull(),
         rawInput: text("raw_input").notNull(),
         cleanedTitle: text("cleaned_title").notNull(),
         parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
-        confidenceTier: text("confidence_tier").default("medium").notNull(),
+        confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
         isCurrent: boolean("is_current").default(true).notNull(),
         createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
             .defaultNow()
@@ -806,11 +713,11 @@ export const taskNlpMetadataHistory = pgTable(
             .references(() => users.id, { onDelete: "cascade" })
             .notNull(),
         parserVersion: text("parser_version").default("2.0.0").notNull(),
-        sourceSurface: text("source_surface").default("quick_add").notNull(),
+        sourceSurface: sourceSurfaceEnum("source_surface").default("quick_add").notNull(),
         rawInput: text("raw_input").notNull(),
         cleanedTitle: text("cleaned_title").notNull(),
         parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
-        confidenceTier: text("confidence_tier").default("medium").notNull(),
+        confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
         isCurrent: boolean("is_current").default(false).notNull(),
         createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
             .defaultNow()
@@ -839,7 +746,7 @@ export const savedFocusViews = pgTable(
         name: text("name").notNull(),
         definition: jsonb("definition").$type<Record<string, unknown>>().default({}).notNull(),
         isPinned: boolean("is_pinned").default(false).notNull(),
-        source: text("source").default("preset").notNull(), // 'preset' | 'composed' | 'manual'
+        source: focusViewSourceEnum("source").default("preset").notNull(),
         orderIndex: doublePrecision("order_index").default(0).notNull(),
         createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
             .defaultNow()

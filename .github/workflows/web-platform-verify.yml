@@ -71,7 +71,7 @@ jobs:
         shell: bash
         run: |
           # Pattern matches common secret prefixes — add project-specific patterns as needed
-          if git grep -nEi -- '(sk_live_|sk_test_|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|xox[bsapr]-[a-zA-Z0-9-]+)' -- . ':!pnpm-lock.yaml' ':!*.md'; then
+          if git grep -nEi -- '(sk_live_|sk_test_|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|xox[bsapr]-[a-zA-Z0-9-]+)' -- . ':!pnpm-lock.yaml' ':!*.md' ':!.github/workflows/*.yml'; then
             echo "Potential hardcoded secret or API key detected in tracked files." >&2
             exit 1
           fi

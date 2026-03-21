@@ -25,6 +25,8 @@ interface MiniMonthProps {
     holidayDateSet?: Set<string>;
     /** ISO date string of user's birthday this year */
     birthdayDate?: string | null;
+    /** Set of ISO date strings that have personal events */
+    personalEventDateSet?: Set<string>;
     today: Date;
     /** Jump to month view for this month */
     onSelectMonth: (month: number) => void;
@@ -38,6 +40,7 @@ function MiniMonth({
     taskDateCounts,
     holidayDateSet,
     birthdayDate,
+    personalEventDateSet,
     today,
     onSelectMonth,
     onSelectDay,
@@ -84,6 +87,7 @@ function MiniMonth({
                     const taskCount = taskDateCounts.get(dayStr) ?? 0;
                     const hasHoliday = holidayDateSet?.has(dayStr) ?? false;
                     const isBirthday = birthdayDate === dayStr;
+                    const hasPersonalEvent = personalEventDateSet?.has(dayStr) ?? false;
 
                     // Heatmap: opacity scales with density (1→0.25, 2→0.4, 3→0.55, 4+→0.7)
                     const heatOpacity = taskCount === 0 ? 0 : Math.min(0.7, 0.15 + taskCount * 0.15);
@@ -109,6 +113,9 @@ function MiniMonth({
                             {isBirthday && (
                                 <span className="absolute left-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.4)]" />
                             )}
+                            {hasPersonalEvent && (
+                                <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.4)]" />
+                            )}
                         </button>
                     );
                 })}
@@ -123,13 +130,15 @@ export interface YearViewProps {
     holidayDateSet?: Set<string>;
     /** ISO date string of user's birthday this year */
     birthdayDate?: string | null;
+    /** Set of ISO date strings with personal events */
+    personalEventDateSet?: Set<string>;
     /** Switch to month view for a specific month */
     onSelectMonth: (month: number) => void;
     /** Switch to day view for a specific day */
     onSelectDay: (dateStr: string) => void;
 }
 
-export function YearView({ year, tasks, holidayDateSet, birthdayDate, onSelectMonth, onSelectDay }: YearViewProps) {
+export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEventDateSet, onSelectMonth, onSelectDay }: YearViewProps) {
     const today = new Date();
 
     // Build a map of ISO dates → task count for heatmap density
@@ -156,6 +165,7 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, onSelectMo
                         taskDateCounts={taskDateCounts}
                         holidayDateSet={holidayDateSet}
                         birthdayDate={birthdayDate}
+                        personalEventDateSet={personalEventDateSet}
                         today={today}
                         onSelectMonth={onSelectMonth}
                         onSelectDay={onSelectDay}

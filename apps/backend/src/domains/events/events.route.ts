@@ -1,0 +1,83 @@
+import { Hono } from "hono";
+import { getDbClient } from "../../platform/db";
+import { withRls } from "../../platform/rls";
+import { usageEvents, users } from "../../db/schema";
+import { eq } from "drizzle-orm";
+import type { Env } from "../../types/env";
+import type { AuthVariables } from "../../platform/auth";
+import { apiValidator } from "../../platform/validation";
+import type { DbClient } from "../../platform/db";
+import { trackEventSchema, trackBatchSchema } from "./events.schema";
+
+export const eventRoutes = new Hono<{
+    Bindings: Env;
+    Variables: AuthVariables;
+}>();
+
+// POST /api/events — record a single event
+eventRoutes.post(
+    "/",
+    apiValidator("json", trackEventSchema),
+    async (c) => {
+        const userId = c.get("userId");
+        const { event, metadata } = c.req.valid("json");
+
+        // Check if user has opted into usage diagnostics
+        const db = getDbClient(c.env);
+        const allowed = await isTrackingAllowed(db, userId);
+        if (!allowed) {
+            return c.json({ data: { tracked: false } }, 200);
+        }
+
+        c.executionCtx.waitUntil(
+            withRls(db, userId, async (tx) => {
+                await tx.insert(usageEvents).values({ userId, event, metadata: metadata ?? null });
+            }),
+        );
+
+        return c.json({ data: { tracked: true } }, 201);
+    },
+);
+
+// POST /api/events/batch — record multiple events
+eventRoutes.post(
+    "/batch",
+    apiValidator("json", trackBatchSchema),
+    async (c) => {
+        const userId = c.get("userId");
+        const { events } = c.req.valid("json");
+
+        const db = getDbClient(c.env);
+        const allowed = await isTrackingAllowed(db, userId);
+        if (!allowed) {
+            return c.json({ data: { tracked: false } }, 200);
+        }
+
+        c.executionCtx.waitUntil(
+            withRls(db, userId, async (tx) => {
+                await tx.insert(usageEvents).values(
+                    events.map((e) => ({
+                        userId,
+                        event: e.event,
+                        metadata: e.metadata ?? null,
+                    })),
+                );
+            }),
+        );
+
+        return c.json({ data: { tracked: true } }, 201);
+    },
+);
+
+async function isTrackingAllowed(db: DbClient, userId: string): Promise<boolean> {
+    const [user] = await withRls(db, userId, async (tx) =>
+        tx
+            .select({ settings: users.settings })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1),
+    );
+
+    if (!user?.settings) return false;
+    return user.settings.privacy?.usageDiagnostics !== false;
+}

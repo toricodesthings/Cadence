@@ -58,7 +58,7 @@ const ALIAS_MAP: Record<string, string[]> = {
 // ── Static pages ──────────────────────────────────────────────────
 
 const STATIC_PAGES: SearchResult[] = [
-    { id: "page-holding", kind: "page", focusKind: "section", title: "Holding", context: "Inbox & captured work", route: "/", score: 0 },
+    { id: "page-capture", kind: "page", focusKind: "section", title: "Capture", context: "Inbox & captured work", route: "/", score: 0 },
     { id: "page-today", kind: "page", focusKind: "section", title: "Today", context: "Overdue & today's tasks", route: "/today", score: 0 },
     { id: "page-upcoming", kind: "page", focusKind: "section", title: "Upcoming", context: "Tomorrow & next week", route: "/upcoming", score: 0 },
     { id: "page-schedule", kind: "page", focusKind: "section", title: "Schedule", context: "Calendar workspace", route: "/schedule", score: 0 },
@@ -161,7 +161,7 @@ function resolveTaskRoute(task: {
     if (task.projectId) return { route: `/project/${task.projectId}`, context: "Project" };
     if (effectiveDate && effectiveDate <= today) return { route: "/today", context: "Today", scope: effectiveDate < today ? "today-overdue" : "today" };
     if (effectiveDate && effectiveDate > today) return { route: "/upcoming", context: "Upcoming" };
-    return { route: "/", context: "Holding", scope: "holding-unmanaged" };
+    return { route: "/", context: "Capture", scope: "holding-unmanaged" };
 }
 
 // ── Main hook ─────────────────────────────────────────────────────

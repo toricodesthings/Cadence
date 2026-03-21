@@ -17,7 +17,7 @@ export function useApiClient(): ApiClient {
 
     return useMemo(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return hc<AppType>(API_BASE_URL, {
+        const root = hc<AppType>(API_BASE_URL, {
             fetch: async (input: RequestInfo | URL, requestInit?: RequestInit) => {
                 return authenticatedFetch(input, {
                     ...requestInit,
@@ -25,6 +25,9 @@ export function useApiClient(): ApiClient {
                 });
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        }) as any as ApiClient;
+        }) as any;
+        // Backend routes mount under /api/v1/ — expose the v1 subtree as `.api`
+        // so callers use `client.api.tasks` which resolves to /api/v1/tasks
+        return { api: root.api.v1 } as ApiClient;
     }, [tokenRefreshBoundary]);
 }

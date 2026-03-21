@@ -50,7 +50,7 @@ export function QuickAddSurface({ open, onOpenChange, initialTab = "task" }: Qui
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 hideCloseButton
-                className="fixed inset-x-auto bottom-auto left-1/2 top-[18%] -translate-x-1/2 translate-y-0 w-full max-w-md rounded-2xl border border-twilight-border surface-utility shadow-2xl p-0 overflow-hidden"
+                className="fixed inset-x-3 bottom-3 z-50 w-auto max-w-md rounded-2xl border border-twilight-border surface-utility shadow-2xl p-0 overflow-hidden sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-[18%] sm:-translate-x-1/2 sm:w-full"
             >
                 {/* Header */}
                 <div className="border-b border-twilight-border px-5 pt-5 pb-4">

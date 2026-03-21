@@ -4,6 +4,7 @@ import { CalendarTaskChip } from "./CalendarTaskChip";
 import { useSwipeNavigation } from "../../hooks/use-swipe-navigation";
 import type { Task } from "../../types/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
+import type { PersonalEvent } from "../../lib/types/settings";
 import { formatTime } from "../../lib/utils/date-format";
 
 interface TimeSlot {
@@ -17,6 +18,8 @@ export interface DayFocusViewProps {
     tasks: Task[];
     holidays?: HolidayRecord[];
     isBirthday?: boolean;
+    /** Personal events occurring on this day */
+    personalEvents?: PersonalEvent[];
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
@@ -31,6 +34,7 @@ export function DayFocusView({
     tasks,
     holidays = [],
     isBirthday = false,
+    personalEvents = [],
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
@@ -75,8 +79,8 @@ export function DayFocusView({
 
     return (
         <div className="flex flex-col h-full min-h-0 overflow-y-auto px-4 pb-24" {...swipeHandlers}>
-            {/* Holiday / birthday banners */}
-            {(holidays.length > 0 || isBirthday) && (
+            {/* Holiday / birthday / personal event banners */}
+            {(holidays.length > 0 || isBirthday || personalEvents.length > 0) && (
                 <div className="flex flex-col gap-1.5 pt-3 pb-2">
                     {holidays.map((h) => (
                         <div
@@ -92,6 +96,14 @@ export function DayFocusView({
                             🎂 Happy Birthday!
                         </div>
                     )}
+                    {personalEvents.map((evt) => (
+                        <div
+                            key={evt.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1.5 text-xs font-medium text-personal"
+                        >
+                            {evt.emoji ?? "🎉"} {evt.label}
+                        </div>
+                    ))}
                 </div>
             )}
 

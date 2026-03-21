@@ -10,6 +10,7 @@ import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
+import type { PersonalEvent } from "../../lib/types/settings";
 
 interface DroppableDayColumnProps {
     dateStr: string; // "YYYY-MM-DD"
@@ -144,6 +145,8 @@ export interface WeekViewProps {
     holidaysByDate?: Record<string, HolidayRecord[]>;
     /** ISO date string of user's birthday this year (e.g. "2026-03-15") */
     birthdayDate?: string | null;
+    /** Personal events grouped by ISO date string */
+    personalEventsByDate?: Record<string, PersonalEvent[]>;
     activeDropPreview?: CalendarDropPreview | null;
     /** Ghost block placement for click-to-create preview */
     draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
@@ -160,6 +163,7 @@ export function WeekView({
     tasksByDate,
     holidaysByDate = {},
     birthdayDate,
+    personalEventsByDate = {},
     activeDropPreview,
     draftPlacement,
     onSelectTask,
@@ -268,6 +272,22 @@ export function WeekView({
                                                 </button>
                                             </Tooltip.Trigger>
                                             <Tooltip.Content>🎂 Your Birthday</Tooltip.Content>
+                                        </Tooltip.Root>
+                                    )}
+                                    {(personalEventsByDate[ds]?.length ?? 0) > 0 && (
+                                        <Tooltip.Root>
+                                            <Tooltip.Trigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-personal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-personal/60 cursor-pointer"
+                                                    aria-label={`Event: ${personalEventsByDate[ds].map((e) => e.label).join(", ")}`}
+                                                >
+                                                    <span className="h-2 w-2 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]" />
+                                                </button>
+                                            </Tooltip.Trigger>
+                                            <Tooltip.Content>
+                                                {personalEventsByDate[ds].map((e) => `${e.emoji ?? "🎉"} ${e.label}`).join(", ")}
+                                            </Tooltip.Content>
                                         </Tooltip.Root>
                                     )}
                                 </div>

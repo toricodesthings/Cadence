@@ -26,6 +26,8 @@ interface CalendarGridProps {
     holidayDays?: Set<number>;
     /** Day number of user's birthday in this month (if applicable) */
     birthdayDay?: number | null;
+    /** Days that have personal events (show a warm rose marker) */
+    personalEventDays?: Set<number>;
     onSelectDate: (day: number) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
@@ -50,6 +52,7 @@ export function CalendarGrid({
     habitDays,
     holidayDays,
     birthdayDay,
+    personalEventDays,
     onSelectDate,
     variant = "compact",
     tasksByDay,
@@ -116,6 +119,7 @@ export function CalendarGrid({
                         hasHabit={day !== null && (habitDays?.has(day) ?? false)}
                         hasHoliday={day !== null && (holidayDays?.has(day) ?? false)}
                         hasBirthday={day !== null && day === birthdayDay}
+                        hasPersonalEvent={day !== null && (personalEventDays?.has(day) ?? false)}
                         onSelect={onSelectDate}
                         variant={variant}
                         tasks={day !== null ? (tasksByDay?.[day] ?? []) : []}

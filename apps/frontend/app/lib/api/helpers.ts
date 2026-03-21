@@ -8,7 +8,7 @@ export async function parseApiError(response: Response): Promise<ApiErrorRespons
             status: response.status,
             code: body.error?.code ?? "UNKNOWN_ERROR",
             message: body.error?.message ?? "An unexpected error occurred",
-            isRetryable: body.error?.isRetryable ?? response.status >= 500,
+            isRetryable: body.error?.isRetryable ?? (response.status >= 500 || response.status === 429),
             details: body.error?.details,
         });
     } catch {
@@ -16,7 +16,7 @@ export async function parseApiError(response: Response): Promise<ApiErrorRespons
             status: response.status,
             code: "UNPARSEABLE_ERROR",
             message: `Request failed with status ${response.status}`,
-            isRetryable: response.status >= 500,
+            isRetryable: response.status >= 500 || response.status === 429,
         });
     }
 }

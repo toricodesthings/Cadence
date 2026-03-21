@@ -4,7 +4,9 @@ import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
+import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
 import { HolidayPreferencesPanel } from "../../calendar/HolidayControls";
+import { PersonalEventsPanel } from "../../calendar/PersonalEventsPanel";
 
 /** Returns the current system UTC offset as a formatted string like "UTC+5:30" or "UTC-8" */
 function getLocalUtcOffsetLabel(): string {
@@ -69,6 +71,8 @@ export function DateTimeTab() {
         viewMode: "year",
         fetchOverlay: false,
     });
+
+    const personalEvents = usePersonalEvents(currentYear);
 
     const dtSettings = settings?.dateTime ?? {
         weekStart: "Sunday" as const,
@@ -329,6 +333,32 @@ export function DateTimeTab() {
                                 ? `Last refreshed ${new Date(holidayOverlay.refreshedAt).toLocaleString()}`
                                 : "Location will appear here after Cadence resolves your region."}
                         </p>
+                    </div>
+                </SettingsRow>
+            </SettingsSection>
+
+            <SettingsSection title="Personal events">
+                <SettingsRow
+                    title="Yearly recurring events"
+                    description="Mark birthdays, anniversaries, and other dates that matter to you. Events appear as warm rose dots and banners across the calendar."
+                    className="items-stretch"
+                >
+                    <div className="w-full space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-twilight-text-soft">Enable personal events</span>
+                            <Switch
+                                checked={personalEvents.enabled}
+                                onCheckedChange={personalEvents.setEnabled}
+                            />
+                        </div>
+                        {personalEvents.enabled && (
+                            <PersonalEventsPanel
+                                items={personalEvents.items}
+                                onAdd={personalEvents.addEvent}
+                                onUpdate={personalEvents.updateEvent}
+                                onRemove={personalEvents.removeEvent}
+                            />
+                        )}
                     </div>
                 </SettingsRow>
             </SettingsSection>

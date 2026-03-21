@@ -32,8 +32,8 @@ const TaskNoteRoom = lazy(() => import("../tasks/TaskNoteRoom").then((m) => ({ d
 
 const PAGE_META: Record<string, { title: string; description: string }> = {
     "/": {
-        title: "Holding",
-        description: "Capture unmanaged work, keep it visible, and sort raw notes without losing calm.",
+        title: "Capture",
+        description: "Capture anything, clarify later, and place when ready.",
     },
     "/today": {
         title: "Today",

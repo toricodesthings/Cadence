@@ -3,7 +3,7 @@ import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, Moon, CalendarDay
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { Button } from "../primitives/Button";
-import { useDeleteTask, useUpdateTask, useDuplicateTask } from "../../hooks/tasks";
+import { useArchiveTask, useUpdateTask, useDuplicateTask } from "../../hooks/tasks";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
 import { PriorityPicker } from "./PriorityPicker";
 import { EffortPicker } from "./EffortPicker";
@@ -27,7 +27,7 @@ export interface TaskMenuItemsProps {
 
 /** Reusable inner items for either DropdownMenu or ContextMenu */
 export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Menu, onCloseMenu, holdingContext }: TaskMenuItemsProps) {
-    const deleteTask = useDeleteTask();
+    const archiveTask = useArchiveTask();
     const updateTask = useUpdateTask();
     const duplicateTask = useDuplicateTask();
     const addTaskTag = useAddTaskTag();
@@ -93,10 +93,10 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
                 <Menu.Separator />
 
-                <Menu.Item onSelect={() => deleteTask.mutate(task.id)} variant="danger">
+                <Menu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
                     <div className="flex items-center gap-2">
                         <Trash2 size={16} />
-                        <span>Discard</span>
+                        <span>Move to Trash</span>
                     </div>
                 </Menu.Item>
             </>
@@ -323,10 +323,10 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
             <Menu.Separator />
 
-            <Menu.Item onSelect={() => deleteTask.mutate(task.id)} variant="danger">
+            <Menu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
                 <div className="flex items-center gap-2">
                     <Trash2 size={16} />
-                    <span>Delete</span>
+                    <span>Move to Trash</span>
                     <span className="ml-auto text-[10px] opacity-60">Del</span>
                 </div>
             </Menu.Item>

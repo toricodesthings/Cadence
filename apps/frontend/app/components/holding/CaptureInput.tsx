@@ -59,7 +59,7 @@ export function CaptureInput() {
                 backdrop-blur-md
             `}
         >
-            <div className="flex items-center gap-3 px-4 py-3 lg:px-5 lg:py-3.5">
+            <div className="flex items-center gap-3 px-4 py-3 lg:px-5 lg:py-2.5">
                 <Sparkles
                     size={17}
                     aria-hidden="true"
@@ -67,7 +67,7 @@ export function CaptureInput() {
                 />
                 <div
                     className={`
-                        flex min-h-[3.9rem] flex-1 items-center rounded-[1.2rem] border px-4 transition-[background-color,border-color,box-shadow] duration-200
+                        flex min-h-[3.9rem] lg:min-h-[2.85rem] flex-1 items-center rounded-[1.2rem] border px-4 transition-[background-color,border-color,box-shadow] duration-200
                         ${isFocused
                             ? "border-white/[0.08] bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]"
                             : "border-white/[0.05] bg-white/[0.018]"

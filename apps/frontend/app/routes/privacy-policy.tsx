@@ -12,7 +12,6 @@ export default function PrivacyPolicyRoute() {
 
     return (
         <MainLayout
-            requireAuth
             contentWidth="wide"
             pageTitle="Privacy & Policy"
             pageDescription="Read how Cadence handles account data, workspace content, offline storage, permissions, and optional integrations in the current pre-release."

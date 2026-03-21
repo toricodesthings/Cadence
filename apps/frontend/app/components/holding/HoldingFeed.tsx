@@ -3,6 +3,7 @@ import { Inbox, ChevronDown, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { InboxList } from "../inbox/InboxList";
 import { TaskCard } from "../tasks/TaskCard";
+import { isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
 import type { InboxItem } from "../../types/inbox";
 import type { Task } from "../../types/task";
 
@@ -35,7 +36,11 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
     );
 
     // Ready to place = tasks that already exist but haven't been scheduled or placed in a project
-    const readyToPlace = useMemo(() => holdingTasks, [holdingTasks]);
+    // Exclude timetable anchors — they belong on /schedule, not here
+    const readyToPlace = useMemo(
+        () => holdingTasks.filter((t) => !isPassiveTimetableTask(t)),
+        [holdingTasks],
+    );
 
     const hasClarifyItems = activeCaptures.length > 0;
     const hasReadyItems = readyToPlace.length > 0;
@@ -64,7 +69,7 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
             {hasClarifyItems && (
                 <section>
                     <SectionHeader
-                        label="To clarify"
+                        label="New captures"
                         count={activeCaptures.length}
                         accentClassName="text-[var(--color-nav-inbox)]"
                     />
@@ -94,7 +99,7 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
                                 <ChevronRight size={12} className="text-twilight-text-muted" aria-hidden="true" />
                             )}
                             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                                Ready to place
+                                Unassigned tasks
                             </span>
                             <span className="text-[12px] tabular-nums text-twilight-text-muted/90">{readyToPlace.length}</span>
                         </div>

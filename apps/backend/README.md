@@ -30,21 +30,38 @@ Or run them from this directory with `pnpm <script>`.
 
 ```text
 src/
-├── index.ts    Worker entry point and AppType export
-├── routes/     Route modules (tasks, projects, inbox, tags, habits, settings, debug, etc.)
-├── lib/        Shared backend logic (auth, DB, RLS, errors, metrics)
-├── types/      Zod schemas and shared API types (including settings patch schema)
-├── db/         Drizzle schema (user settings default includes full notification preferences)
-└── cron/       Scheduled worker jobs (overdue task processing)
+├── index.ts        Worker entry point, middleware chain, route mounting, AppType export
+├── platform/       Cross-cutting infrastructure (auth, db, rls, errors, idempotency, metrics, etc.)
+├── domains/        Product capabilities — one folder per domain
+│   ├── tasks/      tasks.route.ts, tasks.schema.ts, task-filters.ts, task-normalization.ts, ...
+│   ├── habits/     habits.route.ts, habits.schema.ts
+│   ├── inbox/      inbox.route.ts, inbox.schema.ts
+│   ├── projects/   projects.route.ts, projects.schema.ts
+│   ├── tags/       tags.route.ts, tags.schema.ts
+│   ├── subtasks/   subtasks.route.ts, subtasks.schema.ts
+│   ├── sections/   sections.route.ts, sections.schema.ts
+│   ├── settings/   settings.route.ts, settings.schema.ts, settings-defaults.ts
+│   ├── notes/      notes.route.ts, notes.schema.ts
+│   ├── events/     events.route.ts, events.schema.ts
+│   ├── suggestions/ suggestions.route.ts, suggestions.schema.ts
+│   ├── health/     health.route.ts
+│   ├── proxy/      proxy.route.ts, proxy.schema.ts
+│   └── debug/      debug.route.ts, debug-seed.ts, scenarios/
+├── db/             Drizzle schema (tables, enums, indexes, RLS policies, relations)
+├── cron/           Scheduled worker jobs (overdue check, mutation dedup pruning)
+└── types/          Worker environment bindings (Env)
 ```
 
 ## Workspace Role
 
 - Export `AppType` from the package root for typed Hono RPC clients.
-- Export schema types through `@cadence/backend/types/*`.
 - Keep this package runtime-safe for Cloudflare Workers.
-- The settings PATCH schema keeps notification fields optional by design (partial merges).
-- The debug seed route includes notification-triggering test data and unmanaged tasks for frontend testing.
+- Domain-first architecture: each domain owns its routes, schemas, and utilities under `src/domains/`.
+- Platform layer (`src/platform/`) holds only cross-cutting infrastructure — no domain logic.
+- All routes are versioned under `/api/v1/` and use bearer JWT authentication.
+- RLS (`withRls`) is mandatory for all user-scoped queries.
+- Zod validation (`apiValidator`) is mandatory for all params, query, and JSON body inputs.
+- Debug routes are disabled by default and only available when explicitly enabled in non-production environments.
 
 ## Release Notes
 

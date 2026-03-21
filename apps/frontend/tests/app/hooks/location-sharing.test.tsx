@@ -45,7 +45,7 @@ function installLocationEnvironment(): GeolocationTestSetup {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
 
-        if (url.includes("/api/proxy/geocode/reverse")) {
+        if (url.includes("/api/v1/proxy/geocode/reverse")) {
             return new Response(
                 JSON.stringify({
                     data: {
@@ -57,7 +57,7 @@ function installLocationEnvironment(): GeolocationTestSetup {
             );
         }
 
-        if (url.includes("/api/proxy/weather")) {
+        if (url.includes("/api/v1/proxy/weather")) {
             return new Response(
                 JSON.stringify({
                     data: {
