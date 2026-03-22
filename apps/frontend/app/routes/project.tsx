@@ -562,13 +562,6 @@ export default function ProjectView() {
                 </PageContent>
                 {view === "kanban" ? (
                     <div className="flex-1 min-h-0 min-w-0 flex flex-col">
-                        {projectId && (
-                            <PageContent width="default">
-                                <div className="mb-4">
-                                    <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
-                                </div>
-                            </PageContent>
-                        )}
                         {isLoading ? (
                             <PageContent width="default"><TaskListSkeleton /></PageContent>
                         ) : tasks && tasks.length > 0 ? (

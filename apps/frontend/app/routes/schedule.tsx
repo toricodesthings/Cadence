@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router";
 import * as Popover from "../components/primitives/Popover";
+import { Switch } from "../components/primitives/Switch";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import {
@@ -61,7 +62,6 @@ import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import {
     HolidayLocationPrompt,
-    HolidayPreferencesPanel,
 } from "../components/calendar/HolidayControls";
 import { PersonalEventsPanel } from "../components/calendar/PersonalEventsPanel";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
@@ -792,26 +792,23 @@ export default function Schedule() {
                 <div className="space-y-2">
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show all-day tasks</span>
-                        <input
-                            type="checkbox"
+                        <Switch
                             checked={calendarClutter.showAllDay}
-                            onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showAllDay: event.target.checked } } })}
+                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showAllDay: val } } })}
                         />
                     </label>
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show timed blocks</span>
-                        <input
-                            type="checkbox"
+                        <Switch
                             checked={calendarClutter.showTimedTasks}
-                            onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showTimedTasks: event.target.checked } } })}
+                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showTimedTasks: val } } })}
                         />
                     </label>
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show habit markers</span>
-                        <input
-                            type="checkbox"
+                        <Switch
                             checked={calendarClutter.showHabitAnchors}
-                            onChange={(event) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: event.target.checked } } })}
+                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })}
                         />
                     </label>
                 </div>
@@ -821,37 +818,19 @@ export default function Schedule() {
                 <div className="space-y-2">
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show holidays</span>
-                        <input
-                            type="checkbox"
+                        <Switch
                             checked={holidayOverlay.holidaySettings.enabled}
-                            onChange={(event) => holidayOverlay.setEnabled(event.target.checked)}
+                            onCheckedChange={(val) => holidayOverlay.setEnabled(val)}
                         />
                     </label>
                     {holidayOverlay.holidaySettings.enabled && (
-                        <HolidayPreferencesPanel
-                            enabled={holidayOverlay.holidaySettings.enabled}
-                            usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
-                            locationMode={holidayOverlay.holidaySettings.locationMode}
-                            countryCode={holidayOverlay.holidaySettings.countryCode}
-                            subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
-                            countryOptions={holidayOverlay.countryOptions}
-                            subdivisionOptions={holidayOverlay.subdivisionOptions}
-                            effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
-                            effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
-                            permissionState={holidayOverlay.permissionState}
-                            locationRefreshedAt={holidayOverlay.refreshedAt}
-                            countriesLoading={holidayOverlay.countriesLoading}
-                            subdivisionsLoading={holidayOverlay.subdivisionsLoading}
-                            isLocating={holidayOverlay.isLocating}
-                            compact
-                            showEnabledToggle={false}
-                            onEnabledChange={holidayOverlay.setEnabled}
-                            onLocationModeChange={holidayOverlay.setLocationMode}
-                            onCountryChange={holidayOverlay.setCountryCode}
-                            onSubdivisionChange={holidayOverlay.setSubdivisionCode}
-                            onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
-                            onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
-                        />
+                        <button
+                            type="button"
+                            className="w-full text-left rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-accent hover:bg-white/[0.06] transition-colors"
+                            onClick={() => navigate("?settings=datetime")}
+                        >
+                            Configure holiday location in Settings &rarr;
+                        </button>
                     )}
                 </div>
             </div>
@@ -860,10 +839,9 @@ export default function Schedule() {
                 <div className="space-y-2">
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show personal events</span>
-                        <input
-                            type="checkbox"
+                        <Switch
                             checked={personalEvents.enabled}
-                            onChange={(event) => personalEvents.setEnabled(event.target.checked)}
+                            onCheckedChange={(val) => personalEvents.setEnabled(val)}
                         />
                     </label>
                     {personalEvents.enabled && (

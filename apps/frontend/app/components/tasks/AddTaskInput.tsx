@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, CalendarHeart } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks";
 import { useProjects } from "../../hooks/projects";
 import { useTags } from "../../hooks/tags";
@@ -13,6 +13,8 @@ import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { QuickAddActionTray } from "./QuickAddActionTray";
 import { ParseSummaryChips } from "./ParseSummaryChips";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
+import * as ContextMenu from "../primitives/ContextMenu";
+import { AddPersonalEventDialog } from "../calendar/AddPersonalEventDialog";
 
 interface AddTaskInputProps {
     projectId?: string;
@@ -33,6 +35,7 @@ export function AddTaskInput({
     const [value, setValue] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const [isTrayOpen, setIsTrayOpen] = useState(false);
+    const [showEventDialog, setShowEventDialog] = useState(false);
     const [projectSelection, setProjectSelection] = useState<string | null>(projectId ?? null);
     const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
     const [ignoredTokenIds, setIgnoredTokenIds] = useState<string[]>([]);
@@ -188,11 +191,25 @@ export function AddTaskInput({
             aria-label="Add new task"
             data-focus-container
         >
-            <Plus
-                size={compact ? 14 : 18}
-                aria-hidden="true"
-                className={`shrink-0 transition-colors duration-200 ${isFocused ? "text-lantern" : "text-twilight-text-muted"}`}
-            />
+            <ContextMenu.Root>
+                <ContextMenu.Trigger asChild>
+                    <span className="shrink-0 cursor-default">
+                        <Plus
+                            size={compact ? 14 : 18}
+                            aria-hidden="true"
+                            className={`transition-colors duration-200 ${isFocused ? "text-lantern" : "text-twilight-text-muted"}`}
+                        />
+                    </span>
+                </ContextMenu.Trigger>
+                <ContextMenu.Content>
+                    <ContextMenu.Item onSelect={() => setShowEventDialog(true)}>
+                        <div className="flex items-center gap-2">
+                            <CalendarHeart size={15} />
+                            <span>Add personal event</span>
+                        </div>
+                    </ContextMenu.Item>
+                </ContextMenu.Content>
+            </ContextMenu.Root>
             <input
                 type="text"
                 value={value}
@@ -272,6 +289,7 @@ export function AddTaskInput({
                     )}
                 </div>
             ) : null}
+            <AddPersonalEventDialog open={showEventDialog} onClose={() => setShowEventDialog(false)} />
         </form>
     );
 }

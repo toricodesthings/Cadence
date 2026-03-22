@@ -125,6 +125,19 @@ export function TaskEditPanel({
         setActivePanel("notes");
     }, [taskId]);
 
+    // Listen for the custom rename event dispatched by context menus
+    useEffect(() => {
+        const handleFocusTitle = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.taskId === taskId) {
+                titleRef.current?.focus();
+                titleRef.current?.select();
+            }
+        };
+        window.addEventListener("cadence:focus-task-title", handleFocusTitle);
+        return () => window.removeEventListener("cadence:focus-task-title", handleFocusTitle);
+    }, [taskId]);
+
     const debouncedSaveWaitingOn = useDebouncedCallback((content: string) => {
         if (!task) return;
         updateTask.mutate({ id: task.id, waitingOn: content || null });

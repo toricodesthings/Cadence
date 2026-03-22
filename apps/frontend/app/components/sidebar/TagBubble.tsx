@@ -23,7 +23,7 @@ export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
                 <button
                     onClick={onClick}
                     className={`
-                        inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium
+                        inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium
                         transition-all duration-200 cursor-pointer shrink-0
                         ${isActive
                             ? "ring-1 ring-offset-1 ring-offset-twilight-deep shadow-[0_0_8px_rgba(232,164,74,0.1)]"
@@ -38,7 +38,7 @@ export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
                     aria-label={`Filter by tag: ${tag.name}`}
                 >
                     <span
-                        className="w-1.5 h-1.5 rounded-full"
+                        className="w-2 h-2 rounded-full"
                         style={{ backgroundColor: textColor }}
                     />
                     {tag.name}

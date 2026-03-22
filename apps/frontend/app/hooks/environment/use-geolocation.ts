@@ -22,12 +22,46 @@ interface SharedGeolocationState {
     refreshedAt: string | null;
 }
 
+const STORAGE_KEY = "cadence:geolocation-cache";
+const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+interface CachedGeolocation {
+    coordinates: { latitude: number; longitude: number };
+    preciseLocation: PreciseHolidayLocation;
+    refreshedAt: string;
+}
+
+function loadCachedGeolocation(): CachedGeolocation | null {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as CachedGeolocation;
+        if (!parsed.coordinates || !parsed.preciseLocation || !parsed.refreshedAt) return null;
+        // Check staleness
+        const age = Date.now() - new Date(parsed.refreshedAt).getTime();
+        if (age > CACHE_MAX_AGE_MS) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+function saveCachedGeolocation(data: CachedGeolocation) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+        // localStorage full or unavailable — silently ignore
+    }
+}
+
+const cached = loadCachedGeolocation();
+
 let sharedGeolocationState: SharedGeolocationState = {
     permissionState: "prompt",
-    preciseLocation: null,
-    coordinates: null,
+    preciseLocation: cached?.preciseLocation ?? null,
+    coordinates: cached?.coordinates ?? null,
     isLocating: false,
-    refreshedAt: null,
+    refreshedAt: cached?.refreshedAt ?? null,
 };
 
 let inflightLocationRequest: Promise<PreciseLocationRequestResult> | null = null;
@@ -129,15 +163,18 @@ export function useGeolocation({ onDenied }: { onDenied?: () => void } = {}) {
             try {
                 const position = await requestCurrentPosition();
                 const resolved = await reverseGeocodeLocation(position.coords.latitude, position.coords.longitude);
+                const coords = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                };
+                const refreshedAt = new Date().toISOString();
                 updateSharedGeolocationState({
-                    coordinates: {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                    },
+                    coordinates: coords,
                     preciseLocation: resolved,
                     permissionState: "granted",
-                    refreshedAt: new Date().toISOString(),
+                    refreshedAt,
                 });
+                saveCachedGeolocation({ coordinates: coords, preciseLocation: resolved, refreshedAt });
                 return { status: "granted", location: resolved };
             } catch (error) {
                 const geolocationError = error as GeolocationPositionError;
@@ -173,6 +210,7 @@ export function useGeolocation({ onDenied }: { onDenied?: () => void } = {}) {
                 coordinates: null,
                 refreshedAt: null,
             });
+            try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
         }, []),
     };
 }

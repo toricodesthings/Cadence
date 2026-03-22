@@ -34,6 +34,17 @@ const FALSE_POSITIVE_GUARDS = [
   /\bspring\b/i,
   /\bfall\b/i,
   /\bwinter\b/i,
+  // Possessive day names (e.g., "Monday's meeting notes")
+  /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)'s\s+\w/i,
+  // Titles with apostrophe-s containing day/month names (e.g., "Heaven's Night")
+  /\w+'s\s+(night|day|morning|evening|dawn|dusk)\b/i,
+  // Compound nouns with day/month words (e.g., "Black Friday deal")
+  /\b(black|good|casual)\s+friday\b/i,
+  /\bmay\s+day\b/i,
+  /\bsunday\s+(best|school|league|roast|brunch)\b/i,
+  /\bsaturday\s+(night|morning)\s+(live|fever)\b/i,
+  // Song/movie/book titles with date words
+  /\b\w+day\s+(night|morning)\b/i,
 ];
 
 function isHighConfidenceDate(text: string): boolean {

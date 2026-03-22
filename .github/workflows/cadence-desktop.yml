@@ -1,0 +1,334 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cadence Desktop Checks
+#
+# Runs on every PR and push to main that touches the desktop or frontend app.
+# The desktop app shells the frontend, so frontend health is a prerequisite.
+#
+# Jobs
+#   frontend-compat   — Typecheck + tests for the frontend app in desktop mode,
+#                       ensuring the shared frontend still compiles cleanly
+#   rust-checks       — cargo check + cargo clippy (warnings as errors) +
+#                       cargo fmt --check for the Tauri backend
+#   build-debug       — Debug build matrix across Linux, Windows, and macOS
+#                       with Cargo cache to keep it fast
+#   e2e-smoke         — Tauri e2e smoke tests via tauri-driver (Linux + Windows)
+#   version-sync-guard— Verifies package.json version matches Cargo.toml version
+#   gate              — Required status check; fails if any job above fails
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Cadence Desktop Checks
+
+on:
+  pull_request:
+    paths:
+      - apps/desktop/**
+      - apps/frontend/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/cadence-desktop.yml
+  push:
+    branches:
+      - main
+    paths:
+      - apps/desktop/**
+      - apps/frontend/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/cadence-desktop.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cadence-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  VITE_RUNTIME_TARGET: desktop
+  VITE_API_BASE_URL: https://api.cadenceapp.cloud
+  VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
+
+jobs:
+  # ── Frontend Compatibility ────────────────────────────────────────────────
+  # The desktop shell embeds the frontend. If frontend types or tests break,
+  # no point running the expensive Rust / Tauri steps.
+  frontend-compat:
+    name: Frontend Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Frontend typecheck (desktop mode)
+        run: pnpm --filter @cadence/frontend typecheck
+
+      - name: Frontend tests
+        run: pnpm --filter @cadence/frontend test
+
+  # ── Rust Checks ──────────────────────────────────────────────────────────
+  rust-checks:
+    name: Rust Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/src-tauri/target
+          key: linux-rust-checks-cargo-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: linux-rust-checks-cargo-
+
+      - name: Install Linux desktop prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            wget
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync desktop version
+        run: pnpm --filter @cadence/desktop sync-version
+
+      - name: Run Rust checks (check + clippy + fmt)
+        run: pnpm --filter @cadence/desktop typecheck
+
+  # ── Debug Build (cross-platform) ─────────────────────────────────────────
+  build-debug:
+    name: Debug Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs:
+      - frontend-compat
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/src-tauri/target
+          key: ${{ runner.os }}-build-debug-cargo-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-build-debug-cargo-
+
+      - name: Install Linux desktop prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            wget
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build debug desktop shell
+        run: pnpm --filter @cadence/desktop build:debug
+
+  # ── E2E Smoke Tests ──────────────────────────────────────────────────────
+  e2e-smoke:
+    name: E2E Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs:
+      - frontend-compat
+      - rust-checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/src-tauri/target
+          key: ${{ runner.os }}-e2e-cargo-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-e2e-cargo-
+
+      - name: Install Linux desktop prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            webkit2gtk-driver \
+            wget \
+            xvfb
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+
+      - name: Run smoke tests (Linux)
+        if: runner.os == 'Linux'
+        env:
+          TAURI_WEBVIEW_AUTOMATION: "true"
+        run: xvfb-run -a pnpm --filter @cadence/desktop e2e:smoke
+
+      - name: Run smoke tests (Windows)
+        if: runner.os == 'Windows'
+        run: pnpm --filter @cadence/desktop e2e:smoke
+
+  # ── Version Sync Guard ───────────────────────────────────────────────────
+  version-sync-guard:
+    name: Version Sync Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify package.json and Cargo.toml versions are in sync
+        shell: bash
+        run: |
+          pkg_version=$(node -p "require('./apps/desktop/package.json').version")
+          cargo_version=$(grep -m1 '^version' apps/desktop/src-tauri/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+
+          echo "package.json version : ${pkg_version}"
+          echo "Cargo.toml version   : ${cargo_version}"
+
+          if [ "${pkg_version}" != "${cargo_version}" ]; then
+            echo "::error::Version mismatch — package.json (${pkg_version}) ≠ Cargo.toml (${cargo_version}). Run 'pnpm --filter @cadence/desktop sync-version'."
+            exit 1
+          fi
+          echo "Versions are in sync."
+
+  # ── Gate ─────────────────────────────────────────────────────────────────
+  gate:
+    name: Desktop Gate
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-compat
+      - rust-checks
+      - build-debug
+      - e2e-smoke
+      - version-sync-guard
+    if: always()
+    steps:
+      - name: Evaluate desktop gate
+        run: |
+          failed=()
+          [[ "${{ needs.frontend-compat.result }}"    == "success" ]] || failed+=("frontend-compat")
+          [[ "${{ needs.rust-checks.result }}"        == "success" ]] || failed+=("rust-checks")
+          [[ "${{ needs.build-debug.result }}"        == "success" ]] || failed+=("build-debug")
+          [[ "${{ needs.e2e-smoke.result }}"          == "success" ]] || failed+=("e2e-smoke")
+          [[ "${{ needs.version-sync-guard.result }}" == "success" ]] || failed+=("version-sync-guard")
+
+          if (( ${#failed[@]} )); then
+            printf '::error::Desktop gate failed — check these jobs: %s\n' "${failed[*]}"
+            exit 1
+          fi
+          echo "All desktop checks passed."

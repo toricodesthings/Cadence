@@ -1,14 +1,14 @@
 import { useState } from "react";
-import * as Popover from "../primitives/Popover";
 import { Plus } from "lucide-react";
 import { useCreateProject } from "../../hooks/projects";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { Button } from "../primitives/Button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../primitives/Dialog";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
 const ACCENT_OPTIONS = PROJECT_ACCENT_OPTIONS;
 
-/** Popover form for creating a new project — optimistic insert */
+/** Dialog form for creating a new project — optimistic insert */
 export function CreateProjectPopover() {
     const [name, setName] = useState("");
     const [colorAccent, setColorAccent] = useState("luminous-amber");
@@ -24,26 +24,25 @@ export function CreateProjectPopover() {
         setEmoji("");
         setColorAccent("luminous-amber");
         setIsCustomColor(false);
-        setOpen(false); // Close immediately — project appears optimistically
+        setOpen(false);
     };
 
     return (
-        <Popover.Root open={open} onOpenChange={setOpen}>
-            <Popover.Trigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Create project"
-                    className="rounded-2xl text-twilight-text-muted hover:bg-lantern-dim hover:text-lantern"
-                >
-                    <Plus size={16} />
-                </Button>
-            </Popover.Trigger>
-            <Popover.Content side="right" className="w-64">
-                <p className="text-xs font-semibold text-twilight-text-muted uppercase tracking-[0.1em] mb-3">
-                    New Project
-                </p>
-                <div className="flex gap-2 mb-3">
+        <Dialog open={open} onOpenChange={setOpen}>
+            <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Create project"
+                className="rounded-2xl text-twilight-text-muted hover:bg-lantern-dim hover:text-lantern"
+                onClick={() => setOpen(true)}
+            >
+                <Plus size={16} />
+            </Button>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>New Project</DialogTitle>
+                </DialogHeader>
+                <div className="flex gap-3 mb-4">
                     <EmojiPickerPopover emoji={emoji} onSelect={setEmoji} />
                     <input
                         type="text"
@@ -52,11 +51,11 @@ export function CreateProjectPopover() {
                         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                         placeholder="Project name…"
                         autoFocus
-                        className="flex-1 bg-white/[0.04] border border-twilight-border rounded-xl px-3 py-2 text-[14px] text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-lantern/30 transition-colors"
+                        className="flex-1 bg-white/[0.04] border border-twilight-border rounded-xl px-4 py-2.5 text-[15px] text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-lantern/30 transition-colors"
                     />
                 </div>
                 {/* Color picker */}
-                <div className="flex gap-2 mb-4 items-center flex-wrap">
+                <div className="flex gap-2.5 mb-5 items-center flex-wrap">
                     {ACCENT_OPTIONS.map((opt) => (
                         <button
                             key={opt.value}
@@ -66,14 +65,14 @@ export function CreateProjectPopover() {
                             }}
                             title={opt.label}
                             aria-label={`Select ${opt.label} color`}
-                            className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorAccent === opt.value && !isCustomColor
-                                ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
+                            className={`w-6 h-6 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorAccent === opt.value && !isCustomColor
+                                ? "ring-2 ring-offset-2 ring-offset-twilight-deep scale-110"
                                 : "opacity-60 hover:opacity-100"
                                 }`}
                             style={{ backgroundColor: opt.varName }}
                         />
                     ))}
-                    <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer" title="Custom Hex Color">
+                    <div className="relative flex items-center justify-center w-6 h-6 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer" title="Custom Hex Color">
                         <input
                             type="color"
                             value={colorAccent.startsWith("#") ? colorAccent : PROJECT_FALLBACK_COLOR}
@@ -84,7 +83,7 @@ export function CreateProjectPopover() {
                             className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer"
                         />
                         {isCustomColor && (
-                            <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-surface ring-twilight-text/50 rounded-full" />
+                            <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-deep ring-twilight-text/50 rounded-full" />
                         )}
                     </div>
                 </div>
@@ -97,8 +96,7 @@ export function CreateProjectPopover() {
                 >
                     Create Project
                 </Button>
-                <Popover.Arrow className="fill-twilight-surface" />
-            </Popover.Content>
-        </Popover.Root>
+            </DialogContent>
+        </Dialog>
     );
 }

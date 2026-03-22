@@ -252,7 +252,7 @@ export function SidebarPanel({
                                 </div>
                             )}
                             {/* Tag bubbles */}
-                            <div className="flex flex-wrap gap-1.5 px-3">
+                            <div className="flex flex-wrap gap-2 px-3">
                                 {filteredTags.map(tag => (
                                     <TagBubble
                                         key={tag.id}

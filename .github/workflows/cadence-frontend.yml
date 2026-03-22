@@ -1,0 +1,175 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cadence Frontend Checks
+#
+# Runs on every PR and push to main that touches the frontend app or shared
+# packages. Validates types, tests, a full production build, and a Wrangler
+# deploy dry-run so configuration regressions are caught before any deploy.
+#
+# Jobs
+#   typecheck       — React Router typegen + TypeScript compilation check
+#   tests           — Vitest test suite
+#   build           — Full production build (react-router build)
+#   deploy-dry-run  — Wrangler deploy dry-run (catches Worker / binding errors)
+#   gate            — Required status check; fails if any job above fails
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Cadence Frontend Checks
+
+on:
+  pull_request:
+    paths:
+      - apps/frontend/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/cadence-frontend.yml
+  push:
+    branches:
+      - main
+    paths:
+      - apps/frontend/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/cadence-frontend.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cadence-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  VITE_API_BASE_URL: https://api.cadenceapp.cloud
+  VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
+
+jobs:
+  # ── Typecheck ────────────────────────────────────────────────────────────
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run typecheck
+        run: pnpm --filter @cadence/frontend typecheck
+
+  # ── Tests ────────────────────────────────────────────────────────────────
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm --filter @cadence/frontend test
+
+  # ── Build ────────────────────────────────────────────────────────────────
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    needs:
+      - typecheck
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for production
+        run: pnpm --filter @cadence/frontend build
+
+  # ── Deploy Dry-Run ───────────────────────────────────────────────────────
+  deploy-dry-run:
+    name: Deploy Dry-Run
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for production
+        run: pnpm --filter @cadence/frontend build
+
+      - name: Wrangler deploy dry-run
+        run: pnpm --filter @cadence/frontend exec wrangler deploy --dry-run --env=""
+
+  # ── Gate ─────────────────────────────────────────────────────────────────
+  gate:
+    name: Frontend Gate
+    runs-on: ubuntu-latest
+    needs:
+      - typecheck
+      - tests
+      - build
+      - deploy-dry-run
+    if: always()
+    steps:
+      - name: Evaluate frontend gate
+        run: |
+          failed=()
+          [[ "${{ needs.typecheck.result }}"      == "success" ]] || failed+=("typecheck")
+          [[ "${{ needs.tests.result }}"          == "success" ]] || failed+=("tests")
+          [[ "${{ needs.build.result }}"          == "success" ]] || failed+=("build")
+          [[ "${{ needs.deploy-dry-run.result }}" == "success" ]] || failed+=("deploy-dry-run")
+
+          if (( ${#failed[@]} )); then
+            printf '::error::Frontend gate failed — check these jobs: %s\n' "${failed[*]}"
+            exit 1
+          fi
+          echo "All frontend checks passed."

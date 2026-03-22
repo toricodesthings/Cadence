@@ -19,7 +19,12 @@ const MONTH_LABELS = [
 function formatMonthDay(monthDay: string): string {
     const [mm, dd] = monthDay.split("-");
     const monthIdx = parseInt(mm, 10) - 1;
-    return `${MONTH_LABELS[monthIdx]} ${parseInt(dd, 10)}`;
+    const dayNum = parseInt(dd, 10);
+    // Show day-of-week for the current year
+    const now = new Date();
+    const date = new Date(now.getFullYear(), monthIdx, dayNum);
+    const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+    return `${dayName}, ${MONTH_LABELS[monthIdx]} ${dayNum}`;
 }
 
 export function PersonalEventsPanel({
@@ -192,14 +197,15 @@ export function PersonalEventsPanel({
                 </div>
             ) : (
                 items.length < 50 && (
-                    <button
-                        type="button"
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setIsAdding(true)}
-                        className="flex items-center gap-2 rounded-xl border border-dashed border-twilight-border/30 px-3 py-2 text-xs text-twilight-text-muted hover:border-personal/30 hover:text-personal transition-colors w-full cursor-pointer"
+                        className="flex items-center gap-2 w-full justify-center text-twilight-text-muted hover:text-personal transition-colors"
                     >
                         <Plus size={14} />
                         Add event
-                    </button>
+                    </Button>
                 )
             )}
         </div>

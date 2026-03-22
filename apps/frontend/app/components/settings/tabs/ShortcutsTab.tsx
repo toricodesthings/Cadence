@@ -160,6 +160,26 @@ export function ShortcutsTab() {
                     );
                 })}
             </SettingsSection>
+
+            <SettingsSection title="Navigation shortcuts">
+                <p className="text-sm text-twilight-text-muted -mt-2 mb-2">
+                    Press <kbd className="inline-flex items-center rounded border border-white/10 bg-black/40 px-1.5 py-0.5 font-mono text-xs text-twilight-text-soft">G</kbd> then a letter to navigate. These shortcuts are not configurable.
+                </p>
+                {[
+                    { keys: "G then T", label: "Go to Today" },
+                    { keys: "G then S", label: "Go to Schedule" },
+                    { keys: "G then I", label: "Go to Inbox" },
+                    { keys: "G then H", label: "Go to Habits" },
+                    { keys: "G then U", label: "Go to Upcoming" },
+                    { keys: "G then W", label: "Go to Weekly Review" },
+                ].map(({ keys, label }) => (
+                    <SettingsRow key={keys} title={label} description="">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 font-mono text-xs text-twilight-text-soft">
+                            {keys}
+                        </span>
+                    </SettingsRow>
+                ))}
+            </SettingsSection>
         </div>
     );
 }

@@ -1,0 +1,198 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cadence Backend Checks
+#
+# Runs on every PR and push to main that touches the backend app or shared
+# packages. Validates that the worker builds correctly, all test suites pass,
+# and a dry-run deploy succeeds before anything reaches production.
+#
+# Jobs
+#   typecheck        — TypeScript compilation check (zero emit)
+#   unit-tests       — Fast, isolated unit tests (tests/unit)
+#   contract-tests   — RPC contract conformance tests (tests/contracts)
+#   security-tests   — Route-level auth and permission tests (tests/security)
+#   deploy-dry-run   — Wrangler deploy dry-run to catch binding / config errors
+#   gate             — Required status check; fails if any job above fails
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Cadence Backend Checks
+
+on:
+  pull_request:
+    paths:
+      - apps/backend/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/cadence-backend.yml
+  push:
+    branches:
+      - main
+    paths:
+      - apps/backend/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/cadence-backend.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cadence-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Shared Setup ─────────────────────────────────────────────────────────
+  # Each job installs deps independently so they can run in parallel.
+  # pnpm cache keyed on lockfile keeps installs fast.
+
+  # ── Typecheck ────────────────────────────────────────────────────────────
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run typecheck
+        run: pnpm --filter @cadence/backend typecheck
+
+  # ── Unit Tests ───────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm --filter @cadence/backend test:unit
+
+  # ── Contract Tests ───────────────────────────────────────────────────────
+  contract-tests:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run contract tests
+        run: pnpm --filter @cadence/backend test:contracts
+
+  # ── Security Tests ───────────────────────────────────────────────────────
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run security tests
+        run: pnpm --filter @cadence/backend test:security
+
+  # ── Deploy Dry-Run ───────────────────────────────────────────────────────
+  deploy-dry-run:
+    name: Deploy Dry-Run
+    runs-on: ubuntu-latest
+    needs:
+      - typecheck
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wrangler deploy dry-run
+        run: pnpm --filter @cadence/backend exec wrangler deploy --dry-run --env=""
+
+  # ── Gate ─────────────────────────────────────────────────────────────────
+  gate:
+    name: Backend Gate
+    runs-on: ubuntu-latest
+    needs:
+      - typecheck
+      - unit-tests
+      - contract-tests
+      - security-tests
+      - deploy-dry-run
+    if: always()
+    steps:
+      - name: Evaluate backend gate
+        run: |
+          failed=()
+          [[ "${{ needs.typecheck.result }}"       == "success" ]] || failed+=("typecheck")
+          [[ "${{ needs.unit-tests.result }}"      == "success" ]] || failed+=("unit-tests")
+          [[ "${{ needs.contract-tests.result }}"  == "success" ]] || failed+=("contract-tests")
+          [[ "${{ needs.security-tests.result }}"  == "success" ]] || failed+=("security-tests")
+          [[ "${{ needs.deploy-dry-run.result }}"  == "success" ]] || failed+=("deploy-dry-run")
+
+          if (( ${#failed[@]} )); then
+            printf '::error::Backend gate failed — check these jobs: %s\n' "${failed[*]}"
+            exit 1
+          fi
+          echo "All backend checks passed."

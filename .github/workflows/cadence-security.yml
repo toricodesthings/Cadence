@@ -1,0 +1,119 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cadence Security
+#
+# Always-on security gate. Runs on every PR and every push to main with NO
+# path filter — secret leaks and vulnerable dependencies can appear in any
+# file, so this workflow must never be scoped to a subdirectory.
+#
+# Jobs
+#   secret-hygiene   — blocks tracked .env files, private keys, and common
+#                      hardcoded token patterns before they reach the remote
+#   dependency-audit — flags high-severity CVEs in production dependencies
+#   gate             — required status check; fails fast if either job fails
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Cadence Security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cadence-security-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Secret Hygiene ────────────────────────────────────────────────────────
+  secret-hygiene:
+    name: Secret Hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Block tracked secret files
+        shell: bash
+        run: |
+          tracked=$(
+            git ls-files \
+              | grep -E '(^|/)(\.env($|\.)|\.dev\.vars($|\.)|.*\.(pem|key|crt)$)' \
+              | grep -Ev '(^|/)\.(env|dev\.vars)(\.[^/]+)?\.(example|sample|template)$' \
+              || true
+          )
+          if [ -n "${tracked}" ]; then
+            printf '::error::Tracked secret-like files detected:\n%s\n' "${tracked}" >&2
+            exit 1
+          fi
+
+      - name: Block embedded private key material
+        shell: bash
+        run: |
+          if git grep -nE -- '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----' -- .; then
+            echo "::error::Embedded private key material found in tracked files." >&2
+            exit 1
+          fi
+
+      - name: Block hardcoded tokens and API keys
+        shell: bash
+        run: |
+          if git grep -nEi \
+            -- '(sk_live_|sk_test_|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|xox[bsapr]-[a-zA-Z0-9-]+)' \
+            -- . \
+            ':!pnpm-lock.yaml' \
+            ':!*.md' \
+            ':!.github/workflows/*.yml'; then
+            echo "::error::Potential hardcoded secret or API key detected." >&2
+            exit 1
+          fi
+
+  # ── Dependency Audit ──────────────────────────────────────────────────────
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit production dependencies for high-severity CVEs
+        run: pnpm audit --prod --audit-level=high
+
+  # ── Gate ─────────────────────────────────────────────────────────────────
+  gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+    needs:
+      - secret-hygiene
+      - dependency-audit
+    if: always()
+    steps:
+      - name: Evaluate security gate
+        run: |
+          failed=()
+          [[ "${{ needs.secret-hygiene.result }}"    == "success" ]] || failed+=("secret-hygiene")
+          [[ "${{ needs.dependency-audit.result }}"  == "success" ]] || failed+=("dependency-audit")
+
+          if (( ${#failed[@]} )); then
+            printf '::error::Security gate failed — check these jobs: %s\n' "${failed[*]}"
+            exit 1
+          fi
+          echo "All security checks passed."

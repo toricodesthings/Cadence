@@ -89,7 +89,7 @@ export function MarkdownEditor({
     };
 
     return (
-        <div className="relative flex min-h-[180px] w-full flex-1 flex-col gap-3">
+        <div className="relative flex min-h-[240px] w-full flex-1 flex-col gap-3">
             {isEditing ? (
                 <>
                     {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
@@ -105,8 +105,8 @@ export function MarkdownEditor({
                         placeholder="Write your notes here…"
                         aria-label="Task notes editor"
                         className="
-                            min-h-[220px] w-full flex-1 resize-none rounded-[1.4rem] border border-twilight-border/40 bg-white/[0.03] px-4 py-4 outline-none
-                            font-sans text-sm leading-relaxed text-twilight-text
+                            min-h-[280px] w-full flex-1 resize-none rounded-[1.4rem] border border-twilight-border/40 bg-white/[0.03] px-5 py-5 outline-none
+                            font-sans text-[15px] leading-[1.75] text-twilight-text
                             placeholder:text-twilight-text-muted/90
                         "
                         maxLength={maxLength}
@@ -115,7 +115,7 @@ export function MarkdownEditor({
             ) : (
                 <div
                     onClick={() => setIsEditing(true)}
-                    className="prose prose-invert prose-sm min-h-[180px] max-w-none cursor-pointer rounded-[1.4rem] border border-twilight-border/40 bg-white/[0.03] px-4 py-4 prose-p:text-twilight-text prose-a:text-lantern prose-code:text-moonlit"
+                    className="prose prose-invert prose-sm min-h-[240px] max-w-none cursor-pointer rounded-[1.4rem] border border-twilight-border/40 bg-white/[0.03] px-5 py-5 prose-p:text-twilight-text prose-a:text-lantern prose-code:text-moonlit"
                     aria-label="Task notes preview"
                     role="button"
                     tabIndex={0}

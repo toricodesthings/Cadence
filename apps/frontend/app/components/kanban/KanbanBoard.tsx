@@ -16,6 +16,7 @@ import { AddTaskInput } from "../tasks/AddTaskInput";
 import { TaskList } from "../tasks/TaskList";
 import { TaskCard } from "../tasks/TaskCard";
 import { TaskContextMenuWrapper } from "../tasks/TaskContextMenuWrapper";
+import { RenameTaskDialog } from "../tasks/RenameTaskDialog";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -60,6 +61,7 @@ function KanbanColumn({
     });
 
     const [isRenaming, setIsRenaming] = useState(false);
+    const [renamingTask, setRenamingTask] = useState<Task | null>(null);
 
     return (
         <div className="flex flex-col h-full rounded-[28px] border border-twilight-border/45 bg-twilight-surface/20 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl min-w-[280px]">
@@ -127,7 +129,11 @@ function KanbanColumn({
             >
                 <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                     {tasks.map((task) => (
-                        <TaskContextMenuWrapper key={task.id} task={task}>
+                        <TaskContextMenuWrapper
+                            key={task.id}
+                            task={task}
+                            onRename={() => setRenamingTask(task)}
+                        >
                             <SortableTaskCard
                                 task={task}
                                 tags={tagsByTaskId[task.id] ?? []}
@@ -156,6 +162,12 @@ function KanbanColumn({
                     compact={true}
                 />
             </div>
+
+            <RenameTaskDialog
+                taskId={renamingTask?.id ?? null}
+                currentName={renamingTask?.title ?? ""}
+                onClose={() => setRenamingTask(null)}
+            />
         </div>
     );
 }
@@ -428,7 +440,7 @@ export function KanbanBoard({
         >
             <div
                 ref={scrollContainerRef}
-                className="overflow-x-auto overflow-y-auto h-full flex-1 min-h-0 scrollbar-thin cursor-grab"
+                className="overflow-x-auto overflow-y-auto h-full flex-1 min-h-0 scrollbar-thin"
                 onPointerDown={dragScroll.onPointerDown}
                 onPointerMove={dragScroll.onPointerMove}
                 onPointerUp={dragScroll.onPointerUp}

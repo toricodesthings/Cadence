@@ -17,6 +17,7 @@ import { resolveProjectsAndTags } from "../resolve/index.js";
  * Main parse entry point — shared across frontend preview and backend canonicalization.
  *
  * Parse order:
+ * 0. Extract quoted "literal" segments — protected from NLP parsing
  * 1. Recurrence (before dates, since "every Monday" might confuse date parser)
  * 2. Dates/times via chrono-node
  * 3. Priority keywords
@@ -39,6 +40,24 @@ export function parse(options: ParseOptions): ParseResult {
   const allEntities: ParsedEntity[] = [];
   const consumedRanges: Array<{ start: number; end: number }> = [];
   const warnings: string[] = [];
+
+  // 0. Extract quoted "literal" segments — protect from NLP parsing
+  // e.g. "Heaven's Night" → replaced with placeholder, restored in cleaned title
+  const quotedSegments: Array<{ start: number; end: number; text: string }> = [];
+  const QUOTE_RE = /"([^"]+)"/g;
+  let qMatch: RegExpExecArray | null;
+  while ((qMatch = QUOTE_RE.exec(input)) !== null) {
+    quotedSegments.push({
+      start: qMatch.index,
+      end: qMatch.index + qMatch[0].length,
+      text: qMatch[1], // inner text without quotes
+    });
+  }
+
+  // Mark quoted regions as consumed so no parser touches them
+  for (const seg of quotedSegments) {
+    consumedRanges.push({ start: seg.start, end: seg.end });
+  }
 
   // 1. Recurrence
   const recurrenceResult = parseRecurrence(input);
@@ -113,7 +132,8 @@ export function parse(options: ParseOptions): ParseResult {
   }
 
   // Build cleaned title by removing consumed entity text
-  const cleanedTitle = buildCleanedTitle(input, consumedRanges);
+  // For quoted segments, keep inner text (strip quotes only)
+  const cleanedTitle = buildCleanedTitle(input, consumedRanges, quotedSegments);
 
   // Build summary
   const summary = buildSummary(allEntities);
@@ -226,18 +246,30 @@ function parseShorthand(
 
 /**
  * Build a clean title by removing consumed entity text ranges.
+ * Quoted segments are special: the surrounding quotes are removed but
+ * the inner text is preserved in the title (it was protected from NLP).
  */
 function buildCleanedTitle(
   input: string,
   ranges: Array<{ start: number; end: number }>,
+  quotedSegments: Array<{ start: number; end: number; text: string }> = [],
 ): string {
-  if (ranges.length === 0) return input.trim();
+  if (ranges.length === 0 && quotedSegments.length === 0) return input.trim();
+
+  const quotedSet = new Set(quotedSegments.map((s) => `${s.start}:${s.end}`));
 
   // Sort ranges by start position descending to splice from end
   const sorted = [...ranges].sort((a, b) => b.start - a.start);
   let result = input;
   for (const { start, end } of sorted) {
-    result = result.slice(0, start) + " " + result.slice(end);
+    const key = `${start}:${end}`;
+    if (quotedSet.has(key)) {
+      // Quoted segment — strip quotes but keep inner text
+      const seg = quotedSegments.find((s) => s.start === start && s.end === end);
+      result = result.slice(0, start) + (seg?.text ?? "") + result.slice(end);
+    } else {
+      result = result.slice(0, start) + " " + result.slice(end);
+    }
   }
   return result.replace(/\s+/g, " ").trim();
 }

@@ -20,6 +20,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
+import { RenameTaskDialog } from "./RenameTaskDialog";
 import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -364,11 +365,10 @@ export function TaskCard({
     const isCompactCard = !hasCollapsedSupport && !isSubtasksExpanded && !isAddingSubtask;
     const isBoardCard = variant === "board";
 
+    const [isRenaming, setIsRenaming] = useState(false);
+
     const handleRename = () => {
-        onSelect?.(task.id);
-        setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('cadence:focus-task-title', { detail: { taskId: task.id } }));
-        }, 150);
+        setIsRenaming(true);
     };
 
     const handleSelect = (e?: React.MouseEvent | React.KeyboardEvent) => {
@@ -472,10 +472,9 @@ export function TaskCard({
                     aria-describedby={dragHandleProps.attributes?.["aria-describedby"]}
                     {...(dragHandleProps.listeners ?? {})}
                     data-no-open="true"
+                    data-dnd-handle="true"
                     className={`shrink-0 cursor-grab touch-none rounded-md text-twilight-text-muted/40 transition-[opacity,color] hover:text-twilight-text-soft active:cursor-grabbing ${
-                        isBoardCard
-                            ? "pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 -ml-1"
-                            : "pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100 -ml-2"
+                        isBoardCard ? "-ml-1" : "-ml-2"
                     }`}
                     aria-label="Drag to reorder"
                 >
@@ -729,10 +728,16 @@ export function TaskCard({
                 </div>
             </div>
 
-            {/* Context menu — visible on hover */}
-            <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-within:opacity-100" : `pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
+            {/* Context menu — subtly visible, full opacity on hover */}
+            <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
                 <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : handleAddSubtask} onRename={handleRename} holdingContext={holdingContext} />
             </div>
+
+            <RenameTaskDialog
+                taskId={isRenaming ? task.id : null}
+                currentName={task.title}
+                onClose={() => setIsRenaming(false)}
+            />
         </article>
     );
 }
