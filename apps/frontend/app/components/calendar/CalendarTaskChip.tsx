@@ -5,9 +5,9 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskPriority } from "../../types/task";
 import { formatTime } from "../../lib/utils/date-format";
-import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, supportsManualTaskCompletion } from "../../lib/utils/task-scheduling";
-import { HOUR_HEIGHT } from "../../lib/utils/calendar-utils";
-import { CALENDAR_SLOT_MINUTES } from "../../lib/utils/calendar-dnd";
+import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
+import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
+import { CALENDAR_SLOT_MINUTES } from "../../lib/utils/calendar/calendar-dnd";
 
 /** Tailwind classes for the chip background/border based on priority */
 const PRIORITY_PILL_BG: Record<TaskPriority, string> = {
@@ -161,7 +161,7 @@ export function CalendarTaskChip({
     const timeLabel = task.scheduledStart ? formatTime(task.scheduledStart) : null;
     const endLabel = task.scheduledEnd ? formatTime(task.scheduledEnd) : null;
 
-    // Habit blocks render as slim ribbons: 60% height, reduced opacity, dashed border
+    // Habit blocks should stay visually lighter than tasks without collapsing into unreadable ribbons.
     const habitRibbon = task.isHabit;
 
     // ── Resize handle state ──
@@ -204,11 +204,16 @@ export function CalendarTaskChip({
     }, [onResize, task.id, task.scheduledStart, task.scheduledEnd]);
 
     const baseHeight = style?.height != null ? parseFloat(String(style.height)) : undefined;
-    const isCompactBlock = baseHeight != null && baseHeight < 42;
+    const adjustedBaseHeight = habitRibbon && baseHeight != null
+        ? Math.max(30, baseHeight * 0.82)
+        : baseHeight;
+    const renderedHeight = adjustedBaseHeight != null
+        ? Math.max(habitRibbon ? 30 : 18, adjustedBaseHeight + resizeDeltaPx)
+        : undefined;
+    const isCompactBlock = renderedHeight != null && renderedHeight < (habitRibbon ? 38 : 42);
     const blockStyle: CSSProperties = {
         ...dragStyle,
-        ...(habitRibbon && baseHeight ? { height: `${baseHeight * 0.6}px` } : {}),
-        ...(resizeDeltaPx !== 0 && baseHeight ? { height: `${Math.max(18, baseHeight + resizeDeltaPx)}px` } : {}),
+        ...(renderedHeight != null ? { height: `${renderedHeight}px` } : {}),
     };
 
     return (
@@ -218,14 +223,14 @@ export function CalendarTaskChip({
             {...listeners}
             data-task-chip
             className={`
-                group absolute flex ${isCompactBlock ? "flex-row items-center" : "flex-col"} gap-0.5
-                rounded-xl ${isCompactBlock ? "px-2 py-0.5" : "px-3 py-1.5"} border backdrop-blur-xl cursor-pointer select-none
+                group absolute flex ${isCompactBlock ? "flex-row items-center" : "flex-col justify-center"} gap-1
+                rounded-xl ${isCompactBlock ? "px-2.5 py-1" : "px-3 py-2"} border backdrop-blur-xl cursor-pointer select-none
                 transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 overflow-hidden
                 shadow-[0_4px_16px_rgba(0,0,0,0.08)]
                 ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
                 ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
                 ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                ${habitRibbon ? `border-l-2 border-dashed border-lantern/40 bg-lantern/[0.04] ${isCompletedHabit ? "opacity-40" : "opacity-70"} shadow-none` : ""}
+                ${habitRibbon ? `border-l-2 border-lantern/45 border-twilight-border/25 bg-[linear-gradient(135deg,rgba(232,164,74,0.12),rgba(232,164,74,0.04))] ${isCompletedHabit ? "opacity-55" : "opacity-100"} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]` : ""}
             `}
             onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
             onMouseEnter={() => setIsHovered(true)}
@@ -275,9 +280,9 @@ export function CalendarTaskChip({
             <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                className={`text-left pl-2 w-full cursor-pointer ${isCompactBlock ? "flex items-center gap-1.5 overflow-hidden" : "flex flex-col gap-0.5"}`}
+                className={`w-full min-w-0 cursor-pointer text-left pl-2 ${isCompactBlock ? "flex items-center gap-2 overflow-hidden" : "flex flex-col gap-0.5"}`}
             >
-                <span className={`${isCompactBlock ? "text-[11px]" : "text-[13px]"} font-medium truncate leading-tight flex flex-wrap items-center gap-1 ${PRIORITY_TEXT[priority]}`}>
+                <span className={`${isCompactBlock ? (habitRibbon ? "text-[12px]" : "text-[11px]") : "text-[13px]"} min-w-0 truncate font-medium leading-tight flex items-center gap-1 ${!isCompactBlock ? "flex-wrap" : ""} ${PRIORITY_TEXT[priority]}`}>
                     {task.title}
                     {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-lantern/50" : "text-moonlit/70"} shrink-0`} />}
                     {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
@@ -288,7 +293,7 @@ export function CalendarTaskChip({
                     </span>
                 )}
                 {timeLabel && isCompactBlock && (
-                    <span className="text-[10px] text-twilight-text-muted/70 shrink-0">
+                    <span className={`shrink-0 ${habitRibbon ? "text-[10.5px] font-medium text-lantern/80" : "text-[10px] text-twilight-text-muted/70"}`}>
                         {timeLabel}
                     </span>
                 )}

@@ -6,7 +6,7 @@ import { useTags } from "../../hooks/tags";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
 import { useSettings } from "../../hooks/core/use-settings";
-import { mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
+import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import type { Task } from "../../types/task";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";

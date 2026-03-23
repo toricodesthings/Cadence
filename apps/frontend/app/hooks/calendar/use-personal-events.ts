@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from "react";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
-import type { PersonalEvent } from "../../lib/types/settings";
+import type { PersonalEvent } from "../../types/settings";
 
 const DEFAULT_PERSONAL_EVENTS = {
     enabled: true,

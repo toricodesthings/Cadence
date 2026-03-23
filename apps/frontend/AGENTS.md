@@ -30,7 +30,9 @@ This app is the primary embodiment of the **Twilight Sanctuary** design language
 
 - The visual north star remains **Twilight Sanctuary**.
 - Avoid generic SaaS styling: no sterile white cards, harsh borders, default gray dashboards, or shallow utility-only visuals.
-- Prefer atmosphere, depth, breathing room, soft glass, and warm amber / moonlit accents.
+- Layout must feel spacious and breathable, with intentional use of glass, shadow, and ambient color.
+- DO NOT present too much text in a layout, and text hierachy must be preserved to retain a polished premium feel.
+- Prefer atmosphere, depth, breathing room, soft glass, and warm amber / moonlit accents. No harsh elements.
 - **Never hardcode one-off hex colors in component code** when a semantic token belongs in `app/app.css`.
 
 ### 1.3 Architecture rules
@@ -325,7 +327,7 @@ Do not spread inconsistent token usage further.
 
 - Maintain accessible hit targets.
 - Use actual semantic buttons/links.
-- `cursor-pointer` should be present on interactive custom surfaces.
+- `cursor-pointer` should be present on EVERY SINGLE interactive custom surfaces, no exceptions. Better to also introduce it in the base/primitive component.
 
 ### 8.4 Motion rules
 
@@ -510,7 +512,7 @@ Do not add conflicting shortcuts casually.
 
 ### 12.1 Primitives layer first
 
-Use `app/components/primitives/` as the base layer.
+Use `app/components/primitives/` as the base layer for reusable styled components that wrap Radix primitives.
 
 Examples include:
 
@@ -527,6 +529,8 @@ Examples include:
 - `AlertDialog`
 
 Domain components should compose these rather than re-skinning raw Radix packages repeatedly.
+
+These primitives are not meant to be 100% universal, but they should cover the majority of use cases and be extended thoughtfully when needed. Do not create new styled primitives without checking for existing ones first.
 
 ### 12.2 Composition over boolean explosion
 

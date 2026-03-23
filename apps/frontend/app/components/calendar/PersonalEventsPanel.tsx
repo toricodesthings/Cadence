@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Plus, Trash2, X, Check } from "lucide-react";
 import { Button } from "../primitives/Button";
-import type { PersonalEvent } from "../../lib/types/settings";
+import type { PersonalEvent } from "../../types/settings";
 
 interface PersonalEventsPanelProps {
     items: PersonalEvent[];
     compact?: boolean;
+    hideAddButton?: boolean;
     onAdd: (event: Omit<PersonalEvent, "id">) => void;
     onUpdate: (id: string, patch: Partial<Omit<PersonalEvent, "id">>) => void;
     onRemove: (id: string) => void;
@@ -30,6 +31,7 @@ function formatMonthDay(monthDay: string): string {
 export function PersonalEventsPanel({
     items,
     compact = false,
+    hideAddButton = false,
     onAdd,
     onUpdate,
     onRemove,
@@ -196,6 +198,7 @@ export function PersonalEventsPanel({
                     </div>
                 </div>
             ) : (
+                !hideAddButton &&
                 items.length < 50 && (
                     <Button
                         variant="ghost"

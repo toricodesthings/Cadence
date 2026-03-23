@@ -55,19 +55,20 @@ import {
     getDateFromTimedDropId,
     parseCalendarTimedDropId,
     type CalendarDropPreview,
-} from "../lib/utils/calendar-dnd";
-import { getTaskSeriesId, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task-scheduling";
+} from "../lib/utils/calendar/calendar-dnd";
+import { getTaskSeriesId, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task/task-scheduling";
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import {
     HolidayLocationPrompt,
 } from "../components/calendar/HolidayControls";
+import { Plus, Wrench } from "lucide-react";
 import { PersonalEventsPanel } from "../components/calendar/PersonalEventsPanel";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
-import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar-math";
+import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
 
 const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 32 : -32, opacity: 0 }),
@@ -119,6 +120,7 @@ export default function Schedule() {
     const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
+    const [eventPopoverTab, setEventPopoverTab] = useState<"task" | "event">("task");
     const [draftPlacement, setDraftPlacement] = useState<{ dateStr: string; startMinute: number; endMinute: number } | null>(null);
     const [holidayPromptOpen, setHolidayPromptOpen] = useState(false);
 
@@ -231,7 +233,7 @@ export default function Schedule() {
     // ── Personal events overlay ────────────────────────────────────────────
     const personalEvents = usePersonalEvents(year, month);
 
-    const personalEventsByDateRecord = useMemo<Record<string, import("../lib/types/settings").PersonalEvent[]>>(() => {
+    const personalEventsByDateRecord = useMemo<Record<string, import("../types/settings").PersonalEvent[]>>(() => {
         return Object.fromEntries(personalEvents.eventsByDate.entries());
     }, [personalEvents.eventsByDate]);
 
@@ -639,16 +641,31 @@ export default function Schedule() {
         const startMinute = info.startHour * 60 + info.startMinute;
         const endMinute = startMinute + 30; // default 30-min duration
         setDraftPlacement({ dateStr: info.date, startMinute, endMinute });
+        setEventPopoverTab("task");
         setEventPopoverInfo(info);
     }, []);
 
     const handleAddTaskToolbar = useCallback(() => {
         const now = new Date();
         const hour = now.getHours();
+        setEventPopoverTab("task");
         setEventPopoverInfo({
             date: currentDate,
             startHour: Math.min(23, hour + 1),
             startMinute: 0,
+            anchorX: window.innerWidth / 2,
+            anchorY: 140,
+        });
+    }, [currentDate]);
+
+    const handleAddEventToolbar = useCallback(() => {
+        setDraftPlacement(null);
+        setEventPopoverTab("event");
+        setEventPopoverInfo({
+            date: currentDate,
+            startHour: 9,
+            startMinute: 0,
+            isAllDay: true,
             anchorX: window.innerWidth / 2,
             anchorY: 140,
         });
@@ -696,6 +713,7 @@ export default function Schedule() {
                     break;
                 case "c":
                     e.preventDefault();
+                    setEventPopoverTab("task");
                     setEventPopoverInfo({
                         date: currentDate,
                         startHour: (() => {
@@ -818,20 +836,24 @@ export default function Schedule() {
                 <div className="space-y-2">
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show holidays</span>
-                        <Switch
-                            checked={holidayOverlay.holidaySettings.enabled}
-                            onCheckedChange={(val) => holidayOverlay.setEnabled(val)}
-                        />
+                        <div className="flex items-center gap-2">
+                            {holidayOverlay.holidaySettings.enabled && (
+                                <button
+                                    type="button"
+                                    className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                    onClick={(e) => { e.preventDefault(); navigate("?settings=datetime"); }}
+                                    aria-label="Configure holiday location"
+                                    title="Configure holiday location"
+                                >
+                                    <Wrench size={14} />
+                                </button>
+                            )}
+                            <Switch
+                                checked={holidayOverlay.holidaySettings.enabled}
+                                onCheckedChange={(val) => holidayOverlay.setEnabled(val)}
+                            />
+                        </div>
                     </label>
-                    {holidayOverlay.holidaySettings.enabled && (
-                        <button
-                            type="button"
-                            className="w-full text-left rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-accent hover:bg-white/[0.06] transition-colors"
-                            onClick={() => navigate("?settings=datetime")}
-                        >
-                            Configure holiday location in Settings &rarr;
-                        </button>
-                    )}
                 </div>
             </div>
             <div>
@@ -839,15 +861,33 @@ export default function Schedule() {
                 <div className="space-y-2">
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show personal events</span>
-                        <Switch
-                            checked={personalEvents.enabled}
-                            onCheckedChange={(val) => personalEvents.setEnabled(val)}
-                        />
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                className="rounded-lg p-1 text-personal/80 hover:text-personal hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (!personalEvents.enabled) {
+                                        personalEvents.setEnabled(true);
+                                    }
+                                    handleAddEventToolbar();
+                                }}
+                                aria-label="Add personal event"
+                                title="Add personal event"
+                            >
+                                <Plus size={14} />
+                            </button>
+                            <Switch
+                                checked={personalEvents.enabled}
+                                onCheckedChange={(val) => personalEvents.setEnabled(val)}
+                            />
+                        </div>
                     </label>
                     {personalEvents.enabled && (
                         <PersonalEventsPanel
                             items={personalEvents.items}
                             compact
+                            hideAddButton
                             onAdd={personalEvents.addEvent}
                             onUpdate={personalEvents.updateEvent}
                             onRemove={personalEvents.removeEvent}
@@ -926,6 +966,7 @@ export default function Schedule() {
                         onNavigate={handleNavigate}
                         onToday={handleToday}
                         onAddTask={handleAddTaskToolbar}
+                        onAddEvent={handleAddEventToolbar}
                         overflowContent={overflowContent}
                         onToggleSidebar={shell.isCompact ? () => setMobileNavOpen(true) : undefined}
                         compact={shell.isCompact}
@@ -1079,6 +1120,7 @@ export default function Schedule() {
                     {eventPopoverInfo && (
                         <CalendarEventPopover
                             info={eventPopoverInfo}
+                            initialTab={eventPopoverTab}
                             onClose={() => { setEventPopoverInfo(null); setDraftPlacement(null); }}
                         />
                     )}

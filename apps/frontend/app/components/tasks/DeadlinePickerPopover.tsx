@@ -57,7 +57,7 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
         <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Trigger asChild>{children}</Popover.Trigger>
             <Popover.Content
-                className="w-[320px] overflow-hidden p-0"
+                className="w-[320px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain p-0"
                 side="bottom"
                 align="start"
                 role="dialog"

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3 } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
+import { AgendaHabitDivider, AgendaRow } from "../components/shared/AgendaRow";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
@@ -28,8 +29,8 @@ import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
-import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task-scheduling";
-import { sortTasks } from "../lib/utils/sort-tasks";
+import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
+import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
@@ -50,17 +51,6 @@ interface TodayHabitItem {
     timeLabel: string | null;
     targetDate: string;
     bucket: "overdue" | "today";
-}
-
-function HabitGroupDivider({ label }: { label: string }) {
-    return (
-        <div className="px-3 py-3">
-            <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
-                <Repeat size={11} aria-hidden="true" />
-                <span>{label}</span>
-            </div>
-        </div>
-    );
 }
 
 function TodayHabitCompletionButton({
@@ -119,44 +109,35 @@ function TodayHabitRow({
     const isOverdue = item.bucket === "overdue";
 
     return (
-        <div
-            className={`
-                group flex items-start gap-3 rounded-[26px] px-2 py-3 transition-[background-color] duration-200
-                ${isOverdue ? "bg-moonlit/[0.05] hover:bg-moonlit/[0.07]" : "bg-moonlit/[0.035] hover:bg-moonlit/[0.06]"}
-            `}
+        <AgendaRow
+            leading={<TodayHabitCompletionButton habitId={item.habitId} targetDate={item.targetDate} />}
+            onOpen={onOpenHabits}
+            ariaLabel={`Open habits for ${item.title}`}
+            className={isOverdue ? "bg-moonlit/[0.05] hover:bg-moonlit/[0.07]" : "bg-moonlit/[0.035] hover:bg-moonlit/[0.06]"}
         >
-            <TodayHabitCompletionButton habitId={item.habitId} targetDate={item.targetDate} />
+            <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
+                <Repeat size={11} aria-hidden="true" />
+                <span>{isOverdue ? "Missed routine" : "Routine"}</span>
+            </div>
 
-            <button
-                type="button"
-                onClick={onOpenHabits}
-                className="min-w-0 flex-1 cursor-pointer rounded-2xl px-1 py-0.5 text-left"
-                aria-label={`Open habits for ${item.title}`}
-            >
-                <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
-                    <Repeat size={11} aria-hidden="true" />
-                    <span>{isOverdue ? "Missed routine" : "Routine"}</span>
-                </div>
+            <div className="min-w-0 truncate text-[15px] font-medium leading-snug text-twilight-text sm:text-[15.5px]">
+                {item.title}
+            </div>
 
-                <div className="min-w-0 truncate text-[15px] font-medium leading-snug text-twilight-text sm:text-[15.5px]">
-                    {item.title}
-                </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
+                <span className="inline-flex items-center gap-1.5 font-medium text-moonlit">
+                    <Repeat size={12} aria-hidden="true" />
+                    {isOverdue ? `Missed ${formatShortDate(item.dueDate)}` : "Today"}
+                </span>
 
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
-                    <span className="inline-flex items-center gap-1.5 font-medium text-moonlit">
-                        <Repeat size={12} aria-hidden="true" />
-                        {isOverdue ? `Missed ${formatShortDate(item.dueDate)}` : "Today"}
+                {item.timeLabel ? (
+                    <span className="inline-flex items-center gap-1.5">
+                        <Clock3 size={12} aria-hidden="true" />
+                        {item.timeLabel}
                     </span>
-
-                    {item.timeLabel ? (
-                        <span className="inline-flex items-center gap-1.5">
-                            <Clock3 size={12} aria-hidden="true" />
-                            {item.timeLabel}
-                        </span>
-                    ) : null}
-                </div>
-            </button>
-        </div>
+                ) : null}
+            </div>
+        </AgendaRow>
     );
 }
 
@@ -493,7 +474,7 @@ export default function TodayRoute() {
                 {hasTasks ? <TaskList tasks={grouped.urgent} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} rationaleByTaskId={grouped.rationaleByTaskId} {...(cardVariant ? { cardVariant } : {})} /> : null}
                 {hasHabits ? (
                     <>
-                        {hasTasks ? <HabitGroupDivider label="Missed routines" /> : null}
+                        {hasTasks ? <AgendaHabitDivider label="Missed routines" /> : null}
                         <div className="flex flex-col divide-y divide-white/[0.05]">
                             {visibleOverdueHabits.map((item) => (
                                 <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />
@@ -548,7 +529,7 @@ export default function TodayRoute() {
                 ) : null}
                 {hasHabits ? (
                     <>
-                        {hasAnchorTasks ? <HabitGroupDivider label="Today's routines" /> : null}
+                        {hasAnchorTasks ? <AgendaHabitDivider label="Today's routines" /> : null}
                         <div className="flex flex-col divide-y divide-white/[0.05]">
                             {grouped.rhythmHabits.map((item) => (
                                 <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />

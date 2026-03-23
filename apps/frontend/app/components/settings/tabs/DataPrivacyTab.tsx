@@ -4,7 +4,7 @@ import { Button } from "../../primitives/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
-import { SETTINGS_DEFAULTS } from "../../../lib/types/settings";
+import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { toast } from "sonner";
 import { checkForAppUpdate, IS_DESKTOP_RUNTIME, type AvailableAppUpdate } from "../../../platform/runtime";
 

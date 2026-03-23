@@ -1275,6 +1275,7 @@ a:active {
 .cadence-toast__close,
 .cadence-toast__secondaryAction,
 .cadence-toast__tertiaryAction {
+  cursor: pointer;
   transition-property: color, background-color, border-color, box-shadow, opacity, transform;
   transition-duration: var(--duration-normal);
   transition-timing-function: var(--ease-out-expo);
@@ -1468,10 +1469,38 @@ a:active {
   animation: sync-spin var(--duration-sync-spin) linear infinite;
 }
 
+/* ── Schedule now-line sheen — premium left-to-right sweep ── */
+@keyframes cadence-now-line-sheen {
+  0% {
+    transform: translateX(-140%);
+    opacity: 0.18;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translateX(calc(100vw + 3rem));
+    opacity: 0.18;
+  }
+}
+
+.cadence-now-line-sheen {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 247, 214, 0.08) 18%, rgba(255, 232, 168, 0.95) 50%, rgba(255, 247, 214, 0.08) 82%, transparent 100%);
+  filter: blur(5px);
+  animation: cadence-now-line-sheen 4.6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sync-spin {
     animation: none !important;
     opacity: 0.7;
+  }
+
+  .cadence-now-line-sheen {
+    animation: none !important;
+    opacity: 0.45;
   }
 }
 

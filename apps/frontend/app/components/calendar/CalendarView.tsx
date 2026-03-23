@@ -4,7 +4,7 @@ import { CalendarHeader } from "./CalendarHeader";
 import { CalendarGrid } from "./CalendarGrid";
 import { useTasks } from "../../hooks/tasks";
 import { toISODate, getMonthDateRange, parseLocalDate, addDays, isSameDay, getDateFormatConfig } from "../../lib/utils/date-format";
-import { toTaskDateOnly } from "../../lib/utils/task-scheduling";
+import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
 
 
 

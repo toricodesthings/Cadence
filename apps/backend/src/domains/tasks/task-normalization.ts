@@ -99,8 +99,10 @@ export function normalizeTaskTemporalFields(fields: TaskTemporalFields) {
             assertChronological(normalizedScheduledStart, normalizedScheduledEnd, "scheduledEnd must not be earlier than scheduledStart");
         }
 
+        // Preserve dueDate when the client sends both — a "timed deadline" is valid
+        // (the read model already handles this as "legacy_mixed_timed_deadline")
         return {
-            dueDate: null,
+            dueDate: normalizedDueDate,
             scheduledStart: normalizedScheduledStart,
             scheduledEnd: normalizedScheduledEnd,
             isAllDay: false,

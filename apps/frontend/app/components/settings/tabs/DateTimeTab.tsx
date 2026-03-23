@@ -290,7 +290,7 @@ export function DateTimeTab() {
             <SettingsSection title="Holiday overlay">
                 <SettingsRow
                     title="Location-aware holidays"
-                    description="Show public holidays across the calendar. Choose whether Cadence detects them automatically or follows a manual country and region."
+                    description="Overlay public holidays on the calendar."
                     className="items-stretch"
                 >
                     <div className="w-full sm:min-w-[22rem]">
@@ -316,23 +316,6 @@ export function DateTimeTab() {
                             onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
                             onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
                         />
-                    </div>
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Detected location"
-                    description="Cadence keeps location in session memory so weather and holidays can share a single browser permission."
-                >
-                    <div className="rounded-[1.25rem] border border-white/[0.05] bg-white/[0.03] px-4 py-3 text-sm text-twilight-text-soft">
-                        <p className="font-medium text-twilight-text">
-                            {holidayOverlay.effectiveCountryLabel ?? "Waiting for location"}
-                            {holidayOverlay.effectiveSubdivisionLabel ? ` · ${holidayOverlay.effectiveSubdivisionLabel}` : ""}
-                        </p>
-                        <p className="mt-1 text-xs text-twilight-text-muted">
-                            {holidayOverlay.refreshedAt
-                                ? `Last refreshed ${new Date(holidayOverlay.refreshedAt).toLocaleString()}`
-                                : "Location will appear here after Cadence resolves your region."}
-                        </p>
                     </div>
                 </SettingsRow>
             </SettingsSection>

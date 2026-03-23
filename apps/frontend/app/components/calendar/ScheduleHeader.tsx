@@ -41,6 +41,8 @@ export interface ScheduleHeaderProps {
     onToday: () => void;
     /** Opens the event popover for creating a task */
     onAddTask?: () => void;
+    /** Opens the schedule dialog on the personal event tab */
+    onAddEvent?: () => void;
     /** Overflow content (holiday + clutter controls) */
     overflowContent?: ReactNode;
     /** Sidebar toggle handler for phone layout */
@@ -89,6 +91,7 @@ export function ScheduleHeader({
     onNavigate,
     onToday,
     onAddTask,
+    onAddEvent,
     overflowContent,
     onToggleSidebar,
     compact = false,
@@ -161,8 +164,14 @@ export function ScheduleHeader({
                         <button
                             type="button"
                             onClick={onAddTask}
+                            onContextMenu={(event) => {
+                                if (!onAddEvent) return;
+                                event.preventDefault();
+                                onAddEvent();
+                            }}
                             className="btn-icon min-h-8 min-w-8 rounded-full text-lantern hover:bg-lantern/15"
                             aria-label="Add task"
+                            title={onAddEvent ? "Right-click to add an event" : undefined}
                         >
                             <Plus size={16} />
                         </button>
@@ -297,7 +306,13 @@ export function ScheduleHeader({
                     <button
                         type="button"
                         onClick={onAddTask}
+                        onContextMenu={(event) => {
+                            if (!onAddEvent) return;
+                            event.preventDefault();
+                            onAddEvent();
+                        }}
                         className="inline-flex items-center gap-1.5 rounded-xl border border-lantern/20 bg-lantern/15 px-4 py-1.5 text-sm font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors cursor-pointer"
+                        title={onAddEvent ? "Right-click to add an event" : undefined}
                     >
                         <Plus size={14} />
                         <span className="hidden lg:inline">Add Task</span>

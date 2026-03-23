@@ -3,7 +3,7 @@ import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
-import { SETTINGS_DEFAULTS } from "../../../lib/types/settings";
+import { SETTINGS_DEFAULTS } from "../../../types/settings";
 
 const BINDING_LABELS: Record<string, { label: string; description: string }> = {
     commandPalette: { label: "Command palette", description: "Open the global command palette" },

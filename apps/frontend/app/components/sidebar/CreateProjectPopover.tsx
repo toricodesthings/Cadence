@@ -38,11 +38,11 @@ export function CreateProjectPopover() {
             >
                 <Plus size={16} />
             </Button>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-md p-6 sm:p-7 gap-5">
+                <DialogHeader className="space-y-0">
                     <DialogTitle>New Project</DialogTitle>
                 </DialogHeader>
-                <div className="flex gap-3 mb-4">
+                <div className="flex items-center gap-4">
                     <EmojiPickerPopover emoji={emoji} onSelect={setEmoji} />
                     <input
                         type="text"
@@ -51,11 +51,11 @@ export function CreateProjectPopover() {
                         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                         placeholder="Project name…"
                         autoFocus
-                        className="flex-1 bg-white/[0.04] border border-twilight-border rounded-xl px-4 py-2.5 text-[15px] text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-lantern/30 transition-colors"
+                        className="flex-1 rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-2.5 text-[14px] text-twilight-text outline-none transition-colors placeholder:text-twilight-text-muted/80 focus:border-lantern/30"
                     />
                 </div>
                 {/* Color picker */}
-                <div className="flex gap-2.5 mb-5 items-center flex-wrap">
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
                     {ACCENT_OPTIONS.map((opt) => (
                         <button
                             key={opt.value}
@@ -65,14 +65,14 @@ export function CreateProjectPopover() {
                             }}
                             title={opt.label}
                             aria-label={`Select ${opt.label} color`}
-                            className={`w-6 h-6 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorAccent === opt.value && !isCustomColor
+                            className={`h-5 w-5 cursor-pointer rounded-full transition-[transform,opacity] duration-150 ${colorAccent === opt.value && !isCustomColor
                                 ? "ring-2 ring-offset-2 ring-offset-twilight-deep scale-110"
                                 : "opacity-60 hover:opacity-100"
                                 }`}
                             style={{ backgroundColor: opt.varName }}
                         />
                     ))}
-                    <div className="relative flex items-center justify-center w-6 h-6 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer" title="Custom Hex Color">
+                    <div className="relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full ring-1 ring-twilight-border" title="Custom Hex Color">
                         <input
                             type="color"
                             value={colorAccent.startsWith("#") ? colorAccent : PROJECT_FALLBACK_COLOR}
@@ -92,7 +92,7 @@ export function CreateProjectPopover() {
                     size="md"
                     onClick={handleSubmit}
                     disabled={!name.trim()}
-                    className="w-full bg-lantern/20 hover:bg-lantern/30 text-lantern disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="mt-1 w-full bg-lantern/20 text-lantern hover:bg-lantern/30 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                     Create Project
                 </Button>

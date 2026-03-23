@@ -3,7 +3,7 @@ import { Inbox, ChevronDown, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { InboxList } from "../inbox/InboxList";
 import { TaskCard } from "../tasks/TaskCard";
-import { isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
+import { isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import type { InboxItem } from "../../types/inbox";
 import type { Task } from "../../types/task";
 

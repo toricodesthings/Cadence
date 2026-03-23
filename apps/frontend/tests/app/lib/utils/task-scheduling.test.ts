@@ -6,7 +6,7 @@ import {
     getTaskScheduleSummary,
     getTaskTimelineAnchor,
     isRecurringTaskInstance,
-} from "../../../../app/lib/utils/task-scheduling";
+} from "../../../../app/lib/utils/task/task-scheduling";
 import { formatTime } from "../../../../app/lib/utils/date-format";
 import type { Task } from "../../../../app/types/task";
 

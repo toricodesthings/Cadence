@@ -1,5 +1,5 @@
 import { addDays, nextMonday, format } from "date-fns";
-import type { TaskPriority } from "../../types/task";
+import type { TaskPriority } from "../../../types/task";
 
 const PRIORITY_MAP: Record<string, TaskPriority> = {
     none: 0,

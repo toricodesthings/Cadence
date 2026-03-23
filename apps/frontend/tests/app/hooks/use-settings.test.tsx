@@ -6,7 +6,7 @@ import {
     useSettings,
     useUpdateSettings,
 } from "../../../app/hooks/core/use-settings";
-import { SETTINGS_DEFAULTS } from "../../../app/lib/types/settings";
+import { SETTINGS_DEFAULTS } from "../../../app/types/settings";
 
 const settingsGetMock = vi.fn();
 const settingsPatchMock = vi.fn();

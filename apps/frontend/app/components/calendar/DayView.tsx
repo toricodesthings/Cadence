@@ -1,16 +1,17 @@
 import { useRef, useEffect, useMemo } from "react";
 import { Flag } from "lucide-react";
 import { TimeGutter } from "./TimeGutter";
+import { CurrentTimeIndicator } from "./CurrentTimeIndicator";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
 import * as Popover from "../primitives/Popover";
-import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar-utils";
+import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
-import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar-dnd";
+import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
-import type { PersonalEvent } from "../../lib/types/settings";
+import type { PersonalEvent } from "../../types/settings";
 
 interface DroppableTimeGridProps {
     dateStr: string;
@@ -19,7 +20,6 @@ interface DroppableTimeGridProps {
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
     onResizeTask?: (id: string, durationMinutes: number) => void;
-    nowTop: number;
     isToday: boolean;
     activeDropPreview?: CalendarDropPreview | null;
     draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
@@ -33,7 +33,6 @@ function DroppableTimeGrid({
     onCompleteTask,
     onArchiveTask,
     onResizeTask,
-    nowTop,
     isToday,
     activeDropPreview,
     draftPlacement,
@@ -134,17 +133,7 @@ function DroppableTimeGrid({
             )}
 
             {/* Current time bar */}
-            {isToday && (
-                <div
-                    className="absolute left-0 right-0 z-20 pointer-events-none"
-                    style={{ top: nowTop }}
-                >
-                    <div className="flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-lantern shadow-[0_0_8px_var(--color-lantern)] shrink-0" />
-                        <div className="flex-1 h-[1.5px] bg-lantern/70 shadow-[0_0_4px_var(--color-lantern)]" />
-                    </div>
-                </div>
-            )}
+            {isToday && <CurrentTimeIndicator />}
 
         </div>
     );
@@ -196,9 +185,6 @@ export function DayView({
             scrollRef.current.scrollTop = 7 * HOUR_HEIGHT;
         }
     }, [currentDate]);
-
-    const nowMinutes = today.getHours() * 60 + today.getMinutes();
-    const nowTop = (nowMinutes / 60) * HOUR_HEIGHT;
 
     const { allDay, timed } = useMemo(() => {
         return {
@@ -296,7 +282,6 @@ export function DayView({
                         onCompleteTask={onCompleteTask}
                         onArchiveTask={onArchiveTask}
                         onResizeTask={onResizeTask}
-                        nowTop={nowTop}
                         isToday={isToday}
                         onGridClick={onGridClick}
                     />

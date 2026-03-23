@@ -4,7 +4,7 @@ import { CalendarTaskChip } from "./CalendarTaskChip";
 import { useSwipeNavigation } from "../../hooks/use-swipe-navigation";
 import type { Task } from "../../types/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
-import type { PersonalEvent } from "../../lib/types/settings";
+import type { PersonalEvent } from "../../types/settings";
 import { formatTime } from "../../lib/utils/date-format";
 
 interface TimeSlot {

@@ -6,7 +6,7 @@ import type { Task, TaskState, Subtask } from "../../types/task";
 import { CalendarClock, Pause } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
-import { supportsManualTaskCompletion } from "../../lib/utils/task-scheduling";
+import { supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
 
 interface TaskCheckboxProps {
     task?: Task;

@@ -21,7 +21,7 @@ export function EmojiPickerPopover({ emoji, onSelect, children }: EmojiPickerPop
                     <button
                         type="button"
                         aria-label="Pick an emoji"
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.04] border border-transparent hover:border-twilight-border-interactive focus:border-twilight-border-interactive transition-colors text-twilight-text"
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-transparent hover:border-twilight-border-interactive focus:border-twilight-border-interactive transition-colors text-twilight-text text-lg"
                     >
                         {emoji || <Smile size={16} className="text-twilight-text-muted" />}
                     </button>

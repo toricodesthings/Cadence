@@ -12,7 +12,7 @@ import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { CadencePicker } from "../habits/CadencePicker";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import { useSettings } from "../../hooks/core/use-settings";
-import { resolveDefaultDueDate, mapPriorityNameToNumber } from "../../lib/utils/task-defaults";
+import { resolveDefaultDueDate, mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { toast } from "sonner";
 import { CheckSquare, MessageSquare, Flame } from "lucide-react";

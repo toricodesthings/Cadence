@@ -30,19 +30,19 @@
 		"date-fns": "^4.1.0",
 		"drizzle-orm": "^0.45.1",
 		"hono": "^4.12.8",
-		"jose": "^6.2.1",
+		"jose": "^6.2.2",
 		"postgres": "^3.4.8",
 		"rrule": "^2.8.1",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260316.1",
-		"@dotenvx/dotenvx": "^1.55.1",
+		"@cloudflare/workers-types": "^4.20260317.1",
+		"@dotenvx/dotenvx": "^1.57.1",
 		"@types/node": "^25.5.0",
 		"dotenv": "^17.3.1",
-		"drizzle-kit": "^0.31.9",
+		"drizzle-kit": "^0.31.10",
 		"typescript": "^5.9.3",
 		"vitest": "^4.1.0",
-		"wrangler": "^4.74.0"
+		"wrangler": "^4.76.0"
 	}
 }

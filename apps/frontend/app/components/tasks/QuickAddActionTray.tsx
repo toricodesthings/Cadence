@@ -5,7 +5,7 @@ import { useProjects } from "../../hooks/projects";
 import { useTags } from "../../hooks/tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
 import type { TaskPriority } from "../../types/task";
-import type { UserSettings } from "../../lib/types/settings";
+import type { UserSettings } from "../../types/settings";
 
 type QuickAddAction = "date" | "priority" | "project" | "tag";
 

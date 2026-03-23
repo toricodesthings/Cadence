@@ -1,5 +1,5 @@
 import { formatDateLabel } from "../../lib/utils/date-format";
-import { getTimeBasedGreeting } from "../../lib/utils/greetings";
+import { getTimeBasedGreeting } from "../../lib/constants/greetings";
 import { authClient } from "../../lib/auth-client";
 import { useWeather } from "../../hooks/environment/use-weather";
 import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";

@@ -7,11 +7,11 @@ export const paginationSchema = z.object({
 export type Pagination = z.infer<typeof paginationSchema>;
 
 export const uuidParamSchema = z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
 });
 
 export const taskIdParamSchema = z.object({
-    taskId: z.string().uuid(),
+    taskId: z.uuid(),
 });
 
 export interface ApiResponse<T> {

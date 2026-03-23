@@ -20,7 +20,7 @@ import { SortMenu } from "../components/shared/SortMenu";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
-import { sortTasks } from "../lib/utils/sort-tasks";
+import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";

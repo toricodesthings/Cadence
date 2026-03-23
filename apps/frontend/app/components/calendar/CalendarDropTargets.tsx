@@ -7,8 +7,8 @@ import {
     buildCalendarAllDayDropId,
     buildCalendarTimedDropId,
     getDropMinutesLabel,
-} from "../../lib/utils/calendar-dnd";
-import { DAY_GRID_HEIGHT, HOUR_HEIGHT } from "../../lib/utils/calendar-utils";
+} from "../../lib/utils/calendar/calendar-dnd";
+import { DAY_GRID_HEIGHT, HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 
 function TimeSlotDropZone({
     dropId,

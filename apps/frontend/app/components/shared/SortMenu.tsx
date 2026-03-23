@@ -1,6 +1,6 @@
 import { EllipsisVertical, ArrowUpDown, Sparkles, ArrowDownWideNarrow, GripVertical, Check } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
-import type { SortMode } from "../../lib/utils/sort-tasks";
+import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
 import { ViewToggle } from "./ViewToggle";
 

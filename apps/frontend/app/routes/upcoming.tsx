@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../components/layout/MainLayout";
+import { AgendaHabitDivider, AgendaRow } from "../components/shared/AgendaRow";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
@@ -42,9 +43,9 @@ import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
-import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task-scheduling";
+import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
 import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
-import type { SortMode } from "../lib/utils/sort-tasks";
+import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
@@ -230,68 +231,59 @@ function UpcomingTaskRow({
     const habitPrimaryMeta = bucketKey === "overdue" ? `Missed ${formatShortDate(item.dueDate)}` : "Today ritual";
 
     return (
-        <div
-            className={`
-                group flex items-start gap-3 rounded-[26px] px-2 py-3 transition-[background-color,border-color,box-shadow] duration-200
-                ${isHabit
-                    ? `${isSelected ? "bg-moonlit/[0.07]" : "bg-moonlit/[0.035] hover:bg-moonlit/[0.06]"}`
-                    : isSelected ? "bg-white/[0.04]" : "hover:bg-white/[0.028]"}
-            `}
+        <AgendaRow
+            leading={<UpcomingCompletionButton item={item} onCompleteHabit={onCompleteHabit} />}
+            onOpen={handleOpen}
+            ariaLabel={item.kind === "habit" ? `Open routines for ${item.title}` : `Open ${item.title}`}
+            className={isHabit
+                ? `${isSelected ? "bg-moonlit/[0.07]" : "bg-moonlit/[0.035] hover:bg-moonlit/[0.06]"}`
+                : isSelected ? "bg-white/[0.04]" : "hover:bg-white/[0.028]"}
         >
-            <UpcomingCompletionButton item={item} onCompleteHabit={onCompleteHabit} />
+            {isHabit ? (
+                <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
+                    <Repeat size={11} aria-hidden="true" />
+                    <span>{habitEyebrow}</span>
+                </div>
+            ) : null}
 
-            <button
-                type="button"
-                onClick={handleOpen}
-                className="min-w-0 flex-1 rounded-2xl px-1 py-0.5 text-left"
-                aria-label={item.kind === "habit" ? `Open routines for ${item.title}` : `Open ${item.title}`}
-            >
-                {isHabit ? (
-                    <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
-                        <Repeat size={11} aria-hidden="true" />
-                        <span>{habitEyebrow}</span>
-                    </div>
+            <div className="flex items-start gap-2">
+                <span className="min-w-0 truncate text-[15px] font-medium leading-snug text-twilight-text sm:text-[15.5px]">
+                    {item.title}
+                </span>
+            </div>
+
+            {item.rationaleLabel ? (
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-lantern/20 bg-lantern/10 px-2.5 py-1 text-[10px] font-medium text-lantern">
+                    <Sparkles size={10} aria-hidden="true" />
+                    <span className="truncate">{item.rationaleLabel}</span>
+                </span>
+            ) : null}
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
+                <span className={`inline-flex items-center gap-1.5 font-medium ${isHabit ? "text-moonlit" : "text-lantern"}`}>
+                    {isHabit ? <Repeat size={12} aria-hidden="true" /> : <CalendarRange size={12} aria-hidden="true" />}
+                    {isHabit ? habitPrimaryMeta : `${item.dateLabel} ${formatShortDate(item.dueDate)}`}
+                </span>
+
+                {item.timeLabel ? (
+                    <span className="inline-flex items-center gap-1.5">
+                        <Clock3 size={12} aria-hidden="true" />
+                        {item.timeLabel}
+                    </span>
                 ) : null}
 
-                <div className="flex items-start gap-2">
-                    <span className="min-w-0 truncate text-[15px] font-medium leading-snug text-twilight-text sm:text-[15.5px]">
-                        {item.title}
-                    </span>
-                </div>
-
-                {item.rationaleLabel ? (
-                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-lantern/20 bg-lantern/10 px-2.5 py-1 text-[10px] font-medium text-lantern">
-                        <Sparkles size={10} aria-hidden="true" />
-                        <span className="truncate">{item.rationaleLabel}</span>
+                {item.projectName ? (
+                    <span
+                        className="inline-flex items-center gap-1.5"
+                        style={{ color: item.projectColor ?? "var(--color-twilight-text-soft)" }}
+                    >
+                        <Circle size={7} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+                        {item.projectEmoji ? <span aria-hidden="true">{item.projectEmoji}</span> : null}
+                        <span>{item.projectName}</span>
                     </span>
                 ) : null}
-
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
-                    <span className={`inline-flex items-center gap-1.5 font-medium ${isHabit ? "text-moonlit" : "text-lantern"}`}>
-                        {isHabit ? <Repeat size={12} aria-hidden="true" /> : <CalendarRange size={12} aria-hidden="true" />}
-                        {isHabit ? habitPrimaryMeta : `${item.dateLabel} ${formatShortDate(item.dueDate)}`}
-                    </span>
-
-                    {item.timeLabel ? (
-                        <span className="inline-flex items-center gap-1.5">
-                            <Clock3 size={12} aria-hidden="true" />
-                            {item.timeLabel}
-                        </span>
-                    ) : null}
-
-                    {item.projectName ? (
-                        <span
-                            className="inline-flex items-center gap-1.5"
-                            style={{ color: item.projectColor ?? "var(--color-twilight-text-soft)" }}
-                        >
-                            <Circle size={7} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-                            {item.projectEmoji ? <span aria-hidden="true">{item.projectEmoji}</span> : null}
-                            <span>{item.projectName}</span>
-                        </span>
-                    ) : null}
-                </div>
-            </button>
-        </div>
+            </div>
+        </AgendaRow>
     );
 }
 
@@ -299,17 +291,6 @@ function UpcomingEmptyState({ title }: { title: string }) {
     return (
         <div className="px-14 py-3 text-[13px] italic text-twilight-text-muted/65">
             Nothing in {title.toLowerCase()}.
-        </div>
-    );
-}
-
-function HabitGroupDivider({ label }: { label: string }) {
-    return (
-        <div className="px-3 py-3">
-            <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
-                <Repeat size={11} aria-hidden="true" />
-                <span>{label}</span>
-            </div>
         </div>
     );
 }
@@ -342,7 +323,7 @@ export default function Upcoming() {
     const personalEvents = usePersonalEvents(today.getFullYear());
     const upcomingEvents = useMemo(() => {
         if (!personalEvents.enabled) return [];
-        const events: Array<{ event: import("../lib/types/settings").PersonalEvent; dateStr: string }> = [];
+        const events: Array<{ event: import("../types/settings").PersonalEvent; dateStr: string }> = [];
         for (let i = 0; i <= 7; i++) {
             const d = addDays(today, i);
             const ds = toISODate(d);
@@ -569,7 +550,7 @@ export default function Upcoming() {
 
                 {shouldSeparateHabits ? (
                     <>
-                        <HabitGroupDivider label={bucketKey === "overdue" ? "Missed routines" : "Rituals today"} />
+                        <AgendaHabitDivider label={bucketKey === "overdue" ? "Missed routines" : "Rituals today"} />
                         {habitItems.map((item) => (
                             <UpcomingTaskRow
                                 key={item.id}

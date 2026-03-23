@@ -6,7 +6,7 @@ import { useInbox } from "../inbox";
 import { useProjects } from "../projects";
 import { useSections } from "../sections";
 import { useFocusViewStore } from "../../stores/focus-view-store";
-import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
+import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import type { FocusKind } from "./use-route-focus";
 
 /** Type-safe null filter */

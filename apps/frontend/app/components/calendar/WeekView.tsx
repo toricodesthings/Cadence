@@ -1,16 +1,17 @@
 import { useRef, useEffect, useMemo } from "react";
 import { TimeGutter } from "./TimeGutter";
+import { CurrentTimeIndicator } from "./CurrentTimeIndicator";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
 import * as Popover from "../primitives/Popover";
 import * as Tooltip from "../primitives/Tooltip";
-import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar-utils";
+import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
-import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar-dnd";
+import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
-import type { PersonalEvent } from "../../lib/types/settings";
+import type { PersonalEvent } from "../../types/settings";
 
 interface DroppableDayColumnProps {
     dateStr: string; // "YYYY-MM-DD"
@@ -66,6 +67,7 @@ function DroppableDayColumn({
             className={`
                 relative flex-1 min-w-0 border-l border-white/[0.07]
                 transition-colors duration-150 cursor-crosshair
+                ${isToday ? "bg-[linear-gradient(180deg,rgba(232,164,74,0.055),rgba(232,164,74,0.018)_32%,rgba(126,184,212,0.025)_72%,rgba(10,15,28,0.02))] shadow-[inset_1px_0_0_rgba(232,164,74,0.10),inset_-1px_0_0_rgba(232,164,74,0.06)]" : ""}
                 ${activeDropPreview?.dateStr === dateStr ? "bg-white/[0.015]" : ""}
             `}
             style={{ height: DAY_GRID_HEIGHT }}
@@ -187,10 +189,6 @@ export function WeekView({
         }
     }, []);
 
-    // Current time position
-    const nowMinutes = today.getHours() * 60 + today.getMinutes();
-    const nowTop = (nowMinutes / 60) * HOUR_HEIGHT;
-
     // Split tasks into all-day and timed
     const allDayByDate = useMemo(() => {
         const map: Record<string, Task[]> = {};
@@ -228,7 +226,10 @@ export function WeekView({
                     const dayLabel = weekdayFormatter.format(d);
 
                     return (
-                        <div key={ds} className="flex-1 min-w-0 border-l border-twilight-border/20">
+                        <div
+                            key={ds}
+                            className={`flex-1 min-w-0 border-l border-twilight-border/20 ${isToday ? "bg-[linear-gradient(180deg,rgba(232,164,74,0.05),rgba(232,164,74,0.018)_58%,transparent)] shadow-[inset_1px_0_0_rgba(232,164,74,0.10),inset_-1px_0_0_rgba(232,164,74,0.05)]" : ""}`}
+                        >
                             {/* Day header */}
                             <div className={`px-2 py-3 text-center ${isToday ? "text-lantern" : "text-twilight-text-muted"}`}>
                                 <div className="text-[11px] uppercase tracking-widest font-medium text-twilight-text-muted">
@@ -296,7 +297,7 @@ export function WeekView({
                             {/* All-day chips */}
                             <AllDayDropLane
                                 dateStr={ds}
-                                className="px-1 pb-1.5"
+                                className={`px-1 pb-1.5 ${isToday ? "rounded-b-[1rem] bg-white/[0.015]" : ""}`}
                                 isActive={activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === ds}
                             >
                                 <div className="flex flex-col gap-[2px]">
@@ -370,18 +371,7 @@ export function WeekView({
                                     onResizeTask={onResizeTask}
                                     onGridClick={onGridClick}
                                 />
-                                {/* Current time bar */}
-                                {ds === todayStr && (
-                                    <div
-                                        className="absolute left-0 right-0 z-20 pointer-events-none"
-                                        style={{ top: nowTop }}
-                                    >
-                                        <div className="flex items-center gap-0">
-                                            <div className="w-2 h-2 rounded-full bg-lantern shadow-[0_0_6px_var(--color-lantern)] shrink-0" />
-                                            <div className="flex-1 h-[1.5px] bg-lantern/70 shadow-[0_0_4px_var(--color-lantern)]" />
-                                        </div>
-                                    </div>
-                                )}
+                                {ds === todayStr && <CurrentTimeIndicator />}
                             </div>
                         );
                     })}

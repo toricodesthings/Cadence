@@ -1,4 +1,4 @@
-import type { Task } from "../../types/task";
+import type { Task } from "../../../types/task";
 
 /** Height in px for each 1-hour block in the time grid */
 export const HOUR_HEIGHT = 72;

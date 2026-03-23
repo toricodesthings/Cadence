@@ -4,7 +4,7 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { Task, TaskState } from "../../types/task";
 import { useAuthState } from "../auth/use-auth-state";
-import { buildTasksQuery } from "../../lib/utils/task-scheduling";
+import { buildTasksQuery } from "../../lib/utils/task/task-scheduling";
 
 interface UseTasksOptions {
     state?: TaskState;

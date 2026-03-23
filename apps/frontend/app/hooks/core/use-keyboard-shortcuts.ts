@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useSettings } from "./use-settings";
-import { SETTINGS_DEFAULTS } from "../../lib/types/settings";
+import { SETTINGS_DEFAULTS } from "../../types/settings";
 
 interface ShortcutOptions {
     onCommandPalette?: () => void;

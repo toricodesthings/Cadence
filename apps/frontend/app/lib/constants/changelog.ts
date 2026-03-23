@@ -8,10 +8,15 @@ export interface ChangelogEntry {
 }
 
 /**
- * Update this list on every public release.
  * Keep the newest entry first.
  */
 export const CADENCE_CHANGELOG: ChangelogEntry[] = [
+    {
+        version: "v0.6 Beta",
+        title: "Events and minor tweaks",
+        description: "Personal events support in the calendar, and various minor improvements and bug fixes across the app.",
+        glyph: "fix",
+    },
     {
         version: "v0.5 Beta",
         title: "The NLP Parser is here!",

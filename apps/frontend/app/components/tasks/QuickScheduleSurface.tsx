@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Sun,
     Sunset,
@@ -64,8 +64,34 @@ export function QuickScheduleSurface({
     const [mode, setMode] = useState<PickerMode>("deadline");
     const [rangeClickStep, setRangeClickStep] = useState<"start" | "end">("start");
 
+    // Debounce refs — always access the latest flush logic via a ref
+    // so setTimeout never runs a stale closure.
+    const timeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingTimeRef = useRef<string | null>(null);
+    const isDebouncingRef = useRef(false);
+    const flushTimeChangeRef = useRef<() => void>(() => {});
+
+    // Keep the ref up-to-date on every render so it captures the latest state
+    flushTimeChangeRef.current = () => {
+        if (pendingTimeRef.current) {
+            const iso = pendingTimeRef.current;
+            pendingTimeRef.current = null;
+            isDebouncingRef.current = false;
+            onChange({
+                dueDate: selectedDate,
+                scheduledStart: iso,
+                scheduledEnd: rangeEndDate,
+                recurrenceRule,
+                isAllDay: false,
+            });
+        }
+    };
+
     useEffect(() => {
         if (!isOpen) return;
+        // Skip prop sync while the user is actively changing the time — the
+        // optimistic update from a previous mutation should not reset state.
+        if (isDebouncingRef.current) return;
 
         const nextInitialDate = scheduledStart ? parseLocalDate(scheduledStart) : (dueDate ? parseLocalDate(dueDate) : new Date());
         setViewDate(nextInitialDate);
@@ -175,17 +201,20 @@ export function QuickScheduleSurface({
         return "";
     };
 
+    // Cleanup on unmount — clear pending timeout
+    useEffect(() => () => {
+        if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
+    }, []);
+
     const handleTimeChange = (timeIso: string) => {
         const t = new Date(timeIso);
         const d = new Date(selectedDate);
         d.setHours(t.getHours(), t.getMinutes(), 0, 0);
-        onChange({
-            dueDate: selectedDate,
-            scheduledStart: d.toISOString(),
-            scheduledEnd: rangeEndDate,
-            recurrenceRule,
-            isAllDay: false,
-        });
+        pendingTimeRef.current = d.toISOString();
+        isDebouncingRef.current = true;
+
+        if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
+        timeDebounceRef.current = setTimeout(() => flushTimeChangeRef.current(), 400);
     };
 
     const clearDeadline = () => {

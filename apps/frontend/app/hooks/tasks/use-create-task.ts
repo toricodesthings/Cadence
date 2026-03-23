@@ -12,7 +12,7 @@ import type { Task, CreateTaskInput } from "../../types/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { isRecurringTask } from "../../lib/utils/task-scheduling";
+import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { ApiErrorResponse } from "../../types/api";
 

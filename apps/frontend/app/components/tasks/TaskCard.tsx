@@ -24,9 +24,9 @@ import { RenameTaskDialog } from "./RenameTaskDialog";
 import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { PRIORITY_CONFIG } from "../../lib/utils/priority";
+import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import { formatShortDate } from "../../lib/utils/date-format";
-import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/task-scheduling";
+import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import type { Tag } from "../../types/tag";
 import type { Task, Subtask } from "../../types/task";
 

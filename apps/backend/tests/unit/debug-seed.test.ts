@@ -10,7 +10,7 @@ import {
     seedDate,
     seedDateTime,
 } from "../../src/domains/debug/debug-seed";
-import { getTaskEffectiveAnchor, getTaskScheduleKind } from "../../../frontend/app/lib/utils/task-scheduling";
+import { getTaskEffectiveAnchor, getTaskScheduleKind } from "../../../frontend/app/lib/utils/task/task-scheduling";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const ANCHOR = new Date(Date.UTC(2026, 2, 9, 12, 0, 0, 0));

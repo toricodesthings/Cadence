@@ -1,6 +1,6 @@
 import React from "react";
 import { Minus, ArrowDown, ArrowRight, ArrowUp, AlertCircle } from "lucide-react";
-import { PRIORITY_CONFIG } from "../../lib/utils/priority";
+import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import type { TaskPriority } from "../../types/task";
 import * as Tooltip from "../primitives/Tooltip";
 

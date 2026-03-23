@@ -7,7 +7,7 @@ import type { Tag } from "../../types/tag";
 import type { InboxItem } from "../../types/inbox";
 import type { HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
 import { transformListCache } from "./cache-guards";
-import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task-scheduling";
+import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";
 
 function matchesTaskList(task: Task, filters: Record<string, unknown>) {
     if (filters.state && task.state !== filters.state) return false;
