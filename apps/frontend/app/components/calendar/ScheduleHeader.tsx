@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Plus, MoreHorizontal, PanelLeftOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MoreHorizontal, PanelLeftOpen, CalendarHeart } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
     SunDim, Sun, Waves, Flame,
@@ -120,7 +120,6 @@ export function ScheduleHeader({
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                         <CurrentIcon size={14} className="text-lantern/70 shrink-0" />
                         <div className="min-w-0">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Schedule</p>
                             <h2 className="font-display text-sm font-semibold text-twilight-text tracking-tight truncate leading-tight">
                                 {mainHeading}
                             </h2>
@@ -130,7 +129,7 @@ export function ScheduleHeader({
                         <button
                             type="button"
                             onClick={() => onNavigate(-1)}
-                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                            className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
                             aria-label="Previous"
                         >
                             <ChevronLeft size={15} />
@@ -138,7 +137,7 @@ export function ScheduleHeader({
                         <button
                             type="button"
                             onClick={() => onNavigate(1)}
-                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                            className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
                             aria-label="Next"
                         >
                             <ChevronRight size={15} />
@@ -149,7 +148,7 @@ export function ScheduleHeader({
                             <Popover.Trigger asChild>
                                 <button
                                     type="button"
-                                    className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                    className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
                                     aria-label="Display & calendar options"
                                 >
                                     <MoreHorizontal size={16} />
@@ -160,18 +159,22 @@ export function ScheduleHeader({
                             </Popover.Content>
                         </Popover.Root>
                     )}
+                    {onAddEvent && (
+                        <button
+                            type="button"
+                            onClick={onAddEvent}
+                            className="btn-icon touch-target rounded-full border border-personal/20 text-personal hover:bg-personal/15"
+                            aria-label="Add event"
+                        >
+                            <CalendarHeart size={16} />
+                        </button>
+                    )}
                     {onAddTask && (
                         <button
                             type="button"
                             onClick={onAddTask}
-                            onContextMenu={(event) => {
-                                if (!onAddEvent) return;
-                                event.preventDefault();
-                                onAddEvent();
-                            }}
-                            className="btn-icon min-h-8 min-w-8 rounded-full text-lantern hover:bg-lantern/15"
+                            className="btn-icon touch-target rounded-full text-lantern hover:bg-lantern/15"
                             aria-label="Add task"
-                            title={onAddEvent ? "Right-click to add an event" : undefined}
                         >
                             <Plus size={16} />
                         </button>
@@ -220,7 +223,6 @@ export function ScheduleHeader({
                 <div className="flex min-w-0 items-center gap-2.5">
                     <CurrentIcon size={18} className="text-lantern/70 shrink-0" />
                     <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Schedule</p>
                         <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap leading-tight">
                             {mainHeading}
                         </h2>
@@ -302,22 +304,27 @@ export function ScheduleHeader({
                 )}
 
                 {/* Add task button */}
-                {onAddTask && (
+                {onAddEvent ? (
+                    <button
+                        type="button"
+                        onClick={onAddEvent}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-personal/20 bg-personal/12 px-4 py-1.5 text-sm font-medium text-personal hover:border-personal/30 hover:bg-personal/18 transition-colors cursor-pointer"
+                    >
+                        <CalendarHeart size={14} />
+                        <span className="hidden lg:inline">Add Event</span>
+                    </button>
+                ) : null}
+
+                {onAddTask ? (
                     <button
                         type="button"
                         onClick={onAddTask}
-                        onContextMenu={(event) => {
-                            if (!onAddEvent) return;
-                            event.preventDefault();
-                            onAddEvent();
-                        }}
                         className="inline-flex items-center gap-1.5 rounded-xl border border-lantern/20 bg-lantern/15 px-4 py-1.5 text-sm font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors cursor-pointer"
-                        title={onAddEvent ? "Right-click to add an event" : undefined}
                     >
                         <Plus size={14} />
                         <span className="hidden lg:inline">Add Task</span>
                     </button>
-                )}
+                ) : null}
             </div>
         </div>
     );

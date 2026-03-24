@@ -13,6 +13,7 @@ import { TimePicker } from "../primitives";
 import { Switch } from "../primitives";
 import { Button } from "../primitives/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../primitives/Dialog";
+import * as AlertDialog from "../primitives/AlertDialog";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "../../types/task";
 
 export interface CalendarEventInfo {
@@ -232,6 +233,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const [eventDate, setEventDate] = useState(info.date);
     const [eventEmoji, setEventEmoji] = useState("");
     const [eventNotify, setEventNotify] = useState(true);
+    const [discardOpen, setDiscardOpen] = useState(false);
 
     useEffect(() => {
         setTab(initialTab);
@@ -253,9 +255,12 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const isDirty = taskDirty || eventDirty;
 
     const requestClose = useCallback(() => {
-        if (!isDirty || window.confirm("Discard this schedule draft?")) {
+        if (!isDirty) {
             onClose();
+            return;
         }
+
+        setDiscardOpen(true);
     }, [isDirty, onClose]);
 
     const recurrenceRule = mode === "weekly" ? buildWeeklyRule(weekdays, hasEndDate ? endDate : null) : null;
@@ -315,15 +320,16 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const taskSubtitle = summary?.label ?? (mode === "weekly" ? "Weekly recurring schedule block" : `Planned for ${formatDateLabel(startDate)}`);
 
     return (
-        <Dialog open={true} onOpenChange={(open) => { if (!open) requestClose(); }}>
-            <DialogContent
-                className={cn(
-                    "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),48rem)] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(18,30,52,0.96),rgba(10,18,34,0.98))] p-0 shadow-[0_32px_120px_rgba(0,0,0,0.52)]",
-                    shell.isPhone
-                        ? "inset-x-3 bottom-3 max-h-[88dvh]"
-                        : "sm:max-w-3xl sm:max-h-[84dvh]",
-                )}
-            >
+        <>
+            <Dialog open={true} onOpenChange={(open) => { if (!open) requestClose(); }}>
+                <DialogContent
+                    className={cn(
+                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),48rem)] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(18,30,52,0.96),rgba(10,18,34,0.98))] p-0 shadow-[0_32px_120px_rgba(0,0,0,0.52)]",
+                        shell.isPhone
+                            ? "inset-x-3 bottom-3 max-h-[88dvh]"
+                            : "sm:max-w-3xl sm:max-h-[84dvh]",
+                    )}
+                >
                     <DialogHeader className="shrink-0 border-b border-white/[0.06] px-5 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6">
                         <div className="space-y-1">
                             <DialogTitle className="font-display text-xl tracking-tight text-twilight-text">
@@ -646,7 +652,37 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                             </Button>
                         )}
                     </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog.Root open={discardOpen} onOpenChange={setDiscardOpen}>
+                <AlertDialog.Content>
+                    <AlertDialog.Header>
+                        <AlertDialog.Title>Discard this schedule draft?</AlertDialog.Title>
+                        <AlertDialog.Description>
+                            This will close the composer and lose any unsaved task or event details.
+                        </AlertDialog.Description>
+                    </AlertDialog.Header>
+                    <AlertDialog.Footer>
+                        <AlertDialog.Cancel asChild>
+                            <Button variant="secondary" className="border-white/10 bg-white/5">
+                                Keep editing
+                            </Button>
+                        </AlertDialog.Cancel>
+                        <AlertDialog.Action asChild>
+                            <Button
+                                variant="danger"
+                                onClick={() => {
+                                    setDiscardOpen(false);
+                                    onClose();
+                                }}
+                            >
+                                Discard draft
+                            </Button>
+                        </AlertDialog.Action>
+                    </AlertDialog.Footer>
+                </AlertDialog.Content>
+            </AlertDialog.Root>
+        </>
     );
 }

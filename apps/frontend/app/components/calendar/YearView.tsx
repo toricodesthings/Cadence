@@ -32,6 +32,7 @@ interface MiniMonthProps {
     onSelectMonth: (month: number) => void;
     /** Jump to day view for a specific day */
     onSelectDay: (dateStr: string) => void;
+    compact?: boolean;
 }
 
 function MiniMonth({
@@ -44,6 +45,7 @@ function MiniMonth({
     today,
     onSelectMonth,
     onSelectDay,
+    compact = false,
 }: MiniMonthProps) {
     const todayStr = toISODate(today);
     const daysInMonth = getDaysInMonth(year, month);
@@ -59,12 +61,12 @@ function MiniMonth({
     const monthStr = String(month + 1).padStart(2, "0");
 
     return (
-        <div className="glass rounded-2xl p-4 flex flex-col gap-3 hover:bg-white/[0.02] transition-colors">
+        <div className={`glass flex flex-col gap-3 rounded-2xl transition-colors hover:bg-white/[0.02] ${compact ? "p-3" : "p-4"}`}>
             {/* Month name */}
             <button
                 type="button"
                 onClick={() => onSelectMonth(month)}
-                className="font-display text-[14px] font-semibold text-twilight-text-soft hover:text-lantern transition-colors cursor-pointer text-left pb-1"
+                className={`cursor-pointer pb-1 text-left font-display font-semibold text-twilight-text-soft transition-colors hover:text-lantern ${compact ? "text-[13px]" : "text-[14px]"}`}
             >
                 {MONTHS[month]}
             </button>
@@ -136,9 +138,10 @@ export interface YearViewProps {
     onSelectMonth: (month: number) => void;
     /** Switch to day view for a specific day */
     onSelectDay: (dateStr: string) => void;
+    compact?: boolean;
 }
 
-export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEventDateSet, onSelectMonth, onSelectDay }: YearViewProps) {
+export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEventDateSet, onSelectMonth, onSelectDay, compact = false }: YearViewProps) {
     const today = new Date();
 
     // Build a map of ISO dates → task count for heatmap density
@@ -156,7 +159,7 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEv
 
     return (
         <div className="h-full overflow-y-auto">
-            <div className="grid grid-cols-3 gap-4 p-1 pb-6">
+            <div className={`grid p-1 pb-6 ${compact ? "grid-cols-2 gap-3" : "grid-cols-3 gap-4"}`}>
                 {Array.from({ length: 12 }, (_, m) => (
                     <MiniMonth
                         key={m}
@@ -169,6 +172,7 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEv
                         today={today}
                         onSelectMonth={onSelectMonth}
                         onSelectDay={onSelectDay}
+                        compact={compact}
                     />
                 ))}
             </div>

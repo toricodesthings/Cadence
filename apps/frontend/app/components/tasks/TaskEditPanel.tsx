@@ -78,6 +78,7 @@ export function TaskEditPanel({
     detailMode = "peek",
     onDetailModeChange,
 }: TaskEditPanelProps) {
+    const insideResponsiveOverlay = Boolean(onDetailModeChange);
     const { data: activeTasks } = useTasks({ state: "ACTIVE" });
     const { data: waitingTasks } = useTasks({ state: "WAITING" });
     const { data: archiveTasks } = useTasks({ state: "ARCHIVED" });
@@ -249,9 +250,9 @@ export function TaskEditPanel({
     return (
         <motion.div
             className="h-full overflow-hidden"
-            initial={{ x: 40, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 40, opacity: 0 }}
+            initial={insideResponsiveOverlay ? { opacity: 0 } : { x: 40, opacity: 0 }}
+            animate={insideResponsiveOverlay ? { opacity: 1 } : { x: 0, opacity: 1 }}
+            exit={insideResponsiveOverlay ? { opacity: 0 } : { x: 40, opacity: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 35 }}
             role="complementary"
             aria-label="Task details"

@@ -1,6 +1,7 @@
 import { get, set } from "idb-keyval";
 import type { CreateTaskInput, UpdateTaskInput } from "../../types/task";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
+import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 
 // ── Operation Descriptors ──
 // Every mutation the app can perform, represented as a serializable object.
@@ -43,10 +44,21 @@ export interface WalEntry {
 const WAL_KEY = "cadence-mutation-wal";
 
 async function loadWal(): Promise<WalEntry[]> {
+    if (IS_DESKTOP_RUNTIME) {
+        const store = await getNativeStore("cadence_wal");
+        if (store) return (await store.get<WalEntry[]>(WAL_KEY)) ?? [];
+    }
     return (await get<WalEntry[]>(WAL_KEY)) ?? [];
 }
 
 async function persistWal(entries: WalEntry[]): Promise<void> {
+    if (IS_DESKTOP_RUNTIME) {
+        const store = await getNativeStore("cadence_wal");
+        if (store) {
+            await store.set(WAL_KEY, entries);
+            return;
+        }
+    }
     await set(WAL_KEY, entries);
 }
 

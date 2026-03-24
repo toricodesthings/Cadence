@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { authClient } from "./lib/auth-client";
 import { STALE_TIMES } from "./lib/api/query-keys";
 import { createIDBPersister } from "./lib/api/persister";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, Component, useEffect, useMemo, useRef, useState } from "react";
 import { ApiErrorResponse } from "./types/api";
 import { AuthStateProvider, useAuthState } from "./hooks/auth/use-auth-state";
 import { Toaster } from "./components/feedback/Toaster";
@@ -32,11 +32,35 @@ function Link({
     return <RouterLink to={href} {...props} />;
 }
 
+/**
+ * Catches errors thrown during AuthStateProvider initialisation (e.g. if
+ * useSession() fails in the browser bridge context) so children can still
+ * render. The fallback re-renders children WITHOUT auth context, which is safe
+ * for routes that don't depend on it (like DesktopBrowserCallbackBridgeScreen).
+ */
+class AuthErrorBoundary extends Component<
+    { children: ReactNode; fallback: ReactNode },
+    { hasError: boolean }
+> {
+    state = { hasError: false };
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+    componentDidCatch(error: unknown) {
+        console.error("[cadence:auth-boundary] AuthStateProvider crashed:", error);
+    }
+    render() {
+        return this.state.hasError ? this.props.fallback : this.props.children;
+    }
+}
+
 export function Providers({ children }: { children: ReactNode }) {
     return (
-        <AuthStateProvider>
-            <ProvidersInner>{children}</ProvidersInner>
-        </AuthStateProvider>
+        <AuthErrorBoundary fallback={children}>
+            <AuthStateProvider>
+                <ProvidersInner>{children}</ProvidersInner>
+            </AuthStateProvider>
+        </AuthErrorBoundary>
     );
 }
 
@@ -45,6 +69,22 @@ function ProvidersInner({ children }: { children: ReactNode }) {
     const { beginAuthRecovery, completeSignOut, session, authReady } = useAuthState();
     const lastUserId = useRef<string | null>(null);
     const hasCheckedForUpdates = useRef(false);
+
+    // Keep fresh references for the QueryClient closure (created once in useState).
+    const authRecoveryRef = useRef(beginAuthRecovery);
+    const signOutRef = useRef(completeSignOut);
+    const navigateRef = useRef(navigate);
+    authRecoveryRef.current = beginAuthRecovery;
+    signOutRef.current = completeSignOut;
+    navigateRef.current = navigate;
+
+    // Prevent concurrent/re-entrant recovery attempts from triggering a loop
+    // when multiple queries fail with auth errors simultaneously.
+    const recoveryInFlight = useRef(false);
+
+    // Track queries that have already been retried after recovery to prevent
+    // per-query recovery loops (query fails → recovery → retry → fails → …).
+    const retriedAfterRecovery = useRef(new Set<string>());
 
     // Only retry errors the backend marks as retryable (429, 5xx).
     // Auth errors and validation errors are never retried.
@@ -74,17 +114,41 @@ function ProvidersInner({ children }: { children: ReactNode }) {
         () =>
             new QueryClient({
                 queryCache: new QueryCache({
-                    onError: async (error) => {
+                    onError: async (error, query) => {
                         handleRateLimitExhausted(error);
 
                         if (!(error instanceof ApiErrorResponse) || !error.isAuthError) {
                             return;
                         }
 
-                        const recovered = await beginAuthRecovery();
-                        if (!recovered && error.code !== "AUTH_PROVIDER_UNAVAILABLE") {
-                            await completeSignOut();
-                            navigate("/auth/sign-in", { replace: true });
+                        const queryKeyStr = JSON.stringify(query.queryKey);
+                        console.warn("[cadence:query-cache] auth error for query:", queryKeyStr, error.code);
+
+                        // Coalesce concurrent auth failures into a single recovery attempt.
+                        if (recoveryInFlight.current) return;
+
+                        // If this specific query already failed once after a recovery
+                        // attempt, don't loop — the issue isn't session-level.
+                        if (retriedAfterRecovery.current.has(queryKeyStr)) {
+                            console.warn("[cadence:query-cache] query already retried after recovery, not looping:", queryKeyStr);
+                            return;
+                        }
+
+                        recoveryInFlight.current = true;
+                        try {
+                            const recovered = await authRecoveryRef.current();
+                            if (recovered) {
+                                // Retry just this query — NOT all queries.
+                                retriedAfterRecovery.current.add(queryKeyStr);
+                                queryClient.invalidateQueries({ queryKey: query.queryKey });
+                                // Allow a fresh retry after a cooldown.
+                                setTimeout(() => retriedAfterRecovery.current.delete(queryKeyStr), 10_000);
+                            } else if (error.code !== "AUTH_PROVIDER_UNAVAILABLE") {
+                                await signOutRef.current();
+                                navigateRef.current("/auth/sign-in", { replace: true });
+                            }
+                        } finally {
+                            recoveryInFlight.current = false;
                         }
                     },
                 }),
@@ -157,14 +221,6 @@ function ProvidersInner({ children }: { children: ReactNode }) {
             }
 
             params.set("redirectTo", normalizeRedirectTo(params.get("redirectTo")));
-
-            if (import.meta.env.DEV) {
-                console.info("[cadence:desktop-auth] received callback", {
-                    pathname: url.pathname,
-                    searchKeys: Array.from(params.keys()),
-                    hasHash: Boolean(hash),
-                });
-            }
 
             const search = params.toString();
             navigate(search ? `/auth/callback?${search}` : "/auth/callback", { replace: true });
@@ -268,6 +324,10 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                         navigate={(path) => navigate(path)}
                         replace={(path) => navigate(path, { replace: true })}
                         onSessionChange={() => {
+                            // Skip broad invalidation while auth recovery is in
+                            // progress — recovery may trigger onSessionChange via
+                            // getSession(), which would cascade into a refetch loop.
+                            if (recoveryInFlight.current) return;
                             queryClient.invalidateQueries();
                         }}
                         Link={Link}

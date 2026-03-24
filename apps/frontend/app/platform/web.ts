@@ -62,7 +62,7 @@ export const webRuntime = {
         return new URL(window.location.href);
     },
     async listenForAuthCallback(): Promise<() => void> {
-        return () => {};
+        return () => { };
     },
     async beginSocialSignIn(provider: SocialProvider, callbackURL?: string): Promise<void> {
         await authClient.signIn.social({
@@ -83,5 +83,11 @@ export const webRuntime = {
     },
     async checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
         return null;
+    },
+    async getNativeStore() {
+        return null;
+    },
+    async resizeWindow() {
+        // No-op for web
     },
 };

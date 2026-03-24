@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { CalendarGrid } from "../components/calendar/CalendarGrid";
 import { WeekView } from "../components/calendar/WeekView";
+import { WeekFocusView } from "../components/calendar/WeekFocusView";
 import { DayView } from "../components/calendar/DayView";
 import { DayFocusView } from "../components/calendar/DayFocusView";
 import { MonthPeekView } from "../components/calendar/MonthPeekView";
@@ -883,7 +884,7 @@ export default function Schedule() {
                             />
                         </div>
                     </label>
-                    {personalEvents.enabled && (
+                    {!shell.isPhone && personalEvents.enabled && (
                         <PersonalEventsPanel
                             items={personalEvents.items}
                             compact
@@ -894,6 +895,67 @@ export default function Schedule() {
                         />
                     )}
                 </div>
+            </div>
+        </div>
+    );
+
+    const mobileOverflowContent = (
+        <div className="space-y-4">
+            <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Display</h4>
+                <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show all-day tasks</span>
+                        <Switch
+                            checked={calendarClutter.showAllDay}
+                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showAllDay: val } } })}
+                        />
+                    </label>
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show timed blocks</span>
+                        <Switch
+                            checked={calendarClutter.showTimedTasks}
+                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showTimedTasks: val } } })}
+                        />
+                    </label>
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show habit markers</span>
+                        <Switch
+                            checked={calendarClutter.showHabitAnchors}
+                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })}
+                        />
+                    </label>
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show personal events</span>
+                        <Switch
+                            checked={personalEvents.enabled}
+                            onCheckedChange={(val) => personalEvents.setEnabled(val)}
+                        />
+                    </label>
+                </div>
+            </div>
+
+            <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Holidays</h4>
+                <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                    <span>Show holidays</span>
+                    <div className="flex items-center gap-2">
+                        {holidayOverlay.holidaySettings.enabled ? (
+                            <button
+                                type="button"
+                                className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                onClick={(e) => { e.preventDefault(); navigate("?settings=datetime"); }}
+                                aria-label="Configure holiday location"
+                            >
+                                <Wrench size={14} />
+                            </button>
+                        ) : null}
+                        <Switch
+                            checked={holidayOverlay.holidaySettings.enabled}
+                            onCheckedChange={(val) => holidayOverlay.setEnabled(val)}
+                        />
+                    </div>
+                </label>
             </div>
         </div>
     );
@@ -967,7 +1029,7 @@ export default function Schedule() {
                         onToday={handleToday}
                         onAddTask={handleAddTaskToolbar}
                         onAddEvent={handleAddEventToolbar}
-                        overflowContent={overflowContent}
+                        overflowContent={shell.isPhone ? mobileOverflowContent : overflowContent}
                         onToggleSidebar={shell.isCompact ? () => setMobileNavOpen(true) : undefined}
                         compact={shell.isCompact}
                     />
@@ -1006,7 +1068,6 @@ export default function Schedule() {
                                                 onSelectTask={handleSelectTask}
                                                 onCompleteTask={handleCompleteTask}
                                                 onArchiveTask={handleArchiveTask}
-                                                onNavigateMonth={handleNavigate}
                                             />
                                         ) : (
                                         <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4">
@@ -1033,20 +1094,36 @@ export default function Schedule() {
 
                                     {/* ── WEEK ── */}
                                     {viewMode === "week" && (
-                                        <WeekView
-                                            weekDates={weekDates}
-                                            tasksByDate={weekTasksByDate}
-                                            holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
-                                            birthdayDate={birthdayDate}
-                                            personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
-                                            activeDropPreview={activeDropPreview}
-                                            draftPlacement={draftPlacement}
-                                            onSelectTask={handleSelectTask}
-                                            onCompleteTask={handleCompleteTask}
-                                            onArchiveTask={handleArchiveTask}
-                                            onResizeTask={handleResizeTask}
-                                            onGridClick={handleGridClick}
-                                        />
+                                        shell.isPhone ? (
+                                            <WeekFocusView
+                                                weekDates={weekDates}
+                                                currentDate={currentDate}
+                                                tasksByDate={weekTasksByDate}
+                                                holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
+                                                birthdayDate={birthdayDate}
+                                                personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
+                                                onSelectDate={(dateStr) => setCurrentDate(dateStr)}
+                                                onSelectTask={handleSelectTask}
+                                                onCompleteTask={handleCompleteTask}
+                                                onArchiveTask={handleArchiveTask}
+                                                onNavigateWeek={handleNavigate}
+                                            />
+                                        ) : (
+                                            <WeekView
+                                                weekDates={weekDates}
+                                                tasksByDate={weekTasksByDate}
+                                                holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
+                                                birthdayDate={birthdayDate}
+                                                personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
+                                                activeDropPreview={activeDropPreview}
+                                                draftPlacement={draftPlacement}
+                                                onSelectTask={handleSelectTask}
+                                                onCompleteTask={handleCompleteTask}
+                                                onArchiveTask={handleArchiveTask}
+                                                onResizeTask={handleResizeTask}
+                                                onGridClick={handleGridClick}
+                                            />
+                                        )
                                     )}
 
                                     {/* ── DAY ── */}
@@ -1093,6 +1170,7 @@ export default function Schedule() {
                                                 personalEventDateSet={personalEvents.enabled ? personalEvents.eventDateSet : undefined}
                                                 onSelectMonth={handleYearSelectMonth}
                                                 onSelectDay={handleYearSelectDay}
+                                                compact={shell.isPhone}
                                             />
                                         </div>
                                     )}
@@ -1104,7 +1182,7 @@ export default function Schedule() {
                 </div>
 
                 {shell.isPhone ? (
-                    <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
+                    <div className="layer-floating-bar pointer-events-none fixed inset-x-0 bottom-5 flex justify-center px-4">
                         <button
                             type="button"
                             onClick={handleAddTaskToolbar}

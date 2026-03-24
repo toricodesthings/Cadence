@@ -41,6 +41,8 @@ export function DayFocusView({
     onNavigateNext,
     onNavigatePrev,
 }: DayFocusViewProps) {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const isCurrentDate = currentDate === todayIso;
     const swipeHandlers = useSwipeNavigation({
         onSwipeLeft: () => onNavigateNext?.(),
         onSwipeRight: () => onNavigatePrev?.(),
@@ -76,9 +78,28 @@ export function DayFocusView({
 
     const now = new Date();
     const currentHour = now.getHours();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const nextTimedTask = timed.find((task) => {
+        const taskDate = new Date(task.scheduledStart!);
+        return taskDate.getHours() * 60 + taskDate.getMinutes() >= currentMinutes;
+    });
 
     return (
         <div className="flex flex-col h-full min-h-0 overflow-y-auto px-4 pb-24" {...swipeHandlers}>
+            {isCurrentDate && (
+                <div className="sticky top-0 z-10 -mx-1 mb-2 border-b border-twilight-border/20 bg-twilight-deep/88 px-1 py-3 backdrop-blur-xl">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-lantern/20 bg-lantern/10 px-3 py-2 text-sm text-lantern shadow-[0_12px_30px_rgba(232,164,74,0.12)]">
+                        <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full bg-lantern shadow-[0_0_12px_rgba(232,164,74,0.45)]" />
+                            <span className="font-semibold">Now {formatTime(now.toISOString())}</span>
+                        </div>
+                        <span className="text-xs text-lantern/80">
+                            {nextTimedTask ? `Next: ${nextTimedTask.title}` : "No more timed blocks"}
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* Holiday / birthday / personal event banners */}
             {(holidays.length > 0 || isBirthday || personalEvents.length > 0) && (
                 <div className="flex flex-col gap-1.5 pt-3 pb-2">

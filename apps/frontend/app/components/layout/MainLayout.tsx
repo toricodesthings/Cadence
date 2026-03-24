@@ -78,6 +78,7 @@ export function MainLayout({
     sidePanel,
     headerCenter,
     headerRight,
+    phoneHeaderRightInline = false,
     customSidebar,
     hideHeader = false,
     hideContextualOrb = false,
@@ -91,6 +92,7 @@ export function MainLayout({
     sidePanel?: React.ReactNode,
     headerCenter?: React.ReactNode,
     headerRight?: React.ReactNode,
+    phoneHeaderRightInline?: boolean,
     customSidebar?: React.ReactNode,
     hideHeader?: boolean,
     hideContextualOrb?: boolean,
@@ -233,6 +235,7 @@ export function MainLayout({
 
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
     const showsRichHeader = Boolean(shellHeader);
+    const renderInlinePhoneHeaderRight = shell.isPhone && phoneHeaderRightInline && Boolean(headerRight) && !headerCenter;
 
     return (
         <Tooltip.Provider delayDuration={300}>
@@ -253,7 +256,7 @@ export function MainLayout({
 
                     <div className="flex min-w-0 flex-1 flex-col min-h-0">
                     {!hideHeader && (
-                        <header className="shrink-0 z-30 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl">
+                        <header className="layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl">
                             <div
                                 className="px-4 pb-3 pt-2.5 sm:px-6 sm:pb-3 sm:pt-3 lg:px-8"
                                 style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
@@ -312,15 +315,19 @@ export function MainLayout({
                                             )}
                                         </div>
 
-                                        {(headerCenter || headerRight) && !shell.isPhone && (
+                                        {((headerCenter || headerRight) && !shell.isPhone) || renderInlinePhoneHeaderRight ? (
                                             <div className="flex shrink-0 items-center gap-2">
-                                                {headerCenter}
-                                                {headerRight}
+                                                {renderInlinePhoneHeaderRight ? headerRight : (
+                                                    <>
+                                                        {headerCenter}
+                                                        {headerRight}
+                                                    </>
+                                                )}
                                             </div>
-                                        )}
+                                        ) : null}
                                     </div>
 
-                                    {(headerCenter || headerRight) && shell.isPhone && (
+                                    {(headerCenter || headerRight) && shell.isPhone && !renderInlinePhoneHeaderRight && (
                                         <CompactPageControls
                                             primaryControl={headerCenter}
                                             secondaryControl={headerRight}

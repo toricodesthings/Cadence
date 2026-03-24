@@ -48,7 +48,7 @@ export const Content = forwardRef<
             sideOffset={sideOffset}
             data-cadence-popover-content="true"
             className={[
-                "glass-surface rounded-2xl p-4 z-50 shadow-2xl",
+                "glass-surface layer-floating-ui rounded-2xl p-4 shadow-2xl",
                 "data-[state=open]:animate-in data-[state=closed]:animate-out",
                 "data-[state=open]:fade-in data-[state=closed]:fade-out",
                 "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",

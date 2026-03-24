@@ -44,7 +44,7 @@ export const SubContent = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={[
-            "glass-surface rounded-xl p-1 min-w-[200px] z-50 shadow-xl shadow-black/30 ring-1 ring-white/[0.06]",
+            "glass-surface layer-floating-ui min-w-[200px] rounded-xl p-1 shadow-xl shadow-black/30 ring-1 ring-white/[0.06]",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=open]:fade-in data-[state=closed]:fade-out",
             "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
@@ -69,7 +69,7 @@ export const Content = forwardRef<
             sideOffset={sideOffset}
             collisionPadding={collisionPadding}
             className={[
-                "glass-surface rounded-xl p-1 min-w-[200px] z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto overscroll-contain",
+                "glass-surface layer-floating-ui min-w-[200px] rounded-xl p-1 max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto overscroll-contain",
                 "data-[state=open]:animate-in data-[state=closed]:animate-out",
                 "data-[state=open]:fade-in data-[state=closed]:fade-out",
                 "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",

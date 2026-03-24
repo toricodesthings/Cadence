@@ -30,6 +30,11 @@ export function HabitToastResolver() {
             }),
         );
     }, [data]);
+    const actionableHabits = useMemo(() => {
+        if (!Array.isArray(data)) return [];
+
+        return data.filter((habit) => habit.actionableDates.length > 0);
+    }, [data]);
 
     const resolveAll = async () => {
         if (resolvingRef.current || actionableItems.length === 0) return;
@@ -68,12 +73,22 @@ export function HabitToastResolver() {
 
     // We only show the bundled toast once per mount
     useEffect(() => {
+        if (!bundleEnabled) {
+            toast.dismiss("habit-unresolved-bundle");
+            shownRef.current = false;
+            return;
+        }
+
+        if (actionableHabits.length === 0 || actionableItems.length === 0) {
+            toast.dismiss("habit-unresolved-bundle");
+            shownRef.current = false;
+            return;
+        }
+
         if (shownRef.current) return;
-        if (!bundleEnabled) return;
-        if (!data || !Array.isArray(data) || data.length === 0) return;
         shownRef.current = true;
 
-        const count = data.length;
+        const count = actionableHabits.length;
 
         toast.custom(
             () => (
@@ -88,7 +103,7 @@ export function HabitToastResolver() {
                                 : `${count} routines still need a check-in`}
                         </div>
                         <div className="cadence-toast__description">
-                            {data.slice(0, 3).map((h: any) => String(h.title)).join(", ") +
+                            {actionableHabits.slice(0, 3).map((habit) => habit.title).join(", ") +
                                 (count > 3 ? ` +${count - 3} more` : "")}
                         </div>
                         <div className="cadence-toast__buttonRow">
@@ -117,7 +132,7 @@ export function HabitToastResolver() {
                 duration: 12000,
             },
         );
-    }, [bundleEnabled, data, resolveAll]);
+    }, [actionableHabits, actionableItems.length, bundleEnabled, resolveAll]);
 
     return null;
 }

@@ -86,7 +86,7 @@ export function Sidebar({
 
     if (mode === "wide") {
         return (
-            <aside className="flex h-full shrink-0 relative z-40" aria-label="Application navigation">
+            <aside className="layer-shell-base relative flex h-full shrink-0" aria-label="Application navigation">
                 <IconRail onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
                 <AnimatePresence initial={false}>
                     {showPersistentPanel && !isCollapsed && (
@@ -177,7 +177,7 @@ export function Sidebar({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-40 bg-twilight-void/70 backdrop-blur-md"
+                        className="layer-nav-backdrop fixed inset-0 bg-twilight-void/70 backdrop-blur-md"
                         aria-label="Close navigation"
                         onClick={onClose}
                     />
@@ -189,7 +189,7 @@ export function Sidebar({
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: -28, opacity: 0 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="mobile-sheet-shell safe-top safe-bottom fixed inset-y-0 left-0 z-50 flex w-[min(92vw,24rem)] flex-col border-r border-twilight-border bg-twilight-deep/96 shadow-2xl shadow-black/40 backdrop-blur-2xl"
+                        className="mobile-sheet-shell layer-nav-drawer safe-top safe-bottom fixed inset-y-0 left-0 flex w-[min(92vw,24rem)] flex-col border-r border-twilight-border bg-twilight-deep/96 shadow-2xl shadow-black/40 backdrop-blur-2xl"
                         aria-label="Application navigation"
                     >
                         <div className="mobile-sheet-header flex items-center justify-between border-b border-twilight-border px-4 py-4">

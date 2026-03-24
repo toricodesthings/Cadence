@@ -37,6 +37,10 @@ export const RUNTIME_TARGET =
 // Dev-time health check: warn loudly if the API root is unreachable
 if (import.meta.env.DEV && typeof window !== "undefined") {
     fetch(`${API_BASE_URL}/api/v1/health`, { method: "GET" }).then((res) => {
+        // Health is protected in development; 401 means the API is reachable.
+        if (res.status === 401) {
+            return;
+        }
         if (!res.ok) {
             console.error(
                 `[cadence:dev] API health check returned ${res.status}. ` +

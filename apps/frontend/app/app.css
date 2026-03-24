@@ -115,6 +115,17 @@
   --cadence-page-padding-y: 1rem;
   --cadence-page-padding-y-desktop: 1.25rem;
   --cadence-planner-gap: 1rem;
+  --z-shell-base: 10;
+  --z-shell-header: 20;
+  --z-floating-bar: 30;
+  --z-nav-backdrop: 40;
+  --z-nav-drawer: 50;
+  --z-route-backdrop: 60;
+  --z-route-overlay: 70;
+  --z-utility-surface: 80;
+  --z-fullscreen-surface: 90;
+  --z-floating-ui: 100;
+  --z-system-dialog: 110;
 }
 
 /*
@@ -805,6 +816,50 @@
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
+  .layer-shell-base {
+    z-index: var(--z-shell-base);
+  }
+
+  .layer-shell-header {
+    z-index: var(--z-shell-header);
+  }
+
+  .layer-floating-bar {
+    z-index: var(--z-floating-bar);
+  }
+
+  .layer-nav-backdrop {
+    z-index: var(--z-nav-backdrop);
+  }
+
+  .layer-nav-drawer {
+    z-index: var(--z-nav-drawer);
+  }
+
+  .layer-route-backdrop {
+    z-index: var(--z-route-backdrop);
+  }
+
+  .layer-route-overlay {
+    z-index: var(--z-route-overlay);
+  }
+
+  .layer-utility-surface {
+    z-index: var(--z-utility-surface);
+  }
+
+  .layer-fullscreen-surface {
+    z-index: var(--z-fullscreen-surface);
+  }
+
+  .layer-floating-ui {
+    z-index: var(--z-floating-ui);
+  }
+
+  .layer-system-dialog {
+    z-index: var(--z-system-dialog);
+  }
+
   .mobile-scroll-region {
     min-height: 0;
     overflow: hidden;
@@ -963,6 +1018,24 @@ a:active {
   transition-duration: 180ms !important;
   transition-timing-function: var(--ease-out-expo) !important;
   padding: 10px 16px !important;
+}
+
+.neon-auth-wrapper div:has(> button[aria-label="Continue with Google"]):has(> button[aria-label="Continue with GitHub"]) {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 1rem !important;
+  width: 100% !important;
+}
+
+.neon-auth-wrapper button[aria-label="Continue with Google"],
+.neon-auth-wrapper button[aria-label="Continue with GitHub"] {
+  display: flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 56px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-inline: 0 !important;
 }
 
 .neon-auth-wrapper a {
@@ -1430,6 +1503,13 @@ a:active {
   background: rgba(15, 29, 50, 0.55);
   backdrop-filter: blur(32px) saturate(1.2);
   -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  border: 1px solid var(--color-twilight-border-light);
+}
+
+@utility surface-route-overlay {
+  background: rgba(10, 22, 40, 0.96);
+  backdrop-filter: blur(28px) saturate(1.12);
+  -webkit-backdrop-filter: blur(28px) saturate(1.12);
   border: 1px solid var(--color-twilight-border-light);
 }
 

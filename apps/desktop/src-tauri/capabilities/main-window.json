@@ -9,8 +9,11 @@
     "core:default",
     "deep-link:default",
     "notification:default",
+    "oauth:allow-cancel",
+    "oauth:allow-start",
     "opener:default",
     "process:default",
+    "store:default",
     "updater:default",
     {
       "identifier": "http:default",

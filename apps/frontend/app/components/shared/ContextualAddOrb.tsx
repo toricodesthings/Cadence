@@ -17,7 +17,7 @@ export function ContextualAddOrb({ onOpen }: ContextualAddOrbProps) {
     const [open, setOpen] = useState(false);
 
     return (
-        <div className="pointer-events-none fixed bottom-5 right-4 z-50 flex flex-col items-end gap-3 sm:right-5">
+        <div className="layer-floating-bar pointer-events-none fixed bottom-5 right-4 flex flex-col items-end gap-3 sm:right-5">
             <AnimatePresence>
                 {open ? (
                     <motion.div

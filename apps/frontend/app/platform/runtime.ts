@@ -3,8 +3,6 @@ import { RUNTIME_TARGET, WEB_APP_BASE_URL } from "../lib/env";
 export type RuntimeTarget = "web" | "desktop";
 export type NotificationPermissionState = "default" | "granted" | "denied";
 export type SocialProvider = "google" | "github";
-export const DESKTOP_AUTH_BRIDGE_PARAM = "desktopBridge";
-export const DESKTOP_AUTH_PROVIDER_PARAM = "desktopProvider";
 
 export interface AvailableAppUpdate {
     currentVersion: string;
@@ -20,6 +18,12 @@ interface PlatformNotification {
     icon?: string;
 }
 
+export interface NativeStoreAdapter {
+    get: <T>(key: string) => Promise<T | undefined>;
+    set: (key: string, value: any) => Promise<void>;
+    del: (key: string) => Promise<void>;
+}
+
 interface PlatformRuntime {
     target: RuntimeTarget;
     getNotificationPermission: () => Promise<NotificationPermissionState>;
@@ -33,6 +37,8 @@ interface PlatformRuntime {
     beginSocialLink: (provider: SocialProvider, callbackURL?: string) => Promise<void>;
     platformFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
     checkForAppUpdate: () => Promise<AvailableAppUpdate | null>;
+    getNativeStore: (storeName: string) => Promise<NativeStoreAdapter | null>;
+    resizeWindow: (width: number, height: number, center?: boolean) => Promise<void>;
 }
 
 const loadPlatformRuntime = (() => {
@@ -106,30 +112,6 @@ export function getAuthCallbackUrl(redirectTo?: string): string {
     return base.toString();
 }
 
-export function getDesktopAuthBrowserStartUrl(provider: SocialProvider, redirectTo?: string): string {
-    const target = normalizeRedirectTo(redirectTo ?? "/");
-    const url = new URL("/auth/desktop-start", WEB_APP_BASE_URL);
-    url.searchParams.set(DESKTOP_AUTH_BRIDGE_PARAM, "1");
-    url.searchParams.set(DESKTOP_AUTH_PROVIDER_PARAM, provider);
-    url.searchParams.set("redirectTo", target);
-    return url.toString();
-}
-
-export function getDesktopAuthBrowserCallbackPath(redirectTo?: string): string {
-    const params = new URLSearchParams();
-    params.set(DESKTOP_AUTH_BRIDGE_PARAM, "1");
-    params.set("redirectTo", normalizeRedirectTo(redirectTo ?? "/"));
-    return `/auth/callback?${params.toString()}`;
-}
-
-export function getDesktopDeepLinkCallbackUrl(params: URLSearchParams): string {
-    const nextParams = new URLSearchParams(params);
-    nextParams.delete(DESKTOP_AUTH_BRIDGE_PARAM);
-    nextParams.delete(DESKTOP_AUTH_PROVIDER_PARAM);
-    nextParams.set("redirectTo", normalizeRedirectTo(nextParams.get("redirectTo")));
-    return `cadence://auth/callback?${nextParams.toString()}`;
-}
-
 export async function getCurrentAuthCallback(): Promise<URL | null> {
     return (await loadPlatformRuntime()).getCurrentAuthCallback();
 }
@@ -152,4 +134,12 @@ export async function platformFetch(input: RequestInfo | URL, init?: RequestInit
 
 export async function checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
     return (await loadPlatformRuntime()).checkForAppUpdate();
+}
+
+export async function getNativeStore(storeName: string): Promise<NativeStoreAdapter | null> {
+    return (await loadPlatformRuntime()).getNativeStore(storeName);
+}
+
+export async function resizeWindow(width: number, height: number, center?: boolean): Promise<void> {
+    return (await loadPlatformRuntime()).resizeWindow(width, height, center);
 }

@@ -23,7 +23,7 @@ export const Content = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={[
-            "glass-surface rounded-lg px-3 py-1.5 text-xs text-twilight-text z-50",
+            "glass-surface layer-floating-ui rounded-lg px-3 py-1.5 text-xs text-twilight-text",
             "data-[state=delayed-open]:animate-in data-[state=closed]:animate-out",
             "data-[state=delayed-open]:fade-in data-[state=closed]:fade-out",
             "data-[state=delayed-open]:zoom-in-95 data-[state=closed]:zoom-out-95",

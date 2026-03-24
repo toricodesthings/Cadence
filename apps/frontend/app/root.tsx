@@ -1,3 +1,7 @@
+// Desktop fetch interceptor — must be the first import so window.fetch is
+// patched before the auth client (or anything else) makes network requests.
+import "./platform/patch-desktop-fetch";
+
 import {
   isRouteErrorResponse,
   Links,
@@ -20,11 +24,11 @@ export const links: LinksFunction = () =>
   RUNTIME_TARGET === "desktop"
     ? []
     : [
-        {
-          rel: "manifest",
-          href: "/manifest.webmanifest",
-        },
-      ];
+      {
+        rel: "manifest",
+        href: "/manifest.webmanifest",
+      },
+    ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

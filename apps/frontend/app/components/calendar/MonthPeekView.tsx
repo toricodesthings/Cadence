@@ -1,9 +1,7 @@
-import { useMemo, useState } from "react";
-import { CalendarTaskChip } from "./CalendarTaskChip";
-import { CalendarDayCell } from "./CalendarDayCell";
+import { useMemo } from "react";
+import { CalendarDays } from "lucide-react";
 import { formatTime } from "../../lib/utils/date-format";
 import type { Task } from "../../types/task";
-import { useSwipeNavigation } from "../../hooks/use-swipe-navigation";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -29,7 +27,6 @@ export interface MonthPeekViewProps {
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
-    onNavigateMonth: (delta: number) => void;
 }
 
 export function MonthPeekView({
@@ -45,7 +42,6 @@ export function MonthPeekView({
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
-    onNavigateMonth,
 }: MonthPeekViewProps) {
     const selectedDay = parseInt(currentDate.split("-")[2], 10);
     const todayStr = new Date().toISOString().split("T")[0];
@@ -63,21 +59,44 @@ export function MonthPeekView({
         return arr;
     }, [daysInMonth, firstOffset]);
 
-    const selectedTasks = tasksByDay[selectedDay] ?? [];
+    const agendaDays = useMemo(() => {
+        const orderedDays = Object.keys(tasksByDay)
+            .map((day) => Number(day))
+            .filter((day) => day >= selectedDay)
+            .sort((a, b) => a - b);
 
-    const swipeHandlers = useSwipeNavigation({
-        onSwipeLeft: () => onNavigateMonth(1),
-        onSwipeRight: () => onNavigateMonth(-1),
-    });
+        if (!orderedDays.includes(selectedDay)) {
+            orderedDays.unshift(selectedDay);
+        }
+
+        return orderedDays;
+    }, [selectedDay, tasksByDay]);
 
     const handleDaySelect = (day: number) => {
         onSelectDate(day);
     };
 
     return (
-        <div className="flex flex-col h-full min-h-0" {...swipeHandlers}>
+        <div className="flex flex-col h-full min-h-0">
             {/* Compact calendar grid */}
             <div className="shrink-0 px-3 pt-2 pb-3 border-b border-twilight-border/20">
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-lantern/85">
+                            <CalendarDays size={16} />
+                        </span>
+                        <span className="truncate text-sm font-medium text-twilight-text-soft">
+                            {new Date(year, month, selectedDay).toLocaleDateString("en-US", {
+                                month: "long",
+                                day: "numeric",
+                            })}
+                        </span>
+                    </div>
+                    <div className="rounded-full border border-white/[0.08] px-3 py-1 text-[11px] font-medium tabular-nums text-twilight-text-soft">
+                        {datesWithTasks.size}
+                    </div>
+                </div>
+
                 {/* Day-of-week headers */}
                 <div className="grid grid-cols-7 mb-1">
                     {WEEKDAY_LABELS.map((d) => (
@@ -119,8 +138,8 @@ export function MonthPeekView({
 
             {/* Selected day agenda */}
             <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-24">
-                <div className="py-3">
-                    <span className="text-[12px] font-semibold text-twilight-text-soft">
+                <div className="sticky top-0 z-10 -mx-1 border-b border-twilight-border/15 bg-twilight-deep/88 px-1 py-3 backdrop-blur-xl">
+                    <span className="text-[13px] font-semibold text-twilight-text-soft">
                         {new Date(year, month, selectedDay).toLocaleDateString("en-US", {
                             weekday: "long",
                             month: "short",
@@ -129,43 +148,74 @@ export function MonthPeekView({
                     </span>
                 </div>
 
-                {selectedTasks.length === 0 ? (
-                    <div className="flex items-center justify-center py-8 text-twilight-text-muted/50 text-sm">
-                        No tasks
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-1.5">
-                        {selectedTasks.map((t) => (
-                            <div
-                                key={t.id}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => onSelectTask(t.id)}
-                                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTask(t.id); } }}
-                                className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-white/[0.04] border border-white/[0.06] active:bg-white/[0.08] transition-colors text-left cursor-pointer"
-                            >
-                                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                    <span className="text-[13px] font-medium text-twilight-text-soft truncate">
-                                        {t.title}
-                                    </span>
-                                    {t.scheduledStart && (
-                                        <span className="text-[11px] text-twilight-text-muted/80">
-                                            {formatTime(t.scheduledStart)}
-                                            {t.scheduledEnd ? ` – ${formatTime(t.scheduledEnd)}` : ""}
-                                        </span>
-                                    )}
-                                </div>
+                <div className="flex flex-col gap-5 py-4">
+                    {agendaDays.length === 0 ? (
+                        <div className="flex items-center justify-center py-8 text-sm text-twilight-text-muted/50">
+                            Nothing scheduled
+                        </div>
+                    ) : agendaDays.map((day) => {
+                        const dayTasks = tasksByDay[day] ?? [];
+
+                        return (
+                            <section key={day} className="space-y-2">
                                 <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); onCompleteTask(t.id); }}
-                                    className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
+                                    onClick={() => handleDaySelect(day)}
+                                    className="flex w-full items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-left"
                                 >
-                                    <span className="w-2 h-2 rounded-full border border-twilight-text-muted/50" />
+                                    <span className="text-sm font-semibold text-twilight-text">
+                                        {new Date(year, month, day).toLocaleDateString("en-US", {
+                                            weekday: "long",
+                                            month: "short",
+                                            day: "numeric",
+                                        })}
+                                    </span>
+                                    <span className="text-xs tabular-nums text-twilight-text-muted">
+                                        {dayTasks.length > 0 ? String(dayTasks.length) : "-"}
+                                    </span>
                                 </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
+
+                                {dayTasks.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-white/[0.07] px-3 py-3 text-sm text-twilight-text-muted/70">
+                                        Open
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-1.5">
+                                        {dayTasks.map((t) => (
+                                            <div
+                                                key={t.id}
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => onSelectTask(t.id)}
+                                                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTask(t.id); } }}
+                                                className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-left transition-colors active:bg-white/[0.08]"
+                                            >
+                                                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                                    <span className="truncate text-[13px] font-medium text-twilight-text-soft">
+                                                        {t.title}
+                                                    </span>
+                                                    {t.scheduledStart ? (
+                                                        <span className="text-[11px] text-twilight-text-muted/80">
+                                                            {formatTime(t.scheduledStart)}
+                                                            {t.scheduledEnd ? ` – ${formatTime(t.scheduledEnd)}` : ""}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); onCompleteTask(t.id); }}
+                                                    className="h-7 w-7 shrink-0 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                                                >
+                                                    <span className="h-2 w-2 rounded-full border border-twilight-text-muted/50" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

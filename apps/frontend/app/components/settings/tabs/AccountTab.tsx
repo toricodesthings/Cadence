@@ -4,6 +4,7 @@ import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { authClient } from "../../../lib/auth-client";
 import { beginSocialLink, getAuthCallbackUrl } from "../../../platform/runtime";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { useAuthState } from "../../../hooks/auth/use-auth-state";
 import * as Dialog from "../../primitives/Dialog";
 import { toast } from "sonner";
 import { compressImageToBase64 } from "../../../lib/utils/image";
@@ -460,7 +461,7 @@ function OAuthConnectionsBlock() {
 function SessionsBlock() {
     const [sessions, setSessions] = useState<any[] | null>(null);
     const [isPending, setIsPending] = useState(true);
-    const { data: currentSession } = authClient.useSession();
+    const { session: currentSession } = useAuthState();
     const [loading, setLoading] = useState(false);
 
     React.useEffect(() => {
@@ -628,8 +629,9 @@ function AvatarEditModal({ userImage, onProfileUpdated }: { userImage?: string |
 }
 
 export function AccountTab() {
-    const { data: sessionData, isPending, refetch: refetchSession } = authClient.useSession();
-    const user = sessionData?.user;
+    const { session, authReady } = useAuthState();
+    const { refetch: refetchSession } = authClient.useSession();
+    const user = session?.user;
 
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
@@ -712,7 +714,7 @@ export function AccountTab() {
                 <div className="pt-14 pb-6 px-6 relative">
                     <div className="flex flex-col gap-1">
                         <h3 className="text-xl font-bold text-warm-white flex items-center gap-2">
-                            {isPending ? "Loading..." : user ? (user.name || "Cadence User") : "Guest User"}
+                            {!authReady ? "Loading..." : user ? (user.name || "Cadence User") : "Guest User"}
                             {user?.id && <span className="text-warm-white/40 font-normal text-sm">#{user.id.slice(0, 4)}</span>}
                         </h3>
                     </div>
@@ -721,7 +723,7 @@ export function AccountTab() {
                         <div className="flex justify-between items-center group">
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Display Name</p>
-                                <p className="text-sm text-warm-white">{isPending ? "..." : (user?.name || "None")}</p>
+                                <p className="text-sm text-warm-white">{!authReady ? "..." : (user?.name || "None")}</p>
                             </div>
                             <FieldEditorModal
                                 title="Edit Display Name"
@@ -746,7 +748,7 @@ export function AccountTab() {
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Email</p>
                                 <p className="text-sm text-warm-white flex items-center gap-2">
-                                    {isPending ? "..." : (user?.email || "No email provided")}
+                                    {!authReady ? "..." : (user?.email || "No email provided")}
                                 </p>
                             </div>
                             <FieldEditorModal

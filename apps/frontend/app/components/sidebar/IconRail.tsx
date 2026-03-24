@@ -13,7 +13,6 @@ import * as Popover from "../primitives/Popover";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Tip } from "./Tip";
 import { useApiClient } from "../../hooks/auth/use-api-client";
-import { authClient } from "../../lib/auth-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -97,8 +96,7 @@ export function IconRail({
     const navigate = useNavigate();
     const api = useApiClient();
     const queryClient = useQueryClient();
-    const { data: session, isPending } = authClient.useSession();
-    const { completeSignOut } = useAuthState();
+    const { session, authReady, completeSignOut } = useAuthState();
     const { data: adminCapabilities } = useAdminCapabilities();
     const canUseDeveloperTools = adminCapabilities?.canUseDeveloperTools ?? false;
 
@@ -521,7 +519,7 @@ export function IconRail({
 
             {/* Profile avatar */}
             <div className="w-[40%] h-px bg-twilight-border my-1 rounded-full opacity-50" aria-hidden="true" />
-            {isPending ? (
+            {!authReady ? (
                 <div className="w-8 h-8 rounded-full border-2 border-lantern border-t-transparent animate-spin opacity-50" />
             ) : session ? (
                 <DropdownMenu.Root>

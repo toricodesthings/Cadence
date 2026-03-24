@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -147,9 +147,9 @@ export default function HomeRoute() {
                 setMobilePanelOpen(true);
             }}
             className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label="Open planner panel"
+            aria-label="Open planner"
         >
-            <PanelRightOpen size={16} aria-hidden="true" />
+            <CalendarDays size={16} aria-hidden="true" />
         </button>
     );
 
@@ -159,6 +159,7 @@ export default function HomeRoute() {
             hideContextualOrb
             sidePanel={sidePanel}
             headerRight={headerRight}
+            phoneHeaderRightInline
             contentWidth="default"
             shellHeader={{
                 title: "Capture",

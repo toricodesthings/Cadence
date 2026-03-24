@@ -1,14 +1,14 @@
 import { formatDateLabel } from "../../lib/utils/date-format";
 import { getTimeBasedGreeting } from "../../lib/constants/greetings";
-import { authClient } from "../../lib/auth-client";
 import { useWeather } from "../../hooks/environment/use-weather";
 import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
+import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useMemo } from "react";
 import { CloudOff } from "lucide-react";
 
 /** The contextual greeting header — warm, cozy, like settling into a lit room */
 export function PlannerHeader({ className = "" }: { className?: string }) {
-    const { data: session } = authClient.useSession();
+    const { session } = useAuthState();
     const { weather, loading, error } = useWeather();
     const now = new Date();
     const formatted = formatDateLabel(now);

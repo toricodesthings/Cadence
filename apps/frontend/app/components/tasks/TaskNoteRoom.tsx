@@ -37,7 +37,7 @@ export function TaskNoteRoom() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="fixed inset-0 z-50 flex flex-col bg-twilight"
+                    className="layer-fullscreen-surface fixed inset-0 flex flex-col bg-twilight"
                 >
                     <NoteRoomInner taskId={taskId!} taskTitle={taskTitle} onClose={close} />
                 </motion.div>

@@ -2,11 +2,38 @@ import { hc } from "hono/client";
 import type { AppType } from "@cadence/backend";
 import { ApiErrorResponse } from "../../types/api";
 import { authClient } from "../auth-client";
-import { API_BASE_URL } from "../env";
+import { readDesktopAuthSession } from "../desktop-auth-session";
+import { API_BASE_URL, NEON_AUTH_URL } from "../env";
 import { platformFetch } from "../../platform/runtime";
 
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
+}
+
+function looksLikeJwt(token: unknown): token is string {
+    return typeof token === "string" && token.split(".").length === 3;
+}
+
+export async function fetchAuthJwt(): Promise<string | null> {
+    const response = await fetch(`${NEON_AUTH_URL}/token`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+    });
+
+    if (!response.ok) {
+        if (import.meta.env.DEV) {
+            console.warn("[cadence:api-auth] /token request failed", response.status, response.statusText);
+        }
+        return null;
+    }
+
+    const payload = await response.json().catch(() => null) as
+        | { token?: unknown; data?: { token?: unknown } }
+        | null;
+
+    const token = payload?.token ?? payload?.data?.token;
+    return looksLikeJwt(token) ? token : null;
 }
 
 export async function authenticatedFetch(
@@ -17,14 +44,20 @@ export async function authenticatedFetch(
     const headers = new Headers(requestInit.headers);
 
     if (authenticated) {
+        const desktopSession = await readDesktopAuthSession();
         const sessionResult = await authClient.getSession();
-        const token = sessionResult?.data?.session?.token as string | undefined;
+        const candidateTokens = [
+            await fetchAuthJwt(),
+            desktopSession?.jwt,
+            sessionResult?.data?.session?.token,
+        ];
+        const token = candidateTokens.find(looksLikeJwt) ?? undefined;
 
         if (!token) {
             throw new ApiErrorResponse({
                 status: 401,
                 code: "UNAUTHORIZED",
-                message: "Authentication is required",
+                message: "Authentication token is unavailable",
             });
         }
 
