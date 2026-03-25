@@ -22,6 +22,8 @@ export interface MonthPeekViewProps {
     habitDays?: Set<number>;
     holidayDays?: Set<number>;
     birthdayDay?: number | null;
+    personalEventDays?: Set<number>;
+    personalEventCountsByDay?: Record<number, number>;
     tasksByDay: Record<number, Task[]>;
     onSelectDate: (day: number) => void;
     onSelectTask: (id: string) => void;
@@ -37,6 +39,8 @@ export function MonthPeekView({
     habitDays,
     holidayDays,
     birthdayDay,
+    personalEventDays,
+    personalEventCountsByDay,
     tasksByDay,
     onSelectDate,
     onSelectTask,
@@ -112,6 +116,11 @@ export function MonthPeekView({
                         const isToday = isCurrentMonth && day === todayDay;
                         const isSelected = day === selectedDay;
                         const hasTask = datesWithTasks.has(day);
+                        const hasHabit = habitDays?.has(day) ?? false;
+                        const hasHoliday = holidayDays?.has(day) ?? false;
+                        const hasBirthday = day === birthdayDay;
+                        const hasPersonalEvent = personalEventDays?.has(day) ?? false;
+                        const personalEventCount = personalEventCountsByDay?.[day] ?? 0;
 
                         return (
                             <button
@@ -127,9 +136,23 @@ export function MonthPeekView({
                                 `}
                             >
                                 {day}
-                                {hasTask && !isToday && (
-                                    <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-lantern/50" />
-                                )}
+                                {(hasTask || hasHabit || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday ? (
+                                    <span className="absolute bottom-[2px] left-1/2 flex -translate-x-1/2 items-center gap-1">
+                                        {hasTask ? <span className="h-1 w-1 rounded-full bg-lantern/50" /> : null}
+                                        {hasHabit ? <span className="h-1 w-1 rounded-full bg-lantern/80" /> : null}
+                                        {hasHoliday ? <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" /> : null}
+                                        {hasBirthday ? <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" /> : null}
+                                        {hasPersonalEvent ? (
+                                            personalEventCount > 1 ? (
+                                                <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-personal/20 bg-personal/15 px-1 text-[9px] font-semibold text-personal">
+                                                    {personalEventCount}
+                                                </span>
+                                            ) : (
+                                                <span className="h-1.5 w-1.5 rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.45)]" />
+                                            )
+                                        ) : null}
+                                    </span>
+                                ) : null}
                             </button>
                         );
                     })}

@@ -23,6 +23,7 @@ import {
     normalizeRedirectTo,
 } from "./platform/runtime";
 import { installDesktopE2EBridge } from "./platform/desktop-e2e";
+import { publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
 
 // Adapter for react-router-dom Link (using react-router v7)
 function Link({
@@ -258,8 +259,11 @@ function ProvidersInner({ children }: { children: ReactNode }) {
 
         void checkForAppUpdate().then((update) => {
             if (!active || !update) {
+                publishAvailableDesktopUpdate(null);
                 return;
             }
+
+            publishAvailableDesktopUpdate(update);
 
             toast.info(`Cadence ${update.version} is ready to install.`, {
                 description: "Open Settings > Privacy & Data to review release notes and apply the update.",

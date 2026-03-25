@@ -41,6 +41,7 @@ export function PersonalEventsPanel({
     const [label, setLabel] = useState("");
     const [monthDay, setMonthDay] = useState("");
     const [emoji, setEmoji] = useState("");
+    const [startedOn, setStartedOn] = useState<string | null>(null);
     const labelRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -53,6 +54,7 @@ export function PersonalEventsPanel({
         setLabel("");
         setMonthDay("");
         setEmoji("");
+        setStartedOn(null);
         setIsAdding(false);
         setEditingId(null);
     };
@@ -78,6 +80,7 @@ export function PersonalEventsPanel({
                 label: trimmedLabel,
                 monthDay: normalized,
                 emoji: emoji.trim() || null,
+                startedOn,
             });
         } else {
             onAdd({
@@ -85,6 +88,7 @@ export function PersonalEventsPanel({
                 monthDay: normalized,
                 emoji: emoji.trim() || null,
                 notify: true,
+                startedOn: null,
             });
         }
         resetForm();
@@ -95,6 +99,7 @@ export function PersonalEventsPanel({
         setLabel(evt.label);
         setMonthDay(evt.monthDay);
         setEmoji(evt.emoji ?? "");
+        setStartedOn(evt.startedOn ?? null);
         setIsAdding(true);
     };
 

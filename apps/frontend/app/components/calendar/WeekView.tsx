@@ -280,10 +280,16 @@ export function WeekView({
                                             <Tooltip.Trigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-personal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-personal/60 cursor-pointer"
+                                                    className="inline-flex min-w-4 items-center justify-center rounded-full text-personal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-personal/60 cursor-pointer"
                                                     aria-label={`Event: ${personalEventsByDate[ds].map((e) => e.label).join(", ")}`}
                                                 >
-                                                    <span className="h-2 w-2 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]" />
+                                                    {personalEventsByDate[ds].length > 1 ? (
+                                                        <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-personal/20 bg-personal/12 px-1 text-[9px] font-semibold text-personal">
+                                                            {personalEventsByDate[ds].length}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="h-2 w-2 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]" />
+                                                    )}
                                                 </button>
                                             </Tooltip.Trigger>
                                             <Tooltip.Content>

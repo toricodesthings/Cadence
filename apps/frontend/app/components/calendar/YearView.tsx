@@ -27,6 +27,8 @@ interface MiniMonthProps {
     birthdayDate?: string | null;
     /** Set of ISO date strings that have personal events */
     personalEventDateSet?: Set<string>;
+    /** Personal event density by ISO date */
+    personalEventDateCounts?: Record<string, number>;
     today: Date;
     /** Jump to month view for this month */
     onSelectMonth: (month: number) => void;
@@ -42,6 +44,7 @@ function MiniMonth({
     holidayDateSet,
     birthdayDate,
     personalEventDateSet,
+    personalEventDateCounts,
     today,
     onSelectMonth,
     onSelectDay,
@@ -90,6 +93,7 @@ function MiniMonth({
                     const hasHoliday = holidayDateSet?.has(dayStr) ?? false;
                     const isBirthday = birthdayDate === dayStr;
                     const hasPersonalEvent = personalEventDateSet?.has(dayStr) ?? false;
+                    const personalEventCount = personalEventDateCounts?.[dayStr] ?? 0;
 
                     // Heatmap: opacity scales with density (1→0.25, 2→0.4, 3→0.55, 4+→0.7)
                     const heatOpacity = taskCount === 0 ? 0 : Math.min(0.7, 0.15 + taskCount * 0.15);
@@ -116,7 +120,13 @@ function MiniMonth({
                                 <span className="absolute left-[3px] top-[3px] h-[4px] w-[4px] rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.4)]" />
                             )}
                             {hasPersonalEvent && (
-                                <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.4)]" />
+                                personalEventCount > 1 ? (
+                                    <span className="absolute left-1/2 top-[3px] inline-flex min-w-4 -translate-x-1/2 items-center justify-center rounded-full border border-personal/20 bg-personal/18 px-1 text-[8px] font-semibold text-personal">
+                                        {personalEventCount}
+                                    </span>
+                                ) : (
+                                    <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.4)]" />
+                                )
                             )}
                         </button>
                     );
@@ -134,6 +144,8 @@ export interface YearViewProps {
     birthdayDate?: string | null;
     /** Set of ISO date strings with personal events */
     personalEventDateSet?: Set<string>;
+    /** Personal event density by ISO date */
+    personalEventDateCounts?: Record<string, number>;
     /** Switch to month view for a specific month */
     onSelectMonth: (month: number) => void;
     /** Switch to day view for a specific day */
@@ -141,7 +153,7 @@ export interface YearViewProps {
     compact?: boolean;
 }
 
-export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEventDateSet, onSelectMonth, onSelectDay, compact = false }: YearViewProps) {
+export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEventDateSet, personalEventDateCounts, onSelectMonth, onSelectDay, compact = false }: YearViewProps) {
     const today = new Date();
 
     // Build a map of ISO dates → task count for heatmap density
@@ -169,6 +181,7 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEv
                         holidayDateSet={holidayDateSet}
                         birthdayDate={birthdayDate}
                         personalEventDateSet={personalEventDateSet}
+                        personalEventDateCounts={personalEventDateCounts}
                         today={today}
                         onSelectMonth={onSelectMonth}
                         onSelectDay={onSelectDay}

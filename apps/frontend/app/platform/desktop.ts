@@ -21,12 +21,18 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { redirectlessAuthClient } from "../lib/auth-client";
 import { WEB_APP_BASE_URL } from "../lib/env";
+import {
+    DESKTOP_AUTH_STATE_PARAM,
+    prepareDesktopAuthHandoff,
+} from "./desktop-auth-handoff";
 import type {
     AvailableAppUpdate,
     NotificationPermissionState,
     SocialProvider,
 } from "./runtime";
 import { getAuthCallbackUrl } from "./runtime";
+
+const OAUTH_CALLBACK_PORTS = [61827, 61828];
 
 interface SingleInstancePayload {
     args: string[];
@@ -275,11 +281,17 @@ export const desktopRuntime = {
         await ensureOauthListeners();
         await stopOauthServer();
 
-        const port = await startOauthServer({ response: OAUTH_CALLBACK_SUCCESS_HTML });
+        const authState = await prepareDesktopAuthHandoff(target ?? "/");
+
+        const port = await startOauthServer({
+            ports: OAUTH_CALLBACK_PORTS,
+            response: OAUTH_CALLBACK_SUCCESS_HTML,
+        });
         oauthServerPort = port;
 
         const oauthCallbackUrl = new URL("/auth/callback", `http://localhost:${port}`);
         oauthCallbackUrl.searchParams.set("redirectTo", target ?? "/");
+        oauthCallbackUrl.searchParams.set(DESKTOP_AUTH_STATE_PARAM, authState);
         const origin = getDesktopAuthRequestOrigin();
 
         const authClientAny = redirectlessAuthClient as any;
@@ -310,11 +322,17 @@ export const desktopRuntime = {
         await ensureOauthListeners();
         await stopOauthServer();
 
-        const port = await startOauthServer({ response: OAUTH_CALLBACK_SUCCESS_HTML });
+        const authState = await prepareDesktopAuthHandoff(target ?? "/");
+
+        const port = await startOauthServer({
+            ports: OAUTH_CALLBACK_PORTS,
+            response: OAUTH_CALLBACK_SUCCESS_HTML,
+        });
         oauthServerPort = port;
 
         const oauthCallbackUrl = new URL("/auth/callback", `http://localhost:${port}`);
         oauthCallbackUrl.searchParams.set("redirectTo", target ?? "/");
+        oauthCallbackUrl.searchParams.set(DESKTOP_AUTH_STATE_PARAM, authState);
         const origin = getDesktopAuthRequestOrigin();
         const authClientAny = redirectlessAuthClient as any;
         const result = await authClientAny.linkSocial({
@@ -337,7 +355,25 @@ export const desktopRuntime = {
         }
 
         const request = input instanceof Request ? new Request(input, init) : new Request(input, init);
-        return tauriFetch(request);
+
+        try {
+            return await tauriFetch(request);
+        } catch (error) {
+            const normalizedError = error instanceof Error
+                ? error
+                : new Error(typeof error === "string" ? error : JSON.stringify(error));
+
+            if (import.meta.env.DEV) {
+                console.error("[cadence:desktop-fetch] Native request failed", {
+                    url: request.url,
+                    method: request.method,
+                    error,
+                    message: normalizedError.message,
+                });
+            }
+
+            throw normalizedError;
+        }
     },
     async checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
         if (!hasTauriRuntime()) {

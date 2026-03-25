@@ -9,9 +9,10 @@ interface EmojiPickerPopoverProps {
     emoji?: string;
     onSelect: (emoji: string) => void;
     children?: React.ReactNode;
+    contentClassName?: string;
 }
 
-export function EmojiPickerPopover({ emoji, onSelect, children }: EmojiPickerPopoverProps) {
+export function EmojiPickerPopover({ emoji, onSelect, children, contentClassName }: EmojiPickerPopoverProps) {
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
@@ -21,7 +22,7 @@ export function EmojiPickerPopover({ emoji, onSelect, children }: EmojiPickerPop
                     <button
                         type="button"
                         aria-label="Pick an emoji"
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/[0.04] border border-transparent hover:border-twilight-border-interactive focus:border-twilight-border-interactive transition-colors text-twilight-text text-lg"
+                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-white/[0.04] text-lg text-twilight-text transition-colors hover:border-twilight-border-interactive focus:border-twilight-border-interactive"
                     >
                         {emoji || <Smile size={16} className="text-twilight-text-muted" />}
                     </button>
@@ -30,7 +31,7 @@ export function EmojiPickerPopover({ emoji, onSelect, children }: EmojiPickerPop
             <Popover.Content
                 side="bottom"
                 align="start"
-                className="p-0 rounded-xl z-[100] overflow-hidden"
+                className={`overflow-hidden rounded-xl p-0 ${contentClassName ?? ""}`}
             >
                 <Suspense
                     fallback={

@@ -660,16 +660,32 @@ export default function Upcoming() {
                 </Suspense>
                 <ActiveFilterBar />
                 {upcomingEvents.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pb-2">
-                        {upcomingEvents.map(({ event: evt, dateStr }) => (
-                            <div
-                                key={`${evt.id}-${dateStr}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal"
+                    <div className="pb-2">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-personal/80">
+                                Upcoming events
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => navigate("/events")}
+                                className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
                             >
-                                {evt.emoji ?? "🎉"} {evt.label}
-                                <span className="text-personal/60">{formatShortDate(dateStr)}</span>
-                            </div>
-                        ))}
+                                Manage events
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {upcomingEvents.map(({ event: evt, dateStr }) => (
+                                <button
+                                    key={`${evt.id}-${dateStr}`}
+                                    type="button"
+                                    onClick={() => navigate(`/schedule?date=${dateStr}&view=day`)}
+                                    className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal transition-colors hover:bg-personal/18"
+                                >
+                                    {evt.emoji ?? "🎉"} {evt.label}
+                                    <span className="text-personal/60">{formatShortDate(dateStr)}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
             </PageContent>

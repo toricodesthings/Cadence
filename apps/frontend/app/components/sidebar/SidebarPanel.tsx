@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
-import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, Flame, Sprout, Search, Plus } from "lucide-react";
+import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, CalendarHeart, Flame, Sprout, Search, Plus } from "lucide-react";
 import * as ScrollArea from "../primitives/ScrollArea";
 import * as Separator from "../primitives/Separator";
 import * as Collapsible from "../primitives/Collapsible";
@@ -171,6 +171,14 @@ export function SidebarPanel({
                             activeColor="text-[var(--color-nav-upcoming)]"
                             activeBg="bg-[var(--color-nav-upcoming)]/15"
                             hoverColor="group-hover:text-[var(--color-nav-upcoming)]/70"
+                        />
+                        <NavLink
+                            icon={CalendarHeart}
+                            label="Events"
+                            href="/events"
+                            activeColor="text-personal"
+                            activeBg="bg-personal/12"
+                            hoverColor="group-hover:text-personal/80"
                         />
                     </nav>
 

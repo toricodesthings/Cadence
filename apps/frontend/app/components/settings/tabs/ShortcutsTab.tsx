@@ -4,6 +4,9 @@ import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
+import { GLOBAL_QUICK_CAPTURE_SHORTCUT } from "../../../platform/desktop-shell";
+import { useDesktopCommandPreferences } from "../../../hooks/ui/use-desktop-command-preferences";
+import { IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 
 const BINDING_LABELS: Record<string, { label: string; description: string }> = {
     commandPalette: { label: "Command palette", description: "Open the global command palette" },
@@ -99,6 +102,7 @@ function KeyBindingCapture({
 export function ShortcutsTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
+    const { preferences, updatePreferences } = useDesktopCommandPreferences();
 
     const shortcutSettings = settings?.shortcuts ?? SETTINGS_DEFAULTS.shortcuts;
     const bindings = shortcutSettings.bindings ?? SETTINGS_DEFAULTS.shortcuts.bindings;
@@ -130,6 +134,19 @@ export function ShortcutsTab() {
                         }
                     />
                 </SettingsRow>
+                {IS_DESKTOP_RUNTIME ? (
+                    <SettingsRow
+                        title="Global quick capture"
+                        description={`Register ${GLOBAL_QUICK_CAPTURE_SHORTCUT} as a system-wide shortcut for opening the quick capture window.`}
+                    >
+                        <Switch
+                            checked={preferences.quickCaptureShortcutEnabled}
+                            onCheckedChange={(value) => {
+                                void updatePreferences({ quickCaptureShortcutEnabled: value });
+                            }}
+                        />
+                    </SettingsRow>
+                ) : null}
             </SettingsSection>
 
             <SettingsSection title="Key bindings">

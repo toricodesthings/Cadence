@@ -23,6 +23,7 @@ import { useNotificationCenter } from "../../hooks/notifications/use-notificatio
 import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
 import { useSettings } from "../../hooks/core/use-settings";
 import { NotificationCenter } from "../notifications/NotificationCenter";
+import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
@@ -356,7 +357,7 @@ export function IconRail({
                 </button>
             </Tip>
 
-            <SyncButton />
+            {!IS_DESKTOP_RUNTIME && <SyncButton />}
 
             <div className="flex-1" />
 

@@ -619,15 +619,31 @@ export default function TodayRoute() {
                 </Suspense>
                 <ActiveFilterBar />
                 {todayEvents.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pb-2">
-                        {todayEvents.map((evt) => (
-                            <div
-                                key={evt.id}
-                                className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal"
+                    <div className="pb-2">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-personal/80">
+                                Events today
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => navigate("/events")}
+                                className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
                             >
-                                {evt.emoji ?? "🎉"} {evt.label}
-                            </div>
-                        ))}
+                                Manage events
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {todayEvents.map((evt) => (
+                                <button
+                                    key={evt.id}
+                                    type="button"
+                                    onClick={() => navigate(`/schedule?date=${todayISO}&view=day`)}
+                                    className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal transition-colors hover:bg-personal/18"
+                                >
+                                    {evt.emoji ?? "🎉"} {evt.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
             </PageContent>

@@ -3,11 +3,17 @@
   "identifier": "main-window",
   "description": "Allows the main Cadence window to access only the desktop capabilities it actually uses.",
   "windows": [
-    "main"
+    "main",
+    "quick-capture"
   ],
   "permissions": [
     "core:default",
+    "core:webview:allow-create-webview-window",
     "deep-link:default",
+    "global-shortcut:default",
+    "keyring:allow-set-secret",
+    "keyring:allow-get-secret",
+    "keyring:allow-delete-secret",
     "notification:default",
     "oauth:allow-cancel",
     "oauth:allow-start",
@@ -19,10 +25,22 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "http://localhost:*"
+          "url": "http://localhost:8787/*"
         },
         {
-          "url": "http://127.0.0.1:*"
+          "url": "http://127.0.0.1:8787/*"
+        },
+        {
+          "url": "http://localhost:61827/*"
+        },
+        {
+          "url": "http://127.0.0.1:61827/*"
+        },
+        {
+          "url": "http://localhost:61828/*"
+        },
+        {
+          "url": "http://127.0.0.1:61828/*"
         },
         {
           "url": "https://api.cadenceapp.cloud/*"

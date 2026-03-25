@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import * as Popover from "../components/primitives/Popover";
 import { Switch } from "../components/primitives/Switch";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
@@ -64,12 +64,12 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import {
     HolidayLocationPrompt,
 } from "../components/calendar/HolidayControls";
-import { Plus, Wrench } from "lucide-react";
-import { PersonalEventsPanel } from "../components/calendar/PersonalEventsPanel";
+import { Wrench } from "lucide-react";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
+import { sortPersonalEventViewModels, toPersonalEventViewModel } from "../lib/utils/personal-events";
 
 const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 32 : -32, opacity: 0 }),
@@ -90,11 +90,22 @@ function applyCalendarClutterFilters(tasks: Task[], clutter: {
     });
 }
 
+function isValidDateParam(value: string | null): value is string {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00`);
+    return !Number.isNaN(parsed.getTime()) && toISODate(parsed) === value;
+}
+
+function isCalendarViewModeValue(value: string | null): value is CalendarViewMode {
+    return value === "day" || value === "week" || value === "month" || value === "year";
+}
+
 // ── component ──────────────────────────────────────────────────────────────
 
 export default function Schedule() {
     const shell = useShellMode();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { setMobileNavOpen } = useSidebarStore();
     const today = new Date();
 
@@ -103,6 +114,8 @@ export default function Schedule() {
     const storageKey = `cadence-schedule-view-${deviceClass}`;
     const defaultView: CalendarViewMode = shell.isPhone ? "day" : shell.isDesktop ? "month" : "week";
     const [viewMode, setViewModeRaw] = useState<CalendarViewMode>(() => {
+        const queryView = searchParams.get("view");
+        if (isCalendarViewModeValue(queryView)) return queryView;
         try {
             const stored = localStorage.getItem(storageKey);
             if (stored === "day" || stored === "week" || stored === "month" || stored === "year") return stored;
@@ -114,7 +127,10 @@ export default function Schedule() {
         try { localStorage.setItem(storageKey, mode); } catch { /* noop */ }
     }, [storageKey]);
 
-    const [currentDate, setCurrentDate] = useState<string>(toISODate(today));
+    const [currentDate, setCurrentDate] = useState<string>(() => {
+        const queryDate = searchParams.get("date");
+        return isValidDateParam(queryDate) ? queryDate : toISODate(today);
+    });
     const [direction, setDirection] = useState(0);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
@@ -124,6 +140,20 @@ export default function Schedule() {
     const [eventPopoverTab, setEventPopoverTab] = useState<"task" | "event">("task");
     const [draftPlacement, setDraftPlacement] = useState<{ dateStr: string; startMinute: number; endMinute: number } | null>(null);
     const [holidayPromptOpen, setHolidayPromptOpen] = useState(false);
+
+    useEffect(() => {
+        const queryDate = searchParams.get("date");
+        if (isValidDateParam(queryDate) && queryDate !== currentDate) {
+            setCurrentDate(queryDate);
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
+        const queryView = searchParams.get("view");
+        if (isCalendarViewModeValue(queryView) && queryView !== viewMode) {
+            setViewMode(queryView);
+        }
+    }, [searchParams, setViewMode]);
 
     useDocumentMeta(
         "Schedule · Cadence",
@@ -237,6 +267,34 @@ export default function Schedule() {
     const personalEventsByDateRecord = useMemo<Record<string, import("../types/settings").PersonalEvent[]>>(() => {
         return Object.fromEntries(personalEvents.eventsByDate.entries());
     }, [personalEvents.eventsByDate]);
+
+    const personalEventCountsByDay = useMemo<Record<number, number>>(() => {
+        if (!personalEvents.enabled) return {};
+
+        const counts: Record<number, number> = {};
+        const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
+        for (const [dateStr, events] of personalEvents.eventsByDate.entries()) {
+            if (!dateStr.startsWith(monthPrefix)) continue;
+            counts[Number.parseInt(dateStr.slice(-2), 10)] = events.length;
+        }
+        return counts;
+    }, [month, personalEvents.enabled, personalEvents.eventsByDate, year]);
+
+    const personalEventDateCounts = useMemo<Record<string, number>>(() => {
+        return Object.fromEntries(
+            Array.from(personalEvents.eventsByDate.entries()).map(([dateStr, events]) => [dateStr, events.length]),
+        );
+    }, [personalEvents.eventsByDate]);
+
+    const personalEventHighlights = useMemo(
+        () => sortPersonalEventViewModels(personalEvents.items.map((event) => toPersonalEventViewModel(event, today)), "next"),
+        [personalEvents.items, today],
+    );
+
+    const personalEventNextThirtyCount = useMemo(
+        () => personalEventHighlights.filter((item) => item.daysUntil <= 30).length,
+        [personalEventHighlights],
+    );
 
     // ── Habits injection ───────────────────────────────────────────────────
     const habitRange = useMemo(() => {
@@ -672,6 +730,10 @@ export default function Schedule() {
         });
     }, [currentDate]);
 
+    const handleManageEvents = useCallback(() => {
+        navigate("/events");
+    }, [navigate]);
+
     useEffect(() => {
         setHolidayPromptOpen(holidayOverlay.shouldShowPrompt);
     }, [holidayOverlay.shouldShowPrompt]);
@@ -804,6 +866,62 @@ export default function Schedule() {
         </>
     );
 
+    const personalEventControlBlock = (
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+            <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                    <p className="text-sm font-medium text-twilight-text-soft">Show personal events</p>
+                    <p className="text-xs leading-relaxed text-twilight-text-muted">
+                        Keep yearly milestones visible in the calendar, then move into Events when you want the full library.
+                    </p>
+                </div>
+                <Switch
+                    checked={personalEvents.enabled}
+                    onCheckedChange={(value) => personalEvents.setEnabled(value)}
+                />
+            </div>
+
+            {personalEventHighlights[0] ? (
+                <div className="mt-3 rounded-xl border border-personal/16 bg-personal/10 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-personal/75">Next milestone</p>
+                    <p className="mt-1 text-sm font-medium text-twilight-text">
+                        {personalEventHighlights[0].event.emoji ?? "🎉"} {personalEventHighlights[0].event.label}
+                    </p>
+                    <p className="mt-1 text-xs text-twilight-text-soft">
+                        {personalEventHighlights[0].nextDateLabel} · {personalEventHighlights[0].countdownLabel}
+                    </p>
+                    <p className="mt-2 text-[11px] text-personal">
+                        {personalEvents.items.length} in library · {personalEventNextThirtyCount} in the next 30 days
+                    </p>
+                </div>
+            ) : (
+                <p className="mt-3 text-sm text-twilight-text-soft">No yearly events yet. Add one here, then manage the full library from Events.</p>
+            )}
+
+            <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    className="rounded-xl border border-personal/20 bg-personal/12 px-3 py-2 text-sm font-medium text-personal transition-colors hover:bg-personal/18"
+                    onClick={() => {
+                        if (!personalEvents.enabled) {
+                            personalEvents.setEnabled(true);
+                        }
+                        handleAddEventToolbar();
+                    }}
+                >
+                    Add event
+                </button>
+                <button
+                    type="button"
+                    className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                    onClick={handleManageEvents}
+                >
+                    Manage events
+                </button>
+            </div>
+        </div>
+    );
+
     const overflowContent = (
         <div className="space-y-4">
             <div>
@@ -859,42 +977,7 @@ export default function Schedule() {
             </div>
             <div>
                 <h4 className="text-xs font-medium uppercase tracking-wider text-twilight-text-muted mb-2">Events</h4>
-                <div className="space-y-2">
-                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show personal events</span>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                className="rounded-lg p-1 text-personal/80 hover:text-personal hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    if (!personalEvents.enabled) {
-                                        personalEvents.setEnabled(true);
-                                    }
-                                    handleAddEventToolbar();
-                                }}
-                                aria-label="Add personal event"
-                                title="Add personal event"
-                            >
-                                <Plus size={14} />
-                            </button>
-                            <Switch
-                                checked={personalEvents.enabled}
-                                onCheckedChange={(val) => personalEvents.setEnabled(val)}
-                            />
-                        </div>
-                    </label>
-                    {!shell.isPhone && personalEvents.enabled && (
-                        <PersonalEventsPanel
-                            items={personalEvents.items}
-                            compact
-                            hideAddButton
-                            onAdd={personalEvents.addEvent}
-                            onUpdate={personalEvents.updateEvent}
-                            onRemove={personalEvents.removeEvent}
-                        />
-                    )}
-                </div>
+                {personalEventControlBlock}
             </div>
         </div>
     );
@@ -925,14 +1008,12 @@ export default function Schedule() {
                             onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })}
                         />
                     </label>
-                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show personal events</span>
-                        <Switch
-                            checked={personalEvents.enabled}
-                            onCheckedChange={(val) => personalEvents.setEnabled(val)}
-                        />
-                    </label>
                 </div>
+            </div>
+
+            <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Events</h4>
+                {personalEventControlBlock}
             </div>
 
             <div>
@@ -1063,6 +1144,8 @@ export default function Schedule() {
                                                 habitDays={habitDays}
                                                 holidayDays={holidayOverlay.holidaySettings.enabled ? holidayDays : undefined}
                                                 birthdayDay={birthdayDay}
+                                                personalEventDays={personalEvents.enabled ? personalEvents.eventDays : undefined}
+                                                personalEventCountsByDay={personalEventCountsByDay}
                                                 tasksByDay={tasksByDay}
                                                 onSelectDate={handleSelectDate}
                                                 onSelectTask={handleSelectTask}
@@ -1080,6 +1163,7 @@ export default function Schedule() {
                                                 holidayDays={holidayOverlay.holidaySettings.enabled ? holidayDays : undefined}
                                                 birthdayDay={birthdayDay}
                                                 personalEventDays={personalEvents.enabled ? personalEvents.eventDays : undefined}
+                                                personalEventCountsByDay={personalEventCountsByDay}
                                                 onSelectDate={handleSelectDate}
                                                 variant="full"
                                                 tasksByDay={tasksByDay}
@@ -1168,6 +1252,7 @@ export default function Schedule() {
                                                 holidayDateSet={holidayOverlay.holidaySettings.enabled ? holidayOverlay.holidayDateSet : undefined}
                                                 birthdayDate={birthdayDate}
                                                 personalEventDateSet={personalEvents.enabled ? personalEvents.eventDateSet : undefined}
+                                                personalEventDateCounts={personalEventDateCounts}
                                                 onSelectMonth={handleYearSelectMonth}
                                                 onSelectDay={handleYearSelectDay}
                                                 compact={shell.isPhone}

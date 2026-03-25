@@ -1,7 +1,13 @@
+import {
+    clearDesktopSecureSecret,
+    readDesktopSecureSecret,
+    writeDesktopSecureSecret,
+} from "../platform/desktop-keyring";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../platform/runtime";
 
 const DESKTOP_AUTH_STORE_NAME = "cadence_auth";
 const DESKTOP_AUTH_STORAGE_KEY = "desktop_oauth_session";
+const DESKTOP_AUTH_JWT_SECRET_KEY = "desktop_oauth_jwt";
 const DESKTOP_AUTH_EVENT = "cadence:desktop-auth-session-changed";
 
 export const DESKTOP_OAUTH_PAYLOAD_PARAM = "desktop_oauth_payload";
@@ -28,6 +34,19 @@ export interface StoredDesktopAuthSession {
 }
 
 let memoryCache: StoredDesktopAuthSession | null | undefined;
+
+function logDesktopAuthDebug(message: string, details?: Record<string, unknown>) {
+    if (!import.meta.env.DEV) {
+        return;
+    }
+
+    if (details) {
+        console.info(`[cadence:desktop-auth] ${message}`, details);
+        return;
+    }
+
+    console.info(`[cadence:desktop-auth] ${message}`);
+}
 
 function hasWindow() {
     return typeof window !== "undefined";
@@ -86,6 +105,16 @@ function isStoredDesktopAuthSession(value: unknown): value is StoredDesktopAuthS
         && isDesktopAuthSessionData(session.data);
 }
 
+function isPersistedDesktopAuthSessionMetadata(value: unknown): value is Omit<StoredDesktopAuthSession, "jwt"> {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const session = value as Record<string, unknown>;
+    return typeof session.persistedAt === "number"
+        && isDesktopAuthSessionData(session.data);
+}
+
 async function getStorageAdapter() {
     if (!IS_DESKTOP_RUNTIME || !isTauriWindow()) {
         return null;
@@ -123,13 +152,37 @@ export function deserializeDesktopAuthPayload(payload: string): StoredDesktopAut
 
 export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession | null> {
     if (memoryCache !== undefined) {
+        logDesktopAuthDebug("returning desktop auth session from memory cache", {
+            present: Boolean(memoryCache),
+            hasJwt: Boolean(memoryCache?.jwt),
+        });
         return memoryCache;
     }
 
     const adapter = await getStorageAdapter();
     if (adapter) {
         const stored = await adapter.get<unknown>(DESKTOP_AUTH_STORAGE_KEY);
-        memoryCache = isStoredDesktopAuthSession(stored) ? stored : null;
+        if (!isPersistedDesktopAuthSessionMetadata(stored)) {
+            logDesktopAuthDebug("native desktop auth store missing valid metadata");
+            memoryCache = null;
+            return memoryCache;
+        }
+
+        const jwt = await readDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY);
+        if (!jwt) {
+            console.warn("[cadence:desktop-auth] native desktop auth metadata exists but secure JWT is missing");
+            await adapter.del(DESKTOP_AUTH_STORAGE_KEY).catch(() => undefined);
+            memoryCache = null;
+            return memoryCache;
+        }
+
+        const hydrated = { ...stored, jwt };
+        memoryCache = isStoredDesktopAuthSession(hydrated) ? hydrated : null;
+        logDesktopAuthDebug("loaded desktop auth session from native store", {
+            present: Boolean(memoryCache),
+            hasJwt: Boolean(memoryCache?.jwt),
+            userId: memoryCache?.data.user.id ?? null,
+        });
         return memoryCache;
     }
 
@@ -141,12 +194,18 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
     try {
         const raw = window.localStorage.getItem(DESKTOP_AUTH_STORAGE_KEY);
         if (!raw) {
+            logDesktopAuthDebug("web desktop auth fallback storage is empty");
             memoryCache = null;
             return memoryCache;
         }
 
         const parsed = JSON.parse(raw) as unknown;
         memoryCache = isStoredDesktopAuthSession(parsed) ? parsed : null;
+        logDesktopAuthDebug("loaded desktop auth session from web storage fallback", {
+            present: Boolean(memoryCache),
+            hasJwt: Boolean(memoryCache?.jwt),
+            userId: memoryCache?.data.user.id ?? null,
+        });
         return memoryCache;
     } catch {
         memoryCache = null;
@@ -156,15 +215,38 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
 
 export async function writeDesktopAuthSession(session: StoredDesktopAuthSession): Promise<void> {
     memoryCache = session;
+    logDesktopAuthDebug("writing desktop auth session", {
+        hasJwt: Boolean(session.jwt),
+        userId: session.data.user.id,
+    });
 
     const adapter = await getStorageAdapter();
     if (adapter) {
         try {
-            await adapter.set(DESKTOP_AUTH_STORAGE_KEY, session);
+            if (session.jwt) {
+                const storedSecret = await writeDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY, session.jwt);
+                if (!storedSecret) {
+                    throw new Error("Secure desktop credential storage is unavailable.");
+                }
+            } else {
+                await clearDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY);
+            }
+
+            await adapter.set(DESKTOP_AUTH_STORAGE_KEY, {
+                data: session.data,
+                persistedAt: session.persistedAt,
+            });
+            logDesktopAuthDebug("persisted desktop auth session to native store", {
+                userId: session.data.user.id,
+            });
             emitDesktopAuthSessionChange(session);
             return;
         } catch {
-            // Fall through to localStorage when the native store is unavailable.
+            await adapter.del(DESKTOP_AUTH_STORAGE_KEY).catch(() => undefined);
+            await clearDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY);
+            memoryCache = null;
+            console.error("[cadence:desktop-auth] failed to persist desktop auth session to native store");
+            throw new Error("Cadence could not persist the desktop auth session securely.");
         }
     }
 
@@ -179,10 +261,12 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
 
 export async function clearDesktopAuthSession(): Promise<void> {
     memoryCache = null;
+    logDesktopAuthDebug("clearing desktop auth session");
 
     const adapter = await getStorageAdapter();
     if (adapter) {
         await adapter.del(DESKTOP_AUTH_STORAGE_KEY);
+        await clearDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY);
         emitDesktopAuthSessionChange(null);
         return;
     }

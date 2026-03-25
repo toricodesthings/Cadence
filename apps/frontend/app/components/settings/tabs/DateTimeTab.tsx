@@ -1,12 +1,13 @@
 import { useMemo } from "react";
+import { Link } from "react-router";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
+import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
 import { HolidayPreferencesPanel } from "../../calendar/HolidayControls";
-import { PersonalEventsPanel } from "../../calendar/PersonalEventsPanel";
 
 /** Returns the current system UTC offset as a formatted string like "UTC+5:30" or "UTC-8" */
 function getLocalUtcOffsetLabel(): string {
@@ -323,25 +324,25 @@ export function DateTimeTab() {
             <SettingsSection title="Personal events">
                 <SettingsRow
                     title="Yearly recurring events"
-                    description="Mark birthdays, anniversaries, and other dates that matter to you. Events appear as warm rose dots and banners across the calendar."
+                    description="Control whether personal events appear in Schedule, then manage the event cards from the dedicated Personal Events page."
                     className="items-stretch"
                 >
                     <div className="w-full space-y-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-twilight-text-soft">Enable personal events</span>
+                            <span className="text-sm text-twilight-text-soft">Visible in Schedule</span>
                             <Switch
                                 checked={personalEvents.enabled}
                                 onCheckedChange={personalEvents.setEnabled}
                             />
                         </div>
-                        {personalEvents.enabled && (
-                            <PersonalEventsPanel
-                                items={personalEvents.items}
-                                onAdd={personalEvents.addEvent}
-                                onUpdate={personalEvents.updateEvent}
-                                onRemove={personalEvents.removeEvent}
-                            />
-                        )}
+                        <p className="text-sm leading-relaxed text-twilight-text-muted">
+                            {personalEvents.items.length > 0
+                                ? `${personalEvents.items.length} yearly ${personalEvents.items.length === 1 ? "event is" : "events are"} in your library.`
+                                : "Your yearly event library lives on the dedicated Events page."}
+                        </p>
+                        <Button asChild variant="ghost" size="md" className="justify-start rounded-2xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.05]">
+                            <Link to="/events">Manage events</Link>
+                        </Button>
                     </div>
                 </SettingsRow>
             </SettingsSection>

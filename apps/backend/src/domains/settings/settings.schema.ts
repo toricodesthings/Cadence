@@ -95,6 +95,7 @@ export const userSettingsSchema = z.object({
                 monthDay: z.string().regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/),
                 emoji: z.string().max(4).nullable(),
                 notify: z.boolean(),
+                startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).nullable(),
             })).max(50),
         }).optional(),
     }).optional(),

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, CalendarHeart, CalendarRange, ChevronLeft, ChevronRight, Clock3, Repeat } from "lucide-react";
+import { useNavigate } from "react-router";
+import { CalendarHeart, CalendarRange, Clock3, Repeat } from "lucide-react";
+import { toast } from "sonner";
 import { useCreateTask } from "../../hooks/tasks";
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
 import { parseLocalDate, toISODate, getDateFormatConfig } from "../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { CalendarGrid } from "../calendar/CalendarGrid";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import * as Popover from "../primitives/Popover";
 import { TimePicker } from "../primitives";
@@ -14,6 +15,7 @@ import { Switch } from "../primitives";
 import { Button } from "../primitives/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
+import { EventDatePicker } from "../events/EventDatePicker";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "../../types/task";
 
 export interface CalendarEventInfo {
@@ -130,85 +132,9 @@ function WeekdayPicker({
     );
 }
 
-const EMPTY_DAY_SET = new Set<number>();
-
-function EventDatePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-    const selectedDate = useMemo(() => parseLocalDate(value), [value]);
-    const [viewDate, setViewDate] = useState(selectedDate);
-
-    useEffect(() => {
-        setViewDate(selectedDate);
-    }, [selectedDate]);
-
-    const handleMonthChange = (delta: number) => {
-        setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
-    };
-
-    const handleSelectDate = (day: number) => {
-        const next = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-        onChange(toISODate(next));
-    };
-
-    return (
-        <Popover.Root>
-            <Popover.Trigger asChild>
-                <button
-                    type="button"
-                    className="flex w-full cursor-pointer items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-white/[0.10] hover:bg-white/[0.05]"
-                    aria-label="Choose event date"
-                >
-                    <span className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-moonlit">
-                            <Calendar size={16} aria-hidden="true" />
-                        </span>
-                        <span className="text-sm font-medium text-twilight-text">{formatDateLabel(value)}</span>
-                    </span>
-                </button>
-            </Popover.Trigger>
-            <Popover.Content side="bottom" align="start" className="w-[20rem] rounded-[24px] p-0 overflow-hidden">
-                <div className="border-b border-twilight-border/40 px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-semibold text-twilight-text">
-                            {viewDate.toLocaleString("default", { month: "long", year: "numeric" })}
-                        </span>
-                        <div className="flex items-center gap-0.5">
-                            <button
-                                type="button"
-                                onClick={() => handleMonthChange(-1)}
-                                aria-label="Previous month"
-                                className="rounded-lg p-1.5 text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                            >
-                                <ChevronLeft size={15} aria-hidden="true" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleMonthChange(1)}
-                                aria-label="Next month"
-                                className="rounded-lg p-1.5 text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                            >
-                                <ChevronRight size={15} aria-hidden="true" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="px-3 pb-3 pt-2">
-                    <CalendarGrid
-                        year={viewDate.getFullYear()}
-                        month={viewDate.getMonth()}
-                        selectedDate={value}
-                        datesWithTasks={EMPTY_DAY_SET}
-                        onSelectDate={handleSelectDate}
-                        variant="compact"
-                    />
-                </div>
-            </Popover.Content>
-        </Popover.Root>
-    );
-}
-
 export function CalendarEventPopover({ info, initialTab = "task", onClose }: CalendarEventPopoverProps) {
     const shell = useShellMode();
+    const navigate = useNavigate();
     const taskTitleRef = useRef<HTMLInputElement>(null);
     const eventTitleRef = useRef<HTMLInputElement>(null);
     const { mutate: createTask, isPending } = useCreateTask();
@@ -232,6 +158,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const [eventLabel, setEventLabel] = useState("");
     const [eventDate, setEventDate] = useState(info.date);
     const [eventEmoji, setEventEmoji] = useState("");
+    const [eventTrackMilestone, setEventTrackMilestone] = useState(false);
+    const [eventStartedOn, setEventStartedOn] = useState(info.date);
     const [eventNotify, setEventNotify] = useState(true);
     const [discardOpen, setDiscardOpen] = useState(false);
 
@@ -251,7 +179,14 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     }, [tab]);
 
     const taskDirty = Boolean(title.trim() || notes.trim() || mode === "weekly" || hasEndDate || priority > 0 || effort !== null);
-    const eventDirty = Boolean(eventLabel.trim() || eventEmoji.trim() || eventDate !== info.date || !eventNotify);
+    const eventDirty = Boolean(
+        eventLabel.trim()
+        || eventEmoji.trim()
+        || eventDate !== info.date
+        || eventTrackMilestone
+        || eventStartedOn !== info.date
+        || !eventNotify,
+    );
     const isDirty = taskDirty || eventDirty;
 
     const requestClose = useCallback(() => {
@@ -312,9 +247,16 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             monthDay: eventDate.slice(5),
             emoji: eventEmoji.trim() || null,
             notify: eventNotify,
+            startedOn: eventTrackMilestone ? eventStartedOn : null,
+        });
+        toast.success("Event added", {
+            action: {
+                label: "View all events",
+                onClick: () => navigate("/events"),
+            },
         });
         onClose();
-    }, [eventDate, eventEmoji, eventLabel, eventNotify, onClose, personalEvents]);
+    }, [eventDate, eventEmoji, eventLabel, eventNotify, eventStartedOn, eventTrackMilestone, navigate, onClose, personalEvents]);
 
     const eventDateLabel = useMemo(() => formatDateLabel(eventDate), [eventDate]);
     const taskSubtitle = summary?.label ?? (mode === "weekly" ? "Weekly recurring schedule block" : `Planned for ${formatDateLabel(startDate)}`);
@@ -570,11 +512,15 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                 <div className="space-y-2">
                                     <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Event</span>
                                     <div className="flex items-center gap-3 rounded-[28px] border border-white/[0.06] bg-white/[0.03] p-3">
-                                        <EmojiPickerPopover emoji={eventEmoji} onSelect={setEventEmoji}>
+                                        <EmojiPickerPopover
+                                            emoji={eventEmoji}
+                                            onSelect={setEventEmoji}
+                                            contentClassName="layer-system-dialog z-[120]"
+                                        >
                                             <button
                                                 type="button"
                                                 aria-label="Pick an emoji"
-                                                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.04] text-[24px] text-twilight-text transition-colors hover:border-white/[0.10] hover:bg-white/[0.06]"
+                                                className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.04] text-[24px] text-twilight-text transition-colors hover:border-white/[0.10] hover:bg-white/[0.06]"
                                             >
                                                 {eventEmoji || <CalendarHeart size={18} className="text-personal" />}
                                             </button>
@@ -595,6 +541,35 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                 <div className="space-y-2">
                                     <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Date</span>
                                     <EventDatePicker value={eventDate} onChange={setEventDate} />
+                                </div>
+
+                                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-twilight-text">Milestone tracking</p>
+                                        </div>
+                                        <Switch
+                                            checked={eventTrackMilestone}
+                                            onCheckedChange={(checked) => {
+                                                setEventTrackMilestone(checked);
+                                                if (checked) {
+                                                    setEventStartedOn((current) => current || eventDate);
+                                                }
+                                            }}
+                                            aria-label="Enable milestone tracking for this personal event"
+                                        />
+                                    </div>
+
+                                    {eventTrackMilestone ? (
+                                        <div className="mt-3 flex items-center gap-3 border-t border-white/[0.05] pt-3">
+                                            <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">
+                                                Started on
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <EventDatePicker compact value={eventStartedOn} onChange={setEventStartedOn} />
+                                            </div>
+                                        </div>
+                                    ) : null}
                                 </div>
 
                                 <div className="rounded-[28px] border border-white/[0.06] bg-white/[0.03] px-4 py-4">

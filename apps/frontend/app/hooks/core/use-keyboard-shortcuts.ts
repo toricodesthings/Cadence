@@ -10,6 +10,29 @@ interface ShortcutOptions {
     onToggleView?: () => void;
     onCompleteTask?: () => void;
     onArchiveTask?: () => void;
+    onLayoutScaleIncrease?: () => void;
+    onLayoutScaleDecrease?: () => void;
+    onLayoutScaleReset?: () => void;
+}
+
+function hasPrimaryModifier(e: KeyboardEvent) {
+    return (e.metaKey || e.ctrlKey) && !e.altKey;
+}
+
+function matchesLayoutScaleShortcut(e: KeyboardEvent, direction: "increase" | "decrease" | "reset") {
+    if (!hasPrimaryModifier(e)) {
+        return false;
+    }
+
+    if (direction === "increase") {
+        return e.key === "+" || e.key === "=";
+    }
+
+    if (direction === "decrease") {
+        return e.key === "-";
+    }
+
+    return e.key === "0";
 }
 
 /** Parse a binding string like "mod+k" and test against a KeyboardEvent */
@@ -68,6 +91,24 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
             if (shortcutsEnabled && matchesBinding(e, bindings.commandPalette)) {
                 e.preventDefault();
                 opts.onCommandPalette?.();
+                return;
+            }
+
+            if (matchesLayoutScaleShortcut(e, "increase")) {
+                e.preventDefault();
+                opts.onLayoutScaleIncrease?.();
+                return;
+            }
+
+            if (matchesLayoutScaleShortcut(e, "decrease")) {
+                e.preventDefault();
+                opts.onLayoutScaleDecrease?.();
+                return;
+            }
+
+            if (matchesLayoutScaleShortcut(e, "reset")) {
+                e.preventDefault();
+                opts.onLayoutScaleReset?.();
                 return;
             }
 

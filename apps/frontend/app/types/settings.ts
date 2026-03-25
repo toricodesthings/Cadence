@@ -9,6 +9,7 @@ export interface PersonalEvent {
     monthDay: string;       // "MM-DD" format
     emoji: string | null;
     notify: boolean;
+    startedOn: string | null; // "YYYY-MM-DD" format
 }
 
 export interface UserSettings {

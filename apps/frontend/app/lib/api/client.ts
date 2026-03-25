@@ -14,7 +14,27 @@ function looksLikeJwt(token: unknown): token is string {
     return typeof token === "string" && token.split(".").length === 3;
 }
 
-export async function fetchAuthJwt(): Promise<string | null> {
+function logAuthDebug(message: string, details?: Record<string, unknown>) {
+    if (!import.meta.env.DEV) {
+        return;
+    }
+
+    if (details) {
+        console.info(`[cadence:api-auth] ${message}`, details);
+        return;
+    }
+
+    console.info(`[cadence:api-auth] ${message}`);
+}
+
+// JWT token cache: avoids hitting /token on every single authenticated request.
+// The cache stores the token + expiry timestamp and deduplicates concurrent requests.
+let _cachedJwt: string | null = null;
+let _cachedJwtExpiry = 0;
+let _inflight: Promise<string | null> | null = null;
+const JWT_CACHE_TTL_MS = 55_000; // 55 seconds — conservative under a typical 60s token lifetime
+
+async function _fetchAuthJwtOnce(): Promise<string | null> {
     const response = await fetch(`${NEON_AUTH_URL}/token`, {
         method: "GET",
         credentials: "include",
@@ -33,7 +53,42 @@ export async function fetchAuthJwt(): Promise<string | null> {
         | null;
 
     const token = payload?.token ?? payload?.data?.token;
+    logAuthDebug("/token request completed", {
+        ok: response.ok,
+        hasJwt: looksLikeJwt(token),
+    });
     return looksLikeJwt(token) ? token : null;
+}
+
+export async function fetchAuthJwt(): Promise<string | null> {
+    // Return cached token if still valid
+    if (_cachedJwt && Date.now() < _cachedJwtExpiry) {
+        logAuthDebug("using cached Neon auth JWT");
+        return _cachedJwt;
+    }
+
+    // Deduplicate: if a request is already in flight, piggyback on it
+    if (_inflight) {
+        logAuthDebug("joining in-flight /token request");
+        return _inflight;
+    }
+
+    logAuthDebug("requesting fresh Neon auth JWT");
+    _inflight = _fetchAuthJwtOnce().then((token) => {
+        _cachedJwt = token;
+        _cachedJwtExpiry = token ? Date.now() + JWT_CACHE_TTL_MS : 0;
+        return token;
+    }).finally(() => {
+        _inflight = null;
+    });
+
+    return _inflight;
+}
+
+/** Invalidate the JWT cache — call after auth recovery or sign-out. */
+export function clearAuthJwtCache(): void {
+    _cachedJwt = null;
+    _cachedJwtExpiry = 0;
 }
 
 export async function authenticatedFetch(
@@ -46,14 +101,40 @@ export async function authenticatedFetch(
     if (authenticated) {
         const desktopSession = await readDesktopAuthSession();
         const sessionResult = await authClient.getSession();
-        const candidateTokens = [
-            await fetchAuthJwt(),
-            desktopSession?.jwt,
-            sessionResult?.data?.session?.token,
-        ];
+        const neonJwt = await fetchAuthJwt();
+        const desktopJwt = desktopSession?.jwt;
+        const sdkJwt = sessionResult?.data?.session?.token;
+        const candidateTokens = [neonJwt, desktopJwt, sdkJwt];
         const token = candidateTokens.find(looksLikeJwt) ?? undefined;
 
+        logAuthDebug("resolved authenticated request token", {
+            request: typeof input === "string"
+                ? input
+                : input instanceof URL
+                    ? input.toString()
+                    : input.url,
+            hasNeonJwt: looksLikeJwt(neonJwt),
+            hasDesktopJwt: looksLikeJwt(desktopJwt),
+            hasSdkJwt: looksLikeJwt(sdkJwt),
+            selectedSource: token === neonJwt
+                ? "neon-token-endpoint"
+                : token === desktopJwt
+                    ? "desktop-session"
+                    : token === sdkJwt
+                        ? "auth-sdk-session"
+                        : "none",
+        });
+
         if (!token) {
+            console.warn("[cadence:api-auth] authenticated request has no usable JWT", {
+                request: typeof input === "string"
+                    ? input
+                    : input instanceof URL
+                        ? input.toString()
+                        : input.url,
+                desktopSessionPresent: Boolean(desktopSession),
+                sdkSessionPresent: Boolean(sessionResult?.data?.session),
+            });
             throw new ApiErrorResponse({
                 status: 401,
                 code: "UNAUTHORIZED",
@@ -67,7 +148,23 @@ export async function authenticatedFetch(
         }
     }
 
-    return platformFetch(input, { ...requestInit, headers });
+    const requestUrl = typeof input === "string"
+        ? input
+        : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+    const response = await platformFetch(input, { ...requestInit, headers });
+
+    if (authenticated && import.meta.env.DEV) {
+        console.info("[cadence:api-auth] backend response received", {
+            request: requestUrl,
+            status: response.status,
+            ok: response.ok,
+        });
+    }
+
+    return response;
 }
 
 /**

@@ -58,7 +58,7 @@ import {
 } from "../../../db/schema";
 import { eq } from "drizzle-orm";
 
-export const SCENARIO_VERSION = "2.0.0";
+export const SCENARIO_VERSION = "2.2.0";
 
 type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
 
@@ -66,6 +66,30 @@ function getRequiredRow<T>(map: Map<string, T>, key: string, label: string): T {
     const row = map.get(key);
     if (!row) throw new Error(`Seed error: ${label} "${key}" not found`);
     return row;
+}
+
+function seedMonthDay(anchor: Date, dayOffset: number): string {
+    const date = new Date(anchor);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + dayOffset);
+
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+
+    return `${month}-${day}`;
+}
+
+function seedStartedOn(anchor: Date, dayOffset: number, yearsAgo: number): string {
+    const date = new Date(anchor);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + dayOffset);
+    date.setFullYear(date.getFullYear() - yearsAgo);
+
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
 }
 
 export async function seed(db: Tx, userId: string) {
@@ -727,6 +751,51 @@ export async function seed(db: Tx, userId: string) {
                         countryCode: null,
                         subdivisionCode: null,
                         promptDismissedAt: null,
+                    },
+                    personalEvents: {
+                        enabled: true,
+                        items: [
+                            {
+                                id: "coffeeversary",
+                                label: "First coffee date",
+                                monthDay: seedMonthDay(anchor, 0),
+                                emoji: "☕",
+                                notify: true,
+                                startedOn: seedStartedOn(anchor, 0, 2),
+                            },
+                            {
+                                id: "mom-birthday",
+                                label: "Mom's Birthday",
+                                monthDay: seedMonthDay(anchor, 4),
+                                emoji: "🎂",
+                                notify: true,
+                                startedOn: null,
+                            },
+                            {
+                                id: "cadence-launch",
+                                label: "Cadence launch day",
+                                monthDay: seedMonthDay(anchor, 11),
+                                emoji: "🚀",
+                                notify: false,
+                                startedOn: seedStartedOn(anchor, 11, 1),
+                            },
+                            {
+                                id: "move-in-day",
+                                label: "Move-in anniversary",
+                                monthDay: seedMonthDay(anchor, 26),
+                                emoji: "🏡",
+                                notify: true,
+                                startedOn: seedStartedOn(anchor, 26, 4),
+                            },
+                            {
+                                id: "wedding-day",
+                                label: "Wedding anniversary",
+                                monthDay: seedMonthDay(anchor, 63),
+                                emoji: "💍",
+                                notify: true,
+                                startedOn: seedStartedOn(anchor, 63, 7),
+                            },
+                        ],
                     },
                 },
                 notifications: {

@@ -55,7 +55,7 @@ export const SETTINGS_DEFAULTS = {
         },
         personalEvents: {
             enabled: true,
-            items: [] as Array<{ id: string; label: string; monthDay: string; emoji: string | null; notify: boolean }>,
+            items: [] as Array<{ id: string; label: string; monthDay: string; emoji: string | null; notify: boolean; startedOn: string | null }>,
         },
     },
     tasks: {

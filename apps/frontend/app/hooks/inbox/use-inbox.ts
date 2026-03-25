@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -9,7 +10,7 @@ export function useInbox() {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
 
-    return useQuery({
+    const query = useQuery({
         queryKey: queryKeys.inbox.all,
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
@@ -17,4 +18,20 @@ export function useInbox() {
             return unwrapResponse<InboxItem[]>(res);
         },
     });
+
+    useEffect(() => {
+        if (!import.meta.env.DEV) {
+            return;
+        }
+
+        console.info("[cadence:inbox-query] state changed", {
+            enabled: authReady && isAuthenticated,
+            status: query.status,
+            fetchStatus: query.fetchStatus,
+            count: query.data?.length ?? null,
+            error: query.error instanceof Error ? query.error.message : null,
+        });
+    }, [authReady, isAuthenticated, query.data?.length, query.error, query.fetchStatus, query.status]);
+
+    return query;
 }

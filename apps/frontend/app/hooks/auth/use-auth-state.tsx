@@ -9,6 +9,7 @@ import {
     type StoredDesktopAuthSession,
 } from "../../lib/desktop-auth-session";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { clearAuthJwtCache } from "../../lib/api/client";
 
 type AuthStatus =
     | "bootstrapping"
@@ -30,6 +31,19 @@ interface AuthStateContextValue {
 }
 
 const AuthStateContext = createContext<AuthStateContextValue | null>(null);
+
+function logAuthStateDebug(message: string, details?: Record<string, unknown>) {
+    if (!import.meta.env.DEV) {
+        return;
+    }
+
+    if (details) {
+        console.info(`[cadence:auth-state] ${message}`, details);
+        return;
+    }
+
+    console.info(`[cadence:auth-state] ${message}`);
+}
 
 const PROTECTED_PREFIXES = ["/", "/today", "/schedule", "/upcoming", "/completed", "/trash", "/project", "/habits", "/weekly-review"];
 
@@ -62,6 +76,11 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
+            logAuthStateDebug("initial desktop auth session load completed", {
+                present: Boolean(stored),
+                hasJwt: Boolean(stored?.jwt),
+                userId: stored?.data.user.id ?? null,
+            });
             setDesktopSession(stored);
             setDesktopSessionLoaded(true);
         });
@@ -71,6 +90,11 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
+            logAuthStateDebug("desktop auth session subscription updated", {
+                present: Boolean(stored),
+                hasJwt: Boolean(stored?.jwt),
+                userId: stored?.data.user.id ?? null,
+            });
             setDesktopSession(stored);
             setDesktopSessionLoaded(true);
         });
@@ -85,6 +109,10 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         if (!session || !desktopSession) {
             return;
         }
+
+        logAuthStateDebug("sdk session is live; clearing desktop fallback session", {
+            desktopUserId: desktopSession.data.user.id,
+        });
 
         void clearDesktopAuthSession().catch(() => {
             // Ignore desktop fallback cleanup failures; the live SDK session wins.
@@ -105,6 +133,16 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     statusRef.current = status;
 
     useEffect(() => {
+        logAuthStateDebug("auth state inputs changed", {
+            desktopSessionLoaded,
+            sdkPending: isPending,
+            hasSdkSession: Boolean(session),
+            hasRecoveredSession: Boolean(recoveredSession),
+            hasDesktopSession: Boolean(desktopSession),
+            desktopSessionHasJwt: Boolean(desktopSession?.jwt),
+            resolvedUserId: resolvedSession?.user?.id ?? null,
+        });
+
         if (!desktopSessionLoaded) {
             setStatus("bootstrapping");
             return;
@@ -148,11 +186,17 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             return true;
         }
         recoveryPromise.current = (async () => {
+            clearAuthJwtCache();
             setStatus("refreshing");
+            logAuthStateDebug("beginning auth recovery");
 
             try {
                 const storedDesktopSession = await readDesktopAuthSession();
                 if (storedDesktopSession?.data) {
+                    logAuthStateDebug("auth recovery restored desktop session", {
+                        userId: storedDesktopSession.data.user.id,
+                        hasJwt: Boolean(storedDesktopSession.jwt),
+                    });
                     setRecoveredSession(null);
                     setDesktopSession(storedDesktopSession);
                     setStatus("authenticated");
@@ -161,6 +205,10 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
 
                 const result = await authClient.getSession();
                 if (result?.data) {
+                    logAuthStateDebug("auth recovery restored sdk session", {
+                        userId: result.data.user?.id ?? null,
+                        hasToken: Boolean(result.data.session?.token),
+                    });
                     // NOTE: Do NOT call refetch() here. getSession() already updates
                     // the SDK's internal session cache, and useSession() picks it up.
                     // Calling refetch() triggers onSessionChange → invalidateQueries()
@@ -175,6 +223,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
                 recoveryPromise.current = null;
             }
 
+            console.warn("[cadence:auth-state] auth recovery failed to restore any session");
             setStatus("recoverable_error");
             return false;
         })();
@@ -183,6 +232,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const completeSignOut = useCallback(async () => {
+        clearAuthJwtCache();
         await clearDesktopAuthSession().catch(() => {
             // Ignore desktop fallback cleanup failures during sign out.
         });

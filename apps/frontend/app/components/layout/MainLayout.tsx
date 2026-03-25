@@ -1,11 +1,11 @@
 import { Sidebar } from "../sidebar/Sidebar";
 import { useNavigate, useLocation } from "react-router";
 import * as Tooltip from "../primitives/Tooltip";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Download, Minus, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, WifiOff } from "lucide-react";
 import { useSidebarStore } from "../../stores/sidebar-store";
 import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDocumentMeta } from "../../hooks/core/use-document-meta";
@@ -23,6 +23,21 @@ import type { PageWidth } from "./PageLayout";
 import { CompactPageControls } from "../shared/CompactPageControls";
 import { ContextualAddOrb } from "../shared/ContextualAddOrb";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
+import { useMutationOutbox } from "../../lib/api/mutation-outbox";
+import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
+import { useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
+import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
+import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
+import {
+    configureGlobalQuickCaptureShortcut,
+    listenForDesktopCommands,
+    listenForQuickCaptureCompletions,
+    openQuickCaptureWindow,
+    readRememberedDesktopWorkspaceRoute,
+    rememberDesktopWorkspaceRoute,
+} from "../../platform/desktop-shell";
+import { useDesktopCommandPreferences } from "../../hooks/ui/use-desktop-command-preferences";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette").then((m) => ({ default: m.CommandPalette })));
 const SettingsDialog = lazy(() => import("../settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
@@ -42,6 +57,10 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
     "/schedule": {
         title: "Schedule",
         description: "View your week, day, month, and year with a calmer scheduling workspace built for focus.",
+    },
+    "/events": {
+        title: "Events",
+        description: "Manage yearly recurring milestones in one calm library while keeping Schedule as the date context layer.",
     },
     "/upcoming": {
         title: "Upcoming",
@@ -70,6 +89,99 @@ interface ShellHeaderConfig {
     eyebrow?: React.ReactNode;
     icon?: React.ReactNode;
     accentColor?: string;
+}
+
+function subscribeToNetworkState(listener: () => void) {
+    window.addEventListener("online", listener);
+    window.addEventListener("offline", listener);
+
+    return () => {
+        window.removeEventListener("online", listener);
+        window.removeEventListener("offline", listener);
+    };
+}
+
+function getNetworkSnapshot() {
+    return navigator.onLine;
+}
+
+function getServerNetworkSnapshot() {
+    return true;
+}
+
+function DesktopHeaderStatus({
+    onOpenPrivacySettings,
+    onOpenSyncInspector,
+}: {
+    onOpenPrivacySettings: () => void;
+    onOpenSyncInspector: () => void;
+}) {
+    const isOnline = useSyncExternalStore(subscribeToNetworkState, getNetworkSnapshot, getServerNetworkSnapshot);
+    const outbox = useMutationOutbox();
+    const update = useAvailableDesktopUpdate();
+    const { layoutScale, setLayoutScale, stepLayoutScale } = useDesktopLayoutScale();
+
+    const syncLabel = !isOnline
+        ? outbox.pending > 0
+            ? `${outbox.pending} queued`
+            : "Offline"
+        : outbox.replaying > 0
+            ? `Syncing ${outbox.replaying}`
+            : outbox.failed.length > 0
+                ? `${outbox.failed.length} failed`
+                : outbox.pending > 0
+                    ? `${outbox.pending} pending`
+                    : "Up to date";
+
+    return (
+        <div className="flex items-center gap-1.5">
+            <button
+                type="button"
+                onClick={onOpenSyncInspector}
+                className="hidden h-7 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 text-[11px] font-medium tracking-[0.12em] text-twilight-text-soft transition-colors hover:bg-white/[0.06] lg:flex"
+            >
+                {!isOnline ? <WifiOff size={12} aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" className={outbox.replaying > 0 ? "sync-spin" : ""} />}
+                <span className="uppercase">{syncLabel}</span>
+            </button>
+
+            {update ? (
+                <button
+                    type="button"
+                    onClick={onOpenPrivacySettings}
+                    className="hidden h-7 items-center gap-1.5 rounded-full border border-lantern/30 bg-lantern/10 px-2.5 text-[11px] font-medium tracking-[0.12em] text-lantern transition-colors hover:bg-lantern/16 lg:flex"
+                >
+                    <Download size={12} aria-hidden="true" />
+                    <span className="uppercase">Update {update.version}</span>
+                </button>
+            ) : null}
+
+            <div className="hidden h-7 items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-0.5 lg:flex">
+                <button
+                    type="button"
+                    onClick={() => void stepLayoutScale(-1)}
+                    aria-label="Decrease layout scale"
+                    className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
+                >
+                    <Minus size={12} aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => void setLayoutScale("default")}
+                    className="h-[22px] rounded-full px-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
+                >
+                    {layoutScale}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => void stepLayoutScale(1)}
+                    aria-label="Increase layout scale"
+                    className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
+                >
+                    <Plus size={12} aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    );
 }
 
 export function MainLayout({
@@ -107,6 +219,7 @@ export function MainLayout({
     const [commandOpen, setCommandOpen] = useState(false);
     const [quickAddOpen, setQuickAddOpen] = useState(false);
     const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("task");
+    const [syncInspectorOpen, setSyncInspectorOpen] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
@@ -116,6 +229,9 @@ export function MainLayout({
     const clearActiveFocusView = useFocusViewStore((state) => state.clearActiveDefinition);
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
     const batchState = useBatchStateTransition();
+    const { stepLayoutScale, setLayoutScale } = useDesktopLayoutScale();
+    const { sync } = useWorkspaceSync();
+    const { preferences } = useDesktopCommandPreferences();
 
     useEffect(() => {
         const handleDebugLoading = (e: Event) => {
@@ -151,6 +267,21 @@ export function MainLayout({
                 { onSuccess: () => { toast.success(`Archived ${ids.length} task${ids.length > 1 ? "s" : ""}`); clearSelection(); } },
             );
         },
+        onLayoutScaleIncrease: () => {
+            if (IS_DESKTOP_RUNTIME) {
+                void stepLayoutScale(1);
+            }
+        },
+        onLayoutScaleDecrease: () => {
+            if (IS_DESKTOP_RUNTIME) {
+                void stepLayoutScale(-1);
+            }
+        },
+        onLayoutScaleReset: () => {
+            if (IS_DESKTOP_RUNTIME) {
+                void setLayoutScale("default");
+            }
+        },
     });
 
     // Drive browser notifications from the notification center's computed list
@@ -170,6 +301,124 @@ export function MainLayout({
     useEffect(() => {
         setNavOpen(false);
     }, [location.pathname, setNavOpen]);
+
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME) {
+            return;
+        }
+
+        const route = `${location.pathname}${location.search}`;
+        if (route.startsWith("/auth") || route.startsWith("/desktop/quick-capture")) {
+            return;
+        }
+
+        void rememberDesktopWorkspaceRoute(route);
+    }, [location.pathname, location.search]);
+
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME || location.pathname !== "/" || location.search) {
+            return;
+        }
+
+        let active = true;
+
+        void readRememberedDesktopWorkspaceRoute().then((route) => {
+            if (!active || !route || route === "/") {
+                return;
+            }
+
+            navigate(route, { replace: true });
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [location.pathname, location.search, navigate]);
+
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME) {
+            return;
+        }
+
+        let unlistenCommands: (() => void) | undefined;
+        let unlistenQuickCapture: (() => void) | undefined;
+        let active = true;
+
+        void listenForDesktopCommands((payload) => {
+            if (!active) {
+                return;
+            }
+
+            switch (payload.command) {
+                case "show-command-palette":
+                case "show-search":
+                    setCommandOpen(true);
+                    break;
+                case "open-quick-capture":
+                    void openQuickCaptureWindow((payload.value as QuickAddTab | undefined) ?? "task");
+                    break;
+                case "show-settings":
+                    navigate(`?settings=${payload.value ?? "account"}`);
+                    break;
+                case "show-shortcuts":
+                    navigate("?settings=shortcuts");
+                    break;
+                case "show-sync-inspector":
+                    setSyncInspectorOpen(true);
+                    break;
+                case "sync-now":
+                    void sync();
+                    break;
+                case "navigate-capture":
+                    navigate("/");
+                    break;
+                case "navigate-schedule":
+                    navigate("/schedule");
+                    break;
+                case "navigate-habits":
+                    navigate("/habits");
+                    break;
+                case "navigate-weekly-review":
+                    navigate("/weekly-review");
+                    break;
+                case "layout-scale-increase":
+                    void stepLayoutScale(1);
+                    break;
+                case "layout-scale-decrease":
+                    void stepLayoutScale(-1);
+                    break;
+                case "layout-scale-reset":
+                    void setLayoutScale("default");
+                    break;
+            }
+        }).then((dispose) => {
+            unlistenCommands = dispose;
+        });
+
+        void listenForQuickCaptureCompletions((payload) => {
+            if (!active) {
+                return;
+            }
+
+            navigate(payload.route, { replace: false });
+        }).then((dispose) => {
+            unlistenQuickCapture = dispose;
+        });
+
+        return () => {
+            active = false;
+            unlistenCommands?.();
+            unlistenQuickCapture?.();
+        };
+    }, [navigate, setLayoutScale, stepLayoutScale, sync]);
+
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME) {
+            return;
+        }
+
+        void configureGlobalQuickCaptureShortcut(preferences.quickCaptureShortcutEnabled);
+    }, [preferences.quickCaptureShortcutEnabled]);
 
     const pageMeta = useMemo(() => {
         if (location.pathname.startsWith("/project/")) {
@@ -236,6 +485,14 @@ export function MainLayout({
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
     const showsRichHeader = Boolean(shellHeader);
     const renderInlinePhoneHeaderRight = shell.isPhone && phoneHeaderRightInline && Boolean(headerRight) && !headerCenter;
+    const desktopHeaderRight = IS_DESKTOP_RUNTIME && shell.isDesktop
+        ? (
+            <DesktopHeaderStatus
+                onOpenPrivacySettings={() => navigate("?settings=privacy")}
+                onOpenSyncInspector={() => setSyncInspectorOpen(true)}
+            />
+        )
+        : null;
 
     return (
         <Tooltip.Provider delayDuration={300}>
@@ -319,10 +576,18 @@ export function MainLayout({
                                             <div className="flex shrink-0 items-center gap-2">
                                                 {renderInlinePhoneHeaderRight ? headerRight : (
                                                     <>
+                                                        {desktopHeaderRight}
+                                                        {desktopHeaderRight && (headerCenter || headerRight) ? (
+                                                            <div className="h-4 w-px bg-white/[0.08]" aria-hidden="true" />
+                                                        ) : null}
                                                         {headerCenter}
                                                         {headerRight}
                                                     </>
                                                 )}
+                                            </div>
+                                        ) : desktopHeaderRight ? (
+                                            <div className="flex shrink-0 items-center gap-2">
+                                                {desktopHeaderRight}
                                             </div>
                                         ) : null}
                                     </div>
@@ -364,6 +629,9 @@ export function MainLayout({
             <Suspense fallback={null}>
                 <SettingsDialog />
             </Suspense>
+            {IS_DESKTOP_RUNTIME ? (
+                <SyncInspectorDialog open={syncInspectorOpen} onOpenChange={setSyncInspectorOpen} />
+            ) : null}
             {shell.isPhone && !hideContextualOrb ? (
                 <ContextualAddOrb
                     onOpen={(tab) => {

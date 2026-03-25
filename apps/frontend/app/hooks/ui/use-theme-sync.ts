@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useSettings } from "../core/use-settings";
 import { setDateFormatConfig } from "../../lib/utils/date-format";
+import { useDesktopLayoutScale } from "./use-desktop-layout-scale";
+import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 
 /**
  * Syncs the user's `appearance.theme` setting to the `data-theme` attribute
@@ -15,6 +17,7 @@ import { setDateFormatConfig } from "../../lib/utils/date-format";
  */
 export function useThemeSync() {
     const { data: settings } = useSettings();
+    const { layoutScale, scaleFactor } = useDesktopLayoutScale();
     const theme = settings?.appearance?.theme ?? "twilight";
     const motion = settings?.appearance?.motion ?? "system";
     const accentIntensity = settings?.appearance?.accentIntensity ?? "balanced";
@@ -80,6 +83,19 @@ export function useThemeSync() {
             root.setAttribute("data-density", density);
         }
     }, [density]);
+
+    useEffect(() => {
+        const root = document.documentElement;
+
+        if (!IS_DESKTOP_RUNTIME || layoutScale === "default") {
+            root.style.removeProperty("font-size");
+            root.style.removeProperty("--desktop-layout-scale");
+            return;
+        }
+
+        root.style.setProperty("font-size", `${16 * scaleFactor}px`);
+        root.style.setProperty("--desktop-layout-scale", scaleFactor.toFixed(2));
+    }, [layoutScale, scaleFactor]);
 
     // ── Date/time format sync ──
     useEffect(() => {

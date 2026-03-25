@@ -12,6 +12,10 @@ import { useAuthState } from "../hooks/auth/use-auth-state";
 import { Button } from "../components/primitives/Button";
 import { Input } from "../components/primitives/Input";
 import {
+    consumeDesktopAuthHandoff,
+    DESKTOP_AUTH_STATE_PARAM,
+} from "../platform/desktop-auth-handoff";
+import {
     beginSocialSignIn,
     getAuthCallbackUrl,
     IS_DESKTOP_RUNTIME,
@@ -90,8 +94,24 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
 
         void (async () => {
             const callbackParams = getMergedCallbackParams(location);
+            const authState = callbackParams.get(DESKTOP_AUTH_STATE_PARAM);
             const verifier = callbackParams.get("neon_auth_session_verifier");
             const payload = callbackParams.get(DESKTOP_OAUTH_PAYLOAD_PARAM);
+
+            if (!authState) {
+                if (active) {
+                    setErrorMessage("The sign-in callback did not include a valid desktop auth state.");
+                }
+                return;
+            }
+
+            const validHandoff = await consumeDesktopAuthHandoff(authState, redirectTo);
+            if (!validHandoff) {
+                if (active) {
+                    setErrorMessage("This sign-in callback is stale, invalid, or has already been used.");
+                }
+                return;
+            }
 
             if (verifier) {
                 try {

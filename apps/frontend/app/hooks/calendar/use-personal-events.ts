@@ -20,7 +20,13 @@ export function usePersonalEvents(year: number, month?: number) {
 
     const personalEvents = settings?.calendar?.personalEvents ?? DEFAULT_PERSONAL_EVENTS;
     const enabled = personalEvents.enabled;
-    const items = personalEvents.items ?? [];
+    const items = useMemo(
+        () => (personalEvents.items ?? []).map((event) => ({
+            ...event,
+            startedOn: event.startedOn ?? null,
+        })),
+        [personalEvents.items],
+    );
 
     // Map of "YYYY-MM-DD" → PersonalEvent[] for the given year
     const eventsByDate = useMemo(() => {

@@ -24,10 +24,14 @@ import { useNlpParse } from "../../hooks/use-nlp-parse";
 
 export type QuickAddTab = "task" | "capture" | "habit";
 
+type QuickAddMode = "dialog" | "standalone";
+
 interface QuickAddSurfaceProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     initialTab?: QuickAddTab;
+    mode?: QuickAddMode;
+    onComplete?: (route: string) => void;
 }
 
 const TABS: { key: QuickAddTab; label: string; icon: React.ReactNode }[] = [
@@ -38,7 +42,13 @@ const TABS: { key: QuickAddTab; label: string; icon: React.ReactNode }[] = [
 
 // ── Main Surface ──────────────────────────────────────────────────
 
-export function QuickAddSurface({ open, onOpenChange, initialTab = "task" }: QuickAddSurfaceProps) {
+export function QuickAddSurface({
+    open,
+    onOpenChange,
+    initialTab = "task",
+    mode = "dialog",
+    onComplete,
+}: QuickAddSurfaceProps) {
     const [tab, setTab] = useState<QuickAddTab>("task");
 
     // Reset to task tab when opening
@@ -46,47 +56,54 @@ export function QuickAddSurface({ open, onOpenChange, initialTab = "task" }: Qui
         if (open) setTab(initialTab);
     }, [initialTab, open]);
 
+    const shell = (
+        <div className="overflow-hidden rounded-[1.75rem] border border-twilight-border bg-twilight-deep/96 p-0 shadow-[0_24px_72px_rgba(0,0,0,0.42)]">
+            <div className="border-b border-twilight-border px-5 pb-4 pt-5">
+                <h2 className="font-display text-base font-semibold tracking-tight text-twilight-text">
+                    Quick Add
+                </h2>
+                <p className="mt-1 text-sm text-twilight-text-muted/60">
+                    Capture without leaving your flow
+                </p>
+            </div>
+
+            <div className="flex border-b border-twilight-border">
+                {TABS.map(({ key, label, icon }) => (
+                    <button
+                        key={key}
+                        onClick={() => setTab(key)}
+                        className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors cursor-pointer
+                            ${tab === key
+                                ? "border-b-2 border-lantern bg-lantern/[0.04] text-lantern"
+                                : "text-twilight-text-muted hover:bg-white/[0.03] hover:text-twilight-text"
+                            }
+                        `}
+                    >
+                        {icon}
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="p-5">
+                {tab === "task" && <TaskForm onClose={() => onOpenChange(false)} onComplete={onComplete} />}
+                {tab === "capture" && <CaptureForm onClose={() => onOpenChange(false)} onComplete={onComplete} />}
+                {tab === "habit" && <HabitForm onClose={() => onOpenChange(false)} onComplete={onComplete} />}
+            </div>
+        </div>
+    );
+
+    if (mode === "standalone") {
+        return shell;
+    }
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 hideCloseButton
                 className="layer-utility-surface fixed inset-x-3 bottom-3 w-auto max-w-md overflow-hidden rounded-2xl border border-twilight-border p-0 shadow-2xl surface-utility sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-[18%] sm:w-full sm:-translate-x-1/2"
             >
-                {/* Header */}
-                <div className="border-b border-twilight-border px-5 pt-5 pb-4">
-                    <h2 className="font-display text-base font-semibold text-twilight-text tracking-tight">
-                        Quick Add
-                    </h2>
-                    <p className="text-sm text-twilight-text-muted/60 mt-1">
-                        Capture without leaving your flow
-                    </p>
-                </div>
-
-                {/* Tab switcher */}
-                <div className="flex border-b border-twilight-border">
-                    {TABS.map(({ key, label, icon }) => (
-                        <button
-                            key={key}
-                            onClick={() => setTab(key)}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors cursor-pointer
-                                ${tab === key
-                                    ? "text-lantern border-b-2 border-lantern bg-lantern/[0.04]"
-                                    : "text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.03]"
-                                }
-                            `}
-                        >
-                            {icon}
-                            {label}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Tab content */}
-                <div className="p-5">
-                    {tab === "task" && <TaskForm onClose={() => onOpenChange(false)} />}
-                    {tab === "capture" && <CaptureForm onClose={() => onOpenChange(false)} />}
-                    {tab === "habit" && <HabitForm onClose={() => onOpenChange(false)} />}
-                </div>
+                {shell}
             </DialogContent>
         </Dialog>
     );
@@ -94,7 +111,7 @@ export function QuickAddSurface({ open, onOpenChange, initialTab = "task" }: Qui
 
 // ── Task Form ─────────────────────────────────────────────────────
 
-function TaskForm({ onClose }: { onClose: () => void }) {
+function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (route: string) => void }) {
     const [title, setTitle] = useState("");
     const [priority, setPriority] = useState<number | null>(null);
     const [projectId, setProjectId] = useState<string | null>(null);
@@ -189,17 +206,29 @@ function TaskForm({ onClose }: { onClose: () => void }) {
             },
             {
                 onSuccess: (created) => {
-                    if (!created) return; // Queued offline
-                    toast.success("Task added to Holding");
-                    setDismissedEntityIds([]);
-                    onClose();
                     const focusParams = buildFocusSearchParams({
                         focusKind: "task",
-                        focusId: created.id,
+                        focusId: created?.id ?? "",
                         focusScope: "holding-unmanaged",
                         focusSource: "quick-add",
                     });
-                    navigate(`/?${focusParams}`);
+                    const route = created ? `/?${focusParams}` : "/";
+
+                    if (!created) {
+                        toast.success("Task queued for sync");
+                        onClose();
+                        onComplete?.(route);
+                        return;
+                    }
+
+                    toast.success("Task added to Holding");
+                    setDismissedEntityIds([]);
+                    onClose();
+                    if (onComplete) {
+                        onComplete(route);
+                        return;
+                    }
+                    navigate(route);
                 },
             },
         );
@@ -264,7 +293,7 @@ function TaskForm({ onClose }: { onClose: () => void }) {
 
 // ── Capture / Thought Dump Form ───────────────────────────────────
 
-function CaptureForm({ onClose }: { onClose: () => void }) {
+function CaptureForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (route: string) => void }) {
     const [text, setText] = useState("");
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const navigate = useNavigate();
@@ -281,16 +310,28 @@ function CaptureForm({ onClose }: { onClose: () => void }) {
 
         createInbox.mutate(trimmed, {
             onSuccess: (created) => {
-                if (!created) return; // Queued offline
-                toast.success("Thought saved to Holding");
-                onClose();
                 const focusParams = buildFocusSearchParams({
                     focusKind: "inbox",
-                    focusId: created.id,
+                    focusId: created?.id ?? "",
                     focusScope: "holding-captures",
                     focusSource: "quick-add",
                 });
-                navigate(`/?${focusParams}`);
+                const route = created ? `/?${focusParams}` : "/";
+
+                if (!created) {
+                    toast.success("Thought queued for sync");
+                    onClose();
+                    onComplete?.(route);
+                    return;
+                }
+
+                toast.success("Thought saved to Holding");
+                onClose();
+                if (onComplete) {
+                    onComplete(route);
+                    return;
+                }
+                navigate(route);
             },
         });
     };
@@ -339,7 +380,7 @@ function CaptureForm({ onClose }: { onClose: () => void }) {
 
 // ── Habit Form ────────────────────────────────────────────────────
 
-function HabitForm({ onClose }: { onClose: () => void }) {
+function HabitForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (route: string) => void }) {
     const [title, setTitle] = useState("");
     const [recurrenceRule, setRecurrenceRule] = useState("FREQ=DAILY");
     const inputRef = useRef<HTMLInputElement>(null);
@@ -359,15 +400,27 @@ function HabitForm({ onClose }: { onClose: () => void }) {
             { title: trimmed, recurrenceRule },
             {
                 onSuccess: (created) => {
-                    if (!created) return; // Queued offline
-                    toast.success("Habit created");
-                    onClose();
                     const focusParams = buildFocusSearchParams({
                         focusKind: "habit",
-                        focusId: created.id,
+                        focusId: created?.id ?? "",
                         focusSource: "quick-add",
                     });
-                    navigate(`/habits?${focusParams}`);
+                    const route = created ? `/habits?${focusParams}` : "/habits";
+
+                    if (!created) {
+                        toast.success("Habit queued for sync");
+                        onClose();
+                        onComplete?.(route);
+                        return;
+                    }
+
+                    toast.success("Habit created");
+                    onClose();
+                    if (onComplete) {
+                        onComplete(route);
+                        return;
+                    }
+                    navigate(route);
                 },
             },
         );

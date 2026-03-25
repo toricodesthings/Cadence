@@ -28,6 +28,8 @@ interface CalendarGridProps {
     birthdayDay?: number | null;
     /** Days that have personal events (show a warm rose marker) */
     personalEventDays?: Set<number>;
+    /** Count of personal events per day for density-aware markers */
+    personalEventCountsByDay?: Record<number, number>;
     onSelectDate: (day: number) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
@@ -53,6 +55,7 @@ export function CalendarGrid({
     holidayDays,
     birthdayDay,
     personalEventDays,
+    personalEventCountsByDay,
     onSelectDate,
     variant = "compact",
     tasksByDay,
@@ -69,8 +72,11 @@ export function CalendarGrid({
         const arr: (number | null)[] = [];
         for (let i = 0; i < first; i++) arr.push(null);
         for (let d = 1; d <= total; d++) arr.push(d);
+        if (variant === "compact") {
+            while (arr.length < 42) arr.push(null);
+        }
         return arr;
-    }, [year, month]);
+    }, [month, variant, year]);
 
     const selectedDay = (() => {
         const parts = selectedDate.split("-");
@@ -103,7 +109,7 @@ export function CalendarGrid({
             </div>
 
             {/* Day cells */}
-            <div className={`grid grid-cols-7 ${isCompact ? "gap-0.5" : "gap-1.5 flex-1 auto-rows-[1fr]"}`}>
+            <div className={`grid grid-cols-7 ${isCompact ? "grid-rows-6 gap-0.5" : "gap-1.5 flex-1 auto-rows-[1fr]"}`}>
                 {cells.map((day, i) => (
                     <CalendarDayCell
                         key={i}
@@ -120,6 +126,7 @@ export function CalendarGrid({
                         hasHoliday={day !== null && (holidayDays?.has(day) ?? false)}
                         hasBirthday={day !== null && day === birthdayDay}
                         hasPersonalEvent={day !== null && (personalEventDays?.has(day) ?? false)}
+                        personalEventCount={day !== null ? (personalEventCountsByDay?.[day] ?? 0) : 0}
                         onSelect={onSelectDate}
                         variant={variant}
                         tasks={day !== null ? (tasksByDay?.[day] ?? []) : []}

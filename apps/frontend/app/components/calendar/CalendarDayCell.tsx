@@ -19,6 +19,8 @@ interface CalendarDayCellProps {
     hasBirthday?: boolean;
     /** Has personal events on this day — shows a warm rose marker */
     hasPersonalEvent?: boolean;
+    /** Number of personal events on this day for denser date affordances */
+    personalEventCount?: number;
     onSelect: (day: number) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
@@ -44,6 +46,7 @@ export function CalendarDayCell({
     hasHoliday = false,
     hasBirthday = false,
     hasPersonalEvent = false,
+    personalEventCount = 0,
     onSelect,
     variant = "compact",
     tasks = [],
@@ -56,7 +59,10 @@ export function CalendarDayCell({
 }: CalendarDayCellProps) {
 
     if (!day) {
-        return <div className={variant === "full" ? "invisible" : "invisible"} />;
+        if (variant === "compact") {
+            return <div className="invisible aspect-square w-full max-w-8 rounded-lg" aria-hidden="true" />;
+        }
+        return <div className="invisible" aria-hidden="true" />;
     }
 
     const isCompact = variant === "compact";
@@ -83,7 +89,15 @@ export function CalendarDayCell({
                         {hasTask && <span className="h-1 w-1 rounded-full bg-lantern/60" />}
                         {hasHoliday && <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />}
                         {hasBirthday && <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />}
-                        {hasPersonalEvent && <span className="h-1.5 w-1.5 rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.45)]" />}
+                        {hasPersonalEvent ? (
+                            personalEventCount > 1 ? (
+                                <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-personal/20 bg-personal/15 px-1 text-[9px] font-semibold text-personal">
+                                    {personalEventCount}
+                                </span>
+                            ) : (
+                                <span className="h-1.5 w-1.5 rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.45)]" />
+                            )
+                        ) : null}
                     </span>
                 )}
             </button>
@@ -182,12 +196,21 @@ export function CalendarDayCell({
                             className="h-2 w-2 shrink-0 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]"
                         />
                     )}
-                    {hasPersonalEvent && (
-                        <span
-                            title="Personal event"
-                            className="h-2 w-2 shrink-0 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]"
-                        />
-                    )}
+                    {hasPersonalEvent ? (
+                        personalEventCount > 1 ? (
+                            <span
+                                title={`${personalEventCount} personal events`}
+                                className="inline-flex min-w-5 items-center justify-center rounded-full border border-personal/20 bg-personal/12 px-1.5 py-0.5 text-[10px] font-semibold text-personal"
+                            >
+                                {personalEventCount}
+                            </span>
+                        ) : (
+                            <span
+                                title="Personal event"
+                                className="h-2 w-2 shrink-0 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]"
+                            />
+                        )
+                    ) : null}
                 </span>
             </button>
 

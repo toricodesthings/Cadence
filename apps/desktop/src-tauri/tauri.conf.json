@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:8787 http://127.0.0.1:8787 https://api.cadenceapp.cloud https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech http://localhost:61827 http://127.0.0.1:61827 http://localhost:61828 http://127.0.0.1:61828; worker-src 'self' blob:'",
       "capabilities": [
         "main-window"
       ]

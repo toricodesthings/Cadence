@@ -1,10 +1,13 @@
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { useDesktopLayoutScale } from "../../../hooks/ui/use-desktop-layout-scale";
+import { IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 
 export function AppearanceTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
+    const { layoutScale, setLayoutScale } = useDesktopLayoutScale();
 
     const appearance = settings?.appearance ?? {
         theme: "twilight" as const,
@@ -111,6 +114,32 @@ export function AppearanceTab() {
                         </Select>
                     </div>
                 </SettingsRow>
+
+                {IS_DESKTOP_RUNTIME && (
+                    <SettingsRow
+                        title="Desktop layout scale"
+                        description="Adjust the overall app scale for this device. The same control is available with Ctrl/Cmd +/-/0."
+                    >
+                        <div className="w-full sm:max-w-[18rem]">
+                            <Select
+                                value={layoutScale}
+                                onValueChange={(val) => {
+                                    void setLayoutScale(val as typeof layoutScale);
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="compact">Compact</SelectItem>
+                                    <SelectItem value="default">Default</SelectItem>
+                                    <SelectItem value="comfortable">Comfortable</SelectItem>
+                                    <SelectItem value="large">Large</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </SettingsRow>
+                )}
             </SettingsSection>
         </div>
     );
