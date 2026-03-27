@@ -38,6 +38,7 @@ export const weeklyHabitsQuerySchema = z.object({
     start: z.string().min(1), // e.g., YYYY-MM-DD
     end: z.string().min(1),
     archived: z.string().optional().default("false").transform(v => v === "true"),
+    timezone: z.string().optional().default("UTC"),
 });
 
 export const habitListQuerySchema = z.object({

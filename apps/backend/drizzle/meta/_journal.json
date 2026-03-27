@@ -176,6 +176,13 @@
       "when": 1774561404330,
       "tag": "0024_special_starjammers",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1774587765970,
+      "tag": "0025_ambiguous_lizard",
+      "breakpoints": true
     }
   ]
 }

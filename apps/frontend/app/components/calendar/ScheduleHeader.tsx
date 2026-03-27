@@ -105,7 +105,7 @@ function ContextualAddTrigger({
             <button
                 type="button"
                 onClick={isTask ? onAddTask : onAddEvent}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
                     isTask
                         ? "border-accent-primary/20 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30"
                         : "border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-accent-nav-schedule hover:border-accent-nav-schedule/30 hover:bg-accent-nav-schedule/18"
@@ -124,7 +124,7 @@ function ContextualAddTrigger({
                 <button
                     type="button"
                     onClick={() => setMode("task")}
-                    className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer border ${
+                    className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border ${
                         mode === "task"
                             ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
                             : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"
@@ -135,7 +135,7 @@ function ContextualAddTrigger({
                 <button
                     type="button"
                     onClick={() => setMode("event")}
-                    className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer border ${
+                    className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border ${
                         mode === "event"
                             ? "bg-accent-nav-schedule/18 text-accent-nav-schedule border-accent-nav-schedule/25"
                             : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"
@@ -148,7 +148,7 @@ function ContextualAddTrigger({
             <button
                 type="button"
                 onClick={handleClick}
-                className={`inline-flex items-center gap-1.5 rounded-r-xl border px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 rounded-r-xl border px-3.5 py-2 text-sm font-medium transition-colors cursor-pointer ${
                     mode === "task"
                         ? "border-accent-primary/20 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25"
                         : "border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-accent-nav-schedule hover:bg-accent-nav-schedule/18"

@@ -60,6 +60,10 @@ function inferTaskFieldsFromParse(
         waitingOn?: string | null;
         recurrenceRule?: string | null;
         scheduledDate?: string | null;
+        dueDate?: string | null;
+        scheduledStart?: string | null;
+        scheduledEnd?: string | null;
+        isAllDay?: boolean | null;
     },
     confidenceThreshold: "high" | "medium" | "low",
 ) {
@@ -114,7 +118,15 @@ function inferTaskFieldsFromParse(
             }
             case "due_date":
             case "scheduled_start": {
-                if (explicit.scheduledDate !== undefined) continue;
+                if (
+                    explicit.scheduledDate !== undefined
+                    || explicit.dueDate !== undefined
+                    || explicit.scheduledStart !== undefined
+                    || explicit.scheduledEnd !== undefined
+                    || explicit.isAllDay !== undefined
+                ) {
+                    continue;
+                }
                 const value = entity.normalizedValue as { date: string; datetime: string | null; hasTime: boolean };
                 if (entity.type === "due_date" && value.hasTime) continue;
                 parsedScheduledDate = entity.type === "scheduled_start" && value.datetime ? value.datetime : value.date;
@@ -271,9 +283,8 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
-        // Normalize nullish → undefined so downstream checks work uniformly
+        const { title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp } = c.req.valid("json");
         const title = body.title;
-        const keepNote = body.keepNote ?? undefined;
         const scheduledDate = body.scheduledDate ?? undefined;
         const projectId = body.projectId ?? undefined;
         const tagIds = body.tagIds ?? undefined;
@@ -319,12 +330,28 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     waitingOn,
                     recurrenceRule,
                     scheduledDate,
+                    dueDate,
+                    scheduledStart,
+                    scheduledEnd,
+                    isAllDay,
                 },
                 confidenceThreshold,
             );
 
             let temporalFields: ReturnType<typeof normalizeTaskTemporalFields>;
-            if (scheduledDate !== undefined) {
+            if (
+                dueDate !== undefined
+                || scheduledStart !== undefined
+                || scheduledEnd !== undefined
+                || isAllDay !== undefined
+            ) {
+                temporalFields = normalizeTaskTemporalFields({
+                    dueDate,
+                    scheduledStart,
+                    scheduledEnd,
+                    isAllDay: isAllDay ?? (scheduledStart ? false : true),
+                });
+            } else if (scheduledDate !== undefined) {
                 if (isDateOnlyValue(scheduledDate)) {
                     temporalFields = normalizeTaskTemporalFields({
                         isAllDay: true,
@@ -391,7 +418,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             await tx
                 .update(inboxItems)
                 .set({
-                    captureStatus: keepNote ? "kept" : "placed",
+                    captureStatus: "placed",
                     placedTaskId: task.id,
                     processed: true,
                     analysisStatus: "applied",

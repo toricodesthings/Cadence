@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiErrorResponse } from "../../../../app/types/api";
 
 const getSessionMock = vi.fn();
 const platformFetchMock = vi.fn();
@@ -11,11 +10,13 @@ vi.mock("../../../../app/lib/auth-client", () => ({
 }));
 
 vi.mock("../../../../app/platform/runtime", () => ({
+    IS_DESKTOP_RUNTIME: false,
     platformFetch: (input: RequestInfo | URL, init?: RequestInit) => platformFetchMock(input, init),
 }));
 
 describe("api/client", () => {
     beforeEach(() => {
+        vi.resetModules();
         getSessionMock.mockReset();
         platformFetchMock.mockReset();
         platformFetchMock.mockImplementation(async (_input, init) => new Response(JSON.stringify({
@@ -27,7 +28,7 @@ describe("api/client", () => {
 
     it("injects bearer tokens and disables GET caching for authenticated requests", async () => {
         getSessionMock.mockResolvedValue({
-            data: { session: { token: "jwt-123" } },
+            data: { session: { token: "header.payload.signature" } },
         });
 
         const { authenticatedFetch } = await import("../../../../app/lib/api/client");
@@ -38,14 +39,14 @@ describe("api/client", () => {
             method: string;
         };
 
-        expect(body.headers.authorization).toBe("Bearer jwt-123");
+        expect(body.headers.authorization).toBe("Bearer header.payload.signature");
         expect(body.cache).toBe("no-store");
         expect(body.method).toBe("GET");
     });
 
     it("preserves non-GET cache semantics while still attaching auth", async () => {
         getSessionMock.mockResolvedValue({
-            data: { session: { token: "jwt-456" } },
+            data: { session: { token: "header.payload.signature" } },
         });
 
         const { authenticatedFetch } = await import("../../../../app/lib/api/client");
@@ -60,7 +61,7 @@ describe("api/client", () => {
             method: string;
         };
 
-        expect(body.headers.authorization).toBe("Bearer jwt-456");
+        expect(body.headers.authorization).toBe("Bearer header.payload.signature");
         expect(body.cache).toBeNull();
         expect(body.method).toBe("POST");
     });
@@ -69,6 +70,7 @@ describe("api/client", () => {
         getSessionMock.mockResolvedValue({ data: null });
 
         const { authenticatedFetch } = await import("../../../../app/lib/api/client");
+        const { ApiErrorResponse } = await import("../../../../app/types/api");
 
         await expect(
             authenticatedFetch("/api/tasks", { authenticated: true }),

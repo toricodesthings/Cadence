@@ -12,6 +12,7 @@ import { MoveToSubmenu } from "./MoveToSubmenu";
 import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import type { Task } from "../../types/task";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
 type GenericMenu = typeof DropdownMenu | typeof ContextMenu;
 
@@ -34,11 +35,17 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
     const removeTaskTag = useRemoveTaskTag();
     const [menuView, setMenuView] = useState<"main" | "reschedule-presets" | "reschedule-custom">("main");
 
+    const trackMenuAction = (outcome: string) => {
+        trackUsageEvent("task.context_menu_action", { object_type: "task", outcome });
+    };
+
     const handleTogglePin = () => {
+        trackMenuAction(task.isPinned ? "unpin" : "pin");
         updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
     };
 
     const handleToggleReminder = () => {
+        trackMenuAction(task.reminderAt ? "remove_reminder" : "set_reminder");
         updateTask.mutate({
             id: task.id,
             reminderAt: task.reminderAt ? null : new Date().toISOString(),
@@ -47,6 +54,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
     };
 
     const handleQuickSchedule = (daysToAdd: number, startOfWeekend = false, nextWeek = false) => {
+        trackMenuAction(nextWeek ? "reschedule_next_week" : startOfWeekend ? "reschedule_weekend" : daysToAdd === 0 ? "reschedule_today" : daysToAdd === 1 ? "reschedule_tomorrow" : `reschedule_${daysToAdd}_days`);
         const date = new Date();
         if (nextWeek) {
             date.setDate(date.getDate() + ((1 + 7 - date.getDay()) % 7 || 7)); // Next Monday
@@ -66,42 +74,6 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         });
         onCloseMenu?.();
     };
-
-    /* ── Holding context: shallow action set (Phase 5) ── */
-    if (holdingContext) {
-        return (
-            <>
-                <Menu.Item onClick={handleTogglePin}>
-                    <div className="flex items-center gap-2">
-                        <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
-                        <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
-                    </div>
-                </Menu.Item>
-
-                <Menu.Item onClick={() => onRename?.()}>
-                    <div className="flex items-center gap-2">
-                        <Pencil size={16} />
-                        <span>Rename</span>
-                    </div>
-                </Menu.Item>
-
-                <MoveToSubmenu
-                    MenuComponents={Menu as GenericMenu}
-                    currentProjectId={task.projectId}
-                    onSelect={(projectId) => updateTask.mutate({ id: task.id, projectId })}
-                />
-
-                <Menu.Separator />
-
-                <Menu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
-                    <div className="flex items-center gap-2">
-                        <Trash2 size={16} />
-                        <span>Move to Trash</span>
-                    </div>
-                </Menu.Item>
-            </>
-        );
-    }
 
     if (menuView !== "main") {
         return (
@@ -192,6 +164,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                             <button
                                 type="button"
                                 onClick={() => {
+                                    trackMenuAction("clear_schedule");
                                     updateTask.mutate({ id: task.id, scheduledStart: null, scheduledEnd: null, dueDate: null, isAllDay: true });
                                     onCloseMenu?.();
                                 }}
@@ -219,6 +192,55 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
     return (
         <>
+            {holdingContext ? (
+                <>
+                    <Menu.Item
+                        onSelect={(event) => {
+                            event.preventDefault();
+                            setMenuView("reschedule-presets");
+                        }}
+                    >
+                        <div className="flex w-full items-center gap-2">
+                            <CalendarClock size={16} />
+                            <span>Reschedule</span>
+                            <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
+                                <span>r</span>
+                                <ChevronRight size={13} aria-hidden="true" />
+                            </span>
+                        </div>
+                    </Menu.Item>
+
+                    <Menu.Item onClick={handleTogglePin}>
+                        <div className="flex items-center gap-2">
+                            <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
+                            <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
+                        </div>
+                    </Menu.Item>
+
+                    <Menu.Item onClick={() => onRename?.()}>
+                        <div className="flex items-center gap-2">
+                            <Pencil size={16} />
+                            <span>Rename</span>
+                        </div>
+                    </Menu.Item>
+
+                    <MoveToSubmenu
+                        MenuComponents={Menu as GenericMenu}
+                        currentProjectId={task.projectId}
+                        onSelect={(projectId) => updateTask.mutate({ id: task.id, projectId })}
+                    />
+
+                    <Menu.Separator />
+
+                    <Menu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
+                        <div className="flex items-center gap-2">
+                            <Trash2 size={16} />
+                            <span>Move to Trash</span>
+                        </div>
+                    </Menu.Item>
+                </>
+            ) : (
+                <>
             {/* ── Scheduling & Time ── */}
             <Menu.Item
                 onSelect={(event) => {
@@ -332,7 +354,8 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                     <span className="ml-auto text-[10px] opacity-60">Del</span>
                 </div>
             </Menu.Item>
-
+                </>
+            )}
         </>
     );
 }

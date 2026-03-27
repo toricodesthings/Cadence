@@ -4,6 +4,7 @@ import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
 import type { Habit, HabitLog } from "../../types/habit";
 import { useState } from "react";
 import * as Popover from "../primitives/Popover";
+import { toISODate } from "../../lib/utils/date-format";
 
 interface HabitItemProps {
     habit: Habit;
@@ -15,7 +16,7 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
     const { mutate: resolveHabit } = useResolveHabit(habit.id);
     const [open, setOpen] = useState(false);
 
-    const today = new Date().toISOString().substring(0, 10);
+    const today = toISODate(new Date());
     const isCompleted = log.status === "COMPLETED";
     const isSkipped = log.status === "SKIPPED";
     const isPast = targetDate < today;

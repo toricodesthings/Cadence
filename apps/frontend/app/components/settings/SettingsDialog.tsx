@@ -45,11 +45,9 @@ const SETTINGS_CATEGORIES = [
     { label: "Workspace", isHeader: true },
     { id: "integrations", label: "Integrations", icon: Blocks, badge: "Soon" },
 
-    { label: "Privacy", isHeader: true },
-    { id: "privacy", label: "Privacy & Data", icon: Shield },
-
-    { label: "Planned", isHeader: true },
-    { id: "ai", label: "Cadence Intelligence", icon: Sparkles },
+    { label: "Privacy & Control", isHeader: true },
+    { id: "ai", label: "Intelligence & Privacy", icon: Sparkles },
+    { id: "privacy", label: "Data & Export", icon: Shield },
 ];
 
 export function SettingsDialog() {

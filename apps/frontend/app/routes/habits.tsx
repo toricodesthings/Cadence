@@ -48,7 +48,8 @@ export default function Habits() {
     const { data: habits = [] } = useHabitsWeekly({
         start: startIso,
         end: endIso,
-        archived: viewMode === "archived"
+        archived: viewMode === "archived",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
     const visibleHabits = useMemo(
         () => habits.filter((habit) => habit.archived === (viewMode === "archived")),
@@ -341,7 +342,7 @@ export default function Habits() {
                                     <button
                                         type="button"
                                         onClick={() => setIsCreateOpen(true)}
-                                        className="inline-flex items-center gap-1.5 rounded-xl border border-accent-primary/20 bg-accent-primary/15 px-4 py-1.5 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30 transition-colors cursor-pointer"
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-accent-primary/20 bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30 transition-colors cursor-pointer"
                                     >
                                         <Plus size={14} />
                                         <span className="hidden lg:inline">Add Routine</span>

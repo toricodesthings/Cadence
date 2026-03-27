@@ -148,12 +148,12 @@ describe("shared geolocation state", () => {
         expect(getCurrentPositionMock).toHaveBeenCalledTimes(1);
         expect(
             fetchMock.mock.calls.filter(([input]) =>
-                String(input).includes("/api/proxy/geocode/reverse"),
+                String(input).includes("/api/v1/proxy/geocode/reverse"),
             ),
         ).toHaveLength(1);
         expect(
             fetchMock.mock.calls.filter(([input]) =>
-                String(input).includes("/api/proxy/weather"),
+                String(input).includes("/api/v1/proxy/weather"),
             ).length,
         ).toBeGreaterThanOrEqual(1);
     });

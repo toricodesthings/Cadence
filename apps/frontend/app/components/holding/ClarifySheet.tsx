@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Sun, Sunrise, Clock, StickyNote, Trash2, ChevronRight, Sparkles } from "lucide-react";
+import { ArrowLeft, Sun, Sunrise, CalendarDays, Trash2, ChevronRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
+import { QuickScheduleSurface } from "../tasks/QuickScheduleSurface";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects";
@@ -42,6 +43,20 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
     const lowStimulationMode = taskDefaults?.intelligence?.lowStimulationMode ?? false;
     const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
     const [dismissedEntityIds, setDismissedEntityIds] = useState<string[]>([]);
+    const [timingMode, setTimingMode] = useState<"main" | "custom">("main");
+    const [customSchedule, setCustomSchedule] = useState<{
+        dueDate: string | null;
+        scheduledStart: string | null;
+        scheduledEnd: string | null;
+        isAllDay: boolean;
+        recurrenceRule: string | null;
+    }>({
+        dueDate: null,
+        scheduledStart: null,
+        scheduledEnd: null,
+        isAllDay: true,
+        recurrenceRule: null,
+    });
 
     const nlp = useNlpParse({
         input: item.rawText,
@@ -62,6 +77,14 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
     useEffect(() => {
         titleDirtyRef.current = false;
         setEditedTitle(nlp.cleanedTitle || item.rawText);
+        setTimingMode("main");
+        setCustomSchedule({
+            dueDate: null,
+            scheduledStart: null,
+            scheduledEnd: null,
+            isAllDay: true,
+            recurrenceRule: nlp.recurrenceRule ?? null,
+        });
         trackUsageEvent("capture.clarify_opened", { surface: "clarify_sheet", object_type: "capture" });
     }, [item.id]);
 
@@ -88,26 +111,40 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
             },
         });
 
-    const place = (scheduledDate?: string) => {
-        const resolvedSchedule = scheduledDate ?? (nlp.dueDate || undefined);
+    const place = (
+        schedule?: {
+            scheduledDate?: string;
+            dueDate?: string | null;
+            scheduledStart?: string | null;
+            scheduledEnd?: string | null;
+            isAllDay?: boolean | null;
+            recurrenceRule?: string | null;
+        },
+        options?: { openEditor?: boolean },
+    ) => {
+        const resolvedScheduledDate = schedule?.scheduledDate ?? (schedule?.dueDate === undefined && schedule?.scheduledStart === undefined ? (nlp.dueDate || undefined) : undefined);
         trackUsageEvent("capture.placed", { surface: "clarify_sheet", outcome: "placed" });
         processToTask.mutate(
             {
                 inboxItemId: item.id,
                 rawText: item.rawText,
                 title: editedTitle,
-                scheduledDate: resolvedSchedule,
+                scheduledDate: resolvedScheduledDate,
+                dueDate: schedule?.dueDate,
+                scheduledStart: schedule?.scheduledStart,
+                scheduledEnd: schedule?.scheduledEnd,
+                isAllDay: schedule?.isAllDay,
                 projectId: nlp.projectId,
                 tagIds: nlp.tagIds,
                 priority: nlp.priority,
                 durationEstimate: nlp.durationMinutes,
-                recurrenceRule: nlp.recurrenceRule,
+                recurrenceRule: schedule?.recurrenceRule ?? nlp.recurrenceRule,
                 waitingOn: nlp.waitingOn,
-                nlp: buildNlpEnvelope(resolvedSchedule),
+                nlp: buildNlpEnvelope(resolvedScheduledDate),
             },
             {
                 onSuccess: (task) => {
-                    if (task && onOpenFullEditor) {
+                    if (options?.openEditor && task && onOpenFullEditor) {
                         onOpenFullEditor(task.id);
                     } else {
                         onClose();
@@ -117,24 +154,17 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
         );
     };
 
-    const keepNote = () => {
-        trackUsageEvent("capture.kept_note", { surface: "clarify_sheet", object_type: "capture" });
-        processToTask.mutate(
-            {
-                inboxItemId: item.id,
-                rawText: item.rawText,
-                title: editedTitle,
-                keepNote: true,
-                projectId: nlp.projectId,
-                tagIds: nlp.tagIds,
-                priority: nlp.priority,
-                durationEstimate: nlp.durationMinutes,
-                recurrenceRule: nlp.recurrenceRule,
-                waitingOn: nlp.waitingOn,
-                nlp: buildNlpEnvelope(),
-            },
-            { onSuccess: () => onClose() },
-        );
+    const openCustomSchedule = () => {
+        const inferredDate = nlp.dueDate ?? null;
+        const isTimed = Boolean(inferredDate && inferredDate.includes("T"));
+        setCustomSchedule({
+            dueDate: isTimed ? null : inferredDate,
+            scheduledStart: isTimed ? inferredDate : null,
+            scheduledEnd: null,
+            isAllDay: !isTimed,
+            recurrenceRule: nlp.recurrenceRule ?? null,
+        });
+        setTimingMode("custom");
     };
 
     const discard = () => {
@@ -178,29 +208,19 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
             <ScrollAreaWrapper>
                 <div className="flex flex-col gap-4 px-5 py-5">
 
-                    {/* ─── Slice 1: Source capture (immutable) ─── */}
-                    <div className="rounded-[1.25rem] border border-twilight-border/35 bg-twilight-surface/16 px-5 py-4 backdrop-blur-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-2">
-                            You captured
-                        </p>
-                        <p className="text-[15px] leading-relaxed text-twilight-text whitespace-pre-wrap break-words">
-                            {item.rawText}
-                        </p>
-                        <time
-                            dateTime={item.createdAt}
-                            className="mt-2 block text-[11px] text-twilight-text-muted/70 tabular-nums"
-                        >
-                            {relativeTime(item.createdAt)}
-                        </time>
-                    </div>
-
-                    {/* ─── Slice 2: Structured understanding + editable title ─── */}
+                    {/* ─── Slice 1: Title + structured understanding ─── */}
                     <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
                         <div className="flex items-center gap-2 mb-3">
                             <Sparkles size={14} className="text-accent-primary/70" aria-hidden="true" />
                             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
-                                {nlp.summary ? "Cadence understood" : item.aiSuggestion ? "Cadence suggests" : "Task title"}
+                                {nlp.summary ? "Cadence understood" : item.aiSuggestion ? "Cadence suggests" : "Title"}
                             </p>
+                            <time
+                                dateTime={item.createdAt}
+                                className="ml-auto text-[11px] text-twilight-text-muted/70 tabular-nums"
+                            >
+                                {relativeTime(item.createdAt)}
+                            </time>
                         </div>
                         {item.aiSuggestion && !nlp.summary && (
                             <p className="text-[13px] text-twilight-text-soft/80 mb-3 italic leading-relaxed">
@@ -227,81 +247,133 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                             className="w-full rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-twilight-text outline-none transition-colors focus:border-accent-primary/25 focus:bg-white/[0.04] placeholder:text-twilight-text-muted/60 mt-3"
                             placeholder="Edit the title before placing..."
                         />
+                        {editedTitle.trim() !== item.rawText.trim() ? (
+                            <p className="mt-2 text-[12px] leading-relaxed text-twilight-text-muted/80">
+                                From: <span className="text-twilight-text-soft">{item.rawText}</span>
+                            </p>
+                        ) : null}
                     </div>
 
-                    {/* ─── Slice 3: Timing — when should this happen? ─── */}
+                    {/* ─── Slice 2: Timing — when should this happen? ─── */}
                     <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
                             When?
                         </p>
 
-                        {/* If NLP detected a date, show it as a prominent suggestion */}
-                        {nlp.dueDate && (
+                        {timingMode === "main" ? (
+                            <>
+                                {/* If NLP detected a date, show it as a prominent suggestion */}
+                                {nlp.dueDate && (
+                                    <button
+                                        type="button"
+                                        onClick={() => place({ scheduledDate: nlp.dueDate! })}
+                                        disabled={isPending}
+                                        className="mb-3 flex w-full items-center gap-3 rounded-2xl border border-accent-primary/25 bg-accent-primary/[0.10] px-4 py-3.5 text-left transition-colors hover:bg-accent-primary/[0.16] disabled:opacity-50 cursor-pointer"
+                                    >
+                                        <Sparkles size={16} className="text-accent-primary shrink-0" aria-hidden="true" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[14px] font-medium text-accent-primary">Use detected date</p>
+                                            <p className="text-[12px] text-accent-primary/60">
+                                                {nlp.dueHumanLabel ?? nlp.dueDate}
+                                            </p>
+                                        </div>
+                                    </button>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => place({ scheduledDate: todayISO() })}
+                                    disabled={isPending}
+                                    className="flex w-full items-center gap-3 rounded-2xl border border-accent-primary/20 bg-accent-primary/[0.08] px-4 py-3.5 text-left transition-colors hover:bg-accent-primary/[0.14] disabled:opacity-50 cursor-pointer"
+                                >
+                                    <Sun size={18} className="text-accent-primary shrink-0" aria-hidden="true" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[14px] font-medium text-accent-primary">Today</p>
+                                        <p className="text-[12px] text-accent-primary/60">Schedule for today</p>
+                                    </div>
+                                </button>
+
+                                <div className="mt-3 grid grid-cols-2 gap-2.5">
+                                    <PlacementButton
+                                        icon={<Sunrise size={15} aria-hidden="true" />}
+                                        label="Tomorrow"
+                                        onClick={() => place({ scheduledDate: tomorrowISO() })}
+                                        disabled={isPending}
+                                        className="text-moonlit border-moonlit/20 bg-moonlit/[0.06] hover:bg-moonlit/[0.12]"
+                                    />
+                                    <PlacementButton
+                                        icon={<CalendarDays size={15} aria-hidden="true" />}
+                                        label="Custom"
+                                        onClick={openCustomSchedule}
+                                        disabled={isPending}
+                                        className="text-twilight-text-soft border-twilight-border/30 bg-white/[0.03] hover:bg-white/[0.06]"
+                                    />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <QuickScheduleSurface
+                                    dueDate={customSchedule.dueDate}
+                                    scheduledStart={customSchedule.scheduledStart}
+                                    scheduledEnd={customSchedule.scheduledEnd}
+                                    recurrenceRule={customSchedule.recurrenceRule}
+                                    onChange={(updates) => {
+                                        setCustomSchedule((current) => ({
+                                            ...current,
+                                            ...updates,
+                                        }));
+                                    }}
+                                    onRequestClose={() => setTimingMode("main")}
+                                />
+                                <div className="mt-3 flex items-center justify-between gap-2 px-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setTimingMode("main")}
+                                        className="rounded-xl px-3 py-2 text-[12px] font-medium text-twilight-text-muted transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => place({
+                                            dueDate: customSchedule.dueDate,
+                                            scheduledStart: customSchedule.scheduledStart,
+                                            scheduledEnd: customSchedule.scheduledEnd,
+                                            isAllDay: customSchedule.isAllDay,
+                                            recurrenceRule: customSchedule.recurrenceRule,
+                                        })}
+                                        disabled={isPending || (!customSchedule.dueDate && !customSchedule.scheduledStart)}
+                                        className="rounded-xl border border-accent-primary/25 bg-accent-primary/[0.10] px-3.5 py-2 text-[12px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/[0.16] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        Place with this schedule
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* ─── Slice 3: Alternative path ─── */}
+                    {onOpenFullEditor && (
+                        <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
+                                Or instead…
+                            </p>
                             <button
                                 type="button"
-                                onClick={() => place(nlp.dueDate!)}
+                                onClick={() => place(undefined, { openEditor: true })}
                                 disabled={isPending}
-                                className="flex w-full items-center gap-3 rounded-2xl border border-accent-primary/25 bg-accent-primary/[0.10] px-4 py-3.5 text-left transition-colors hover:bg-accent-primary/[0.16] disabled:opacity-50 cursor-pointer mb-3"
+                                className="flex w-full items-center justify-between rounded-[1.1rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04] disabled:opacity-50 cursor-pointer"
                             >
-                                <Sparkles size={16} className="text-accent-primary shrink-0" aria-hidden="true" />
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-[14px] font-medium text-accent-primary">Use detected date</p>
-                                    <p className="text-[12px] text-accent-primary/60">
-                                        {/* §11.5: Show human-readable date, not raw ISO value */}
-                                        {nlp.dueHumanLabel ?? nlp.dueDate}
+                                <div>
+                                    <p className="text-[13px] font-medium text-twilight-text">Open full task editor</p>
+                                    <p className="text-[12px] text-twilight-text-muted">
+                                        Place it first, then refine timing, notes, and details
                                     </p>
                                 </div>
+                                <ChevronRight size={16} className="text-twilight-text-muted shrink-0" aria-hidden="true" />
                             </button>
-                        )}
-
-                        {/* Primary: Today — largest, most obvious */}
-                        <button
-                            type="button"
-                            onClick={() => place(todayISO())}
-                            disabled={isPending}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-accent-primary/20 bg-accent-primary/[0.08] px-4 py-3.5 text-left transition-colors hover:bg-accent-primary/[0.14] disabled:opacity-50 cursor-pointer"
-                        >
-                            <Sun size={18} className="text-accent-primary shrink-0" aria-hidden="true" />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[14px] font-medium text-accent-primary">Today</p>
-                                <p className="text-[12px] text-accent-primary/60">Schedule for today</p>
-                            </div>
-                        </button>
-
-                        {/* Secondary row */}
-                        <div className="mt-3 grid grid-cols-2 gap-2.5">
-                            <PlacementButton
-                                icon={<Sunrise size={15} aria-hidden="true" />}
-                                label="Tomorrow"
-                                onClick={() => place(tomorrowISO())}
-                                disabled={isPending}
-                                className="text-moonlit border-moonlit/20 bg-moonlit/[0.06] hover:bg-moonlit/[0.12]"
-                            />
-                            <PlacementButton
-                                icon={<Clock size={15} aria-hidden="true" />}
-                                label="Place without date"
-                                onClick={() => place()}
-                                disabled={isPending}
-                                className="text-twilight-text-soft border-twilight-border/30 bg-white/[0.03] hover:bg-white/[0.06]"
-                            />
                         </div>
-                    </div>
-
-                    {/* ─── Slice 4: Note vs task decision ─── */}
-                    <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
-                            Or instead…
-                        </p>
-                        <div className="flex flex-col gap-2">
-                            <PlacementButton
-                                icon={<StickyNote size={15} aria-hidden="true" />}
-                                label="Keep as note"
-                                onClick={keepNote}
-                                disabled={isPending}
-                                className="w-full text-twilight-text-soft border-twilight-border/30 bg-white/[0.03] hover:bg-white/[0.06]"
-                            />
-                        </div>
-                    </div>
+                    )}
 
                     {/* ─── Discard — visually calmer, farther from primary (§9.1) ─── */}
                     <div className="px-1 pt-2">
@@ -316,44 +388,6 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                         </button>
                     </div>
 
-                    {/* ─── Open full task editor — place first, then customize (§9.1) ─── */}
-                    {onOpenFullEditor && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                // Place as unscheduled task and open full editor
-                                processToTask.mutate(
-                                    {
-                                        inboxItemId: item.id,
-                                        rawText: item.rawText,
-                                        title: editedTitle,
-                                        projectId: nlp.projectId,
-                                        tagIds: nlp.tagIds,
-                                        priority: nlp.priority,
-                                        durationEstimate: nlp.durationMinutes,
-                                        recurrenceRule: nlp.recurrenceRule,
-                                        waitingOn: nlp.waitingOn,
-                                        nlp: buildNlpEnvelope(),
-                                    },
-                                    {
-                                        onSuccess: (task) => {
-                                            if (task) onOpenFullEditor(task.id);
-                                        },
-                                    },
-                                );
-                            }}
-                            disabled={isPending}
-                            className="flex w-full items-center justify-between rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 text-left transition-colors hover:bg-white/[0.04] disabled:opacity-50 cursor-pointer backdrop-blur-sm"
-                        >
-                            <div>
-                                <p className="text-[13px] font-medium text-twilight-text">Open full task editor</p>
-                                <p className="text-[12px] text-twilight-text-muted">
-                                    Place as task, then add notes, subtasks, and more
-                                </p>
-                            </div>
-                            <ChevronRight size={16} className="text-twilight-text-muted shrink-0" aria-hidden="true" />
-                        </button>
-                    )}
                 </div>
             </ScrollAreaWrapper>
         </motion.div>

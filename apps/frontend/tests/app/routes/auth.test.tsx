@@ -77,7 +77,7 @@ describe("auth route", () => {
     it("renders the centered sanctuary sign-in surface and labels icon-only auth buttons", async () => {
         const { layoutSection } = renderAuthPage("/auth/sign-in");
 
-        expect(screen.getByText("Step into your Cadence.")).toBeTruthy();
+        expect(screen.getByText("Sign in to Cadence")).toBeTruthy();
         expect(screen.getByRole("img", { name: "Cadence" }).getAttribute("src")).toBe("/logo.png");
         expect(layoutSection?.className).toContain("md:items-center");
 
@@ -91,7 +91,7 @@ describe("auth route", () => {
     it("swaps to the sign-up editorial heading without reintroducing marketing split copy", () => {
         renderAuthPage("/auth/sign-up");
 
-        expect(screen.getByText("Create your sanctuary.")).toBeTruthy();
+        expect(screen.getByText("Create your account")).toBeTruthy();
         expect(screen.queryByText("A quiet space for your brightest thoughts")).toBeNull();
     });
 });

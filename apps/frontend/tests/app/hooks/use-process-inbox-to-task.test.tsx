@@ -69,7 +69,7 @@ describe("useProcessInboxToTask", () => {
         });
     });
 
-    it("keeps the inbox item when keepNote is true", async () => {
+    it("passes through scheduling metadata when placing an inbox item", async () => {
         const createdTask = { id: "task-2", title: "Meeting notes" };
         inboxProcessMock.mockResolvedValue(
             new Response(JSON.stringify({ data: createdTask }), {
@@ -82,7 +82,15 @@ describe("useProcessInboxToTask", () => {
             wrapper: createWrapper(),
         });
 
-        result.current.mutate({ inboxItemId: "inbox-2", rawText: "Meeting notes", keepNote: true });
+        result.current.mutate({
+            inboxItemId: "inbox-2",
+            rawText: "Meeting notes",
+            dueDate: "2026-03-27",
+            scheduledStart: "2026-03-27T15:30:00.000Z",
+            scheduledEnd: "2026-03-27T16:00:00.000Z",
+            isAllDay: false,
+            priority: 2,
+        });
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -90,8 +98,12 @@ describe("useProcessInboxToTask", () => {
         expect(inboxProcessMock).toHaveBeenCalledWith({
             param: { id: "inbox-2" },
             json: expect.objectContaining({
-                keepNote: true,
                 title: "Meeting notes",
+                dueDate: "2026-03-27",
+                scheduledStart: "2026-03-27T15:30:00.000Z",
+                scheduledEnd: "2026-03-27T16:00:00.000Z",
+                isAllDay: false,
+                priority: 2,
             }),
         });
     });

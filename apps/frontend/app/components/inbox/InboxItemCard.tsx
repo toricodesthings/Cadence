@@ -4,7 +4,7 @@ import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/
 import { useSettings } from "../../hooks/core/use-settings";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import { Sun, Sparkles, Search, MoreHorizontal, Sunrise, Clock, StickyNote, Trash2 } from "lucide-react";
+import { Sun, Sparkles, Search, MoreHorizontal, Sunrise, Clock, Trash2 } from "lucide-react";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { useState, useCallback, useRef, useEffect } from "react";
 
@@ -21,10 +21,10 @@ interface InboxItemCardProps {
  *
  * §9.1 — Two-layer action system:
  *   Visible: Today + Clarify + overflow trigger
- *   Overflow: Tomorrow, Later, Keep note, Discard
+ *   Overflow: Tomorrow, Later, Discard
  * M2 — visible actions never hover-gated
  * M3 — relative timestamps
- * §10.3 — keyboard on focused card: Enter=clarify, 1=today, 2=tomorrow, 3=later, k=keep note, Backspace=discard
+ * §10.3 — keyboard on focused card: Enter=clarify, 1=today, 2=tomorrow, 3=later, Backspace=discard
  */
 export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify }: InboxItemCardProps) {
     const updateItem = useUpdateInboxItem();
@@ -72,7 +72,12 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
             },
         });
 
+    const trackCaptureAction = (outcome: string) => {
+        trackUsageEvent("capture.context_menu_action", { object_type: "capture", outcome });
+    };
+
     const place = useCallback((scheduledDate?: string) => {
+        trackCaptureAction(scheduledDate === todayISO() ? "today" : scheduledDate === tomorrowISO() ? "tomorrow" : scheduledDate ? "scheduled" : "later");
         processToTask.mutate({
             inboxItemId: item.id,
             rawText: item.rawText,
@@ -87,22 +92,8 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
         });
     }, [item.id, item.rawText, analysis, processToTask, buildInboxEnvelope]);
 
-    const keepNote = useCallback(() => {
-        processToTask.mutate({
-            inboxItemId: item.id,
-            rawText: item.rawText,
-            keepNote: true,
-            projectId: analysis?.projectId ?? null,
-            tagIds: analysis?.tagIds ?? undefined,
-            priority: analysis?.priority ?? null,
-            durationEstimate: analysis?.durationEstimate ?? null,
-            recurrenceRule: analysis?.recurrenceRule ?? null,
-            waitingOn: analysis?.waitingOn ?? null,
-            nlp: buildInboxEnvelope(),
-        });
-    }, [item.id, item.rawText, analysis, processToTask, buildInboxEnvelope]);
-
     const discard = useCallback(() => {
+        trackCaptureAction("discard");
         updateItem.mutate({
             id: item.id,
             captureStatus: "discarded",
@@ -146,10 +137,6 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                     e.preventDefault();
                     place();
                     break;
-                case "k":
-                    e.preventDefault();
-                    keepNote();
-                    break;
                 case "Backspace":
                 case "Delete":
                     e.preventDefault();
@@ -159,7 +146,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [isFocused, item.id, onClarify, place, keepNote, discard]);
+    }, [isFocused, item.id, onClarify, place, discard]);
 
     return (
         <ContextMenu.Root onOpenChange={(isOpen) => {
@@ -255,13 +242,6 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                                 onClick={() => { place(); setOverflowOpen(false); }}
                                 disabled={isPending}
                             />
-                            <OverflowItem
-                                icon={<StickyNote size={14} />}
-                                label="Keep note"
-                                hint="K"
-                                onClick={() => { keepNote(); setOverflowOpen(false); }}
-                                disabled={isPending}
-                            />
                             <div className="my-1 border-t border-twilight-border/40" />
                             <OverflowItem
                                 icon={<Trash2 size={14} />}
@@ -305,13 +285,6 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                     <Clock size={16} />
                     <span>Later</span>
                     <kbd className="ml-auto text-[10px] opacity-40 font-mono">3</kbd>
-                </div>
-            </ContextMenu.Item>
-            <ContextMenu.Item onSelect={() => keepNote()}>
-                <div className="flex items-center gap-2">
-                    <StickyNote size={16} />
-                    <span>Keep as note</span>
-                    <kbd className="ml-auto text-[10px] opacity-40 font-mono">K</kbd>
                 </div>
             </ContextMenu.Item>
             <ContextMenu.Separator />

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
-import { savedFocusViews, users } from "../../db/schema";
+import { inboxItems, notificationState, savedFocusViews, taskNlpMetadata, taskNlpMetadataHistory, users } from "../../db/schema";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
@@ -98,6 +98,145 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         const normalizedResult = normalizeSettings((updated?.settings ?? {}) as Record<string, any>);
         return c.json({ data: normalizedResult });
     })
+    .post("/intelligence-history/clear", async (c) => {
+        const userId = c.get("userId");
+        const db = getDbClient(c.env);
+
+        await withRls(db, userId, async (tx) => {
+            await tx.delete(taskNlpMetadataHistory).where(eq(taskNlpMetadataHistory.userId, userId));
+            await tx.delete(taskNlpMetadata).where(eq(taskNlpMetadata.userId, userId));
+            await tx.delete(notificationState).where(eq(notificationState.userId, userId));
+
+            await tx
+                .update(inboxItems)
+                .set({
+                    analysisStatus: "pending",
+                    analysisVersion: null,
+                    analysisSummary: null,
+                    analysis: null,
+                    analysisConfidenceTier: null,
+                    analysisNeedsReview: false,
+                    analysisReviewReason: null,
+                    analysisEntityCount: 0,
+                    clarifiedAt: null,
+                    appliedAt: null,
+                })
+                .where(eq(inboxItems.userId, userId));
+
+            const [user] = await tx
+                .select({ settings: users.settings })
+                .from(users)
+                .where(eq(users.id, userId))
+                .limit(1);
+
+            const normalized = normalizeSettings((user?.settings ?? {}) as Record<string, any>);
+            const merged = deepMerge(normalized, {
+                tasks: {
+                    intelligence: {
+                        dismissedEntityIds: [],
+                        dismissedEntities: [],
+                    },
+                },
+            });
+
+            await tx
+                .update(users)
+                .set({ settings: merged })
+                .where(eq(users.id, userId));
+        });
+
+        return c.json({ data: { cleared: true } });
+    })
+    .get("/notification-state", async (c) => {
+        const userId = c.get("userId");
+        const db = getDbClient(c.env);
+
+        const items = await withRls(db, userId, (tx) =>
+            tx
+                .select()
+                .from(notificationState)
+                .where(eq(notificationState.userId, userId))
+                .orderBy(desc(notificationState.updatedAt)),
+        );
+
+        return c.json({ data: items });
+    })
+    .post(
+        "/notification-state",
+        apiValidator(
+            "json",
+            z.object({
+                objectType: z.enum(["task", "habit", "event"]),
+                objectId: z.string().uuid(),
+                triggerId: z.string().min(1).max(200),
+                firstPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
+                lastPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
+                dismissedAt: z.string().datetime({ offset: true }).nullable().optional(),
+                deferredUntil: z.string().datetime({ offset: true }).nullable().optional(),
+                actionTaken: z.string().max(64).nullable().optional(),
+                presentationCountIncrement: z.number().int().min(0).max(100).optional(),
+            }),
+        ),
+        async (c) => {
+            const userId = c.get("userId");
+            const body = c.req.valid("json");
+            const db = getDbClient(c.env);
+
+            const row = await withRls(db, userId, async (tx) => {
+                const [existing] = await tx
+                    .select()
+                    .from(notificationState)
+                    .where(
+                        and(
+                            eq(notificationState.userId, userId),
+                            eq(notificationState.objectId, body.objectId),
+                            eq(notificationState.triggerId, body.triggerId),
+                        ),
+                    )
+                    .limit(1);
+
+                const presentationCount = body.presentationCountIncrement ?? 0;
+
+                if (!existing) {
+                    const [created] = await tx
+                        .insert(notificationState)
+                        .values({
+                            userId,
+                            objectType: body.objectType,
+                            objectId: body.objectId,
+                            triggerId: body.triggerId,
+                            firstPresentedAt: body.firstPresentedAt ?? null,
+                            lastPresentedAt: body.lastPresentedAt ?? null,
+                            dismissedAt: body.dismissedAt ?? null,
+                            deferredUntil: body.deferredUntil ?? null,
+                            actionTaken: body.actionTaken ?? null,
+                            presentationCount,
+                        })
+                        .returning();
+                    return created;
+                }
+
+                const [updated] = await tx
+                    .update(notificationState)
+                    .set({
+                        objectType: body.objectType,
+                        firstPresentedAt: existing.firstPresentedAt ?? body.firstPresentedAt ?? null,
+                        lastPresentedAt: body.lastPresentedAt ?? existing.lastPresentedAt ?? null,
+                        dismissedAt: body.dismissedAt !== undefined ? body.dismissedAt : existing.dismissedAt,
+                        deferredUntil: body.deferredUntil !== undefined ? body.deferredUntil : existing.deferredUntil,
+                        actionTaken: body.actionTaken !== undefined ? body.actionTaken : existing.actionTaken,
+                        presentationCount: existing.presentationCount + presentationCount,
+                        updatedAt: sql`NOW()`,
+                    })
+                    .where(eq(notificationState.id, existing.id))
+                    .returning();
+
+                return updated;
+            });
+
+            return c.json({ data: row }, 201);
+        },
+    )
     .get("/focus-views", async (c) => {
         const userId = c.get("userId");
         const db = getDbClient(c.env);

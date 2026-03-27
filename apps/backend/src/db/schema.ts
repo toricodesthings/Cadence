@@ -36,9 +36,9 @@ export const captureStatusEnum = pgEnum('capture_status', ['clarifying', 'placed
 export const analysisStatusEnum = pgEnum('analysis_status', ['pending', 'parsed', 'reviewed', 'applied', 'dismissed']);
 export const confidenceTierEnum = pgEnum('confidence_tier', ['high', 'medium', 'low']);
 export const sourceSurfaceEnum = pgEnum('source_surface', [
-    'inline-add', 'inline_add', 'quick-add-task', 'quick_add',
-    'holding-capture', 'holding-clarify', 'clarify_sheet',
-    'task-edit-title', 'task-edit-note', 'focus-view-composer',
+    'inline_add', 'quick_add',
+    'holding_capture', 'holding_clarify', 'clarify_sheet',
+    'task_edit_title', 'task_edit_note', 'focus_view_composer',
     'inbox_card', 'inbox',
 ]);
 export const suggestionTypeEnum = pgEnum('suggestion_type', ['lighten_today', 'suggested_cleanup', 'move_overdue']);

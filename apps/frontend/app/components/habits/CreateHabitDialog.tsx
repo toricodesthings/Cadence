@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronRight, Clock, FolderOpen, Tag, Sunrise, Dumbbell, Droplet, BookOpen } from "lucide-react";
 import * as Dialog from "../primitives/Dialog";
 import { TimePicker } from "../primitives";
+import { Button } from "../primitives/Button";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -106,7 +107,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
 
     return (
         <Dialog.Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
-            <Dialog.DialogContent className="max-w-lg">
+            <Dialog.DialogContent className="max-w-xl">
                 <Dialog.DialogHeader>
                     <Dialog.DialogTitle>New routine</Dialog.DialogTitle>
                     <Dialog.DialogDescription>
@@ -139,7 +140,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                                     transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                                     className="overflow-hidden"
                                 >
-                                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                                    <div className="grid grid-cols-4 gap-2">
                                         {HABIT_STARTER_PACKS.map((preset) => (
                                             <button
                                                 key={preset.id}
@@ -149,10 +150,11 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                                                     form.setValue("description", preset.description, { shouldDirty: true });
                                                     form.setValue("recurrenceRule", preset.recurrenceRule, { shouldDirty: true });
                                                 }}
-                                                className="flex shrink-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 transition-colors hover:bg-white/[0.06] hover:border-accent-primary/20 cursor-pointer"
+                                                className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-4 text-center transition-colors hover:bg-white/[0.06] hover:border-accent-primary/20 cursor-pointer"
                                             >
-                                                <preset.icon size={16} className="text-accent-primary/70 shrink-0" />
-                                                <span className="text-[12px] font-medium text-twilight-text whitespace-nowrap">{preset.title}</span>
+                                                <preset.icon size={22} className="text-accent-primary/70 shrink-0" />
+                                                <span className="text-[12px] font-semibold text-twilight-text leading-tight">{preset.title}</span>
+                                                <span className="text-[11px] leading-snug text-twilight-text-muted/60 line-clamp-2">{preset.description}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -163,15 +165,12 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
 
                     {/* Level 1: Name + Cadence (always visible) */}
                     <div className="flex flex-col gap-1.5">
-                        <label htmlFor="habit-title" className="text-[11px] font-semibold uppercase tracking-widest text-twilight-text-muted">
-                            Name
-                        </label>
                         <input
                             id="habit-title"
                             autoFocus
-                            placeholder="e.g. Morning walk, Read 20 pages…"
+                            placeholder="Name this routine…"
                             {...form.register("title")}
-                            className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none transition-[border-color,box-shadow] duration-200 focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)]"
+                            className="w-full border-b border-white/[0.10] bg-transparent pb-3 font-display text-xl text-twilight-text outline-none placeholder:text-twilight-text-muted/50 transition-[border-color] duration-200 focus:border-accent-primary/40"
                         />
                         {form.formState.errors.title && (
                             <span className="text-rose-500 text-xs mt-1">{form.formState.errors.title.message}</span>
@@ -198,8 +197,8 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                             onClick={() => setShowTiming((v) => !v)}
                             className="flex items-center gap-2 text-left cursor-pointer group"
                         >
-                            <Clock size={13} className="text-twilight-text-muted/60" />
-                            <span className="text-[12px] font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
+                            <Clock size={14} className="text-twilight-text-muted/60" />
+                            <span className="text-sm font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
                                 Timing &amp; reminder
                             </span>
                             {!showTiming && watchTargetTime && (
@@ -285,8 +284,8 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                             onClick={() => setShowConnections((v) => !v)}
                             className="flex items-center gap-2 text-left cursor-pointer group"
                         >
-                            <FolderOpen size={13} className="text-twilight-text-muted/60" />
-                            <span className="text-[12px] font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
+                            <FolderOpen size={14} className="text-twilight-text-muted/60" />
+                            <span className="text-sm font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
                                 Project, tags &amp; purpose
                             </span>
                             {!showConnections && (() => {
@@ -389,20 +388,23 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
 
                     {/* Actions */}
                     <div className="flex justify-end gap-2 pt-1">
-                        <button
+                        <Button
                             type="button"
+                            variant="ghost"
+                            size="md"
                             onClick={handleClose}
-                            className="px-4 py-2 rounded-xl text-[13px] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors duration-200 cursor-pointer"
                         >
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
+                            variant="primary"
+                            size="md"
                             disabled={!form.formState.isDirty || form.formState.isSubmitting}
-                            className="px-4 py-2 rounded-xl text-[13px] bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 transition-colors duration-200 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                            className="bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/26 disabled:opacity-40"
                         >
                             Create routine
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </Dialog.DialogContent>

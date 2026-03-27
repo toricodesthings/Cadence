@@ -7,6 +7,7 @@ import { CalendarClock, Pause } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import { supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
 interface TaskCheckboxProps {
     task?: Task;
@@ -56,6 +57,17 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
         ? Math.max(0, Math.min(1, (pendingCompletion.commitAt - now) / pendingCompletion.durationMs))
         : 0;
 
+    const trackQuickAction = (outcome: string, inputMethod: "click" | "context_menu") => {
+        if (!task) return;
+        trackUsageEvent("task.quick_action_used", {
+            object_type: "task",
+            outcome,
+            input_method: inputMethod,
+            route: window.location.pathname,
+            surface: "task_checkbox",
+        });
+    };
+
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -69,6 +81,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
 
         // Toggle between WAITING and ACTIVE
         const targetState = isWaiting ? "ACTIVE" : "WAITING";
+        trackQuickAction(isWaiting ? "resume_from_waiting" : "mark_waiting", "context_menu");
         updateTask.mutate({ id, state: targetState });
     };
 
@@ -79,12 +92,14 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
         }
 
         if (isPendingComplete) {
+            trackQuickAction("cancel_pending_completion", "click");
             cancelCompletion(id);
             return;
         }
 
         if (isComplete) {
             if (task) {
+                trackQuickAction("mark_incomplete", "click");
                 updateTask.mutate({ id, state: "ACTIVE" });
             } else if (subtask) {
                 updateSubtask.mutate({ id, isComplete: false });
@@ -94,12 +109,20 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
 
         const commitCompletion = () => {
             if (task) {
+                trackUsageEvent("task.complete", {
+                    object_type: "task",
+                    input_method: "click",
+                    outcome: "completed",
+                    route: window.location.pathname,
+                    surface: "task_checkbox",
+                });
                 updateTask.mutate({ id, state: "COMPLETE" });
             } else if (subtask) {
                 updateSubtask.mutate({ id, isComplete: true });
             }
         };
 
+        trackQuickAction("queue_completion", "click");
         queueCompletion({
             taskId: id,
             onCommit: commitCompletion,

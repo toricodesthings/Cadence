@@ -7,7 +7,6 @@ type UsageEvent =
     | "capture.submitted"
     | "capture.clarify_opened"
     | "capture.placed"
-    | "capture.kept_note"
     | "capture.discarded"
     // NLP events
     | "nlp.parse_completed"

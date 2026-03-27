@@ -13,8 +13,11 @@ interface ProcessInboxParams {
     rawText: string;
     /** Optional edited title — defaults to rawText if omitted */
     title?: string;
-    keepNote?: boolean;
     scheduledDate?: string;
+    dueDate?: string | null;
+    scheduledStart?: string | null;
+    scheduledEnd?: string | null;
+    isAllDay?: boolean | null;
     projectId?: string | null;
     tagIds?: string[];
     priority?: number | null;
@@ -35,11 +38,11 @@ export function useProcessInboxToTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<ProcessInboxParams, Task>(
-            ({ inboxItemId, rawText, title, keepNote, scheduledDate, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp }) => ({
+            ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp }) => ({
                 type: "process_inbox_to_task",
-                payload: { inboxItemId, rawText, title, keepNote, scheduledDate, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp },
+                payload: { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp },
             }),
-            async ({ inboxItemId, rawText, title, keepNote = false, scheduledDate, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp }) => {
+            async ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp }) => {
                 const taskTitle = title?.trim() || rawText;
 
                 const taskRes = await (client.api.inbox[":id"] as any).process.$post({
@@ -47,8 +50,11 @@ export function useProcessInboxToTask() {
                     json: {
                         clientMutationId: crypto.randomUUID(),
                         title: taskTitle,
-                        keepNote,
                         scheduledDate,
+                        dueDate,
+                        scheduledStart,
+                        scheduledEnd,
+                        isAllDay,
                         projectId,
                         tagIds,
                         priority,
@@ -67,11 +73,10 @@ export function useProcessInboxToTask() {
             if (!_data) return; // Queued offline
             invalidateEverywhere(queryClient, queryKeys.inbox.all);
             invalidateEverywhere(queryClient, queryKeys.tasks.all);
-            const label = variables.scheduledDate
-                ? `Scheduled for ${variables.scheduledDate === todayISO() ? "today" : variables.scheduledDate === tomorrowISO() ? "tomorrow" : variables.scheduledDate}`
-                : variables.keepNote
-                  ? "Kept as note"
-                  : "Placed in tasks";
+            const scheduledLabel = variables.scheduledStart ?? variables.dueDate ?? variables.scheduledDate;
+            const label = scheduledLabel
+                ? `Scheduled for ${scheduledLabel === todayISO() ? "today" : scheduledLabel === tomorrowISO() ? "tomorrow" : scheduledLabel}`
+                : "Placed in tasks";
             toast.success(label);
         },
         onError: (err) => {

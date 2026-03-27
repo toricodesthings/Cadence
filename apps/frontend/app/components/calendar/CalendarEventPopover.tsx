@@ -266,13 +266,13 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             <Dialog open={true} onOpenChange={(open) => { if (!open) requestClose(); }}>
                 <DialogContent
                     className={cn(
-                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),48rem)] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(18,30,52,0.96),rgba(10,18,34,0.98))] p-0 shadow-[0_32px_120px_rgba(0,0,0,0.52)]",
+                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),40rem)] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(18,30,52,0.96),rgba(10,18,34,0.98))] p-0 shadow-[0_32px_120px_rgba(0,0,0,0.52)]",
                         shell.isPhone
                             ? "inset-x-3 bottom-3 max-h-[88dvh]"
-                            : "sm:max-w-3xl sm:max-h-[84dvh]",
+                            : "sm:max-w-2xl sm:max-h-[84dvh]",
                     )}
                 >
-                    <DialogHeader className="shrink-0 border-b border-white/[0.06] px-5 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6">
+                    <DialogHeader className="shrink-0 border-b border-white/[0.06] px-5 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
                         <div className="space-y-1">
                             <DialogTitle className="font-display text-xl tracking-tight text-twilight-text">
                                 Create on {tab === "task" ? formatDateLabel(startDate) : eventDateLabel}
@@ -316,7 +316,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         </div>
                     </div>
 
-                    <div className="min-h-0 flex-auto overflow-y-auto px-5 py-4 sm:px-6 sm:py-5">
+                    <div className="min-h-0 flex-auto overflow-y-auto px-5 py-3 sm:px-6 sm:py-4">
                         {tab === "task" ? (
                             <div className="space-y-4">
                                 <input
@@ -589,7 +589,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         )}
                     </div>
 
-                    <DialogFooter className="shrink-0 border-t border-white/[0.06] px-5 py-4 sm:px-6 sm:py-5">
+                    <DialogFooter className="shrink-0 border-t border-white/[0.06] px-5 py-3 sm:px-6 sm:py-4">
                         {tab === "task" && mode === "weekly" && summary?.label ? (
                             <p className="mr-auto flex items-center gap-2 text-xs text-twilight-text-muted">
                                 <Repeat size={12} className="shrink-0 text-accent-primary" />

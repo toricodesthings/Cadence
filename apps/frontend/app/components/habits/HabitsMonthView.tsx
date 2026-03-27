@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
-import { Check, CheckCircle2, Clock, Flame, Pause } from "lucide-react";
+import { Check, Clock, Flame, Pause } from "lucide-react";
 
 import { useApiClient } from "../../hooks/auth/use-api-client";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
@@ -81,7 +81,7 @@ function MonthCardGrid({
 
     return (
         <div className="space-y-2">
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-1.5">
                 {DOW.map((label) => (
                     <div
                         key={label}
@@ -92,7 +92,7 @@ function MonthCardGrid({
                 ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-1.5">
                 {isLoading
                     ? cells.map((_, index) => (
                         <div
@@ -196,16 +196,6 @@ export function HabitsMonthView({
         })),
     });
 
-    const hasMissedDays = sortedHabits.some((habit, index) => {
-        const data = monthlyQueries[index]?.data;
-        if (!data) return false;
-
-        return data.scheduledDays.some((day) => {
-            const dayIso = toISODate(new Date(year, month, day));
-            return dayIso < todayIso && !data.logsByDay[day];
-        });
-    });
-
     if (habits.length === 0) {
         return (
             <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 sm:px-6">
@@ -228,24 +218,8 @@ export function HabitsMonthView({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 sm:px-6">
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-[1.35rem] border border-twilight-border/30 bg-white/[0.03] px-4 py-3">
-                <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
-                        Month Review
-                    </p>
-                    <p className="mt-1 text-sm text-twilight-text-soft">
-                        Scan consistency, streak energy, and missed days at a glance.
-                    </p>
-                </div>
-                {hasMissedDays ? (
-                    <span className="rounded-full border border-accent-primary/20 bg-accent-primary/10 px-3 py-1 text-[11px] font-medium text-accent-primary">
-                        Striped cells = missed
-                    </span>
-                ) : null}
-            </div>
-
-            <div className="mt-4 min-h-0 flex-1 overflow-auto pr-1 scrollbar-thin">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-2 min-h-0 flex-1 overflow-auto pr-1 scrollbar-thin">
+                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                     {sortedHabits.map((habit, index) => {
                         const project = habit.projectId ? projectMap.get(habit.projectId) : null;
                         const monthData = monthlyQueries[index]?.data;
@@ -269,7 +243,7 @@ export function HabitsMonthView({
                             <HabitContextMenuWrapper key={habit.id} habit={habit}>
                             <section
                                 className={[
-                                    "rounded-[1.65rem] border px-4 py-4 transition-colors",
+                                    "rounded-[1.65rem] border px-5 py-6 transition-colors",
                                     isPaused ? "opacity-60" : "",
                                     isSelected
                                         ? "border-accent-primary/25 bg-accent-primary/[0.06]"
@@ -320,26 +294,24 @@ export function HabitsMonthView({
                                     <HabitMenu habit={habit} />
                                 </div>
 
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-twilight-text-soft">
-                                        <CheckCircle2 size={11} className="text-accent-primary" />
-                                        {completedCount}/{scheduledDays.length || 0} complete
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-twilight-text-soft">
-                                        {adherence}% adherence
-                                    </span>
+                                <div className="mt-3 flex items-center gap-1.5 text-xs text-twilight-text-muted">
+                                    <span>{completedCount} / {scheduledDays.length || 0}</span>
+                                    <span className="text-twilight-text-muted/30">·</span>
+                                    <span>{adherence}% adherence</span>
                                     {missedCount > 0 ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/16 bg-accent-primary/10 px-2.5 py-1 text-[10px] font-medium text-accent-primary">
-                                            {missedCount} missed
-                                        </span>
+                                        <>
+                                            <span className="text-twilight-text-muted/30">·</span>
+                                            <span className="text-accent-primary/80">{missedCount} missed</span>
+                                        </>
                                     ) : skippedCount > 0 ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-twilight-text-soft">
-                                            {skippedCount} skipped
-                                        </span>
+                                        <>
+                                            <span className="text-twilight-text-muted/30">·</span>
+                                            <span>{skippedCount} skipped</span>
+                                        </>
                                     ) : null}
                                 </div>
 
-                                <div className="mt-4 rounded-[1.25rem] border border-twilight-border/25 bg-black/10 p-3">
+                                <div className="mt-5">
                                     <MonthCardGrid
                                         year={year}
                                         month={month}

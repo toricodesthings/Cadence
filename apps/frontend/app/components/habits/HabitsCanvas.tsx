@@ -217,14 +217,6 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                         </div>
                     </div>
 
-                    {hasMissedDays ? (
-                        <div className="mt-2 flex items-center justify-end">
-                            <span className="rounded-full border border-accent-primary/16 bg-accent-primary/10 px-3 py-1 text-[11px] font-medium text-accent-primary">
-                                Striped cells are missed scheduled days.
-                            </span>
-                        </div>
-                    ) : null}
-
                     <div className="mt-1 min-h-0 flex-1 overflow-auto pr-1 scrollbar-thin">
                         {habits.length === 0 ? (
                             <div className="flex h-full flex-col items-center justify-center px-4 py-20 text-center">

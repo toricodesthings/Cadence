@@ -4,6 +4,7 @@ import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
+import { toLocalDateStr, offsetLocalDateStr } from "../../platform/date-utils";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, monthlyHabitsQuerySchema, habitListQuerySchema, unresolvedQuerySchema } from "./habits.schema";
 import { uuidParamSchema } from "../../platform/common-schemas";
@@ -143,11 +144,12 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const db = getDbClient(c.env);
 
         const result = await withRls(db, userId, async (tx) => {
-            // Get active, unpaused habits
-            const todayStr = new Date().toISOString().substring(0, 10);
-            const yesterdayDate = new Date();
-            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yesterdayStr = yesterdayDate.toISOString().substring(0, 10);
+            // Compute today/yesterday in the caller's local timezone so habits
+            // are not prematurely flagged or resolved due to UTC date drift.
+            const tz = timezone || "UTC";
+            const now = new Date();
+            const todayStr = toLocalDateStr(now, tz);
+            const yesterdayStr = offsetLocalDateStr(-1, now, tz);
 
             const activeHabits = await tx
                 .select()
@@ -218,12 +220,12 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     })
     .get("/weekly", apiValidator("query", weeklyHabitsQuerySchema), async (c) => {
         const userId = c.get("userId");
-        const { start, end, archived } = c.req.valid("query");
+        const { start, end, archived, timezone } = c.req.valid("query");
         const db = getDbClient(c.env);
 
         const startDate = new Date(`${start}T00:00:00.000Z`);
         const endDate = new Date(`${end}T23:59:59.999Z`);
-        const todayStr = new Date().toISOString().substring(0, 10);
+        const todayStr = toLocalDateStr(new Date(), timezone);
 
         const result = await withRls(db, userId, async (tx) => {
             const userHabits = await tx
@@ -501,7 +503,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.userId, userId)));
 
             // Expand all occurrences from creation to today for streak calculation
-            const totalExpansionEnd = new Date(`${new Date().toISOString().substring(0, 10)}T23:59:59.999Z`);
+            const totalExpansionEnd = new Date(`${toLocalDateStr(new Date(), "UTC")}T23:59:59.999Z`);
             const totalExpansionStart = new Date(`${String(habit.createdAt).substring(0, 10)}T00:00:00.000Z`);
             const allOccurrences = expandOccurrences(habit.recurrenceRule, habit.createdAt, totalExpansionStart, totalExpansionEnd);
 

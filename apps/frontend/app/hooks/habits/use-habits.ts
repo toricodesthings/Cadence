@@ -10,12 +10,14 @@ interface UseHabitsWeeklyOptions {
     end: string;
     archived?: boolean;
     enabled?: boolean;
+    timezone?: string;
 }
 
 /** Fetch habits for the weekly grid, including their generated virtual instance logs. */
-export function useHabitsWeekly({ start, end, archived = false, enabled = true }: UseHabitsWeeklyOptions) {
+export function useHabitsWeekly({ start, end, archived = false, enabled = true, timezone }: UseHabitsWeeklyOptions) {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
+    const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     return useQuery({
         queryKey: [...queryKeys.habits.weekly({ start, end }), archived],
@@ -23,7 +25,7 @@ export function useHabitsWeekly({ start, end, archived = false, enabled = true }
         staleTime: STALE_TIMES.HABITS,
         queryFn: async () => {
             const res = await client.api.habits.weekly.$get({
-                query: { start, end, archived: String(archived) },
+                query: { start, end, archived: String(archived), timezone: tz },
             });
             return unwrapResponse<Habit[]>(res);
         },

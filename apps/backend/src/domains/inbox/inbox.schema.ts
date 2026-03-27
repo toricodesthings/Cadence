@@ -35,8 +35,11 @@ export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
 /** Schema for the atomic inbox→task processing endpoint */
 export const processInboxItemSchema = z.object({
     title: z.string().min(1).max(2_000),
-    keepNote: z.boolean().optional(),
     scheduledDate: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).nullish(),
+    dueDate: z.iso.date().nullish(),
+    scheduledStart: z.iso.datetime({ offset: true }).nullish(),
+    scheduledEnd: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).nullish(),
+    isAllDay: z.boolean().nullish(),
     projectId: z.string().uuid().nullish(),
     tagIds: z.array(z.string().uuid()).nullish(),
     priority: z.number().int().min(0).max(4).nullish(),

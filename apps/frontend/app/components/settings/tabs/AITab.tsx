@@ -1,18 +1,51 @@
+import { useState } from "react";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Button } from "../../primitives";
 import { Switch } from "../../primitives";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
+import { toast } from "sonner";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { useApiClient } from "../../../hooks/auth/use-api-client";
+import { unwrapResponse } from "../../../lib/api/helpers";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
-import { Brain, ShieldCheck, Eye, Sparkles, Zap, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ShieldCheck, Trash2 } from "lucide-react";
 
 export function AITab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
+    const client = useApiClient();
+    const [isClearingHistory, setIsClearingHistory] = useState(false);
 
     const privacy = settings?.privacy ?? SETTINGS_DEFAULTS.privacy;
     const diagnosticsEnabled = privacy.usageDiagnostics;
     const intelligence = settings?.tasks?.intelligence ?? SETTINGS_DEFAULTS.tasks.intelligence;
+
+    const handleClearHistory = async () => {
+        setIsClearingHistory(true);
+
+        try {
+            const res = await client.api.settings["intelligence-history"]["clear"].$post({});
+            await unwrapResponse<{ cleared: boolean }>(res);
+            updateSettings.mutate({
+                tasks: {
+                    intelligence: {
+                        dismissedEntityIds: [],
+                        dismissedEntities: [],
+                    },
+                },
+            });
+            try {
+                window.localStorage.removeItem("cadence_notification_state");
+            } catch {
+                // Ignore local storage failures and keep the successful server-side clear.
+            }
+            toast.success("Cleared stored intelligence history.");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not clear intelligence history.");
+        } finally {
+            setIsClearingHistory(false);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-10">
@@ -191,35 +224,15 @@ export function AITab() {
                     title="Clear intelligence history"
                     description="Remove all stored parse snapshots and dismissed entity records. This does not affect your tasks or habits."
                 >
-                    <Button variant="secondary" className="bg-white/5 border-white/10 text-twilight-text-soft hover:text-red-400 hover:border-red-400/20">
+                    <Button
+                        variant="secondary"
+                        disabled={isClearingHistory}
+                        onClick={() => void handleClearHistory()}
+                        className="bg-white/5 border-white/10 text-twilight-text-soft hover:text-red-400 hover:border-red-400/20"
+                    >
                         <Trash2 size={14} className="mr-1.5" />
-                        Clear history
+                        {isClearingHistory ? "Clearing..." : "Clear history"}
                     </Button>
-                </SettingsRow>
-
-                <SettingsRow
-                    title="Export data"
-                    description={`Export your data as ${(privacy.exportFormat ?? "json").toUpperCase()}.`}
-                >
-                    <div className="flex items-center gap-3">
-                        <Select
-                            value={privacy.exportFormat ?? "json"}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ privacy: { exportFormat: val as "json" | "csv" } })
-                            }
-                        >
-                            <SelectTrigger className="w-24">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="json">JSON</SelectItem>
-                                <SelectItem value="csv">CSV</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button variant="secondary" className="bg-white/5 border-white/10">
-                            Export
-                        </Button>
-                    </div>
                 </SettingsRow>
             </SettingsSection>
         </div>
