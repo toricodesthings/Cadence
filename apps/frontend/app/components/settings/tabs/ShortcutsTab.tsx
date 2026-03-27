@@ -77,7 +77,7 @@ function KeyBindingCapture({
                 onClick={() => setCapturing(!capturing)}
                 className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 font-mono text-xs transition-colors cursor-pointer ${
                     capturing
-                        ? "border-lantern/50 bg-lantern/10 text-lantern shadow-[0_0_8px_rgba(232,164,74,0.15)]"
+                        ? "border-accent-primary/50 bg-accent-primary/10 text-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]"
                         : "border-white/10 bg-black/40 text-twilight-text-soft hover:bg-white/[0.06]"
                 }`}
             >

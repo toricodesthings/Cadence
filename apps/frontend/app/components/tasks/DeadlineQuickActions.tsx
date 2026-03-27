@@ -29,7 +29,7 @@ export const DeadlineQuickActions: React.FC<DeadlineQuickActionsProps> = ({
                             className={`
 								touch-target flex h-11 w-11 items-center justify-center rounded-2xl border border-transparent transition-colors
 								hover:bg-twilight-surface-hover
-								${activePreset === id ? "bg-lantern/20 text-lantern border-lantern/30" : "text-twilight-text-muted"}
+								${activePreset === id ? "bg-accent-primary/20 text-accent-primary border-accent-primary/30" : "text-twilight-text-muted"}
 							`}
                             aria-label={label}
                         >

@@ -46,6 +46,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="Cadence is a calm, atmospheric planning workspace for tasks, habits, and weekly resets."
         />
         <script src="/redirect-localhost.js" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var d=document.documentElement,s=JSON.parse(localStorage.getItem('cadence-appearance')||'{}');if(s.theme==='daylight')d.setAttribute('data-theme','daylight');else if(s.theme==='system'&&window.matchMedia('(prefers-color-scheme:light)').matches)d.setAttribute('data-theme','daylight');if(s.palette&&s.palette!=='lantern')d.setAttribute('data-palette',s.palette);if(s.themePreset&&s.themePreset!=='default'&&s.themePreset!=='daylight-default')d.setAttribute('data-theme-preset',s.themePreset);}catch(e){}})()`
+          }}
+        />
         <Meta />
         <Links />
       </head>
@@ -53,7 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
-        {RUNTIME_TARGET !== "desktop" && (
+        {RUNTIME_TARGET !== "desktop" && !import.meta.env.DEV && (
           <script src="/register-sw.js" />
         )}
       </body>
@@ -92,7 +97,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-twilight-base p-8 text-center text-twilight-text">
       <div className="w-full max-w-xl space-y-6 rounded-3xl border border-twilight-border bg-twilight-surface/50 p-8 pt-10 shadow-2xl backdrop-blur-xl">
-        <h1 className="font-display text-4xl font-bold tracking-tight text-lantern/90">
+        <h1 className="font-display text-4xl font-bold tracking-tight text-accent-primary/90">
           {message}
         </h1>
         <p className="text-lg text-twilight-text-muted">{details}</p>
@@ -106,7 +111,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
         <div className="pt-6">
           <a
             href="/"
-            className="inline-flex items-center justify-center rounded-xl bg-lantern/10 px-6 py-2.5 text-sm font-medium text-lantern transition-[background-color] hover:bg-lantern/20"
+            className="inline-flex items-center justify-center rounded-xl bg-accent-primary/10 px-6 py-2.5 text-sm font-medium text-accent-primary transition-[background-color] hover:bg-accent-primary/20"
           >
             Return to Safety
           </a>

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo, Suspense, lazy } fro
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { FolderKanban, Pencil, Trash2, Repeat, Check, X } from "lucide-react";
+import { FolderKanban, Pencil, Trash2, Repeat, Check, X, Plus, LayoutList } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects";
 import { useUpdateProject, useDeleteProject } from "../hooks/projects";
@@ -21,7 +21,7 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
-import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
+import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
@@ -35,6 +35,8 @@ import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
 import { PageContent } from "../components/layout/PageLayout";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
+import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
@@ -113,7 +115,7 @@ export default function ProjectView() {
     const startWidth = useRef(0);
 
     const project = projects?.find(p => p.id === projectId);
-    const projectAccent = project ? resolveAccentColor(project.colorAccent) : "var(--color-lantern)";
+    const projectAccent = project ? resolveAccentColor(project.colorAccent) : "var(--accent-primary)";
 
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
     const { activeTagId } = useTagFilterStore();
@@ -122,9 +124,13 @@ export default function ProjectView() {
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
+    const lowStimulationMode = userSettings?.tasks?.intelligence?.lowStimulationMode ?? false;
     const { sortMode, setSortMode } = useSortMode();
 
     useRouteFocus();
+
+    const { onNextSection, onPrevSection } = useSectionNav();
+    useKeyboardShortcuts({ onNextSection, onPrevSection });
 
     const todayISO = toISODate(new Date());
     const weekAgoISO = toISODate(new Date(Date.now() - 7 * 86_400_000));
@@ -164,9 +170,9 @@ export default function ProjectView() {
                 notBefore: t.notBefore ?? null,
                 durationEstimate: t.durationEstimate,
             }));
-            const ranked = rankTasks(rankable, { routeContext: "project" });
+            const ranked = rankTasks(rankable, { routeContext: "project", lowStimulation: lowStimulationMode });
             for (const item of ranked) {
-                rationaleByTaskId[item.task.id] = getRankingReasonLabel(item.reasons);
+                rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
             }
             const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
             return {
@@ -178,7 +184,7 @@ export default function ProjectView() {
             tasks: sortTasks(filtered, sortMode),
             rationaleByTaskId,
         };
-    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId]);
+    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, lowStimulationMode]);
 
     const handleRenameOpen = () => {
         setRenameValue(project?.name ?? "");
@@ -207,6 +213,22 @@ export default function ProjectView() {
         deleteProject.mutate(projectId);
         navigate("/");
     };
+
+    const focusAddTask = useCallback(() => {
+        const input = document.querySelector<HTMLInputElement>('[data-add-task-input]');
+        if (input) {
+            input.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => input.focus());
+        }
+    }, []);
+
+    const triggerAddSection = useCallback(() => {
+        const btn = document.querySelector<HTMLButtonElement>('[data-add-section-trigger]');
+        if (btn) {
+            btn.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => btn.click());
+        }
+    }, []);
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -274,7 +296,7 @@ export default function ProjectView() {
                     {/* Resize handle */}
                     <div
                         onMouseDown={handleMouseDown}
-                        className="w-1 shrink-0 cursor-col-resize hover:bg-lantern/20 active:bg-lantern/30 transition-colors relative z-10 group"
+                        className="w-1 shrink-0 cursor-col-resize hover:bg-accent-primary/20 active:bg-accent-primary/30 transition-colors relative z-10 group"
                         role="separator"
                         aria-orientation="vertical"
                         aria-label="Resize task panel"
@@ -292,7 +314,7 @@ export default function ProjectView() {
                             }
                         }}
                     >
-                        <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full opacity-0 group-hover:opacity-100 bg-lantern/25 transition-opacity" />
+                        <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full opacity-0 group-hover:opacity-100 bg-accent-primary/25 transition-opacity" />
                     </div>
 
                     {/* Task edit panel — spans full height */}
@@ -329,7 +351,7 @@ export default function ProjectView() {
                         <button
                             type="button"
                             onClick={() => navigate("/")}
-                            className="px-5 py-2.5 rounded-2xl text-sm font-medium bg-lantern/20 text-lantern hover:bg-lantern/30 transition-colors"
+                            className="px-5 py-2.5 rounded-2xl text-sm font-medium bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 transition-colors"
                         >
                             Go to Capture
                         </button>
@@ -358,7 +380,7 @@ export default function ProjectView() {
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
                                 placeholder="Project name"
-                                className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-lantern/40 transition-colors"
+                                className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-accent-primary/40 transition-colors"
                                 onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
                             />
                         </div>
@@ -410,7 +432,7 @@ export default function ProjectView() {
                             <button
                                 type="submit"
                                 disabled={!renameValue.trim()}
-                                className="px-4 py-2 rounded-xl text-sm bg-lantern/20 text-lantern hover:bg-lantern/30 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                                className="px-4 py-2 rounded-xl text-sm bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                             >
                                 Save changes
                             </button>
@@ -451,6 +473,8 @@ export default function ProjectView() {
                 requireAuth
                 sidePanel={sidePanel}
                 headerRight={project ? (shell.isPhone ? (
+                    <div className="flex items-center gap-2">
+                    <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                     <ControlsSheet
                         routeKey={`project:${projectId ?? "unknown"}`}
                         title={project.name}
@@ -480,7 +504,7 @@ export default function ProjectView() {
                                                 onClick={() => setSortMode(option.value as typeof sortMode)}
                                                 className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
                                                     sortMode === option.value
-                                                        ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                                        ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
                                                         : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
                                                 }`}
                                             >
@@ -495,6 +519,22 @@ export default function ProjectView() {
                                 label: "Project",
                                 content: (
                                     <div className="space-y-2">
+                                        <button
+                                            type="button"
+                                            onClick={focusAddTask}
+                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
+                                        >
+                                            <Plus size={15} aria-hidden="true" />
+                                            New task
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={triggerAddSection}
+                                            className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
+                                        >
+                                            <LayoutList size={15} aria-hidden="true" />
+                                            Add section
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={handleRenameOpen}
@@ -516,14 +556,26 @@ export default function ProjectView() {
                             },
                         ]}
                     />
+                    </div>
                 ) : (
                     <div className="flex items-center gap-2">
+                        <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                         <SortMenu
                             mode={sortMode}
                             onModeChange={setSortMode}
                             view={view}
                             onViewChange={setView}
                             actions={[
+                                {
+                                    label: "New task",
+                                    icon: Plus,
+                                    onSelect: focusAddTask,
+                                },
+                                {
+                                    label: "Add section",
+                                    icon: LayoutList,
+                                    onSelect: triggerAddSection,
+                                },
                                 {
                                     label: "Rename / Edit project",
                                     icon: Pencil,
@@ -555,9 +607,6 @@ export default function ProjectView() {
                 }}
             >
                 <PageContent width="default">
-                    <Suspense fallback={null}>
-                        <LazyFocusViewBar />
-                    </Suspense>
                     <ActiveFilterBar />
                 </PageContent>
                 {view === "kanban" ? (

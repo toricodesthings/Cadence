@@ -12,7 +12,7 @@ export function AboutTab() {
                     <img
                         src="/logo.png"
                         alt="Cadence"
-                        className="h-14 w-14 rounded-[1.2rem] object-cover shadow-[0_0_22px_rgba(232,164,74,0.14)]"
+                        className="h-14 w-14 rounded-[1.2rem] object-cover shadow-[0_0_22px_color-mix(in_srgb,var(--accent-primary)_14%,transparent)]"
                     />
                     <div className="min-w-0">
                         <h2 className="text-2xl font-bold text-twilight-text">About Cadence</h2>

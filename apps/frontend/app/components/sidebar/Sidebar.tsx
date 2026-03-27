@@ -115,7 +115,7 @@ export function Sidebar({
                                     className={`
                                         absolute top-0 right-0 h-full w-1 cursor-col-resize z-50
                                         transition-colors duration-200
-                                        ${isResizing ? "bg-lantern/40" : "hover:bg-lantern/20"}
+                                        ${isResizing ? "bg-accent-primary/40" : "hover:bg-accent-primary/20"}
                                     `}
                                 />
                             </motion.div>
@@ -157,7 +157,7 @@ export function Sidebar({
                                 className={`
                                     absolute top-0 right-0 h-full w-1 cursor-col-resize z-50
                                     transition-colors duration-200
-                                    ${isResizing ? "bg-lantern/40" : "hover:bg-lantern/20"}
+                                    ${isResizing ? "bg-accent-primary/40" : "hover:bg-accent-primary/20"}
                                 `}
                             />
                         </motion.div>

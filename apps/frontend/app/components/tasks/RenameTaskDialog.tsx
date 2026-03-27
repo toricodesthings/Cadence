@@ -49,7 +49,7 @@ export function RenameTaskDialog({ taskId, currentName, onClose }: RenameTaskDia
                         if (e.key === "Escape") onClose();
                     }}
                     placeholder="Task name…"
-                    className="w-full bg-white/[0.04] border border-twilight-border rounded-xl px-4 py-3 text-[15px] text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-lantern/30 transition-colors"
+                    className="w-full bg-white/[0.04] border border-twilight-border rounded-xl px-4 py-3 text-[15px] text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-accent-primary/30 transition-colors"
                 />
                 <DialogFooter>
                     <Button variant="ghost" size="md" onClick={onClose}>
@@ -60,7 +60,7 @@ export function RenameTaskDialog({ taskId, currentName, onClose }: RenameTaskDia
                         size="md"
                         onClick={handleSubmit}
                         disabled={!name.trim()}
-                        className="bg-lantern/20 hover:bg-lantern/30 text-lantern disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="bg-accent-primary/20 hover:bg-accent-primary/30 text-accent-primary disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                         Rename
                     </Button>

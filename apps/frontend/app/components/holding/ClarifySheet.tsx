@@ -11,6 +11,7 @@ import { useProjects } from "../../hooks/projects";
 import { useTags } from "../../hooks/tags";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import type { InboxItem } from "../../types/inbox";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
 interface ClarifySheetProps {
     item: InboxItem;
@@ -61,6 +62,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
     useEffect(() => {
         titleDirtyRef.current = false;
         setEditedTitle(nlp.cleanedTitle || item.rawText);
+        trackUsageEvent("capture.clarify_opened", { surface: "clarify_sheet", object_type: "capture" });
     }, [item.id]);
 
     useEffect(() => {
@@ -88,6 +90,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
 
     const place = (scheduledDate?: string) => {
         const resolvedSchedule = scheduledDate ?? (nlp.dueDate || undefined);
+        trackUsageEvent("capture.placed", { surface: "clarify_sheet", outcome: "placed" });
         processToTask.mutate(
             {
                 inboxItemId: item.id,
@@ -115,6 +118,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
     };
 
     const keepNote = () => {
+        trackUsageEvent("capture.kept_note", { surface: "clarify_sheet", object_type: "capture" });
         processToTask.mutate(
             {
                 inboxItemId: item.id,
@@ -134,6 +138,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
     };
 
     const discard = () => {
+        trackUsageEvent("capture.discarded", { surface: "clarify_sheet", object_type: "capture" });
         updateItem.mutate(
             {
                 id: item.id,
@@ -192,7 +197,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                     {/* ─── Slice 2: Structured understanding + editable title ─── */}
                     <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
                         <div className="flex items-center gap-2 mb-3">
-                            <Sparkles size={14} className="text-lantern/70" aria-hidden="true" />
+                            <Sparkles size={14} className="text-accent-primary/70" aria-hidden="true" />
                             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
                                 {nlp.summary ? "Cadence understood" : item.aiSuggestion ? "Cadence suggests" : "Task title"}
                             </p>
@@ -208,7 +213,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                 summary={nlp.summary}
                                 onDismiss={(entityId) => setDismissedEntityIds((prev) => [...prev, entityId])}
                                 lowStimulation={lowStimulationMode || userSettings?.appearance?.motion === "reduced"}
-                                maxVisibleChips={5}
+                                maxVisibleChips={lowStimulationMode ? 1 : 3}
                             />
                         )}
                         <input
@@ -219,15 +224,15 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                 setEditedTitle(e.target.value);
                             }}
                             aria-label="Edit task title"
-                            className="w-full rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-twilight-text outline-none transition-colors focus:border-lantern/25 focus:bg-white/[0.04] placeholder:text-twilight-text-muted/60 mt-3"
+                            className="w-full rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-twilight-text outline-none transition-colors focus:border-accent-primary/25 focus:bg-white/[0.04] placeholder:text-twilight-text-muted/60 mt-3"
                             placeholder="Edit the title before placing..."
                         />
                     </div>
 
-                    {/* ─── Slice 3: Primary placement actions ─── */}
+                    {/* ─── Slice 3: Timing — when should this happen? ─── */}
                     <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
-                            Place it
+                            When?
                         </p>
 
                         {/* If NLP detected a date, show it as a prominent suggestion */}
@@ -236,12 +241,15 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                 type="button"
                                 onClick={() => place(nlp.dueDate!)}
                                 disabled={isPending}
-                                className="flex w-full items-center gap-3 rounded-2xl border border-lantern/25 bg-lantern/[0.10] px-4 py-3.5 text-left transition-colors hover:bg-lantern/[0.16] disabled:opacity-50 cursor-pointer mb-3"
+                                className="flex w-full items-center gap-3 rounded-2xl border border-accent-primary/25 bg-accent-primary/[0.10] px-4 py-3.5 text-left transition-colors hover:bg-accent-primary/[0.16] disabled:opacity-50 cursor-pointer mb-3"
                             >
-                                <Sparkles size={16} className="text-lantern shrink-0" aria-hidden="true" />
+                                <Sparkles size={16} className="text-accent-primary shrink-0" aria-hidden="true" />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[14px] font-medium text-lantern">Use detected date</p>
-                                    <p className="text-[12px] text-lantern/60">{nlp.dueDate}</p>
+                                    <p className="text-[14px] font-medium text-accent-primary">Use detected date</p>
+                                    <p className="text-[12px] text-accent-primary/60">
+                                        {/* §11.5: Show human-readable date, not raw ISO value */}
+                                        {nlp.dueHumanLabel ?? nlp.dueDate}
+                                    </p>
                                 </div>
                             </button>
                         )}
@@ -251,12 +259,12 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                             type="button"
                             onClick={() => place(todayISO())}
                             disabled={isPending}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-lantern/20 bg-lantern/[0.08] px-4 py-3.5 text-left transition-colors hover:bg-lantern/[0.14] disabled:opacity-50 cursor-pointer"
+                            className="flex w-full items-center gap-3 rounded-2xl border border-accent-primary/20 bg-accent-primary/[0.08] px-4 py-3.5 text-left transition-colors hover:bg-accent-primary/[0.14] disabled:opacity-50 cursor-pointer"
                         >
-                            <Sun size={18} className="text-lantern shrink-0" aria-hidden="true" />
+                            <Sun size={18} className="text-accent-primary shrink-0" aria-hidden="true" />
                             <div className="flex-1 min-w-0">
-                                <p className="text-[14px] font-medium text-lantern">Today</p>
-                                <p className="text-[12px] text-lantern/60">Schedule for today and place in tasks</p>
+                                <p className="text-[14px] font-medium text-accent-primary">Today</p>
+                                <p className="text-[12px] text-accent-primary/60">Schedule for today</p>
                             </div>
                         </button>
 
@@ -271,66 +279,81 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                             />
                             <PlacementButton
                                 icon={<Clock size={15} aria-hidden="true" />}
-                                label="Later"
+                                label="Place without date"
                                 onClick={() => place()}
                                 disabled={isPending}
                                 className="text-twilight-text-soft border-twilight-border/30 bg-white/[0.03] hover:bg-white/[0.06]"
                             />
+                        </div>
+                    </div>
+
+                    {/* ─── Slice 4: Note vs task decision ─── */}
+                    <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
+                            Or instead…
+                        </p>
+                        <div className="flex flex-col gap-2">
                             <PlacementButton
                                 icon={<StickyNote size={15} aria-hidden="true" />}
-                                label="Keep note"
+                                label="Keep as note"
                                 onClick={keepNote}
                                 disabled={isPending}
-                                className="text-twilight-text-soft border-twilight-border/30 bg-white/[0.03] hover:bg-white/[0.06]"
-                            />
-                            <PlacementButton
-                                icon={<Trash2 size={15} aria-hidden="true" />}
-                                label="Discard"
-                                onClick={discard}
-                                disabled={isPending}
-                                className="text-twilight-text-muted/60 border-twilight-border/20 bg-white/[0.02] hover:text-red-400 hover:bg-red-500/[0.08]"
+                                className="w-full text-twilight-text-soft border-twilight-border/30 bg-white/[0.03] hover:bg-white/[0.06]"
                             />
                         </div>
                     </div>
 
-                    {/* ─── Slice 4: More details entry ─── */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            // Place as unscheduled task and open full editor
-                            processToTask.mutate(
-                                {
-                                    inboxItemId: item.id,
-                                    rawText: item.rawText,
-                                    title: editedTitle,
-                                    projectId: nlp.projectId,
-                                    tagIds: nlp.tagIds,
-                                    priority: nlp.priority,
-                                    durationEstimate: nlp.durationMinutes,
-                                    recurrenceRule: nlp.recurrenceRule,
-                                    waitingOn: nlp.waitingOn,
-                                    nlp: buildNlpEnvelope(),
-                                },
-                                {
-                                    onSuccess: (task) => {
-                                        if (task && onOpenFullEditor) {
-                                            onOpenFullEditor(task.id);
-                                        }
+                    {/* ─── Discard — visually calmer, farther from primary (§9.1) ─── */}
+                    <div className="px-1 pt-2">
+                        <button
+                            type="button"
+                            onClick={discard}
+                            disabled={isPending}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[12px] font-medium text-twilight-text-muted/50 transition-colors hover:text-red-400 hover:bg-red-500/[0.06] disabled:opacity-50 cursor-pointer"
+                        >
+                            <Trash2 size={13} aria-hidden="true" />
+                            Discard capture
+                        </button>
+                    </div>
+
+                    {/* ─── Open full task editor — place first, then customize (§9.1) ─── */}
+                    {onOpenFullEditor && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                // Place as unscheduled task and open full editor
+                                processToTask.mutate(
+                                    {
+                                        inboxItemId: item.id,
+                                        rawText: item.rawText,
+                                        title: editedTitle,
+                                        projectId: nlp.projectId,
+                                        tagIds: nlp.tagIds,
+                                        priority: nlp.priority,
+                                        durationEstimate: nlp.durationMinutes,
+                                        recurrenceRule: nlp.recurrenceRule,
+                                        waitingOn: nlp.waitingOn,
+                                        nlp: buildNlpEnvelope(),
                                     },
-                                },
-                            );
-                        }}
-                        disabled={isPending}
-                        className="flex w-full items-center justify-between rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 text-left transition-colors hover:bg-white/[0.04] disabled:opacity-50 cursor-pointer backdrop-blur-sm"
-                    >
-                        <div>
-                            <p className="text-[13px] font-medium text-twilight-text">More details</p>
-                            <p className="text-[12px] text-twilight-text-muted">
-                                Add notes, subtasks, tags, and schedule
-                            </p>
-                        </div>
-                        <ChevronRight size={16} className="text-twilight-text-muted shrink-0" aria-hidden="true" />
-                    </button>
+                                    {
+                                        onSuccess: (task) => {
+                                            if (task) onOpenFullEditor(task.id);
+                                        },
+                                    },
+                                );
+                            }}
+                            disabled={isPending}
+                            className="flex w-full items-center justify-between rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 text-left transition-colors hover:bg-white/[0.04] disabled:opacity-50 cursor-pointer backdrop-blur-sm"
+                        >
+                            <div>
+                                <p className="text-[13px] font-medium text-twilight-text">Open full task editor</p>
+                                <p className="text-[12px] text-twilight-text-muted">
+                                    Place as task, then add notes, subtasks, and more
+                                </p>
+                            </div>
+                            <ChevronRight size={16} className="text-twilight-text-muted shrink-0" aria-hidden="true" />
+                        </button>
+                    )}
                 </div>
             </ScrollAreaWrapper>
         </motion.div>

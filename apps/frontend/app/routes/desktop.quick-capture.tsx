@@ -65,7 +65,7 @@ export default function DesktopQuickCaptureRoute() {
                             onClick={() => {
                                 void focusMainDesktopWindow();
                             }}
-                            className="rounded-xl bg-lantern/15 px-4 py-2 text-sm font-medium text-lantern transition-colors hover:bg-lantern/22"
+                            className="rounded-xl bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary transition-colors hover:bg-accent-primary/22"
                         >
                             Focus main window
                         </button>

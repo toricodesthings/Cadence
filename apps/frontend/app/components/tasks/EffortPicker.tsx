@@ -17,8 +17,8 @@ const EFFORT_OPTIONS: { value: EffortLevel; label: string; dots: number }[] = [
 
 const DOT_COLORS: Record<number, string> = {
     1: "bg-twilight-text-muted/60",
-    2: "bg-lantern/50",
-    3: "bg-lantern/80",
+    2: "bg-accent-primary/50",
+    3: "bg-accent-primary/80",
 };
 
 export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSelect }) => {
@@ -41,7 +41,7 @@ export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSel
                                     className={`
                                         group flex h-9 w-full cursor-pointer items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
                                         ${isActive
-                                            ? "border-lantern bg-lantern/10"
+                                            ? "border-accent-primary bg-accent-primary/10"
                                             : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"
                                         }
                                     `}

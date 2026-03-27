@@ -13,6 +13,7 @@ import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { QuickAddActionTray } from "./QuickAddActionTray";
 import { ParseSummaryChips } from "./ParseSummaryChips";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
+import { trackUsageEvent } from "../../lib/api/track-event";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { AddPersonalEventDialog } from "../calendar/AddPersonalEventDialog";
 
@@ -94,6 +95,7 @@ export function AddTaskInput({
             isAllDay: deadline.isAllDay,
         };
 
+        trackUsageEvent("task.create", { surface: "inline_add", object_type: "task" });
         createTask.mutate({
             title,
             orderIndex,
@@ -185,8 +187,8 @@ export function AddTaskInput({
                 transition-[color,background-color,border-color,box-shadow] duration-200
                 ${compact && !isFocused ? "border-transparent bg-transparent hover:bg-white/[0.02]" : ""}
                 ${!compact && !isFocused ? "border-twilight-border bg-transparent hover:border-twilight-border-light" : ""}
-                ${isFocused && !compact ? "border-lantern/20 bg-white/[0.03] shadow-[0_0_0_1px_rgba(232,164,74,0.08),0_4px_24px_rgba(232,164,74,0.04)]" : ""}
-                ${isFocused && compact ? "border-lantern/40 bg-white/[0.04]" : ""}
+                ${isFocused && !compact ? "border-accent-primary/20 bg-white/[0.03] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent-primary)_8%,transparent),0_4px_24px_color-mix(in_srgb,var(--accent-primary)_4%,transparent)]" : ""}
+                ${isFocused && compact ? "border-accent-primary/40 bg-white/[0.04]" : ""}
             `}
             aria-label="Add new task"
             data-focus-container
@@ -197,7 +199,7 @@ export function AddTaskInput({
                         <Plus
                             size={compact ? 14 : 18}
                             aria-hidden="true"
-                            className={`transition-colors duration-200 ${isFocused ? "text-lantern" : "text-twilight-text-muted"}`}
+                            className={`transition-colors duration-200 ${isFocused ? "text-accent-primary" : "text-twilight-text-muted"}`}
                         />
                     </span>
                 </ContextMenu.Trigger>
@@ -212,6 +214,7 @@ export function AddTaskInput({
             </ContextMenu.Root>
             <input
                 type="text"
+                data-add-task-input
                 value={value}
                 onChange={(e) => {
                     setValue(e.target.value);
@@ -244,7 +247,7 @@ export function AddTaskInput({
                             inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 ${compact ? "text-[10px]" : "text-[11px]"} font-medium
                             transition-colors duration-200
                             ${hasDeadlineSet
-                                ? "opacity-100 bg-lantern/10 text-lantern"
+                                ? "opacity-100 bg-accent-primary/10 text-accent-primary"
                                 : "text-twilight-text-muted/90 hover:bg-white/[0.04] hover:text-twilight-text-soft"
                             }
                         `}

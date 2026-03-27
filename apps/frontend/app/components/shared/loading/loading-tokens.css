@@ -1,0 +1,266 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * LOADING SCREEN TOKENS — Seasonal & mode-responsive CSS variables
+ *
+ * Driven by `data-loading-season` and `data-loading-mode` on the
+ * loading screen container.
+ *
+ * Season × Mode matrix:
+ *   spring  × twilight  — Misty rain at dusk
+ *   spring  × daylight  — Overcast rainy morning
+ *   summer  × twilight  — Warm starlit night
+ *   summer  × daylight  — Golden afternoon, bright sky
+ *   autumn  × twilight  — Harvest moonlit night (classic Cadence)
+ *   autumn  × daylight  — Amber golden hour
+ *   winter  × twilight  — Cold moonlit snowscape
+ *   winter  × daylight  — Bright frosty morning
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+
+/* ════════════════════════════════════════════════════════════════════════════ */
+/*  TWILIGHT (dark) — default mode                                            */
+/* ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Default / Autumn Twilight ── */
+:root,
+[data-loading-season="autumn"] {
+    --loading-sky-deep: #0a0610;
+    --loading-sky-mid: #1a0f08;
+    --loading-sky-horizon: #2d1510;
+    --loading-text: #FFF4D2;
+    --loading-building-front-top: #110B0E;
+    --loading-building-front-base: #5A2E1D;
+    --loading-building-back-top: #0D090B;
+    --loading-building-back-base: #3D201A;
+    --loading-mountain-far: #1E334D;
+    --loading-mountain-mid: #0D1A2E;
+    --loading-mountain-near: #030712;
+    --loading-water-top: #182A40;
+    --loading-water-mid: #0A1424;
+    --loading-water-deep: #02050A;
+    --loading-star-color: #ffffff;
+    --loading-particle-color: #c4622a;
+    --loading-moon-color: #e8c87a;
+    --loading-roof-front-start: #D9572B;
+    --loading-roof-front-end: #5E1B09;
+    --loading-roof-side-start: #752207;
+    --loading-roof-side-end: #210801;
+    --loading-window-center: #FFF1B8;
+    --loading-window-edge: var(--accent-primary, #FF9D00);
+}
+
+/* ── Spring Twilight — Misty rain at dusk ── */
+[data-loading-season="spring"] {
+    --loading-sky-deep: #080e18;
+    --loading-sky-mid: #162838;
+    --loading-sky-horizon: #2a3e52;
+    --loading-text: #c8dce8;
+    --loading-building-front-top: #0e1218;
+    --loading-building-front-base: #3a3028;
+    --loading-building-back-top: #0a0e14;
+    --loading-building-back-base: #2a2420;
+    --loading-mountain-far: #1a2838;
+    --loading-mountain-mid: #0e1a28;
+    --loading-mountain-near: #060e18;
+    --loading-water-top: #162636;
+    --loading-water-mid: #0c1a28;
+    --loading-water-deep: #040a14;
+    --loading-star-color: #b0c4d8;
+    --loading-particle-color: #8aaccc;
+    --loading-moon-color: transparent;
+    --loading-roof-front-start: #6a7080;
+    --loading-roof-front-end: #3a404a;
+    --loading-roof-side-start: #4a5060;
+    --loading-roof-side-end: #1a2028;
+}
+
+/* ── Summer Twilight — Warm starlit night ── */
+[data-loading-season="summer"] {
+    --loading-sky-deep: #050810;
+    --loading-sky-mid: #12203a;
+    --loading-sky-horizon: #2a3218;
+    --loading-text: #FFF4D2;
+    --loading-building-front-top: #110B0E;
+    --loading-building-front-base: #5A2E1D;
+    --loading-building-back-top: #0D090B;
+    --loading-building-back-base: #3D201A;
+    --loading-mountain-far: #1a2e40;
+    --loading-mountain-mid: #0c1a2a;
+    --loading-mountain-near: #040a14;
+    --loading-water-top: #142838;
+    --loading-water-mid: #0a1620;
+    --loading-water-deep: #040810;
+    --loading-star-color: #f0e8d0;
+    --loading-particle-color: #ffe888;
+    --loading-moon-color: transparent;
+}
+
+/* ── Winter Twilight — Cold moonlit snowscape ── */
+[data-loading-season="winter"] {
+    --loading-sky-deep: #020510;
+    --loading-sky-mid: #0a1428;
+    --loading-sky-horizon: #15253e;
+    --loading-text: #d0e4f8;
+    --loading-building-front-top: #0a0a14;
+    --loading-building-front-base: #28283a;
+    --loading-building-back-top: #060610;
+    --loading-building-back-base: #1a1a2a;
+    --loading-mountain-far: #0e1a30;
+    --loading-mountain-mid: #080f20;
+    --loading-mountain-near: #040812;
+    --loading-water-top: #0e1828;
+    --loading-water-mid: #060e1a;
+    --loading-water-deep: #02040a;
+    --loading-star-color: #e0e8ff;
+    --loading-particle-color: #d0e0f0;
+    --loading-moon-color: #d8e8ff;
+    --loading-roof-front-start: #c0c8d8;
+    --loading-roof-front-end: #8890a0;
+    --loading-roof-side-start: #a0a8b8;
+    --loading-roof-side-end: #606878;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════ */
+/*  DAYLIGHT (light) mode overrides                                           */
+/* ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Spring Daylight — Overcast rainy morning ── */
+[data-loading-mode="daylight"][data-loading-season="spring"] {
+    --loading-sky-deep: #7a8e9e;
+    --loading-sky-mid: #98aab8;
+    --loading-sky-horizon: #b0c0cc;
+    --loading-text: #1a2830;
+    --loading-building-front-top: #4a4038;
+    --loading-building-front-base: #8a7868;
+    --loading-building-back-top: #3a3430;
+    --loading-building-back-base: #6a5e50;
+    --loading-mountain-far: #7a8e9a;
+    --loading-mountain-mid: #6a808c;
+    --loading-mountain-near: #506a78;
+    --loading-water-top: #708898;
+    --loading-water-mid: #607888;
+    --loading-water-deep: #506878;
+    --loading-star-color: transparent;
+    --loading-particle-color: #90b0cc;
+    --loading-moon-color: transparent;
+    --loading-roof-front-start: #8a9098;
+    --loading-roof-front-end: #6a7078;
+    --loading-roof-side-start: #7a8088;
+    --loading-roof-side-end: #5a6068;
+    --loading-window-center: #d8e0e8;
+    --loading-window-edge: #a0b0c0;
+}
+
+/* ── Summer Daylight — Golden afternoon, bright sky ── */
+[data-loading-mode="daylight"][data-loading-season="summer"] {
+    --loading-sky-deep: #4a90c8;
+    --loading-sky-mid: #68acd8;
+    --loading-sky-horizon: #e8c878;
+    --loading-text: #2a1e10;
+    --loading-building-front-top: #5a3820;
+    --loading-building-front-base: #a06838;
+    --loading-building-back-top: #483018;
+    --loading-building-back-base: #805428;
+    --loading-mountain-far: #689888;
+    --loading-mountain-mid: #508870;
+    --loading-mountain-near: #3a7058;
+    --loading-water-top: #4890b8;
+    --loading-water-mid: #3a80a8;
+    --loading-water-deep: #2a6890;
+    --loading-star-color: transparent;
+    --loading-particle-color: #f0d880;
+    --loading-moon-color: transparent;
+    --loading-roof-front-start: #c87030;
+    --loading-roof-front-end: #8a4818;
+    --loading-roof-side-start: #a05828;
+    --loading-roof-side-end: #683810;
+    --loading-window-center: #f8f0d0;
+    --loading-window-edge: #e8c080;
+}
+
+/* ── Autumn Daylight — Amber golden hour ── */
+[data-loading-mode="daylight"][data-loading-season="autumn"] {
+    --loading-sky-deep: #7a6030;
+    --loading-sky-mid: #b88838;
+    --loading-sky-horizon: #d8a848;
+    --loading-text: #2a1a08;
+    --loading-building-front-top: #4a3018;
+    --loading-building-front-base: #906030;
+    --loading-building-back-top: #3a2810;
+    --loading-building-back-base: #704828;
+    --loading-mountain-far: #8a7050;
+    --loading-mountain-mid: #6a5838;
+    --loading-mountain-near: #4a3c20;
+    --loading-water-top: #7a6838;
+    --loading-water-mid: #6a5828;
+    --loading-water-deep: #504018;
+    --loading-star-color: transparent;
+    --loading-particle-color: #c87030;
+    --loading-moon-color: transparent;
+    --loading-roof-front-start: #c86028;
+    --loading-roof-front-end: #803818;
+    --loading-roof-side-start: #984820;
+    --loading-roof-side-end: #582810;
+    --loading-window-center: #f0e8c0;
+    --loading-window-edge: #d8a850;
+}
+
+/* ── Winter Daylight — Bright frosty morning ── */
+[data-loading-mode="daylight"][data-loading-season="winter"] {
+    --loading-sky-deep: #8aa8c0;
+    --loading-sky-mid: #a8c0d8;
+    --loading-sky-horizon: #c8d8e8;
+    --loading-text: #1a2030;
+    --loading-building-front-top: #3a3a48;
+    --loading-building-front-base: #6a6a80;
+    --loading-building-back-top: #2a2a38;
+    --loading-building-back-base: #505060;
+    --loading-mountain-far: #98a8b8;
+    --loading-mountain-mid: #8898a8;
+    --loading-mountain-near: #788898;
+    --loading-water-top: #88a0b4;
+    --loading-water-mid: #7890a4;
+    --loading-water-deep: #688094;
+    --loading-star-color: transparent;
+    --loading-particle-color: #e0e8f4;
+    --loading-moon-color: transparent;
+    --loading-roof-front-start: #e0e4ec;
+    --loading-roof-front-end: #b8bcc8;
+    --loading-roof-side-start: #c8ccd8;
+    --loading-roof-side-end: #a0a4b0;
+    --loading-window-center: #d0d8e0;
+    --loading-window-edge: #a0b0c0;
+}
+
+/* ── Reduced Motion ── */
+[data-motion="reduced"] .loading-screen .lantern-wrap,
+[data-motion="reduced"] .loading-screen .lantern-obj,
+[data-motion="reduced"] .loading-screen .water-anim,
+[data-motion="reduced"] .loading-screen .loading-particle,
+[data-motion="reduced"] .loading-screen .loading-dots span {
+    animation: none !important;
+}
+[data-motion="reduced"] .loading-screen .star {
+    animation: none !important;
+    opacity: 0.6 !important;
+}
+[data-motion="reduced"] .loading-screen .loading-dots span {
+    opacity: 0.8 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-screen .lantern-wrap,
+    .loading-screen .lantern-obj,
+    .loading-screen .water-anim,
+    .loading-screen .loading-particle,
+    .loading-screen .loading-dots span {
+        animation: none !important;
+    }
+    .loading-screen .star {
+        animation: none !important;
+        opacity: 0.6 !important;
+    }
+    .loading-screen .loading-dots span {
+        opacity: 0.8 !important;
+    }
+}

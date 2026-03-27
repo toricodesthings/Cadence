@@ -69,7 +69,7 @@ function MiniMonth({
             <button
                 type="button"
                 onClick={() => onSelectMonth(month)}
-                className={`cursor-pointer pb-1 text-left font-display font-semibold text-twilight-text-soft transition-colors hover:text-lantern ${compact ? "text-[13px]" : "text-[14px]"}`}
+                className={`cursor-pointer pb-1 text-left font-display font-semibold text-twilight-text-soft transition-colors hover:text-accent-primary ${compact ? "text-[13px]" : "text-[14px]"}`}
             >
                 {MONTHS[month]}
             </button>
@@ -107,10 +107,10 @@ function MiniMonth({
                                 relative w-full aspect-square flex items-center justify-center
                                 text-[11px] rounded-xl transition-colors duration-150 cursor-pointer
                                 ${isToday
-                                    ? "bg-lantern/20 text-lantern ring-1 ring-lantern font-bold"
+                                    ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
                                     : "text-twilight-text-muted/90 hover:bg-white/[0.05] hover:text-twilight-text-soft"}
                             `}
-                            style={taskCount > 0 && !isToday ? { backgroundColor: `rgba(232, 164, 74, ${heatOpacity})` } : undefined}
+                            style={taskCount > 0 && !isToday ? { backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.round(heatOpacity * 100)}%, transparent)` } : undefined}
                         >
                             {day}
                             {hasHoliday && (
@@ -121,11 +121,11 @@ function MiniMonth({
                             )}
                             {hasPersonalEvent && (
                                 personalEventCount > 1 ? (
-                                    <span className="absolute left-1/2 top-[3px] inline-flex min-w-4 -translate-x-1/2 items-center justify-center rounded-full border border-personal/20 bg-personal/18 px-1 text-[8px] font-semibold text-personal">
+                                    <span className="absolute left-1/2 top-[3px] inline-flex min-w-4 -translate-x-1/2 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/18 px-1 text-[8px] font-semibold text-accent-nav-schedule">
                                         {personalEventCount}
                                     </span>
                                 ) : (
-                                    <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.4)]" />
+                                    <span className="absolute left-1/2 -translate-x-1/2 top-[3px] h-[4px] w-[4px] rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_40%,transparent)]" />
                                 )
                             )}
                         </button>

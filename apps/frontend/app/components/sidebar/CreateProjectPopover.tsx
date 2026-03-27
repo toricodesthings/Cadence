@@ -33,7 +33,7 @@ export function CreateProjectPopover() {
                 variant="ghost"
                 size="icon"
                 aria-label="Create project"
-                className="rounded-2xl text-twilight-text-muted hover:bg-lantern-dim hover:text-lantern"
+                className="rounded-2xl text-twilight-text-muted hover:bg-accent-primary-dim hover:text-accent-primary"
                 onClick={() => setOpen(true)}
             >
                 <Plus size={16} />
@@ -51,7 +51,7 @@ export function CreateProjectPopover() {
                         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                         placeholder="Project name…"
                         autoFocus
-                        className="flex-1 rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-2.5 text-[14px] text-twilight-text outline-none transition-colors placeholder:text-twilight-text-muted/80 focus:border-lantern/30"
+                        className="flex-1 rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-2.5 text-[14px] text-twilight-text outline-none transition-colors placeholder:text-twilight-text-muted/80 focus:border-accent-primary/30"
                     />
                 </div>
                 {/* Color picker */}
@@ -92,7 +92,7 @@ export function CreateProjectPopover() {
                     size="md"
                     onClick={handleSubmit}
                     disabled={!name.trim()}
-                    className="mt-1 w-full bg-lantern/20 text-lantern hover:bg-lantern/30 disabled:cursor-not-allowed disabled:opacity-30"
+                    className="mt-1 w-full bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                     Create Project
                 </Button>

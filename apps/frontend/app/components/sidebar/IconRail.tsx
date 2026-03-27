@@ -28,46 +28,46 @@ import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 
-/** Nav item accent color definitions per Design Manifesto §1.9 */
+/** Nav item accent color definitions — per-concept wayfinding shades */
 const NAV_LINKS = [
     {
         to: "/",
         icon: LayoutDashboard,
         label: "Capture",
-        activeColor: "text-[var(--color-nav-planner)]",
-        activeBg: "bg-[var(--color-nav-planner)]/15 glow-lantern",
-        hoverColor: "hover:text-[var(--color-nav-planner)]/70",
-        hoverBg: "hover:bg-[var(--color-nav-planner)]/8 hover:glow-lantern",
+        activeColor: "text-accent-nav-capture",
+        activeBg: "bg-accent-nav-capture/15 glow-accent",
+        hoverColor: "hover:text-accent-nav-capture/70",
+        hoverBg: "hover:bg-accent-nav-capture/8 hover:glow-accent",
         notificationFn: undefined,
     },
     {
         to: "/schedule",
         icon: Calendar,
         label: "Schedule",
-        activeColor: "text-[var(--color-nav-schedule)]",
-        activeBg: "bg-[var(--color-nav-schedule)]/15 glow-moonlit",
-        hoverColor: "hover:text-[var(--color-nav-schedule)]/70",
-        hoverBg: "hover:bg-[var(--color-nav-schedule)]/8 hover:glow-moonlit",
+        activeColor: "text-accent-nav-schedule",
+        activeBg: "bg-accent-nav-schedule/15 glow-accent",
+        hoverColor: "hover:text-accent-nav-schedule/70",
+        hoverBg: "hover:bg-accent-nav-schedule/8 hover:glow-accent",
         notificationFn: undefined,
     },
     {
         to: "/habits",
         icon: Flame,
         label: "Habits",
-        activeColor: "text-lantern",
-        activeBg: "bg-lantern/15 glow-lantern",
-        hoverColor: "hover:text-lantern/70",
-        hoverBg: "hover:bg-lantern/8 hover:glow-lantern",
+        activeColor: "text-accent-nav-habits",
+        activeBg: "bg-accent-nav-habits/15 glow-accent",
+        hoverColor: "hover:text-accent-nav-habits/70",
+        hoverBg: "hover:bg-accent-nav-habits/8 hover:glow-accent",
         notificationFn: undefined,
     },
     {
         to: "/weekly-review",
         icon: Sprout,
         label: "Weekly Reset",
-        activeColor: "text-[var(--color-nav-planner)]",
-        activeBg: "bg-[var(--color-nav-planner)]/15 glow-lantern",
-        hoverColor: "hover:text-[var(--color-nav-planner)]/70",
-        hoverBg: "hover:bg-[var(--color-nav-planner)]/8 hover:glow-lantern",
+        activeColor: "text-accent-nav-upcoming",
+        activeBg: "bg-accent-nav-upcoming/15 glow-accent",
+        hoverColor: "hover:text-accent-nav-upcoming/70",
+        hoverBg: "hover:bg-accent-nav-upcoming/8 hover:glow-accent",
         notificationFn: () => new Date().getDay() === 1, // subtle dot if Monday
     },
 ] as const;
@@ -108,7 +108,7 @@ export function IconRail({
     const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
 
     // Notification center
-    const { grouped, hasUnread, markRead, markAllRead, dismiss } = useNotificationCenter();
+    const { grouped, hasUnread, markRead, markAllRead, dismiss, defer } = useNotificationCenter();
 
     // Habit due indicator
     const { data: unresolvedHabits } = useHabitUnresolvedSummary();
@@ -208,8 +208,8 @@ export function IconRail({
             label: "Seed",
             meta: "Data",
             icon: Sparkles,
-            iconClassName: "text-lantern",
-            surfaceClassName: "border-lantern/18 bg-lantern/[0.08] shadow-[0_0_24px_rgba(232,164,74,0.08)]",
+            iconClassName: "text-accent-primary",
+            surfaceClassName: "border-accent-primary/18 bg-accent-primary/[0.08] shadow-[0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]",
             action: () => {
                 void handleSeedData();
             },
@@ -257,8 +257,8 @@ export function IconRail({
             label: "Warning",
             meta: "Toast",
             icon: TriangleAlert,
-            iconClassName: "text-lantern",
-            surfaceClassName: "border-lantern/18 bg-lantern/[0.08]",
+            iconClassName: "text-accent-primary",
+            surfaceClassName: "border-accent-primary/18 bg-accent-primary/[0.08]",
             action: () => handlePreviewToast("warning"),
         },
         {
@@ -327,7 +327,7 @@ export function IconRail({
                             >
                                 <Icon size={18} aria-hidden="true" />
                                 {showDot && !isActive && (
-                                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-lantern border-2 border-twilight" />
+                                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent-primary border-2 border-twilight" />
                                 )}
                             </Link>
                         </Tip>
@@ -351,7 +351,7 @@ export function IconRail({
                 <button
                     onClick={onQuickAddOpen}
                     aria-label="Quick add task"
-                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-lantern hover:bg-lantern-dim outline-none"
+                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary-dim outline-none"
                 >
                     <Plus size={18} aria-hidden="true" />
                 </button>
@@ -370,7 +370,7 @@ export function IconRail({
                         >
                             <Bell size={18} aria-hidden="true" />
                             {hasUnread && (
-                                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-lantern" />
+                                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent-primary" />
                             )}
                         </button>
                     </Popover.Trigger>
@@ -382,6 +382,7 @@ export function IconRail({
                         markRead={markRead}
                         markAllRead={markAllRead}
                         dismiss={dismiss}
+                        defer={defer}
                         onClose={() => setNotificationsOpen(false)}
                     />
                     <Popover.Arrow className="fill-twilight-surface" />
@@ -521,18 +522,18 @@ export function IconRail({
             {/* Profile avatar */}
             <div className="w-[40%] h-px bg-twilight-border my-1 rounded-full opacity-50" aria-hidden="true" />
             {!authReady ? (
-                <div className="w-8 h-8 rounded-full border-2 border-lantern border-t-transparent animate-spin opacity-50" />
+                <div className="w-8 h-8 rounded-full border-2 border-accent-primary border-t-transparent animate-spin opacity-50" />
             ) : session ? (
                 <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
                         <button
                             aria-label="Profile menu"
-                            className="touch-target w-11 h-11 rounded-full bg-lantern/10 ring-1 ring-twilight-border overflow-hidden cursor-pointer hover:ring-lantern/30 transition-colors flex items-center justify-center"
+                            className="touch-target w-11 h-11 rounded-full bg-accent-primary/10 ring-1 ring-twilight-border overflow-hidden cursor-pointer hover:ring-accent-primary/30 transition-colors flex items-center justify-center"
                         >
                             {session.user.image ? (
                                 <img src={session.user.image} alt="" className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-lantern text-xs font-semibold font-display">
+                                <span className="text-accent-primary text-xs font-semibold font-display">
                                     {(session.user.name || session.user.email || "U")[0].toUpperCase()}
                                 </span>
                             )}
@@ -547,11 +548,11 @@ export function IconRail({
                     >
                         {/* Profile card header */}
                         <div className="flex flex-col items-center justify-center p-4 pb-3">
-                            <div className="w-20 h-20 rounded-full bg-lantern/10 ring-1 ring-twilight-border mb-3 overflow-hidden flex items-center justify-center">
+                            <div className="w-20 h-20 rounded-full bg-accent-primary/10 ring-1 ring-twilight-border mb-3 overflow-hidden flex items-center justify-center">
                                 {session.user.image ? (
                                     <img src={session.user.image} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
-                                    <span className="text-lantern text-3xl font-semibold font-display">
+                                    <span className="text-accent-primary text-3xl font-semibold font-display">
                                         {(session.user.name || session.user.email || "U")[0].toUpperCase()}
                                     </span>
                                 )}
@@ -610,7 +611,7 @@ export function IconRail({
                     <Link
                         to="/auth/sign-in"
                         aria-label="Sign in"
-                        className="w-9 h-9 rounded-xl flex items-center justify-center text-twilight-text-muted hover:text-lantern hover:bg-lantern-dim transition-colors cursor-pointer outline-none"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary-dim transition-colors cursor-pointer outline-none"
                     >
                         <LogOut size={18} aria-hidden="true" />
                     </Link>

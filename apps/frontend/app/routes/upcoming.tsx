@@ -38,13 +38,15 @@ import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
+import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
 import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
-import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
+import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
@@ -81,7 +83,7 @@ const UPCOMING_SECTIONS: Array<{
 }> = [
     {
         key: "overdue",
-        title: "Urgent",
+        title: "Needs attention",
         icon: AlertTriangle,
         accentClass: "text-[var(--color-priority-urgent)]",
     },
@@ -89,7 +91,7 @@ const UPCOMING_SECTIONS: Array<{
         key: "today",
         title: "Today",
         icon: Sunrise,
-        accentClass: "text-lantern",
+        accentClass: "text-accent-primary",
     },
     {
         key: "tomorrow",
@@ -183,7 +185,7 @@ function UpcomingCompletionButton({
                 className={`
                     relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 lg:h-6 lg:w-6
                     ${isResolving
-                        ? "border-lantern/60 bg-lantern/15 text-lantern"
+                        ? "border-accent-primary/60 bg-accent-primary/15 text-accent-primary"
                         : "border-moonlit/45 text-moonlit/80 group-hover:border-moonlit/70 group-hover:text-moonlit"
                     }
                 `}
@@ -227,8 +229,8 @@ function UpcomingTaskRow({
     };
 
     const isHabit = item.kind === "habit";
-    const habitEyebrow = bucketKey === "overdue" ? "Missed routine" : "Routine";
-    const habitPrimaryMeta = bucketKey === "overdue" ? `Missed ${formatShortDate(item.dueDate)}` : "Today ritual";
+    const habitEyebrow = bucketKey === "overdue" ? "Catch-up" : "Routine";
+    const habitPrimaryMeta = bucketKey === "overdue" ? `From ${formatShortDate(item.dueDate)}` : "Today ritual";
 
     return (
         <AgendaRow
@@ -253,14 +255,14 @@ function UpcomingTaskRow({
             </div>
 
             {item.rationaleLabel ? (
-                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-lantern/20 bg-lantern/10 px-2.5 py-1 text-[10px] font-medium text-lantern">
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-1 text-[10px] font-medium text-accent-primary">
                     <Sparkles size={10} aria-hidden="true" />
                     <span className="truncate">{item.rationaleLabel}</span>
                 </span>
             ) : null}
 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
-                <span className={`inline-flex items-center gap-1.5 font-medium ${isHabit ? "text-moonlit" : "text-lantern"}`}>
+                <span className={`inline-flex items-center gap-1.5 font-medium ${isHabit ? "text-moonlit" : "text-accent-primary"}`}>
                     {isHabit ? <Repeat size={12} aria-hidden="true" /> : <CalendarRange size={12} aria-hidden="true" />}
                     {isHabit ? habitPrimaryMeta : `${item.dateLabel} ${formatShortDate(item.dueDate)}`}
                 </span>
@@ -313,6 +315,7 @@ export default function Upcoming() {
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
+    const lowStimulationMode = userSettings?.tasks?.intelligence?.lowStimulationMode ?? false;
 
     const today = new Date();
     const todayISO = toISODate(today);
@@ -340,6 +343,9 @@ export default function Upcoming() {
     });
 
     useRouteFocus();
+
+    const { onNextSection, onPrevSection } = useSectionNav();
+    useKeyboardShortcuts({ onNextSection, onPrevSection });
 
     const tagFilteredTasks = useMemo(() => {
         let next = activeTagId
@@ -454,11 +460,11 @@ export default function Upcoming() {
                         notBefore: item.task!.notBefore ?? null,
                         durationEstimate: item.task!.durationEstimate,
                     }));
-                const ranked = rankTasks(rankable, { routeContext: "upcoming" });
+                const ranked = rankTasks(rankable, { routeContext: "upcoming", lowStimulation: lowStimulationMode });
                 const sorted = ranked.flatMap((entry) => {
                     const item = grouped[bucket].find((candidate) => candidate.task?.id === entry.task.id);
                     if (!item) return [];
-                    const reasonLabel = getRankingReasonLabel(entry.reasons);
+                    const reasonLabel = getMaterialRankingLabel(entry.reasons);
                     return [{ ...item, rationaleLabel: reasonLabel }];
                 });
 
@@ -474,7 +480,7 @@ export default function Upcoming() {
         }
 
         return grouped;
-    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled]);
+    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled, lowStimulationMode]);
 
     const totalVisible = groupedItems.overdue.length + groupedItems.today.length + groupedItems.tomorrow.length + groupedItems.nextWeek.length;
     const isLoading = tasksLoading || habitsLoading;
@@ -550,7 +556,7 @@ export default function Upcoming() {
 
                 {shouldSeparateHabits ? (
                     <>
-                        <AgendaHabitDivider label={bucketKey === "overdue" ? "Missed routines" : "Rituals today"} />
+                        <AgendaHabitDivider label={bucketKey === "overdue" ? "Routines to catch up" : "Rituals today"} />
                         {habitItems.map((item) => (
                             <UpcomingTaskRow
                                 key={item.id}
@@ -589,6 +595,8 @@ export default function Upcoming() {
             requireAuth
             sidePanel={sidePanel}
             headerRight={shell.isPhone ? (
+                <div className="flex items-center gap-2">
+                <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                 <ControlsSheet
                     routeKey="upcoming"
                     title="Upcoming controls"
@@ -615,7 +623,7 @@ export default function Upcoming() {
                                             onClick={() => setSortMode(option.value)}
                                             className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
                                                 sortMode === option.value
-                                                    ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                                    ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
                                                     : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
                                             }`}
                                         >
@@ -641,8 +649,10 @@ export default function Upcoming() {
                         }] : []),
                     ]}
                 />
+                </div>
             ) : (
                 <div className="flex items-center gap-2">
+                    <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                     <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
                 </div>
             )}
@@ -651,18 +661,15 @@ export default function Upcoming() {
                 title: "Upcoming",
                 eyebrow: "Horizon",
                 icon: <CalendarRange size={18} aria-hidden="true" />,
-                accentColor: "var(--color-nav-upcoming)",
+                accentColor: "var(--accent-nav-upcoming, var(--accent-primary))",
             }}
         >
             <PageContent width="default">
-                <Suspense fallback={null}>
-                    <LazyFocusViewBar />
-                </Suspense>
                 <ActiveFilterBar />
                 {upcomingEvents.length > 0 && (
                     <div className="pb-2">
                         <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-personal/80">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/80">
                                 Upcoming events
                             </p>
                             <button
@@ -679,10 +686,10 @@ export default function Upcoming() {
                                     key={`${evt.id}-${dateStr}`}
                                     type="button"
                                     onClick={() => navigate(`/schedule?date=${dateStr}&view=day`)}
-                                    className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal transition-colors hover:bg-personal/18"
+                                    className="inline-flex items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule transition-colors hover:bg-accent-nav-schedule/18"
                                 >
                                     {evt.emoji ?? "🎉"} {evt.label}
-                                    <span className="text-personal/60">{formatShortDate(dateStr)}</span>
+                                    <span className="text-accent-nav-schedule/60">{formatShortDate(dateStr)}</span>
                                 </button>
                             ))}
                         </div>

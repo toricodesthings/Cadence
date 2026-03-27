@@ -1,23 +1,36 @@
 /** Parser version — bumped on any behavior-changing parser update */
-export const PARSER_VERSION = "2.0.0";
+export const PARSER_VERSION = "3.1.0";
 
 // ── Confidence Model (Section 9) ──
 
 export type ConfidenceTier = "high" | "medium" | "low";
 
+// ── Warning Codes (§11.4) ──
+
+export const WARNING_CODES = [
+  "timed_deadline_needs_review",
+  "low_confidence_entity",
+  "ambiguous_date",
+  "ambiguous_duration",
+  "possible_false_positive",
+  "missing_context",
+  "multiple_dates_detected",
+  "recurrence_with_deadline",
+] as const;
+
+export type WarningCode = (typeof WARNING_CODES)[number];
+
 // ── Source Surfaces (Section 8.3) ──
 
 export const SOURCE_SURFACES = [
-  "inline-add",
   "inline_add",
-  "quick-add-task",
   "quick_add",
-  "holding-capture",
-  "holding-clarify",
+  "holding_capture",
+  "holding_clarify",
   "clarify_sheet",
-  "task-edit-title",
-  "task-edit-note",
-  "focus-view-composer",
+  "task_edit_title",
+  "task_edit_note",
+  "focus_view_composer",
   "inbox_card",
   "inbox",
 ] as const;
@@ -67,7 +80,7 @@ export interface ParseResult {
   parserVersion: string;
   sourceSurface: SourceSurface;
   entities: ParsedEntity[];
-  warnings: string[];
+  warnings: WarningCode[];
   summary: string | null;
   overallConfidence: ConfidenceTier | null;
 }

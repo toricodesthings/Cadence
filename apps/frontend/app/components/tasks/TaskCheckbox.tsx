@@ -150,9 +150,9 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.92 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className={`absolute rounded-full border border-lantern/20 bg-lantern/[0.035] ${compact ? "inset-[3px]" : "inset-[5px] lg:inset-[3px]"}`}
+                        className={`absolute rounded-full border border-accent-primary/20 bg-accent-primary/[0.035] ${compact ? "inset-[3px]" : "inset-[5px] lg:inset-[3px]"}`}
                         style={{
-                            boxShadow: `0 0 ${4 + countdownProgress * 6}px rgba(232, 164, 74, ${0.08 + countdownProgress * 0.08})`,
+                            boxShadow: `0 0 ${4 + countdownProgress * 6}px color-mix(in srgb, var(--accent-primary) ${Math.round((0.08 + countdownProgress * 0.08) * 100)}%, transparent)`,
                         }}
                         aria-hidden="true"
                     />
@@ -165,19 +165,19 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
                         ? {
                             scale: [0.88, 1.06, 1],
                             boxShadow: [
-                                "0 0 0 rgba(232,164,74,0)",
-                                "0 0 18px rgba(232,164,74,0.22)",
-                                "0 0 0 rgba(232,164,74,0)",
+                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
+                                "0 0 18px color-mix(in srgb, var(--accent-primary) 22%, transparent)",
+                                "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)",
                             ],
                         }
-                        : { scale: 1, boxShadow: "0 0 0 rgba(232,164,74,0)" }
+                        : { scale: 1, boxShadow: "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)" }
                 }
                 transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
                 className={`relative z-10 flex items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 ${compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"} ${showsConfirmedState
-                    ? "bg-lantern/20 border-lantern text-lantern"
+                    ? "bg-accent-primary/20 border-accent-primary text-accent-primary"
                     : isWaiting
                         ? "border-moonlit/80 text-moonlit/80 group-hover:border-moonlit"
-                        : "border-twilight-text-muted/70 group-hover:border-lantern/50"
+                        : "border-twilight-text-muted/70 group-hover:border-accent-primary/50"
                     }`}
             >
                 <AnimatePresence mode="wait" initial={false}>
@@ -188,7 +188,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
                             height="12"
                             viewBox="0 0 10 10"
                             fill="none"
-                            className="text-lantern"
+                            className="text-accent-primary"
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.8 }}
@@ -244,7 +244,7 @@ function CelebrationBurst({ compact }: { compact: boolean }) {
                 return (
                     <motion.span
                         key={angle}
-                        className="absolute rounded-full bg-lantern"
+                        className="absolute rounded-full bg-accent-primary"
                         style={{ width: 3, height: 3 }}
                         initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
                         animate={{ opacity: 0, x: tx, y: ty, scale: 0.4 }}

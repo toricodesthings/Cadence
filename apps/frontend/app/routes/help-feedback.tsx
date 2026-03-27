@@ -21,7 +21,7 @@ export default function HelpFeedbackRoute() {
                 title: "Help & Feedback",
                 eyebrow: "Support",
                 icon: <LifeBuoy size={18} aria-hidden="true" />,
-                accentColor: "var(--color-nav-schedule)",
+                accentColor: "var(--accent-primary)",
             }}
         >
             <ScrollAreaWrapper>
@@ -39,7 +39,7 @@ export default function HelpFeedbackRoute() {
                         meta={[CADENCE_PUBLIC_VERSION, "Repository-first support", "Beta feedback welcome"]}
                         aside={(
                             <div className="space-y-3">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-lantern/10 text-lantern">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-primary/10 text-accent-primary">
                                     <MessageSquareQuote size={18} aria-hidden="true" />
                                 </div>
                                 <p className="text-sm leading-6 text-twilight-text-soft">

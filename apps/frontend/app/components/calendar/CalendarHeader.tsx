@@ -29,7 +29,7 @@ export function CalendarHeader({ year, month, onNavigate, onToday }: CalendarHea
                 </button>
                 <button
                     onClick={onToday}
-                    className="px-2.5 py-1 text-[12px] text-twilight-text-muted hover:text-lantern rounded-xl hover:bg-lantern-dim transition-colors cursor-pointer"
+                    className="px-2.5 py-1 text-[12px] text-twilight-text-muted hover:text-accent-primary rounded-xl hover:bg-accent-primary-dim transition-colors cursor-pointer"
                 >
                     Today
                 </button>

@@ -2,13 +2,22 @@ import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "r
 import { useTasks } from "../tasks";
 import { useAllHabits } from "../habits/use-habits";
 import { useSettings } from "../core/use-settings";
-import { deriveNotifications } from "../../lib/notifications/reminder-engine";
+import {
+    deriveCandidates,
+    filterByBehavior,
+    applyPresentationRules,
+    computeDeferUntil,
+    type DeferChoice,
+    type NotificationDismissalState,
+} from "../../lib/notifications/reminder-engine";
 import type { AppNotification, NotificationGroup } from "../../lib/notifications/notification-model";
 import { groupNotification, GROUP_ORDER } from "../../lib/notifications/notification-model";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
-// ── Dismissed-ids store (session-scoped, survives re-renders but not tab close) ──
+// ── §11.7: Persistent dismissal/deferral store (session-scoped) ──
 const dismissedIds = new Set<string>();
 const readIds = new Set<string>();
+const deferredUntil = new Map<string, string>();
 let storeVersion = 0;
 const listeners = new Set<() => void>();
 
@@ -24,6 +33,10 @@ function subscribe(cb: () => void) {
 
 function getSnapshot() {
     return storeVersion;
+}
+
+function getDismissalState(): NotificationDismissalState {
+    return { dismissedIds, deferredUntil };
 }
 
 export interface GroupedNotifications {
@@ -45,7 +58,7 @@ export function useNotificationCenter() {
     const { data: tasks = [] } = useTasks({});
     const { data: habits = [] } = useAllHabits();
 
-    // Track version so we re-derive when read/dismissed changes
+    // Track version so we re-derive when read/dismissed/deferred changes
     const version = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     // Use a ref-based "now" that updates every 60s
@@ -58,23 +71,33 @@ export function useNotificationCenter() {
         return () => clearInterval(id);
     }, []);
 
+    // §11.7: 3-step pipeline — candidates → behavior filter → presentation rules
     const allNotifications = useMemo(() => {
-        const raw = deriveNotifications(tasks, habits, nowRef.current);
-
-        // Filter by user notification preferences
-        return raw.filter((n) => {
-            if (n.kind === "task-reminder" && !taskReminders) return false;
-            if (n.kind === "task-due" && !dueDateAlerts) return false;
-            if (n.kind === "habit-reminder" && !habitReminders) return false;
-            return true;
+        const now = nowRef.current;
+        // Step 1: Pure candidate derivation
+        const candidates = deriveCandidates(tasks, habits, now);
+        // Step 2: Behavior filtering (preferences, quiet hours, bundling)
+        const filtered = filterByBehavior(candidates, now, {
+            taskReminders,
+            habitReminders,
+            dueDateAlerts,
+            quietHoursEnabled,
+            quietHoursStart,
+            quietHoursEnd,
         });
+        // Sort: high priority first, then by trigger time
+        filtered.sort((a, b) => {
+            if (a.priority !== b.priority) return a.priority === "high" ? -1 : 1;
+            return new Date(b.triggerAt).getTime() - new Date(a.triggerAt).getTime();
+        });
+        return filtered;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tasks, habits, taskReminders, habitReminders, dueDateAlerts, version]);
+    }, [tasks, habits, taskReminders, habitReminders, dueDateAlerts, quietHoursEnabled, quietHoursStart, quietHoursEnd, version]);
 
+    // Step 3: Persistence-aware presentation
     const notifications = useMemo(() => {
-        return allNotifications
-            .filter((n) => !dismissedIds.has(n.id))
-            .map((n) => ({ ...n, read: readIds.has(n.id) }));
+        const presented = applyPresentationRules(allNotifications, getDismissalState(), nowRef.current);
+        return presented.map((n) => ({ ...n, read: readIds.has(n.id) }));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allNotifications, version]);
 
@@ -104,6 +127,7 @@ export function useNotificationCenter() {
     const hasUnread = unreadCount > 0;
 
     const markRead = useCallback((id: string) => {
+        trackUsageEvent("reminder.presented");
         readIds.add(id);
         emitChange();
     }, []);
@@ -114,7 +138,16 @@ export function useNotificationCenter() {
     }, [notifications]);
 
     const dismiss = useCallback((id: string) => {
+        trackUsageEvent("reminder.dismissed");
         dismissedIds.add(id);
+        emitChange();
+    }, []);
+
+    /** §11.7: Defer a notification — it will resurface after the chosen delay */
+    const defer = useCallback((id: string, choice: DeferChoice) => {
+        trackUsageEvent("reminder.deferred", { outcome: choice });
+        const until = computeDeferUntil(choice, new Date());
+        deferredUntil.set(id, until);
         emitChange();
     }, []);
 
@@ -126,6 +159,8 @@ export function useNotificationCenter() {
         markRead,
         markAllRead,
         dismiss,
+        /** §11.7: Defer a notification */
+        defer,
         /** Raw unfiltered notifications for browser notification hook */
         allNotifications,
         /** Whether quiet hours are currently active */

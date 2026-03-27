@@ -107,6 +107,49 @@ export function resolveProjectsAndTags(
     }
   }
 
+  // Try fuzzy section matching (lightweight — only when sections are provided)
+  if (context.sections && context.sections.length > 0) {
+    const sectionFuse = new Fuse(context.sections, FUSE_OPTIONS);
+
+    for (let windowSize = Math.min(3, words.length); windowSize >= 1; windowSize--) {
+      for (let i = 0; i <= words.length - windowSize; i++) {
+        const phrase = words
+          .slice(i, i + windowSize)
+          .map((w) => w.text)
+          .join(" ");
+        const results = sectionFuse.search(phrase);
+
+        if (results.length === 0) continue;
+        const best = results[0];
+        if (!best.score || best.score > 0.3) continue;
+
+        const sectionId = `section:${best.item.id}`;
+        if (dismissed.has(sectionId)) continue;
+        if (entities.some((e) => e.type === "section")) continue; // One section only
+
+        const confidence: ConfidenceTier =
+          best.score < 0.05 ? "high" : "medium";
+
+        const startWord = words[i];
+        const endWord = words[i + windowSize - 1];
+
+        entities.push({
+          id: sectionId,
+          type: "section",
+          sourceText: phrase,
+          start: startWord.start,
+          end: endWord.end,
+          confidence,
+          normalizedValue: { id: best.item.id, resolvedId: best.item.id, name: best.item.name },
+          explanation:
+            confidence === "high"
+              ? `Section: ${best.item.name}`
+              : `Suggested section: ${best.item.name}`,
+        });
+      }
+    }
+  }
+
   return entities;
 }
 

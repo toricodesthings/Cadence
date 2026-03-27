@@ -28,7 +28,9 @@ import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
 import { useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
 import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
+import { BackgroundLayer } from "../settings/appearance/BackgroundLayer";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
+import { setDiagnosticsEnabled } from "../../lib/api/track-event";
 import {
     configureGlobalQuickCaptureShortcut,
     listenForDesktopCommands,
@@ -40,6 +42,7 @@ import {
 import { useDesktopCommandPreferences } from "../../hooks/ui/use-desktop-command-preferences";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette").then((m) => ({ default: m.CommandPalette })));
+const ShortcutReference = lazy(() => import("../shared/ShortcutReference").then((m) => ({ default: m.ShortcutReference })));
 const SettingsDialog = lazy(() => import("../settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 const QuickAddSurface = lazy(() => import("../quick-add/QuickAddSurface").then((m) => ({ default: m.QuickAddSurface })));
 const FloatingActionBar = lazy(() => import("../tasks/FloatingActionBar").then((m) => ({ default: m.FloatingActionBar })));
@@ -148,7 +151,7 @@ function DesktopHeaderStatus({
                 <button
                     type="button"
                     onClick={onOpenPrivacySettings}
-                    className="hidden h-7 items-center gap-1.5 rounded-full border border-lantern/30 bg-lantern/10 px-2.5 text-[11px] font-medium tracking-[0.12em] text-lantern transition-colors hover:bg-lantern/16 lg:flex"
+                    className="hidden h-7 items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 text-[11px] font-medium tracking-[0.12em] text-accent-primary transition-colors hover:bg-accent-primary/16 lg:flex"
                 >
                     <Download size={12} aria-hidden="true" />
                     <span className="uppercase">Update {update.version}</span>
@@ -217,6 +220,7 @@ export function MainLayout({
     const location = useLocation();
     const { isCollapsed, toggleCollapse, mobileNavOpen: navOpen, setMobileNavOpen: setNavOpen } = useSidebarStore();
     const [commandOpen, setCommandOpen] = useState(false);
+    const [shortcutsRefOpen, setShortcutsRefOpen] = useState(false);
     const [quickAddOpen, setQuickAddOpen] = useState(false);
     const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("task");
     const [syncInspectorOpen, setSyncInspectorOpen] = useState(false);
@@ -282,6 +286,7 @@ export function MainLayout({
                 void setLayoutScale("default");
             }
         },
+        onShortcutReference: () => setShortcutsRefOpen((o) => !o),
     });
 
     // Drive browser notifications from the notification center's computed list
@@ -290,6 +295,11 @@ export function MainLayout({
 
     // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();
+
+    // §11.8: Sync diagnostics gate to user's usageDiagnostics setting
+    useEffect(() => {
+        setDiagnosticsEnabled(settings?.privacy?.usageDiagnostics !== false);
+    }, [settings?.privacy?.usageDiagnostics]);
 
     useEffect(() => {
         const intelligence = settings?.tasks?.intelligence;
@@ -455,7 +465,7 @@ export function MainLayout({
                     <div className="mt-6 flex items-center justify-center gap-3">
                         <button
                             onClick={() => void beginAuthRecovery()}
-                            className="rounded-xl bg-lantern/15 px-4 py-2 text-sm font-medium text-lantern"
+                            className="rounded-xl bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary"
                         >
                             Retry
                         </button>
@@ -496,8 +506,9 @@ export function MainLayout({
 
     return (
         <Tooltip.Provider delayDuration={300}>
-            <div className="h-dvh bg-twilight overflow-hidden">
-                <div className="flex h-full">
+            <div className="h-dvh bg-twilight overflow-hidden relative">
+                <BackgroundLayer />
+                <div className="flex h-full relative">
                     {customSidebar !== undefined ? customSidebar : (
                         <Sidebar
                             mode={shell.mode}
@@ -622,6 +633,9 @@ export function MainLayout({
             </Suspense>
             <Suspense fallback={null}>
                 <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+            </Suspense>
+            <Suspense fallback={null}>
+                <ShortcutReference open={shortcutsRefOpen} onOpenChange={setShortcutsRefOpen} />
             </Suspense>
             <Suspense fallback={null}>
                 <QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} initialTab={quickAddInitialTab} />

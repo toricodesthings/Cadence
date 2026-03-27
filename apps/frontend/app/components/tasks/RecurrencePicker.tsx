@@ -33,7 +33,7 @@ export const RecurrencePicker: React.FC<RecurrencePickerProps> = ({
                         className={`
 							flex items-center justify-center rounded-xl px-2 py-1.5 text-xs transition-colors
 							${value === preset.rrule
-                                ? "bg-lantern/20 text-lantern border border-lantern/30"
+                                ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
                                 : "bg-twilight-surface-muted text-twilight-text-muted hover:bg-twilight-surface-hover hover:text-twilight-text"
                             }
 						`}

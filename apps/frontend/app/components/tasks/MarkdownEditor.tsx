@@ -115,7 +115,7 @@ export function MarkdownEditor({
             ) : (
                 <div
                     onClick={() => setIsEditing(true)}
-                    className="prose prose-invert prose-sm min-h-[240px] max-w-none cursor-pointer rounded-[1.4rem] border border-twilight-border/40 bg-white/[0.03] px-5 py-5 prose-p:text-twilight-text prose-a:text-lantern prose-code:text-moonlit"
+                    className="prose prose-invert prose-sm min-h-[240px] max-w-none cursor-pointer rounded-[1.4rem] border border-twilight-border/40 bg-white/[0.03] px-5 py-5 prose-p:text-twilight-text prose-a:text-accent-primary prose-code:text-moonlit"
                     aria-label="Task notes preview"
                     role="button"
                     tabIndex={0}

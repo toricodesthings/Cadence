@@ -1,12 +1,15 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { TimeGutter } from "./TimeGutter";
 import { CurrentTimeIndicator } from "./CurrentTimeIndicator";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
 import * as Popover from "../primitives/Popover";
 import * as Tooltip from "../primitives/Tooltip";
+import * as ContextMenu from "../primitives/ContextMenu";
+import { Plus, CalendarHeart, Focus, ArrowRight } from "lucide-react";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
+import { trackUsageEvent } from "../../lib/api/track-event";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
@@ -24,6 +27,7 @@ interface DroppableDayColumnProps {
     onArchiveTask: (id: string) => void;
     onResizeTask?: (id: string, durationMinutes: number) => void;
     onGridClick?: (info: CalendarEventInfo) => void;
+    onJumpToDay?: (dateStr: string) => void;
 }
 
 function DroppableDayColumn({
@@ -37,20 +41,27 @@ function DroppableDayColumn({
     onArchiveTask,
     onResizeTask,
     onGridClick,
+    onJumpToDay,
 }: DroppableDayColumnProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const [contextSlot, setContextSlot] = useState<{ hours: number; mins: number } | null>(null);
+
+    const computeSlotFromEvent = useCallback((e: React.MouseEvent) => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return { hours: 9, mins: 0 };
+        const relY = e.clientY - rect.top;
+        const slotHeight = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
+        const totalMins = Math.round(relY / slotHeight) * CALENDAR_SLOT_MINUTES;
+        return {
+            hours: Math.max(0, Math.min(23, Math.floor(totalMins / 60))),
+            mins: totalMins % 60,
+        };
+    }, []);
 
     const handleGridClick = (e: React.MouseEvent<HTMLDivElement>) => {
         // Ignore if clicking directly on a task chip
         if ((e.target as HTMLElement).closest("[data-task-chip]")) return;
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const relY = e.clientY - rect.top;
-        const slotHeight = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
-        const totalMins = Math.round(relY / slotHeight) * CALENDAR_SLOT_MINUTES;
-        const hours = Math.max(0, Math.min(23, Math.floor(totalMins / 60)));
-        const mins = totalMins % 60;
-
+        const { hours, mins } = computeSlotFromEvent(e);
         onGridClick?.({
             date: dateStr,
             startHour: hours,
@@ -60,14 +71,29 @@ function DroppableDayColumn({
         });
     };
 
+    const handleContextMenuOpen = (open: boolean) => {
+        if (!open) setContextSlot(null);
+        else trackUsageEvent("schedule.context_menu_opened", { object_type: "schedule_cell", input_method: "context_menu" });
+    };
+
+    const contextTimeLabel = contextSlot
+        ? `${String(contextSlot.hours).padStart(2, "0")}:${String(contextSlot.mins).padStart(2, "0")}`
+        : "";
+
     return (
+        <ContextMenu.Root onOpenChange={handleContextMenuOpen}>
+            <ContextMenu.Trigger asChild>
         <div
             ref={containerRef}
             onClick={handleGridClick}
+            onContextMenu={(e) => {
+                if ((e.target as HTMLElement).closest("[data-task-chip]")) return;
+                setContextSlot(computeSlotFromEvent(e));
+            }}
             className={`
                 relative flex-1 min-w-0 border-l border-white/[0.07]
                 transition-colors duration-150 cursor-crosshair
-                ${isToday ? "bg-[linear-gradient(180deg,rgba(232,164,74,0.055),rgba(232,164,74,0.018)_32%,rgba(126,184,212,0.025)_72%,rgba(10,15,28,0.02))] shadow-[inset_1px_0_0_rgba(232,164,74,0.10),inset_-1px_0_0_rgba(232,164,74,0.06)]" : ""}
+                ${isToday ? "bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent-primary)_6%,transparent),color-mix(in_srgb,var(--accent-primary)_2%,transparent)_32%,rgba(126,184,212,0.025)_72%,rgba(10,15,28,0.02))] shadow-[inset_1px_0_0_color-mix(in_srgb,var(--accent-primary)_10%,transparent),inset_-1px_0_0_color-mix(in_srgb,var(--accent-primary)_6%,transparent)]" : ""}
                 ${activeDropPreview?.dateStr === dateStr ? "bg-white/[0.015]" : ""}
             `}
             style={{ height: DAY_GRID_HEIGHT }}
@@ -123,19 +149,49 @@ function DroppableDayColumn({
             {/* Ghost block preview for click-to-create */}
             {draftPlacement && draftPlacement.dateStr === dateStr && (
                 <div
-                    className="absolute left-1 right-1 z-15 rounded-xl border border-dashed border-lantern/30 bg-lantern/10 backdrop-blur-sm pointer-events-none flex items-center px-3"
+                    className="absolute left-1 right-1 z-15 rounded-xl border border-dashed border-accent-primary/30 bg-accent-primary/10 backdrop-blur-sm pointer-events-none flex items-center px-3"
                     style={{
                         top: (draftPlacement.startMinute / 60) * HOUR_HEIGHT,
                         height: ((draftPlacement.endMinute - draftPlacement.startMinute) / 60) * HOUR_HEIGHT,
                     }}
                 >
-                    <span className="text-[12px] text-lantern/70 font-medium">
+                    <span className="text-[12px] text-accent-primary/70 font-medium">
                         {`${String(Math.floor(draftPlacement.startMinute / 60)).padStart(2, "0")}:${String(draftPlacement.startMinute % 60).padStart(2, "0")} – ${String(Math.floor(draftPlacement.endMinute / 60)).padStart(2, "0")}:${String(draftPlacement.endMinute % 60).padStart(2, "0")}`}
                     </span>
                 </div>
             )}
 
         </div>
+            </ContextMenu.Trigger>
+            <ContextMenu.Content>
+                <ContextMenu.Item onSelect={() => {
+                    if (!contextSlot) return;
+                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
+                }}>
+                    <Plus size={14} aria-hidden="true" />
+                    Add task here {contextTimeLabel && <span className="ml-auto text-[11px] text-twilight-text-muted">{contextTimeLabel}</span>}
+                </ContextMenu.Item>
+                <ContextMenu.Item onSelect={() => {
+                    if (!contextSlot) return;
+                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
+                }}>
+                    <CalendarHeart size={14} aria-hidden="true" />
+                    Add event here
+                </ContextMenu.Item>
+                <ContextMenu.Item onSelect={() => {
+                    if (!contextSlot) return;
+                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
+                }}>
+                    <Focus size={14} aria-hidden="true" />
+                    Block focus time
+                </ContextMenu.Item>
+                <ContextMenu.Separator />
+                <ContextMenu.Item onSelect={() => onJumpToDay?.(dateStr)}>
+                    <ArrowRight size={14} aria-hidden="true" />
+                    Jump to day
+                </ContextMenu.Item>
+            </ContextMenu.Content>
+        </ContextMenu.Root>
     );
 }
 
@@ -158,6 +214,8 @@ export interface WeekViewProps {
     onResizeTask?: (id: string, durationMinutes: number) => void;
     /** Callback when user clicks an empty grid cell (opens event popover) */
     onGridClick?: (info: CalendarEventInfo) => void;
+    /** Callback to switch to day view for a specific date */
+    onJumpToDay?: (dateStr: string) => void;
 }
 
 export function WeekView({
@@ -173,6 +231,7 @@ export function WeekView({
     onArchiveTask,
     onResizeTask,
     onGridClick,
+    onJumpToDay,
 }: WeekViewProps) {
     const today = new Date();
     const todayStr = toISODate(today);
@@ -228,10 +287,10 @@ export function WeekView({
                     return (
                         <div
                             key={ds}
-                            className={`flex-1 min-w-0 border-l border-twilight-border/20 ${isToday ? "bg-[linear-gradient(180deg,rgba(232,164,74,0.05),rgba(232,164,74,0.018)_58%,transparent)] shadow-[inset_1px_0_0_rgba(232,164,74,0.10),inset_-1px_0_0_rgba(232,164,74,0.05)]" : ""}`}
+                            className={`flex-1 min-w-0 border-l border-twilight-border/20 ${isToday ? "bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent-primary)_5%,transparent),color-mix(in_srgb,var(--accent-primary)_2%,transparent)_58%,transparent)] shadow-[inset_1px_0_0_color-mix(in_srgb,var(--accent-primary)_10%,transparent),inset_-1px_0_0_color-mix(in_srgb,var(--accent-primary)_5%,transparent)]" : ""}`}
                         >
                             {/* Day header */}
-                            <div className={`px-2 py-3 text-center ${isToday ? "text-lantern" : "text-twilight-text-muted"}`}>
+                            <div className={`px-2 py-3 text-center ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
                                 <div className="text-[11px] uppercase tracking-widest font-medium text-twilight-text-muted">
                                     {dayLabel}
                                 </div>
@@ -240,7 +299,7 @@ export function WeekView({
                                         font-display font-semibold leading-none
                                         flex h-8 w-8 items-center justify-center text-lg
                                         ${isToday
-                                            ? "rounded-full bg-lantern/20 text-lantern ring-1 ring-lantern shadow-[0_0_8px_rgba(232,164,74,0.15)]"
+                                            ? "rounded-full bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]"
                                             : ""}
                                     `}>
                                         {d.getDate()}
@@ -280,15 +339,15 @@ export function WeekView({
                                             <Tooltip.Trigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="inline-flex min-w-4 items-center justify-center rounded-full text-personal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-personal/60 cursor-pointer"
+                                                    className="inline-flex min-w-4 items-center justify-center rounded-full text-accent-nav-schedule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/60 cursor-pointer"
                                                     aria-label={`Event: ${personalEventsByDate[ds].map((e) => e.label).join(", ")}`}
                                                 >
                                                     {personalEventsByDate[ds].length > 1 ? (
-                                                        <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-personal/20 bg-personal/12 px-1 text-[9px] font-semibold text-personal">
+                                                        <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-1 text-[9px] font-semibold text-accent-nav-schedule">
                                                             {personalEventsByDate[ds].length}
                                                         </span>
                                                     ) : (
-                                                        <span className="h-2 w-2 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]" />
+                                                        <span className="h-2 w-2 rounded-full bg-accent-nav-schedule shadow-[0_0_8px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
                                                     )}
                                                 </button>
                                             </Tooltip.Trigger>
@@ -327,7 +386,7 @@ export function WeekView({
                                                 <button
                                                     type="button"
                                                     onClick={(e) => e.stopPropagation()}
-                                                    className="text-[10px] leading-none text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer pl-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
+                                                    className="text-[10px] leading-none text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer pl-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
                                                 >
                                                     +{allDay.length - 1} more
                                                 </button>
@@ -376,6 +435,7 @@ export function WeekView({
                                     onArchiveTask={onArchiveTask}
                                     onResizeTask={onResizeTask}
                                     onGridClick={onGridClick}
+                                    onJumpToDay={onJumpToDay}
                                 />
                                 {ds === todayStr && <CurrentTimeIndicator />}
                             </div>

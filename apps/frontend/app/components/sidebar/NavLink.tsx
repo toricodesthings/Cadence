@@ -8,9 +8,9 @@ interface NavLinkProps {
     count?: React.ReactNode;
     /** Show a subtle dot indicator next to the icon */
     showDot?: boolean;
-    /** Tailwind class for active icon/text color, e.g. "text-[var(--color-nav-planner)]" */
+    /** Tailwind class for active icon/text color, e.g. "text-accent-primary" */
     activeColor?: string;
-    /** Tailwind class for active background, e.g. "bg-[var(--color-nav-planner)]/15" */
+    /** Tailwind class for active background, e.g. "bg-accent-primary/15" */
     activeBg?: string;
     /** Tailwind class for hover color */
     hoverColor?: string;
@@ -23,9 +23,9 @@ export function NavLink({
     href,
     count,
     showDot,
-    activeColor = "text-[var(--color-nav-planner)]",
-    activeBg = "bg-[var(--color-nav-planner)]/15",
-    hoverColor = "group-hover:text-[var(--color-nav-planner)]/70",
+    activeColor = "text-accent-primary",
+    activeBg = "bg-accent-primary/15",
+    hoverColor = "group-hover:text-accent-primary/70",
 }: NavLinkProps) {
     const location = useLocation();
     const active = location.pathname === href;
@@ -51,7 +51,7 @@ export function NavLink({
                     className={`transition-colors ${active ? activeColor : `text-twilight-text-muted ${hoverColor}`}`}
                 />
                 {showDot && (
-                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-lantern/70" aria-hidden="true" />
+                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-accent-primary/70" aria-hidden="true" />
                 )}
             </span>
             <span className="flex-1 truncate">{label}</span>

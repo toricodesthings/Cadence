@@ -1,12 +1,14 @@
-import { useRef, useEffect, useMemo } from "react";
-import { Flag } from "lucide-react";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import { Flag, Plus, CalendarHeart, Focus } from "lucide-react";
 import { TimeGutter } from "./TimeGutter";
 import { CurrentTimeIndicator } from "./CurrentTimeIndicator";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
 import * as Popover from "../primitives/Popover";
+import * as ContextMenu from "../primitives/ContextMenu";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
 import { toISODate } from "../../lib/utils/date-format";
+import { trackUsageEvent } from "../../lib/api/track-event";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "../../types/task";
@@ -39,17 +41,23 @@ function DroppableTimeGrid({
     onGridClick,
 }: DroppableTimeGridProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const [contextSlot, setContextSlot] = useState<{ hours: number; mins: number } | null>(null);
 
-    const handleGridClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if ((e.target as HTMLElement).closest("[data-task-chip]")) return;
+    const computeSlotFromEvent = useCallback((e: React.MouseEvent) => {
         const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
+        if (!rect) return { hours: 9, mins: 0 };
         const relY = e.clientY - rect.top;
         const slotHeight = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
         const totalMins = Math.round(relY / slotHeight) * CALENDAR_SLOT_MINUTES;
-        const hours = Math.max(0, Math.min(23, Math.floor(totalMins / 60)));
-        const mins = totalMins % 60;
+        return {
+            hours: Math.max(0, Math.min(23, Math.floor(totalMins / 60))),
+            mins: totalMins % 60,
+        };
+    }, []);
 
+    const handleGridClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if ((e.target as HTMLElement).closest("[data-task-chip]")) return;
+        const { hours, mins } = computeSlotFromEvent(e);
         onGridClick?.({
             date: dateStr,
             startHour: hours,
@@ -59,10 +67,20 @@ function DroppableTimeGrid({
         });
     };
 
+    const contextTimeLabel = contextSlot
+        ? `${String(contextSlot.hours).padStart(2, "0")}:${String(contextSlot.mins).padStart(2, "0")}`
+        : "";
+
     return (
+        <ContextMenu.Root onOpenChange={(open) => { if (open) trackUsageEvent("schedule.context_menu_opened", { object_type: "schedule_cell", input_method: "context_menu" }); else setContextSlot(null); }}>
+            <ContextMenu.Trigger asChild>
         <div
             ref={containerRef}
             onClick={handleGridClick}
+            onContextMenu={(e) => {
+                if ((e.target as HTMLElement).closest("[data-task-chip]")) return;
+                setContextSlot(computeSlotFromEvent(e));
+            }}
             className={`
                 relative flex-1 min-w-0
                 transition-colors duration-150 cursor-crosshair
@@ -120,13 +138,13 @@ function DroppableTimeGrid({
             {/* Ghost block preview for click-to-create */}
             {draftPlacement && draftPlacement.dateStr === dateStr && (
                 <div
-                    className="absolute left-1 right-1 z-15 rounded-xl border border-dashed border-lantern/30 bg-lantern/10 backdrop-blur-sm pointer-events-none flex items-center px-3"
+                    className="absolute left-1 right-1 z-15 rounded-xl border border-dashed border-accent-primary/30 bg-accent-primary/10 backdrop-blur-sm pointer-events-none flex items-center px-3"
                     style={{
                         top: (draftPlacement.startMinute / 60) * HOUR_HEIGHT,
                         height: ((draftPlacement.endMinute - draftPlacement.startMinute) / 60) * HOUR_HEIGHT,
                     }}
                 >
-                    <span className="text-[12px] text-lantern/70 font-medium">
+                    <span className="text-[12px] text-accent-primary/70 font-medium">
                         {`${String(Math.floor(draftPlacement.startMinute / 60)).padStart(2, "0")}:${String(draftPlacement.startMinute % 60).padStart(2, "0")} – ${String(Math.floor(draftPlacement.endMinute / 60)).padStart(2, "0")}:${String(draftPlacement.endMinute % 60).padStart(2, "0")}`}
                     </span>
                 </div>
@@ -136,6 +154,31 @@ function DroppableTimeGrid({
             {isToday && <CurrentTimeIndicator />}
 
         </div>
+            </ContextMenu.Trigger>
+            <ContextMenu.Content>
+                <ContextMenu.Item onSelect={() => {
+                    if (!contextSlot) return;
+                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
+                }}>
+                    <Plus size={14} aria-hidden="true" />
+                    Add task here {contextTimeLabel && <span className="ml-auto text-[11px] text-twilight-text-muted">{contextTimeLabel}</span>}
+                </ContextMenu.Item>
+                <ContextMenu.Item onSelect={() => {
+                    if (!contextSlot) return;
+                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
+                }}>
+                    <CalendarHeart size={14} aria-hidden="true" />
+                    Add event here
+                </ContextMenu.Item>
+                <ContextMenu.Item onSelect={() => {
+                    if (!contextSlot) return;
+                    onGridClick?.({ date: dateStr, startHour: contextSlot.hours, startMinute: contextSlot.mins, anchorX: 0, anchorY: 0 });
+                }}>
+                    <Focus size={14} aria-hidden="true" />
+                    Block focus time
+                </ContextMenu.Item>
+            </ContextMenu.Content>
+        </ContextMenu.Root>
     );
 }
 
@@ -221,7 +264,7 @@ export function DayView({
                             </div>
                         )}
                         {personalEvents.map((evt) => (
-                            <div key={evt.id} className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal">
+                            <div key={evt.id} className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule">
                                 {evt.emoji ?? "🎉"} {evt.label}
                             </div>
                         ))}
@@ -245,7 +288,7 @@ export function DayView({
                                     <button
                                         type="button"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="text-[11px] text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer px-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
+                                        className="text-[11px] text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer px-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
                                     >
                                         +{allDay.length - 3} more
                                     </button>

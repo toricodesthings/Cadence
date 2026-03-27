@@ -33,7 +33,7 @@ export const MoveToSectionSubmenu: React.FC<MoveToSectionSubmenuProps> = ({
                 <Menu.SubContent>
                     <Menu.Item
                         onClick={() => onSelect(null)}
-                        className={!currentSectionId ? "bg-white/[0.04] text-lantern" : ""}
+                        className={!currentSectionId ? "bg-white/[0.04] text-accent-primary" : ""}
                     >
                         Unsectioned
                     </Menu.Item>
@@ -42,7 +42,7 @@ export const MoveToSectionSubmenu: React.FC<MoveToSectionSubmenuProps> = ({
                         <Menu.Item
                             key={section.id}
                             onClick={() => onSelect(section.id)}
-                            className={currentSectionId === section.id ? "bg-white/[0.04] text-lantern" : ""}
+                            className={currentSectionId === section.id ? "bg-white/[0.04] text-accent-primary" : ""}
                         >
                             {section.name}
                         </Menu.Item>

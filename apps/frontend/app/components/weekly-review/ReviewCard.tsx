@@ -74,8 +74,8 @@ export function ReviewEmptyState({ title, subtitle, onNext }: { title: string; s
             animate={{ opacity: 1, scale: 1 }}
             className="flex flex-col items-center justify-center text-center py-16"
         >
-            <div className="w-20 h-20 rounded-full bg-lantern/10 flex items-center justify-center mb-6 glow-lantern">
-                <CheckCircle size={32} className="text-lantern" />
+            <div className="w-20 h-20 rounded-full bg-accent-primary/10 flex items-center justify-center mb-6 glow-lantern">
+                <CheckCircle size={32} className="text-accent-primary" />
             </div>
             <h2 className="text-3xl font-display font-semibold text-twilight-text mb-3">{title}</h2>
             <p className="text-twilight-text-muted mb-10 max-w-sm">{subtitle}</p>

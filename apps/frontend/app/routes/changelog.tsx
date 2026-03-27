@@ -11,8 +11,8 @@ import { CADENCE_CHANGELOG, type ChangelogEntry } from "../lib/constants/changel
 const CHANGELOG_GLYPHS: Record<ChangelogEntry["glyph"], { icon: typeof Sparkles; accentClassName: string; surfaceClassName: string }> = {
     release: {
         icon: Sparkles,
-        accentClassName: "text-lantern",
-        surfaceClassName: "border-lantern/20 bg-lantern/10",
+        accentClassName: "text-accent-primary",
+        surfaceClassName: "border-accent-primary/20 bg-accent-primary/10",
     },
     fix: {
         icon: Wrench,
@@ -38,7 +38,7 @@ export default function ChangelogRoute() {
                 title: "Changelog",
                 eyebrow: "Release notes",
                 icon: <History size={18} aria-hidden="true" />,
-                accentColor: "var(--color-lantern)",
+                accentColor: "var(--accent-primary)",
             }}
         >
             <ScrollAreaWrapper>

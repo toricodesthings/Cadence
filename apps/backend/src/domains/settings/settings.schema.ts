@@ -46,10 +46,22 @@ export const userSettingsSchema = z.object({
         birthday: z.string().nullable().optional(),
     }).optional(),
     appearance: z.object({
-        theme: z.enum(["twilight", "daylight", "system"]),
+        theme: z.enum(["twilight", "daylight", "system", "custom"]),
         accentIntensity: z.enum(["soft", "balanced", "vivid"]),
         motion: z.enum(["system", "full", "reduced"]),
         density: z.enum(["comfortable", "compact"]),
+        palette: z.enum([
+            "lantern", "ember", "rose", "violet",
+            "sapphire", "jade", "copper", "frost"
+        ]).optional(),
+        themePreset: z.enum([
+            "default", "daylight-default", "spring-bloom",
+            "summer-coast", "autumn-hearth", "winter-frost",
+            "midnight-garden", "golden-hour", "custom"
+        ]).optional(),
+        backgroundMode: z.enum(["theme", "custom"]).optional(),
+        backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+        backgroundGradient: z.string().nullable().optional(),
     }).optional(),
     notifications: z.object({
         email: z.boolean(),
@@ -121,6 +133,7 @@ export const userSettingsSchema = z.object({
             showExplanations: z.boolean().optional(),
             smartSortEnabled: z.boolean().optional(),
             focusViewsEnabled: z.boolean().optional(),
+            focusViewPresentation: z.enum(["compact", "expanded"]).optional(),
             lowStimulationMode: z.boolean().optional(),
             dismissedEntityIds: z.array(z.string()).optional(),
             dismissedEntities: z.array(z.object({
@@ -140,6 +153,13 @@ export const userSettingsSchema = z.object({
             toggleView: z.string().optional(),
             completeTask: z.string().optional(),
             archiveTask: z.string().optional(),
+            rescheduleTask: z.string().optional(),
+            pinTask: z.string().optional(),
+            openMenu: z.string().optional(),
+            editObject: z.string().optional(),
+            quickActions: z.string().optional(),
+            capture: z.string().optional(),
+            quickAddTask: z.string().optional(),
         }).optional(),
     }).optional(),
     integrations: z.object({

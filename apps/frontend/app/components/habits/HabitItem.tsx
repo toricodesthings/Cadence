@@ -15,8 +15,16 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
     const { mutate: resolveHabit } = useResolveHabit(habit.id);
     const [open, setOpen] = useState(false);
 
+    const today = new Date().toISOString().substring(0, 10);
     const isCompleted = log.status === "COMPLETED";
     const isSkipped = log.status === "SKIPPED";
+    const isPast = targetDate < today;
+    const isToday = targetDate === today;
+    const pendingClassName = isPast
+        ? "border border-accent-primary/25 bg-[repeating-linear-gradient(135deg,rgba(232,164,74,0.11)_0_2px,transparent_2px_6px)] hover:border-accent-primary/40 shadow-[inset_0_1px_4px_rgba(0,0,0,0.35)]"
+        : isToday
+            ? "bg-twilight-surface hover:bg-twilight-surface-hover border border-moonlit/35 hover:border-moonlit/55 shadow-[inset_0_1px_4px_rgba(0,0,0,0.45)]"
+            : "bg-twilight-surface/55 hover:bg-twilight-surface-hover border border-twilight-border-light hover:border-twilight-border shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)]";
 
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -47,12 +55,12 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                         e.preventDefault();
                         setOpen(true);
                     }}
-                    aria-label={`${habit.title} on ${targetDate}: ${isCompleted ? "completed" : isSkipped ? "skipped" : "pending"}`}
-                    className={`touch-target relative flex h-11 w-11 items-center justify-center auto-rounded shadow-sm transition-all duration-300 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lantern focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-void ${isCompleted
-                            ? 'bg-lantern/20 border border-lantern shadow-lantern hover:shadow-[0_0_20px_rgba(235,123,89,0.4)]'
+                    aria-label={`${habit.title} on ${targetDate}: ${isCompleted ? "completed" : isSkipped ? "skipped" : isPast ? "missed pending" : "pending"}`}
+                    className={`touch-target relative flex h-11 w-11 items-center justify-center auto-rounded shadow-sm transition-all duration-300 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-void ${isCompleted
+                            ? 'bg-accent-primary/20 border border-accent-primary shadow-accent-primary hover:shadow-[0_0_20px_rgba(235,123,89,0.4)]'
                             : isSkipped
                                 ? 'bg-twilight-void/50 border border-twilight-border opacity-50'
-                                : 'bg-twilight-surface hover:bg-twilight-surface-hover border border-twilight-border-light hover:border-twilight-border shadow-[inset_0_1px_4px_rgba(0,0,0,0.5)]'
+                                : pendingClassName
                         } rounded-full`}
                 >
                     <AnimatePresence mode="popLayout">
@@ -64,7 +72,7 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                                 exit={{ scale: 0, opacity: 0 }}
                                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
                             >
-                                <Check className="h-5 w-5 text-lantern drop-shadow-md" strokeWidth={3} />
+                                <Check className="h-5 w-5 text-accent-primary drop-shadow-md" strokeWidth={3} />
                             </motion.div>
                         )}
                         {isSkipped && (
@@ -78,13 +86,27 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                                 <X className="h-4 w-4 text-twilight-text-soft" strokeWidth={2} />
                             </motion.div>
                         )}
+                        {!isCompleted && !isSkipped && (
+                            <motion.span
+                                key={isPast ? "missed" : isToday ? "today" : "pending"}
+                                initial={{ scale: 0.7, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.7, opacity: 0 }}
+                                className={`h-1.5 w-1.5 rounded-full ${isPast
+                                    ? "bg-accent-primary/80"
+                                    : isToday
+                                        ? "bg-moonlit/80"
+                                        : "bg-twilight-border/65"
+                                    }`}
+                            />
+                        )}
                     </AnimatePresence>
                 </button>
             </Popover.Trigger>
 
             <Popover.Content sideOffset={8} className="p-2 flex space-x-2">
                 <button
-                    className="touch-target rounded-xl bg-twilight-surface-hover/50 p-3 text-lantern shadow-inner transition-colors hover:bg-twilight-surface-hover"
+                    className="touch-target rounded-xl bg-twilight-surface-hover/50 p-3 text-accent-primary shadow-inner transition-colors hover:bg-twilight-surface-hover"
                     onClick={() => {
                         resolveHabit({ targetDate: log.targetDate, status: "COMPLETED" });
                         setOpen(false);

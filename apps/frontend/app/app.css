@@ -57,6 +57,18 @@
   --color-personal: #cf72a8;
   --color-personal-soft: rgba(207, 114, 168, 0.12);
 
+  /* === ACCENT INDIRECTION (palette-responsive) === */
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-soft: var(--accent-primary-soft);
+  --color-accent-primary-dim: var(--accent-primary-dim);
+
+  /* === NAV WAYFINDING SHADES (oklch relative hue shifts from accent-primary) === */
+  --color-accent-nav-capture: var(--accent-primary);
+  --color-accent-nav-schedule: var(--accent-nav-schedule);
+  --color-accent-nav-today: var(--accent-nav-today);
+  --color-accent-nav-upcoming: var(--accent-nav-upcoming);
+  --color-accent-nav-habits: var(--accent-nav-habits);
+
   /* === DAYLIGHT THEME (Light) === */
   --color-day-base: #f5f3f0;
   --color-day-surface: #eae6e1;
@@ -73,12 +85,7 @@
   --color-priority-urgent: #e87461;
   --color-priority-urgent-glow: color-mix(in srgb, #e87461 40%, transparent);
 
-  /* === NAV ACCENT COLORS === */
-  --color-nav-planner: var(--color-lantern);
-  --color-nav-schedule: var(--color-moonlit);
-  --color-nav-upcoming: #34d399;
-  --color-nav-inbox: #a78bfa;
-  --color-nav-completed: #4ade80;
+  /* === NAV ACCENT COLORS (legacy, kept for reference) === */
 
   /* === SIDEBAR ANIMATION === */
   --sidebar-transition-duration: 280ms;
@@ -87,19 +94,19 @@
   /* Auth UI token bridge */
   --background: var(--color-twilight-deep);
   --foreground: var(--color-twilight-text);
-  --primary: var(--color-lantern);
+  --primary: var(--accent-primary);
   --primary-foreground: var(--color-twilight-void);
   --secondary: color-mix(in srgb, var(--color-twilight-surface) 92%, white 8%);
   --secondary-foreground: var(--color-twilight-text);
   --muted: color-mix(in srgb, var(--color-twilight-surface-muted) 88%, white 12%);
   --muted-foreground: var(--color-twilight-text-soft);
-  --accent: color-mix(in srgb, var(--color-lantern) 14%, var(--color-twilight-surface));
+  --accent: color-mix(in srgb, var(--accent-primary) 14%, var(--color-twilight-surface));
   --accent-foreground: var(--color-twilight-text);
   --destructive: var(--color-feedback-error);
   --destructive-foreground: var(--color-twilight-text);
   --border: var(--color-twilight-border-light);
   --input: var(--color-twilight-border-light);
-  --ring: rgba(232, 164, 74, 0.45);
+  --ring: color-mix(in srgb, var(--accent-primary) 45%, transparent);
   --radius: 1rem;
 }
 
@@ -112,8 +119,8 @@
   --duration-normal: 200ms;
   --duration-smooth: 300ms;
   --duration-expressive: 450ms;
-  --cadence-page-padding-y: 1rem;
-  --cadence-page-padding-y-desktop: 1.25rem;
+  --cadence-page-padding-y: 0.5rem;
+  --cadence-page-padding-y-desktop: 0.75rem;
   --cadence-planner-gap: 1rem;
   --z-shell-base: 10;
   --z-shell-header: 20;
@@ -203,25 +210,25 @@
   /* ── Auth UI bridge ── */
   --background: var(--color-twilight-deep);
   --foreground: var(--color-twilight-text);
-  --primary: var(--color-lantern);
+  --primary: var(--accent-primary);
   --primary-foreground: #ffffff;
   --secondary: var(--color-twilight-surface);
   --secondary-foreground: var(--color-twilight-text);
   --muted: var(--color-twilight-surface-muted);
   --muted-foreground: var(--color-twilight-text-soft);
-  --accent: color-mix(in srgb, var(--color-lantern) 12%, var(--color-twilight-surface));
+  --accent: color-mix(in srgb, var(--accent-primary) 12%, var(--color-twilight-surface));
   --accent-foreground: var(--color-twilight-text);
   --destructive: var(--color-feedback-error);
   --destructive-foreground: #ffffff;
   --border: var(--color-twilight-border-light);
   --input: var(--color-twilight-border-light);
-  --ring: rgba(180, 83, 9, 0.35);
+  --ring: color-mix(in srgb, var(--accent-primary) 35%, transparent);
 
   /* ── Focus / notification tokens ── */
   --color-focus-aura: rgba(180, 83, 9, 0.22);
   --color-focus-aura-soft: rgba(180, 83, 9, 0.10);
-  --color-notification-unread: var(--color-lantern);
-  --color-notification-reminder: var(--color-lantern);
+  --color-notification-unread: var(--accent-primary);
+  --color-notification-reminder: var(--accent-primary);
   --color-notification-system: var(--color-moonlit);
 }
 
@@ -235,14 +242,14 @@
   --color-lantern-soft: rgba(232, 164, 74, 0.06);
   --color-lantern-dim: rgba(232, 164, 74, 0.03);
   --color-moonlit-soft: rgba(126, 184, 212, 0.06);
-  --ring: rgba(232, 164, 74, 0.25);
+  --ring: color-mix(in srgb, var(--accent-primary) 25%, transparent);
 }
 
 [data-accent="vivid"] {
   --color-lantern-soft: rgba(232, 164, 74, 0.20);
   --color-lantern-dim: rgba(232, 164, 74, 0.10);
   --color-moonlit-soft: rgba(126, 184, 212, 0.20);
-  --ring: rgba(232, 164, 74, 0.60);
+  --ring: color-mix(in srgb, var(--accent-primary) 60%, transparent);
 }
 
 /* Daylight + accent intensity combos */
@@ -250,14 +257,271 @@
   --color-lantern-soft: rgba(180, 83, 9, 0.05);
   --color-lantern-dim: rgba(180, 83, 9, 0.02);
   --color-moonlit-soft: rgba(14, 116, 144, 0.05);
-  --ring: rgba(180, 83, 9, 0.20);
+  --ring: color-mix(in srgb, var(--accent-primary) 20%, transparent);
 }
 
 [data-theme="daylight"][data-accent="vivid"] {
   --color-lantern-soft: rgba(180, 83, 9, 0.18);
   --color-lantern-dim: rgba(180, 83, 9, 0.08);
   --color-moonlit-soft: rgba(14, 116, 144, 0.18);
-  --ring: rgba(180, 83, 9, 0.50);
+  --ring: color-mix(in srgb, var(--accent-primary) 50%, transparent);
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * PALETTE INDIRECTION LAYER — Coordinated color palette system
+ *
+ * Introduces --accent-* tokens that default to Lantern palette values.
+ * Palette overrides use [data-palette="..."] on <html> with mode combos.
+ * Components should reference --accent-* instead of --color-lantern directly.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+:root {
+  --accent-primary: var(--color-lantern);
+  --accent-primary-soft: var(--color-lantern-soft);
+  --accent-primary-dim: var(--color-lantern-dim);
+  --accent-secondary: var(--color-moonlit);
+  --accent-secondary-soft: var(--color-moonlit-soft);
+  --accent-tertiary: #d4a07e;
+  --accent-tertiary-soft: rgba(212, 160, 126, 0.12);
+  --accent-glow: rgba(232, 164, 74, 0.18);
+  --accent-surface: rgba(232, 164, 74, 0.025);
+  --accent-on-primary: #0f1d32;
+
+  /* Nav wayfinding shades — default to accent-primary; per-palette overrides below */
+  --accent-nav-schedule: var(--accent-primary);
+  --accent-nav-today: var(--accent-primary);
+  --accent-nav-upcoming: var(--accent-primary);
+  --accent-nav-habits: var(--accent-primary);
+}
+
+[data-theme="daylight"] {
+  --accent-tertiary: #8b5e3c;
+  --accent-tertiary-soft: rgba(139, 94, 60, 0.08);
+  --accent-glow: rgba(180, 83, 9, 0.14);
+  --accent-surface: rgba(180, 83, 9, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/* ── Ember ── */
+[data-palette="ember"] {
+  --accent-primary: #e87461;
+  --accent-primary-soft: rgba(232, 116, 97, 0.12);
+  --accent-primary-dim: rgba(232, 116, 97, 0.06);
+  --accent-secondary: #8bb8a6;
+  --accent-secondary-soft: rgba(139, 184, 166, 0.12);
+  --accent-tertiary: #e8a87a;
+  --accent-tertiary-soft: rgba(232, 168, 122, 0.12);
+  --accent-glow: rgba(232, 116, 97, 0.18);
+  --accent-surface: rgba(232, 116, 97, 0.025);
+  --accent-on-primary: #0f1d32;
+}
+[data-theme="daylight"][data-palette="ember"] {
+  --accent-primary: #c2410c;
+  --accent-primary-soft: rgba(194, 65, 12, 0.08);
+  --accent-primary-dim: rgba(194, 65, 12, 0.04);
+  --accent-secondary: #3d7a64;
+  --accent-secondary-soft: rgba(61, 122, 100, 0.08);
+  --accent-tertiary: #9e5a30;
+  --accent-tertiary-soft: rgba(158, 90, 48, 0.08);
+  --accent-glow: rgba(194, 65, 12, 0.14);
+  --accent-surface: rgba(194, 65, 12, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/* ── Rose ── */
+[data-palette="rose"] {
+  --accent-primary: #e879a8;
+  --accent-primary-soft: rgba(232, 121, 168, 0.12);
+  --accent-primary-dim: rgba(232, 121, 168, 0.06);
+  --accent-secondary: #79c4b8;
+  --accent-secondary-soft: rgba(121, 196, 184, 0.12);
+  --accent-tertiary: #d4b078;
+  --accent-tertiary-soft: rgba(212, 176, 120, 0.12);
+  --accent-glow: rgba(232, 121, 168, 0.18);
+  --accent-surface: rgba(232, 121, 168, 0.025);
+  --accent-on-primary: #0f1d32;
+}
+[data-theme="daylight"][data-palette="rose"] {
+  --accent-primary: #be185d;
+  --accent-primary-soft: rgba(190, 24, 93, 0.08);
+  --accent-primary-dim: rgba(190, 24, 93, 0.04);
+  --accent-secondary: #18816f;
+  --accent-secondary-soft: rgba(24, 129, 111, 0.08);
+  --accent-tertiary: #8a6d2f;
+  --accent-tertiary-soft: rgba(138, 109, 47, 0.08);
+  --accent-glow: rgba(190, 24, 93, 0.14);
+  --accent-surface: rgba(190, 24, 93, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/* ── Violet ── */
+[data-palette="violet"] {
+  --accent-primary: #a78bfa;
+  --accent-primary-soft: rgba(167, 139, 250, 0.12);
+  --accent-primary-dim: rgba(167, 139, 250, 0.06);
+  --accent-secondary: #8bc4a3;
+  --accent-secondary-soft: rgba(139, 196, 163, 0.12);
+  --accent-tertiary: #d4a882;
+  --accent-tertiary-soft: rgba(212, 168, 130, 0.12);
+  --accent-glow: rgba(167, 139, 250, 0.18);
+  --accent-surface: rgba(167, 139, 250, 0.025);
+  --accent-on-primary: #ffffff;
+}
+[data-theme="daylight"][data-palette="violet"] {
+  --accent-primary: #7c3aed;
+  --accent-primary-soft: rgba(124, 58, 237, 0.08);
+  --accent-primary-dim: rgba(124, 58, 237, 0.04);
+  --accent-secondary: #2d7a52;
+  --accent-secondary-soft: rgba(45, 122, 82, 0.08);
+  --accent-tertiary: #9e6830;
+  --accent-tertiary-soft: rgba(158, 104, 48, 0.08);
+  --accent-glow: rgba(124, 58, 237, 0.14);
+  --accent-surface: rgba(124, 58, 237, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/* ── Sapphire ── */
+[data-palette="sapphire"] {
+  --accent-primary: #60a5fa;
+  --accent-primary-soft: rgba(96, 165, 250, 0.12);
+  --accent-primary-dim: rgba(96, 165, 250, 0.06);
+  --accent-secondary: #c4a882;
+  --accent-secondary-soft: rgba(196, 168, 130, 0.12);
+  --accent-tertiary: #c48ea8;
+  --accent-tertiary-soft: rgba(196, 142, 168, 0.12);
+  --accent-glow: rgba(96, 165, 250, 0.18);
+  --accent-surface: rgba(96, 165, 250, 0.025);
+  --accent-on-primary: #0f1d32;
+}
+[data-theme="daylight"][data-palette="sapphire"] {
+  --accent-primary: #2563eb;
+  --accent-primary-soft: rgba(37, 99, 235, 0.08);
+  --accent-primary-dim: rgba(37, 99, 235, 0.04);
+  --accent-secondary: #8a6d3a;
+  --accent-secondary-soft: rgba(138, 109, 58, 0.08);
+  --accent-tertiary: #8a3d62;
+  --accent-tertiary-soft: rgba(138, 61, 98, 0.08);
+  --accent-glow: rgba(37, 99, 235, 0.14);
+  --accent-surface: rgba(37, 99, 235, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/* ── Jade ── */
+[data-palette="jade"] {
+  --accent-primary: #5dba72;
+  --accent-primary-soft: rgba(93, 186, 114, 0.12);
+  --accent-primary-dim: rgba(93, 186, 114, 0.06);
+  --accent-secondary: #ba7a5d;
+  --accent-secondary-soft: rgba(186, 122, 93, 0.12);
+  --accent-tertiary: #7a8fd4;
+  --accent-tertiary-soft: rgba(122, 143, 212, 0.12);
+  --accent-glow: rgba(93, 186, 114, 0.18);
+  --accent-surface: rgba(93, 186, 114, 0.025);
+  --accent-on-primary: #0f1d32;
+}
+[data-theme="daylight"][data-palette="jade"] {
+  --accent-primary: #15803d;
+  --accent-primary-soft: rgba(21, 128, 61, 0.08);
+  --accent-primary-dim: rgba(21, 128, 61, 0.04);
+  --accent-secondary: #804225;
+  --accent-secondary-soft: rgba(128, 66, 37, 0.08);
+  --accent-tertiary: #3d4f9e;
+  --accent-tertiary-soft: rgba(61, 79, 158, 0.08);
+  --accent-glow: rgba(21, 128, 61, 0.14);
+  --accent-surface: rgba(21, 128, 61, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/* ── Copper ── */
+[data-palette="copper"] {
+  --accent-primary: #d9956a;
+  --accent-primary-soft: rgba(217, 149, 106, 0.12);
+  --accent-primary-dim: rgba(217, 149, 106, 0.06);
+  --accent-secondary: #7eb8d4;
+  --accent-secondary-soft: rgba(126, 184, 212, 0.12);
+  --accent-tertiary: #d4c078;
+  --accent-tertiary-soft: rgba(212, 192, 120, 0.12);
+  --accent-glow: rgba(217, 149, 106, 0.18);
+  --accent-surface: rgba(217, 149, 106, 0.025);
+  --accent-on-primary: #0f1d32;
+}
+[data-theme="daylight"][data-palette="copper"] {
+  --accent-primary: #92400e;
+  --accent-primary-soft: rgba(146, 64, 14, 0.08);
+  --accent-primary-dim: rgba(146, 64, 14, 0.04);
+  --accent-secondary: #1a7a9b;
+  --accent-secondary-soft: rgba(26, 122, 155, 0.08);
+  --accent-tertiary: #8a7a2f;
+  --accent-tertiary-soft: rgba(138, 122, 47, 0.08);
+  --accent-glow: rgba(146, 64, 14, 0.14);
+  --accent-surface: rgba(146, 64, 14, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/* ── Frost ── */
+[data-palette="frost"] {
+  --accent-primary: #7eb8d4;
+  --accent-primary-soft: rgba(126, 184, 212, 0.12);
+  --accent-primary-dim: rgba(126, 184, 212, 0.06);
+  --accent-secondary: #d4a87e;
+  --accent-secondary-soft: rgba(212, 168, 126, 0.12);
+  --accent-tertiary: #9aaed4;
+  --accent-tertiary-soft: rgba(154, 174, 212, 0.12);
+  --accent-glow: rgba(126, 184, 212, 0.18);
+  --accent-surface: rgba(126, 184, 212, 0.025);
+  --accent-on-primary: #0f1d32;
+}
+[data-theme="daylight"][data-palette="frost"] {
+  --accent-primary: #0e7490;
+  --accent-primary-soft: rgba(14, 116, 144, 0.08);
+  --accent-primary-dim: rgba(14, 116, 144, 0.04);
+  --accent-secondary: #8a6830;
+  --accent-secondary-soft: rgba(138, 104, 48, 0.08);
+  --accent-tertiary: #4a5e8a;
+  --accent-tertiary-soft: rgba(74, 94, 138, 0.08);
+  --accent-glow: rgba(14, 116, 144, 0.14);
+  --accent-surface: rgba(14, 116, 144, 0.02);
+  --accent-on-primary: #ffffff;
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * THEME PRESET SURFACE TINTS
+ * Applied via data-theme-preset attribute — additive, non-destructive overlays.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+:root {
+  --surface-tint: transparent;
+}
+[data-theme-preset="spring-bloom"]   { --surface-tint: rgba(232, 121, 168, 0.02); }
+[data-theme-preset="summer-coast"]   { --surface-tint: rgba(96, 165, 250, 0.03); }
+[data-theme-preset="autumn-hearth"]  { --surface-tint: rgba(217, 149, 106, 0.03); }
+[data-theme-preset="winter-frost"]   { --surface-tint: rgba(126, 184, 212, 0.03); }
+[data-theme-preset="midnight-garden"]{ --surface-tint: rgba(167, 139, 250, 0.02); }
+[data-theme-preset="golden-hour"]    { --surface-tint: rgba(232, 116, 97, 0.02); }
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * CUSTOM BACKGROUND — Luminance-adaptive token override layer
+ * Applied via data-bg-mode="custom" on <html>. Remaps twilight-* tokens
+ * to derived --color-bg-* values set inline by JS.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+[data-bg-mode="custom"] {
+  --color-twilight-void: var(--color-bg-deep);
+  --color-twilight-deep: var(--color-bg-deep);
+  --color-twilight-base: var(--color-bg-custom);
+  --color-twilight-surface: var(--color-bg-surface);
+  --color-twilight-surface-muted: var(--color-bg-surface);
+  --color-twilight-surface-hover: var(--color-bg-elevated);
+  --color-twilight-elevated: var(--color-bg-elevated);
+  --color-twilight-text: var(--color-bg-text);
+  --color-twilight-text-soft: var(--color-bg-text-soft);
+  --color-twilight-text-muted: var(--color-bg-text-muted);
+  --color-twilight-border: var(--color-bg-border);
+  --color-twilight-border-interactive: var(--color-bg-border);
+  --color-twilight-border-light: var(--color-bg-border-light);
 }
 
 /*
@@ -659,7 +923,7 @@
   }
 
   ::selection {
-    background: var(--color-lantern-soft);
+    background: var(--accent-primary-soft);
     color: var(--color-twilight-text);
   }
 }
@@ -888,6 +1152,14 @@
     min-height: 44px;
     @apply rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer;
   }
+
+  /* §12: On touch-only devices, always show elements that rely on hover for visibility.
+     This ensures action buttons, menus, and overflow controls remain reachable. */
+  @media (hover: none) {
+    .touch-reveal {
+      opacity: 1 !important;
+    }
+  }
 }
 
 /* === GLOBAL INTERACTIVE TRANSITIONS === */
@@ -988,12 +1260,12 @@ a:active {
 .neon-auth-wrapper input:focus {
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(232, 164, 74, 0.5) !important;
-  border-color: var(--color-lantern) !important;
+  border-color: var(--accent-primary) !important;
 }
 
 /* Primary Submit Button */
 .neon-auth-wrapper button[type="submit"] {
-  background: var(--color-lantern) !important;
+  background: var(--accent-primary) !important;
   color: #070e1a !important;
   border: none !important;
   min-height: 44px !important;
@@ -1052,12 +1324,12 @@ a:active {
 
 .neon-auth-wrapper button:hover {
   background: rgba(21, 37, 64, 0.5) !important;
-  border-color: var(--color-lantern-soft) !important;
+  border-color: var(--accent-primary-soft) !important;
   box-shadow: 0 0 20px rgba(232, 164, 74, 0.08) !important;
 }
 
 .neon-auth-wrapper button[type="submit"]:hover {
-  background: var(--color-lantern) !important;
+  background: var(--accent-primary) !important;
   color: #070e1a !important;
   border: none !important;
   box-shadow: 0 0 24px rgba(232, 164, 74, 0.18) !important;
@@ -1129,7 +1401,7 @@ a:active {
 }
 
 .offline-banner--offline {
-  --offline-accent: var(--color-lantern);
+  --offline-accent: var(--accent-primary);
 }
 
 .offline-banner__action {
@@ -1277,7 +1549,7 @@ a:active {
 }
 
 .cadence-toast--warning {
-  --cadence-toast-accent: var(--color-lantern);
+  --cadence-toast-accent: var(--accent-primary);
 }
 
 .cadence-toast__icon {
@@ -1473,8 +1745,20 @@ a:active {
   box-shadow: 0 0 24px rgba(232, 164, 74, 0.06), 0 0 80px rgba(232, 164, 74, 0.03);
 }
 
+@utility glow-accent {
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent-primary) 6%, transparent),
+              0 0 80px color-mix(in srgb, var(--accent-primary) 3%, transparent);
+}
+
 @utility glow-moonlit {
   box-shadow: 0 0 24px rgba(126, 184, 212, 0.06), 0 0 80px rgba(126, 184, 212, 0.03);
+}
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* === FOCUS / REVEAL TOKENS === */
@@ -1484,13 +1768,13 @@ a:active {
   --duration-focus-pulse: 1.6s;
 
   /* Sync */
-  --color-sync-active: var(--color-lantern);
+  --color-sync-active: var(--accent-primary);
   --color-sync-idle: var(--color-twilight-text-muted);
   --duration-sync-spin: 800ms;
 
   /* Notifications */
-  --color-notification-unread: var(--color-lantern);
-  --color-notification-reminder: var(--color-lantern);
+  --color-notification-unread: var(--accent-primary);
+  --color-notification-reminder: var(--accent-primary);
   --color-notification-system: var(--color-moonlit);
 
   /* Holding companion panel */
@@ -1614,11 +1898,11 @@ a:active {
 
 [data-theme="daylight"] .neon-auth-wrapper input:focus {
   box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.35) !important;
-  border-color: var(--color-lantern) !important;
+  border-color: var(--accent-primary) !important;
 }
 
 [data-theme="daylight"] .neon-auth-wrapper button[type="submit"] {
-  background: var(--color-lantern) !important;
+  background: var(--accent-primary) !important;
   color: #ffffff !important;
 }
 
@@ -1630,7 +1914,7 @@ a:active {
 
 [data-theme="daylight"] .neon-auth-wrapper button:hover {
   background: rgba(228, 223, 216, 0.6) !important;
-  border-color: var(--color-lantern-soft) !important;
+  border-color: var(--accent-primary-soft) !important;
 }
 
 /* Toasts for daylight */

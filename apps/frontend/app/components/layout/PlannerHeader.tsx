@@ -24,7 +24,7 @@ export function PlannerHeader({ className = "" }: { className?: string }) {
             <div>
                 {/* Greeting — the warm anchor */}
                 <h2 className="font-display text-[2rem] font-semibold tracking-tight text-twilight-text sm:text-[2.15rem]">
-                    {greeting}, <span className="text-lantern">{firstName}</span>.
+                    {greeting}, <span className="text-accent-primary">{firstName}</span>.
                 </h2>
 
                 {/* Date & Weather — quiet, secondary context line */}
@@ -48,12 +48,12 @@ export function PlannerHeader({ className = "" }: { className?: string }) {
                         </span>
                     )}
 
-                    {!loading && !weather && error && (
+                    {!loading && !weather && error && error !== "denied" && (
                         <span className="animate-in fade-in duration-500">
                             <span className="mx-2 text-twilight-text-soft">·</span>
                             <CloudOff size={13} className="inline -mt-0.5 mr-1 text-twilight-text-muted/70" aria-hidden="true" />
                             <span className="text-twilight-text-muted/70">
-                                {error === "denied" ? "Location off" : "Weather unavailable"}
+                                Weather unavailable
                             </span>
                         </span>
                     )}

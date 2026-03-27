@@ -138,12 +138,12 @@ function InlineSubtaskItem({
                 onClick={() => onToggle(subtask.id, !subtask.isComplete)}
                 data-no-dnd="true"
                 className={`h-6 w-6 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors cursor-pointer ${subtask.isComplete
-                    ? "bg-lantern/20 border-lantern text-lantern"
-                    : "border-twilight-text-muted/70 hover:border-lantern/50"
+                    ? "bg-accent-primary/20 border-accent-primary text-accent-primary"
+                    : "border-twilight-text-muted/70 hover:border-accent-primary/50"
                     }`}
             >
                 {subtask.isComplete && (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-lantern">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-accent-primary">
                         <path d="M2 5L4 7L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                 )}
@@ -154,7 +154,7 @@ function InlineSubtaskItem({
             >
                 {subtask.title}
             </span>
-            <div className={`flex items-center gap-1 ${compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100"} transition-opacity`}>
+            <div className={`flex items-center gap-1 ${compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 touch-reveal"} transition-opacity`}>
                 <button
                     type="button"
                     onClick={() => onMoveUp(subtask.id)}
@@ -181,7 +181,7 @@ function InlineSubtaskItem({
                 onClick={() => onDelete(subtask.id)}
                 data-no-dnd="true"
                 className={`h-8 w-8 shrink-0 rounded-xl text-red-400/70 transition-[opacity,color,background-color] hover:bg-red-500/10 hover:text-red-300 ${
-                    compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100"
+                    compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 touch-reveal"
                 }`}
                 aria-label="Delete subtask"
             >
@@ -267,7 +267,7 @@ export function TaskCard({
             className: isPassiveTimetable
                 ? "text-moonlit"
                 : scheduleSummary.isDeadline || scheduleSummary.isDuration
-                    ? "text-lantern"
+                    ? "text-accent-primary"
                     : "text-twilight-text-soft",
         }
         : task.waitingOn
@@ -447,11 +447,11 @@ export function TaskCard({
                 ${isPassiveTimetable ? PASSIVE_TIMETABLE_CARD_CLASS : ""}
                 ${isComplete ? "opacity-45" : ""}
                 ${isTaskSelected
-                    ? "bg-white/[0.04] ring-1 ring-lantern/15"
+                    ? "bg-white/[0.04] ring-1 ring-accent-primary/15"
                     : `hover:bg-white/[0.035] hover:glow-lantern ${PRIORITY_BG_CLASS[task.priority]}`
                 }
                 ${isDropTarget ? "ring-1 ring-moonlit/30 border-moonlit/35 bg-moonlit/[0.035]" : ""}
-                ${isDragging ? "shadow-[0_18px_46px_rgba(0,0,0,0.32),0_0_24px_rgba(232,164,74,0.08)]" : ""}
+                ${isDragging ? "shadow-[0_18px_46px_rgba(0,0,0,0.32),0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]" : ""}
             `}
         >
             {/* Priority Bar */}
@@ -501,7 +501,7 @@ export function TaskCard({
                             {(task.isPinned || showUrgentIcon) ? (
                                 <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
                                     {task.isPinned && (
-                                        <Pin size={12} className="rotate-45 text-lantern" aria-label="Pinned" />
+                                        <Pin size={12} className="rotate-45 text-accent-primary" aria-label="Pinned" />
                                     )}
                                     {showUrgentIcon && (
                                         <AlertTriangle
@@ -533,7 +533,7 @@ export function TaskCard({
                                 ) : null}
 
                                 {rationaleLabel ? (
-                                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-lantern/20 bg-lantern/10 px-2.5 py-1 text-[10px] font-medium text-lantern">
+                                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-1 text-[10px] font-medium text-accent-primary">
                                         <Sparkles size={11} aria-hidden="true" />
                                         <span className="truncate">{rationaleLabel}</span>
                                     </span>

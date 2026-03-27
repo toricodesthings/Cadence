@@ -5,6 +5,7 @@ import type {
   CanonicalNlpEnvelope,
   CanonicalNlpSnapshot,
   ConfidenceTier,
+  WarningCode,
 } from "../core/index.js";
 import { PARSER_VERSION } from "../core/index.js";
 import { parseDates } from "./date-parser.js";
@@ -19,11 +20,11 @@ import { resolveProjectsAndTags } from "../resolve/index.js";
  * Parse order:
  * 0. Extract quoted "literal" segments — protected from NLP parsing
  * 1. Recurrence (before dates, since "every Monday" might confuse date parser)
- * 2. Dates/times via chrono-node
- * 3. Priority keywords
- * 4. Duration estimates
+ * 2. Duration estimates (before dates — chrono-node would otherwise consume duration phrases)
+ * 3. Dates/times via chrono-node
+ * 4. Priority keywords
  * 5. Waiting-on patterns
- * 6. Project/tag resolution (fuzzy via Fuse.js)
+ * 6. Project/tag/section resolution (fuzzy via Fuse.js)
  * 7. Explicit shorthand (#tag, /project)
  */
 export function parse(options: ParseOptions): ParseResult {
@@ -39,7 +40,7 @@ export function parse(options: ParseOptions): ParseResult {
   const dismissed = new Set(dismissedEntityIds);
   const allEntities: ParsedEntity[] = [];
   const consumedRanges: Array<{ start: number; end: number }> = [];
-  const warnings: string[] = [];
+  const warnings: WarningCode[] = [];
 
   // 0. Extract quoted "literal" segments — protect from NLP parsing
   // e.g. "Heaven's Night" → replaced with placeholder, restored in cleaned title
@@ -68,30 +69,7 @@ export function parse(options: ParseOptions): ParseResult {
     }
   }
 
-  // 2. Dates — give chrono the input without consumed recurrence ranges
-  const dateResult = parseDates(input, { referenceDate, dateStyle });
-  for (const entity of dateResult.entities) {
-    // Skip dates that overlap with recurrence matches
-    const overlaps = consumedRanges.some(
-      (r) => entity.start < r.end && entity.end > r.start,
-    );
-    if (overlaps) continue;
-    if (!dismissed.has(entity.id)) {
-      allEntities.push(entity);
-      consumedRanges.push(...dateResult.consumedRanges);
-    }
-  }
-
-  // 3. Priority
-  const priorityResult = parsePriority(input);
-  for (const entity of priorityResult.entities) {
-    if (!dismissed.has(entity.id)) {
-      allEntities.push(entity);
-      consumedRanges.push(...priorityResult.consumedRanges);
-    }
-  }
-
-  // 4. Duration
+  // 2. Duration (before dates — chrono-node would otherwise consume duration phrases)
   const durationResult = parseDuration(input);
   for (const entity of durationResult.entities) {
     const overlaps = consumedRanges.some(
@@ -101,6 +79,46 @@ export function parse(options: ParseOptions): ParseResult {
     if (!dismissed.has(entity.id)) {
       allEntities.push(entity);
       consumedRanges.push(...durationResult.consumedRanges);
+    }
+  }
+
+  // 3. Dates — give chrono the input without consumed recurrence/duration ranges
+  const dateResult = parseDates(input, { referenceDate, dateStyle });
+  for (const entity of dateResult.entities) {
+    // Skip dates that overlap with recurrence or duration matches
+    const overlaps = consumedRanges.some(
+      (r) => entity.start < r.end && entity.end > r.start,
+    );
+    if (overlaps) continue;
+    if (!dismissed.has(entity.id)) {
+      // Emit warning for timed deadlines that need review
+      if (entity.type === "due_date" && (entity.normalizedValue as { hasTime?: boolean })?.hasTime) {
+        warnings.push("timed_deadline_needs_review");
+      }
+      if (entity.confidence === "low") {
+        warnings.push("low_confidence_entity");
+      }
+      allEntities.push(entity);
+      consumedRanges.push(...dateResult.consumedRanges);
+    }
+  }
+
+  // Emit warning if multiple dates detected
+  if (dateResult.entities.length > 1) {
+    warnings.push("multiple_dates_detected");
+  }
+
+  // Emit warning if recurrence combined with deadline
+  if (recurrenceResult.entities.length > 0 && dateResult.entities.some(e => e.type === "due_date")) {
+    warnings.push("recurrence_with_deadline");
+  }
+
+  // 4. Priority
+  const priorityResult = parsePriority(input);
+  for (const entity of priorityResult.entities) {
+    if (!dismissed.has(entity.id)) {
+      allEntities.push(entity);
+      consumedRanges.push(...priorityResult.consumedRanges);
     }
   }
 
@@ -154,7 +172,7 @@ export function parse(options: ParseOptions): ParseResult {
 
 export function deriveOverallConfidence(
   entities: ParsedEntity[],
-  warnings: string[] = [],
+  warnings: WarningCode[] = [],
 ): ConfidenceTier | null {
   if (warnings.includes("timed_deadline_needs_review")) {
     return "low";
@@ -301,7 +319,7 @@ function buildSummary(entities: ParsedEntity[]): string | null {
         parts.push(`#${(entity.normalizedValue as { name: string }).name}`);
         break;
       case "waiting_on":
-        parts.push(`Waiting on ${entity.normalizedValue}`);
+        parts.push(`Waiting on ${(entity.normalizedValue as { person: string }).person}`);
         break;
       case "duration":
         parts.push((entity.normalizedValue as { humanLabel: string }).humanLabel);

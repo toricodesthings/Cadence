@@ -118,26 +118,26 @@ export function SidebarPanel({
                                     icon={Calendar}
                                     label="Schedule"
                                     href="/schedule"
-                                    activeColor="text-[var(--color-nav-schedule)]"
-                                    activeBg="bg-[var(--color-nav-schedule)]/15"
-                                    hoverColor="group-hover:text-[var(--color-nav-schedule)]/70"
+                                    activeColor="text-accent-nav-schedule"
+                                    activeBg="bg-accent-nav-schedule/15"
+                                    hoverColor="group-hover:text-accent-nav-schedule/70"
                                 />
                                 <NavLink
                                     icon={Flame}
                                     label="Habits"
                                     href="/habits"
                                     showDot={hasHabitsDue}
-                                    activeColor="text-lantern"
-                                    activeBg="bg-lantern/15"
-                                    hoverColor="group-hover:text-lantern"
+                                    activeColor="text-accent-nav-habits"
+                                    activeBg="bg-accent-nav-habits/15"
+                                    hoverColor="group-hover:text-accent-nav-habits"
                                 />
                                 <NavLink
                                     icon={Sprout}
                                     label="Weekly Reset"
                                     href="/weekly-review"
-                                    activeColor="text-[var(--color-nav-planner)]"
-                                    activeBg="bg-[var(--color-nav-planner)]/15"
-                                    hoverColor="group-hover:text-[var(--color-nav-planner)]/70"
+                                    activeColor="text-accent-nav-upcoming"
+                                    activeBg="bg-accent-nav-upcoming/15"
+                                    hoverColor="group-hover:text-accent-nav-upcoming/70"
                                 />
                             </nav>
 
@@ -152,33 +152,33 @@ export function SidebarPanel({
                             label="Capture"
                             href="/"
                             count={inboxCount}
-                            activeColor="text-[var(--color-nav-inbox)]"
-                            activeBg="bg-[var(--color-nav-inbox)]/15"
-                            hoverColor="group-hover:text-[var(--color-nav-inbox)]/70"
+                            activeColor="text-accent-nav-capture"
+                            activeBg="bg-accent-nav-capture/15"
+                            hoverColor="group-hover:text-accent-nav-capture/70"
                         />
                         <NavLink
                             icon={LayoutDashboard}
                             label="Today"
                             href="/today"
-                            activeColor="text-[var(--color-nav-planner)]"
-                            activeBg="bg-[var(--color-nav-planner)]/15"
-                            hoverColor="group-hover:text-[var(--color-nav-planner)]/70"
+                            activeColor="text-accent-nav-today"
+                            activeBg="bg-accent-nav-today/15"
+                            hoverColor="group-hover:text-accent-nav-today/70"
                         />
                         <NavLink
                             icon={CalendarRange}
                             label="Upcoming"
                             href="/upcoming"
-                            activeColor="text-[var(--color-nav-upcoming)]"
-                            activeBg="bg-[var(--color-nav-upcoming)]/15"
-                            hoverColor="group-hover:text-[var(--color-nav-upcoming)]/70"
+                            activeColor="text-accent-nav-upcoming"
+                            activeBg="bg-accent-nav-upcoming/15"
+                            hoverColor="group-hover:text-accent-nav-upcoming/70"
                         />
                         <NavLink
                             icon={CalendarHeart}
                             label="Events"
                             href="/events"
-                            activeColor="text-personal"
-                            activeBg="bg-personal/12"
-                            hoverColor="group-hover:text-personal/80"
+                            activeColor="text-accent-nav-schedule"
+                            activeBg="bg-accent-nav-schedule/12"
+                            hoverColor="group-hover:text-accent-nav-schedule/80"
                         />
                     </nav>
 
@@ -289,9 +289,9 @@ export function SidebarPanel({
                                 icon={CheckCircle2}
                                 label="Completed"
                                 href="/completed"
-                                activeColor="text-[var(--color-nav-completed)]"
-                                activeBg="bg-[var(--color-nav-completed)]/15"
-                                hoverColor="group-hover:text-[var(--color-nav-completed)]/70"
+                                activeColor="text-accent-primary"
+                                activeBg="bg-accent-primary/15"
+                                hoverColor="group-hover:text-accent-primary/70"
                             />
                         )}
                         {!userSettings?.tasks?.hideTrash && (

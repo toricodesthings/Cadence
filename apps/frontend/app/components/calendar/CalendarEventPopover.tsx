@@ -118,9 +118,9 @@ function WeekdayPicker({
                             if (active && value.length === 1) return;
                             onChange(active ? value.filter((item) => item !== day) : [...value, day]);
                         }}
-                        className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xs font-semibold transition-colors duration-200 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lantern/50 ${
+                        className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xs font-semibold transition-colors duration-200 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
                             active
-                                ? "border border-lantern/30 bg-lantern/15 text-lantern shadow-[0_0_12px_rgba(232,164,74,0.08)]"
+                                ? "border border-accent-primary/30 bg-accent-primary/15 text-accent-primary shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
                                 : "border border-white/[0.07] bg-white/[0.04] text-twilight-text-muted hover:bg-white/[0.07] hover:text-twilight-text"
                         }`}
                     >
@@ -303,8 +303,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                             "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors",
                                             tab === option.id
                                                 ? option.id === "task"
-                                                    ? "bg-lantern/15 text-lantern"
-                                                    : "bg-personal/15 text-personal"
+                                                    ? "bg-accent-primary/15 text-accent-primary"
+                                                    : "bg-accent-nav-schedule/15 text-accent-nav-schedule"
                                                 : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text",
                                         )}
                                     >
@@ -338,7 +338,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                             onClick={() => setMode(option.id)}
                                             className={`min-h-10 cursor-pointer rounded-xl px-3 text-sm font-medium transition-colors ${
                                                 mode === option.id
-                                                    ? "bg-lantern/15 text-lantern"
+                                                    ? "bg-accent-primary/15 text-accent-primary"
                                                     : "text-twilight-text-soft hover:bg-white/[0.05]"
                                             }`}
                                         >
@@ -422,7 +422,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                                         setEndDate(startDate);
                                                     }
                                                 }}
-                                                className={`cursor-pointer text-[11px] font-medium transition-colors ${hasEndDate ? "text-lantern" : "text-twilight-text-muted hover:text-twilight-text-soft"}`}
+                                                className={`cursor-pointer text-[11px] font-medium transition-colors ${hasEndDate ? "text-accent-primary" : "text-twilight-text-muted hover:text-twilight-text-soft"}`}
                                             >
                                                 {hasEndDate ? "Remove" : "Add end date"}
                                             </button>
@@ -471,7 +471,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                                         onClick={() => setPriority(item.value as TaskPriority)}
                                                         className={`cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
                                                             priority === item.value
-                                                                ? "border-lantern/30 bg-lantern/15 text-lantern"
+                                                                ? "border-accent-primary/30 bg-accent-primary/15 text-accent-primary"
                                                                 : "border-white/[0.06] text-twilight-text-soft hover:bg-white/[0.05]"
                                                         }`}
                                                     >
@@ -495,7 +495,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                                         onClick={() => setEffort(effort === item.value ? null : item.value)}
                                                         className={`cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
                                                             effort === item.value
-                                                                ? "border-lantern/30 bg-lantern/15 text-lantern"
+                                                                ? "border-accent-primary/30 bg-accent-primary/15 text-accent-primary"
                                                                 : "border-white/[0.06] text-twilight-text-soft hover:bg-white/[0.05]"
                                                         }`}
                                                     >
@@ -522,7 +522,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                                 aria-label="Pick an emoji"
                                                 className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.04] text-[24px] text-twilight-text transition-colors hover:border-white/[0.10] hover:bg-white/[0.06]"
                                             >
-                                                {eventEmoji || <CalendarHeart size={18} className="text-personal" />}
+                                                {eventEmoji || <CalendarHeart size={18} className="text-accent-nav-schedule" />}
                                             </button>
                                         </EmojiPickerPopover>
 
@@ -592,7 +592,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                     <DialogFooter className="shrink-0 border-t border-white/[0.06] px-5 py-4 sm:px-6 sm:py-5">
                         {tab === "task" && mode === "weekly" && summary?.label ? (
                             <p className="mr-auto flex items-center gap-2 text-xs text-twilight-text-muted">
-                                <Repeat size={12} className="shrink-0 text-lantern" />
+                                <Repeat size={12} className="shrink-0 text-accent-primary" />
                                 <span>{summary.label}</span>
                             </p>
                         ) : (
@@ -609,7 +609,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                 size="md"
                                 onClick={handleTaskSubmit}
                                 disabled={!title.trim() || isPending}
-                                className="bg-lantern/18 text-lantern hover:bg-lantern/26 disabled:opacity-40"
+                                className="bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/26 disabled:opacity-40"
                             >
                                 <CalendarRange size={14} aria-hidden="true" />
                                 {isPending ? "Saving…" : mode === "weekly" ? "Create series" : "Add to schedule"}
@@ -620,7 +620,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                 size="md"
                                 onClick={handleEventSubmit}
                                 disabled={!eventLabel.trim()}
-                                className="bg-personal/18 text-personal hover:bg-personal/26 disabled:opacity-40"
+                                className="bg-accent-nav-schedule/18 text-accent-nav-schedule hover:bg-accent-nav-schedule/26 disabled:opacity-40"
                             >
                                 <CalendarHeart size={14} aria-hidden="true" />
                                 Add event

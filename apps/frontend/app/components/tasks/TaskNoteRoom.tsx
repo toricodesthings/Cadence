@@ -260,7 +260,7 @@ function NoteRoomInner({
                         onClick={() => setShowOutline((v) => !v)}
                         className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl transition-colors ${
                             showOutline
-                                ? "bg-lantern/12 text-lantern"
+                                ? "bg-accent-primary/12 text-accent-primary"
                                 : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
                         }`}
                         aria-label={showOutline ? "Hide outline" : "Show outline"}
@@ -318,7 +318,7 @@ function NoteRoomInner({
                         <TaskNoteSuggestions body={draft} />
                         <span
                             className={`text-[11px] tabular-nums ml-auto shrink-0 ${
-                                charCount > MAX_CHARS * 0.9 ? "text-lantern" : "text-twilight-text-muted/90"
+                                charCount > MAX_CHARS * 0.9 ? "text-accent-primary" : "text-twilight-text-muted/90"
                             }`}
                         >
                             {charCount.toLocaleString()} / {MAX_CHARS.toLocaleString()}

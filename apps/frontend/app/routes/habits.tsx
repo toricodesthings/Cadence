@@ -4,6 +4,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { MainLayout } from "../components/layout/MainLayout";
 import { toISODate, getWeekDates } from "../lib/utils/date-format";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
+import { HabitsMonthView } from "../components/habits/HabitsMonthView";
 import { HabitDetailPanel } from "../components/habits/HabitDetailPanel";
 import { CreateHabitDialog } from "../components/habits/CreateHabitDialog";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
@@ -37,6 +38,7 @@ export default function Habits() {
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
     const [direction, setDirection] = useState(0);
 
+    const [displayMode, setDisplayMode] = useState<"week" | "month">("week");
     const [viewMode, setViewMode] = useState<"active" | "archived">("active");
 
     const weekDates = useMemo(() => getWeekDates(new Date(currentDate + "T00:00:00")), [currentDate]);
@@ -52,20 +54,25 @@ export default function Habits() {
         () => habits.filter((habit) => habit.archived === (viewMode === "archived")),
         [habits, viewMode],
     );
+    const periodDate = useMemo(() => new Date(currentDate + "T00:00:00"), [currentDate]);
 
     const handleNavigate = useCallback((delta: number) => {
         setDirection(delta);
         setCurrentDate((prev) => {
             const date = new Date(prev + "T00:00:00");
-            date.setDate(date.getDate() + delta * 7);
+            if (displayMode === "week") {
+                date.setDate(date.getDate() + delta * 7);
+            } else {
+                date.setMonth(date.getMonth() + delta);
+            }
             return toISODate(date);
         });
-    }, []);
+    }, [displayMode]);
 
     const handleToday = useCallback(() => {
         const todayIso = toISODate(new Date());
         setDirection(todayIso >= currentDate ? 1 : -1);
-        setCurrentDate(toISODate(new Date()));
+        setCurrentDate(todayIso);
     }, [currentDate]);
 
     const handleSelectHabit = (id: string) => {
@@ -75,10 +82,16 @@ export default function Habits() {
         setSelectedHabitId((prev) => (prev === id ? null : id));
     };
 
-    const isCurrentWeek = toISODate(new Date()) >= startIso && toISODate(new Date()) <= endIso;
+    const todayIso = toISODate(new Date());
+    const isCurrentWeek = todayIso >= startIso && todayIso <= endIso;
+    const isCurrentMonth = periodDate.getFullYear() === new Date().getFullYear()
+        && periodDate.getMonth() === new Date().getMonth();
+    const isCurrentPeriod = displayMode === "week" ? isCurrentWeek : isCurrentMonth;
 
     const monthIdx = weekDates[0].getMonth();
     const year = weekDates[0].getFullYear();
+    const activeMonthIdx = periodDate.getMonth();
+    const activeYear = periodDate.getFullYear();
     const weekRangeLabel = (() => {
         const sameMonth = weekDates[0].getMonth() === weekDates[6].getMonth();
         const startFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(weekDates[0]);
@@ -95,7 +108,12 @@ export default function Habits() {
         return `Week of ${startFmt} – ${endFmt}`;
     })();
 
+    const monthRangeLabel = new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        year: "numeric",
+    }).format(periodDate);
     const mainHeading = `${MONTHS[monthIdx]} ${year}`;
+    const currentHeading = displayMode === "week" ? mainHeading : monthRangeLabel;
     const selectedHabit = visibleHabits.find((h) => h.id === selectedHabitId) ?? null;
 
     useEffect(() => {
@@ -138,11 +156,11 @@ export default function Habits() {
                                         <PanelLeftOpen size={18} />
                                     </button>
                                     <div className="flex min-w-0 flex-1 items-center gap-2">
-                                        <Flame size={14} className="text-lantern/70 shrink-0" />
+                                        <Flame size={14} className="text-accent-primary/70 shrink-0" />
                                         <div className="min-w-0">
                                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Habits</p>
                                             <h2 className="font-display text-sm font-semibold text-twilight-text tracking-tight truncate leading-tight">
-                                                {mainHeading}
+                                                {currentHeading}
                                             </h2>
                                         </div>
                                     </div>
@@ -165,8 +183,30 @@ export default function Habits() {
                                         </button>
                                     </div>
                                 </div>
-                                {/* Row 2: Active/Archived tabs + Today button */}
-                                <div className="flex items-center gap-1 mt-1.5">
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                                    <nav
+                                        className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                                        role="radiogroup"
+                                        aria-label="Habit display mode"
+                                    >
+                                        {(["week", "month"] as const).map((mode) => (
+                                            <button
+                                                key={mode}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={displayMode === mode}
+                                                onClick={() => setDisplayMode(mode)}
+                                                className={`
+                                                    rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
+                                                    ${displayMode === mode
+                                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
+                                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
+                                                `}
+                                            >
+                                                {mode === "week" ? "Week" : "Month"}
+                                            </button>
+                                        ))}
+                                    </nav>
                                     <nav
                                         className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
                                         role="radiogroup"
@@ -182,7 +222,7 @@ export default function Habits() {
                                                 className={`
                                                     rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
                                                     ${viewMode === mode
-                                                        ? "bg-lantern/20 text-lantern border-lantern/25"
+                                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
                                                         : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
                                                 `}
                                             >
@@ -193,7 +233,7 @@ export default function Habits() {
                                     <button
                                         type="button"
                                         onClick={handleToday}
-                                        disabled={isCurrentWeek}
+                                        disabled={isCurrentPeriod}
                                         className="ml-auto rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text cursor-pointer disabled:opacity-30"
                                     >
                                         Today
@@ -206,16 +246,16 @@ export default function Habits() {
                                 <div className="flex h-16 items-center gap-3">
                                     {/* Left: icon + page identity + heading + week range */}
                                     <div className="flex min-w-0 items-center gap-2.5">
-                                        <Flame size={18} className="text-lantern/70 shrink-0" />
+                                        <Flame size={18} className="text-accent-primary/70 shrink-0" />
                                         <div className="min-w-0">
                                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Habits</p>
                                             <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap leading-tight">
-                                                {mainHeading}
+                                                {currentHeading}
                                             </h2>
                                         </div>
                                         <span className="hidden sm:flex items-center text-[13px] text-twilight-text-soft whitespace-nowrap">
                                             <span className="mx-1.5 text-twilight-text-soft/50">&middot;</span>
-                                            <span>{weekRangeLabel}</span>
+                                            <span>{displayMode === "week" ? weekRangeLabel : "Motivational review"}</span>
                                         </span>
                                     </div>
 
@@ -232,7 +272,7 @@ export default function Habits() {
                                         <button
                                             type="button"
                                             onClick={handleToday}
-                                            disabled={isCurrentWeek}
+                                            disabled={isCurrentPeriod}
                                             className="rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-30"
                                         >
                                             Today
@@ -246,6 +286,30 @@ export default function Habits() {
                                             <ChevronRight size={16} />
                                         </button>
                                     </div>
+
+                                    <nav
+                                        className="flex items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                                        role="radiogroup"
+                                        aria-label="Habit display mode"
+                                    >
+                                        {(["week", "month"] as const).map((mode) => (
+                                            <button
+                                                key={mode}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={displayMode === mode}
+                                                onClick={() => setDisplayMode(mode)}
+                                                className={`
+                                                    rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border
+                                                    ${displayMode === mode
+                                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
+                                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
+                                                `}
+                                            >
+                                                {mode === "week" ? "Week" : "Month"}
+                                            </button>
+                                        ))}
+                                    </nav>
 
                                     {/* Right: view tabs */}
                                     <nav
@@ -263,7 +327,7 @@ export default function Habits() {
                                                 className={`
                                                     rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border
                                                     ${viewMode === mode
-                                                        ? "bg-lantern/20 text-lantern border-lantern/25"
+                                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
                                                         : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
                                                 `}
                                                 aria-current={viewMode === mode ? "true" : undefined}
@@ -277,7 +341,7 @@ export default function Habits() {
                                     <button
                                         type="button"
                                         onClick={() => setIsCreateOpen(true)}
-                                        className="inline-flex items-center gap-1.5 rounded-xl border border-lantern/20 bg-lantern/15 px-4 py-1.5 text-sm font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors cursor-pointer"
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-accent-primary/20 bg-accent-primary/15 px-4 py-1.5 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30 transition-colors cursor-pointer"
                                     >
                                         <Plus size={14} />
                                         <span className="hidden lg:inline">Add Routine</span>
@@ -290,7 +354,7 @@ export default function Habits() {
                     <div className="flex-1 overflow-hidden flex flex-col pt-4 min-w-0">
                         <AnimatePresence initial={false} custom={direction} mode="wait">
                             <motion.div
-                                key={weekDates[0].toISOString()}
+                                key={`${displayMode}-${currentDate}`}
                                 custom={direction}
                                 variants={slideVariants}
                                 initial="enter"
@@ -302,13 +366,24 @@ export default function Habits() {
                                 }}
                                 className="flex min-h-0 flex-1"
                             >
-                                <HabitsCanvas
-                                    weekDates={weekDates}
-                                    habits={visibleHabits}
-                                    selectedHabitId={selectedHabitId}
-                                    onSelectHabit={handleSelectHabit}
-                                    emptyStateMode={viewMode}
-                                />
+                                {displayMode === "week" ? (
+                                    <HabitsCanvas
+                                        weekDates={weekDates}
+                                        habits={visibleHabits}
+                                        selectedHabitId={selectedHabitId}
+                                        onSelectHabit={handleSelectHabit}
+                                        emptyStateMode={viewMode}
+                                    />
+                                ) : (
+                                    <HabitsMonthView
+                                        year={activeYear}
+                                        month={activeMonthIdx}
+                                        habits={visibleHabits}
+                                        selectedHabitId={selectedHabitId}
+                                        onSelectHabit={handleSelectHabit}
+                                        emptyStateMode={viewMode}
+                                    />
+                                )}
                             </motion.div>
                         </AnimatePresence>
                     </div>
@@ -373,7 +448,7 @@ export default function Habits() {
                         <button
                             type="button"
                             onClick={() => setIsCreateOpen(true)}
-                            className="pointer-events-auto touch-target inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-lantern/25 bg-lantern px-5 text-sm font-semibold text-twilight-void shadow-[0_18px_48px_rgba(232,164,74,0.28)]"
+                            className="pointer-events-auto touch-target inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-accent-primary/25 bg-accent-primary px-5 text-sm font-semibold text-twilight-void shadow-[0_18px_48px_color-mix(in_srgb,var(--accent-primary)_28%,transparent)]"
                         >
                             <Plus size={15} aria-hidden="true" />
                             Add Routine

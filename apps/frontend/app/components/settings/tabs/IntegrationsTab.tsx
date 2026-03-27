@@ -26,7 +26,7 @@ export function IntegrationsTab() {
         <div className="flex flex-col gap-10">
             <h2 className="mb-2 flex items-center gap-2 text-2xl font-bold text-twilight-text">
                 Integrations
-                <span className="ml-2 rounded-full border border-lantern/30 bg-lantern/12 px-2 py-0.5 text-xs font-medium text-lantern">Coming Soon</span>
+                <span className="ml-2 rounded-full border border-accent-primary/30 bg-accent-primary/12 px-2 py-0.5 text-xs font-medium text-accent-primary">Coming Soon</span>
             </h2>
 
             <div className="opacity-50 pointer-events-none">

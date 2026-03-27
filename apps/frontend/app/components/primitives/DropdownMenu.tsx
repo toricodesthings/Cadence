@@ -24,8 +24,8 @@ export const SubTrigger = forwardRef<
         ref={ref}
         className={[
             "px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors",
-            "text-twilight-text-soft hover:bg-white/10 hover:text-lantern-amber",
-            "data-[state=open]:bg-white/10 data-[state=open]:text-lantern-amber",
+            "text-twilight-text-soft hover:bg-white/10 hover:text-accent-primary",
+            "data-[state=open]:bg-white/10 data-[state=open]:text-accent-primary",
             className,
         ].join(" ")}
         {...props}
@@ -90,7 +90,7 @@ export const Item = forwardRef<
 >(({ className = "", variant = "default", ...props }, ref) => {
     const variants = {
         default:
-            "text-twilight-text-soft hover:bg-white/10 hover:text-lantern-amber focus:bg-white/10 focus:text-lantern-amber cursor-pointer",
+            "text-twilight-text-soft hover:bg-white/10 hover:text-accent-primary focus:bg-white/10 focus:text-accent-primary cursor-pointer",
         danger: "text-red-400/70 hover:bg-red-500/10 cursor-pointer",
     };
 

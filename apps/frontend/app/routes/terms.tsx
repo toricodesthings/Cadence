@@ -19,7 +19,7 @@ export default function TermsRoute() {
                 title: "Terms & Conditions",
                 eyebrow: "Compliance",
                 icon: <FileText size={18} aria-hidden="true" />,
-                accentColor: "var(--color-lantern)",
+                accentColor: "var(--accent-primary)",
             }}
         >
             <ScrollAreaWrapper>

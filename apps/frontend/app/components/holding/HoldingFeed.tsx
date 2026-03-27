@@ -71,13 +71,14 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
                     <SectionHeader
                         label="New captures"
                         count={activeCaptures.length}
-                        accentClassName="text-[var(--color-nav-inbox)]"
+                        accentClassName="text-accent-nav-capture"
                     />
                     <div className="mt-3">
                         <InboxList
                             items={activeCaptures}
                             selectedItemId={selectedInboxItemId}
                             onSelectItem={onSelectInboxItem}
+                            onClarify={onSelectInboxItem}
                         />
                     </div>
                 </section>
@@ -99,7 +100,7 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
                                 <ChevronRight size={12} className="text-twilight-text-muted" aria-hidden="true" />
                             )}
                             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
-                                Unassigned tasks
+                                Ready to place
                             </span>
                             <span className="text-[12px] tabular-nums text-twilight-text-muted/90">{readyToPlace.length}</span>
                         </div>

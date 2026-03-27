@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
+import * as ContextMenu from "../primitives/ContextMenu";
 import * as Dialog from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { useUpdateProject, useDeleteProject } from "../../hooks/projects";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { trackUsageEvent } from "../../lib/api/track-event";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
 interface ProjectLinkProps {
@@ -79,7 +81,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
                                 placeholder="Project name"
-                                className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-lantern/40 transition-colors"
+                                className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-accent-primary/40 transition-colors"
                                 onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
                             />
                         </div>
@@ -126,7 +128,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                             <button
                                 type="submit"
                                 disabled={!renameValue.trim()}
-                                className="px-4 py-2 rounded-xl text-sm bg-lantern/20 text-lantern hover:bg-lantern/30 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                                className="px-4 py-2 rounded-xl text-sm bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                             >
                                 Save changes
                             </button>
@@ -164,6 +166,10 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
             </AlertDialog.Root>
 
             {/* Row */}
+            <ContextMenu.Root onOpenChange={(isOpen) => {
+                if (isOpen) trackUsageEvent("project.context_menu_opened", { object_type: "project", input_method: "context_menu" });
+            }}>
+            <ContextMenu.Trigger asChild>
             <div
                 className={`
                     group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px]
@@ -218,6 +224,24 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                     </DropdownMenu.Content>
                 </DropdownMenu.Root>
             </div>
+            </ContextMenu.Trigger>
+            <ContextMenu.Content>
+                <ContextMenu.Item onSelect={handleRenameOpen}>
+                    <div className="flex items-center gap-2">
+                        <Pencil size={16} />
+                        <span>Rename / Edit</span>
+                        <kbd className="ml-auto text-[10px] opacity-40 font-mono">e</kbd>
+                    </div>
+                </ContextMenu.Item>
+                <ContextMenu.Separator />
+                <ContextMenu.Item variant="danger" onSelect={() => setDeleteOpen(true)}>
+                    <div className="flex items-center gap-2">
+                        <Trash2 size={16} />
+                        <span>Delete project</span>
+                    </div>
+                </ContextMenu.Item>
+            </ContextMenu.Content>
+            </ContextMenu.Root>
         </>
     );
 }

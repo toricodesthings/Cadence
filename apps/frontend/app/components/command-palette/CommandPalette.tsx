@@ -8,6 +8,7 @@ import { useUniversalSearch, type SearchResult, type SearchResultKind } from "..
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useFocusViewStore } from "../../stores/focus-view-store";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
 interface CommandPaletteProps {
     open: boolean;
@@ -51,6 +52,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             setRawQuery("");
             setSelectedIndex(0);
             requestAnimationFrame(() => inputRef.current?.focus());
+            trackUsageEvent("command_palette.opened", { input_method: "keyboard" });
         }
     }, [open]);
 
@@ -75,6 +77,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
     const navigateToResult = useCallback((result: SearchResult) => {
         onOpenChange(false);
+        trackUsageEvent("command_palette.result_opened", { object_type: result.kind as any });
 
         // If the match was in notes/headings, open note room instead
         if (result.noteAction) {

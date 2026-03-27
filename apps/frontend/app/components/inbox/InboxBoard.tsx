@@ -43,7 +43,7 @@ function InboxColumn({
                     <input
                         autoFocus
                         defaultValue={section.name}
-                        className="bg-transparent text-[13px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-lantern/30 w-full"
+                        className="bg-transparent text-[13px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-accent-primary/30 w-full"
                         onBlur={(e) => { onRename(e.target.value); setIsRenaming(false); }}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") { onRename((e.target as HTMLInputElement).value); setIsRenaming(false); }
@@ -244,7 +244,7 @@ export function InboxBoard({ items }: InboxBoardProps) {
                                 }}
                                 onBlur={handleCreateColumn}
                                 placeholder="Section name"
-                                className="bg-white/[0.05] border border-twilight-border/50 text-twilight-text text-[13px] font-display font-medium rounded-lg px-3 py-2 outline-none focus:border-lantern/50 transition-colors"
+                                className="bg-white/[0.05] border border-twilight-border/50 text-twilight-text text-[13px] font-display font-medium rounded-lg px-3 py-2 outline-none focus:border-accent-primary/50 transition-colors"
                             />
                         </div>
                     )}

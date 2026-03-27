@@ -30,15 +30,15 @@ export function GhostTaskInput({ placeholder = "Task name…", onConfirm, onCanc
             className={`
                 flex items-center gap-1.5
                 rounded-full px-2.5 py-[3px]
-                bg-white/[0.07] border border-lantern/25
-                backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.2),0_0_12px_rgba(232,164,74,0.06)]
-                focus-within:border-lantern/40
+                bg-white/[0.07] border border-accent-primary/25
+                backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.2),0_0_12px_color-mix(in_srgb,var(--accent-primary)_6%,transparent)]
+                focus-within:border-accent-primary/40
                 transition-[border-color] duration-200
                 ${className}
             `}
             onMouseDown={(e) => e.stopPropagation()}
         >
-            <span className="w-1.5 h-1.5 rounded-full bg-lantern/60 shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-primary/60 shrink-0" />
             <input
                 ref={inputRef}
                 type="text"

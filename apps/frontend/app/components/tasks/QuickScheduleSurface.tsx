@@ -262,7 +262,7 @@ export function QuickScheduleSurface({
                     }}
                     className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                         mode === "deadline"
-                            ? "bg-lantern/12 text-lantern"
+                            ? "bg-accent-primary/12 text-accent-primary"
                             : "text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text-soft"
                     }`}
                 >
@@ -281,7 +281,7 @@ export function QuickScheduleSurface({
                     }}
                     className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                         mode === "duration"
-                            ? "bg-lantern/12 text-lantern"
+                            ? "bg-accent-primary/12 text-accent-primary"
                             : "text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text-soft"
                     }`}
                 >
@@ -306,7 +306,7 @@ export function QuickScheduleSurface({
                                     aria-pressed={isActive}
                                     className={`touch-target flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
                                         isActive
-                                            ? "bg-lantern/12 text-lantern"
+                                            ? "bg-accent-primary/12 text-accent-primary"
                                             : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text-soft"
                                     }`}
                                 >
@@ -379,7 +379,7 @@ export function QuickScheduleSurface({
                         aria-label={showTime ? "Remove time" : "Add time"}
                         aria-pressed={showTime}
                         className={`inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${
-                            showTime ? "text-lantern" : "text-twilight-text-muted/90 hover:text-twilight-text-muted"
+                            showTime ? "text-accent-primary" : "text-twilight-text-muted/90 hover:text-twilight-text-muted"
                         }`}
                     >
                         <Clock size={11} aria-hidden="true" />

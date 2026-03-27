@@ -160,10 +160,10 @@ export function SettingsDialog() {
                                                 : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
                                         )}
                                     >
-                                        <Icon className={cn("h-4 w-4", isActive ? "h-5 w-5 text-lantern" : "text-twilight-text-muted")} />
+                                        <Icon className={cn("h-4 w-4", isActive ? "h-5 w-5 text-accent-primary" : "text-twilight-text-muted")} />
                                         {item.label}
                                         {(item as any).badge && (
-                                            <span className="ml-auto rounded-full border border-lantern/30 bg-lantern/12 px-1.5 py-0.5 text-[10px] font-medium text-lantern">
+                                            <span className="ml-auto rounded-full border border-accent-primary/30 bg-accent-primary/12 px-1.5 py-0.5 text-[10px] font-medium text-accent-primary">
                                                 {(item as any).badge}
                                             </span>
                                         )}
@@ -201,7 +201,7 @@ export function SettingsDialog() {
                                         className={cn(
                                             "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
                                             isActive
-                                                ? "bg-lantern/15 text-lantern"
+                                                ? "bg-accent-primary/15 text-accent-primary"
                                                 : "text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
                                         )}
                                     >

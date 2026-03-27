@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { TaskMenuItems } from "./TaskContextMenu";
+import { trackUsageEvent } from "../../lib/api/track-event";
 import type { Task } from "../../types/task";
 
 export interface TaskContextMenuWrapperProps {
@@ -18,7 +19,10 @@ export function TaskContextMenuWrapper({ task, children, onAddSubtask, onRename,
     const [open, setOpen] = useState(false);
 
     return (
-        <ContextMenu.Root onOpenChange={setOpen}>
+        <ContextMenu.Root onOpenChange={(isOpen) => {
+            setOpen(isOpen);
+            if (isOpen) trackUsageEvent("task.context_menu_opened", { object_type: "task", input_method: "context_menu" });
+        }}>
             <ContextMenu.Trigger className="block w-full">
                 {children}
             </ContextMenu.Trigger>

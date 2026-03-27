@@ -64,7 +64,7 @@ export function EmptyState({ variant = "default" }: EmptyStateProps) {
                 <button
                     type="button"
                     onClick={() => navigate(config.cta!.to)}
-                    className="mt-6 inline-flex items-center gap-2 rounded-xl bg-lantern/10 px-4 py-2 text-sm font-medium text-lantern hover:bg-lantern/20 transition-colors ring-1 ring-lantern/20 cursor-pointer"
+                    className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent-primary/10 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/20 transition-colors ring-1 ring-accent-primary/20 cursor-pointer"
                 >
                     <Plus size={14} />
                     {config.cta.label}

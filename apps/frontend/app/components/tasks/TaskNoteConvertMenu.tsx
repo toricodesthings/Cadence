@@ -38,7 +38,7 @@ export function TaskNoteConvertMenu({ taskId, noteContent }: TaskNoteConvertMenu
             <button
                 type="button"
                 onClick={handleConvert}
-                className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-lantern/20 bg-lantern/10 px-3 py-2 text-xs font-medium text-lantern transition-colors hover:bg-lantern/16"
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 bg-accent-primary/10 px-3 py-2 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/16"
             >
                 <ArrowRightCircle size={13} aria-hidden="true" />
                 Create subtasks

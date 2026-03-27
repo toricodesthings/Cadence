@@ -15,9 +15,9 @@ export function EffortDots({ effort }: EffortDotsProps) {
             title={tooltipText}
             aria-label={tooltipText}
         >
-            <div className={`w-1.5 h-1.5 rounded-full ${effort >= 1 ? (effort === 1 ? "bg-twilight-text-muted/60" : effort === 2 ? "bg-lantern/50" : "bg-lantern/80") : ""}`} />
-            {effort >= 2 && <div className={`w-1.5 h-1.5 rounded-full ${effort === 2 ? "bg-lantern/50" : "bg-lantern/80"}`} />}
-            {effort >= 3 && <div className="w-1.5 h-1.5 rounded-full bg-lantern/80" />}
+            <div className={`w-1.5 h-1.5 rounded-full ${effort >= 1 ? (effort === 1 ? "bg-twilight-text-muted/60" : effort === 2 ? "bg-accent-primary/50" : "bg-accent-primary/80") : ""}`} />
+            {effort >= 2 && <div className={`w-1.5 h-1.5 rounded-full ${effort === 2 ? "bg-accent-primary/50" : "bg-accent-primary/80"}`} />}
+            {effort >= 3 && <div className="w-1.5 h-1.5 rounded-full bg-accent-primary/80" />}
         </div>
     );
 }

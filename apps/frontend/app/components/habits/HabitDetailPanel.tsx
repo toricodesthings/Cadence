@@ -147,9 +147,9 @@ function HeatmapCalendar({ habitId, year, month, onNavigate }: HeatmapCalendarPr
                                 className={`
                                     relative aspect-square rounded-full flex items-center justify-center
                                     transition-colors duration-150
-                                    ${isToday ? "ring-1 ring-lantern/60" : ""}
+                                    ${isToday ? "ring-1 ring-accent-primary/60" : ""}
                                     ${isCompleted
-                                        ? "bg-lantern/25 shadow-[0_0_8px_rgba(232,164,74,0.15)]"
+                                        ? "bg-accent-primary/25 shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]"
                                         : isSkipped
                                             ? "bg-white/[0.05]"
                                             : isScheduled
@@ -158,12 +158,12 @@ function HeatmapCalendar({ habitId, year, month, onNavigate }: HeatmapCalendarPr
                                 `}
                             >
                                 {isCompleted ? (
-                                    <Check size={10} className="text-lantern" strokeWidth={3} />
+                                    <Check size={10} className="text-accent-primary" strokeWidth={3} />
                                 ) : isSkipped ? (
                                     <X size={9} className="text-twilight-text-muted/40" />
                                 ) : (
                                     <span className={`text-[11px] font-medium ${isToday
-                                        ? "text-lantern font-bold"
+                                        ? "text-accent-primary font-bold"
                                         : isScheduled
                                             ? "text-twilight-text-soft"
                                             : "text-twilight-text-muted/30"
@@ -179,7 +179,7 @@ function HeatmapCalendar({ habitId, year, month, onNavigate }: HeatmapCalendarPr
             {/* Legend */}
             <div className="flex items-center gap-4 pt-1">
                 <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-lantern/25" />
+                    <div className="w-3 h-3 rounded-full bg-accent-primary/25" />
                     <span className="text-[10px] text-twilight-text-muted/50">Completed</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -310,7 +310,7 @@ export function HabitDetailPanel({
                         </Button>
 
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="w-2 h-2 rounded-full bg-lantern shrink-0 shadow-[0_0_6px_rgba(232,164,74,0.5)]" />
+                            <span className="w-2 h-2 rounded-full bg-accent-primary shrink-0 shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_50%,transparent)]" />
                             <span className="font-display text-sm font-medium text-twilight-text truncate">
                                 {habit.title}
                             </span>
@@ -327,7 +327,7 @@ export function HabitDetailPanel({
                                 size="icon"
                                 onClick={() => onDetailModeChange(detailMode === "focus" ? "peek" : "focus")}
                                 aria-label={detailMode === "focus" ? "Back to split view" : "Expand habit details"}
-                                className={`w-7 h-7 shrink-0 ${detailMode === "focus" ? "text-lantern bg-lantern/10" : ""}`}
+                                className={`w-7 h-7 shrink-0 ${detailMode === "focus" ? "text-accent-primary bg-accent-primary/10" : ""}`}
                             >
                                 {detailMode === "focus" ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                             </Button>
@@ -340,7 +340,7 @@ export function HabitDetailPanel({
                             aria-label={showSettings ? "Hide settings" : "Edit habit settings"}
                             aria-expanded={showSettings}
                             className={`w-7 h-7 shrink-0 ${showSettings
-                                ? "text-lantern bg-lantern/10"
+                                ? "text-accent-primary bg-accent-primary/10"
                                 : ""
                                 }`}
                         >
@@ -406,7 +406,7 @@ export function HabitDetailPanel({
                                 <input
                                     value={editTitle}
                                     onChange={(e) => setEditTitle(e.target.value)}
-                                    className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] transition-[border-color,box-shadow] duration-200"
+                                    className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)] transition-[border-color,box-shadow] duration-200"
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -418,7 +418,7 @@ export function HabitDetailPanel({
                                     value={editDescription}
                                     onChange={(e) => setEditDescription(e.target.value)}
                                     placeholder="Why are you building this routine?"
-                                    className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] transition-[border-color,box-shadow] duration-200 resize-none"
+                                    className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)] transition-[border-color,box-shadow] duration-200 resize-none"
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
@@ -436,7 +436,7 @@ export function HabitDetailPanel({
                                         type="time"
                                         value={editTargetTime}
                                         onChange={(e) => setEditTargetTime(e.target.value)}
-                                        className="flex-1 rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] transition-[border-color,box-shadow] duration-200"
+                                        className="flex-1 rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)] transition-[border-color,box-shadow] duration-200"
                                     />
                                     {editTargetTime && (
                                         <button
@@ -455,7 +455,7 @@ export function HabitDetailPanel({
                                         type="checkbox"
                                         checked={editReminder}
                                         onChange={(e) => setEditReminder(e.target.checked)}
-                                        className="h-5 w-5 rounded-lg border-white/[0.15] bg-white/[0.05] text-lantern focus:ring-lantern/40 accent-[var(--color-lantern)]"
+                                        className="h-5 w-5 rounded-lg border-white/[0.15] bg-white/[0.05] text-accent-primary focus:ring-accent-primary/40 accent-[var(--accent-primary)]"
                                     />
                                     <span className="text-sm text-twilight-text-soft">Remind me at this time</span>
                                 </label>
@@ -468,7 +468,7 @@ export function HabitDetailPanel({
                                     <select
                                         value={editProjectId}
                                         onChange={(e) => setEditProjectId(e.target.value)}
-                                        className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] transition-[border-color,box-shadow] duration-200 appearance-none"
+                                        className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)] transition-[border-color,box-shadow] duration-200 appearance-none"
                                     >
                                         <option value="">None</option>
                                         {projects.map((p) => (
@@ -491,7 +491,7 @@ export function HabitDetailPanel({
                                     size="sm"
                                     type="submit"
                                     disabled={!editTitle.trim()}
-                                    className="bg-lantern/20 text-lantern hover:bg-lantern/30"
+                                    className="bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30"
                                 >
                                     Save
                                 </Button>
@@ -550,7 +550,7 @@ export function HabitDetailPanel({
                                     <button
                                         type="button"
                                         onClick={() => resumeHabit(habit.id)}
-                                        className="inline-flex items-center gap-1 rounded-full bg-lantern/10 px-2 py-0.5 text-[11px] font-medium text-lantern hover:bg-lantern/20 transition-colors"
+                                        className="inline-flex items-center gap-1 rounded-full bg-accent-primary/10 px-2 py-0.5 text-[11px] font-medium text-accent-primary hover:bg-accent-primary/20 transition-colors"
                                     >
                                         <Play size={9} /> Resume
                                     </button>

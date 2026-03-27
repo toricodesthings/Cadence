@@ -96,7 +96,7 @@ function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: Sor
             <div
                 {...attributes}
                 {...listeners}
-                className="opacity-60 group-hover:opacity-100 transition-opacity cursor-grab hover:bg-white/[0.04] p-1 rounded-xl text-twilight-text-muted/50 hover:text-twilight-text-muted shrink-0"
+                className="opacity-60 group-hover:opacity-100 touch-reveal transition-opacity cursor-grab hover:bg-white/[0.04] p-1 rounded-xl text-twilight-text-muted/50 hover:text-twilight-text-muted shrink-0"
             >
                 <GripVertical size={16} />
             </div>
@@ -117,7 +117,7 @@ function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: Sor
 
             <button
                 onClick={() => onDelete(subtask.id)}
-                className="h-9 w-9 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl hover:bg-red-500/10 text-twilight-text-muted/50 hover:text-red-400 shrink-0"
+                className="h-9 w-9 opacity-0 group-hover:opacity-100 touch-reveal transition-opacity rounded-xl hover:bg-red-500/10 text-twilight-text-muted/50 hover:text-red-400 shrink-0"
                 aria-label="Delete subtask"
             >
                 <X size={16} />

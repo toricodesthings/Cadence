@@ -97,7 +97,7 @@ export function CalendarTaskChip({
                     transition-[background-color,border-color,box-shadow,transform,opacity] duration-150
                     ${isDragging ? "z-50 scale-[1.03] shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
                     ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                    ${task.isHabit ? `border-l-2 border-lantern bg-lantern/5 pl-2 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
+                    ${task.isHabit ? `border-l-2 border-accent-primary bg-accent-primary/5 pl-2 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
                     ${isRecurring ? "bg-[rgba(126,184,212,0.08)] border-[rgba(126,184,212,0.18)]" : PRIORITY_PILL_BG[priority]}
                 `}
                 onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
@@ -115,7 +115,7 @@ export function CalendarTaskChip({
                     className={`flex-1 truncate text-left ${PRIORITY_TEXT[priority]} cursor-pointer flex items-center gap-1`}
                 >
                     {task.title}
-                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-lantern/50" : "text-moonlit/70"} shrink-0`} />}
+                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
                     {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
                 </button>
 
@@ -230,7 +230,7 @@ export function CalendarTaskChip({
                 ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
                 ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
                 ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                ${habitRibbon ? `border-l-2 border-lantern/45 border-twilight-border/25 bg-[linear-gradient(135deg,rgba(232,164,74,0.12),rgba(232,164,74,0.04))] ${isCompletedHabit ? "opacity-55" : "opacity-100"} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]` : ""}
+                ${habitRibbon ? `border-l-2 border-accent-primary/45 border-twilight-border/25 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent-primary)_12%,transparent),color-mix(in_srgb,var(--accent-primary)_4%,transparent))] ${isCompletedHabit ? "opacity-55" : "opacity-100"} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]` : ""}
             `}
             onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
             onMouseEnter={() => setIsHovered(true)}
@@ -284,7 +284,7 @@ export function CalendarTaskChip({
             >
                 <span className={`${isCompactBlock ? (habitRibbon ? "text-[12px]" : "text-[11px]") : "text-[13px]"} min-w-0 truncate font-medium leading-tight flex items-center gap-1 ${!isCompactBlock ? "flex-wrap" : ""} ${PRIORITY_TEXT[priority]}`}>
                     {task.title}
-                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-lantern/50" : "text-moonlit/70"} shrink-0`} />}
+                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
                     {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
                 </span>
                 {timeLabel && !isCompactBlock && (
@@ -293,7 +293,7 @@ export function CalendarTaskChip({
                     </span>
                 )}
                 {timeLabel && isCompactBlock && (
-                    <span className={`shrink-0 ${habitRibbon ? "text-[10.5px] font-medium text-lantern/80" : "text-[10px] text-twilight-text-muted/70"}`}>
+                    <span className={`shrink-0 ${habitRibbon ? "text-[10.5px] font-medium text-accent-primary/80" : "text-[10px] text-twilight-text-muted/70"}`}>
                         {timeLabel}
                     </span>
                 )}

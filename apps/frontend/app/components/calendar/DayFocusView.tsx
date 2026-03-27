@@ -88,12 +88,12 @@ export function DayFocusView({
         <div className="flex flex-col h-full min-h-0 overflow-y-auto px-4 pb-24" {...swipeHandlers}>
             {isCurrentDate && (
                 <div className="sticky top-0 z-10 -mx-1 mb-2 border-b border-twilight-border/20 bg-twilight-deep/88 px-1 py-3 backdrop-blur-xl">
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-lantern/20 bg-lantern/10 px-3 py-2 text-sm text-lantern shadow-[0_12px_30px_rgba(232,164,74,0.12)]">
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-accent-primary/20 bg-accent-primary/10 px-3 py-2 text-sm text-accent-primary shadow-[0_12px_30px_color-mix(in_srgb,var(--accent-primary)_12%,transparent)]">
                         <div className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full bg-lantern shadow-[0_0_12px_rgba(232,164,74,0.45)]" />
+                            <span className="h-2.5 w-2.5 rounded-full bg-accent-primary shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_45%,transparent)]" />
                             <span className="font-semibold">Now {formatTime(now.toISOString())}</span>
                         </div>
-                        <span className="text-xs text-lantern/80">
+                        <span className="text-xs text-accent-primary/80">
                             {nextTimedTask ? `Next: ${nextTimedTask.title}` : "No more timed blocks"}
                         </span>
                     </div>
@@ -120,7 +120,7 @@ export function DayFocusView({
                     {personalEvents.map((evt) => (
                         <div
                             key={evt.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1.5 text-xs font-medium text-personal"
+                            className="inline-flex items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1.5 text-xs font-medium text-accent-nav-schedule"
                         >
                             {evt.emoji ?? "🎉"} {evt.label}
                         </div>
@@ -166,12 +166,12 @@ export function DayFocusView({
                         className={`py-3 border-b border-twilight-border/10 ${isPast && !isCurrent ? "opacity-50" : ""}`}
                     >
                         <div className="flex items-center gap-2 mb-2">
-                            <Clock size={12} className={isCurrent ? "text-lantern" : "text-twilight-text-muted/60"} />
-                            <span className={`text-[12px] font-medium tabular-nums ${isCurrent ? "text-lantern" : "text-twilight-text-muted/80"}`}>
+                            <Clock size={12} className={isCurrent ? "text-accent-primary" : "text-twilight-text-muted/60"} />
+                            <span className={`text-[12px] font-medium tabular-nums ${isCurrent ? "text-accent-primary" : "text-twilight-text-muted/80"}`}>
                                 {slot.label}
                             </span>
                             {isCurrent && (
-                                <span className="text-[10px] text-lantern/70 uppercase tracking-wider font-semibold">Now</span>
+                                <span className="text-[10px] text-accent-primary/70 uppercase tracking-wider font-semibold">Now</span>
                             )}
                         </div>
                         <div className="flex flex-col gap-1.5 pl-5">

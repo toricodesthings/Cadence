@@ -83,7 +83,7 @@ export function WeekFocusView({
             <div className="shrink-0 border-b border-twilight-border/20 px-4 pb-3 pt-2">
                 <div className="flex items-center justify-between gap-3 pb-2">
                     <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-lantern/85">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-accent-primary/85">
                             <CalendarRange size={16} />
                         </span>
                         <span className="truncate text-sm font-medium text-twilight-text-soft">
@@ -113,7 +113,7 @@ export function WeekFocusView({
                                 className={[
                                     "touch-target rounded-2xl border px-2 py-2 text-center transition-colors",
                                     selected
-                                        ? "border-lantern/35 bg-lantern/14 text-lantern"
+                                        ? "border-accent-primary/35 bg-accent-primary/14 text-accent-primary"
                                         : "border-white/[0.07] bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text",
                                 ].join(" ")}
                                 aria-pressed={selected}
@@ -123,7 +123,7 @@ export function WeekFocusView({
                                 </div>
                                 <div className={[
                                     "mt-1 text-base font-semibold",
-                                    isToday && !selected ? "text-lantern" : "",
+                                    isToday && !selected ? "text-accent-primary" : "",
                                 ].join(" ")}>
                                     {format(date, "d")}
                                 </div>

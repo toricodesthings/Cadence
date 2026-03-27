@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as Dialog from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import * as DropdownMenu from "../primitives/DropdownMenu";
+import * as ContextMenu from "../primitives/ContextMenu";
 import { Button } from "../primitives/Button";
 import { MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore, Pause, Play } from "lucide-react";
 import { useDeleteHabit } from "../../hooks/habits/use-delete-habit";
@@ -84,7 +85,7 @@ export function HabitMenu({ habit }: HabitMenuProps) {
                                 placeholder="Habit name"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none transition-[border-color,box-shadow] duration-200 focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)]"
+                                className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none transition-[border-color,box-shadow] duration-200 focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)]"
                             />
                         </div>
 
@@ -98,7 +99,7 @@ export function HabitMenu({ habit }: HabitMenuProps) {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows={2}
-                                className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none transition-[border-color,box-shadow] duration-200 focus:border-lantern/30 focus:shadow-[0_0_0_3px_rgba(232,164,74,0.07)] resize-none"
+                                className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/40 outline-none transition-[border-color,box-shadow] duration-200 focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)] resize-none"
                             />
                         </div>
 
@@ -120,7 +121,7 @@ export function HabitMenu({ habit }: HabitMenuProps) {
                             <button
                                 type="submit"
                                 disabled={!title.trim()}
-                                className="px-4 py-2 rounded-xl text-[13px] bg-lantern/20 text-lantern hover:bg-lantern/30 transition-colors duration-200 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                                className="px-4 py-2 rounded-xl text-[13px] bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 transition-colors duration-200 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                             >
                                 Save changes
                             </button>
@@ -161,7 +162,7 @@ export function HabitMenu({ habit }: HabitMenuProps) {
             <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                     <button
-                        className="btn-icon -my-2 -mr-2 shrink-0 text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 hover:bg-white/[0.06] hover:text-twilight-text focus-visible:opacity-100"
+                        className="btn-icon -my-2 -mr-2 shrink-0 text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 touch-reveal hover:bg-white/[0.06] hover:text-twilight-text focus-visible:opacity-100"
                         aria-label={`Open actions for habit ${habit.title}`}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -170,45 +171,85 @@ export function HabitMenu({ habit }: HabitMenuProps) {
                 </DropdownMenu.Trigger>
 
                 <DropdownMenu.Content align="end" side="right">
-                    <DropdownMenu.Item
-                        className="flex items-center gap-2 text-[13px]"
-                        onSelect={handleEditOpen}
-                    >
-                        <Pencil size={12} aria-hidden="true" />
-                        Edit habit
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                        className="flex items-center gap-2 text-[13px]"
-                        onSelect={handleArchiveToggle}
-                    >
-                        {habit.archived ? (
-                            <ArchiveRestore size={12} aria-hidden="true" />
-                        ) : (
-                            <Archive size={12} aria-hidden="true" />
-                        )}
-                        {habit.archived ? "Restore routine" : "Archive routine"}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                        className="flex items-center gap-2 text-[13px]"
-                        onSelect={() => isPaused ? resumeHabit(habit.id) : pauseHabit(habit.id)}
-                    >
-                        {isPaused ? (
-                            <Play size={12} aria-hidden="true" />
-                        ) : (
-                            <Pause size={12} aria-hidden="true" />
-                        )}
-                        {isPaused ? "Resume routine" : "Pause for a week"}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.Item
-                        className="flex items-center gap-2 text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                        onSelect={() => setDeleteOpen(true)}
-                    >
-                        <Trash2 size={12} aria-hidden="true" />
-                        Delete habit
-                    </DropdownMenu.Item>
+                    <HabitMenuItems
+                        habit={habit}
+                        isPaused={!!isPaused}
+                        MenuComponents={DropdownMenu}
+                        onEdit={handleEditOpen}
+                        onArchiveToggle={handleArchiveToggle}
+                        onDelete={() => setDeleteOpen(true)}
+                        onPause={() => pauseHabit(habit.id)}
+                        onResume={() => resumeHabit(habit.id)}
+                    />
                 </DropdownMenu.Content>
             </DropdownMenu.Root>
+        </>
+    );
+}
+
+type GenericMenu = typeof DropdownMenu | typeof ContextMenu;
+
+interface HabitMenuItemsProps {
+    habit: Habit;
+    isPaused: boolean;
+    MenuComponents: GenericMenu;
+    onEdit: () => void;
+    onArchiveToggle: () => void;
+    onDelete: () => void;
+    onPause: () => void;
+    onResume: () => void;
+}
+
+/** Reusable inner items for either DropdownMenu or ContextMenu */
+export function HabitMenuItems({ habit, isPaused, MenuComponents: Menu, onEdit, onArchiveToggle, onDelete, onPause, onResume }: HabitMenuItemsProps) {
+    return (
+        <>
+            {/* Recovery actions first per §9.7 */}
+            {isPaused ? (
+                <Menu.Item
+                    className="flex items-center gap-2 text-[13px]"
+                    onSelect={onResume}
+                >
+                    <Play size={12} aria-hidden="true" />
+                    Resume today
+                </Menu.Item>
+            ) : (
+                <Menu.Item
+                    className="flex items-center gap-2 text-[13px]"
+                    onSelect={onPause}
+                >
+                    <Pause size={12} aria-hidden="true" />
+                    Pause for now
+                </Menu.Item>
+            )}
+            <Menu.Item
+                className="flex items-center gap-2 text-[13px]"
+                onSelect={onEdit}
+            >
+                <Pencil size={12} aria-hidden="true" />
+                Adjust cadence
+                <kbd className="ml-auto text-[10px] opacity-40 font-mono">e</kbd>
+            </Menu.Item>
+            <Menu.Separator />
+            <Menu.Item
+                className="flex items-center gap-2 text-[13px]"
+                onSelect={onArchiveToggle}
+            >
+                {habit.archived ? (
+                    <ArchiveRestore size={12} aria-hidden="true" />
+                ) : (
+                    <Archive size={12} aria-hidden="true" />
+                )}
+                {habit.archived ? "Restore routine" : "Archive routine"}
+            </Menu.Item>
+            <Menu.Separator />
+            <Menu.Item
+                className="flex items-center gap-2 text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                onSelect={onDelete}
+            >
+                <Trash2 size={12} aria-hidden="true" />
+                Delete habit
+            </Menu.Item>
         </>
     );
 }

@@ -34,7 +34,7 @@ export function CreateTagInline({ onCreated, onCancel }: CreateTagInlineProps) {
 
     return (
         <div className="px-3 mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="bg-twilight-surface-muted rounded-xl border border-twilight-border p-2 focus-within:border-lantern/50 transition-colors">
+            <div className="bg-twilight-surface-muted rounded-xl border border-twilight-border p-2 focus-within:border-accent-primary/50 transition-colors">
                 <input
                     ref={inputRef}
                     value={name}
@@ -53,7 +53,7 @@ export function CreateTagInline({ onCreated, onCancel }: CreateTagInlineProps) {
                             key={color}
                             onClick={() => setSelectedColor(color)}
                             className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${selectedColor === color
-                                    ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight-surface-muted ring-lantern shadow-[0_0_8px_rgba(232,164,74,0.3)]"
+                                    ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight-surface-muted ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_30%,transparent)]"
                                     : "hover:scale-110"
                                 }`}
                             style={{ backgroundColor: color === "default" ? "var(--color-twilight-text-muted)" : color }}
@@ -73,7 +73,7 @@ export function CreateTagInline({ onCreated, onCancel }: CreateTagInlineProps) {
                     <button
                         onClick={handleSubmit}
                         disabled={!name.trim()}
-                        className="p-1.5 text-lantern hover:bg-lantern/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1.5 text-accent-primary hover:bg-accent-primary/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label="Save tag"
                     >
                         <Check size={16} />

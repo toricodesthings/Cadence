@@ -5,9 +5,10 @@ interface InboxListProps {
     items: InboxItem[];
     selectedItemId?: string | null;
     onSelectItem?: (itemId: string) => void;
+    onClarify?: (itemId: string) => void;
 }
 
-export function InboxList({ items, selectedItemId, onSelectItem }: InboxListProps) {
+export function InboxList({ items, selectedItemId, onSelectItem, onClarify }: InboxListProps) {
     if (!items.length) {
         return null;
     }
@@ -20,6 +21,7 @@ export function InboxList({ items, selectedItemId, onSelectItem }: InboxListProp
                     item={item}
                     isSelected={selectedItemId === item.id}
                     onSelect={onSelectItem}
+                    onClarify={onClarify}
                 />
             ))}
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useSettings } from "./use-settings";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
 interface ShortcutOptions {
     onCommandPalette?: () => void;
@@ -13,6 +14,27 @@ interface ShortcutOptions {
     onLayoutScaleIncrease?: () => void;
     onLayoutScaleDecrease?: () => void;
     onLayoutScaleReset?: () => void;
+    // Object-level actions (§10.3)
+    onRescheduleTask?: () => void;
+    onPinTask?: () => void;
+    onOpenMenu?: () => void;
+    onEditObject?: () => void;
+    onQuickActions?: () => void;
+    onCapture?: () => void;
+    onQuickAddTask?: () => void;
+    // Page-level navigation (§10.3)
+    onNextSection?: () => void;
+    onPrevSection?: () => void;
+    onCollapseExpand?: () => void;
+    onSwitchDayView?: () => void;
+    onSwitchWeekView?: () => void;
+    onJumpToday?: () => void;
+    onNextPeriod?: () => void;
+    onPrevPeriod?: () => void;
+    onNextStep?: () => void;
+    onPrevStep?: () => void;
+    onExitResume?: () => void;
+    onShortcutReference?: () => void;
 }
 
 function hasPrimaryModifier(e: KeyboardEvent) {
@@ -90,6 +112,7 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
             // Command palette — always active even in inputs
             if (shortcutsEnabled && matchesBinding(e, bindings.commandPalette)) {
                 e.preventDefault();
+                trackUsageEvent("shortcut.used", { input_method: "keyboard", outcome: "command_palette" });
                 opts.onCommandPalette?.();
                 return;
             }
@@ -152,6 +175,7 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 };
                 if (routes[key]) {
                     e.preventDefault();
+                    trackUsageEvent("shortcut.used", { input_method: "keyboard", outcome: `go_${key}` });
                     navigate(routes[key]);
                 }
                 return;
@@ -172,6 +196,103 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                     handler();
                     return;
                 }
+            }
+
+            // Object-level actions (§10.3) — only when not in inputs
+            const objectBindings: [string, (() => void) | undefined][] = [
+                [bindings.rescheduleTask ?? "r", opts.onRescheduleTask],
+                [bindings.pinTask ?? "p", opts.onPinTask],
+                [bindings.openMenu ?? "m", opts.onOpenMenu],
+                [bindings.editObject ?? "e", opts.onEditObject],
+                [bindings.quickActions ?? ".", opts.onQuickActions],
+                [bindings.capture ?? "q", opts.onCapture],
+            ];
+
+            for (const [binding, handler] of objectBindings) {
+                if (!handler) continue;
+                if (matchesBinding(e, binding)) {
+                    e.preventDefault();
+                    handler();
+                    return;
+                }
+            }
+
+            // Shift-modified quick add task
+            if (opts.onQuickAddTask && matchesBinding(e, bindings.quickAddTask ?? "shift+q")) {
+                e.preventDefault();
+                opts.onQuickAddTask();
+                return;
+            }
+
+            // Page-level navigation (§10.3)
+            const key = e.key.toLowerCase();
+
+            // Shortcut reference: ? (shift+/ on most keyboards)
+            if (e.key === "?" && opts.onShortcutReference) {
+                e.preventDefault();
+                opts.onShortcutReference();
+                return;
+            }
+
+            // Section nav: j = next, k = prev, o = collapse/expand
+            if (key === "j" && opts.onNextSection) {
+                e.preventDefault();
+                opts.onNextSection();
+                return;
+            }
+            if (key === "k" && opts.onPrevSection) {
+                e.preventDefault();
+                opts.onPrevSection();
+                return;
+            }
+            if (key === "o" && opts.onCollapseExpand) {
+                e.preventDefault();
+                opts.onCollapseExpand();
+                return;
+            }
+
+            // Schedule view: d = day, w = week, t = today, l/→ = next, h/← = prev
+            if (key === "d" && opts.onSwitchDayView) {
+                e.preventDefault();
+                opts.onSwitchDayView();
+                return;
+            }
+            if (key === "w" && opts.onSwitchWeekView) {
+                e.preventDefault();
+                opts.onSwitchWeekView();
+                return;
+            }
+            if (key === "t" && opts.onJumpToday) {
+                e.preventDefault();
+                opts.onJumpToday();
+                return;
+            }
+            if ((key === "l" || e.key === "ArrowRight") && opts.onNextPeriod) {
+                e.preventDefault();
+                opts.onNextPeriod();
+                return;
+            }
+            if ((key === "h" || e.key === "ArrowLeft") && opts.onPrevPeriod) {
+                e.preventDefault();
+                opts.onPrevPeriod();
+                return;
+            }
+
+            // Weekly Reset: →/n = next step, ←/p = prev step, Escape = exit
+            if ((e.key === "ArrowRight" || key === "n") && opts.onNextStep) {
+                e.preventDefault();
+                opts.onNextStep();
+                return;
+            }
+            if ((e.key === "ArrowLeft" || key === "b") && opts.onPrevStep) {
+                e.preventDefault();
+                opts.onPrevStep();
+                return;
+            }
+            if (e.key === "Escape" && opts.onExitResume) {
+                e.preventDefault();
+                opts.onExitResume();
+                return;
             }
         };
 

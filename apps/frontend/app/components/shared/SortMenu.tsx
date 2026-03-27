@@ -60,7 +60,7 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
                         <Icon size={14} aria-hidden="true" />
                         <span className="flex-1">{label}</span>
                         {mode === value && (
-                            <Check size={14} className="text-lantern-amber" aria-hidden="true" />
+                            <Check size={14} className="text-accent-primary" aria-hidden="true" />
                         )}
                     </DropdownMenu.Item>
                 ))}

@@ -51,7 +51,7 @@ function formatDateTime(iso: string) {
 }
 
 const segmentedControlClass = "flex gap-0.5 rounded-xl bg-white/[0.04] p-0.5";
-const stackedPanelTriggerClass = "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.06] hover:border-twilight-border/50 focus-visible:ring-1 focus-visible:ring-lantern/30";
+const stackedPanelTriggerClass = "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.06] hover:border-twilight-border/50 focus-visible:ring-1 focus-visible:ring-accent-primary/30";
 
 const MetaRow = React.memo(function MetaRow({
     icon: Icon,
@@ -301,7 +301,7 @@ export function TaskEditPanel({
                                 aria-label={detailMode === "focus" ? "Back to split view" : "Expand editor"}
                                 className={`w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center transition-colors shrink-0 ${
                                     detailMode === "focus"
-                                        ? "text-lantern bg-lantern/10"
+                                        ? "text-accent-primary bg-accent-primary/10"
                                         : "text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
                                 }`}
                             >
@@ -425,7 +425,7 @@ export function TaskEditPanel({
                                                     className={`flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-medium transition-colors ${
                                                         showConvertedCheck
                                                             ? "bg-feedback-success/15 text-feedback-success"
-                                                            : "cursor-pointer text-lantern/80 hover:bg-lantern/10 hover:text-lantern"
+                                                            : "cursor-pointer text-accent-primary/80 hover:bg-accent-primary/10 hover:text-accent-primary"
                                                     }`}
                                                 >
                                                     {showConvertedCheck ? (
@@ -444,7 +444,7 @@ export function TaskEditPanel({
                                             <TaskNoteSaveStatus status={saveStatus} />
                                             <span
                                                 className={`text-[10px] tabular-nums ${charCount > maxChars * 0.9
-                                                    ? "text-lantern"
+                                                    ? "text-accent-primary"
                                                     : "text-twilight-text-muted/90"
                                                     }`}
                                                 aria-live="polite"
@@ -491,7 +491,7 @@ export function TaskEditPanel({
                                         <button
                                             type="button"
                                             onClick={() => setActivePanel("notes")}
-                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
+                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-accent-primary transition-colors hover:text-accent-primary/80"
                                         >
                                             Back to notes
                                         </button>
@@ -502,7 +502,7 @@ export function TaskEditPanel({
                                         <div className={segmentedControlClass}>
                                             <button
                                                 onClick={() => handleStateChange("ACTIVE")}
-                                                className={`flex-1 cursor-pointer px-2 py-1.5 text-center rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "ACTIVE" ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`flex-1 cursor-pointer px-2 py-1.5 text-center rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "ACTIVE" ? "bg-accent-primary/15 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Active
                                             </button>
@@ -548,7 +548,7 @@ export function TaskEditPanel({
                                                     onClick={() => updateTask.mutate({ id: task.id, interactionMode: "task" })}
                                                     className={`flex-1 cursor-pointer px-2 py-1.5 text-center truncate rounded-[10px] text-[12px] font-medium transition-colors ${
                                                         task.interactionMode === "task"
-                                                            ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+                                                            ? "bg-accent-primary/15 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
                                                             : "text-twilight-text-muted hover:text-twilight-text"
                                                     }`}
                                                 >
@@ -626,13 +626,13 @@ export function TaskEditPanel({
                                             </button>
                                             <button
                                                 onClick={() => handleEffortChange(2)}
-                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 2 ? "bg-lantern/15 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 2 ? "bg-accent-primary/15 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 Medium
                                             </button>
                                             <button
                                                 onClick={() => handleEffortChange(3)}
-                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 3 ? "bg-lantern/30 text-lantern shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
+                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 3 ? "bg-accent-primary/30 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
                                             >
                                                 High
                                             </button>
@@ -775,7 +775,7 @@ export function TaskEditPanel({
                                         <button
                                             type="button"
                                             onClick={() => setActivePanel("notes")}
-                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-lantern transition-colors hover:text-lantern/80"
+                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-accent-primary transition-colors hover:text-accent-primary/80"
                                         >
                                             Back to notes
                                         </button>

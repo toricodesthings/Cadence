@@ -73,7 +73,7 @@ export function ResizableSidePanel({
             {/* Resize handle */}
             <div
                 onMouseDown={handleMouseDown}
-                className="group relative z-10 w-1 shrink-0 cursor-col-resize transition-colors hover:bg-lantern/20 active:bg-lantern/30"
+                className="group relative z-10 w-1 shrink-0 cursor-col-resize transition-colors hover:bg-accent-primary/20 active:bg-accent-primary/30"
                 role="slider"
                 aria-orientation="vertical"
                 aria-label={ariaLabel}
@@ -92,7 +92,7 @@ export function ResizableSidePanel({
                 }}
             >
                 <div
-                    className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full bg-lantern/25 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full bg-accent-primary/25 opacity-0 transition-opacity group-hover:opacity-100"
                 />
             </div>
 

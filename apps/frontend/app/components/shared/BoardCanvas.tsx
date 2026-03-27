@@ -118,7 +118,7 @@ export function BoardCanvas({
                             onClick={() => setActiveColumnId(column.id)}
                             className={`touch-target inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-4 text-sm font-medium transition-colors ${
                                 activeColumn.id === column.id
-                                    ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                    ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
                                     : "border-twilight-border/45 bg-white/[0.03] text-twilight-text-soft"
                             }`}
                         >

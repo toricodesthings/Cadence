@@ -14,6 +14,7 @@ import { useState } from "react";
 import { X, Calendar, Repeat, Flag, FolderOpen, Hash, Clock, UserCheck, ChevronDown } from "lucide-react";
 import type { ParsedEntity } from "@cadence/nlp/core";
 import { motion, AnimatePresence } from "framer-motion";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
 interface ParseSummaryChipsBaseProps {
     summary: string;
@@ -23,6 +24,8 @@ interface ParseSummaryChipsBaseProps {
     lowStimulation?: boolean;
     /** Maximum number of chips to show before collapsing into a review affordance */
     maxVisibleChips?: number;
+    /** §11.5: Entity types to suppress for this surface (surface-level suppression) */
+    suppressedEntityTypes?: string[];
 }
 
 interface ParseSummaryChipsEntitiesProps extends ParseSummaryChipsBaseProps {
@@ -100,7 +103,7 @@ function getConfidenceLabel(confidence: "high" | "medium" | "low"): string | nul
 function getConfidenceColor(confidence: "high" | "medium" | "low"): string {
     switch (confidence) {
         case "high":
-            return "border-lantern/20 bg-lantern/10 text-lantern";
+            return "border-accent-primary/20 bg-accent-primary/10 text-accent-primary";
         case "medium":
             return "border-amber-500/15 bg-amber-500/8 text-amber-400";
         case "low":
@@ -114,17 +117,19 @@ export function ParseSummaryChips(props: ParseSummaryChipsProps) {
         compact = false,
         lowStimulation = false,
         maxVisibleChips = MAX_VISIBLE_CHIPS,
+        suppressedEntityTypes = [],
     } = props;
 
     // Normalize both prop patterns to a common shape
     const allEntities = props.parseResult?.entities ?? props.entities ?? [];
     const ignoredSet = new Set(props.ignoredTokenIds ?? []);
+    const suppressedSet = new Set(suppressedEntityTypes);
     const handleDismiss = props.onDismissToken ?? props.onDismiss ?? (() => {});
 
     const [expanded, setExpanded] = useState(false);
 
     let visibleEntities = allEntities.filter(
-        (e) => !ignoredSet.has(getTokenId(e)),
+        (e) => !ignoredSet.has(getTokenId(e)) && !suppressedSet.has(e.type),
     );
 
     // Low-stimulation: hide medium-confidence unless expanded
@@ -192,7 +197,10 @@ export function ParseSummaryChips(props: ParseSummaryChipsProps) {
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.9 }}
                                 transition={{ duration: 0.15 }}
-                                onClick={() => handleDismiss(tokenId)}
+                                onClick={() => {
+                                    trackUsageEvent("nlp.entity_dismissed", { surface: "parse_chips" });
+                                    handleDismiss(tokenId);
+                                }}
                                 className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors hover:opacity-80 cursor-pointer ${getConfidenceColor(entity.confidence)}`}
                                 aria-label={`Dismiss: ${getChipLabel(entity)}${confidenceLabel ? ` (${confidenceLabel})` : ""}`}
                             >

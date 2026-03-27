@@ -300,7 +300,7 @@ export function TasksTab() {
                                     }}
                                     className={`min-h-10 rounded-xl border px-3 text-sm transition-colors ${
                                         active
-                                            ? "border-lantern/25 bg-lantern/12 text-lantern"
+                                            ? "border-accent-primary/25 bg-accent-primary/12 text-accent-primary"
                                             : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                                     }`}
                                 >

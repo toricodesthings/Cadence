@@ -71,7 +71,7 @@ function KanbanColumn({
                     <input
                         autoFocus
                         defaultValue={section.name}
-                        className="border-b border-lantern/30 bg-transparent font-display text-base font-semibold text-twilight-text outline-none"
+                        className="border-b border-accent-primary/30 bg-transparent font-display text-base font-semibold text-twilight-text outline-none"
                         onBlur={(e) => { onRename(e.target.value); setIsRenaming(false); }}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") { onRename((e.target as HTMLInputElement).value); setIsRenaming(false); }
@@ -97,7 +97,7 @@ function KanbanColumn({
                             <DropdownMenu.Trigger asChild>
                                 <button
                                     type="button"
-                                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
+                                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 touch-reveal hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
                                     aria-label={`Open actions for column ${section.name}`}
                                 >
                                     <MoreHorizontal size={14} aria-hidden="true" />

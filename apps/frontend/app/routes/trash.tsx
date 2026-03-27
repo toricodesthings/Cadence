@@ -86,7 +86,7 @@ export default function TrashView() {
             <ScrollAreaWrapper>
                 <PageContent width="default">
                     <div className="mb-4 flex items-start gap-3 rounded-2xl border border-twilight-border/20 bg-twilight-surface/30 px-4 py-3">
-                        <AlertTriangle size={16} className="mt-0.5 shrink-0 text-lantern/70" />
+                        <AlertTriangle size={16} className="mt-0.5 shrink-0 text-accent-primary/70" />
                         <p className="text-xs leading-relaxed text-twilight-text-muted">
                             Tasks here can be restored to your active workspace. Permanently deleting a task cannot be undone.
                         </p>

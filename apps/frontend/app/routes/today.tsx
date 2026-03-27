@@ -25,13 +25,15 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
+import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
 import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
-import { getRankingReasonLabel } from "../lib/utils/ranking-reasons";
+import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
@@ -82,7 +84,7 @@ function TodayHabitCompletionButton({
                 className={`
                     relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 lg:h-6 lg:w-6
                     ${isResolving
-                        ? "border-lantern/60 bg-lantern/15 text-lantern"
+                        ? "border-accent-primary/60 bg-accent-primary/15 text-accent-primary"
                         : "border-moonlit/45 text-moonlit/80 group-hover:border-moonlit/70 group-hover:text-moonlit"
                     }
                 `}
@@ -117,7 +119,7 @@ function TodayHabitRow({
         >
             <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
                 <Repeat size={11} aria-hidden="true" />
-                <span>{isOverdue ? "Missed routine" : "Routine"}</span>
+                <span>{isOverdue ? "Catch-up" : "Routine"}</span>
             </div>
 
             <div className="min-w-0 truncate text-[15px] font-medium leading-snug text-twilight-text sm:text-[15.5px]">
@@ -127,7 +129,7 @@ function TodayHabitRow({
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
                 <span className="inline-flex items-center gap-1.5 font-medium text-moonlit">
                     <Repeat size={12} aria-hidden="true" />
-                    {isOverdue ? `Missed ${formatShortDate(item.dueDate)}` : "Today"}
+                    {isOverdue ? `From ${formatShortDate(item.dueDate)}` : "Today"}
                 </span>
 
                 {item.timeLabel ? (
@@ -158,6 +160,7 @@ export default function TodayRoute() {
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
+    const lowStimulationMode = userSettings?.tasks?.intelligence?.lowStimulationMode ?? false;
 
     const todayDate = new Date();
     const personalEvents = usePersonalEvents(todayDate.getFullYear());
@@ -169,6 +172,9 @@ export default function TodayRoute() {
     );
 
     useRouteFocus();
+
+    const { onNextSection, onPrevSection } = useSectionNav();
+    useKeyboardShortcuts({ onNextSection, onPrevSection });
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -264,9 +270,9 @@ export default function TodayRoute() {
                 notBefore: t.notBefore ?? null,
                 durationEstimate: t.durationEstimate,
             }));
-            const ranked = rankTasks(rankable, { routeContext: "today" });
+            const ranked = rankTasks(rankable, { routeContext: "today", lowStimulation: lowStimulationMode });
             for (const item of ranked) {
-                rationaleByTaskId[item.task.id] = getRankingReasonLabel(item.reasons);
+                rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
             }
             const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
             return [...bucket].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
@@ -280,7 +286,7 @@ export default function TodayRoute() {
             rhythmHabits: rhythmHabits.sort(compareHabits),
             rationaleByTaskId,
         };
-    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled]);
+    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled, lowStimulationMode]);
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
@@ -336,7 +342,9 @@ export default function TodayRoute() {
     ] as const;
 
     const headerRight = shell.isPhone ? (
-        <ControlsSheet
+        <div className="flex items-center gap-2">
+            <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
+            <ControlsSheet
             routeKey="today"
             title="Today controls"
             sections={[
@@ -362,7 +370,7 @@ export default function TodayRoute() {
                                     onClick={() => setSortMode(option.value)}
                                     className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
                                         sortMode === option.value
-                                            ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                            ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
                                             : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
                                     }`}
                                 >
@@ -388,8 +396,10 @@ export default function TodayRoute() {
                 }] : []),
             ]}
         />
+        </div>
     ) : (
         <div className="flex items-center gap-2">
+            <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
             <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
             {!shell.isWide && selectedTaskId ? (
                 <button
@@ -461,7 +471,7 @@ export default function TodayRoute() {
         if (!hasTasks && !hasHabits) {
             return (
                 <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    Nothing urgent. You're on track.
+                    Nothing needs attention. You're on track.
                 </div>
             );
         }
@@ -474,7 +484,7 @@ export default function TodayRoute() {
                 {hasTasks ? <TaskList tasks={grouped.urgent} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} rationaleByTaskId={grouped.rationaleByTaskId} {...(cardVariant ? { cardVariant } : {})} /> : null}
                 {hasHabits ? (
                     <>
-                        {hasTasks ? <AgendaHabitDivider label="Missed routines" /> : null}
+                        {hasTasks ? <AgendaHabitDivider label="Routines to catch up" /> : null}
                         <div className="flex flex-col divide-y divide-white/[0.05]">
                             {visibleOverdueHabits.map((item) => (
                                 <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />
@@ -487,7 +497,7 @@ export default function TodayRoute() {
                                 className="mx-3 mt-1 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-[13px] font-medium text-moonlit/90 transition-colors hover:bg-moonlit/[0.07]"
                             >
                                 <Repeat size={13} aria-hidden="true" />
-                                {overflowCount} more routine{overflowCount > 1 ? "s" : ""} need a check-in
+                                {overflowCount} more routine{overflowCount > 1 ? "s" : ""} to revisit
                             </button>
                         ) : null}
                     </>
@@ -548,7 +558,7 @@ export default function TodayRoute() {
     const sections = [
         {
             key: "urgent",
-            title: "Urgent",
+            title: "Needs attention",
             icon: AlertTriangle,
             accentClass: "text-[var(--color-priority-urgent)]",
             count: grouped.urgent.length + grouped.overdueHabits.length,
@@ -559,7 +569,7 @@ export default function TodayRoute() {
             key: "today",
             title: "Today",
             icon: Sunrise,
-            accentClass: "text-lantern",
+            accentClass: "text-accent-primary",
             count: grouped.today.length,
             listContent: renderTaskBucket(grouped.today, undefined, "Nothing scheduled for today yet."),
             boardContent: renderTaskBucket(grouped.today, "board", "Nothing scheduled for today yet."),
@@ -610,18 +620,15 @@ export default function TodayRoute() {
                 title: "Today",
                 eyebrow: "Focus",
                 icon: <Sunrise size={18} aria-hidden="true" />,
-                accentColor: "var(--color-nav-planner)",
+                accentColor: "var(--accent-nav-today, var(--accent-primary))",
             }}
         >
             <PageContent width="default">
-                <Suspense fallback={null}>
-                    <LazyFocusViewBar />
-                </Suspense>
                 <ActiveFilterBar />
                 {todayEvents.length > 0 && (
                     <div className="pb-2">
                         <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-personal/80">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/80">
                                 Events today
                             </p>
                             <button
@@ -638,7 +645,7 @@ export default function TodayRoute() {
                                     key={evt.id}
                                     type="button"
                                     onClick={() => navigate(`/schedule?date=${todayISO}&view=day`)}
-                                    className="inline-flex items-center gap-2 rounded-full border border-personal/20 bg-personal/12 px-3 py-1 text-xs font-medium text-personal transition-colors hover:bg-personal/18"
+                                    className="inline-flex items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule transition-colors hover:bg-accent-nav-schedule/18"
                                 >
                                     {evt.emoji ?? "🎉"} {evt.label}
                                 </button>

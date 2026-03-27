@@ -51,7 +51,7 @@ export function BucketedCollectionView({ sections, view, desktopColumnScroll = f
         return (
             <div className="flex flex-col gap-6">
                 {sections.map((section) => (
-                    <section key={section.key} className={`flex flex-col gap-3 ${section.listSectionClassName ?? ""}`}>
+                    <section key={section.key} data-section-key={section.key} className={`flex flex-col gap-3 ${section.listSectionClassName ?? ""}`}>
                         <BucketedSectionHeader {...section} />
                         {section.description ? (
                             <div className="text-sm leading-relaxed text-twilight-text-soft">

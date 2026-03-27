@@ -72,7 +72,7 @@ export const TimePickerInput: React.FC<TimePickerInputProps> = ({
     const togglePeriod = () => { const v = period === "AM" ? "PM" : "AM"; setPeriod(v); broadcastChange(hour, minute, v); };
 
     const spinnerBtn = "flex h-6 w-8 items-center justify-center text-xs text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.04] rounded-xl transition-colors cursor-pointer";
-    const fieldClass = "w-8 text-center tabular-nums py-1 bg-transparent outline-none text-twilight-text caret-lantern/60 selection:bg-lantern/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+    const fieldClass = "w-8 text-center tabular-nums py-1 bg-transparent outline-none text-twilight-text caret-lantern/60 selection:bg-accent-primary/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
     return (
         <div className="flex items-center gap-2 rounded-xl border border-twilight-border bg-twilight-surface-muted p-2">

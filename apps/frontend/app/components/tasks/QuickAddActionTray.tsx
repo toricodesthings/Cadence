@@ -85,7 +85,7 @@ export function QuickAddActionTray({
                             type="button"
                             className={`relative inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
                                 dueDate || scheduledStart
-                                    ? "border-lantern/20 bg-lantern/10 text-lantern"
+                                    ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
                                     : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                             }`}
                         >
@@ -102,7 +102,7 @@ export function QuickAddActionTray({
                                 type="button"
                                 className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
                                     priority
-                                        ? "border-lantern/20 bg-lantern/10 text-lantern"
+                                        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
                                         : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                                 }`}
                             >
@@ -119,7 +119,7 @@ export function QuickAddActionTray({
                                         onClick={() => onPriorityChange(option.value)}
                                         className={`flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors ${
                                             priority === option.value
-                                                ? "bg-lantern/12 text-lantern"
+                                                ? "bg-accent-primary/12 text-accent-primary"
                                                 : "text-twilight-text-soft hover:bg-white/[0.05]"
                                         }`}
                                     >
@@ -138,7 +138,7 @@ export function QuickAddActionTray({
                                 type="button"
                                 className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
                                     selectedProject
-                                        ? "border-lantern/20 bg-lantern/10 text-lantern"
+                                        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
                                         : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                                 }`}
                             >
@@ -153,7 +153,7 @@ export function QuickAddActionTray({
                                     onClick={() => onProjectChange(null)}
                                     className={`flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors ${
                                         !selectedProject
-                                            ? "bg-lantern/12 text-lantern"
+                                            ? "bg-accent-primary/12 text-accent-primary"
                                             : "text-twilight-text-soft hover:bg-white/[0.05]"
                                     }`}
                                 >
@@ -166,7 +166,7 @@ export function QuickAddActionTray({
                                         onClick={() => onProjectChange(project.id)}
                                         className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${
                                             selectedProject?.id === project.id
-                                                ? "bg-lantern/12 text-lantern"
+                                                ? "bg-accent-primary/12 text-accent-primary"
                                                 : "text-twilight-text-soft hover:bg-white/[0.05]"
                                         }`}
                                     >
@@ -186,7 +186,7 @@ export function QuickAddActionTray({
                                 type="button"
                                 className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors ${
                                     selectedTags.length
-                                        ? "border-lantern/20 bg-lantern/10 text-lantern"
+                                        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
                                         : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                                 }`}
                             >
@@ -206,7 +206,7 @@ export function QuickAddActionTray({
                                             onClick={() => onToggleTag(tag.id)}
                                             className={`flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm transition-colors ${
                                                 active
-                                                    ? "bg-lantern/12 text-lantern"
+                                                    ? "bg-accent-primary/12 text-accent-primary"
                                                     : "text-twilight-text-soft hover:bg-white/[0.05]"
                                             }`}
                                         >

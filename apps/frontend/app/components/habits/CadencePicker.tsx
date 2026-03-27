@@ -101,9 +101,9 @@ export function CadencePicker({ value, onChange }: CadencePickerProps) {
                             className={`
                                 px-4 py-2 rounded-2xl text-[13px] font-medium
                                 transition-colors duration-200 cursor-pointer
-                                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lantern/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-deep
+                                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-deep
                                 ${active
-                                    ? "bg-lantern/15 text-lantern border border-lantern/25 shadow-[0_0_12px_rgba(232,164,74,0.08)]"
+                                    ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
                                     : "bg-white/[0.04] border border-white/[0.08] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.07]"
                                 }
                             `}
@@ -120,9 +120,9 @@ export function CadencePicker({ value, onChange }: CadencePickerProps) {
                     className={`
                         px-4 py-2 rounded-2xl text-[13px] font-medium
                         transition-colors duration-200 cursor-pointer
-                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lantern/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-deep
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-deep
                         ${mode === "custom"
-                            ? "bg-lantern/15 text-lantern border border-lantern/25 shadow-[0_0_12px_rgba(232,164,74,0.08)]"
+                            ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
                             : "bg-white/[0.04] border border-white/[0.08] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.07]"
                         }
                     `}
@@ -152,10 +152,10 @@ export function CadencePicker({ value, onChange }: CadencePickerProps) {
                                 className={`
                                     flex-1 min-w-[44px] h-11 rounded-2xl text-[12px] font-semibold
                                     transition-colors duration-200 cursor-pointer
-                                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lantern/50
+                                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50
                                     touch-manipulation select-none
                                     ${selected
-                                        ? "bg-lantern/15 text-lantern border border-lantern/25 shadow-[0_0_10px_rgba(232,164,74,0.07)]"
+                                        ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 shadow-[0_0_10px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)]"
                                         : "bg-white/[0.04] border border-white/[0.07] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.07]"
                                     }
                                 `}

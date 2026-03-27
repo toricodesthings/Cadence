@@ -116,7 +116,7 @@ export function FloatingActionBar() {
         <div className="layer-floating-bar fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-2xl border border-twilight-border bg-twilight-surface p-1.5 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300">
             {/* Count Badge */}
             <div className="flex items-center justify-center gap-2 pl-3 pr-2 border-r border-twilight-border/50">
-                <span className="flex h-5 items-center justify-center rounded-full bg-lantern/20 px-2 text-[11px] font-bold text-lantern tracking-wide">
+                <span className="flex h-5 items-center justify-center rounded-full bg-accent-primary/20 px-2 text-[11px] font-bold text-accent-primary tracking-wide">
                     {count}
                 </span>
                 <span className="text-[11px] font-medium text-twilight-text-muted uppercase tracking-wide">

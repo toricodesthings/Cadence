@@ -40,7 +40,7 @@ export function ContextualAddOrb({ onOpen }: ContextualAddOrbProps) {
                                 }}
                                 className="inline-flex min-h-12 items-center gap-3 rounded-full border border-twilight-border/40 bg-twilight-deep/96 px-4 text-sm font-medium text-twilight-text shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
                             >
-                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.05] text-lantern">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.05] text-accent-primary">
                                     <Icon size={15} aria-hidden="true" />
                                 </span>
                                 <span>{label}</span>
@@ -54,7 +54,7 @@ export function ContextualAddOrb({ onOpen }: ContextualAddOrbProps) {
                 type="button"
                 onClick={() => setOpen((value) => !value)}
                 aria-label={open ? "Close quick add menu" : "Open quick add menu"}
-                className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-lantern/20 bg-lantern text-midnight shadow-[0_24px_54px_rgba(232,164,74,0.34)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-midnight shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
             >
                 {open ? <X size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
             </button>

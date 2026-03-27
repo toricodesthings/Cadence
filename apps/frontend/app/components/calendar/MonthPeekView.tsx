@@ -86,7 +86,7 @@ export function MonthPeekView({
             <div className="shrink-0 px-3 pt-2 pb-3 border-b border-twilight-border/20">
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
                     <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-lantern/85">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.04] text-accent-primary/85">
                             <CalendarDays size={16} />
                         </span>
                         <span className="truncate text-sm font-medium text-twilight-text-soft">
@@ -130,7 +130,7 @@ export function MonthPeekView({
                                 className={`
                                     relative aspect-square flex items-center justify-center text-[12px] rounded-lg
                                     transition-colors duration-150 cursor-pointer
-                                    ${isToday ? "bg-lantern/20 text-lantern ring-1 ring-lantern font-bold" : ""}
+                                    ${isToday ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold" : ""}
                                     ${isSelected && !isToday ? "bg-white/[0.1] text-twilight-text ring-1 ring-white/15" : ""}
                                     ${!isToday && !isSelected ? "text-twilight-text-muted hover:bg-white/[0.05]" : ""}
                                 `}
@@ -138,17 +138,17 @@ export function MonthPeekView({
                                 {day}
                                 {(hasTask || hasHabit || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday ? (
                                     <span className="absolute bottom-[2px] left-1/2 flex -translate-x-1/2 items-center gap-1">
-                                        {hasTask ? <span className="h-1 w-1 rounded-full bg-lantern/50" /> : null}
-                                        {hasHabit ? <span className="h-1 w-1 rounded-full bg-lantern/80" /> : null}
+                                        {hasTask ? <span className="h-1 w-1 rounded-full bg-accent-primary/50" /> : null}
+                                        {hasHabit ? <span className="h-1 w-1 rounded-full bg-accent-primary/80" /> : null}
                                         {hasHoliday ? <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" /> : null}
                                         {hasBirthday ? <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" /> : null}
                                         {hasPersonalEvent ? (
                                             personalEventCount > 1 ? (
-                                                <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-personal/20 bg-personal/15 px-1 text-[9px] font-semibold text-personal">
+                                                <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/15 px-1 text-[9px] font-semibold text-accent-nav-schedule">
                                                     {personalEventCount}
                                                 </span>
                                             ) : (
-                                                <span className="h-1.5 w-1.5 rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.45)]" />
+                                                <span className="h-1.5 w-1.5 rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
                                             )
                                         ) : null}
                                     </span>

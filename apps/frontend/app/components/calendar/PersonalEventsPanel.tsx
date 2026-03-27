@@ -123,10 +123,10 @@ export function PersonalEventsPanel({
                             key={evt.id}
                             className="group flex items-center gap-2.5 rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3 py-2 text-sm hover:bg-white/[0.05] transition-colors"
                         >
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.4)]" />
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_40%,transparent)]" />
                             <button
                                 type="button"
-                                className="flex-1 min-w-0 text-left text-twilight-text-soft truncate cursor-pointer hover:text-personal transition-colors"
+                                className="flex-1 min-w-0 text-left text-twilight-text-soft truncate cursor-pointer hover:text-accent-nav-schedule transition-colors"
                                 onClick={() => handleEdit(evt)}
                             >
                                 <span className="mr-1.5">{evt.emoji ?? "🎉"}</span>
@@ -150,7 +150,7 @@ export function PersonalEventsPanel({
 
             {/* Add / Edit form */}
             {isAdding ? (
-                <div className="space-y-2 rounded-xl border border-personal/20 bg-personal/5 p-3">
+                <div className="space-y-2 rounded-xl border border-accent-nav-schedule/20 bg-accent-nav-schedule/5 p-3">
                     <div className="flex gap-2">
                         <input
                             ref={labelRef}
@@ -160,7 +160,7 @@ export function PersonalEventsPanel({
                             onKeyDown={handleKeyDown}
                             placeholder="Event name"
                             maxLength={80}
-                            className="flex-1 min-w-0 rounded-lg border border-twilight-border/40 bg-white/[0.04] px-2.5 py-1.5 text-sm text-twilight-text-soft placeholder:text-twilight-text-muted/50 focus:outline-none focus:border-personal/40 transition-colors"
+                            className="flex-1 min-w-0 rounded-lg border border-twilight-border/40 bg-white/[0.04] px-2.5 py-1.5 text-sm text-twilight-text-soft placeholder:text-twilight-text-muted/50 focus:outline-none focus:border-accent-nav-schedule/40 transition-colors"
                         />
                         <input
                             type="text"
@@ -169,7 +169,7 @@ export function PersonalEventsPanel({
                             onKeyDown={handleKeyDown}
                             placeholder="😊"
                             maxLength={4}
-                            className="w-12 rounded-lg border border-twilight-border/40 bg-white/[0.04] px-2 py-1.5 text-sm text-center placeholder:text-twilight-text-muted/50 focus:outline-none focus:border-personal/40 transition-colors"
+                            className="w-12 rounded-lg border border-twilight-border/40 bg-white/[0.04] px-2 py-1.5 text-sm text-center placeholder:text-twilight-text-muted/50 focus:outline-none focus:border-accent-nav-schedule/40 transition-colors"
                         />
                     </div>
                     <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ export function PersonalEventsPanel({
                             onKeyDown={handleKeyDown}
                             placeholder="MM-DD"
                             maxLength={5}
-                            className="w-20 rounded-lg border border-twilight-border/40 bg-white/[0.04] px-2.5 py-1.5 text-sm text-twilight-text-soft placeholder:text-twilight-text-muted/50 focus:outline-none focus:border-personal/40 transition-colors"
+                            className="w-20 rounded-lg border border-twilight-border/40 bg-white/[0.04] px-2.5 py-1.5 text-sm text-twilight-text-soft placeholder:text-twilight-text-muted/50 focus:outline-none focus:border-accent-nav-schedule/40 transition-colors"
                         />
                         <div className="flex-1" />
                         <Button
@@ -195,7 +195,7 @@ export function PersonalEventsPanel({
                             variant="ghost"
                             size="sm"
                             onClick={handleSave}
-                            className="text-personal"
+                            className="text-accent-nav-schedule"
                             disabled={!label.trim() || !monthDay}
                         >
                             <Check size={14} />
@@ -209,7 +209,7 @@ export function PersonalEventsPanel({
                         variant="ghost"
                         size="sm"
                         onClick={() => setIsAdding(true)}
-                        className="flex items-center gap-2 w-full justify-center text-twilight-text-muted hover:text-personal transition-colors"
+                        className="flex items-center gap-2 w-full justify-center text-twilight-text-muted hover:text-accent-nav-schedule transition-colors"
                     >
                         <Plus size={14} />
                         Add event

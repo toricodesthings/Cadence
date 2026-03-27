@@ -94,7 +94,7 @@ export function PersonalEventEditorDialog({
                                         aria-label="Pick an emoji"
                                         className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.04] text-[24px] text-twilight-text transition-colors hover:border-white/[0.10] hover:bg-white/[0.06]"
                                     >
-                                        {emoji || <CalendarHeart size={18} className="text-personal" />}
+                                        {emoji || <CalendarHeart size={18} className="text-accent-nav-schedule" />}
                                     </button>
                                 </EmojiPickerPopover>
 
@@ -188,7 +188,7 @@ export function PersonalEventEditorDialog({
                                 size="md"
                                 onClick={handleSubmit}
                                 disabled={!label.trim()}
-                                className="flex-1 border-personal/30 bg-personal/14 text-personal hover:bg-personal/20 sm:flex-none"
+                                className="flex-1 border-accent-nav-schedule/30 bg-accent-nav-schedule/14 text-accent-nav-schedule hover:bg-accent-nav-schedule/20 sm:flex-none"
                             >
                                 {submitLabel ?? (initialEvent ? "Save changes" : "Add event")}
                             </Button>

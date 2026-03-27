@@ -15,8 +15,8 @@ export function GeneralPageHeader({
     icon: Icon,
     title,
     description,
-    iconColorClass = "text-lantern",
-    iconBgClass = "bg-lantern/10",
+    iconColorClass = "text-accent-primary",
+    iconBgClass = "bg-accent-primary/10",
     iconGlowClass = "glow-lantern"
 }: GeneralPageHeaderProps) {
     return (

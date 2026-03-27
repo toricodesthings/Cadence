@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { CalendarHeart, Bell, BellOff, Trash2, ArrowDownUp, PencilLine } from "lucide-react";
+import { CalendarHeart, Bell, BellOff, Trash2, ArrowDownUp, PencilLine, Calendar } from "lucide-react";
 import { toast } from "sonner";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
+import * as ContextMenu from "../components/primitives/ContextMenu";
 import * as AlertDialog from "../components/primitives/AlertDialog";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
@@ -13,6 +14,7 @@ import { PersonalEventEditorDialog } from "../components/events/PersonalEventEdi
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { trackUsageEvent } from "../lib/api/track-event";
 import type { PersonalEvent } from "../types/settings";
 import {
     getNextPersonalEventDate,
@@ -26,20 +28,28 @@ function EventCard({
     item,
     onEdit,
     onDelete,
+    onToggleReminder,
+    onOpenInSchedule,
 }: {
     item: PersonalEventViewModel;
     onEdit: (event: PersonalEvent) => void;
     onDelete: (event: PersonalEvent) => void;
+    onToggleReminder: (event: PersonalEvent) => void;
+    onOpenInSchedule: (event: PersonalEvent) => void;
 }) {
     return (
-        <div className="group rounded-[1.7rem] border border-white/[0.08] bg-white/[0.03] p-4 transition-[border-color,background-color,box-shadow] duration-200 hover:border-personal/18 hover:bg-white/[0.045] hover:shadow-[0_18px_44px_rgba(244,114,182,0.12)]">
+        <ContextMenu.Root onOpenChange={(isOpen) => {
+            if (isOpen) trackUsageEvent("event.context_menu_opened", { object_type: "event", input_method: "context_menu" });
+        }}>
+            <ContextMenu.Trigger asChild>
+        <div className="group rounded-[1.7rem] border border-white/[0.08] bg-white/[0.03] p-4 transition-[border-color,background-color,box-shadow] duration-200 hover:border-accent-nav-schedule/18 hover:bg-white/[0.045] hover:shadow-[0_18px_44px_color-mix(in_srgb,var(--accent-nav-schedule)_12%,transparent)]">
             <div className="flex items-start justify-between gap-3">
                 <button
                     type="button"
                     onClick={() => onEdit(item.event)}
                     className="flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl -m-2 p-2 text-left transition-colors hover:bg-white/[0.03]"
                 >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-personal/20 bg-personal/12 text-xl text-personal">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-xl text-accent-nav-schedule">
                         {item.event.emoji ?? "🎉"}
                     </span>
                     <span className="min-w-0">
@@ -49,14 +59,24 @@ function EventCard({
                     </span>
                 </button>
 
-                <button
-                    type="button"
-                    onClick={() => onDelete(item.event)}
-                    aria-label={`Delete ${item.event.label}`}
-                    className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl border border-transparent bg-transparent text-twilight-text-muted transition-colors hover:border-red-400/20 hover:bg-red-500/10 hover:text-red-400"
-                >
-                    <Trash2 size={18} aria-hidden="true" />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => onToggleReminder(item.event)}
+                        aria-label={item.event.notify ? `Disable reminder for ${item.event.label}` : `Enable reminder for ${item.event.label}`}
+                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-transparent text-twilight-text-muted transition-colors hover:border-accent-nav-schedule/20 hover:bg-accent-nav-schedule/10 hover:text-accent-nav-schedule"
+                    >
+                        {item.event.notify ? <Bell size={16} aria-hidden="true" /> : <BellOff size={16} aria-hidden="true" />}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onDelete(item.event)}
+                        aria-label={`Delete ${item.event.label}`}
+                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-transparent text-twilight-text-muted transition-colors hover:border-red-400/20 hover:bg-red-500/10 hover:text-red-400"
+                    >
+                        <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                </div>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
@@ -67,21 +87,31 @@ function EventCard({
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Reminder</p>
                     <p className="mt-1 flex items-center gap-2 text-sm font-medium text-twilight-text">
-                        {item.event.notify ? <Bell size={14} className="text-personal" aria-hidden="true" /> : <BellOff size={14} className="text-twilight-text-muted" aria-hidden="true" />}
+                        {item.event.notify ? <Bell size={14} className="text-accent-nav-schedule" aria-hidden="true" /> : <BellOff size={14} className="text-twilight-text-muted" aria-hidden="true" />}
                         <span>{item.event.notify ? "On" : "Off"}</span>
                     </p>
                 </div>
             </div>
 
-            <div className="mt-3 rounded-[1.35rem] border border-personal/16 bg-personal/10 px-3 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-personal/75">Countdown</p>
-                <p className="mt-1 text-base font-semibold text-personal">{item.countdownLabel}</p>
+            <div className="mt-3 rounded-[1.35rem] border border-accent-nav-schedule/16 bg-accent-nav-schedule/10 px-3 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/75">Countdown</p>
+                <p className="mt-1 text-base font-semibold text-accent-nav-schedule">{item.countdownLabel}</p>
                 {item.milestoneLabel ? (
-                    <p className="mt-1 text-xs font-medium text-personal/75">{item.milestoneLabel}</p>
+                    <p className="mt-1 text-xs font-medium text-accent-nav-schedule/75">{item.milestoneLabel}</p>
                 ) : null}
             </div>
 
-            <div className="mt-3 flex items-center justify-end">
+            <div className="mt-3 flex items-center justify-end gap-2">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="md"
+                    onClick={() => onOpenInSchedule(item.event)}
+                    className="px-4 text-sm font-semibold"
+                >
+                    <Calendar size={16} aria-hidden="true" />
+                    Schedule
+                </Button>
                 <Button
                     type="button"
                     variant="ghost"
@@ -94,6 +124,30 @@ function EventCard({
                 </Button>
             </div>
         </div>
+            </ContextMenu.Trigger>
+            <ContextMenu.Content>
+                <ContextMenu.Item onSelect={() => onEdit(item.event)}>
+                    <PencilLine size={14} aria-hidden="true" />
+                    Edit event
+                </ContextMenu.Item>
+                <ContextMenu.Item onSelect={() => onOpenInSchedule(item.event)}>
+                    <Calendar size={14} aria-hidden="true" />
+                    Open in schedule
+                </ContextMenu.Item>
+                <ContextMenu.Item onSelect={() => onToggleReminder(item.event)}>
+                    {item.event.notify ? <BellOff size={14} aria-hidden="true" /> : <Bell size={14} aria-hidden="true" />}
+                    {item.event.notify ? "Disable reminder" : "Enable reminder"}
+                </ContextMenu.Item>
+                <ContextMenu.Separator />
+                <ContextMenu.Item
+                    className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                    onSelect={() => onDelete(item.event)}
+                >
+                    <Trash2 size={14} aria-hidden="true" />
+                    Delete event
+                </ContextMenu.Item>
+            </ContextMenu.Content>
+        </ContextMenu.Root>
     );
 }
 
@@ -166,7 +220,7 @@ export default function EventsRoute() {
                 title: "Events",
                 eyebrow: "Calendar",
                 icon: <CalendarHeart size={18} aria-hidden="true" />,
-                accentColor: "var(--color-personal)",
+                accentColor: "var(--accent-nav-schedule, var(--accent-primary))",
             }}
         >
             <ScrollAreaWrapper>
@@ -183,7 +237,7 @@ export default function EventsRoute() {
 
                         <div className="flex flex-col gap-3 sm:min-w-[20rem] sm:items-end">
                             <div className="flex flex-wrap gap-2 sm:justify-end">
-                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className="border-personal/30 bg-personal/14 text-personal hover:bg-personal/20">
+                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className="border-accent-nav-schedule/30 bg-accent-nav-schedule/14 text-accent-nav-schedule hover:bg-accent-nav-schedule/20">
                                     <CalendarHeart size={16} aria-hidden="true" />
                                     Add event
                                 </Button>
@@ -201,7 +255,7 @@ export default function EventsRoute() {
                                         value={sortMode}
                                         onValueChange={(value) => setSortMode(value as PersonalEventSortMode)}
                                     >
-                                        <SelectTrigger className="min-h-10 min-w-[12rem] border-white/[0.08] bg-white/[0.04] focus:ring-personal/45">
+                                        <SelectTrigger className="min-h-10 min-w-[12rem] border-white/[0.08] bg-white/[0.04] focus:ring-accent-nav-schedule/45">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -219,7 +273,7 @@ export default function EventsRoute() {
                     {events.length === 0 ? (
                         <section className="rounded-[1.9rem] border border-white/[0.08] bg-white/[0.03] px-6 py-16">
                             <div className="mx-auto flex max-w-md flex-col items-center text-center">
-                                <div className="flex h-16 w-16 items-center justify-center rounded-[1.6rem] border border-personal/20 bg-personal/10 text-personal">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-[1.6rem] border border-accent-nav-schedule/20 bg-accent-nav-schedule/10 text-accent-nav-schedule">
                                     <CalendarHeart size={28} aria-hidden="true" />
                                 </div>
                                 <p className="mt-6 text-base font-medium text-twilight-text">
@@ -228,7 +282,7 @@ export default function EventsRoute() {
                                 <p className="mt-2 text-sm leading-relaxed text-twilight-text-soft">
                                     Add birthdays, anniversaries, and other yearly dates you want to keep in view.
                                 </p>
-                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className="mt-6 border-personal/30 bg-personal/14 text-personal hover:bg-personal/20">
+                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className="mt-6 border-accent-nav-schedule/30 bg-accent-nav-schedule/14 text-accent-nav-schedule hover:bg-accent-nav-schedule/20">
                                     <CalendarHeart size={16} aria-hidden="true" />
                                     Add event
                                 </Button>
@@ -242,6 +296,13 @@ export default function EventsRoute() {
                                     item={item}
                                     onEdit={openEdit}
                                     onDelete={setDeletingEvent}
+                                    onToggleReminder={(event) => {
+                                        personalEvents.updateEvent(event.id, { ...event, notify: !event.notify });
+                                        toast.success(event.notify ? "Reminder disabled" : "Reminder enabled");
+                                    }}
+                                    onOpenInSchedule={(event) => {
+                                        handleOpenSchedule(getNextPersonalEventDate(event));
+                                    }}
                                 />
                             ))}
                         </section>

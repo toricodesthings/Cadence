@@ -84,7 +84,7 @@ export function HolidayPreferencesPanel({
                         aria-checked={locationMode === mode}
                         className={`rounded-2xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors ${
                             locationMode === mode
-                                ? "border-lantern/30 bg-lantern/12 text-lantern"
+                                ? "border-accent-primary/30 bg-accent-primary/12 text-accent-primary"
                                 : "border-white/[0.08] bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
                         }`}
                     >
@@ -318,7 +318,7 @@ export function HolidayQuickToggle({
                     aria-hidden="true"
                     className={`flex h-5 w-5 items-center justify-center rounded-md border transition-colors ${
                         checked
-                            ? "border-lantern/45 bg-lantern/18 text-lantern"
+                            ? "border-accent-primary/45 bg-accent-primary/18 text-accent-primary"
                             : "border-twilight-border-light bg-white/[0.02] text-transparent"
                     }`}
                 >

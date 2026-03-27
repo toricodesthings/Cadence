@@ -1,19 +1,21 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-    Bell, BellRing, Clock, CalendarClock, Flame, X, CheckCheck,
+    Bell, BellRing, Clock, CalendarClock, Flame, X, CheckCheck, Timer,
 } from "lucide-react";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import type { AppNotification, NotificationGroup } from "../../lib/notifications/notification-model";
 import type { GroupedNotifications } from "../../hooks/notifications/use-notification-center";
+import { DEFER_LABELS, type DeferChoice } from "../../lib/notifications/reminder-engine";
 
 // ── Icon + accent mapping ──
 const NOTIFICATION_STYLES: Record<
     AppNotification["kind"],
     { icon: typeof Bell; accent: string }
 > = {
-    "task-reminder": { icon: Clock, accent: "text-lantern" },
-    "task-due": { icon: CalendarClock, accent: "text-lantern" },
-    "habit-reminder": { icon: Flame, accent: "text-lantern" },
+    "task-reminder": { icon: Clock, accent: "text-accent-primary" },
+    "task-due": { icon: CalendarClock, accent: "text-accent-primary" },
+    "habit-reminder": { icon: Flame, accent: "text-accent-primary" },
     system: { icon: BellRing, accent: "text-moonlit" },
 };
 
@@ -34,6 +36,7 @@ export function NotificationCenter({
     markRead,
     markAllRead,
     dismiss,
+    defer,
     onClose,
 }: {
     grouped: GroupedNotifications[];
@@ -41,6 +44,7 @@ export function NotificationCenter({
     markRead: (id: string) => void;
     markAllRead: () => void;
     dismiss: (id: string) => void;
+    defer?: (id: string, choice: DeferChoice) => void;
     onClose: () => void;
 }) {
     const navigate = useNavigate();
@@ -99,6 +103,7 @@ export function NotificationCenter({
                                     notification={n}
                                     onOpen={() => handleOpen(n)}
                                     onDismiss={() => dismiss(n.id)}
+                                    onDefer={defer ? (choice) => defer(n.id, choice) : undefined}
                                 />
                             ))}
                         </div>
@@ -113,12 +118,15 @@ function NotificationRow({
     notification: n,
     onOpen,
     onDismiss,
+    onDefer,
 }: {
     notification: AppNotification;
     onOpen: () => void;
     onDismiss: () => void;
+    onDefer?: (choice: DeferChoice) => void;
 }) {
     const { icon: Icon, accent } = NOTIFICATION_STYLES[n.kind];
+    const [showDefer, setShowDefer] = useState(false);
 
     return (
         <div
@@ -145,16 +153,43 @@ function NotificationRow({
                 <p className="text-sm text-twilight-text-muted mt-0.5 truncate">
                     {n.body}
                 </p>
+                {/* §11.7: Defer choices row */}
+                {showDefer && onDefer && (
+                    <div
+                        className="flex items-center gap-1.5 mt-2"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                    >
+                        {(Object.keys(DEFER_LABELS) as DeferChoice[]).map((choice) => (
+                            <button
+                                key={choice}
+                                onClick={() => { onDefer(choice); setShowDefer(false); }}
+                                className="rounded-lg bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-twilight-text-soft hover:bg-white/[0.10] hover:text-twilight-text transition-colors cursor-pointer"
+                            >
+                                {DEFER_LABELS[choice]}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
-            {/* Right side: timestamp + dismiss */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Right side: timestamp + defer + dismiss */}
+            <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-xs text-twilight-text-muted tabular-nums">
                     <RelativeTime iso={n.triggerAt} />
                 </span>
+                {onDefer && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setShowDefer(!showDefer); }}
+                        className="opacity-100 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 p-1 -m-0.5 rounded hover:bg-white/10 text-twilight-text-muted hover:text-twilight-text transition-all cursor-pointer"
+                        aria-label={`Defer notification: ${n.title}`}
+                    >
+                        <Timer size={14} aria-hidden="true" />
+                    </button>
+                )}
                 <button
                     onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-                    className="opacity-100 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 p-1 -m-0.5 rounded hover:bg-white/10 text-twilight-text-muted hover:text-twilight-text transition-all"
+                    className="opacity-100 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 p-1 -m-0.5 rounded hover:bg-white/10 text-twilight-text-muted hover:text-twilight-text transition-all cursor-pointer"
                     aria-label={`Dismiss notification: ${n.title}`}
                 >
                     <X size={14} aria-hidden="true" />
@@ -163,7 +198,7 @@ function NotificationRow({
 
             {/* Unread dot */}
             {!n.read && (
-                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-lantern" />
+                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent-primary" />
             )}
         </div>
     );

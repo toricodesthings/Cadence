@@ -354,7 +354,7 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
                 <Button
                     type="submit"
                     size="md"
-                    className="min-h-10 w-full rounded-[1rem] bg-lantern text-twilight-void font-semibold"
+                    className="min-h-10 w-full rounded-[1rem] bg-accent-primary text-twilight-void font-semibold"
                     disabled={isSubmitting}
                 >
                     {isSubmitting
@@ -490,7 +490,7 @@ export default function AuthPage() {
             <div className="pointer-events-none absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.9%27 numOctaves=%274%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E")' }} />
             <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-[-12%] top-[8%] h-[24rem] w-[24rem] rounded-full bg-moonlit/10 blur-[120px]" />
-                <div className="absolute right-[-8%] top-[18%] h-[26rem] w-[26rem] rounded-full bg-lantern/8 blur-[130px]" />
+                <div className="absolute right-[-8%] top-[18%] h-[26rem] w-[26rem] rounded-full bg-accent-primary/8 blur-[130px]" />
                 <div className="absolute bottom-[-10%] left-1/2 h-[22rem] w-[34rem] -translate-x-1/2 rounded-full bg-white/[0.04] blur-[160px]" />
             </div>
 
@@ -530,13 +530,13 @@ export default function AuthPage() {
                                         footerLink: "hidden",
                                         form: {
                                             button: "min-h-10 rounded-[1rem] text-sm font-medium",
-                                            primaryButton: "min-h-10 rounded-[1rem] bg-lantern text-twilight-void font-semibold",
+                                            primaryButton: "min-h-10 rounded-[1rem] bg-accent-primary text-twilight-void font-semibold",
                                             providerButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
                                             secondaryButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
                                             input: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text",
                                             label: "text-sm font-medium text-twilight-text",
                                             description: "text-sm leading-relaxed text-twilight-text-soft",
-                                            forgotPasswordLink: "inline-flex min-h-0 items-center py-0 text-sm font-medium leading-none text-lantern hover:text-lantern",
+                                            forgotPasswordLink: "inline-flex min-h-0 items-center py-0 text-sm font-medium leading-none text-accent-primary hover:text-accent-primary",
                                             error: "text-sm text-feedback-error",
                                         },
                                     }}
@@ -562,7 +562,7 @@ export default function AuthPage() {
                                 </span>
                                 <Link
                                     to={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
-                                    className="font-medium text-lantern transition-colors hover:text-lantern/80"
+                                    className="font-medium text-accent-primary transition-colors hover:text-accent-primary/80"
                                 >
                                     {isSignUp ? "Sign in" : "Create an account"}
                                 </Link>

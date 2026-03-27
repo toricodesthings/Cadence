@@ -78,7 +78,7 @@ export function ControlsSheet({
                                     onClick={() => setActiveSectionId(section.id)}
                                     className={`touch-target inline-flex min-h-10 shrink-0 items-center rounded-2xl border px-3.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors ${
                                         activeSection?.id === section.id
-                                            ? "border-lantern/30 bg-lantern/14 text-lantern"
+                                            ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
                                             : "border-twilight-border/45 bg-white/[0.03] text-twilight-text-soft"
                                     }`}
                                 >

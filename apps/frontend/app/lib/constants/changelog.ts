@@ -12,6 +12,12 @@ export interface ChangelogEntry {
  */
 export const CADENCE_CHANGELOG: ChangelogEntry[] = [
     {
+        version: "v0.7 Beta",
+        title: "Better themes, and personalization",
+        description: "Themes and personalization have been vastly improved.",
+        glyph: "tune",
+    },
+    {
         version: "v0.6 Beta",
         title: "Events and minor tweaks",
         description: "Personal events support in the calendar, and various minor improvements and bug fixes across the app.",

@@ -27,11 +27,11 @@ function TodayHabitRow({ habit, log, todayIso }: TodayHabitRowProps) {
                     status: isCompleted ? "PENDING" : "COMPLETED",
                 })}
                 aria-label={isCompleted ? "Mark habit pending" : "Complete habit"}
-                className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-all duration-200 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lantern ${isCompleted
-                        ? "bg-lantern/20 border-lantern/50 shadow-[0_0_8px_rgba(232,164,74,0.2)]"
+                className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-all duration-200 border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary ${isCompleted
+                        ? "bg-accent-primary/20 border-accent-primary/50 shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_20%,transparent)]"
                         : isSkipped
                             ? "bg-twilight-surface border-twilight-border opacity-40"
-                            : "bg-twilight-surface border-twilight-border hover:border-lantern/40 hover:bg-lantern/5"
+                            : "bg-twilight-surface border-twilight-border hover:border-accent-primary/40 hover:bg-accent-primary/5"
                     }`}
             >
                 <AnimatePresence mode="wait">
@@ -41,7 +41,7 @@ function TodayHabitRow({ habit, log, todayIso }: TodayHabitRowProps) {
                             initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
                             transition={{ type: "spring", stiffness: 400, damping: 20 }}
                         >
-                            <Check size={11} className="text-lantern" strokeWidth={3} />
+                            <Check size={11} className="text-accent-primary" strokeWidth={3} />
                         </motion.span>
                     )}
                     {isSkipped && (
@@ -73,7 +73,7 @@ function TodayHabitRow({ habit, log, todayIso }: TodayHabitRowProps) {
                         status: "SKIPPED",
                     })}
                     aria-label="Skip habit"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-twilight-text-muted/50 hover:text-twilight-text-muted text-[10px] uppercase tracking-widest font-medium"
+                    className="opacity-0 group-hover:opacity-100 touch-reveal transition-opacity p-1 rounded text-twilight-text-muted/50 hover:text-twilight-text-muted text-[10px] uppercase tracking-widest font-medium"
                 >
                     skip
                 </button>
@@ -114,7 +114,7 @@ export function PlannerHabitsSection({ selectedDate }: PlannerHabitsSectionProps
                 aria-expanded={open}
             >
                 <div className="flex items-center gap-2 flex-1">
-                    <Flame size={13} className="text-lantern/70" />
+                    <Flame size={13} className="text-accent-primary/70" />
                     <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-twilight-text-muted group-hover:text-twilight-text-soft transition-colors">
                         Habits
                     </span>
@@ -165,7 +165,7 @@ export function PlannerHabitsSection({ selectedDate }: PlannerHabitsSectionProps
                             {/* Footer link to habits page */}
                             <Link
                                 to="/habits"
-                                className="flex items-center gap-1.5 pt-2 pb-1 text-[11px] text-twilight-text-muted/50 hover:text-lantern/70 transition-colors"
+                                className="flex items-center gap-1.5 pt-2 pb-1 text-[11px] text-twilight-text-muted/50 hover:text-accent-primary/70 transition-colors"
                             >
                                 <LinkIcon size={10} />
                                 View all habits

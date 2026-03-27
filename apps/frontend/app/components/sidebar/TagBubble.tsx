@@ -26,7 +26,7 @@ export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
                         inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium
                         transition-all duration-200 cursor-pointer shrink-0
                         ${isActive
-                            ? "ring-1 ring-offset-1 ring-offset-twilight-deep shadow-[0_0_8px_rgba(232,164,74,0.1)]"
+                            ? "ring-1 ring-offset-1 ring-offset-twilight-deep shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)]"
                             : "hover:brightness-125"
                         }
                     `}

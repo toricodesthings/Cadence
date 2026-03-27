@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, MoreHorizontal, PanelLeftOpen, CalendarHeart } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
@@ -82,6 +82,85 @@ function buildSubtitleLabel(
     return d.toLocaleDateString(locale, { weekday: "long", day: "numeric" });
 }
 
+/** Contextual add trigger — one button with task/event segmented chooser. */
+function ContextualAddTrigger({
+    onAddTask,
+    onAddEvent,
+}: {
+    onAddTask?: () => void;
+    onAddEvent?: () => void;
+}) {
+    const [mode, setMode] = useState<"task" | "event">(onAddTask ? "task" : "event");
+    const hasBoth = Boolean(onAddTask) && Boolean(onAddEvent);
+
+    const handleClick = () => {
+        if (mode === "task") onAddTask?.();
+        else onAddEvent?.();
+    };
+
+    if (!hasBoth) {
+        // Only one action — render as a single button
+        const isTask = Boolean(onAddTask);
+        return (
+            <button
+                type="button"
+                onClick={isTask ? onAddTask : onAddEvent}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+                    isTask
+                        ? "border-accent-primary/20 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30"
+                        : "border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-accent-nav-schedule hover:border-accent-nav-schedule/30 hover:bg-accent-nav-schedule/18"
+                }`}
+            >
+                {isTask ? <Plus size={14} /> : <CalendarHeart size={14} />}
+                <span className="hidden lg:inline">{isTask ? "Add Task" : "Add Event"}</span>
+            </button>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-0">
+            {/* Segmented chooser */}
+            <div className="flex items-center rounded-l-xl border border-r-0 border-twilight-border/30 bg-twilight-base/35 p-0.5">
+                <button
+                    type="button"
+                    onClick={() => setMode("task")}
+                    className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer border ${
+                        mode === "task"
+                            ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
+                            : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"
+                    }`}
+                >
+                    Task
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setMode("event")}
+                    className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer border ${
+                        mode === "event"
+                            ? "bg-accent-nav-schedule/18 text-accent-nav-schedule border-accent-nav-schedule/25"
+                            : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"
+                    }`}
+                >
+                    Event
+                </button>
+            </div>
+            {/* Primary add button */}
+            <button
+                type="button"
+                onClick={handleClick}
+                className={`inline-flex items-center gap-1.5 rounded-r-xl border px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+                    mode === "task"
+                        ? "border-accent-primary/20 bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/25"
+                        : "border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-accent-nav-schedule hover:bg-accent-nav-schedule/18"
+                }`}
+                aria-label={mode === "task" ? "Add task" : "Add event"}
+            >
+                <Plus size={14} />
+            </button>
+        </div>
+    );
+}
+
 export function ScheduleHeader({
     year,
     month,
@@ -118,7 +197,7 @@ export function ScheduleHeader({
                         </button>
                     )}
                     <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <CurrentIcon size={14} className="text-lantern/70 shrink-0" />
+                        <CurrentIcon size={14} className="text-accent-primary/70 shrink-0" />
                         <div className="min-w-0">
                             <h2 className="font-display text-sm font-semibold text-twilight-text tracking-tight truncate leading-tight">
                                 {mainHeading}
@@ -159,25 +238,40 @@ export function ScheduleHeader({
                             </Popover.Content>
                         </Popover.Root>
                     )}
-                    {onAddEvent && (
-                        <button
-                            type="button"
-                            onClick={onAddEvent}
-                            className="btn-icon touch-target rounded-full border border-personal/20 text-personal hover:bg-personal/15"
-                            aria-label="Add event"
-                        >
-                            <CalendarHeart size={16} />
-                        </button>
-                    )}
-                    {onAddTask && (
-                        <button
-                            type="button"
-                            onClick={onAddTask}
-                            className="btn-icon touch-target rounded-full text-lantern hover:bg-lantern/15"
-                            aria-label="Add task"
-                        >
-                            <Plus size={16} />
-                        </button>
+                    {(onAddTask || onAddEvent) && (
+                        <Popover.Root>
+                            <Popover.Trigger asChild>
+                                <button
+                                    type="button"
+                                    className="btn-icon touch-target rounded-full text-accent-primary hover:bg-accent-primary/15"
+                                    aria-label="Add to schedule"
+                                >
+                                    <Plus size={16} />
+                                </button>
+                            </Popover.Trigger>
+                            <Popover.Content side="bottom" align="end" className="w-44 p-1.5">
+                                {onAddTask && (
+                                    <button
+                                        type="button"
+                                        onClick={onAddTask}
+                                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-twilight-text hover:bg-white/[0.06] transition-colors"
+                                    >
+                                        <Plus size={14} className="text-accent-primary" />
+                                        Add task
+                                    </button>
+                                )}
+                                {onAddEvent && (
+                                    <button
+                                        type="button"
+                                        onClick={onAddEvent}
+                                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-twilight-text hover:bg-white/[0.06] transition-colors"
+                                    >
+                                        <CalendarHeart size={14} className="text-accent-nav-schedule" />
+                                        Add event
+                                    </button>
+                                )}
+                            </Popover.Content>
+                        </Popover.Root>
                     )}
                 </div>
                 {/* Row 2: view switcher tabs */}
@@ -194,7 +288,7 @@ export function ScheduleHeader({
                                 className={`
                                     rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
                                     ${viewMode === mode
-                                        ? "bg-lantern/20 text-lantern border-lantern/25"
+                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
                                         : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
                                 `}
                                 aria-current={viewMode === mode ? "true" : undefined}
@@ -221,7 +315,7 @@ export function ScheduleHeader({
             <div className="flex h-16 items-center gap-3">
                 {/* Left: heading block with page identity */}
                 <div className="flex min-w-0 items-center gap-2.5">
-                    <CurrentIcon size={18} className="text-lantern/70 shrink-0" />
+                    <CurrentIcon size={18} className="text-accent-primary/70 shrink-0" />
                     <div className="min-w-0">
                         <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap leading-tight">
                             {mainHeading}
@@ -275,7 +369,7 @@ export function ScheduleHeader({
                             className={`
                                 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border
                                 ${viewMode === mode
-                                    ? "bg-lantern/20 text-lantern border-lantern/25"
+                                    ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
                                     : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
                             `}
                             aria-current={viewMode === mode ? "true" : undefined}
@@ -284,6 +378,11 @@ export function ScheduleHeader({
                         </button>
                     ))}
                 </nav>
+
+                {/* Contextual add trigger */}
+                {(onAddTask || onAddEvent) && (
+                    <ContextualAddTrigger onAddTask={onAddTask} onAddEvent={onAddEvent} />
+                )}
 
                 {/* Overflow menu for holiday/clutter controls */}
                 {overflowContent && (
@@ -302,29 +401,6 @@ export function ScheduleHeader({
                         </Popover.Content>
                     </Popover.Root>
                 )}
-
-                {/* Add task button */}
-                {onAddEvent ? (
-                    <button
-                        type="button"
-                        onClick={onAddEvent}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-personal/20 bg-personal/12 px-4 py-1.5 text-sm font-medium text-personal hover:border-personal/30 hover:bg-personal/18 transition-colors cursor-pointer"
-                    >
-                        <CalendarHeart size={14} />
-                        <span className="hidden lg:inline">Add Event</span>
-                    </button>
-                ) : null}
-
-                {onAddTask ? (
-                    <button
-                        type="button"
-                        onClick={onAddTask}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-lantern/20 bg-lantern/15 px-4 py-1.5 text-sm font-medium text-lantern hover:bg-lantern/25 hover:border-lantern/30 transition-colors cursor-pointer"
-                    >
-                        <Plus size={14} />
-                        <span className="hidden lg:inline">Add Task</span>
-                    </button>
-                ) : null}
             </div>
         </div>
     );

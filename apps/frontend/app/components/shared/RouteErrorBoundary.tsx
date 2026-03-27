@@ -35,7 +35,7 @@ export function RouteErrorBoundary({ error }: { error: unknown }) {
                     <button
                         type="button"
                         onClick={() => window.location.reload()}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-lantern/12 px-4 py-2 text-sm font-medium text-lantern transition-colors hover:bg-lantern/20"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-accent-primary/12 px-4 py-2 text-sm font-medium text-accent-primary transition-colors hover:bg-accent-primary/20"
                     >
                         <RefreshCw size={14} aria-hidden="true" />
                         Reload

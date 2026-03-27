@@ -41,7 +41,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                 <div className="grid gap-4 px-6 py-6 md:grid-cols-2">
                     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
                         <div className="flex items-center gap-2 text-sm font-semibold text-twilight-text">
-                            {isOnline ? <CheckCircle2 size={16} className="text-lantern" /> : <WifiOff size={16} className="text-amber-300" />}
+                            {isOnline ? <CheckCircle2 size={16} className="text-accent-primary" /> : <WifiOff size={16} className="text-amber-300" />}
                             Connectivity
                         </div>
                         <p className="mt-3 text-sm text-twilight-text-soft">
@@ -95,7 +95,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
 
                     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 md:col-span-2">
                         <div className="flex items-center gap-2 text-sm font-semibold text-twilight-text">
-                            <CheckCircle2 size={16} className="text-lantern" />
+                            <CheckCircle2 size={16} className="text-accent-primary" />
                             Updates
                         </div>
                         <p className="mt-3 text-sm text-twilight-text-soft">
@@ -118,7 +118,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                         <button
                             type="button"
                             onClick={() => outbox.retryFailed()}
-                            className="rounded-xl border border-lantern/25 bg-lantern/10 px-4 py-2 text-sm font-medium text-lantern transition-colors hover:bg-lantern/16"
+                            className="rounded-xl border border-accent-primary/25 bg-accent-primary/10 px-4 py-2 text-sm font-medium text-accent-primary transition-colors hover:bg-accent-primary/16"
                         >
                             Retry failed sync
                         </button>

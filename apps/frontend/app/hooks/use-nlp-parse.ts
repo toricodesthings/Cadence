@@ -13,6 +13,7 @@ import type { ParseResult, ParsedEntity } from "@cadence/nlp/core";
 import type { SourceSurface } from "@cadence/nlp/core";
 import type { TaskPriority } from "../types/task";
 import type { QuickAddParsedToken, QuickAddParseResult } from "../lib/utils/quick-add-parser";
+import { trackUsageEvent } from "../lib/api/track-event";
 
 // Lazy module cache — loaded once, shared across all hook instances
 let parseModuleCache: { parse: typeof import("@cadence/nlp/parse")["parse"] } | null = null;
@@ -49,6 +50,8 @@ export interface NlpParseOutput extends QuickAddParseResult {
     waitingOn: string | null;
     /** Duration estimate in minutes */
     durationMinutes: number | null;
+    /** §11.5: Human-readable label for the detected date (not raw ISO) */
+    dueHumanLabel: string | null;
 }
 
 /**
@@ -118,10 +121,13 @@ const EMPTY_OUTPUT: NlpParseOutput = {
     summary: "",
     waitingOn: null,
     durationMinutes: null,
+    dueHumanLabel: null,
 };
 
 /** Section 16.2: debounce parse to token boundaries, not every keystroke */
 const PARSE_DEBOUNCE_MS = 180;
+/** Low-stimulation mode: longer debounce to reduce visual churn */
+const PARSE_DEBOUNCE_LOW_STIM_MS = 400;
 const CONFIDENCE_ORDER: Record<"low" | "medium" | "high", number> = {
     low: 0,
     medium: 1,
@@ -144,6 +150,11 @@ export function useNlpParse({
     lowStimulationMode = false,
     enabled = true,
 }: UseNlpParseOptions): NlpParseOutput {
+    // §11.5: Low-stimulation mode enforces stricter confidence threshold
+    // Only high-confidence entities auto-apply; medium/low are suppressed
+    const effectiveThreshold = lowStimulationMode && confidenceThreshold !== "high"
+        ? "high" as const
+        : confidenceThreshold;
     const [output, setOutput] = useState<NlpParseOutput>({ ...EMPTY_OUTPUT, cleanedTitle: input.trim() });
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const latestInputRef = useRef(input);
@@ -191,6 +202,7 @@ export function useNlpParse({
 
         const ignored = new Set([...latestIgnoredTokenIdsRef.current, ...latestDismissedEntityIdsRef.current]);
         let dueDate: string | null = null;
+        let dueHumanLabel: string | null = null;
         let recurrenceRule: string | null = null;
         let priority: TaskPriority | null = null;
         let projectId: string | null = null;
@@ -206,39 +218,42 @@ export function useNlpParse({
             switch (entity.type) {
                 case "scheduled_start":
                 case "due_date": {
-                    const val = entity.normalizedValue as { date?: string };
-                    if (!dueDate && val?.date && confidenceMeetsThreshold(entity.confidence, confidenceThreshold)) dueDate = val.date;
+                    const val = entity.normalizedValue as { date?: string; humanLabel?: string };
+                    if (!dueDate && val?.date && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) {
+                        dueDate = val.date;
+                        dueHumanLabel = val.humanLabel ?? null;
+                    }
                     break;
                 }
                 case "recurrence": {
                     const val = entity.normalizedValue as { rrule?: string };
-                    if (!recurrenceRule && val?.rrule && confidenceMeetsThreshold(entity.confidence, confidenceThreshold)) recurrenceRule = val.rrule;
+                    if (!recurrenceRule && val?.rrule && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) recurrenceRule = val.rrule;
                     break;
                 }
                 case "priority": {
                     const val = entity.normalizedValue as { priority?: number };
-                    if (!priority && val?.priority && confidenceMeetsThreshold(entity.confidence, confidenceThreshold)) priority = val.priority as TaskPriority;
+                    if (!priority && val?.priority && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) priority = val.priority as TaskPriority;
                     break;
                 }
                 case "project": {
                     const val = entity.normalizedValue as { id?: string; resolvedId?: string };
-                    if (!projectId && confidenceMeetsThreshold(entity.confidence, confidenceThreshold)) projectId = val.id ?? val.resolvedId ?? null;
+                    if (!projectId && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) projectId = val.id ?? val.resolvedId ?? null;
                     break;
                 }
                 case "tag": {
                     const val = entity.normalizedValue as { id?: string; resolvedId?: string };
                     const tagId = val.id ?? val.resolvedId;
-                    if (tagId && confidenceMeetsThreshold(entity.confidence, confidenceThreshold) && !tagIds.includes(tagId)) tagIds.push(tagId);
+                    if (tagId && confidenceMeetsThreshold(entity.confidence, effectiveThreshold) && !tagIds.includes(tagId)) tagIds.push(tagId);
                     break;
                 }
                 case "waiting_on": {
                     const val = entity.normalizedValue as { person?: string };
-                    if (!waitingOn && val?.person && confidenceMeetsThreshold(entity.confidence, confidenceThreshold)) waitingOn = val.person;
+                    if (!waitingOn && val?.person && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) waitingOn = val.person;
                     break;
                 }
                 case "duration": {
                     const val = entity.normalizedValue as { minutes?: number };
-                    if (!durationMinutes && val?.minutes && confidenceMeetsThreshold(entity.confidence, confidenceThreshold)) durationMinutes = val.minutes;
+                    if (!durationMinutes && val?.minutes && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) durationMinutes = val.minutes;
                     break;
                 }
             }
@@ -254,11 +269,22 @@ export function useNlpParse({
             tagIds,
             tokens,
             parseResult: result,
-            summary: result.summary ?? "",
+            // §11.5: Low-stimulation mode suppresses verbose summary text
+            summary: lowStimulationMode ? "" : (result.summary ?? ""),
             waitingOn,
             durationMinutes,
+            dueHumanLabel,
         });
-    }, [sourceSurface, dateStyle, enabled, confidenceThreshold]);
+
+        // §11.8 NLP telemetry
+        trackUsageEvent("nlp.parse_completed", {
+            surface: sourceSurface,
+            confidence_tier: result.overallConfidence ?? undefined,
+        });
+        if (result.overallConfidence === "low") {
+            trackUsageEvent("nlp.low_confidence_seen", { surface: sourceSurface });
+        }
+    }, [sourceSurface, dateStyle, enabled, effectiveThreshold, lowStimulationMode]);
 
     // Load module on mount (when enabled) and trigger initial parse
     useEffect(() => {
@@ -269,12 +295,14 @@ export function useNlpParse({
     }, [enabled, runParse]);
 
     // Debounced parse on input change (Section 16.2)
+    // §11.5: Low-stimulation mode uses longer debounce to reduce visual churn
+    const debounceMs = lowStimulationMode ? PARSE_DEBOUNCE_LOW_STIM_MS : PARSE_DEBOUNCE_MS;
     useEffect(() => {
         if (!enabled) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
             if (parseModuleCache) runParse();
-        }, PARSE_DEBOUNCE_MS);
+        }, debounceMs);
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };

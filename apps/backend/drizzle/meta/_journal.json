@@ -169,6 +169,13 @@
       "when": 1774054031760,
       "tag": "0023_numerous_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1774561404330,
+      "tag": "0024_special_starjammers",
+      "breakpoints": true
     }
   ]
 }

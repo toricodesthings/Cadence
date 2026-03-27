@@ -45,6 +45,24 @@ const FALSE_POSITIVE_GUARDS = [
   /\bsaturday\s+(night|morning)\s+(live|fever)\b/i,
   // Song/movie/book titles with date words
   /\b\w+day\s+(night|morning)\b/i,
+  // Common compound nouns / proper names with month words
+  /\bmarch\s+(madness|of\s+the)\b/i,
+  /\bmay\s+(flower|pole|queen)\b/i,
+  /\bjune\s+bug\b/i,
+  /\baugust\s+(rush|wilson|moon)\b/i,
+  // Adjective-style day references ("daily standup", "weekly sync", "monthly review")
+  /\b(daily|weekly|monthly|yearly|annual)\s+\w+/i,
+  // "morning routine", "evening walk", "afternoon nap" — descriptive, not scheduling
+  /\b(morning|evening|afternoon|night)\s+(routine|walk|nap|jog|meditation|yoga|workout|ritual|commute|shift)\b/i,
+  // "one day", "some day", "any day" — vague, not real dates
+  /\b(one|some|any|each|every)\s+day\b/i,
+  // "day off", "day shift", "day trip" — noun phrases, not dates
+  /\bday\s+(off|shift|trip|care|dream|job)\b/i,
+  // "yesterday's meeting" — possessive past references in titles
+  /\byesterday'?s\s+\w+/i,
+  // "Happy Friday", "Thank God it's Friday" — social phrases
+  /\bhappy\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
+  /\btgif\b/i,
 ];
 
 function isHighConfidenceDate(text: string): boolean {

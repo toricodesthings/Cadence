@@ -33,7 +33,7 @@ export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', '
 export const targetModeEnum = pgEnum('target_mode', ['AMBIENT', 'ANCHOR', 'BLOCK']);
 export const captureKindEnum = pgEnum('capture_kind', ['task', 'thought', 'reference', 'unknown']);
 export const captureStatusEnum = pgEnum('capture_status', ['clarifying', 'placed', 'kept', 'discarded']);
-export const analysisStatusEnum = pgEnum('analysis_status', ['pending', 'parsed', 'reviewed', 'applied']);
+export const analysisStatusEnum = pgEnum('analysis_status', ['pending', 'parsed', 'reviewed', 'applied', 'dismissed']);
 export const confidenceTierEnum = pgEnum('confidence_tier', ['high', 'medium', 'low']);
 export const sourceSurfaceEnum = pgEnum('source_surface', [
     'inline-add', 'inline_add', 'quick-add-task', 'quick_add',
@@ -324,6 +324,13 @@ export const inboxItems = pgTable('inbox_items', {
     analysisSummary: text('analysis_summary'), // "Cadence understood: ..." human-readable summary
     analysis: jsonb('analysis').$type<Record<string, unknown>>(), // full ParseResult JSON
     sourceSurface: sourceSurfaceEnum('source_surface').default('inbox'),
+    // ── Analysis lifecycle (§11.3) ──
+    analysisConfidenceTier: confidenceTierEnum('analysis_confidence_tier'),
+    analysisNeedsReview: boolean('analysis_needs_review').default(false).notNull(),
+    analysisReviewReason: text('analysis_review_reason'),
+    analysisEntityCount: integer('analysis_entity_count').default(0).notNull(),
+    clarifiedAt: timestamp('clarified_at', { withTimezone: true, mode: 'string' }),
+    appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'string' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
@@ -593,6 +600,15 @@ export const usageEvents = pgTable(
             .notNull(),
         event: text("event").notNull(), // e.g. "task.complete", "task.reschedule", "habit.complete"
         metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+        // ── Formalized telemetry contract (§11.3) ──
+        surface: text("surface"), // e.g. "today", "schedule", "inbox"
+        route: text("route"), // route path at event time
+        inputMethod: text("input_method"), // "click", "keyboard", "context_menu", "dnd"
+        objectType: text("object_type"), // "task", "habit", "event", "capture", "project"
+        confidenceTier: text("confidence_tier"), // "high", "medium", "low" when relevant
+        outcome: text("outcome"), // success/failure/cancel
+        latencyMs: integer("latency_ms"), // action latency when relevant
+        selectionCount: integer("selection_count"), // for batch operations
         createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
             .defaultNow()
             .notNull(),
@@ -602,6 +618,44 @@ export const usageEvents = pgTable(
         eventIdx: index("usage_events_event_idx").on(table.event),
         createdAtIdx: index("usage_events_created_at_idx").on(table.createdAt),
         rlsPolicy: pgPolicy("usage_events_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
+// 13b. Notification State (persistent reminder/notification state per user+object+trigger)
+export const notificationState = pgTable(
+    "notification_state",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        objectType: text("object_type").notNull(), // "task" | "habit" | "event"
+        objectId: uuid("object_id").notNull(),
+        triggerId: text("trigger_id").notNull(), // e.g. "due_date_reminder", "habit_due"
+        firstPresentedAt: timestamp("first_presented_at", { withTimezone: true, mode: "string" }),
+        lastPresentedAt: timestamp("last_presented_at", { withTimezone: true, mode: "string" }),
+        dismissedAt: timestamp("dismissed_at", { withTimezone: true, mode: "string" }),
+        deferredUntil: timestamp("deferred_until", { withTimezone: true, mode: "string" }),
+        actionTaken: text("action_taken"),
+        presentationCount: integer("presentation_count").default(0).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+        updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+            .defaultNow()
+            .notNull(),
+    },
+    (table) => ({
+        userObjectTriggerIdx: uniqueIndex("notification_state_user_object_trigger_unique")
+            .on(table.userId, table.objectId, table.triggerId),
+        userIdIdx: index("notification_state_user_id_idx").on(table.userId),
+        deferredUntilIdx: index("notification_state_deferred_until_idx").on(table.deferredUntil),
+        rlsPolicy: pgPolicy("notification_state_owner_access", {
             as: "permissive",
             for: "all",
             using: rlsUsing,
@@ -685,6 +739,22 @@ export const taskNlpMetadata = pgTable(
         cleanedTitle: text("cleaned_title").notNull(),
         parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
         confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
+        // ── Resolved columns (queryable without unpacking JSON) ──
+        resolvedDueDate: timestamp("resolved_due_date", { withTimezone: true, mode: "string" }),
+        resolvedScheduledStart: timestamp("resolved_scheduled_start", { withTimezone: true, mode: "string" }),
+        resolvedScheduledEnd: timestamp("resolved_scheduled_end", { withTimezone: true, mode: "string" }),
+        resolvedRecurrenceRule: text("resolved_recurrence_rule"),
+        resolvedProjectId: uuid("resolved_project_id"),
+        resolvedTagIds: jsonb("resolved_tag_ids").$type<string[]>(),
+        resolvedPriority: text("resolved_priority"),
+        resolvedDurationMinutes: integer("resolved_duration_minutes"),
+        resolvedWaitingOn: text("resolved_waiting_on"),
+        needsReview: boolean("needs_review").default(false).notNull(),
+        reviewReason: text("review_reason"),
+        entityCount: integer("entity_count").default(0).notNull(),
+        highConfidenceEntityCount: integer("high_confidence_entity_count").default(0).notNull(),
+        mediumConfidenceEntityCount: integer("medium_confidence_entity_count").default(0).notNull(),
+        lowConfidenceEntityCount: integer("low_confidence_entity_count").default(0).notNull(),
         isCurrent: boolean("is_current").default(true).notNull(),
         createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
             .defaultNow()
@@ -718,6 +788,22 @@ export const taskNlpMetadataHistory = pgTable(
         cleanedTitle: text("cleaned_title").notNull(),
         parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
         confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
+        // ── Resolved columns (mirror of task_nlp_metadata) ──
+        resolvedDueDate: timestamp("resolved_due_date", { withTimezone: true, mode: "string" }),
+        resolvedScheduledStart: timestamp("resolved_scheduled_start", { withTimezone: true, mode: "string" }),
+        resolvedScheduledEnd: timestamp("resolved_scheduled_end", { withTimezone: true, mode: "string" }),
+        resolvedRecurrenceRule: text("resolved_recurrence_rule"),
+        resolvedProjectId: uuid("resolved_project_id"),
+        resolvedTagIds: jsonb("resolved_tag_ids").$type<string[]>(),
+        resolvedPriority: text("resolved_priority"),
+        resolvedDurationMinutes: integer("resolved_duration_minutes"),
+        resolvedWaitingOn: text("resolved_waiting_on"),
+        needsReview: boolean("needs_review").default(false).notNull(),
+        reviewReason: text("review_reason"),
+        entityCount: integer("entity_count").default(0).notNull(),
+        highConfidenceEntityCount: integer("high_confidence_entity_count").default(0).notNull(),
+        mediumConfidenceEntityCount: integer("medium_confidence_entity_count").default(0).notNull(),
+        lowConfidenceEntityCount: integer("low_confidence_entity_count").default(0).notNull(),
         isCurrent: boolean("is_current").default(false).notNull(),
         createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
             .defaultNow()

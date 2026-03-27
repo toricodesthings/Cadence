@@ -45,7 +45,7 @@ export function NotesToolbar({ onAction, activeActions }: NotesToolbarProps) {
                         onClick={() => onAction(id)}
                         className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors ${
                             isActive
-                                ? "bg-lantern/15 text-lantern"
+                                ? "bg-accent-primary/15 text-accent-primary"
                                 : "text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
                         }`}
                         aria-label={label}

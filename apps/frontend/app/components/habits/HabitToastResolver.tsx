@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Info } from "lucide-react";
 import { toast } from "sonner";
 import { useApiClient } from "../../hooks/auth/use-api-client";
 import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
@@ -71,7 +70,6 @@ export function HabitToastResolver() {
         }
     };
 
-    // We only show the bundled toast once per mount
     useEffect(() => {
         if (!bundleEnabled) {
             toast.dismiss("habit-unresolved-bundle");
@@ -89,47 +87,29 @@ export function HabitToastResolver() {
         shownRef.current = true;
 
         const count = actionableHabits.length;
+        const missedCheckIns = actionableItems.length;
+        const description = actionableHabits.slice(0, 3).map((habit) => habit.title).join(", ");
 
-        toast.custom(
-            () => (
-                <div className="cadence-toast cadence-toast--info cadence-toast--wide" data-sonner-toast="true">
-                    <div className="cadence-toast__icon">
-                        <Info size={16} strokeWidth={2} />
-                    </div>
-                    <div className="cadence-toast__content">
-                        <div className="cadence-toast__title">
-                            {count === 1
-                                ? "1 routine still needs a check-in"
-                                : `${count} routines still need a check-in`}
-                        </div>
-                        <div className="cadence-toast__description">
-                            {actionableHabits.slice(0, 3).map((habit) => habit.title).join(", ") +
-                                (count > 3 ? ` +${count - 3} more` : "")}
-                        </div>
-                        <div className="cadence-toast__buttonRow">
-                            <button
-                                type="button"
-                                onClick={() => toast.dismiss("habit-unresolved-bundle")}
-                                className="cadence-toast__cancel"
-                            >
-                                Dismiss
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    void resolveAll();
-                                }}
-                                className="cadence-toast__secondaryAction"
-                            >
-                                Check all
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ),
+        toast.info(
+            count === 1
+                ? "1 routine still needs a check-in"
+                : `${count} routines still need a check-in`,
             {
                 id: "habit-unresolved-bundle",
                 duration: 12000,
+                description: description + (count > 3 ? ` +${count - 3} more` : ` · ${missedCheckIns} missed check-in${missedCheckIns === 1 ? "" : "s"}`),
+                action: {
+                    label: "Check all",
+                    onClick: () => {
+                        void resolveAll();
+                    },
+                },
+                cancel: {
+                    label: "Dismiss",
+                    onClick: () => {
+                        toast.dismiss("habit-unresolved-bundle");
+                    },
+                },
             },
         );
     }, [actionableHabits, actionableItems.length, bundleEnabled, resolveAll]);

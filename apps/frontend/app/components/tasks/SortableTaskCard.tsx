@@ -74,7 +74,7 @@ export function SortableTaskCard({
                 opacity: isDragging ? 0.5 : isComplete ? 0.4 : 1,
                 scale: isDragging ? 1.02 : 1,
                 boxShadow: isDragging
-                    ? "0 12px 40px rgba(0,0,0,0.3), 0 0 20px rgba(232,164,74,0.06)"
+                    ? "0 12px 40px rgba(0,0,0,0.3), 0 0 20px color-mix(in srgb, var(--accent-primary) 6%, transparent)"
                     : "0 0 0 rgba(0,0,0,0)",
             }}
             transition={{

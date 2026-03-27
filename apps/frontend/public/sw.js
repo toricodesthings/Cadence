@@ -3,7 +3,7 @@
 
 // Cache version is bumped with each release to force invalidation.
 // Update this string whenever you deploy a new build.
-const CACHE_VERSION = "2026-03-16";
+const CACHE_VERSION = "2026-03-26";
 const CACHE_NAME = `cadence-shell-${CACHE_VERSION}`;
 
 // Cache the app shell on install

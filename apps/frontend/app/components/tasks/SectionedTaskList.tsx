@@ -131,6 +131,7 @@ export function SectionedTaskList({
                     ) : (
                         <button
                             type="button"
+                            data-add-section-trigger
                             onClick={() => setIsAddingSection(true)}
                             className="flex items-center gap-2 text-[12px] text-twilight-text-muted/50 hover:text-twilight-text-muted transition-colors cursor-pointer px-4 py-2"
                         >
@@ -210,7 +211,7 @@ export function SectionedTaskList({
                                     <input
                                         autoFocus
                                         defaultValue={section.name}
-                                        className="bg-transparent text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-lantern/30 px-1 -mx-1"
+                                        className="bg-transparent text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text outline-none border-b border-accent-primary/30 px-1 -mx-1"
                                         onBlur={(e) => handleRenameSection(section, e.target.value)}
                                         onKeyDown={(e) => {
                                             if (e.key === "Enter") handleRenameSection(section, (e.target as HTMLInputElement).value);
@@ -329,6 +330,7 @@ export function SectionedTaskList({
                 ) : (
                     <button
                         type="button"
+                        data-add-section-trigger
                         onClick={() => setIsAddingSection(true)}
                         className="flex items-center gap-2 text-[12px] text-twilight-text-muted/50 hover:text-twilight-text-muted transition-colors cursor-pointer px-4 py-2"
                     >

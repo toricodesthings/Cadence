@@ -376,7 +376,7 @@ function OAuthConnectionsBlock() {
     return (
         <div className="bg-black/20 rounded-2xl p-5 flex flex-col gap-4 border border-twilight-border mt-2 overflow-hidden relative">
             {/* Subtle background glow */}
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-lantern/5 blur-3xl pointer-events-none" />
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-accent-primary/5 blur-3xl pointer-events-none" />
 
             {isPending ? (
                 <div className="flex items-center gap-3 py-2">
@@ -671,7 +671,7 @@ export function AccountTab() {
                     {/* Inner wrapper specifically for overflow hidden background constraints */}
                     <div className="absolute inset-0 overflow-hidden bg-twilight-surface -z-10 profile-banner-bg">
                         {/* Atmospheric glow blobs per Manifesto */}
-                        <div className="absolute -top-24 -right-24 w-96 h-96 bg-[var(--color-lantern)] opacity-[0.14] rounded-full blur-[80px] pointer-events-none" />
+                        <div className="absolute -top-24 -right-24 w-96 h-96 bg-[var(--accent-primary)] opacity-[0.14] rounded-full blur-[80px] pointer-events-none" />
                         <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[var(--color-moonlit)] opacity-[0.12] rounded-full blur-[80px] pointer-events-none" />
 
                         {/* Abstract Topological SVG Waves */}
@@ -685,14 +685,14 @@ export function AccountTab() {
                                     <stop offset="100%" stopColor="transparent" stopOpacity="0" />
                                 </linearGradient>
                                 <linearGradient id="amberGlow" x1="100%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" stopColor="var(--color-lantern)" stopOpacity="0.5" />
+                                    <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.5" />
                                     <stop offset="100%" stopColor="transparent" stopOpacity="0.1" />
                                 </linearGradient>
                             </defs>
                         </svg>
 
                         {/* Star / Lantern Sparks Geometry */}
-                        <svg className="absolute right-[15%] top-6 w-12 h-12 opacity-40 text-[var(--color-lantern)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <svg className="absolute right-[15%] top-6 w-12 h-12 opacity-40 text-[var(--accent-primary)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M50 0 L55 45 L100 50 L55 55 L50 100 L45 55 L0 50 L45 45 Z" fill="currentColor" />
                         </svg>
                         <svg className="absolute left-[30%] top-10 w-6 h-6 opacity-30 text-[var(--color-moonlit)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">

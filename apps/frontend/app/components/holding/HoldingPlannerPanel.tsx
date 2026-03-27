@@ -32,7 +32,7 @@ export function HoldingPlannerPanel() {
                 <div className="mt-4 rounded-[1.5rem] border border-twilight-border/35 bg-twilight-surface/16 px-4 py-3 backdrop-blur-xl">
                     <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">
                         <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/35 bg-white/[0.03] px-3 py-1.5">
-                            <CheckSquare size={12} className="text-lantern" aria-hidden="true" />
+                            <CheckSquare size={12} className="text-accent-primary" aria-hidden="true" />
                             <span>Awaiting placement</span>
                             <span className="text-twilight-text">{unmanagedCount}</span>
                         </div>

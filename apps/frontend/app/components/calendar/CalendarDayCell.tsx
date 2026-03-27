@@ -76,7 +76,7 @@ export function CalendarDayCell({
                     relative aspect-square w-full max-w-8 rounded-lg flex items-center justify-center text-[13px]
                     transition-colors duration-200 cursor-pointer
                     ${isToday
-                        ? "bg-lantern/20 text-lantern ring-1 ring-lantern font-bold"
+                        ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold"
                         : "hover:bg-white/[0.06]"}
                     ${isSelected && !isToday
                         ? "bg-white/[0.08] text-twilight-text ring-1 ring-white/10"
@@ -86,16 +86,16 @@ export function CalendarDayCell({
                 {day}
                 {(hasTask || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday && (
                     <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1">
-                        {hasTask && <span className="h-1 w-1 rounded-full bg-lantern/60" />}
+                        {hasTask && <span className="h-1 w-1 rounded-full bg-accent-primary/60" />}
                         {hasHoliday && <span className="h-1.5 w-1.5 rounded-full bg-solstice shadow-[0_0_6px_rgba(217,106,59,0.45)]" />}
                         {hasBirthday && <span className="h-1.5 w-1.5 rounded-full bg-violet shadow-[0_0_6px_rgba(155,114,207,0.45)]" />}
                         {hasPersonalEvent ? (
                             personalEventCount > 1 ? (
-                                <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-personal/20 bg-personal/15 px-1 text-[9px] font-semibold text-personal">
+                                <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/15 px-1 text-[9px] font-semibold text-accent-nav-schedule">
                                     {personalEventCount}
                                 </span>
                             ) : (
-                                <span className="h-1.5 w-1.5 rounded-full bg-personal shadow-[0_0_6px_rgba(207,114,168,0.45)]" />
+                                <span className="h-1.5 w-1.5 rounded-full bg-accent-nav-schedule shadow-[0_0_6px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
                             )
                         ) : null}
                     </span>
@@ -153,7 +153,7 @@ export function CalendarDayCell({
                 ${isOver ? "bg-[color-mix(in_srgb,var(--color-moonlit)_12%,transparent)] border-moonlit/20" : "border-transparent"}
                 ${isWeekend && !isToday && !isSelected ? "bg-white/[0.01]" : ""}
                 ${isToday
-                    ? "bg-lantern/10 ring-1 ring-lantern/20"
+                    ? "bg-accent-primary/10 ring-1 ring-accent-primary/20"
                     : "hover:bg-white/[0.04] hover:glow-lantern"}
                 ${isSelected && !isToday
                     ? "bg-white/[0.05] border-white/[0.06]"
@@ -167,13 +167,13 @@ export function CalendarDayCell({
                 onClick={() => onSelect(day)}
                 className={`
                     px-2 py-1 w-full text-left flex items-center justify-between cursor-pointer
-                    ${isToday ? "text-lantern font-semibold" : isSelected ? "text-twilight-text" : "text-twilight-text-soft"}
+                    ${isToday ? "text-accent-primary font-semibold" : isSelected ? "text-twilight-text" : "text-twilight-text-soft"}
                 `}
             >
                 <span className={`
                     font-display text-[13px] font-medium tracking-tight leading-none
                     w-6 h-6 inline-flex items-center justify-center shrink-0
-                    ${isToday ? "rounded-full bg-lantern/20 text-lantern ring-1 ring-lantern shadow-[0_0_8px_rgba(232,164,74,0.15)]" : ""}
+                    ${isToday ? "rounded-full bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]" : ""}
                 `}>
                     {day}
                 </span>
@@ -181,7 +181,7 @@ export function CalendarDayCell({
                     {hasHabit && !isToday && (
                         <span
                             title="Habits scheduled"
-                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-lantern/50 shadow-[0_0_4px_rgba(232,164,74,0.4)]"
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/50 shadow-[0_0_4px_color-mix(in_srgb,var(--accent-primary)_40%,transparent)]"
                         />
                     )}
                     {hasHoliday && (
@@ -200,14 +200,14 @@ export function CalendarDayCell({
                         personalEventCount > 1 ? (
                             <span
                                 title={`${personalEventCount} personal events`}
-                                className="inline-flex min-w-5 items-center justify-center rounded-full border border-personal/20 bg-personal/12 px-1.5 py-0.5 text-[10px] font-semibold text-personal"
+                                className="inline-flex min-w-5 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-1.5 py-0.5 text-[10px] font-semibold text-accent-nav-schedule"
                             >
                                 {personalEventCount}
                             </span>
                         ) : (
                             <span
                                 title="Personal event"
-                                className="h-2 w-2 shrink-0 rounded-full bg-personal shadow-[0_0_8px_rgba(207,114,168,0.45)]"
+                                className="h-2 w-2 shrink-0 rounded-full bg-accent-nav-schedule shadow-[0_0_8px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]"
                             />
                         )
                     ) : null}
@@ -236,7 +236,7 @@ export function CalendarDayCell({
                                 <button
                                     type="button"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="text-[11px] text-twilight-text-muted hover:text-lantern transition-colors cursor-pointer px-1 py-0.5 rounded-xl hover:bg-white/[0.04]"
+                                    className="text-[11px] text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer px-1 py-0.5 rounded-xl hover:bg-white/[0.04]"
                                 >
                                     +{hiddenCount} more
                                 </button>

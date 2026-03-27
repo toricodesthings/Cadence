@@ -51,7 +51,7 @@ export default function CompletedView() {
                 title: "Completed",
                 eyebrow: "Archive",
                 icon: <CheckCircle2 size={18} aria-hidden="true" />,
-                accentColor: "var(--color-lantern)",
+                accentColor: "var(--accent-primary)",
             }}
         >
             <ScrollAreaWrapper>

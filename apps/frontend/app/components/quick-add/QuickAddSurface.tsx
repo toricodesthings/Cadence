@@ -19,6 +19,7 @@ import { CheckSquare, MessageSquare, Flame } from "lucide-react";
 import { QuickAddActionTray } from "../tasks/QuickAddActionTray";
 import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
+import { trackUsageEvent } from "../../lib/api/track-event";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export function QuickAddSurface({
                         onClick={() => setTab(key)}
                         className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors cursor-pointer
                             ${tab === key
-                                ? "border-b-2 border-lantern bg-lantern/[0.04] text-lantern"
+                                ? "border-b-2 border-accent-primary bg-accent-primary/[0.04] text-accent-primary"
                                 : "text-twilight-text-muted hover:bg-white/[0.03] hover:text-twilight-text"
                             }
                         `}
@@ -174,6 +175,7 @@ function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (
         const resolvedTagIds = Array.from(new Set([...tagIds, ...nlp.tagIds]));
         const recurrenceRule = deadline.recurrenceRule ?? nlp.recurrenceRule;
 
+        trackUsageEvent("task.create", { surface: "quick_add", object_type: "task" });
         createTask.mutate(
             {
                 title: trimmed,
@@ -241,7 +243,7 @@ function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="What needs to be done?"
-                className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-lantern/30 focus:ring-1 focus:ring-lantern/20 transition-colors"
+                className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-accent-primary/30 focus:ring-1 focus:ring-accent-primary/20 transition-colors"
                 autoFocus
             />
             <QuickAddActionTray
@@ -282,7 +284,7 @@ function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (
                 <button
                     type="submit"
                     disabled={!title.trim() || createTask.isPending}
-                    className="rounded-xl bg-lantern/15 px-4 py-2 text-sm font-medium text-lantern hover:bg-lantern/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="rounded-xl bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                     {createTask.isPending ? "Adding…" : "Add Task"}
                 </button>
@@ -308,6 +310,7 @@ function CaptureForm({ onClose, onComplete }: { onClose: () => void; onComplete?
         const trimmed = text.trim();
         if (!trimmed) return;
 
+        trackUsageEvent("capture.submitted", { surface: "quick_add", object_type: "capture" });
         createInbox.mutate(trimmed, {
             onSuccess: (created) => {
                 const focusParams = buildFocusSearchParams({
@@ -344,7 +347,7 @@ function CaptureForm({ onClose, onComplete }: { onClose: () => void; onComplete?
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Dump a thought, link, or note…"
                 rows={3}
-                className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-lantern/30 focus:ring-1 focus:ring-lantern/20 transition-colors resize-none"
+                className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-accent-primary/30 focus:ring-1 focus:ring-accent-primary/20 transition-colors resize-none"
                 onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                         e.preventDefault();
@@ -368,7 +371,7 @@ function CaptureForm({ onClose, onComplete }: { onClose: () => void; onComplete?
                     <button
                         type="submit"
                         disabled={!text.trim() || createInbox.isPending}
-                        className="rounded-xl bg-lantern/15 px-4 py-2 text-sm font-medium text-lantern hover:bg-lantern/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        className="rounded-xl bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     >
                         {createInbox.isPending ? "Saving…" : "Save Thought"}
                     </button>
@@ -433,7 +436,7 @@ function HabitForm({ onClose, onComplete }: { onClose: () => void; onComplete?: 
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Name your habit…"
-                className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-lantern/30 focus:ring-1 focus:ring-lantern/20 transition-colors"
+                className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-accent-primary/30 focus:ring-1 focus:ring-accent-primary/20 transition-colors"
                 autoFocus
             />
 
@@ -455,7 +458,7 @@ function HabitForm({ onClose, onComplete }: { onClose: () => void; onComplete?: 
                 <button
                     type="submit"
                     disabled={!title.trim() || createHabit.isPending}
-                    className="rounded-xl bg-lantern/15 px-4 py-2 text-sm font-medium text-lantern hover:bg-lantern/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="rounded-xl bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                     {createHabit.isPending ? "Creating…" : "Create Habit"}
                 </button>

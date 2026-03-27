@@ -73,7 +73,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             <>
                 <Menu.Item onClick={handleTogglePin}>
                     <div className="flex items-center gap-2">
-                        <Pin size={16} className={task.isPinned ? "fill-lantern text-lantern" : ""} />
+                        <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
                         <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
                     </div>
                 </Menu.Item>
@@ -143,7 +143,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                                 onClick={() => handleQuickSchedule(0)}
                                 className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-twilight-border/35 bg-white/[0.02] px-3 py-3 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
                             >
-                                <Sun size={16} className="text-lantern" aria-hidden="true" />
+                                <Sun size={16} className="text-accent-primary" aria-hidden="true" />
                                 <span>Today</span>
                             </button>
                             <button
@@ -181,7 +181,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                             <button
                                 type="button"
                                 onClick={() => setMenuView("reschedule-custom")}
-                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-lantern/18 bg-lantern/10 px-3 py-3 text-xs font-medium text-lantern transition-colors hover:bg-lantern/14"
+                                className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-accent-primary/18 bg-accent-primary/10 px-3 py-3 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/14"
                             >
                                 <Calendar size={16} aria-hidden="true" />
                                 <span>Custom</span>
@@ -230,7 +230,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                     <CalendarClock size={16} />
                     <span>Reschedule</span>
                     <span className="ml-auto inline-flex items-center gap-2 text-[10px] text-twilight-text-muted/90">
-                        <span>S</span>
+                        <span>r</span>
                         <ChevronRight size={13} aria-hidden="true" />
                     </span>
                 </div>
@@ -293,8 +293,9 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
             {/* ── Status & Actions ── */}
             <Menu.Item onClick={handleTogglePin}>
                 <div className="flex items-center gap-2">
-                    <Pin size={16} className={task.isPinned ? "fill-lantern text-lantern" : ""} />
+                    <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
                     <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
+                    <kbd className="ml-auto text-[10px] opacity-40 font-mono">p</kbd>
                 </div>
             </Menu.Item>
 
@@ -302,6 +303,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                 <div className="flex items-center gap-2">
                     <Pencil size={16} />
                     <span>Rename</span>
+                    <kbd className="ml-auto text-[10px] opacity-40 font-mono">e</kbd>
                 </div>
             </Menu.Item>
 

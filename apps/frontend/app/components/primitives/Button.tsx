@@ -23,14 +23,14 @@ const base = [
     "inline-flex items-center justify-center gap-2",
     "font-display font-semibold cursor-pointer",
     "transition-all duration-200 outline-none",
-    "focus-visible:ring-2 focus-visible:ring-lantern/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight",
+    "focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight",
     "disabled:pointer-events-none disabled:opacity-50",
     "active:scale-[0.97]",
 ].join(" ");
 
 const variants = {
     primary:
-        "bg-lantern text-twilight hover:bg-lantern/90 shadow-[0_0_24px_rgba(232,164,74,0.25)] glow-lantern",
+        "bg-accent-primary text-twilight hover:bg-accent-primary/90 shadow-[0_0_24px_color-mix(in_srgb,var(--accent-primary)_25%,transparent)] glow-lantern",
     secondary:
         "bg-twilight-surface/80 border border-twilight-border text-twilight-text hover:bg-white/5",
     ghost:
@@ -40,7 +40,7 @@ const variants = {
     card:
         "border border-twilight-border-light bg-twilight-deep text-twilight-text hover:bg-white/[0.04] hover:border-twilight-border",
     cardPrimary:
-        "border border-lantern/30 bg-lantern/10 text-lantern hover:bg-lantern/20 shadow-[inset_0_1px_rgba(255,255,255,0.1)] glow-lantern",
+        "border border-accent-primary/30 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 shadow-[inset_0_1px_rgba(255,255,255,0.1)] glow-lantern",
     cardDanger:
         "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20",
 } as const;

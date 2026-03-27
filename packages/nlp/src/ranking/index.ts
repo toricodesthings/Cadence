@@ -46,6 +46,15 @@ export type TaskRankReason =
   | "pinned"
   | "scheduled_now";
 
+/** Per-route dampening factors — lower values keep tasks closer to manual order */
+const ROUTE_DAMPENING: Record<string, number> = {
+  today: 1.0,
+  upcoming: 0.7,
+  project: 0.5,
+  inbox: 0.4,
+  planner: 0.8,
+};
+
 export interface RankingOptions {
   now?: Date;
   /** Current route context hint */
@@ -57,6 +66,9 @@ export interface RankingOptions {
 /**
  * Rank tasks with explainable scoring.
  * Returns sorted tasks with reason annotations.
+ *
+ * §11.6: Applies per-route dampening and low-stimulation stabilization.
+ * Low-stim mode halves score deltas, keeping tasks closer to manual order.
  */
 export function rankTasks(
   tasks: RankableTask[],
@@ -64,13 +76,16 @@ export function rankTasks(
 ): RankedTask[] {
   const now = options.now ?? new Date();
   const todayStr = toDateStr(now);
+  const routeDampen = ROUTE_DAMPENING[options.routeContext ?? "today"] ?? 1.0;
+  const lowStimDampen = options.lowStimulation ? 0.5 : 1.0;
+  const dampenFactor = routeDampen * lowStimDampen;
 
   const ranked = tasks.map((task) => {
     const { score, reasons } = computeScore(task, now, todayStr, options);
-    return { task, score, reasons };
+    return { task, score: score * dampenFactor, reasons };
   });
 
-  // Sort by score descending, then by order index for ties
+  // Sort by score descending, then by order index for stable tie-breaking
   ranked.sort((a, b) => {
     if (a.score !== b.score) return b.score - a.score;
     return a.task.orderIndex - b.task.orderIndex;

@@ -39,7 +39,7 @@ export function SupportPageLayout({
             <section className="relative overflow-hidden rounded-[2rem] border border-white/[0.06] bg-twilight-surface/30 px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:px-7 sm:py-7 lg:px-8 lg:py-8">
                 <div
                     aria-hidden="true"
-                    className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top_left,rgba(232,164,74,0.16),transparent_52%),radial-gradient(circle_at_top_right,rgba(126,184,212,0.12),transparent_46%)]"
+                    className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--accent-primary)_16%,transparent),transparent_52%),radial-gradient(circle_at_top_right,rgba(126,184,212,0.12),transparent_46%)]"
                 />
                 <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
                     <div className="max-w-3xl">
@@ -123,7 +123,7 @@ export function SupportSection({
                     </div>
                 ) : null}
             </div>
-            <div className="mt-5 max-w-3xl space-y-4 text-sm leading-7 text-twilight-text-soft [&_a]:text-lantern [&_a]:underline-offset-4 [&_a:hover]:text-lantern-soft [&_a:hover]:underline [&_li]:ml-5 [&_li]:list-disc [&_strong]:font-semibold [&_strong]:text-twilight-text">
+            <div className="mt-5 max-w-3xl space-y-4 text-sm leading-7 text-twilight-text-soft [&_a]:text-accent-primary [&_a]:underline-offset-4 [&_a:hover]:text-accent-primary-soft [&_a:hover]:underline [&_li]:ml-5 [&_li]:list-disc [&_strong]:font-semibold [&_strong]:text-twilight-text">
                 {children}
             </div>
         </section>

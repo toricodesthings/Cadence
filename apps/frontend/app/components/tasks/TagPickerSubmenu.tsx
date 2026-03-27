@@ -46,7 +46,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
     return (
         <>
             <div className="mb-2 px-1">
-                <div className="flex items-center gap-2 rounded-xl border border-twilight-border bg-twilight-surface-muted px-2 py-1.5 focus-within:border-lantern">
+                <div className="flex items-center gap-2 rounded-xl border border-twilight-border bg-twilight-surface-muted px-2 py-1.5 focus-within:border-accent-primary">
                     <Plus size={14} className="text-twilight-text-muted" />
                     <input
                         value={newTagName}
@@ -63,7 +63,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                                 <button
                                     key={color}
                                     onClick={() => setSelectedColor(color)}
-                                    className={`w-4 h-4 rounded-full transition-transform ${selectedColor === color ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight ring-lantern" : "hover:scale-110"}`}
+                                    className={`w-4 h-4 rounded-full transition-transform ${selectedColor === color ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight ring-accent-primary" : "hover:scale-110"}`}
                                     style={{ backgroundColor: color === "default" ? "var(--color-twilight-text-muted)" : color }}
                                     aria-label={`Select color ${color}`}
                                 />
@@ -101,7 +101,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                                         style={{ backgroundColor: tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
                                     />
                                     <span className="flex-1 truncate">{tag.name}</span>
-                                    {isActive && <Check size={14} className="text-lantern" />}
+                                    {isActive && <Check size={14} className="text-accent-primary" />}
                                 </Menu.Item>
                             );
                         })}

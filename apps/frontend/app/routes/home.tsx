@@ -135,7 +135,7 @@ export default function HomeRoute() {
             type="button"
             onClick={toggleHoldingPanel}
             className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label={holdingPanelOpen ? "Hide context panel" : "Show context panel"}
+            aria-label={holdingPanelOpen ? "Hide review panel" : "Show review panel"}
         >
             {holdingPanelOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
         </button>
@@ -164,7 +164,7 @@ export default function HomeRoute() {
             shellHeader={{
                 title: "Capture",
                 icon: <Inbox size={18} aria-hidden="true" />,
-                accentColor: "var(--color-nav-inbox)",
+                accentColor: "var(--accent-nav-capture, var(--accent-primary))",
             }}
         >
             <ScrollAreaWrapper>

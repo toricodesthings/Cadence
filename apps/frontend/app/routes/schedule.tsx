@@ -70,6 +70,7 @@ import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
 import { sortPersonalEventViewModels, toPersonalEventViewModel } from "../lib/utils/personal-events";
+import { trackUsageEvent } from "../lib/api/track-event";
 
 const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 32 : -32, opacity: 0 }),
@@ -564,6 +565,7 @@ export default function Schedule() {
                 scheduledEnd: new Date(new Date(iso).getTime() + durationMs).toISOString(),
                 isAllDay: false,
             });
+            trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "timed" });
             toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
             return;
         }
@@ -577,6 +579,7 @@ export default function Schedule() {
                 scheduledEnd: null,
                 isAllDay: true,
             });
+            trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "allday" });
             toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
             return;
         }
@@ -603,6 +606,7 @@ export default function Schedule() {
                     isAllDay: false,
                 });
             }
+            trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "day" });
             toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
         }
     }, [allVisibleTasks, updateTask]);
@@ -707,6 +711,7 @@ export default function Schedule() {
     const handleAddTaskToolbar = useCallback(() => {
         const now = new Date();
         const hour = now.getHours();
+        trackUsageEvent("schedule.quick_add_used", { surface: "schedule_toolbar", object_type: "task" });
         setEventPopoverTab("task");
         setEventPopoverInfo({
             date: currentDate,
@@ -882,15 +887,15 @@ export default function Schedule() {
             </div>
 
             {personalEventHighlights[0] ? (
-                <div className="mt-3 rounded-xl border border-personal/16 bg-personal/10 px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-personal/75">Next milestone</p>
+                <div className="mt-3 rounded-xl border border-accent-nav-schedule/16 bg-accent-nav-schedule/10 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/75">Next milestone</p>
                     <p className="mt-1 text-sm font-medium text-twilight-text">
                         {personalEventHighlights[0].event.emoji ?? "🎉"} {personalEventHighlights[0].event.label}
                     </p>
                     <p className="mt-1 text-xs text-twilight-text-soft">
                         {personalEventHighlights[0].nextDateLabel} · {personalEventHighlights[0].countdownLabel}
                     </p>
-                    <p className="mt-2 text-[11px] text-personal">
+                    <p className="mt-2 text-[11px] text-accent-nav-schedule">
                         {personalEvents.items.length} in library · {personalEventNextThirtyCount} in the next 30 days
                     </p>
                 </div>
@@ -901,7 +906,7 @@ export default function Schedule() {
             <div className="mt-3 flex flex-wrap gap-2">
                 <button
                     type="button"
-                    className="rounded-xl border border-personal/20 bg-personal/12 px-3 py-2 text-sm font-medium text-personal transition-colors hover:bg-personal/18"
+                    className="rounded-xl border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-2 text-sm font-medium text-accent-nav-schedule transition-colors hover:bg-accent-nav-schedule/18"
                     onClick={() => {
                         if (!personalEvents.enabled) {
                             personalEvents.setEnabled(true);
@@ -977,7 +982,28 @@ export default function Schedule() {
             </div>
             <div>
                 <h4 className="text-xs font-medium uppercase tracking-wider text-twilight-text-muted mb-2">Events</h4>
-                {personalEventControlBlock}
+                <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show personal events</span>
+                        <div className="flex items-center gap-2">
+                            {personalEvents.enabled && (
+                                <button
+                                    type="button"
+                                    className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                    onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
+                                    aria-label="Manage events"
+                                    title="Manage events"
+                                >
+                                    <Wrench size={14} />
+                                </button>
+                            )}
+                            <Switch
+                                checked={personalEvents.enabled}
+                                onCheckedChange={(value) => personalEvents.setEnabled(value)}
+                            />
+                        </div>
+                    </label>
+                </div>
             </div>
         </div>
     );
@@ -1013,7 +1039,28 @@ export default function Schedule() {
 
             <div>
                 <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Events</h4>
-                {personalEventControlBlock}
+                <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show personal events</span>
+                        <div className="flex items-center gap-2">
+                            {personalEvents.enabled && (
+                                <button
+                                    type="button"
+                                    className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                    onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
+                                    aria-label="Manage events"
+                                    title="Manage events"
+                                >
+                                    <Wrench size={14} />
+                                </button>
+                            )}
+                            <Switch
+                                checked={personalEvents.enabled}
+                                onCheckedChange={(value) => personalEvents.setEnabled(value)}
+                            />
+                        </div>
+                    </label>
+                </div>
             </div>
 
             <div>
@@ -1206,6 +1253,7 @@ export default function Schedule() {
                                                 onArchiveTask={handleArchiveTask}
                                                 onResizeTask={handleResizeTask}
                                                 onGridClick={handleGridClick}
+                                                onJumpToDay={(dateStr) => { setCurrentDate(dateStr); setViewMode("day"); }}
                                             />
                                         )
                                     )}
@@ -1271,7 +1319,7 @@ export default function Schedule() {
                         <button
                             type="button"
                             onClick={handleAddTaskToolbar}
-                            className="pointer-events-auto touch-target inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-lantern/25 bg-lantern px-5 text-sm font-semibold text-twilight-void shadow-[0_18px_48px_rgba(232,164,74,0.28)]"
+                            className="pointer-events-auto touch-target inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-accent-primary/25 bg-accent-primary px-5 text-sm font-semibold text-twilight-void shadow-[0_18px_48px_color-mix(in_srgb,var(--accent-primary)_28%,transparent)]"
                         >
                             Add Task
                         </button>

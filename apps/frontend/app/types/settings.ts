@@ -18,10 +18,15 @@ export interface UserSettings {
         birthday: string | null;
     };
     appearance: {
-        theme: "twilight" | "daylight" | "system";
+        theme: "twilight" | "daylight" | "system" | "custom";
         accentIntensity: "soft" | "balanced" | "vivid";
         motion: "system" | "full" | "reduced";
         density: "comfortable" | "compact";
+        palette?: "lantern" | "ember" | "rose" | "violet" | "sapphire" | "jade" | "copper" | "frost";
+        themePreset?: "default" | "daylight-default" | "spring-bloom" | "summer-coast" | "autumn-hearth" | "winter-frost" | "midnight-garden" | "golden-hour" | "custom";
+        backgroundMode?: "theme" | "custom";
+        backgroundColor?: string | null;
+        backgroundGradient?: string | null;
     };
     notifications: {
         email: boolean;
@@ -87,6 +92,7 @@ export interface UserSettings {
             lowStimulationMode: boolean;
             smartSortEnabled: boolean;
             focusViewsEnabled: boolean;
+            focusViewPresentation: "compact" | "expanded";
             dismissedEntityIds: string[];
             dismissedEntities: Array<{
                 entityType: string;
@@ -105,6 +111,13 @@ export interface UserSettings {
             toggleView: string;
             completeTask: string;
             archiveTask: string;
+            rescheduleTask: string;
+            pinTask: string;
+            openMenu: string;
+            editObject: string;
+            quickActions: string;
+            capture: string;
+            quickAddTask: string;
         };
     };
     integrations: {
@@ -150,6 +163,11 @@ export const SETTINGS_DEFAULTS: UserSettings = {
         accentIntensity: "balanced",
         motion: "system",
         density: "comfortable",
+        palette: "lantern",
+        themePreset: "default",
+        backgroundMode: "theme",
+        backgroundColor: null,
+        backgroundGradient: null,
     },
     notifications: {
         email: true,
@@ -215,6 +233,7 @@ export const SETTINGS_DEFAULTS: UserSettings = {
             lowStimulationMode: false,
             smartSortEnabled: true,
             focusViewsEnabled: true,
+            focusViewPresentation: "compact" as const,
             dismissedEntityIds: [],
             dismissedEntities: [],
         },
@@ -229,6 +248,13 @@ export const SETTINGS_DEFAULTS: UserSettings = {
             toggleView: "v",
             completeTask: "c",
             archiveTask: "e",
+            rescheduleTask: "r",
+            pinTask: "p",
+            openMenu: "m",
+            editObject: "e",
+            quickActions: ".",
+            capture: "q",
+            quickAddTask: "shift+q",
         },
     },
     integrations: {

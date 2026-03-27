@@ -4,7 +4,23 @@ const DURATION_PATTERNS: Array<{
   pattern: RegExp;
   resolve: (match: RegExpMatchArray) => DurationValue;
 }> = [
-  // "30 min", "45 minutes", "30m"
+  // "half hour", "half an hour"
+  {
+    pattern: /\bhalf\s+(?:an?\s+)?hour\b/i,
+    resolve: () => ({
+      minutes: 30,
+      humanLabel: "30 min",
+    }),
+  },
+  // "quarter hour", "quarter of an hour"
+  {
+    pattern: /\bquarter\s+(?:of\s+)?(?:an?\s+)?hour\b/i,
+    resolve: () => ({
+      minutes: 15,
+      humanLabel: "15 min",
+    }),
+  },
+  // "30 min", "45 minutes", "30m", "90 mins"
   {
     pattern: /\b(\d+)\s*(?:min(?:ute)?s?|m)\b/i,
     resolve: (m) => ({
@@ -104,7 +120,7 @@ export function parseWaitingOn(input: string): EntityParseResult {
         start,
         end,
         confidence: "high",
-        normalizedValue: person,
+        normalizedValue: { person },
         explanation: `Waiting on: ${person}`,
       });
 

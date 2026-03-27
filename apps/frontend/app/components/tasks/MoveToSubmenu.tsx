@@ -27,7 +27,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
                 <Menu.SubContent>
                     <Menu.Item
                         onClick={() => onSelect(null)}
-                        className={!currentProjectId ? "bg-white/[0.04] text-lantern" : ""}
+                        className={!currentProjectId ? "bg-white/[0.04] text-accent-primary" : ""}
                     >
                         No Project (Holding)
                     </Menu.Item>
@@ -37,7 +37,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
                             key={project.id}
                             onClick={() => onSelect(project.id)}
                             className={
-                                currentProjectId === project.id ? "bg-white/[0.04] text-lantern" : ""
+                                currentProjectId === project.id ? "bg-white/[0.04] text-accent-primary" : ""
                             }
                         >
                             {project.name}
