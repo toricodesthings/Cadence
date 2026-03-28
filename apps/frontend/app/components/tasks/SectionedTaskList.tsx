@@ -158,10 +158,10 @@ export function SectionedTaskList({
                 <div className={`${shell.isCompact ? sectionSurfaceClass : "mt-4"}`}>
                     <div className="flex items-center gap-2 group">
                         <div className="flex items-center gap-2 flex-1 py-1.5 text-left">
-                            <span className="text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text-muted">
+                            <span className="text-[13px] font-display font-semibold uppercase tracking-[0.16em] text-twilight-text">
                                 Unsectioned
                             </span>
-                            <span className="text-[11px] text-twilight-text-muted/50 tabular-nums">
+                            <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
                                 {ungroupedTasks.length}
                             </span>
                         </div>
@@ -220,11 +220,11 @@ export function SectionedTaskList({
                                         onClick={(e) => e.stopPropagation()}
                                     />
                                 ) : (
-                                    <span className="text-[12px] font-display font-medium uppercase tracking-wider text-twilight-text-muted">
+                                    <span className="text-[13px] font-display font-semibold uppercase tracking-[0.16em] text-twilight-text">
                                         {section.name}
                                     </span>
                                 )}
-                                <span className="text-[11px] text-twilight-text-muted/50 tabular-nums">
+                                <span className="text-[12px] text-twilight-text-soft/90 tabular-nums">
                                     {sectionTasks.length}
                                 </span>
                             </button>

@@ -99,10 +99,10 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
                             ) : (
                                 <ChevronRight size={12} className="text-twilight-text-muted" aria-hidden="true" />
                             )}
-                            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
+                            <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text">
                                 Ready to place
                             </span>
-                            <span className="text-[12px] tabular-nums text-twilight-text-muted/90">{readyToPlace.length}</span>
+                            <span className="text-[12px] tabular-nums text-twilight-text-soft/90">{readyToPlace.length}</span>
                         </div>
                         <div className="h-px flex-1 bg-gradient-to-r from-white/[0.06] via-twilight-border/15 to-transparent" aria-hidden="true" />
                     </button>
@@ -149,7 +149,7 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
 function SectionHeader({
     label,
     count,
-    accentClassName = "text-twilight-text-soft",
+    accentClassName = "text-twilight-text",
 }: {
     label: string;
     count: number;
@@ -158,8 +158,8 @@ function SectionHeader({
     return (
         <div className="flex items-center gap-3">
             <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/40 bg-twilight-surface/25 px-3 py-1.5">
-                <h2 className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${accentClassName}`}>{label}</h2>
-                <span className="text-[12px] tabular-nums text-twilight-text-muted/90">{count}</span>
+                <h2 className={`text-[12px] font-semibold uppercase tracking-[0.18em] ${accentClassName}`}>{label}</h2>
+                <span className="text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
             </div>
             <div className="h-px flex-1 bg-gradient-to-r from-white/[0.06] via-twilight-border/15 to-transparent" aria-hidden="true" />
         </div>

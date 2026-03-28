@@ -35,11 +35,11 @@ function BucketedSectionHeader({
         <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
                 <Icon size={14} className={accentClass} aria-hidden="true" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
+                <h2 className="text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text">
                     {title}
                 </h2>
             </div>
-            <span className="text-[12px] tabular-nums text-twilight-text-muted/70">{count}</span>
+            <span className="text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
             <div className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
             {headerAction}
         </div>
