@@ -263,8 +263,8 @@ export function useNotificationCenter() {
             void syncNotificationState(notification, {
                 firstPresentedAt: nowIso,
                 lastPresentedAt: nowIso,
-                dismissedAt: undefined,
-                deferredUntil: undefined,
+                dismissedAt: null,
+                deferredUntil: null,
                 actionTaken: "presented",
                 presentationCountIncrement: 1,
             });
@@ -277,10 +277,10 @@ export function useNotificationCenter() {
         const notification = notifications.find((item) => item.id === id);
         if (notification) {
             void syncNotificationState(notification, {
-                firstPresentedAt: undefined,
+                firstPresentedAt: null,
                 lastPresentedAt: new Date().toISOString(),
-                dismissedAt: undefined,
-                deferredUntil: undefined,
+                dismissedAt: null,
+                deferredUntil: null,
                 actionTaken: "read",
             });
         }
@@ -290,10 +290,10 @@ export function useNotificationCenter() {
         for (const n of notifications) {
             readIds.add(n.id);
             void syncNotificationState(n, {
-                firstPresentedAt: undefined,
+                firstPresentedAt: null,
                 lastPresentedAt: new Date().toISOString(),
-                dismissedAt: undefined,
-                deferredUntil: undefined,
+                dismissedAt: null,
+                deferredUntil: null,
                 actionTaken: "read",
             });
         }
@@ -307,7 +307,7 @@ export function useNotificationCenter() {
         const notification = notifications.find((item) => item.id === id);
         if (notification) {
             void syncNotificationState(notification, {
-                firstPresentedAt: undefined,
+                firstPresentedAt: null,
                 lastPresentedAt: new Date().toISOString(),
                 dismissedAt: new Date().toISOString(),
                 deferredUntil: null,
@@ -325,9 +325,9 @@ export function useNotificationCenter() {
         const notification = notifications.find((item) => item.id === id);
         if (notification) {
             void syncNotificationState(notification, {
-                firstPresentedAt: undefined,
+                firstPresentedAt: null,
                 lastPresentedAt: new Date().toISOString(),
-                dismissedAt: undefined,
+                dismissedAt: null,
                 deferredUntil: until,
                 actionTaken: "deferred",
             });

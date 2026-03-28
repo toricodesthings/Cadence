@@ -22,7 +22,7 @@ describe("task temporal normalization", () => {
         });
     });
 
-    it("canonicalizes timed blocks by clearing dueDate", () => {
+    it("canonicalizes timed blocks while preserving a dueDate anchor when provided", () => {
         expect(
             normalizeTaskTemporalFields({
                 isAllDay: false,
@@ -31,7 +31,7 @@ describe("task temporal normalization", () => {
                 scheduledEnd: "2026-03-10T15:30:00.000Z",
             }),
         ).toEqual({
-            dueDate: null,
+            dueDate: "2026-03-10T12:00:00.000Z",
             scheduledStart: "2026-03-10T14:00:00.000Z",
             scheduledEnd: "2026-03-10T15:30:00.000Z",
             isAllDay: false,

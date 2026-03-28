@@ -11,6 +11,7 @@ describe("habit route parity", () => {
             start: "2026-03-03",
             end: "2026-03-09",
             archived: true,
+            timezone: "UTC",
         });
     });
 });

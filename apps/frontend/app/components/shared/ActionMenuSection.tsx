@@ -1,4 +1,4 @@
-import type { ActionDefinition, ActionSection } from "../../lib/actions/action-grammar";
+import type { ActionDefinition, ActionGroup, ActionSection } from "../../lib/actions/action-grammar";
 import { groupActions } from "../../lib/actions/action-grammar";
 
 interface ActionMenuSectionProps {
@@ -20,16 +20,18 @@ const SECTION_ORDER: ActionSection[] = ["open", "time", "state", "organize", "co
  */
 export function ActionMenuSection({ actions, onAction, disabledActions = {} }: ActionMenuSectionProps) {
     const groups = groupActions(actions);
-    const orderedSections = SECTION_ORDER.filter((s) => groups[s]?.length);
+    const orderedGroups = SECTION_ORDER
+        .map((section) => groups.find((group) => group.section === section))
+        .filter((group): group is ActionGroup => Boolean(group));
 
     return (
         <>
-            {orderedSections.map((section, sectionIndex) => (
-                <div key={section} role="group" aria-label={section}>
+            {orderedGroups.map((group, sectionIndex) => (
+                <div key={group.section} role="group" aria-label={group.section}>
                     {sectionIndex > 0 && (
                         <div className="my-1 border-t border-twilight-border/40" role="separator" />
                     )}
-                    {groups[section]!.map((action) => {
+                    {group.actions.map((action: ActionDefinition) => {
                         const disabledReason = disabledActions[action.id];
                         const isDisabled = disabledReason !== undefined;
 
@@ -53,8 +55,8 @@ export function ActionMenuSection({ actions, onAction, disabledActions = {} }: A
                                     </span>
                                 )}
                                 <span className="flex-1 text-left">{action.label}</span>
-                                {action.shortcut && (
-                                    <kbd className="text-[10px] opacity-40 font-mono tracking-wider">{action.shortcut}</kbd>
+                                {action.shortcutHint && (
+                                    <kbd className="text-[10px] opacity-40 font-mono tracking-wider">{action.shortcutHint}</kbd>
                                 )}
                             </button>
                         );
