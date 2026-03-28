@@ -82,7 +82,7 @@ app.use(
       return PRODUCTION_ORIGIN;
     },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Authorization", "Content-Type"],
+    allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key"],
     credentials: true,
   }),
 );

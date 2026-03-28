@@ -7,6 +7,7 @@ const WORKSPACE_QUERY_PREFIXES: readonly QueryKey[] = [
     queryKeys.projects.all,
     queryKeys.tags.all,
     queryKeys.inbox.all,
+    ["settings"],
     ["inbox_sections"],
     ["sections"],
 ] as const;

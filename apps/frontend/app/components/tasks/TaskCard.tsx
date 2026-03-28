@@ -11,21 +11,22 @@ import {
     ChevronDown,
     CalendarClock,
     Tag as TagIcon,
-    ArrowUp,
-    ArrowDown,
     Sparkles,
     GripVertical,
+    X,
+    Plus,
     type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
 import { RenameTaskDialog } from "./RenameTaskDialog";
-import { useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
+import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
+import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
-import { formatShortDate } from "../../lib/utils/date-format";
+import { formatShortDate, toISODate } from "../../lib/utils/date-format";
 import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import type { Tag } from "../../types/tag";
 import type { Task, Subtask } from "../../types/task";
@@ -78,6 +79,8 @@ const EFFORT_LABELS: Record<1 | 2 | 3, string> = {
     3: "Deep effort",
 };
 
+const OVERDUE_RATIONALE_LABEL = "This task is past its due date";
+
 type CollapsedSignal = {
     key: string;
     icon: LucideIcon;
@@ -109,83 +112,55 @@ function getTagTone(tag?: Tag) {
 /** Inline subtask item — checkbox + title + delete */
 function InlineSubtaskItem({
     subtask,
-    onToggle,
     onDelete,
-    onMoveUp,
-    onMoveDown,
-    canMoveUp,
-    canMoveDown,
     compact,
+    dragHandleProps,
+    isDragging,
 }: {
     subtask: Subtask;
-    onToggle: (id: string, checked: boolean) => void;
     onDelete: (id: string) => void;
-    onMoveUp: (id: string) => void;
-    onMoveDown: (id: string) => void;
-    canMoveUp: boolean;
-    canMoveDown: boolean;
     compact: boolean;
+    dragHandleProps: SortableSubtaskRenderProps["dragHandleProps"];
+    isDragging: boolean;
 }) {
     return (
         <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="group/sub flex items-center gap-2 rounded-xl px-1.5 py-1.5 transition-colors hover:bg-white/[0.03]"
+            className={`group/sub flex items-center gap-1.5 rounded-xl px-1 py-1.5 transition-colors hover:bg-white/[0.03] ${
+                isDragging ? "opacity-50" : "opacity-100"
+            }`}
         >
-            <button
-                type="button"
-                onClick={() => onToggle(subtask.id, !subtask.isComplete)}
+            <div
+                ref={dragHandleProps.ref}
+                {...dragHandleProps.attributes}
+                {...dragHandleProps.listeners}
+                className={`shrink-0 rounded-lg p-0.5 text-twilight-text-soft transition-opacity ${
+                    compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 touch-reveal"
+                }`}
                 data-no-dnd="true"
-                className={`h-6 w-6 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors cursor-pointer ${subtask.isComplete
-                    ? "bg-accent-primary/20 border-accent-primary text-accent-primary"
-                    : "border-twilight-text-muted/70 hover:border-accent-primary/50"
-                    }`}
+                data-no-open="true"
+                aria-label="Drag to reorder subtask"
             >
-                {subtask.isComplete && (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-accent-primary">
-                        <path d="M2 5L4 7L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                )}
-            </button>
+                <GripVertical size={14} aria-hidden="true" />
+            </div>
+            <TaskCheckbox subtask={subtask} compact />
             <span
                 className={`flex-1 min-w-0 text-[14px] leading-6 transition-colors ${subtask.isComplete ? "text-twilight-text-muted/40 line-through" : "text-twilight-text-soft"
                     }`}
             >
                 {subtask.title}
             </span>
-            <div className={`flex items-center gap-1 ${compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 touch-reveal"} transition-opacity`}>
-                <button
-                    type="button"
-                    onClick={() => onMoveUp(subtask.id)}
-                    data-no-dnd="true"
-                    disabled={!canMoveUp}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:pointer-events-none disabled:opacity-25"
-                    aria-label="Move subtask up"
-                >
-                    <ArrowUp size={14} aria-hidden="true" />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => onMoveDown(subtask.id)}
-                    data-no-dnd="true"
-                    disabled={!canMoveDown}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:pointer-events-none disabled:opacity-25"
-                    aria-label="Move subtask down"
-                >
-                    <ArrowDown size={14} aria-hidden="true" />
-                </button>
-            </div>
             <button
                 type="button"
                 onClick={() => onDelete(subtask.id)}
                 data-no-dnd="true"
-                className={`h-8 w-8 shrink-0 rounded-xl text-red-400/70 transition-[opacity,color,background-color] hover:bg-red-500/10 hover:text-red-300 ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-red-400/70 transition-[opacity,color,background-color] hover:bg-red-500/10 hover:text-red-300 ${
                     compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 touch-reveal"
                 }`}
                 aria-label="Delete subtask"
             >
-                <span aria-hidden="true">✕</span>
+                <X size={14} aria-hidden="true" />
             </button>
         </motion.div>
     );
@@ -210,7 +185,6 @@ export function TaskCard({
     const showUrgentIcon = task.priority >= 3;
 
     const createSubtask = useCreateSubtask(task.id);
-    const updateSubtask = useUpdateSubtask(task.id);
     const deleteSubtask = useDeleteSubtask(task.id);
     const reorderSubtask = useReorderSubtasks(task.id);
     const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
@@ -251,6 +225,12 @@ export function TaskCard({
 
     const scheduleSummary = getTaskScheduleSummary(task);
     const scheduleLabel = scheduleSummary.primaryLabel;
+    const isPastDue = Boolean(
+        scheduleSummary.anchorDate
+        && scheduleSummary.anchorDate < toISODate(new Date())
+        && task.state !== "COMPLETE"
+        && task.state !== "ARCHIVED",
+    );
     const isPassiveTimetable = isPassiveTimetableTask(task);
     const orderedSubtasks = [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
     const completedCount = orderedSubtasks.filter((subtask) => subtask.isComplete).length;
@@ -259,7 +239,7 @@ export function TaskCard({
     const tagAccentDots = tags
         .slice(0, 2)
         .map((tag) => getTagTone(tag).accentColor);
-    const subtaskSummary = `${completedCount}/${orderedSubtasks.length} subtasks`;
+    const subtaskSummary = `${completedCount}/${orderedSubtasks.length}`;
     const primaryCue = scheduleLabel
         ? {
             icon: isPassiveTimetable ? CalendarClock : Calendar,
@@ -364,6 +344,7 @@ export function TaskCard({
     const hasCollapsedSupport = Boolean(primaryCue || visibleSignals.length > 0);
     const isCompactCard = !hasCollapsedSupport && !isSubtasksExpanded && !isAddingSubtask;
     const isBoardCard = variant === "board";
+    const effectiveRationaleLabel = rationaleLabel === OVERDUE_RATIONALE_LABEL ? null : rationaleLabel;
 
     const [isRenaming, setIsRenaming] = useState(false);
 
@@ -378,45 +359,6 @@ export function TaskCard({
         }
 
         onSelect?.(task.id);
-    };
-
-    const handleMoveSubtask = (subtaskId: string, direction: -1 | 1) => {
-        const currentIndex = orderedSubtasks.findIndex((subtask) => subtask.id === subtaskId);
-        const targetIndex = currentIndex + direction;
-
-        if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedSubtasks.length) {
-            return;
-        }
-
-        const currentSubtask = orderedSubtasks[currentIndex];
-        const reordered = [...orderedSubtasks];
-        const [movedSubtask] = reordered.splice(currentIndex, 1);
-        reordered.splice(targetIndex, 0, movedSubtask);
-
-        let prevIndex: number | null = null;
-        let nextIndex: number | null = null;
-
-        if (targetIndex > 0) prevIndex = reordered[targetIndex - 1].orderIndex;
-        if (targetIndex < reordered.length - 1) nextIndex = reordered[targetIndex + 1].orderIndex;
-
-        const newOrderIndex =
-            prevIndex === null && nextIndex === null
-                ? 0
-                : prevIndex === null
-                    ? nextIndex! - 1
-                    : nextIndex === null
-                        ? prevIndex + 1
-                        : (prevIndex + nextIndex) / 2;
-
-        const optimisticSubtasks = reordered
-            .map((subtask) => (subtask.id === currentSubtask.id ? { ...subtask, orderIndex: newOrderIndex } : subtask))
-            .sort((a, b) => a.orderIndex - b.orderIndex);
-
-        reorderSubtask.mutate({
-            id: currentSubtask.id,
-            newOrderIndex,
-            optimisticSubtasks,
-        });
     };
 
     const shouldIgnoreCardOpen = (target: EventTarget | null) => {
@@ -523,19 +465,24 @@ export function TaskCard({
                                 </span>
 
                                 {primaryCue ? (
-                                    <div className={`mt-1.5 flex items-center gap-1.5 text-[12px] font-medium ${primaryCue.className}`}>
+                                    <div className={`mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium ${primaryCue.className}`}>
                                         {(() => {
                                             const PrimaryCueIcon = primaryCue.icon;
                                             return <PrimaryCueIcon size={12} aria-hidden="true" />;
                                         })()}
                                         <span className="truncate">{primaryCue.label}</span>
+                                        {scheduleLabel && isPastDue ? (
+                                            <span className="shrink-0 text-[11px] font-semibold text-[var(--color-priority-high)]">
+                                                (Past Due)
+                                            </span>
+                                        ) : null}
                                     </div>
                                 ) : null}
 
-                                {rationaleLabel ? (
+                                {effectiveRationaleLabel ? (
                                     <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-1 text-[10px] font-medium text-accent-primary">
                                         <Sparkles size={11} aria-hidden="true" />
-                                        <span className="truncate">{rationaleLabel}</span>
+                                        <span className="truncate">{effectiveRationaleLabel}</span>
                                     </span>
                                 ) : null}
 
@@ -616,7 +563,7 @@ export function TaskCard({
                                                 Subtasks
                                             </p>
                                             <p className="mt-1 text-[12px] text-twilight-text-soft">
-                                                {subtaskSummary}
+                                                <span className="font-semibold text-twilight-text">{subtaskSummary}</span>
                                             </p>
                                         </div>
 
@@ -625,34 +572,33 @@ export function TaskCard({
                                                 type="button"
                                                 onClick={handleAddSubtask}
                                                 data-no-dnd="true"
-                                                className="inline-flex min-h-9 cursor-pointer items-center justify-center rounded-full px-3 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
+                                                className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
                                             >
+                                                <Plus size={12} aria-hidden="true" />
                                                 Add
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="mt-3 space-y-1 border-l border-twilight-border/25 pl-3">
-                                        <AnimatePresence initial={false}>
-                                            {orderedSubtasks.map((subtask, index) => (
+                                    <div className="mt-3 space-y-1">
+                                        <SortableSubtaskList
+                                            subtasks={orderedSubtasks}
+                                            onReorder={(payload) => reorderSubtask.mutate(payload)}
+                                            renderItem={({ subtask, dragHandleProps, isDragging }) => (
                                                 <InlineSubtaskItem
-                                                    key={subtask.id}
                                                     subtask={subtask}
-                                                    onToggle={(id, checked) => updateSubtask.mutate({ id, isComplete: checked })}
                                                     onDelete={(id) => deleteSubtask.mutate(id)}
-                                                    onMoveUp={(id) => handleMoveSubtask(id, -1)}
-                                                    onMoveDown={(id) => handleMoveSubtask(id, 1)}
-                                                    canMoveUp={index > 0}
-                                                    canMoveDown={index < orderedSubtasks.length - 1}
                                                     compact={shell.isPhone}
+                                                    dragHandleProps={dragHandleProps}
+                                                    isDragging={isDragging}
                                                 />
-                                            ))}
-                                        </AnimatePresence>
+                                            )}
+                                        />
                                     </div>
 
                                     {isAddingSubtask ? (
-                                        <div className="mt-3 border-l border-twilight-border/25 pl-3">
-                                            <div className="flex items-center gap-2 rounded-xl px-1.5 py-1.5">
+                                        <div className="mt-3">
+                                            <div className="flex items-center gap-1.5 rounded-xl px-1 py-1.5">
                                                 <div className="h-6 w-6 shrink-0 rounded-full border-[1.5px] border-twilight-text-muted/70" />
                                                 <input
                                                     ref={addInputRef}

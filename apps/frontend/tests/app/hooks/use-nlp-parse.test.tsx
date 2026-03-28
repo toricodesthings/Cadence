@@ -85,4 +85,47 @@ describe("useNlpParse", () => {
         expect(result.current.tokens).toHaveLength(1);
         expect(result.current.tokens[0]?.id).toBe("project:project-1");
     });
+
+    it("preserves scheduledStart when NLP detects a timed date", async () => {
+        parseMock.mockReturnValue({
+            rawInput: "tomorrow at 5pm",
+            cleanedTitle: "",
+            parserVersion: "2.0.0",
+            sourceSurface: "inline_add",
+            entities: [
+                {
+                    id: "scheduled_start:tomorrow_at_5pm",
+                    type: "scheduled_start",
+                    sourceText: "tomorrow at 5pm",
+                    start: 0,
+                    end: 15,
+                    confidence: "high",
+                    normalizedValue: {
+                        date: "2026-03-21",
+                        datetime: "2026-03-21T17:00:00.000Z",
+                        hasTime: true,
+                        humanLabel: "Tomorrow at 5:00 PM",
+                    },
+                    explanation: "Detected date: Tomorrow at 5:00 PM",
+                },
+            ],
+            warnings: [],
+            summary: "Cadence understood: Tomorrow at 5:00 PM",
+        });
+
+        const { result } = renderHook(
+            () =>
+                useNlpParse({
+                    input: "tomorrow at 5pm",
+                    projects: [],
+                    tags: [],
+                    sourceSurface: "inline_add",
+                    enabled: true,
+                }),
+            { wrapper: createWrapper() },
+        );
+
+        await waitFor(() => expect(result.current.scheduledStart).toBe("2026-03-21T17:00:00.000Z"));
+        expect(result.current.dueDate).toBe("2026-03-21");
+    });
 });

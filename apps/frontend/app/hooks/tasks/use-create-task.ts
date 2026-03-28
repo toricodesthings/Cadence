@@ -15,6 +15,18 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { ApiErrorResponse } from "../../types/api";
+import { showRateLimitToast } from "../../lib/utils/rate-limit-toast";
+
+const createTaskIdempotencyKeys = new WeakMap<CreateTaskInput, string>();
+
+function getCreateTaskIdempotencyKey(input: CreateTaskInput) {
+    const existingKey = createTaskIdempotencyKeys.get(input);
+    if (existingKey) return existingKey;
+
+    const nextKey = crypto.randomUUID();
+    createTaskIdempotencyKeys.set(input, nextKey);
+    return nextKey;
+}
 
 /** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
@@ -36,7 +48,9 @@ export function useCreateTask() {
                 },
             }),
             async (input) => {
+                const idempotencyKey = getCreateTaskIdempotencyKey(input);
                 const res = await client.api.tasks.$post({
+                    header: { "Idempotency-Key": idempotencyKey },
                     json: {
                         title: input.title,
                         ...(input.content !== undefined && { content: input.content }),
@@ -125,7 +139,7 @@ export function useCreateTask() {
             if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
             invalidateTaskCaches(queryClient);
             if (err instanceof ApiErrorResponse && err.status === 429) {
-                toast.error("Slow down — too many tasks at once. Try again in a moment.");
+                showRateLimitToast("Slow down — too many tasks at once. Try again in a moment.");
             } else {
                 toast.error(err.message || "Failed to create task");
             }

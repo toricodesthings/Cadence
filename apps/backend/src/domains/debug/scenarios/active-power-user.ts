@@ -53,12 +53,13 @@ import {
     taskSections,
     taskTags,
     tasks,
+    usageEvents,
     userMetrics,
     users,
 } from "../../../db/schema";
 import { eq } from "drizzle-orm";
 
-export const SCENARIO_VERSION = "2.2.0";
+export const SCENARIO_VERSION = "2.3.0";
 
 type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
 
@@ -734,6 +735,108 @@ export async function seed(db: Tx, userId: string) {
         {
             taskId: notifTasks[1].id,
             tagId: getRequiredRow(tagByName, "Follow-up", "tag").id,
+        },
+    ]);
+
+    // ── Usage diagnostics seed data ──────────────────────────────────
+    await db.insert(usageEvents).values([
+        {
+            userId,
+            event: "schedule.open",
+            metadata: {
+                route: "/schedule",
+                surface: "schedule",
+                input_method: "click",
+            },
+            route: "/schedule",
+            surface: "schedule",
+            inputMethod: "click",
+        },
+        {
+            userId,
+            event: "capture.submitted",
+            metadata: {
+                route: "/tasks",
+                surface: "quick_add",
+                object_type: "capture",
+            },
+            route: "/tasks",
+            surface: "quick_add",
+            objectType: "capture",
+        },
+        {
+            userId,
+            event: "nlp.parse_completed",
+            metadata: {
+                surface: "quick_add",
+                confidence_tier: "high",
+                latency_ms: 148,
+            },
+            surface: "quick_add",
+            confidenceTier: "high",
+            latencyMs: 148,
+        },
+        {
+            userId,
+            event: "task.create",
+            metadata: {
+                route: "/tasks",
+                surface: "inline_add",
+                object_type: "task",
+            },
+            route: "/tasks",
+            surface: "inline_add",
+            objectType: "task",
+        },
+        {
+            userId,
+            event: "task.quick_action_used",
+            metadata: {
+                route: "/tasks",
+                object_type: "task",
+                outcome: "complete",
+            },
+            route: "/tasks",
+            objectType: "task",
+            outcome: "complete",
+        },
+        {
+            userId,
+            event: "schedule.drop_completed",
+            metadata: {
+                route: "/schedule",
+                input_method: "dnd",
+                object_type: "task",
+                outcome: "timed",
+            },
+            route: "/schedule",
+            inputMethod: "dnd",
+            objectType: "task",
+            outcome: "timed",
+        },
+        {
+            userId,
+            event: "event.context_menu_opened",
+            metadata: {
+                route: "/events",
+                input_method: "context_menu",
+                object_type: "event",
+            },
+            route: "/events",
+            inputMethod: "context_menu",
+            objectType: "event",
+        },
+        {
+            userId,
+            event: "reminder.presented",
+            metadata: {
+                route: "/tasks",
+                object_type: "task",
+                outcome: "due_today",
+            },
+            route: "/tasks",
+            objectType: "task",
+            outcome: "due_today",
         },
     ]);
 

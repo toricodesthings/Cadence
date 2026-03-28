@@ -1,81 +1,23 @@
 import React, { useState } from "react";
-import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-} from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
-    useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { X, GripVertical } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { TaskCheckbox } from "./TaskCheckbox";
+import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import type { Subtask } from "../../types/task";
 
-function computeMidpointIndex(prevIndex: number | null, nextIndex: number | null): number {
-    if (prevIndex === null && nextIndex === null) return 0;
-    if (prevIndex === null) return nextIndex! - 1;
-    if (nextIndex === null) return prevIndex! + 1;
-    return (prevIndex + nextIndex) / 2;
-}
-
-function buildOptimisticReorder(
-    subtasks: Subtask[],
-    activeId: string,
-    overId: string,
-): { optimisticSubtasks: Subtask[]; newOrderIndex: number } | null {
-    const oldIndex = subtasks.findIndex((s) => s.id === activeId);
-    const newIndex = subtasks.findIndex((s) => s.id === overId);
-
-    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return null;
-
-    const reordered = arrayMove(subtasks, oldIndex, newIndex);
-    let prevIndex: number | null = null;
-    let nextIndex: number | null = null;
-
-    if (newIndex > 0) prevIndex = reordered[newIndex - 1].orderIndex;
-    if (newIndex < reordered.length - 1) nextIndex = reordered[newIndex + 1].orderIndex;
-
-    const newOrderIndex = computeMidpointIndex(prevIndex, nextIndex);
-    const optimisticSubtasks = reordered
-        .map((subtask) => (subtask.id === activeId ? { ...subtask, orderIndex: newOrderIndex } : subtask))
-        .sort((a, b) => a.orderIndex - b.orderIndex);
-
-    return { optimisticSubtasks, newOrderIndex };
-}
-
-interface SortableSubtaskItemProps {
-    subtask: Subtask;
-    onToggle: (id: string, isComplete: boolean) => void;
+interface EditableSubtaskRowProps extends SortableSubtaskRenderProps {
     onDelete: (id: string) => void;
     onTitleChange: (id: string, newTitle: string) => void;
 }
 
-function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: SortableSubtaskItemProps) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: subtask.id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
+function EditableSubtaskRow({
+    subtask,
+    isDragging,
+    dragHandleProps,
+    onDelete,
+    onTitleChange,
+}: EditableSubtaskRowProps) {
     const [editingTitle, setEditingTitle] = useState(subtask.title);
 
     const handleBlur = () => {
@@ -86,21 +28,20 @@ function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: Sor
 
     return (
         <motion.div
-            ref={setNodeRef}
-            style={style}
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            className={`group flex items-center gap-3 py-3 ${isDragging ? "opacity-50" : "opacity-100"}`}
+            className={`group flex items-center gap-2 py-3 ${isDragging ? "opacity-50" : "opacity-100"}`}
         >
             <div
-                {...attributes}
-                {...listeners}
-                className="opacity-60 group-hover:opacity-100 touch-reveal transition-opacity cursor-grab hover:bg-white/[0.04] p-1 rounded-xl text-twilight-text-muted/50 hover:text-twilight-text-muted shrink-0"
+                ref={dragHandleProps.ref}
+                {...dragHandleProps.attributes}
+                {...dragHandleProps.listeners}
+                className="shrink-0 rounded-xl p-0.5 text-twilight-text-muted/50 opacity-60 transition-opacity hover:bg-white/[0.04] hover:text-twilight-text-muted group-hover:opacity-100 touch-reveal cursor-grab"
+                data-no-dnd="true"
+                data-no-open="true"
             >
                 <GripVertical size={16} />
             </div>
-
             <TaskCheckbox subtask={subtask} compact />
 
             <input
@@ -109,15 +50,15 @@ function SortableSubtaskItem({ subtask, onToggle, onDelete, onTitleChange }: Sor
                 onChange={(e) => setEditingTitle(e.target.value)}
                 onBlur={handleBlur}
                 onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                className={`flex-1 min-w-0 bg-transparent outline-none text-[14px] leading-6 transition-all duration-300 ${subtask.isComplete
-                    ? "text-twilight-text-muted/50 line-through"
-                    : "text-twilight-text"
-                    }`}
+                className={`flex-1 min-w-0 bg-transparent outline-none text-[14px] leading-6 transition-all duration-300 ${
+                    subtask.isComplete ? "text-twilight-text-muted/50 line-through" : "text-twilight-text"
+                }`}
             />
 
             <button
+                type="button"
                 onClick={() => onDelete(subtask.id)}
-                className="h-9 w-9 opacity-0 group-hover:opacity-100 touch-reveal transition-opacity rounded-xl hover:bg-red-500/10 text-twilight-text-muted/50 hover:text-red-400 shrink-0"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-twilight-text-muted/50 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100 touch-reveal"
                 aria-label="Delete subtask"
             >
                 <X size={16} />
@@ -135,30 +76,12 @@ export function SubtaskList({ taskId }: { taskId: string }) {
 
     const [newTitle, setNewTitle] = useState("");
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-    );
-
     const handleCreate = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && newTitle.trim()) {
             const orderIndex = subtasks.length > 0 ? subtasks[subtasks.length - 1].orderIndex + 1 : 0;
             createSubtask.mutate({ title: newTitle.trim(), orderIndex });
             setNewTitle("");
         }
-    };
-
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        if (!over || active.id === over.id) return;
-        const reorder = buildOptimisticReorder(subtasks, String(active.id), String(over.id));
-        if (!reorder) return;
-
-        reorderSubtasks.mutate({
-            id: String(active.id),
-            newOrderIndex: reorder.newOrderIndex,
-            optimisticSubtasks: reorder.optimisticSubtasks,
-        });
     };
 
     if (isLoading) return null;
@@ -170,23 +93,19 @@ export function SubtaskList({ taskId }: { taskId: string }) {
             </span>
 
             <div className="mt-2">
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={subtasks.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-                        <AnimatePresence>
-                            {subtasks.map((subtask) => (
-                                <SortableSubtaskItem
-                                    key={subtask.id}
-                                    subtask={subtask}
-                                    onToggle={(id, isComplete) => updateSubtask.mutate({ id, isComplete })}
-                                    onDelete={(id) => deleteSubtask.mutate(id)}
-                                    onTitleChange={(id, title) => updateSubtask.mutate({ id, title })}
-                                />
-                            ))}
-                        </AnimatePresence>
-                    </SortableContext>
-                </DndContext>
+                <SortableSubtaskList
+                    subtasks={subtasks}
+                    onReorder={(payload) => reorderSubtasks.mutate(payload)}
+                    renderItem={(props) => (
+                        <EditableSubtaskRow
+                            {...props}
+                            onDelete={(id) => deleteSubtask.mutate(id)}
+                            onTitleChange={(id, title) => updateSubtask.mutate({ id, title })}
+                        />
+                    )}
+                />
 
-                <div className="mt-2 flex items-center gap-3 py-2 pl-14">
+                <div className="mt-2 flex items-center gap-2 py-2 pl-12">
                     <input
                         type="text"
                         value={newTitle}

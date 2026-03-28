@@ -52,6 +52,8 @@ export interface NlpParseOutput extends QuickAddParseResult {
     durationMinutes: number | null;
     /** §11.5: Human-readable label for the detected date (not raw ISO) */
     dueHumanLabel: string | null;
+    /** Timed start detected from NLP when a date entity carries a datetime */
+    scheduledStart: string | null;
 }
 
 /**
@@ -122,6 +124,7 @@ const EMPTY_OUTPUT: NlpParseOutput = {
     waitingOn: null,
     durationMinutes: null,
     dueHumanLabel: null,
+    scheduledStart: null,
 };
 
 /** Section 16.2: debounce parse to token boundaries, not every keystroke */
@@ -203,6 +206,7 @@ export function useNlpParse({
         const ignored = new Set([...latestIgnoredTokenIdsRef.current, ...latestDismissedEntityIdsRef.current]);
         let dueDate: string | null = null;
         let dueHumanLabel: string | null = null;
+        let scheduledStart: string | null = null;
         let recurrenceRule: string | null = null;
         let priority: TaskPriority | null = null;
         let projectId: string | null = null;
@@ -218,10 +222,21 @@ export function useNlpParse({
             switch (entity.type) {
                 case "scheduled_start":
                 case "due_date": {
-                    const val = entity.normalizedValue as { date?: string; humanLabel?: string };
-                    if (!dueDate && val?.date && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) {
-                        dueDate = val.date;
-                        dueHumanLabel = val.humanLabel ?? null;
+                    const val = entity.normalizedValue as {
+                        date?: string;
+                        datetime?: string | null;
+                        humanLabel?: string;
+                    };
+                    if (confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) {
+                        if (!dueDate && val?.date) {
+                            dueDate = val.date;
+                        }
+                        if (!scheduledStart && val?.datetime) {
+                            scheduledStart = val.datetime;
+                        }
+                        if (!dueHumanLabel && val?.humanLabel) {
+                            dueHumanLabel = val.humanLabel;
+                        }
                     }
                     break;
                 }
@@ -274,6 +289,7 @@ export function useNlpParse({
             waitingOn,
             durationMinutes,
             dueHumanLabel,
+            scheduledStart,
         });
 
         // §11.8 NLP telemetry

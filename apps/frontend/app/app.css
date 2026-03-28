@@ -1520,10 +1520,7 @@ a:active {
 }
 
 .cadence-toast:has(.cadence-toast__description),
-.cadence-toast:has(.cadence-toast__buttonRow),
-.cadence-toast:has(.cadence-toast__action),
-.cadence-toast:has(.cadence-toast__secondaryAction),
-.cadence-toast:has(.cadence-toast__tertiaryAction) {
+.cadence-toast:has(.cadence-toast__buttonRow) {
   align-items: start;
   padding: 0.95rem 0.95rem 0.88rem;
   row-gap: 0.45rem;

@@ -12,11 +12,13 @@ import type { Task } from "../../types/task";
 import { toast } from "sonner";
 import { removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { useRestoreTask } from "./use-restore-task";
 
 /** Move a task to trash (ARCHIVED state) with optimistic removal from active caches */
 export function useArchiveTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const restoreTask = useRestoreTask({ showSuccessToast: false });
 
     return useMutation({
         mutationFn: async (id: string) => {
@@ -42,7 +44,7 @@ export function useArchiveTask() {
         onSuccess: (_task, id) => {
             removeTaskFromCaches(queryClient, id);
             toast("Task moved to trash", {
-                action: { label: "Undo", onClick: () => restoreMutation(id) },
+                action: { label: "Undo", onClick: () => restoreTask.mutate(id) },
             });
         },
 
@@ -53,11 +55,4 @@ export function useArchiveTask() {
 
         onSettled: () => invalidateTaskCaches(queryClient),
     });
-
-    function restoreMutation(id: string) {
-        client.api.tasks[":id"].$patch({
-            param: { id },
-            json: { state: "ACTIVE" },
-        }).then(() => invalidateTaskCaches(queryClient));
-    }
 }

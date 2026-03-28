@@ -31,7 +31,7 @@ export function EmojiPickerPopover({ emoji, onSelect, children, contentClassName
             <Popover.Content
                 side="bottom"
                 align="start"
-                className={`overflow-hidden rounded-xl p-0 ${contentClassName ?? ""}`}
+                className={`layer-system-dialog overflow-hidden rounded-xl p-0 ${contentClassName ?? ""}`}
             >
                 <Suspense
                     fallback={

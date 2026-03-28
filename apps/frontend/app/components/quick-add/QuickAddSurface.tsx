@@ -102,7 +102,7 @@ export function QuickAddSurface({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 hideCloseButton
-                className="layer-utility-surface fixed inset-x-3 bottom-3 w-auto max-w-md overflow-hidden rounded-2xl border border-twilight-border p-0 shadow-2xl surface-utility sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-[18%] sm:w-full sm:-translate-x-1/2"
+                className="layer-utility-surface max-w-md overflow-hidden rounded-2xl border border-twilight-border p-0 shadow-2xl surface-utility"
             >
                 {shell}
             </DialogContent>
@@ -164,16 +164,36 @@ function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const trimmed = nlp.cleanedTitle || title.trim();
-        if (!trimmed) return;
+        const rawTitle = title.trim();
+        if (!rawTitle) return;
 
         const placement = taskDefaults?.newTaskPlacement ?? "bottom";
         const orderIndex = placement === "top" ? 0 : computeNextOrderIndex(tasks);
         const resolvedPriority = priority ?? nlp.priority ?? mapPriorityNameToNumber(taskDefaults?.defaultPriority);
-        const dueDate = deadline.dueDate ?? nlp.dueDate ?? resolveDefaultDueDate(taskDefaults?.defaultDueDate);
+        const hasManualSchedule = Boolean(
+            deadline.dueDate || deadline.scheduledStart || deadline.scheduledEnd || deadline.recurrenceRule,
+        );
+        const resolvedSchedule = hasManualSchedule
+            ? deadline
+            : {
+                dueDate: nlp.dueDate ?? resolveDefaultDueDate(taskDefaults?.defaultDueDate),
+                scheduledStart: nlp.scheduledStart,
+                scheduledEnd: null,
+                recurrenceRule: nlp.recurrenceRule,
+                isAllDay: nlp.scheduledStart ? false : true,
+            };
         const resolvedProjectId = projectId ?? nlp.projectId ?? null;
         const resolvedTagIds = Array.from(new Set([...tagIds, ...nlp.tagIds]));
-        const recurrenceRule = deadline.recurrenceRule ?? nlp.recurrenceRule;
+        const recurrenceRule = resolvedSchedule.recurrenceRule;
+        const didApplyNlp = Boolean(
+            (!hasManualSchedule && (nlp.dueDate || nlp.scheduledStart || nlp.recurrenceRule))
+            || (priority == null && nlp.priority)
+            || (!projectId && nlp.projectId)
+            || nlp.tagIds.some((tagId) => !tagIds.includes(tagId))
+            || nlp.waitingOn
+            || nlp.durationMinutes,
+        );
+        const trimmed = didApplyNlp && nlp.cleanedTitle ? nlp.cleanedTitle : rawTitle;
 
         trackUsageEvent("task.create", { surface: "quick_add", object_type: "task" });
         createTask.mutate(
@@ -182,11 +202,11 @@ function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (
                 orderIndex,
                 tagIds: resolvedTagIds,
                 ...(resolvedPriority > 0 && { priority: resolvedPriority as 1 | 2 | 3 | 4 }),
-                ...(dueDate && { dueDate }),
-                ...(deadline.scheduledStart && { scheduledStart: deadline.scheduledStart }),
-                ...(deadline.scheduledEnd && { scheduledEnd: deadline.scheduledEnd }),
+                ...(resolvedSchedule.dueDate && { dueDate: resolvedSchedule.dueDate }),
+                ...(resolvedSchedule.scheduledStart && { scheduledStart: resolvedSchedule.scheduledStart }),
+                ...(resolvedSchedule.scheduledEnd && { scheduledEnd: resolvedSchedule.scheduledEnd }),
                 ...(recurrenceRule && { recurrenceRule }),
-                isAllDay: deadline.isAllDay,
+                isAllDay: resolvedSchedule.isAllDay,
                 ...(resolvedProjectId && { projectId: resolvedProjectId }),
                 ...(nlp.waitingOn && { waitingOn: nlp.waitingOn }),
                 ...(nlp.durationMinutes && { durationEstimate: nlp.durationMinutes }),
@@ -199,9 +219,9 @@ function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (
                         title: trimmed,
                         projectId: resolvedProjectId,
                         tagIds: resolvedTagIds,
-                        dueDate: dueDate ?? null,
-                        scheduledStart: deadline.scheduledStart ?? null,
-                        scheduledEnd: deadline.scheduledEnd ?? null,
+                        dueDate: resolvedSchedule.dueDate ?? null,
+                        scheduledStart: resolvedSchedule.scheduledStart ?? null,
+                        scheduledEnd: resolvedSchedule.scheduledEnd ?? null,
                         recurrenceRule: recurrenceRule ?? null,
                     },
                 }),
@@ -249,7 +269,7 @@ function TaskForm({ onClose, onComplete }: { onClose: () => void; onComplete?: (
             <QuickAddActionTray
                 quickAddSettings={taskDefaults?.quickAdd}
                 dueDate={deadline.dueDate ?? nlp.dueDate ?? null}
-                scheduledStart={deadline.scheduledStart}
+                scheduledStart={deadline.scheduledStart ?? nlp.scheduledStart ?? null}
                 scheduledEnd={deadline.scheduledEnd}
                 recurrenceRule={deadline.recurrenceRule ?? nlp.recurrenceRule}
                 priority={priority as 1 | 2 | 3 | 4 | null}

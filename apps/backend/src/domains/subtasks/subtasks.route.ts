@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, inArray } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey, checkIdempotency, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { tasks, subtasks } from "../../db/schema";
-import { insertSubtaskSchema, updateSubtaskSchema, reorderSubtaskSchema } from "./subtasks.schema";
+import { insertSubtaskSchema, bulkSubtasksSchema, updateSubtaskSchema, reorderSubtaskSchema } from "./subtasks.schema";
 import { uuidParamSchema, taskIdParamSchema } from "../../platform/common-schemas";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
@@ -72,6 +72,39 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         });
 
         return c.json({ data: item }, 201);
+    })
+    .post("/subtasks/bulk", apiValidator("json", bulkSubtasksSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskIds } = c.req.valid("json");
+        const uniqueTaskIds = [...new Set(taskIds)];
+        const db = getDbClient(c.env);
+
+        if (uniqueTaskIds.length === 0) {
+            c.header("Cache-Control", "private, no-store");
+            return c.json({ data: {} });
+        }
+
+        const rows = await withRls(db, userId, async (tx) => tx
+            .select()
+            .from(subtasks)
+            .where(and(eq(subtasks.userId, userId), inArray(subtasks.taskId, uniqueTaskIds)))
+            .orderBy(asc(subtasks.taskId), asc(subtasks.orderIndex)));
+
+        const data: Record<string, typeof rows> = Object.fromEntries(uniqueTaskIds.map((taskId) => [taskId, []]));
+
+        for (const row of rows) {
+            if (row.userId !== userId) continue;
+            if (!uniqueTaskIds.includes(row.taskId)) continue;
+            data[row.taskId] ??= [];
+            data[row.taskId].push(row);
+        }
+
+        for (const taskId of uniqueTaskIds) {
+            data[taskId].sort((a, b) => a.orderIndex - b.orderIndex);
+        }
+
+        c.header("Cache-Control", "private, no-store");
+        return c.json({ data });
     })
     .patch("/subtasks/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateSubtaskSchema), async (c) => {
         const userId = c.get("userId");

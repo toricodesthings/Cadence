@@ -140,6 +140,25 @@ describe("events route contracts", () => {
         expect(body.data.tracked).toBe(true);
     });
 
+    it("accepts newer telemetry event names used by the frontend", async () => {
+        getDbClientMock.mockReturnValue({});
+        setupTrackingMock(true);
+
+        const app = createEventApp();
+        const response = await eventRequest(app, "http://localhost/events", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                event: "capture.submitted",
+                metadata: { surface: "quick_add", object_type: "capture" },
+            }),
+        });
+
+        expect(response.status).toBe(201);
+        const body = (await response.json()) as any;
+        expect(body.data.tracked).toBe(true);
+    });
+
     it("rejects an event with an invalid event name", async () => {
         const app = createEventApp();
         const response = await eventRequest(app, "http://localhost/events", {
@@ -178,6 +197,27 @@ describe("events route contracts", () => {
                 events: [
                     { event: "task.complete" },
                     { event: "schedule.open", metadata: { view: "week" } },
+                ],
+            }),
+        });
+
+        expect(response.status).toBe(201);
+        const body = (await response.json()) as any;
+        expect(body.data.tracked).toBe(true);
+    });
+
+    it("accepts batched event names from the current frontend taxonomy", async () => {
+        getDbClientMock.mockReturnValue({});
+        setupTrackingMock(true);
+
+        const app = createEventApp();
+        const response = await eventRequest(app, "http://localhost/events/batch", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                events: [
+                    { event: "event.context_menu_opened", metadata: { route: "/events", object_type: "event" } },
+                    { event: "reminder.presented", metadata: { route: "/tasks", object_type: "task" } },
                 ],
             }),
         });

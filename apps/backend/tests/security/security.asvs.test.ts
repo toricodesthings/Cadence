@@ -524,6 +524,24 @@ describe("ASVS V14: Configuration", () => {
         expect(response.headers.get("access-control-allow-origin")).toBe("https://dashboard.cadenceapp.cloud");
     });
 
+    it("CORS preflight allows Idempotency-Key for cross-origin mutations", async () => {
+        const response = await worker.fetch(
+            new Request("http://localhost/api/v1/tasks/test/subtasks", {
+                method: "OPTIONS",
+                headers: {
+                    Origin: "http://localhost:8788",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "authorization,content-type,idempotency-key",
+                },
+            }),
+            createEnv({ DEPLOYMENT_STAGE: "development" }),
+            createExecutionContext(),
+        );
+
+        expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:8788");
+        expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("idempotency-key");
+    });
+
     it("deployment stage defaults to production when not set", async () => {
         // Debug routes should be blocked
         const response = await worker.fetch(

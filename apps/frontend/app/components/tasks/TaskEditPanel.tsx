@@ -17,6 +17,7 @@ import { TagPickerList } from "./TagPickerSubmenu";
 import { TagBubble } from "../sidebar/TagBubble";
 import { useTags, useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
 import { SubtaskList } from "./SubtaskList";
+import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import * as Separator from "../primitives/Separator";
@@ -105,7 +106,7 @@ export function TaskEditPanel({
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
     const [showConvertedCheck, setShowConvertedCheck] = useState(false);
-    const titleRef = useRef<HTMLInputElement>(null);
+    const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
     const { data: subtasks = [] } = useSubtasks(taskId);
 
     // Unified note state — shared between inline editor and Writing Room
@@ -123,13 +124,19 @@ export function TaskEditPanel({
         setActivePanel("notes");
     }, [taskId]);
 
+    useEffect(() => {
+        if (!titleTextareaRef.current) return;
+        titleTextareaRef.current.style.height = "0px";
+        titleTextareaRef.current.style.height = `${titleTextareaRef.current.scrollHeight}px`;
+    }, [title, taskId]);
+
     // Listen for the custom rename event dispatched by context menus
     useEffect(() => {
         const handleFocusTitle = (e: Event) => {
             const detail = (e as CustomEvent).detail;
             if (detail?.taskId === taskId) {
-                titleRef.current?.focus();
-                titleRef.current?.select();
+                titleTextareaRef.current?.focus();
+                titleTextareaRef.current?.select();
             }
         };
         window.addEventListener("cadence:focus-task-title", handleFocusTitle);
@@ -166,11 +173,14 @@ export function TaskEditPanel({
         updateTask.mutate({ id: task.id, title: title.trim() });
     };
 
-    const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+    const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLTextAreaElement).blur();
+        }
         if (e.key === "Escape") {
             setTitle(task?.title ?? "");
-            (e.target as HTMLInputElement).blur();
+            (e.target as HTMLTextAreaElement).blur();
         }
     };
 
@@ -275,22 +285,8 @@ export function TaskEditPanel({
                     mode={detailMode}
                     header={(
                         <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
-                        <div className="flex-1 min-w-0 relative group flex items-center">
-                            <input
-                                ref={titleRef}
-                                type="text"
-                                value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            onBlur={handleTitleBlur}
-                            onKeyDown={handleTitleKeyDown}
-                            aria-label="Task title"
-                            className="peer flex-1 min-w-0 cursor-text bg-transparent font-display text-sm font-medium text-twilight-text outline-none placeholder:text-twilight-text-muted/80 truncate"
-                            placeholder="Task title"
-                            />
-                            <div className="absolute right-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity text-twilight-text-muted peer-focus:opacity-0 flex items-center justify-center">
-                                <Pencil size={13} aria-hidden="true" />
-                            </div>
-                        </div>
+                        <TaskCheckbox task={task} compact />
+                        <div className="flex-1 min-w-0" />
 
                         {onDetailModeChange ? (
                             <button
@@ -350,6 +346,26 @@ export function TaskEditPanel({
                 >
 
                     <div className="flex h-full min-h-0 flex-col overflow-y-auto scrollbar-thin px-5 pb-5 pt-5 gap-3">
+                        <section className="group relative rounded-[1.35rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-4">
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
+                                Title
+                            </p>
+                            <div className="pointer-events-none absolute right-4 top-4 opacity-0 transition-opacity group-hover:opacity-100">
+                                <Pencil size={14} className="text-twilight-text-muted" aria-hidden="true" />
+                            </div>
+                            <textarea
+                                ref={titleTextareaRef}
+                                rows={1}
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                onBlur={handleTitleBlur}
+                                onKeyDown={handleTitleKeyDown}
+                                aria-label="Task title"
+                                className="min-h-0 w-full resize-none overflow-hidden bg-transparent pr-8 font-display text-[1.3rem] font-semibold leading-[1.22] tracking-[-0.025em] text-twilight-text outline-none placeholder:text-twilight-text-muted/70"
+                                placeholder="Task title"
+                            />
+                        </section>
+
                         {/* ── Notes pane ── */}
                         {activePanel !== "notes" ? (
                             <button

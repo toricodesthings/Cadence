@@ -613,25 +613,13 @@ export default function ProjectView() {
                     <div className="flex-1 min-h-0 min-w-0 flex flex-col">
                         {isLoading ? (
                             <PageContent width="default"><TaskListSkeleton /></PageContent>
-                        ) : tasks && tasks.length > 0 ? (
+                        ) : (
                             <KanbanBoard
-                                tasks={tasks}
+                                tasks={tasks ?? []}
                                 projectId={projectId}
                                 selectedTaskId={selectedTaskId}
                                 onSelectTask={handleSelectTask}
                             />
-                        ) : (
-                            <PageContent width="default">
-                                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                                    <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
-                                        <FolderKanban size={24} className="text-twilight-text-muted" />
-                                    </div>
-                                    <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this project</h3>
-                                    <p className="text-twilight-text-muted text-sm max-w-sm">
-                                        Add some tasks to get started with {project?.name || "this project"}.
-                                    </p>
-                                </div>
-                            </PageContent>
                         )}
                     </div>
                 ) : (

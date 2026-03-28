@@ -79,21 +79,34 @@ export function AddTaskInput({
     });
 
     const handleSubmit = () => {
-        const title = parsedInput.cleanedTitle || value.trim();
-        if (!title) return;
+        const rawTitle = value.trim();
+        if (!rawTitle) return;
 
         const placement = taskDefaults?.newTaskPlacement ?? "bottom";
         const orderIndex = placement === "top" ? 0 : computeNextOrderIndex(tasks);
         const resolvedPriority = parsedInput.priority ?? mapPriorityNameToNumber(taskDefaults?.defaultPriority);
         const resolvedProjectId = projectId ?? projectSelection ?? parsedInput.projectId ?? null;
         const resolvedTagIds = Array.from(new Set([...selectedTagIds, ...parsedInput.tagIds]));
-        const resolvedDeadline = {
-            dueDate: deadline.dueDate ?? parsedInput.dueDate,
-            scheduledStart: deadline.scheduledStart,
-            scheduledEnd: deadline.scheduledEnd,
-            recurrenceRule: deadline.recurrenceRule ?? parsedInput.recurrenceRule,
-            isAllDay: deadline.isAllDay,
-        };
+        const hasManualSchedule = Boolean(
+            deadline.dueDate || deadline.scheduledStart || deadline.scheduledEnd || deadline.recurrenceRule,
+        );
+        const resolvedDeadline = hasManualSchedule
+            ? deadline
+            : {
+                dueDate: parsedInput.dueDate,
+                scheduledStart: parsedInput.scheduledStart,
+                scheduledEnd: null,
+                recurrenceRule: parsedInput.recurrenceRule,
+                isAllDay: parsedInput.scheduledStart ? false : true,
+            };
+        const didApplyNlp = Boolean(
+            (!hasManualSchedule && (resolvedDeadline.dueDate || resolvedDeadline.scheduledStart || resolvedDeadline.recurrenceRule))
+            || (!projectId && !projectSelection && parsedInput.projectId)
+            || parsedInput.tagIds.some((tagId) => !selectedTagIds.includes(tagId))
+            || parsedInput.waitingOn
+            || parsedInput.durationMinutes,
+        );
+        const title = didApplyNlp && parsedInput.cleanedTitle ? parsedInput.cleanedTitle : rawTitle;
 
         trackUsageEvent("task.create", { surface: "inline_add", object_type: "task" });
         createTask.mutate({
@@ -141,18 +154,27 @@ export function AddTaskInput({
         });
     };
 
-    const hasDeadlineSet = !!(deadline.dueDate || deadline.scheduledStart);
+    const previewDeadline = {
+        dueDate: deadline.dueDate ?? parsedInput.dueDate,
+        scheduledStart: deadline.scheduledStart ?? parsedInput.scheduledStart,
+        scheduledEnd: deadline.scheduledEnd,
+        recurrenceRule: deadline.recurrenceRule ?? parsedInput.recurrenceRule,
+        isAllDay: deadline.scheduledStart || deadline.dueDate || deadline.scheduledEnd || deadline.recurrenceRule
+            ? deadline.isAllDay
+            : !parsedInput.scheduledStart,
+    };
+    const hasDeadlineSet = Boolean(previewDeadline.dueDate || previewDeadline.scheduledStart);
     const showScheduleTrigger = isFocused || hasDeadlineSet || value.trim().length > 0;
 
     const deadlineLabel = (() => {
         const locale = getDateFormatConfig().dateStyle === "dmy" ? "en-GB" : "en-US";
-        if (deadline.scheduledEnd && deadline.dueDate) {
-            const start = parseLocalDate(deadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-            const end = parseLocalDate(deadline.scheduledEnd).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+        if (previewDeadline.scheduledEnd && previewDeadline.dueDate) {
+            const start = parseLocalDate(previewDeadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+            const end = parseLocalDate(previewDeadline.scheduledEnd).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
             return `${start} \u2013 ${end}`;
         }
-        if (deadline.dueDate) {
-            return parseLocalDate(deadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+        if (previewDeadline.dueDate) {
+            return parseLocalDate(previewDeadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
         }
         return "Add date";
     })();
@@ -263,10 +285,10 @@ export function AddTaskInput({
                         quickAddSettings={taskDefaults?.quickAdd}
                         projectLocked={Boolean(projectId)}
                         excludeActions={["date", "priority"]}
-                        dueDate={deadline.dueDate ?? parsedInput.dueDate}
-                        scheduledStart={deadline.scheduledStart}
+                        dueDate={previewDeadline.dueDate}
+                        scheduledStart={previewDeadline.scheduledStart}
                         scheduledEnd={deadline.scheduledEnd}
-                        recurrenceRule={deadline.recurrenceRule ?? parsedInput.recurrenceRule}
+                        recurrenceRule={previewDeadline.recurrenceRule}
                         priority={null}
                         projectId={projectId ?? projectSelection ?? parsedInput.projectId ?? null}
                         tagIds={Array.from(new Set([...selectedTagIds, ...parsedInput.tagIds]))}

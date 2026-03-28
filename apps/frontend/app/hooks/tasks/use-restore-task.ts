@@ -11,11 +11,13 @@ import type { Task } from "../../types/task";
 import { toast } from "sonner";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { queryKeys } from "../../lib/api/query-keys";
+import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 
 /** Restore a task from trash (ARCHIVED → ACTIVE) */
-export function useRestoreTask() {
+export function useRestoreTask(options?: { showSuccessToast?: boolean }) {
     const client = useApiClient();
     const queryClient = useQueryClient();
+    const showSuccessToast = options?.showSuccessToast ?? true;
 
     return useMutation({
         mutationFn: async (id: string) => {
@@ -39,8 +41,13 @@ export function useRestoreTask() {
             return { snapshot };
         },
 
-        onSuccess: () => {
-            toast.success("Task restored");
+        onSuccess: (task) => {
+            if (task) {
+                reconcileTaskInCaches(queryClient, task);
+            }
+            if (showSuccessToast) {
+                toast.success("Task restored");
+            }
         },
 
         onError: (err, _input, context) => {

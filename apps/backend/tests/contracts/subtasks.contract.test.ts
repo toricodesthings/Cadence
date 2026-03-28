@@ -21,7 +21,10 @@ import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
 
 const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_TASK_ID = "22222222-2222-4222-8222-222222222222";
+const TEST_TASK_ID_2 = "22222222-2222-4222-8222-222222222223";
 const TEST_SUBTASK_ID = "33333333-3333-4333-8333-333333333333";
+const FOREIGN_USER_ID = "11111111-1111-4111-8111-111111111112";
+const FOREIGN_TASK_ID = "22222222-2222-4222-8222-222222222224";
 
 function createSubtaskApp() {
     const app = new Hono<{ Variables: AuthVariables }>();
@@ -117,6 +120,18 @@ function createDeleteTx(deletedRows: unknown[]) {
     };
 }
 
+function createBulkTx(subtaskRows: unknown[]) {
+    const selectMock = vi.fn(() => ({
+        from: vi.fn(() => ({
+            where: vi.fn(() => ({
+                orderBy: vi.fn().mockResolvedValue(subtaskRows),
+            })),
+        })),
+    }));
+
+    return { select: selectMock };
+}
+
 describe("subtask route contracts", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -155,6 +170,103 @@ describe("subtask route contracts", () => {
     it("rejects list with invalid taskId param", async () => {
         const app = createSubtaskApp();
         const response = await app.request("http://localhost/tasks/not-a-uuid/subtasks");
+
+        expect(response.status).toBe(400);
+        const body = (await response.json()) as any;
+        expect(body.error.code).toBe("INVALID_REQUEST");
+    });
+
+    // ── POST /subtasks/bulk ──
+
+    it("returns grouped subtasks sorted by orderIndex for owned task ids", async () => {
+        const tx = createBulkTx([
+            {
+                id: "subtask-2",
+                taskId: TEST_TASK_ID,
+                userId: TEST_USER_ID,
+                title: "Second",
+                isComplete: false,
+                orderIndex: 20,
+                createdAt: "2026-03-01T00:00:00.000Z",
+                updatedAt: "2026-03-01T00:00:00.000Z",
+            },
+            {
+                id: "subtask-1",
+                taskId: TEST_TASK_ID,
+                userId: TEST_USER_ID,
+                title: "First",
+                isComplete: false,
+                orderIndex: 10,
+                createdAt: "2026-03-01T00:00:00.000Z",
+                updatedAt: "2026-03-01T00:00:00.000Z",
+            },
+            {
+                id: "foreign-subtask",
+                taskId: FOREIGN_TASK_ID,
+                userId: FOREIGN_USER_ID,
+                title: "Foreign",
+                isComplete: false,
+                orderIndex: 5,
+                createdAt: "2026-03-01T00:00:00.000Z",
+                updatedAt: "2026-03-01T00:00:00.000Z",
+            },
+        ]);
+        getDbClientMock.mockReturnValue(tx);
+        withRlsMock.mockImplementation(async (_db: any, _userId: any, cb: any) => cb(tx));
+
+        const app = createSubtaskApp();
+        const response = await app.request("http://localhost/subtasks/bulk", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ taskIds: [TEST_TASK_ID, TEST_TASK_ID_2, TEST_TASK_ID] }),
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("cache-control")).toBe("private, no-store");
+
+        const body = (await response.json()) as any;
+        expect(Object.keys(body.data)).toEqual([TEST_TASK_ID, TEST_TASK_ID_2]);
+        expect(body.data[TEST_TASK_ID]).toHaveLength(2);
+        expect(body.data[TEST_TASK_ID][0].title).toBe("First");
+        expect(body.data[TEST_TASK_ID][1].title).toBe("Second");
+        expect(body.data[TEST_TASK_ID_2]).toEqual([]);
+    });
+
+    it("returns an empty map for an empty bulk request", async () => {
+        const app = createSubtaskApp();
+        const response = await app.request("http://localhost/subtasks/bulk", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ taskIds: [] }),
+        });
+
+        expect(response.status).toBe(200);
+        const body = (await response.json()) as any;
+        expect(body.data).toEqual({});
+    });
+
+    it("rejects bulk requests with invalid task ids", async () => {
+        const app = createSubtaskApp();
+        const response = await app.request("http://localhost/subtasks/bulk", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ taskIds: ["not-a-uuid"] }),
+        });
+
+        expect(response.status).toBe(400);
+        const body = (await response.json()) as any;
+        expect(body.error.code).toBe("INVALID_REQUEST");
+    });
+
+    it("rejects bulk requests over the task id limit", async () => {
+        const app = createSubtaskApp();
+        const response = await app.request("http://localhost/subtasks/bulk", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                taskIds: Array.from({ length: 201 }, () => TEST_TASK_ID),
+            }),
+        });
 
         expect(response.status).toBe(400);
         const body = (await response.json()) as any;

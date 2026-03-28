@@ -92,7 +92,7 @@ function KanbanColumn({
                 )}
 
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center">
-                    {((section.id !== "ungrouped" && onRename && onDelete) || (section.id === "ungrouped" && tasks.length === 0 && onDelete)) ? (
+                    {section.id !== "ungrouped" && onRename && onDelete ? (
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
                                 <button
@@ -194,7 +194,6 @@ export function KanbanBoard({
 
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [isAddingColumn, setIsAddingColumn] = useState(false);
-    const [isUnsectionedHidden, setIsUnsectionedHidden] = useState(false);
     const [activeSectionId, setActiveSectionId] = useState<string>("ungrouped");
     const [newColumnName, setNewColumnName] = useState("");
     const dragScroll = useDragScroll();
@@ -250,14 +249,12 @@ export function KanbanBoard({
             section: TaskSection | { id: "ungrouped"; name: string };
         }> = [];
 
-        if (!(isUnsectionedHidden && ungroupedTasks.length === 0) && (ungroupedTasks.length > 0 || sections.length > 0)) {
-            columns.push({
-                id: "ungrouped",
-                name: "Unsectioned",
-                tasks: ungroupedTasks,
-                section: { id: "ungrouped", name: "Unsectioned" },
-            });
-        }
+        columns.push({
+            id: "ungrouped",
+            name: "Unsectioned",
+            tasks: ungroupedTasks,
+            section: { id: "ungrouped", name: "Unsectioned" },
+        });
 
         for (const section of sections) {
             columns.push({
@@ -269,7 +266,7 @@ export function KanbanBoard({
         }
 
         return columns;
-    }, [isUnsectionedHidden, sections, sectionTaskMap, ungroupedTasks]);
+    }, [sections, sectionTaskMap, ungroupedTasks]);
 
     useEffect(() => {
         if (visibleColumns.length === 0) {
@@ -420,6 +417,7 @@ export function KanbanBoard({
                         <button
                             type="button"
                             onClick={() => setIsAddingColumn(true)}
+                            data-add-section-trigger
                             className="touch-target flex min-h-12 w-full items-center justify-center gap-2 rounded-[24px] border border-dashed border-twilight-border/40 bg-white/[0.02] text-sm font-medium text-twilight-text-soft"
                         >
                             <Plus size={16} />
@@ -458,7 +456,6 @@ export function KanbanBoard({
                             selectedTaskId={selectedTaskId}
                             projectId={projectId}
                             onSelectTask={onSelectTask}
-                            onDelete={() => setIsUnsectionedHidden(true)}
                         />
                     </div>
                 ))}
@@ -504,6 +501,7 @@ export function KanbanBoard({
                         <button
                             type="button"
                             onClick={() => setIsAddingColumn(true)}
+                            data-add-section-trigger
                             className="w-full h-[60px] rounded-2xl border-2 border-dashed border-twilight-border/30 flex items-center justify-center gap-2 text-[13px] text-twilight-text-muted/50 hover:text-twilight-text-muted hover:border-twilight-border/50 transition-colors cursor-pointer"
                         >
                             <Plus size={16} />

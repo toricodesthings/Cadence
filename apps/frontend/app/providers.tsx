@@ -103,21 +103,12 @@ function ProvidersInner({ children }: { children: ReactNode }) {
         return Math.min(1000 * 2 ** attempt, 8000);
     };
 
-    // Show toast for exhausted rate-limit retries
-    const handleRateLimitExhausted = (error: Error) => {
-        if (error instanceof ApiErrorResponse && error.isRateLimited) {
-            toast.error("You're doing that too fast — please wait a moment and try again.");
-        }
-    };
-
     // Create QueryClient inside provider to prevent request crossover in SSR when caching
     const [queryClient] = useState(
         () =>
             new QueryClient({
                 queryCache: new QueryCache({
                     onError: async (error, query) => {
-                        handleRateLimitExhausted(error);
-
                         if (!(error instanceof ApiErrorResponse) || !error.isAuthError) {
                             return;
                         }
@@ -153,11 +144,7 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                         }
                     },
                 }),
-                mutationCache: new MutationCache({
-                    onError: (error) => {
-                        handleRateLimitExhausted(error);
-                    },
-                }),
+                mutationCache: new MutationCache(),
                 defaultOptions: {
                     queries: {
                         // Default to tasks stale time (most common query); hooks may override
