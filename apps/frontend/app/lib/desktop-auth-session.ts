@@ -35,19 +35,6 @@ export interface StoredDesktopAuthSession {
 
 let memoryCache: StoredDesktopAuthSession | null | undefined;
 
-function logDesktopAuthDebug(message: string, details?: Record<string, unknown>) {
-    if (!import.meta.env.DEV) {
-        return;
-    }
-
-    if (details) {
-        console.info(`[cadence:desktop-auth] ${message}`, details);
-        return;
-    }
-
-    console.info(`[cadence:desktop-auth] ${message}`);
-}
-
 function hasWindow() {
     return typeof window !== "undefined";
 }
@@ -152,10 +139,6 @@ export function deserializeDesktopAuthPayload(payload: string): StoredDesktopAut
 
 export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession | null> {
     if (memoryCache !== undefined) {
-        logDesktopAuthDebug("returning desktop auth session from memory cache", {
-            present: Boolean(memoryCache),
-            hasJwt: Boolean(memoryCache?.jwt),
-        });
         return memoryCache;
     }
 
@@ -163,7 +146,6 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
     if (adapter) {
         const stored = await adapter.get<unknown>(DESKTOP_AUTH_STORAGE_KEY);
         if (!isPersistedDesktopAuthSessionMetadata(stored)) {
-            logDesktopAuthDebug("native desktop auth store missing valid metadata");
             memoryCache = null;
             return memoryCache;
         }
@@ -178,11 +160,6 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
 
         const hydrated = { ...stored, jwt };
         memoryCache = isStoredDesktopAuthSession(hydrated) ? hydrated : null;
-        logDesktopAuthDebug("loaded desktop auth session from native store", {
-            present: Boolean(memoryCache),
-            hasJwt: Boolean(memoryCache?.jwt),
-            userId: memoryCache?.data.user.id ?? null,
-        });
         return memoryCache;
     }
 
@@ -194,18 +171,12 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
     try {
         const raw = window.localStorage.getItem(DESKTOP_AUTH_STORAGE_KEY);
         if (!raw) {
-            logDesktopAuthDebug("web desktop auth fallback storage is empty");
             memoryCache = null;
             return memoryCache;
         }
 
         const parsed = JSON.parse(raw) as unknown;
         memoryCache = isStoredDesktopAuthSession(parsed) ? parsed : null;
-        logDesktopAuthDebug("loaded desktop auth session from web storage fallback", {
-            present: Boolean(memoryCache),
-            hasJwt: Boolean(memoryCache?.jwt),
-            userId: memoryCache?.data.user.id ?? null,
-        });
         return memoryCache;
     } catch {
         memoryCache = null;
@@ -215,10 +186,6 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
 
 export async function writeDesktopAuthSession(session: StoredDesktopAuthSession): Promise<void> {
     memoryCache = session;
-    logDesktopAuthDebug("writing desktop auth session", {
-        hasJwt: Boolean(session.jwt),
-        userId: session.data.user.id,
-    });
 
     const adapter = await getStorageAdapter();
     if (adapter) {
@@ -235,9 +202,6 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
             await adapter.set(DESKTOP_AUTH_STORAGE_KEY, {
                 data: session.data,
                 persistedAt: session.persistedAt,
-            });
-            logDesktopAuthDebug("persisted desktop auth session to native store", {
-                userId: session.data.user.id,
             });
             emitDesktopAuthSessionChange(session);
             return;
@@ -261,7 +225,6 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
 
 export async function clearDesktopAuthSession(): Promise<void> {
     memoryCache = null;
-    logDesktopAuthDebug("clearing desktop auth session");
 
     const adapter = await getStorageAdapter();
     if (adapter) {
