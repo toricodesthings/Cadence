@@ -131,38 +131,86 @@ describe("ASVS V2: Authentication", () => {
         expect(response.status).toBe(401);
     });
 
-    it("succeeds without JWT_ISSUER configured (optional claim)", async () => {
+    it("allows missing JWT_ISSUER in development (optional claim)", async () => {
         jwtVerifyMock.mockResolvedValueOnce({
             payload: { sub: "user-1", email: "user@example.com" },
         });
 
         const response = await worker.fetch(
             authedRequest("/api/v1/tasks"),
-            createEnv({ JWT_ISSUER: undefined }),
+            createEnv({ DEPLOYMENT_STAGE: "development", JWT_ISSUER: undefined }),
             createExecutionContext(),
         );
 
         // Auth passes — any error is from the route handler, not missing config
         const body = await response.json() as any;
-        expect(body.error?.code).not.toBe("INTERNAL_SERVER_ERROR");
-        expect(body.error?.message).not.toContain("JWT_ISSUER");
+        expect(body.error?.code).not.toBe("AUTH_MISCONFIGURED");
+        expect(body.error?.message).not.toContain("issuer");
     });
 
-    it("succeeds without JWT_AUDIENCE configured (optional claim)", async () => {
+    it("allows missing JWT_AUDIENCE in development (optional claim)", async () => {
         jwtVerifyMock.mockResolvedValueOnce({
             payload: { sub: "user-1", email: "user@example.com" },
         });
 
         const response = await worker.fetch(
             authedRequest("/api/v1/tasks"),
-            createEnv({ JWT_AUDIENCE: undefined }),
+            createEnv({ DEPLOYMENT_STAGE: "development", JWT_AUDIENCE: undefined }),
             createExecutionContext(),
         );
 
         // Auth passes — any error is from the route handler, not missing config
         const body = await response.json() as any;
-        expect(body.error?.code).not.toBe("INTERNAL_SERVER_ERROR");
-        expect(body.error?.message).not.toContain("JWT_AUDIENCE");
+        expect(body.error?.code).not.toBe("AUTH_MISCONFIGURED");
+        expect(body.error?.message).not.toContain("audience");
+    });
+
+    it("fails closed when JWT_ISSUER is missing in production", async () => {
+        jwtVerifyMock.mockResolvedValue({
+            payload: { sub: "user-1", email: "user@example.com" },
+        });
+
+        const response = await worker.fetch(
+            authedRequest("/api/v1/tasks"),
+            createEnv({ DEPLOYMENT_STAGE: "production", JWT_ISSUER: undefined }),
+            createExecutionContext(),
+        );
+
+        expect(response.status).toBe(500);
+        const body = await response.json() as any;
+        expect(body.error.code).toBe("AUTH_MISCONFIGURED");
+    });
+
+    it("allows missing JWT_AUDIENCE in production when issuer is set (Neon Auth may omit aud)", async () => {
+        jwtVerifyMock.mockResolvedValue({
+            payload: { sub: "user-1", email: "user@example.com" },
+        });
+
+        const response = await worker.fetch(
+            authedRequest("/api/v1/tasks"),
+            createEnv({ DEPLOYMENT_STAGE: "staging", JWT_AUDIENCE: undefined }),
+            createExecutionContext(),
+        );
+
+        // Auth passes — audience is optional; any error is from the route handler
+        const body = await response.json() as any;
+        expect(body.error?.code).not.toBe("AUTH_MISCONFIGURED");
+    });
+
+    it("fails closed by default (no stage set) when JWT_ISSUER is missing", async () => {
+        jwtVerifyMock.mockResolvedValue({
+            payload: { sub: "user-1", email: "user@example.com" },
+        });
+
+        const response = await worker.fetch(
+            authedRequest("/api/v1/tasks"),
+            createEnv({ DEPLOYMENT_STAGE: undefined, JWT_ISSUER: undefined, JWT_AUDIENCE: undefined }),
+            createExecutionContext(),
+        );
+
+        expect(response.status).toBe(500);
+        const body = await response.json() as any;
+        expect(body.error.code).toBe("AUTH_MISCONFIGURED");
     });
 
     it("fails fast when NEON_AUTH_JWKS_URL is not configured", async () => {

@@ -24,6 +24,10 @@ function deepMerge(target: any, source: any): any {
     const output = Object.assign({}, target);
     if (isObject(target) && isObject(source)) {
         Object.keys(source).forEach((key) => {
+            // Defense in depth: never let merge keys reach the object prototype.
+            // Zod already strips unknown keys today, but guard here so a future
+            // schema using .passthrough()/z.record() can't enable prototype pollution.
+            if (key === "__proto__" || key === "constructor" || key === "prototype") return;
             if (isObject(source[key])) {
                 if (!(key in target)) {
                     Object.assign(output, { [key]: source[key] });
@@ -55,49 +59,6 @@ export function normalizeSettings(stored: Record<string, any>): Record<string, a
 }
 
 export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    .get("/", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
-
-        const [user] = await withRls(db, userId, async (tx) =>
-            tx
-                .select({ settings: users.settings })
-                .from(users)
-                .where(eq(users.id, userId))
-                .limit(1)
-        );
-
-        const normalized = normalizeSettings((user?.settings ?? {}) as Record<string, any>);
-        return c.json({ data: normalized });
-    })
-    .patch("/", apiValidator("json", settingsPatchSchema), async (c) => {
-        const userId = c.get("userId");
-        const body = c.req.valid("json");
-        const db = getDbClient(c.env);
-
-        const [updated] = await withRls(db, userId, async (tx) => {
-            const [user] = await tx
-                .select({ settings: users.settings })
-                .from(users)
-                .where(eq(users.id, userId))
-                .limit(1);
-
-            // Normalize stored settings first, then merge in patch
-            const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);
-            const merged = deepMerge(normalized, body);
-
-            return tx
-                .update(users)
-                .set({
-                    settings: merged,
-                })
-                .where(eq(users.id, userId))
-                .returning({ settings: users.settings });
-        });
-
-        const normalizedResult = normalizeSettings((updated?.settings ?? {}) as Record<string, any>);
-        return c.json({ data: normalizedResult });
-    })
     .post("/intelligence-history/clear", async (c) => {
         const userId = c.get("userId");
         const db = getDbClient(c.env);
@@ -147,110 +108,6 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
 
         return c.json({ data: { cleared: true } });
     })
-    .get("/notification-state", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
-
-        const items = await withRls(db, userId, (tx) =>
-            tx
-                .select()
-                .from(notificationState)
-                .where(eq(notificationState.userId, userId))
-                .orderBy(desc(notificationState.updatedAt)),
-        );
-
-        return c.json({ data: items });
-    })
-    .post(
-        "/notification-state",
-        apiValidator(
-            "json",
-            z.object({
-                objectType: z.enum(["task", "habit", "event"]),
-                objectId: z.string().uuid(),
-                triggerId: z.string().min(1).max(200),
-                firstPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
-                lastPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
-                dismissedAt: z.string().datetime({ offset: true }).nullable().optional(),
-                deferredUntil: z.string().datetime({ offset: true }).nullable().optional(),
-                actionTaken: z.string().max(64).nullable().optional(),
-                presentationCountIncrement: z.number().int().min(0).max(100).optional(),
-            }),
-        ),
-        async (c) => {
-            const userId = c.get("userId");
-            const body = c.req.valid("json");
-            const db = getDbClient(c.env);
-
-            const row = await withRls(db, userId, async (tx) => {
-                const [existing] = await tx
-                    .select()
-                    .from(notificationState)
-                    .where(
-                        and(
-                            eq(notificationState.userId, userId),
-                            eq(notificationState.objectId, body.objectId),
-                            eq(notificationState.triggerId, body.triggerId),
-                        ),
-                    )
-                    .limit(1);
-
-                const presentationCount = body.presentationCountIncrement ?? 0;
-
-                if (!existing) {
-                    const [created] = await tx
-                        .insert(notificationState)
-                        .values({
-                            userId,
-                            objectType: body.objectType,
-                            objectId: body.objectId,
-                            triggerId: body.triggerId,
-                            firstPresentedAt: body.firstPresentedAt ?? null,
-                            lastPresentedAt: body.lastPresentedAt ?? null,
-                            dismissedAt: body.dismissedAt ?? null,
-                            deferredUntil: body.deferredUntil ?? null,
-                            actionTaken: body.actionTaken ?? null,
-                            presentationCount,
-                        })
-                        .returning();
-                    return created;
-                }
-
-                const [updated] = await tx
-                    .update(notificationState)
-                    .set({
-                        objectType: body.objectType,
-                        firstPresentedAt: existing.firstPresentedAt ?? body.firstPresentedAt ?? null,
-                        lastPresentedAt: body.lastPresentedAt ?? existing.lastPresentedAt ?? null,
-                        dismissedAt: body.dismissedAt !== undefined ? body.dismissedAt : existing.dismissedAt,
-                        deferredUntil: body.deferredUntil !== undefined ? body.deferredUntil : existing.deferredUntil,
-                        actionTaken: body.actionTaken !== undefined ? body.actionTaken : existing.actionTaken,
-                        presentationCount: existing.presentationCount + presentationCount,
-                        updatedAt: sql`NOW()`,
-                    })
-                    .where(eq(notificationState.id, existing.id))
-                    .returning();
-
-                return updated;
-            });
-
-            return c.json({ data: row }, 201);
-        },
-    )
-    .get("/focus-views", async (c) => {
-        const userId = c.get("userId");
-        const db = getDbClient(c.env);
-
-        const items = await withRls(db, userId, (tx) =>
-            tx
-                .select()
-                .from(savedFocusViews)
-                .where(eq(savedFocusViews.userId, userId))
-                .orderBy(desc(savedFocusViews.isPinned), savedFocusViews.orderIndex, savedFocusViews.createdAt),
-        );
-
-        return c.json({ data: items });
-    })
     .post("/focus-views", apiValidator("json", savedFocusViewInputSchema), async (c) => {
         const userId = c.get("userId");
         const body = c.req.valid("json");
@@ -278,6 +135,93 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         });
 
         return c.json({ data: view }, 201);
+    })
+    .post(
+        "/notification-state",
+        apiValidator(
+            "json",
+            z.object({
+                objectType: z.enum(["task", "habit", "event"]),
+                objectId: z.string().uuid(),
+                triggerId: z.string().min(1).max(200),
+                firstPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
+                lastPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
+                dismissedAt: z.string().datetime({ offset: true }).nullable().optional(),
+                deferredUntil: z.string().datetime({ offset: true }).nullable().optional(),
+                actionTaken: z.string().max(64).nullable().optional(),
+                presentationCountIncrement: z.number().int().min(0).max(100).optional(),
+            }),
+        ),
+        async (c) => {
+            const userId = c.get("userId");
+            const body = c.req.valid("json");
+            const db = getDbClient(c.env);
+
+            const row = await withRls(db, userId, async (tx) => {
+                const presentationCount = body.presentationCountIncrement ?? 0;
+
+                const [updated] = await tx
+                    .insert(notificationState)
+                    .values({
+                        userId,
+                        objectType: body.objectType,
+                        objectId: body.objectId,
+                        triggerId: body.triggerId,
+                        firstPresentedAt: body.firstPresentedAt ?? null,
+                        lastPresentedAt: body.lastPresentedAt ?? null,
+                        dismissedAt: body.dismissedAt ?? null,
+                        deferredUntil: body.deferredUntil ?? null,
+                        actionTaken: body.actionTaken ?? null,
+                        presentationCount,
+                    })
+                    .onConflictDoUpdate({
+                        target: [notificationState.userId, notificationState.objectId, notificationState.triggerId],
+                        set: {
+                            objectType: body.objectType,
+                            firstPresentedAt: sql`coalesce(${notificationState.firstPresentedAt}, ${body.firstPresentedAt ?? null})`,
+                            lastPresentedAt: sql`coalesce(${body.lastPresentedAt ?? null}, ${notificationState.lastPresentedAt})`,
+                            dismissedAt: body.dismissedAt !== undefined ? body.dismissedAt : notificationState.dismissedAt,
+                            deferredUntil: body.deferredUntil !== undefined ? body.deferredUntil : notificationState.deferredUntil,
+                            actionTaken: body.actionTaken !== undefined ? body.actionTaken : notificationState.actionTaken,
+                            presentationCount: sql`${notificationState.presentationCount} + ${presentationCount}`,
+                            updatedAt: sql`NOW()`,
+                        },
+                    })
+                    .returning();
+
+                return updated;
+            });
+
+            return c.json({ data: row }, 201);
+        },
+    )
+    .patch("/", apiValidator("json", settingsPatchSchema), async (c) => {
+        const userId = c.get("userId");
+        const body = c.req.valid("json");
+        const db = getDbClient(c.env);
+
+        const [updated] = await withRls(db, userId, async (tx) => {
+            const [user] = await tx
+                .select({ settings: users.settings })
+                .from(users)
+                .where(eq(users.id, userId))
+                .limit(1);
+
+            // Normalize stored settings first, then merge in patch
+            const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);
+            const merged = deepMerge(normalized, body);
+
+            return tx
+                .update(users)
+                .set({
+                    settings: merged,
+                })
+                .where(eq(users.id, userId))
+                .returning({ settings: users.settings });
+        });
+
+        const normalizedResult = normalizeSettings((updated?.settings ?? {}) as Record<string, any>);
+        return c.json({ data: normalizedResult });
     })
     .patch("/focus-views/:id", apiValidator("param", z.object({ id: z.string().uuid() })), apiValidator("json", savedFocusViewPatchSchema), async (c) => {
         const userId = c.get("userId");
@@ -307,6 +251,49 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         throwIfNotFound(view, "Focus view");
 
         return c.json({ data: view });
+    })
+    .get("/", async (c) => {
+        const userId = c.get("userId");
+        const db = getDbClient(c.env);
+
+        const [user] = await withRls(db, userId, async (tx) =>
+            tx
+                .select({ settings: users.settings })
+                .from(users)
+                .where(eq(users.id, userId))
+                .limit(1)
+        );
+
+        const normalized = normalizeSettings((user?.settings ?? {}) as Record<string, any>);
+        return c.json({ data: normalized });
+    })
+    .get("/notification-state", async (c) => {
+        const userId = c.get("userId");
+        const db = getDbClient(c.env);
+
+        const items = await withRls(db, userId, (tx) =>
+            tx
+                .select()
+                .from(notificationState)
+                .where(eq(notificationState.userId, userId))
+                .orderBy(desc(notificationState.updatedAt)),
+        );
+
+        return c.json({ data: items });
+    })
+    .get("/focus-views", async (c) => {
+        const userId = c.get("userId");
+        const db = getDbClient(c.env);
+
+        const items = await withRls(db, userId, (tx) =>
+            tx
+                .select()
+                .from(savedFocusViews)
+                .where(eq(savedFocusViews.userId, userId))
+                .orderBy(desc(savedFocusViews.isPinned), savedFocusViews.orderIndex, savedFocusViews.createdAt),
+        );
+
+        return c.json({ data: items });
     })
     .delete("/focus-views/:id", apiValidator("param", z.object({ id: z.string().uuid() })), async (c) => {
         const userId = c.get("userId");

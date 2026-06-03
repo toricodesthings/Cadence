@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../types/env";
+import { getDeploymentStage } from "../types/env";
 import { AppError, createErrorBody } from "./errors";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { getRequestId, setRequestErrorCode } from "./request-log";
@@ -105,6 +106,18 @@ export const authMiddleware = createMiddleware<{
     try {
         if (!jwksUrl) {
             throw new AppError(500, "INTERNAL_SERVER_ERROR", "Missing NEON_AUTH_JWKS_URL");
+        }
+
+        // Fail closed outside development: tokens MUST be bound to this API's
+        // trusted issuer. Without it, jwtVerify degrades into a bare signature
+        // check. Audience stays optional — Neon Auth's native tokens may omit
+        // the `aud` claim — but is still verified when JWT_AUDIENCE is set.
+        if (getDeploymentStage(c.env) !== "development" && !expectedIssuer) {
+            throw new AppError(
+                500,
+                "AUTH_MISCONFIGURED",
+                "JWT_ISSUER must be configured outside development",
+            );
         }
 
         if (!jwksCache || cachedUrl !== jwksUrl) {

@@ -13,30 +13,6 @@ import { uuidParamSchema } from "../../platform/common-schemas";
 import { createSectionSchema, updateSectionSchema, sectionQuerySchema } from "./sections.schema";
 
 export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // GET /api/sections?projectId=... — list sections for a project (or unscoped if no projectId)
-    .get("/", apiValidator("query", sectionQuerySchema), async (c) => {
-        const userId = c.get("userId");
-        const { projectId } = c.req.valid("query");
-        const projectIdValue = projectId ?? null;
-        const db = getDbClient(c.env);
-
-        const conditions = [eq(taskSections.userId, userId)];
-        if (projectIdValue) {
-            conditions.push(eq(taskSections.projectId, projectIdValue));
-        } else {
-            conditions.push(sql`${taskSections.projectId} IS NULL`);
-        }
-
-        const rows = await withRls(db, userId, async (tx) =>
-            tx
-                .select()
-                .from(taskSections)
-                .where(and(...conditions))
-                .orderBy(asc(taskSections.orderIndex))
-        );
-
-        return c.json({ data: rows });
-    })
     .post("/", apiValidator("json", createSectionSchema), async (c) => {
         const userId = c.get("userId");
         const body = c.req.valid("json");
@@ -82,6 +58,30 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         throwIfNotFound(updated, "Section");
         return c.json({ data: updated });
+    })
+    // GET /api/sections?projectId=... — list sections for a project (or unscoped if no projectId)
+    .get("/", apiValidator("query", sectionQuerySchema), async (c) => {
+        const userId = c.get("userId");
+        const { projectId } = c.req.valid("query");
+        const projectIdValue = projectId ?? null;
+        const db = getDbClient(c.env);
+
+        const conditions = [eq(taskSections.userId, userId)];
+        if (projectIdValue) {
+            conditions.push(eq(taskSections.projectId, projectIdValue));
+        } else {
+            conditions.push(sql`${taskSections.projectId} IS NULL`);
+        }
+
+        const rows = await withRls(db, userId, async (tx) =>
+            tx
+                .select()
+                .from(taskSections)
+                .where(and(...conditions))
+                .orderBy(asc(taskSections.orderIndex))
+        );
+
+        return c.json({ data: rows });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");

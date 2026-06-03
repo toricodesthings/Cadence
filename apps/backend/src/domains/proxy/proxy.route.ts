@@ -113,7 +113,7 @@ proxyRoutes.get("/holidays/countries", apiValidator("query", holidayCountriesQue
     const language = getLanguage(locale);
 
     const [openRes, nagerRes] = await Promise.allSettled([
-        upstreamFetch(`${OPEN_HOLIDAYS_BASE}/Countries?languageIsoCode=${language}`, 86400),
+        upstreamFetch(`${OPEN_HOLIDAYS_BASE}/Countries?languageIsoCode=${encodeURIComponent(language)}`, 86400),
         upstreamFetch(`${NAGER_BASE}/AvailableCountries`, 86400),
     ]);
 
@@ -155,7 +155,7 @@ proxyRoutes.get("/holidays/subdivisions", apiValidator("query", holidaySubdivisi
 
     try {
         const res = await upstreamFetch(
-            `${OPEN_HOLIDAYS_BASE}/Subdivisions?countryIsoCode=${cc}&languageIsoCode=${language}`,
+            `${OPEN_HOLIDAYS_BASE}/Subdivisions?countryIsoCode=${encodeURIComponent(cc)}&languageIsoCode=${encodeURIComponent(language)}`,
             86400,
         );
         if (res.ok) {
@@ -181,7 +181,7 @@ proxyRoutes.get("/holidays/subdivisions", apiValidator("query", holidaySubdivisi
 
     if (subdivisions.length === 0) {
         try {
-            const res = await upstreamFetch(`${NAGER_BASE}/PublicHolidays/${year}/${cc}`, 86400);
+            const res = await upstreamFetch(`${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 86400);
             if (res.ok) {
                 const holidays = (await res.json()) as Array<{
                     types: string[];
@@ -212,8 +212,8 @@ proxyRoutes.get("/holidays", apiValidator("query", holidaysQuerySchema), async (
 
     // Try OpenHolidays first
     try {
-        let url = `${OPEN_HOLIDAYS_BASE}/PublicHolidays?countryIsoCode=${cc}&validFrom=${start}&validTo=${end}&languageIsoCode=${language}`;
-        if (subCode) url += `&subdivisionCode=${subCode}`;
+        let url = `${OPEN_HOLIDAYS_BASE}/PublicHolidays?countryIsoCode=${encodeURIComponent(cc)}&validFrom=${encodeURIComponent(start)}&validTo=${encodeURIComponent(end)}&languageIsoCode=${encodeURIComponent(language)}`;
+        if (subCode) url += `&subdivisionCode=${encodeURIComponent(subCode)}`;
 
         const res = await upstreamFetch(url, 43200); // 12h CF cache
         if (res.ok) {
@@ -263,7 +263,7 @@ proxyRoutes.get("/holidays", apiValidator("query", holidaysQuerySchema), async (
 
     // Fallback to Nager
     const year = Number.parseInt(start.slice(0, 4), 10);
-    const nagerRes = await upstreamFetch(`${NAGER_BASE}/PublicHolidays/${year}/${cc}`, 43200);
+    const nagerRes = await upstreamFetch(`${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 43200);
     if (!nagerRes.ok) {
         return c.json({ data: [] }, 200, cacheHeaders(3600));
     }

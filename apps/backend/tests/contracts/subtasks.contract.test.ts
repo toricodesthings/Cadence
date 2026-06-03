@@ -181,22 +181,22 @@ describe("subtask route contracts", () => {
     it("returns grouped subtasks sorted by orderIndex for owned task ids", async () => {
         const tx = createBulkTx([
             {
-                id: "subtask-2",
-                taskId: TEST_TASK_ID,
-                userId: TEST_USER_ID,
-                title: "Second",
-                isComplete: false,
-                orderIndex: 20,
-                createdAt: "2026-03-01T00:00:00.000Z",
-                updatedAt: "2026-03-01T00:00:00.000Z",
-            },
-            {
                 id: "subtask-1",
                 taskId: TEST_TASK_ID,
                 userId: TEST_USER_ID,
                 title: "First",
                 isComplete: false,
                 orderIndex: 10,
+                createdAt: "2026-03-01T00:00:00.000Z",
+                updatedAt: "2026-03-01T00:00:00.000Z",
+            },
+            {
+                id: "subtask-2",
+                taskId: TEST_TASK_ID,
+                userId: TEST_USER_ID,
+                title: "Second",
+                isComplete: false,
+                orderIndex: 20,
                 createdAt: "2026-03-01T00:00:00.000Z",
                 updatedAt: "2026-03-01T00:00:00.000Z",
             },

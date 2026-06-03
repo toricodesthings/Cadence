@@ -153,11 +153,22 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
         const fourteenDaysAgo = daysAgo(14);
         const sevenDaysAgo = daysAgo(7);
 
-        const rescheduleVelocity = await queryRescheduleVelocity(tx, userId, fourteenDaysAgo);
-        const overdueCarryLoad = await queryOverdueCarryLoad(tx, userId);
-        const completionRatio = await queryCompletionRatio(tx, userId, fourteenDaysAgo, overdueCarryLoad);
-        const habitAdherenceRate = await queryHabitAdherenceRate(tx, userId, fourteenDaysAgo);
-        const scheduleDensity = await queryScheduleDensity(tx, userId, sevenDaysAgo);
+        const [
+            rescheduleVelocity,
+            overdueCarryLoad,
+            completedCount,
+            habitAdherenceRate,
+            scheduleDensity,
+        ] = await Promise.all([
+            queryRescheduleVelocity(tx, userId, fourteenDaysAgo),
+            queryOverdueCarryLoad(tx, userId),
+            queryCompletedCount(tx, userId, fourteenDaysAgo),
+            queryHabitAdherenceRate(tx, userId, fourteenDaysAgo),
+            queryScheduleDensity(tx, userId, sevenDaysAgo),
+        ]);
+
+        const denominator = completedCount + overdueCarryLoad;
+        const completionRatio = denominator > 0 ? completedCount / denominator : 0;
 
         const burnoutIndex = computeBurnoutIndex({
             rescheduleVelocity,
@@ -195,14 +206,12 @@ async function queryOverdueCarryLoad(tx: RlsTx, userId: string) {
     return stats?.cnt ?? 0;
 }
 
-async function queryCompletionRatio(tx: RlsTx, userId: string, since: string, overdueCarryLoad: number) {
+async function queryCompletedCount(tx: RlsTx, userId: string, since: string) {
     const [stats] = await tx
         .select({ cnt: count() })
         .from(taskMetrics)
         .where(and(eq(taskMetrics.userId, userId), sql`${taskMetrics.completedAt} IS NOT NULL`, gte(taskMetrics.createdAt, since)));
-    const completed = stats?.cnt ?? 0;
-    const denominator = completed + overdueCarryLoad;
-    return denominator > 0 ? completed / denominator : 0;
+    return stats?.cnt ?? 0;
 }
 
 async function queryHabitAdherenceRate(tx: RlsTx, userId: string, since: string) {
@@ -260,15 +269,11 @@ async function upsertUserMetrics(tx: RlsTx, userId: string, data: {
     scheduleDensity: number;
     lastCalculatedAt: string;
 }) {
-    const existing = await tx
-        .select({ id: userMetrics.id })
-        .from(userMetrics)
-        .where(eq(userMetrics.userId, userId))
-        .limit(1);
-
-    if (existing.length === 0) {
-        await tx.insert(userMetrics).values({ userId, ...data });
-    } else {
-        await tx.update(userMetrics).set(data).where(eq(userMetrics.id, existing[0].id));
-    }
+    await tx
+        .insert(userMetrics)
+        .values({ userId, ...data })
+        .onConflictDoUpdate({
+            target: [userMetrics.userId],
+            set: data,
+        });
 }

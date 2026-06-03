@@ -98,6 +98,27 @@ src/
 - **Verify parent ownership** for nested resources via `assertOwnership` helpers.
 - **Never return raw internal errors** or stack traces to clients.
 
+### 2.4 Code Organization Rules (UCURD — non-negotiable)
+
+Every file that registers routes or exports DB-touching functions is ordered by
+**UCURD**: **U**tility → **C**reate → **U**pdate → **R**ead → **D**elete.
+
+- Order is determined by **HTTP verb**, not by semantics: `POST` is always Create,
+  `PATCH`/`PUT` is Update, `GET` is Read, `DELETE` is Delete — even for action-style
+  routes (e.g. `POST /:id/reschedule` lives in the Create block, not next to a
+  related `PATCH`).
+- **Utility** helpers (pure functions, loaders, type aliases) sit at the **top** of
+  the file, above the route/export chain — never trailing at the bottom.
+- When a file hosts more than one resource or sub-resource, keep a **stable
+  secondary order within each verb group**: primary resource before its
+  sub-resources (e.g. within the `GET` block: `GET /` then `GET /sections`).
+- This ordering is mechanical and reviewable — do not deviate "because it reads
+  better locally." Predictable structure is the point.
+
+This rule exists so any contributor can locate an endpoint in O(1) and so Hono's
+RPC surface stays diff-stable. A file that violates UCURD is a defect even if it
+functions correctly.
+
 ---
 
 ## 3. Tech Stack
@@ -556,10 +577,55 @@ Do not:
 - Use `drizzle-kit push` or destructive migration commands
 - Expand public AI surface unless explicitly scoped
 - Create unversioned routes (everything under `/api/v1/`)
+- **Duplicate logic across domains** — copy-pasted helpers/queries are a defect;
+  extract a single source of truth (shared domain module or `@cadence/*` package)
+- **Violate UCURD ordering** (see §2.4) in any route or DB-touching file
+- **Bury business logic inside route handlers** — a handler validates, authorizes,
+  delegates, and shapes the response; non-trivial logic belongs in a named helper
+- **Couple pure logic to persistence** — pass data or an injected loader into pure
+  functions instead of threading a raw `tx` through computation, so logic stays
+  unit-testable (see §19)
 
 ---
 
-## 19. Checklist for New Backend Work
+## 19. Clean Code & Maintainability
+
+The backend is optimized for **ease of refactor, update, and modification**.
+Working code that is hard to change is still a defect — spaghetti is not tolerated
+even when it passes tests. Every change is judged on whether the next contributor
+can safely modify it.
+
+**Standards:**
+
+- **One responsibility per unit.** Keep pure logic (streak math, parsing,
+  normalization, filter building) in small named functions; keep I/O (DB, headers,
+  auth) in the route handler. Mixing the two is the most common source of rot here.
+- **Dependency injection over hidden coupling.** When a computation needs data,
+  inject a value or a narrow loader function rather than a `tx`/`DbClient`. This
+  keeps the core pure, bounded, and testable (see `computeCurrentStreak` in
+  `habits.route.ts`, which takes a `loadCompleted` callback, not a transaction).
+- **Bound the work.** Prefer algorithms whose cost scales with the result size,
+  not full table/history scans. Parallelize independent queries with `Promise.all`.
+  Use Postgres `ON CONFLICT` for upserts instead of select-then-write round trips.
+- **DRY across domains.** Shared logic lives in exactly one place. Cross-domain
+  imports are allowed in the dependency direction that already exists (e.g. `inbox`
+  may import from `tasks`); never copy logic to avoid an import.
+- **Descriptive, single-purpose files.** Follow §4 naming. No `helpers.ts`/
+  `utils.ts`/`misc.ts` grab-bags. A new utility gets a name that states its job
+  (`task-nlp.ts`, `note-analysis.ts`, `task-filters.ts`).
+- **Self-documenting structure.** UCURD ordering (§2.4), explicit types over
+  `any` (use the `Tx` alias for transactions), and short comments that explain
+  *why*, not *what*.
+- **Leave it more refactorable than you found it.** Prefer extraction over
+  in-lining when a handler grows; if a route file gets large, split domain logic
+  into `{domain}.service.ts` (§5).
+
+If you cannot easily describe where a piece of logic lives and why, restructure it
+until you can.
+
+---
+
+## 20. Checklist for New Backend Work
 
 1. Identify the domain → `src/domains/{domain}/`
 2. Add/update Zod schema → `{domain}.schema.ts`

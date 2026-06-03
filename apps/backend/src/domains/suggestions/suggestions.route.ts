@@ -15,21 +15,6 @@ export const suggestionRoutes = new Hono<{
     Variables: AuthVariables;
 }>();
 
-// GET /api/suggestions — list pending suggestions
-suggestionRoutes.get("/", async (c) => {
-    const userId = c.get("userId");
-    const db = getDbClient(c.env);
-
-    const rows = await withRls(db, userId, async (tx) =>
-        tx
-            .select()
-            .from(suggestions)
-            .where(and(eq(suggestions.userId, userId), eq(suggestions.status, "PENDING"))),
-    );
-
-    return c.json({ data: rows });
-});
-
 // PATCH /api/suggestions/:id — accept or dismiss
 suggestionRoutes.patch(
     "/:id",
@@ -54,3 +39,18 @@ suggestionRoutes.patch(
         return c.json({ data: updated });
     },
 );
+
+// GET /api/suggestions — list pending suggestions
+suggestionRoutes.get("/", async (c) => {
+    const userId = c.get("userId");
+    const db = getDbClient(c.env);
+
+    const rows = await withRls(db, userId, async (tx) =>
+        tx
+            .select()
+            .from(suggestions)
+            .where(and(eq(suggestions.userId, userId), eq(suggestions.status, "PENDING"))),
+    );
+
+    return c.json({ data: rows });
+});

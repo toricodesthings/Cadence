@@ -102,7 +102,7 @@ export const userMetrics = pgTable('user_metrics', {
     lastCalculatedAt: timestamp('last_calculated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => {
     return {
-        userIdIdx: index('user_metrics_user_id_idx').on(table.userId),
+        userIdIdx: uniqueIndex('user_metrics_user_id_unique').on(table.userId),
         rlsPolicy: pgPolicy("user_metrics_owner_access", {
             as: "permissive",
             for: "all",

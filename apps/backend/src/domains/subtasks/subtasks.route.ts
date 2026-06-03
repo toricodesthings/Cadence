@@ -12,30 +12,6 @@ import { AppError, throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 
 export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    .get("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), async (c) => {
-        const userId = c.get("userId");
-        const { taskId } = c.req.valid("param");
-        const db = getDbClient(c.env);
-
-        const items = await withRls(db, userId, async (tx) => {
-            // Ensure parent task exists and belongs to user
-            const [parent] = await tx
-                .select({ id: tasks.id })
-                .from(tasks)
-                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-
-            throwIfNotFound(parent, "Task");
-
-            return tx
-                .select()
-                .from(subtasks)
-                .where(and(eq(subtasks.taskId, taskId), eq(subtasks.userId, userId)))
-                .orderBy(asc(subtasks.orderIndex));
-        });
-
-        c.header("Cache-Control", "private, no-store");
-        return c.json({ data: items });
-    })
     .post("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), apiValidator("json", insertSubtaskSchema), async (c) => {
         const userId = c.get("userId");
         const { taskId } = c.req.valid("param");
@@ -73,39 +49,6 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         return c.json({ data: item }, 201);
     })
-    .post("/subtasks/bulk", apiValidator("json", bulkSubtasksSchema), async (c) => {
-        const userId = c.get("userId");
-        const { taskIds } = c.req.valid("json");
-        const uniqueTaskIds = [...new Set(taskIds)];
-        const db = getDbClient(c.env);
-
-        if (uniqueTaskIds.length === 0) {
-            c.header("Cache-Control", "private, no-store");
-            return c.json({ data: {} });
-        }
-
-        const rows = await withRls(db, userId, async (tx) => tx
-            .select()
-            .from(subtasks)
-            .where(and(eq(subtasks.userId, userId), inArray(subtasks.taskId, uniqueTaskIds)))
-            .orderBy(asc(subtasks.taskId), asc(subtasks.orderIndex)));
-
-        const data: Record<string, typeof rows> = Object.fromEntries(uniqueTaskIds.map((taskId) => [taskId, []]));
-
-        for (const row of rows) {
-            if (row.userId !== userId) continue;
-            if (!uniqueTaskIds.includes(row.taskId)) continue;
-            data[row.taskId] ??= [];
-            data[row.taskId].push(row);
-        }
-
-        for (const taskId of uniqueTaskIds) {
-            data[taskId].sort((a, b) => a.orderIndex - b.orderIndex);
-        }
-
-        c.header("Cache-Control", "private, no-store");
-        return c.json({ data });
-    })
     .patch("/subtasks/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateSubtaskSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
@@ -141,6 +84,58 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         throwIfNotFound(updated, "Subtask");
         return c.json({ data: updated });
+    })
+    .get("/tasks/:taskId/subtasks", apiValidator("param", taskIdParamSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskId } = c.req.valid("param");
+        const db = getDbClient(c.env);
+
+        const items = await withRls(db, userId, async (tx) => {
+            // Ensure parent task exists and belongs to user
+            const [parent] = await tx
+                .select({ id: tasks.id })
+                .from(tasks)
+                .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+
+            throwIfNotFound(parent, "Task");
+
+            return tx
+                .select()
+                .from(subtasks)
+                .where(and(eq(subtasks.taskId, taskId), eq(subtasks.userId, userId)))
+                .orderBy(asc(subtasks.orderIndex));
+        });
+
+        c.header("Cache-Control", "private, no-store");
+        return c.json({ data: items });
+    })
+    .post("/subtasks/bulk", apiValidator("json", bulkSubtasksSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskIds } = c.req.valid("json");
+        const uniqueTaskIds = [...new Set(taskIds)];
+        const db = getDbClient(c.env);
+
+        if (uniqueTaskIds.length === 0) {
+            c.header("Cache-Control", "private, no-store");
+            return c.json({ data: {} });
+        }
+
+        const rows = await withRls(db, userId, async (tx) => tx
+            .select()
+            .from(subtasks)
+            .where(and(eq(subtasks.userId, userId), inArray(subtasks.taskId, uniqueTaskIds)))
+            .orderBy(asc(subtasks.taskId), asc(subtasks.orderIndex)));
+
+        const data: Record<string, typeof rows> = Object.fromEntries(uniqueTaskIds.map((taskId) => [taskId, []]));
+
+        for (const row of rows) {
+            if (data[row.taskId]) {
+                data[row.taskId].push(row);
+            }
+        }
+
+        c.header("Cache-Control", "private, no-store");
+        return c.json({ data });
     })
     .delete("/subtasks/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
