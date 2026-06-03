@@ -1,0 +1,1 @@
+{"nodes": [{"id": "types_inbox_inbox_types", "label": "inbox types re-export", "file_type": "code", "source_file": "apps/backend/src/types/inbox.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

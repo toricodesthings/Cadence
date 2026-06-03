@@ -1,0 +1,1 @@
+{"nodes": [], "edges": [{"source": "db_table_inbox_items", "target": "db_table_tasks", "relation": "references", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "apps/backend/drizzle/0003_black_lester.sql", "source_location": null, "weight": 1.0}], "hyperedges": []}

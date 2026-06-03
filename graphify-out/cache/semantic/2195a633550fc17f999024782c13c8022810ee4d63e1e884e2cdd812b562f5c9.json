@@ -1,0 +1,1 @@
+{"nodes": [{"id": "proxy_proxy_schema_holidaysqueryschema", "label": "holidaysQuerySchema", "file_type": "code", "source_file": "apps/backend/src/domains/proxy/proxy.schema.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "platform_patch_desktop_fetch_patched_fetch", "label": "patchedFetch (Neon Auth fetch interceptor)", "file_type": "code", "source_file": "apps/frontend/app/platform/patch-desktop-fetch.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

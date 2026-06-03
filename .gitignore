@@ -1,9 +1,13 @@
 # Documentation
 docs
-!apps/frontend/docs/
-!apps/frontend/docs/**
-!apps/desktop/docs/
-!apps/desktop/docs/**
+apps/frontend/docs/
+apps/frontend/docs/**
+apps/desktop/docs/
+apps/desktop/docs/**
+apps/backend/docs/
+apps/backend/docs/**
+apps/mobile/docs/
+apps/mobile/docs/**
 
 # Dependencies
 node_modules

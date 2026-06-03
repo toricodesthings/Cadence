@@ -1,0 +1,1 @@
+{"nodes": [{"id": "shared_routeerrorboundary_routeerrorboundary", "label": "RouteErrorBoundary", "file_type": "code", "source_file": "apps/frontend/app/components/shared/RouteErrorBoundary.tsx", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
