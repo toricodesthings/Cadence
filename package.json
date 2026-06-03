@@ -26,7 +26,7 @@
     "deploy:backend": "pnpm --filter @cadence/backend deploy"
   },
   "devDependencies": {
-    "turbo": "^2.8.20"
+    "turbo": "^2.9.16"
   },
   "pnpm": {
     "overrides": {

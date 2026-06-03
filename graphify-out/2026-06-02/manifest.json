@@ -20,9 +20,9 @@
     "semantic_hash": "09cd404c9bd1c4308ea053f5d38b6e65"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/package.json": {
-    "mtime": 1774594861.2627594,
-    "ast_hash": "afac4b37645610444e18d37c6e3267ed",
-    "semantic_hash": "afac4b37645610444e18d37c6e3267ed"
+    "mtime": 1780456291.9893074,
+    "ast_hash": "f7a2638c4459adfcbccde798b525078e",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/setup.ts": {
     "mtime": 1773085419.8428981,
@@ -150,9 +150,9 @@
     "semantic_hash": "b25fbde0b55c8b700c8375244a235dcf"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/security/security.asvs.test.ts": {
-    "mtime": 1774737174.7715652,
-    "ast_hash": "07fc0c6054c61afafbb7a99dd00e830c",
-    "semantic_hash": "07fc0c6054c61afafbb7a99dd00e830c"
+    "mtime": 1780457136.7981474,
+    "ast_hash": "09fb0cda53ccbf818399124702205aa9",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/index.ts": {
     "mtime": 1774737165.632765,
@@ -205,9 +205,9 @@
     "semantic_hash": "073d6d39d767ab9574a184cc598b1d2a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/auth.ts": {
-    "mtime": 1774039124.170875,
-    "ast_hash": "c6b0225c4a1147bd9540567dec1f69cc",
-    "semantic_hash": "c6b0225c4a1147bd9540567dec1f69cc"
+    "mtime": 1780457123.2945476,
+    "ast_hash": "407c054caa807218de162c26a028ea9d",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/ownership.ts": {
     "mtime": 1774053502.5618525,
@@ -235,9 +235,9 @@
     "semantic_hash": "2154be51a0f7abe1d36e2ef48a29c031"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/index.ts": {
-    "mtime": 1780366338.4424117,
-    "ast_hash": "ff93874e37fe237555461ee1d0223ab6",
-    "semantic_hash": "ff93874e37fe237555461ee1d0223ab6"
+    "mtime": 1780454772.4126294,
+    "ast_hash": "ba8c239e7a65a107a3f8c8f2b3913a84",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/debug/debug-seed.ts": {
     "mtime": 1774058164.156508,
@@ -265,14 +265,14 @@
     "semantic_hash": "93c60e9ab2dbb404e7f72c70d7597850"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/habits/habits.route.ts": {
-    "mtime": 1780366338.4424117,
-    "ast_hash": "24bf8aa3c71c19a777387d327d49e9d2",
-    "semantic_hash": "24bf8aa3c71c19a777387d327d49e9d2"
+    "mtime": 1780456510.257578,
+    "ast_hash": "2f6ad256e0f6745b416e36f2ee4ea4e1",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/inbox/inbox.route.ts": {
-    "mtime": 1780366338.4424117,
-    "ast_hash": "e5c3f0f95a02471f25c5b30b373bfd82",
-    "semantic_hash": "e5c3f0f95a02471f25c5b30b373bfd82"
+    "mtime": 1780454789.612229,
+    "ast_hash": "1379c48146e335935e44dec7b78119a4",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/inbox/inbox.schema.ts": {
     "mtime": 1774587719.9075103,
@@ -285,14 +285,14 @@
     "semantic_hash": "76122a3222ede8865742af7e3ba8abc6"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/subtasks/subtasks.route.ts": {
-    "mtime": 1780373831.152557,
-    "ast_hash": "3b278a743101cf6fe586d83f3ff57025",
-    "semantic_hash": "3b278a743101cf6fe586d83f3ff57025"
+    "mtime": 1780452831.2858987,
+    "ast_hash": "8b4e5d3c3b0b622daec876934dc42301",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/notes/notes.route.ts": {
-    "mtime": 1780366338.4424117,
-    "ast_hash": "f33faa348d3574c8c2a9cc60c5559e7f",
-    "semantic_hash": "f33faa348d3574c8c2a9cc60c5559e7f"
+    "mtime": 1780452962.7466934,
+    "ast_hash": "81af7456ab13ef1bd79cbb41a6073182",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/notes/notes.schema.ts": {
     "mtime": 1774077973.054097,
@@ -300,9 +300,9 @@
     "semantic_hash": "8a3de0b4403cd2b304149f40e5f93734"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/suggestions/suggestions.route.ts": {
-    "mtime": 1774058922.0441911,
-    "ast_hash": "b14f89bc2349c53752d10f7742e5808e",
-    "semantic_hash": "b14f89bc2349c53752d10f7742e5808e"
+    "mtime": 1780452896.704004,
+    "ast_hash": "fd95099ddb2f56dbcae53afcecd54a06",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/suggestions/suggestions.schema.ts": {
     "mtime": 1774042169.3334682,
@@ -330,9 +330,9 @@
     "semantic_hash": "8193621c40d16200f3bf88c1a8ecbf64"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/tasks.route.ts": {
-    "mtime": 1780366338.4424117,
-    "ast_hash": "2923638d5c57d7414eba4a900ce7c31f",
-    "semantic_hash": "2923638d5c57d7414eba4a900ce7c31f"
+    "mtime": 1780454857.216287,
+    "ast_hash": "b8782b41f1ca9bffc78bb189e2c7a5be",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/task-recurrence.ts": {
     "mtime": 1774042326.8699012,
@@ -345,9 +345,9 @@
     "semantic_hash": "1e199b91d07ca1d752defbf29e5afb1d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/settings/settings.route.ts": {
-    "mtime": 1780373831.152557,
-    "ast_hash": "375613a6fac32046ab79c38b49745f4f",
-    "semantic_hash": "375613a6fac32046ab79c38b49745f4f"
+    "mtime": 1780456553.2046273,
+    "ast_hash": "81e2bedb48e420ef570d56ac430713fc",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/settings/settings.schema.ts": {
     "mtime": 1774555770.8049967,
@@ -360,9 +360,9 @@
     "semantic_hash": "a31d06a3c6bd83808ff7dbfd6823112b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/proxy/proxy.route.ts": {
-    "mtime": 1774052516.8053262,
-    "ast_hash": "5f127e91a9b7c8cc25f0977529617c8d",
-    "semantic_hash": "5f127e91a9b7c8cc25f0977529617c8d"
+    "mtime": 1780456544.8974273,
+    "ast_hash": "d8535cd1802bb3283444a83302df6f7f",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/proxy/proxy.schema.ts": {
     "mtime": 1774042169.3638015,
@@ -395,9 +395,9 @@
     "semantic_hash": "5047d391c2f54984ac3b7d2ed3142a87"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/sections/sections.route.ts": {
-    "mtime": 1774058164.130508,
-    "ast_hash": "0c6ad35c91971ccb6cd57f8c13d56533",
-    "semantic_hash": "0c6ad35c91971ccb6cd57f8c13d56533"
+    "mtime": 1780373881.5136294,
+    "ast_hash": "6c7ab88070852f746122ff8cd3f2d125",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/sections/sections.schema.ts": {
     "mtime": 1774042169.2598014,
@@ -2835,9 +2835,9 @@
     "semantic_hash": "31bcb17b6c6757241abda8661d4b1169"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/AGENTS.md": {
-    "mtime": 1774058164.156508,
-    "ast_hash": "1cfda1fe5e56f2d54ef74b1c63524dac",
-    "semantic_hash": "1cfda1fe5e56f2d54ef74b1c63524dac"
+    "mtime": 1780455306.3450994,
+    "ast_hash": "d803b704e87511728b08302f4e40c814",
+    "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/README.md": {
     "mtime": 1774058922.0441911,
@@ -3363,5 +3363,755 @@
     "mtime": 499162500.0,
     "ast_hash": "b507e7f2c91ebc8fe24dee79ccb3b600",
     "semantic_hash": "b507e7f2c91ebc8fe24dee79ccb3b600"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/tsconfig.base.json": {
+    "mtime": 1772859145.9240668,
+    "ast_hash": "3169d2e85c048ace90ae6e4779f61e37",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/package.json": {
+    "mtime": 1774742348.1812642,
+    "ast_hash": "cad16e50f458db672e54e38c3093f9a1",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/turbo.json": {
+    "mtime": 1774058164.156508,
+    "ast_hash": "04ac16eaade89187943d2c8e574d57a6",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/metadata.json": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "5cd9ae4fc688353236c3b92e8f06dfcc",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.claude/settings.json": {
+    "mtime": 1780346226.189885,
+    "ast_hash": "02217627fdc955a6f1759c6e03ef674b",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/habit-streak.test.ts": {
+    "mtime": 1780455093.7136612,
+    "ast_hash": "f32ded26d5b20dd9dcc9955e9fe8bff8",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/security/tenant-isolation.static.test.ts": {
+    "mtime": 1780456769.0714908,
+    "ast_hash": "2f24e4d639c49f81acf88150d3aa0d74",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/notes/note-analysis.ts": {
+    "mtime": 1780366338.4424117,
+    "ast_hash": "b6a61e5f6bfbe89dbedd1ccaa13ae39a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/task-nlp.ts": {
+    "mtime": 1780454763.99056,
+    "ast_hash": "1eac5afb62736e534059a674f4674d15",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/0026_loving_anita_blake.sql": {
+    "mtime": 1780366015.8522165,
+    "ast_hash": "8b8c17c0572536982e6bfe2ccfe9d790",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/meta/0026_snapshot.json": {
+    "mtime": 1780366015.847821,
+    "ast_hash": "c63877c88f3c140dec0a1dfbd99d51eb",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/pnpm-workspace.yaml": {
+    "mtime": 1773198072.160475,
+    "ast_hash": "2287f2cc67b23daa7d8b82304dbd789e",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/README.md": {
+    "mtime": 1774128764.949161,
+    "ast_hash": "a3517bc532b0b3f7f7bfadba1b38500c",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/postgresql-table-design/SKILL.md": {
+    "mtime": 1771983475.4786644,
+    "ast_hash": "e2611021ca2c2f43695c89adca2584d6",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/improve-codebase-architecture/INTERFACE-DESIGN.md": {
+    "mtime": 1780345750.8836863,
+    "ast_hash": "aee2c0695396f8c6432ba5bfe547f195",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/improve-codebase-architecture/LANGUAGE.md": {
+    "mtime": 1780345750.8836863,
+    "ast_hash": "680627d828b489f96b92d4a2d7fa3bb6",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/improve-codebase-architecture/DEEPENING.md": {
+    "mtime": 1780345750.8836863,
+    "ast_hash": "ebdd48f7e3b0afeb8085d797df543e1a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/improve-codebase-architecture/SKILL.md": {
+    "mtime": 1780345750.8836863,
+    "ast_hash": "b49bc843f32d06bbba85b4ac4b606aa5",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/improve-codebase-architecture/HTML-REPORT.md": {
+    "mtime": 1780345750.8836863,
+    "ast_hash": "1857b55ee9eb301b094922f32d2f73d7",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/neon-postgres/SKILL.md": {
+    "mtime": 1780345555.0877957,
+    "ast_hash": "174fefedcc9c7a1c66d076adf6c39dbb",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/github-actions-docs/SKILL.md": {
+    "mtime": 1780346092.4453833,
+    "ast_hash": "1cb5cbec98f2eb85f572932611b84009",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/github-actions-docs/references/topic-map.md": {
+    "mtime": 1780346092.4453833,
+    "ast_hash": "bacfd6965a40b70f6bb694b6d64ee2ab",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/web-design-guidelines/SKILL.md": {
+    "mtime": 1780345594.3219423,
+    "ast_hash": "98087aedd18375666dbb093c859b2949",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/ui-ux-pro-max/SKILL.md": {
+    "mtime": 1774032989.0164783,
+    "ast_hash": "333e886d9c027730a6a24b4f34fba801",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/shadcn-ui/SKILL.md": {
+    "mtime": 1771990507.6686883,
+    "ast_hash": "c5509b041c8de284d7f63b6955074af6",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/shadcn-ui/references/official-ui-reference.md": {
+    "mtime": 1771990507.6726882,
+    "ast_hash": "6ecb9831537e9b41233fd36a87eb8814",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/shadcn-ui/references/reference.md": {
+    "mtime": 1771990507.6726882,
+    "ast_hash": "389b67db3b20c90001105d417cbc9eff",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/shadcn-ui/references/ui-reference.md": {
+    "mtime": 1771990507.6726882,
+    "ast_hash": "6308534d5c7fdf410771708bee569350",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/shadcn-ui/references/chart.md": {
+    "mtime": 1771990507.6726882,
+    "ast_hash": "df97f76ae3aade4169565fac4f5a7ed0",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/shadcn-ui/references/learn.md": {
+    "mtime": 1771990507.6726882,
+    "ast_hash": "e39dff1a1830ada8203545d8ec8b7ef4",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/AGENTS.md": {
+    "mtime": 1780345575.89366,
+    "ast_hash": "fc8f9b0218d2173112a8418bf9d8abe7",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/README.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "abb5236c535db0bf7ce6f38c8998bc47",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/SKILL.md": {
+    "mtime": 1780345575.89366,
+    "ast_hash": "995a667ef0b53598f56ff897d9e4b334",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-hoist-static-io.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "05789c4ba35f68cc0ed6deba3078f7ab",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-dedup-props.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "86bf6f2d562ca98bca778a5b9d2f0251",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-defer-reads.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "2b754062eb7b203632859f6515ed3561",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-cache-storage.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "828f260566ff92df56089321fa41c116",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-dependencies.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "ad0e42cd0616237f62f8a5abbc2138bc",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-simple-expression-in-memo.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "42c37552160cff86a0fcbd93a27aa74e",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/_template.md": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "a0d76a2f87f3f80e9a8f3a2a1054aaaf",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-hydration-no-flicker.md": {
+    "mtime": 1780345575.919359,
+    "ast_hash": "a33ebc96d26525f94c460342d913e47a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-cache-property-access.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "5b4ae3cd853b92222a8fd8c8d8202426",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-parallel-nested-fetching.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "eaa7835a15d41842406acc34002f0d6c",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/bundle-defer-third-party.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "6d4d1d4fac411f724071428dd0bc93ba",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-early-exit.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "d300cb3e57255029e446bdfa49dc4074",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-hydration-suppress-warning.md": {
+    "mtime": 1780345575.919359,
+    "ast_hash": "23bc895f5697c19a59712bf19474ec12",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-animate-svg-wrapper.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "7301cbe48bf0e1c44934847861384d03",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-batch-dom-css.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "869dbc06a931ccfb899b739316c348af",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/async-defer-await.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "235a6b5760c2e4843d778167e462cb0e",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-conditional-render.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "7aa6112d7544d55147e183b84add9c31",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-cache-react.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "bc168ee66c4378854c7aa23cb9ca1369",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/_sections.md": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "b8c110b45145ded6919562772afe067c",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-resource-hints.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "a612b2d1d86d1b8205b92ff7dfd81eb8",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-content-visibility.md": {
+    "mtime": 1780345575.919359,
+    "ast_hash": "a4ec0125d3a9d79ac2ab5f7a7b5b4d7d",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/client-passive-event-listeners.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "3853533fd5f49fa2fc98296f9c34d84f",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/advanced-use-latest.md": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "60309961293388c9b9e9fd4e0db344e3",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/bundle-conditional.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "585be2b6fc418c766e5b91cc2141d334",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/async-parallel.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "a0e06a8e9985cdff4ece0312d8ee35db",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/advanced-event-handler-refs.md": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "f2a0d125f3773bfda91e187fa5bed48a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-derived-state-no-effect.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "c83ba3c8ea58015fd30072790a4959c4",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-flatmap-filter.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "161d9d8b444e5ec9cb58bffb0e1b76cd",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/advanced-init-once.md": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "0100519098b834e69a3515657a39bdc9",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-after-nonblocking.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "c88a79384f87826bf1b20aa3637093a5",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-serialization.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "e6d34426614852685f43609dd9e3b250",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-cache-lru.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "723195ea460bfbc4d43b4eb0c47b246b",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-memo.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "f0decabf1e4cf032c36f0977c81167b7",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-tosorted-immutable.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "fd0804905877b6b7b1858e5df1b5f3c4",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-svg-precision.md": {
+    "mtime": 1780345575.919359,
+    "ast_hash": "1b880754ee449c52ccc725481f8b2e90",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-cache-function-results.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "5d641ce87ef753d59e3205244e2851a1",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-memo-with-default-value.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "9bfa45660e0a4d4f180e1d12d9ed44ea",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-parallel-fetching.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "1a36cf0b49a1a498fc1150afbf7a42c2",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-script-defer-async.md": {
+    "mtime": 1780345575.919359,
+    "ast_hash": "d62596aed565dd3ad7bddd38bc8f7798",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-transitions.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "3f275bbfb966fcb39c554ad959fdf016",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-index-maps.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "db5bcfde02e1ce9f41d6ed1f5aafc8c5",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-length-check-first.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "2ba208759dd91578f1085c28e6a92ce9",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-derived-state.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "fadd31941e355786cb0cc7bba3c672fd",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-lazy-state-init.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "6f9fc3d826cea2ca484912256149b077",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/async-suspense-boundaries.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "dbb2fc80721ca1ce32426f43219d314f",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-split-combined-hooks.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "b7485878ff82ce8468078a31fc1b7f19",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/client-localstorage-schema.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "982a459b07cbec2f8386e526b924c339",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-combine-iterations.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "4f241532133637fee75304d40f016713",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-min-max-loop.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "82f654d27529dd80be7ae33d45dcdf8c",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-hoist-regexp.md": {
+    "mtime": 1780345575.9107926,
+    "ast_hash": "ced4609a5916db47bbaccfcc3f2dcdbb",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/async-api-routes.md": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "344fa543b37e303660404e1ef3a4638b",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-move-effect-to-event.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "599463fe624afd8822ba2bfa7c0138d5",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-hoist-jsx.md": {
+    "mtime": 1780345575.919359,
+    "ast_hash": "00519c11155c5c2a6f493d7980211a71",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/client-event-listeners.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "71062add972f9735348b7ae77e778eb8",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-auth-actions.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "d8691820d666e5dd9094ccc6996398e3",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/client-swr-dedup.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "e565fcba7836d339ca4707aad6fdaa4a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/async-dependencies.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "9c5622d97b20b9e0cb79455b4322061a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-use-ref-transient-values.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "24d2e82617e2da4207afaf049e1314f3",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-functional-setstate.md": {
+    "mtime": 1780345575.9236422,
+    "ast_hash": "188c0b949d23c11885914c573f4a770a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/async-cheap-condition-before-await.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "96352f626f328e15a6213d485e29e36f",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/advanced-effect-event-deps.md": {
+    "mtime": 1780345575.8979433,
+    "ast_hash": "3a0e314bb9576bab61f68d5de5afaf3e",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/bundle-barrel-imports.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "fcba301df7f11c6847dca5962ac78828",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-use-deferred-value.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "913dc783397142c25ec997b5dc11245b",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-usetransition-loading.md": {
+    "mtime": 1780345575.919359,
+    "ast_hash": "3cea04ec76a76183cebc6571ac6365a2",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/bundle-analyzable-paths.md": {
+    "mtime": 1780345575.9022264,
+    "ast_hash": "8cfe6e284cafd2be33f09c6a1abc78fd",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/bundle-dynamic-imports.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "72d89583306887810f67e9f7860f06af",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/server-no-shared-module-state.md": {
+    "mtime": 1780345575.9322083,
+    "ast_hash": "7733faf82c146008e8f1c65660bac4bb",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rerender-no-inline-components.md": {
+    "mtime": 1780345575.9279253,
+    "ast_hash": "713855e0060cfe2ce549d08ea77e1af6",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-set-map-lookups.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "59a278e21ecd322bff566ba4ad7f5a30",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/rendering-activity.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "b66bde1377564aa196ba15fc94215cd3",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/js-request-idle-callback.md": {
+    "mtime": 1780345575.9150758,
+    "ast_hash": "91d7e7fca676efb7cecb4ccff1eaec01",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/rules/bundle-preload.md": {
+    "mtime": 1780345575.9065096,
+    "ast_hash": "924ec7e7502ca042070326d38e88f8cd",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/native-data-fetching/SKILL.md": {
+    "mtime": 1771891393.8288925,
+    "ast_hash": "2696aa4bdc8a12a04e6a269c949542cd",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/ai-sdk/SKILL.md": {
+    "mtime": 1780345636.6510777,
+    "ast_hash": "ab0019e41030407f86bc9e869f6b3e83",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/ai-sdk/references/devtools.md": {
+    "mtime": 1780345636.6510777,
+    "ast_hash": "dc6c6016414cd442dd218c07e4cbbd6e",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/ai-sdk/references/common-errors.md": {
+    "mtime": 1780345636.6510777,
+    "ast_hash": "8a5c08556b5db68ee7f86dcee3ea5e9e",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/ai-sdk/references/ai-gateway.md": {
+    "mtime": 1780345636.6510777,
+    "ast_hash": "7042b81b210ceca563b813e65b5309d4",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/ai-sdk/references/type-safe-agents.md": {
+    "mtime": 1780345636.6510777,
+    "ast_hash": "bbdd26929193967ca04acc6b371abfbf",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/SKILL.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "0d2eccab0084c6f1869442ffd1d0c7d9",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/form-sheet.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "05f121571ccc1e8d6bbbda8c5738b94a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/tabs.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "b5b4b96b430bd9cc22e5cf0bb87ce107",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/zoom-transitions.md": {
+    "mtime": 1771990365.5767045,
+    "ast_hash": "4d7402f2d5938477fe7293c56429aa91",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/animations.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "b6a1d6e8eae7b9eecc22fc19ba22fbfa",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/visual-effects.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "4a68101ae8ef6fe4c33999301173a285",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/search.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "eb9d96692f37a808d240b4ff14ec53e9",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/toolbar-and-headers.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "42af89eb34f291c3afcfdfd519cadbf2",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/route-structure.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "51d521827c546ae015121d45e02ba17a",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/gradients.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "75d316ab2f329ed29b6473ec7d9e7efb",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/controls.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "350b126f900cf81aad47fe16e018cd5f",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/webgpu-three.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "ee7999de42d248a3d48416e3a4f30611",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/icons.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "1e96f1b404982e787646ee5fd3a9a237",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/media.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "8aa7d278626412810eb1901c8e43f150",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/building-native-ui/references/storage.md": {
+    "mtime": 1771990365.5727046,
+    "ast_hash": "4fc9ca1acb5f7c65264fc075d47e1eb6",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/openrouter-typescript-sdk/SKILL.md": {
+    "mtime": 1780345685.1179576,
+    "ast_hash": "398d6ec3fcf1b3c2aaf221a9a4c34324",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/better-auth-best-practices/SKILL.md": {
+    "mtime": 1780345652.7274892,
+    "ast_hash": "f46fd4853bf8108286b3634430e064fc",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/README.md": {
+    "mtime": 1780345709.301938,
+    "ast_hash": "c8f824e23b546c7257d07cb8b2ab11a3",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/SKILL.md": {
+    "mtime": 1780345709.3062105,
+    "ast_hash": "3fdbaac05db501e37208294005de8e9f",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/references/plugin-reference.md": {
+    "mtime": 1780345709.3062105,
+    "ast_hash": "26ce6ad5e037397abb4bbef19d700b93",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/references/ipc-patterns.md": {
+    "mtime": 1780345709.3062105,
+    "ast_hash": "68251a507f30383bb54c869d7290a5ee",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/references/README.md": {
+    "mtime": 1780345709.3062105,
+    "ast_hash": "3bc2bad319d924289efa5e10f8c7d5e8",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/references/updater-distribution-reference.md": {
+    "mtime": 1780345709.3062105,
+    "ast_hash": "58031823239faf9334b6b098277ecda4",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/references/advanced-runtime-reference.md": {
+    "mtime": 1780345709.3062105,
+    "ast_hash": "ece2a4cb835280c5d1a68f6fc5e1b24b",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/tauri-v2/references/capabilities-reference.md": {
+    "mtime": 1780345709.3062105,
+    "ast_hash": "b3b892fedaeebb8f7de64b104cc52342",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-backend.yml": {
+    "mtime": 1774129084.2155023,
+    "ast_hash": "470781638f97f79384803484730b59c4",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-desktop-release.yml": {
+    "mtime": 1774129222.954279,
+    "ast_hash": "dcc7fe9a72f809dfaa7a289e9c313659",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-security.yml": {
+    "mtime": 1774129084.2155023,
+    "ast_hash": "603f38a338dc1ae34e1e337a01818ae7",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-frontend.yml": {
+    "mtime": 1774129140.4329674,
+    "ast_hash": "5ffdf8c8b41292fe23edc0ab2b110aaa",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-desktop.yml": {
+    "mtime": 1774129140.4329674,
+    "ast_hash": "d0a42efb900b47593e777f6612c9eebe",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/ux.agent.md": {
+    "mtime": 1773639136.8887284,
+    "ast_hash": "36c5ef151bc97e50886a2924c81f2d7d",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/frontenddev.agent.md": {
+    "mtime": 1773638960.519374,
+    "ast_hash": "cfe221d9ac82f5cd980b859395a154ae",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/Code Auditor.agent.md": {
+    "mtime": 1774128284.9876513,
+    "ast_hash": "95df6f5e64354deeb309232c56d3d959",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/Architect.agent.md": {
+    "mtime": 1774128292.5076962,
+    "ast_hash": "ad58d5c0d9b85c875c8e85377bb5e8aa",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/securityengineer.agent.md": {
+    "mtime": 1773639231.7902355,
+    "ast_hash": "328c4dd491cf8e3483d38510a50e64ce",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/uidesigner.agent.md": {
+    "mtime": 1773639168.6143463,
+    "ast_hash": "413494beb1ddccae6660ce91609c6c7d",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/DevOps Engineer.agent.md": {
+    "mtime": 1774128339.210513,
+    "ast_hash": "207c13aa41907a86af254ee486fbf506",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/backenddev.agent.md": {
+    "mtime": 1773638993.6593373,
+    "ast_hash": "e7a2e724fb87d41887d9465e52e51224",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/.github/agents/dboptimizer.agent.md": {
+    "mtime": 1773638831.2206655,
+    "ast_hash": "db783d0622c5cd2e0fa8122363b6bdba",
+    "semantic_hash": ""
   }
 }
