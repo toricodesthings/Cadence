@@ -9,8 +9,8 @@ import type { AuthVariables } from "../../platform/auth";
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import { assertProjectOwnership } from "../../platform/ownership";
 import { apiValidator } from "../../platform/validation";
-import { uuidParamSchema } from "../../platform/common-schemas";
-import { createSectionSchema, updateSectionSchema, sectionQuerySchema } from "./sections.schema";
+import { uuidParamSchema } from "../../types/api";
+import { createSectionSchema, updateSectionSchema, sectionQuerySchema } from "@cadence/contracts/section";
 
 export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", createSectionSchema), async (c) => {

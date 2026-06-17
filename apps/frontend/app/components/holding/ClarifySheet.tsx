@@ -11,7 +11,7 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects";
 import { useTags } from "../../hooks/tags";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
-import type { InboxItem } from "../../types/inbox";
+import type { InboxItem } from "@cadence/contracts/inbox";
 import { trackUsageEvent } from "../../lib/api/track-event";
 
 interface ClarifySheetProps {

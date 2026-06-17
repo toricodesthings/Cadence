@@ -13,8 +13,8 @@ import {
     savedFocusViewInputSchema,
     savedFocusViewPatchSchema,
     settingsPatchSchema,
-} from "./settings.schema";
-import { SETTINGS_DEFAULTS } from "./settings-defaults";
+} from "@cadence/contracts/settings";
+import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
 
 function isObject(item: any): item is Record<string, any> {
     return item && typeof item === "object" && !Array.isArray(item);

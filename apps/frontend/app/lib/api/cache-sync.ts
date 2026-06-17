@@ -1,10 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "./query-keys";
-import type { Task } from "../../types/task";
-import type { Habit } from "../../types/habit";
-import type { Project } from "../../types/project";
-import type { Tag } from "../../types/tag";
-import type { InboxItem } from "../../types/inbox";
+import type { Task } from "@cadence/contracts/task";
+import type { Habit } from "@cadence/contracts/habit";
+import type { Project } from "@cadence/contracts/project";
+import type { Tag } from "@cadence/contracts/tag";
+import type { InboxItem } from "@cadence/contracts/inbox";
 import type { HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
 import { transformListCache } from "./cache-guards";
 import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";

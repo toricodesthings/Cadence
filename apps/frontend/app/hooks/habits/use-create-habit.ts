@@ -8,7 +8,7 @@ import {
     invalidateHabitCaches,
     cancelHabitQueries,
 } from "./optimistic-helpers";
-import type { Habit, InsertHabit } from "../../types/habit";
+import type { Habit, InsertHabit } from "@cadence/contracts/habit";
 import { toast } from "sonner";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";

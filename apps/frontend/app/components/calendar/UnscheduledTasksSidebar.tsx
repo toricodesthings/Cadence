@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import { EffortDots } from "../tasks/EffortDots";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 

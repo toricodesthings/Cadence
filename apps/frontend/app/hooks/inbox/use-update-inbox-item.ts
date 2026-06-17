@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
-import type { InsertInboxItem, UpdateInboxItem } from "@cadence/backend/types/inbox";
+import type { InsertInboxItem, UpdateInboxItem } from "@cadence/contracts/inbox";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 

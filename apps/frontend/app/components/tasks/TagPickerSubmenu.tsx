@@ -3,7 +3,7 @@ import { Tag as TagIcon, ChevronRight, Plus, Check, Hash } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { useTags, useCreateTag } from "../../hooks/tags";
-import type { Tag } from "../../types/tag";
+import type { Tag } from "@cadence/contracts/tag";
 import { TAG_PALETTE } from "../../lib/constants/colors";
 
 interface TagPickerSubmenuProps {
@@ -98,7 +98,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                                 >
                                     <div
                                         className="h-2 w-2 rounded-full"
-                                        style={{ backgroundColor: tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
+                                        style={{ backgroundColor: !tag.color || tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
                                     />
                                     <span className="flex-1 truncate">{tag.name}</span>
                                     {isActive && <Check size={14} className="text-accent-primary" />}

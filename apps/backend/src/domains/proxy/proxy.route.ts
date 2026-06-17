@@ -3,6 +3,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import { createErrorBody } from "../../platform/errors";
+import { logger, shorten, issuesFromError } from "../../platform/log";
 import {
     weatherQuerySchema,
     reverseGeocodeQuerySchema,
@@ -23,22 +24,40 @@ const NAGER_BASE = "https://date.nager.at/api/v3";
 const MAX_UPSTREAM_BODY = 1_048_576; // 1MB
 const ALLOWED_CONTENT_TYPES = ["application/json", "text/plain"];
 
-async function upstreamFetch(url: string, cacheTtl: number): Promise<Response> {
-    const res = await fetch(url, {
-        headers: { "User-Agent": "Cadence/1.0 (cadenceapp.cloud)" },
-        cf: { cacheTtl, cacheEverything: true },
-    });
+/**
+ * Single choke point for all third-party fetches. Every upstream failure mode —
+ * network error, unexpected content type, oversize body, or non-2xx status — is
+ * logged here once with the named `upstream`, so an outage shows up immediately
+ * in Observability as `event:upstream_failed` rather than a silent 502.
+ */
+async function upstreamFetch(upstream: string, url: string, cacheTtl: number): Promise<Response> {
+    let res: Response;
+    try {
+        res = await fetch(url, {
+            headers: { "User-Agent": "Cadence/1.0 (cadenceapp.cloud)" },
+            cf: { cacheTtl, cacheEverything: true },
+        });
+    } catch (err) {
+        logger.error("proxy", "upstream_unreachable", { upstream, issues: issuesFromError(err) });
+        throw err;
+    }
 
     // Validate upstream response content-type
     const ct = res.headers.get("content-type") || "";
     if (!ALLOWED_CONTENT_TYPES.some((t) => ct.includes(t))) {
+        logger.error("proxy", "upstream_bad_response", { upstream, status: res.status, reason: "content_type", contentType: shorten(ct) });
         return new Response(JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Unexpected content type from upstream" } }), { status: 502 });
     }
 
     // Reject oversized upstream responses
     const cl = res.headers.get("content-length");
     if (cl && parseInt(cl, 10) > MAX_UPSTREAM_BODY) {
+        logger.error("proxy", "upstream_bad_response", { upstream, status: res.status, reason: "oversize", contentLength: parseInt(cl, 10) });
         return new Response(JSON.stringify({ error: { code: "UPSTREAM_ERROR", message: "Upstream response too large" } }), { status: 502 });
+    }
+
+    if (!res.ok) {
+        logger.error("proxy", "upstream_failed", { upstream, status: res.status });
     }
 
     return res;
@@ -71,7 +90,7 @@ proxyRoutes.get("/weather", apiValidator("query", weatherQuerySchema), async (c)
     const { latitude, longitude } = c.req.valid("query");
     const url = `${OPEN_METEO_BASE}/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&temperature_unit=celsius`;
 
-    const res = await upstreamFetch(url, 900); // 15 min CF cache
+    const res = await upstreamFetch("open-meteo", url, 900); // 15 min CF cache
     if (!res.ok) {
         return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Weather service unavailable", status: 502 }), 502);
     }
@@ -86,7 +105,7 @@ proxyRoutes.get("/geocode/reverse", apiValidator("query", reverseGeocodeQuerySch
     const { latitude, longitude } = c.req.valid("query");
     const url = `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=5&addressdetails=1`;
 
-    const res = await upstreamFetch(url, 86400); // 24h CF cache
+    const res = await upstreamFetch("nominatim", url, 86400); // 24h CF cache
     if (!res.ok) {
         return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Geocoding service unavailable", status: 502 }), 502);
     }
@@ -113,8 +132,8 @@ proxyRoutes.get("/holidays/countries", apiValidator("query", holidayCountriesQue
     const language = getLanguage(locale);
 
     const [openRes, nagerRes] = await Promise.allSettled([
-        upstreamFetch(`${OPEN_HOLIDAYS_BASE}/Countries?languageIsoCode=${encodeURIComponent(language)}`, 86400),
-        upstreamFetch(`${NAGER_BASE}/AvailableCountries`, 86400),
+        upstreamFetch("open-holidays", `${OPEN_HOLIDAYS_BASE}/Countries?languageIsoCode=${encodeURIComponent(language)}`, 86400),
+        upstreamFetch("nager", `${NAGER_BASE}/AvailableCountries`, 86400),
     ]);
 
     const merged = new Map<string, { code: string; label: string }>();
@@ -155,6 +174,7 @@ proxyRoutes.get("/holidays/subdivisions", apiValidator("query", holidaySubdivisi
 
     try {
         const res = await upstreamFetch(
+            "open-holidays",
             `${OPEN_HOLIDAYS_BASE}/Subdivisions?countryIsoCode=${encodeURIComponent(cc)}&languageIsoCode=${encodeURIComponent(language)}`,
             86400,
         );
@@ -181,7 +201,7 @@ proxyRoutes.get("/holidays/subdivisions", apiValidator("query", holidaySubdivisi
 
     if (subdivisions.length === 0) {
         try {
-            const res = await upstreamFetch(`${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 86400);
+            const res = await upstreamFetch("nager", `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 86400);
             if (res.ok) {
                 const holidays = (await res.json()) as Array<{
                     types: string[];
@@ -215,7 +235,7 @@ proxyRoutes.get("/holidays", apiValidator("query", holidaysQuerySchema), async (
         let url = `${OPEN_HOLIDAYS_BASE}/PublicHolidays?countryIsoCode=${encodeURIComponent(cc)}&validFrom=${encodeURIComponent(start)}&validTo=${encodeURIComponent(end)}&languageIsoCode=${encodeURIComponent(language)}`;
         if (subCode) url += `&subdivisionCode=${encodeURIComponent(subCode)}`;
 
-        const res = await upstreamFetch(url, 43200); // 12h CF cache
+        const res = await upstreamFetch("open-holidays", url, 43200); // 12h CF cache
         if (res.ok) {
             const raw = (await res.json()) as Array<{
                 startDate: string;
@@ -263,7 +283,7 @@ proxyRoutes.get("/holidays", apiValidator("query", holidaysQuerySchema), async (
 
     // Fallback to Nager
     const year = Number.parseInt(start.slice(0, 4), 10);
-    const nagerRes = await upstreamFetch(`${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 43200);
+    const nagerRes = await upstreamFetch("nager", `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 43200);
     if (!nagerRes.ok) {
         return c.json({ data: [] }, 200, cacheHeaders(3600));
     }

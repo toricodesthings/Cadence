@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { invalidateTaskCaches, snapshotTaskCache, rollbackTaskCache, cancelTaskQueries } from "./optimistic-helpers";
-import type { Task, TaskState } from "../../types/task";
+import type { Task, TaskState } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
@@ -96,7 +96,7 @@ export function useBatchDeleteTasks() {
     return useMutation({
         mutationFn: withOfflineSupport<
             { taskIds: string[] },
-            Response[]
+            unknown[]
         >(
             ({ taskIds }) => ({ type: "batch_delete", payload: { taskIds } }),
             async ({ taskIds }) => {

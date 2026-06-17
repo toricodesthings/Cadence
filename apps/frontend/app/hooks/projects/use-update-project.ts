@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import type { Project } from "../../types/project";
+import type { Project } from "@cadence/contracts/project";
 import { toast } from "sonner";
 import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
@@ -16,7 +16,7 @@ export function useUpdateProject() {
         mutationFn: async ({
             id,
             ...updates
-        }: { id: string } & Partial<Pick<Project, "name" | "colorAccent" | "emoji">>) => {
+        }: { id: string; name?: string; colorAccent?: string; emoji?: string | null }) => {
             const res = await client.api.projects[":id"].$patch({
                 param: { id },
                 json: updates,

@@ -17,6 +17,17 @@ It is the shared backend for all Cadence clients (web, mobile, desktop) and must
 
 If you break a route contract, validation schema, or response shape, you break multiple clients at once.
 
+> **Shared contracts & domain logic.** Shared request/response shapes live in
+> [`@cadence/contracts`](../../packages/contracts) (Zod schemas → inferred types,
+> the single source of truth). Pure, framework-neutral domain logic lives in
+> [`@cadence/domain`](../../packages/domain) (throws `DomainError`, mapped to
+> `AppError` in `formatErrorResponse`). A domain's `domains/*/*.schema.ts` now
+> holds **only** server-specific validation (query coercion, cross-field
+> `superRefine`) and re-exports the canonical shapes. **Never hand-write a type
+> that mirrors a contract** — derive it (`z.infer` / `.pick` / `.extend`). Row
+> schemas are kept structurally identical to Drizzle `$inferSelect` by the
+> compile-time guard in `tests/unit/contract-parity.test.ts`.
+
 ---
 
 ## 1. Architecture Overview
@@ -32,42 +43,59 @@ src/
 │   ├── db.ts                   # Per-request DB client creation (getDbClient)
 │   ├── errors.ts               # AppError, throwIfNotFound, formatErrorResponse
 │   ├── idempotency.ts          # Header-based idempotency (Idempotency-Key)
-│   ├── metrics.ts              # Silent task metric tracking helpers
+│   ├── log.ts                  # Canonical structured logger (logger.error/warn/info)
+│   ├── metrics.ts              # Task metric tracking helpers (best-effort, logs on failure)
 │   ├── ownership.ts            # Cross-entity ownership validation
-│   ├── request-log.ts          # Request context + structured logging
+│   ├── request-log.ts          # Request context + HTTP failure logging (delegates to log.ts)
 │   ├── rls.ts                  # RLS helpers (setRlsContext, withRls)
 │   └── validation.ts           # apiValidator() wrapper for @hono/zod-validator
 ├── domains/                    # Product capabilities, one folder per domain
-│   ├── tasks/                  # tasks.route.ts, tasks.schema.ts, task-filters.ts, ...
-│   ├── habits/                 # habits.route.ts, habits.schema.ts
-│   ├── inbox/                  # inbox.route.ts, inbox.schema.ts
-│   ├── projects/               # projects.route.ts, projects.schema.ts
-│   ├── tags/                   # tags.route.ts, tags.schema.ts
-│   ├── subtasks/               # subtasks.route.ts, subtasks.schema.ts
-│   ├── sections/               # sections.route.ts, sections.schema.ts
-│   ├── settings/               # settings.route.ts, settings.schema.ts, settings-defaults.ts
-│   ├── notes/                  # notes.route.ts, notes.schema.ts
+│   ├── tasks/                  # tasks.route.ts, tasks.schema.ts (server-only filters), task-filters.ts, ...
+│   ├── habits/                 # habits.route.ts            (shapes → @cadence/contracts/habit)
+│   ├── inbox/                  # inbox.route.ts             (shapes → @cadence/contracts/inbox)
+│   ├── projects/               # projects.route.ts          (shapes → @cadence/contracts/project)
+│   ├── tags/                   # tags.route.ts              (shapes → @cadence/contracts/tag)
+│   ├── subtasks/               # subtasks.route.ts          (shapes → @cadence/contracts/subtask)
+│   ├── sections/               # sections.route.ts          (shapes → @cadence/contracts/section)
+│   ├── settings/               # settings.route.ts          (shapes+defaults → @cadence/contracts/settings)
+│   ├── notes/                  # notes.route.ts             (shapes → @cadence/contracts/note)
 │   ├── events/                 # events.route.ts, events.schema.ts
 │   ├── suggestions/            # suggestions.route.ts, suggestions.schema.ts
 │   ├── health/                 # health.route.ts
 │   ├── proxy/                  # proxy.route.ts, proxy.schema.ts
 │   ├── debug/                  # debug.route.ts, debug-seed.ts, scenarios/
-│   └── ai/                     # (reserved — no public endpoints yet)
+│   └── ai/                     # ai.route.ts, agent.ts, ai.schema.ts (server-only promptBlock + re-export), tools/
 ├── db/
 │   └── schema.ts               # Drizzle schema: tables, enums, indexes, relations
 ├── cron/
 │   └── overdue-check.ts        # Scheduled overdue metric updates + mutation dedup pruning
-└── types/
-    └── env.ts                  # Worker environment bindings type (Env)
+└── types/                      # Shared, reused type & schema declarations (no behavior)
+    ├── env.ts                  # Worker env bindings type (Env) + stage/origin parsers
+    ├── db.ts                   # Shared DB type aliases: DbClient (re-export), Tx
+    └── api.ts                  # Re-exports envelope/pagination from @cadence/contracts/common
 ```
+
+> **Canonical request/response/entity shapes live in
+> [`@cadence/contracts`](../../packages/contracts)** (Zod → inferred types); pure
+> domain logic lives in [`@cadence/domain`](../../packages/domain). Routes import
+> shapes directly from `@cadence/contracts/<domain>`. A `domains/*/*.schema.ts`
+> file exists **only** where a domain needs server-only validation that a contract
+> must not carry — currently `tasks.schema.ts` (filter/query `superRefine` using
+> server normalizers) and `ai.schema.ts` (admin-gated promptBlock schemas); both
+> also re-export their contract. Domains with no server-only validation have **no
+> schema file**. Read `packages/AGENTS.md` before editing any contract, shared
+> type, or domain logic. (`apps/backend/src/types/inbox.ts` and the per-domain
+> schema shims were removed in the Tier-0/1 migration.)
 
 ### Key Principles
 
 | Principle | Rule |
 |---|---|
 | **Domain ownership** | Each domain folder owns its routes, schemas, and utilities. |
-| **Platform is shared** | `src/platform/` holds only cross-cutting infrastructure. |
-| **Schema is Drizzle** | `src/db/schema.ts` is the single source of truth for all tables and enums. |
+| **Platform is shared behavior** | `src/platform/` holds only cross-cutting infrastructure *with behavior* (auth, db, rls, validation, …). |
+| **Types are shared declarations** | `src/types/` holds general, **reused** type aliases, interfaces, and cross-domain schemas — no behavior. A type used in only one place stays with that code. |
+| **Contracts own the wire** | Request/response/entity **shapes** are Zod schemas in `@cadence/contracts`; TS types are `z.infer`red, never hand-written. `domains/*/*.schema.ts` re-export them and add only server-only refinements. |
+| **Schema is Drizzle** | `src/db/schema.ts` is the single source of truth for persistence rows + enums. Each contract `xRowSchema` is held structurally identical to its `$inferSelect` by `tests/unit/contract-parity.test.ts` (compile-time). |
 | **Routes are thin** | A route handler validates input, reads auth context, calls DB/service, shapes response. |
 | **No catch-all folders** | Do not put domain logic in `platform/` or create `helpers.ts`/`utils.ts`/`misc.ts` files. |
 
@@ -138,9 +166,9 @@ functions correctly.
 
 ### Important: Zod v4
 
-Cadence uses **Zod 4** (`^4.3.6`). Key differences from Zod 3:
+Cadence uses **Zod 4** (`^4.4.3`, pinned via root `pnpm.overrides.zod` so apps and `@cadence/contracts` share one instance — two zod instances cause "types not identical" errors). Key differences from Zod 3:
 
-- **No `.deepPartial()`.** A custom recursive `deepPartial()` utility exists in `src/domains/settings/settings.schema.ts`.
+- **No `.deepPartial()`.** A custom recursive `deepPartial()` utility lives in `@cadence/contracts/settings` (re-exported by `domains/settings/settings.schema.ts`).
 - Schema introspection uses `schema._zod.def.type` discriminant.
 - `.unwrap()` for optional/nullable, `.element` for arrays.
 
@@ -173,18 +201,33 @@ File names communicate responsibility immediately:
 
 ### Adding a new feature to an existing domain
 
-1. Add/update its Zod schema → `src/domains/{domain}/{domain}.schema.ts`
+1. Add/update the **canonical** request/response/entity shape in
+   `@cadence/contracts/{domain}` (Zod). Add a server-only refinement to
+   `src/domains/{domain}/{domain}.schema.ts` **only** if it needs a server
+   normalizer (query coercion, cross-field `superRefine`).
 2. Add/update route handlers → `src/domains/{domain}/{domain}.route.ts`
 3. If the route file grows large, extract domain logic into `{domain}.service.ts`
-4. Update Drizzle schema if persistence changes → `src/db/schema.ts`
+   — and if it is **pure** (no I/O, no `AppError`), put it in `@cadence/domain`.
+4. Update Drizzle schema if persistence changes → `src/db/schema.ts`, then update
+   the matching `xRowSchema` in contracts (the parity test will fail until you do).
 5. Add tests → `tests/unit/` or `tests/contracts/`
 
 ### Adding a new domain
 
-1. Create `src/domains/{domain}/`
-2. Create `{domain}.route.ts` and `{domain}.schema.ts`
-3. Mount the route in `src/index.ts` under `/api/v1/{domain}`
-4. Add contract tests in `tests/contracts/`
+1. Author the contract: `packages/contracts/src/{domain}.ts` (Row/Entity/Input
+   schemas) + sub-path export in `packages/contracts/package.json`.
+2. Create `src/domains/{domain}/{domain}.route.ts` and import shapes directly
+   from `@cadence/contracts/{domain}`. Add a `{domain}.schema.ts` **only** if you
+   need server-only validation (it would `export * from "@cadence/contracts/
+   {domain}"` and add the refinement) — otherwise no schema file.
+   **The router MUST be method-chained** (`new Hono().get(...).post(...)`), not
+   registered as separate `router.get(...)` statements — otherwise its endpoints
+   never enter `AppType` and vanish from the frontend's typed RPC client.
+3. Mount the route in `src/index.ts` by adding `.route("/api/v1/{domain}", …)` to
+   the existing **chained** `apiApp` expression (not as a standalone statement) so
+   the schema flows into `AppType`.
+4. Add a Row-parity assertion in `tests/unit/contract-parity.test.ts` + contract
+   tests in `tests/contracts/`.
 
 ### Adding platform infrastructure
 
@@ -201,6 +244,43 @@ Only code that is **genuinely cross-cutting** belongs in `src/platform/`:
 - Metrics plumbing
 
 **Do not** put domain-specific logic in `src/platform/`.
+
+### Adding a shared type or schema → `src/types/`
+
+`src/types/` is the home for **general, reused declarations with no behavior**:
+type aliases, interfaces, and cross-domain Zod schemas. The litmus test is
+**reuse + neutrality**:
+
+| Put it in `src/types/` when… | Keep it local when… |
+|---|---|
+| It is consumed by **2+ domains** (or platform + a domain). | It is used in exactly one file/domain. |
+| It is a **pure declaration** — no DB I/O, middleware, or side effects. | It carries behavior (that's `platform/` or the domain). |
+| It is **domain-neutral** (a `Tx`, a pagination schema, a response envelope). | It is domain-specific (a task filter type, an inbox shape). |
+
+Current homes:
+
+- `types/env.ts` — `Env` bindings + stage/origin parsers.
+- `types/db.ts` — `DbClient`, `Tx` (see §7.3).
+- `types/api.ts` — `paginationSchema`, `uuidParamSchema`, `taskIdParamSchema`,
+  `ApiResponse<T>`, `ApiError`.
+
+**Boundary notes — do not blur these:**
+
+- A type that is **intrinsically the output of a platform factory** stays with
+  that factory, not in `types/`. `DbClient` is `ReturnType<typeof getDbClient>`,
+  so it is *defined* in `platform/db.ts` and merely **re-exported** from
+  `types/db.ts` so all shared DB aliases resolve to one place.
+- A type that is the **contract of a piece of behavior** stays with that
+  behavior. `AuthVariables` is the shape the auth middleware writes onto the Hono
+  context — it lives in `platform/auth.ts`, even though every route imports it.
+- **Domain types are not "shared types."** A type that only describes one
+  domain's data belongs in that domain's `*.schema.ts`, even if reused within the
+  domain. Do **not** add domain re-export shims to `types/` for internal use.
+- `types/inbox.ts` is the **one deliberate exception**: it exists solely as the
+  cross-package export surface (`@cadence/backend/types/*`) so the frontend can
+  import inbox types. It is not an internal organizational type. Do not imitate
+  this pattern for new domains without a cross-package consumer, and do not remove
+  it without coordinating the frontend (it is load-bearing).
 
 ---
 
@@ -258,13 +338,18 @@ This sets `request.jwt.claims`, guarantees config and queries execute on the sam
 
 ### 7.3 Type Aliases
 
-```typescript
-// Database client type
-type DbClient = ReturnType<typeof getDbClient>;
+The shared database type aliases live in `src/types/db.ts` — **import them, never
+redefine them inline:**
 
-// Transaction type (preserves full schema inference)
-type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+```typescript
+import type { DbClient, Tx } from "../../types/db";
 ```
+
+- `DbClient` — per-request Drizzle client (`ReturnType<typeof getDbClient>`).
+- `Tx` — RLS-scoped transaction handle passed to `withRls` callbacks.
+
+Re-deriving `Parameters<Parameters<DbClient["transaction"]>[0]>[0]` locally (under
+any alias name) is a defect — that exact alias used to be copied across six files.
 
 ### 7.4 Ownership Validation
 
@@ -371,7 +456,8 @@ Preserve this pattern when extending similar endpoints.
 | Events | `/api/v1/events` | Track single + batch usage events |
 | Suggestions | `/api/v1/suggestions` | List + accept/dismiss |
 | Proxy | `/api/v1/proxy` | Proxied external API calls |
-| Debug | `/api/v1/debug` | Clear + seed (non-production only) |
+| Debug | `/api/v1/debug` | Clear + seed (non-production only) + admin prompt-block edit |
+| AI | `/api/v1/ai` | `POST /chat` (streamed turn, persisted), conversation CRUD (`GET`/`PATCH`/`DELETE /conversations[/:id]`) |
 
 **`AppType`** is exported from `src/index.ts` for Hono RPC — treat it as a critical integration boundary.
 
@@ -381,7 +467,7 @@ Preserve this pattern when extending similar endpoints.
 
 The Drizzle schema (`src/db/schema.ts`) is the source of truth.
 
-### Tables (22 total)
+### Tables (26 total)
 
 **Identity:** `users`, `userMetrics`
 
@@ -393,11 +479,22 @@ The Drizzle schema (`src/db/schema.ts`) is the source of truth.
 
 **Intelligence:** `aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`
 
+**AI assistant:** `aiConversations`, `aiMessages` (owner-RLS chat persistence), `aiPromptBlocks`, `aiPromptRevision`
+
 **Infrastructure:** `mutationDedup`
 
-### Enums (8 pgEnums)
+> **Deliberate RLS exception:** `aiPromptBlocks` and `aiPromptRevision` are **global
+> application config**, identical for every user, and therefore intentionally have
+> **no RLS policy** (`enableRLS()` omitted). They are system-owned: written only by
+> migrations / the admin-gated `PATCH /api/v1/debug/ai/prompt-blocks` path, and read
+> only by the prompt cache loader (outside `withRls`). This is a conscious, recorded
+> deviation from "RLS or it doesn't ship" — mirrors the `types/inbox.ts` exception
+> style. Any block write bumps `aiPromptRevision.revision` in the same transaction
+> (the cache-bust token). See `docs/ai_upgrade/04`.
 
-`targetModeEnum`, `captureKindEnum`, `captureStatusEnum`, `analysisStatusEnum`, `confidenceTierEnum`, `sourceSurfaceEnum`, `suggestionTypeEnum`, `focusViewSourceEnum`
+### Enums (12 pgEnums)
+
+`targetModeEnum`, `captureKindEnum`, `captureStatusEnum`, `analysisStatusEnum`, `confidenceTierEnum`, `sourceSurfaceEnum`, `suggestionTypeEnum`, `focusViewSourceEnum`, `aiPromptLayerEnum`, `aiPromptBlockKindEnum`, `aiMessageRoleEnum`, `aiMessageStatusEnum`
 
 ### FK Cascades
 
@@ -408,6 +505,14 @@ The Drizzle schema (`src/db/schema.ts`) is the source of truth.
 ### Settings
 
 `UserSettingsSchema` (canonical Zod schema) lives in `src/domains/settings/settings.schema.ts` and is re-exported from `src/db/schema.ts`. Notification preferences (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required fields. The PATCH endpoint uses a custom `deepPartial()` utility for partial updates.
+
+**`settings.assistant`** (AI personality, `docs/ai_upgrade/07`) is an optional section:
+`persona`, `tone`, `verbosity`, `emoji`, `nickname`, `assistantName`, `customInstructions`,
+`proactiveSuggestions`, `memoryEnabled`, `adaptiveTone`. Defaults reproduce today's
+assistant behavior. It maps (pure `personaToDirectives`) to the `persona_customization`
+auxiliary prompt block; `customInstructions`/`nickname`/`assistantName` are **untrusted**
+free text — sanitized + fenced before composition. No new endpoint: the existing
+`PATCH /api/v1/settings` deep-merge accepts `{ assistant: { … } }`.
 
 ---
 
@@ -447,6 +552,7 @@ tests/
 │   ├── task-recurrence.test.ts
 │   ├── settings.test.ts
 │   ├── task.test.ts
+│   ├── log.test.ts
 │   ├── request-log.test.ts
 │   └── debug-seed.test.ts
 ├── contracts/                  # Route contract tests (HTTP-level, mocked DB)
@@ -551,13 +657,43 @@ pnpm db:studio         # Drizzle Studio GUI
 
 ## 17. Logging Rules
 
-- Use `console.error` for failures
-- Use `console.warn` for warnings
-- Use `console.info` or `console.log` sparingly for useful operational context
-- Do not add noisy success logs
-- Log enough context to debug, but never leak internal error details to clients
+All logging goes through the structured logger in `src/platform/log.ts`. **Do not
+call `console.*` directly** — the logger emits an indexed object that Cloudflare
+Workers Logs filters in the dashboard (no `wrangler tail` required). A bare
+`console.log("user " + id)` collapses into one opaque `message` string you can
+only text-match; `logger.warn("http", "...", { ... })` is filterable per field.
 
-Cloudflare Observability captures console output — prefer signal over noise.
+```ts
+import { logger } from "../platform/log";
+
+logger.error("proxy", "upstream_failed", { upstream: "nominatim", status: 503 });
+logger.warn("http", "validation_failed", { errorCode, issues });
+logger.info("cron", "overdue_check_started", { tasks, users });
+```
+
+**Levels** (`logger.<level>(source, event, fields)`):
+
+| Level   | Use for                                                        | CF severity |
+| ------- | ------------------------------------------------------------- | ----------- |
+| `error` | 5xx, unhandled throws, dependency/DB outages                  | error       |
+| `warn`  | 4xx client faults, invalid input, best-effort write failures  | warning     |
+| `info`  | rare operational milestones (e.g. cron summaries)             | info        |
+
+**Rules**
+
+- **Never log happy paths (2xx/3xx).** Cloudflare's `invocation_logs` already
+  records every request; the logger channel is errors and warnings only.
+- `event` is a stable, low-cardinality discriminator — one filter = one failure
+  class. Keep names like `upstream_failed`, `recurrence_rule_invalid`.
+- Always include correlation: `requestId` (HTTP, via the request-context helpers)
+  and `userHash` (`hashIdentifier(userId)`) — **never raw user IDs or emails**.
+- Flatten thrown errors with `issuesFromError(err)`; truncate free text with
+  `shorten(...)`. The per-invocation log budget is 256 KB.
+- HTTP failures are logged once, centrally: validation via `logValidationFailure`,
+  everything else via `app.onError` → `logErrorResponse`. The request-context
+  middleware suppresses a duplicate line when one was already emitted. Don't add
+  ad-hoc per-route failure logs for responses that already flow through these.
+- Log enough context to debug, but never leak internal error details to clients.
 
 ---
 
@@ -573,6 +709,13 @@ Do not:
 - Put domain logic in `src/platform/`
 - Create `helpers.ts`, `utils.ts`, or `misc.ts` files
 - Define reusable schemas inline in route files
+- **Re-derive shared type aliases locally** — import `DbClient`/`Tx` from
+  `src/types/db.ts`; never redefine `Parameters<Parameters<DbClient[...]>>` inline
+- **Scatter a reused declaration across files** — a type/schema used by 2+ places
+  belongs in `src/types/` (see §5); a single-use one stays local
+- **Add domain re-export shims to `src/types/`** for internal use — domain types
+  live in the domain's `*.schema.ts` (`types/inbox.ts` is the one cross-package
+  exception, §5)
 - Return raw stack traces or SQL details to clients
 - Use `drizzle-kit push` or destructive migration commands
 - Expand public AI surface unless explicitly scoped

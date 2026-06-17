@@ -4,7 +4,7 @@ import { useTasks, useUpdateTask, useCreateTask, useArchiveTask } from "../tasks
 import { useHabitsWeekly } from "../habits/use-habits";
 import { usePauseHabit } from "../habits/use-pause-habit";
 import { toISODate } from "../../lib/utils/date-format";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 export interface HabitReviewItem {
     id: string;

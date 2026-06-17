@@ -2,7 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import * as Popover from "../primitives/Popover";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 const MAX_VISIBLE_TASKS = 2;
 

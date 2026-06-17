@@ -1,4 +1,4 @@
-import type { InboxItem } from "../../types/inbox";
+import type { InboxItem } from "@cadence/contracts/inbox";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useSettings } from "../../hooks/core/use-settings";

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import type { Project } from "../../types/project";
+import type { Project } from "@cadence/contracts/project";
 import { useAuthState } from "../auth/use-auth-state";
 
 export function useProjects() {

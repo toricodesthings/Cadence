@@ -6,6 +6,7 @@ import * as ContextMenu from "../primitives/ContextMenu";
 import * as Dialog from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
+import { Tip } from "../primitives";
 import { useUpdateProject, useDeleteProject } from "../../hooks/projects";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { trackUsageEvent } from "../../lib/api/track-event";
@@ -87,22 +88,23 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                         </div>
                         <div className="flex gap-2 items-center flex-wrap">
                             {PROJECT_ACCENT_OPTIONS.map((opt) => (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    onClick={() => {
-                                        setColorValue(opt.value);
-                                        setIsCustomColor(false);
-                                    }}
-                                    title={opt.label}
-                                    className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorValue === opt.value && !isCustomColor
-                                        ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
-                                        : "opacity-60 hover:opacity-100"
-                                        }`}
-                                    style={{ backgroundColor: opt.varName }}
-                                />
+                                <Tip key={opt.value} label={opt.label} side="top">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setColorValue(opt.value);
+                                            setIsCustomColor(false);
+                                        }}
+                                        className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorValue === opt.value && !isCustomColor
+                                            ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
+                                            : "opacity-60 hover:opacity-100"
+                                            }`}
+                                        style={{ backgroundColor: opt.varName }}
+                                    />
+                                </Tip>
                             ))}
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer" title="Custom Hex Color">
+                            <Tip label="Custom Hex Color" side="top">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full ring-1 ring-twilight-border overflow-hidden cursor-pointer">
                                 <input
                                     type="color"
                                     value={colorValue.startsWith("#") ? colorValue : PROJECT_FALLBACK_COLOR}
@@ -116,6 +118,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                                     <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-surface ring-twilight-text/50 rounded-full pointer-events-none" />
                                 )}
                             </div>
+                            </Tip>
                         </div>
                         <div className="flex justify-end gap-2">
                             <button

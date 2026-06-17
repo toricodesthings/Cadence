@@ -8,7 +8,7 @@ import {
     invalidateTaskCaches,
     cancelTaskQueries,
 } from "./optimistic-helpers";
-import type { Task, CreateTaskInput } from "../../types/task";
+import type { CreateTaskInput, Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
@@ -50,7 +50,6 @@ export function useCreateTask() {
             async (input) => {
                 const idempotencyKey = getCreateTaskIdempotencyKey(input);
                 const res = await client.api.tasks.$post({
-                    header: { "Idempotency-Key": idempotencyKey },
                     json: {
                         title: input.title,
                         ...(input.content !== undefined && { content: input.content }),
@@ -77,6 +76,8 @@ export function useCreateTask() {
                         ...(input.durationEstimate !== undefined && { durationEstimate: input.durationEstimate }),
                         ...(input.nlp && { nlp: input.nlp }),
                     },
+                }, {
+                    headers: { "Idempotency-Key": idempotencyKey },
                 });
                 return unwrapResponse<Task>(res);
             },

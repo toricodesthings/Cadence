@@ -4,6 +4,7 @@ import { useCreateProject } from "../../hooks/projects";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { Button } from "../primitives/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../primitives/Dialog";
+import { Tip } from "../primitives";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
 const ACCENT_OPTIONS = PROJECT_ACCENT_OPTIONS;
@@ -57,22 +58,23 @@ export function CreateProjectPopover() {
                 {/* Color picker */}
                 <div className="flex flex-wrap items-center gap-2.5 pt-1">
                     {ACCENT_OPTIONS.map((opt) => (
-                        <button
-                            key={opt.value}
-                            onClick={() => {
-                                setColorAccent(opt.value);
-                                setIsCustomColor(false);
-                            }}
-                            title={opt.label}
-                            aria-label={`Select ${opt.label} color`}
-                            className={`h-5 w-5 cursor-pointer rounded-full transition-[transform,opacity] duration-150 ${colorAccent === opt.value && !isCustomColor
-                                ? "ring-2 ring-offset-2 ring-offset-twilight-deep scale-110"
-                                : "opacity-60 hover:opacity-100"
-                                }`}
-                            style={{ backgroundColor: opt.varName }}
-                        />
+                        <Tip key={opt.value} label={opt.label} side="top">
+                            <button
+                                onClick={() => {
+                                    setColorAccent(opt.value);
+                                    setIsCustomColor(false);
+                                }}
+                                aria-label={`Select ${opt.label} color`}
+                                className={`h-5 w-5 cursor-pointer rounded-full transition-[transform,opacity] duration-150 ${colorAccent === opt.value && !isCustomColor
+                                    ? "ring-2 ring-offset-2 ring-offset-twilight-deep scale-110"
+                                    : "opacity-60 hover:opacity-100"
+                                    }`}
+                                style={{ backgroundColor: opt.varName }}
+                            />
+                        </Tip>
                     ))}
-                    <div className="relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full ring-1 ring-twilight-border" title="Custom Hex Color">
+                    <Tip label="Custom Hex Color" side="top">
+                    <div className="relative flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full ring-1 ring-twilight-border">
                         <input
                             type="color"
                             value={colorAccent.startsWith("#") ? colorAccent : PROJECT_FALLBACK_COLOR}
@@ -86,6 +88,7 @@ export function CreateProjectPopover() {
                             <div className="absolute inset-0 ring-2 ring-offset-2 ring-offset-twilight-deep ring-twilight-text/50 rounded-full" />
                         )}
                     </div>
+                    </Tip>
                 </div>
                 <Button
                     variant="primary"

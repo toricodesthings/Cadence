@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useSearchParams } from "react-router";
-import { User, Bell, Clock, Sparkles, Paintbrush, Keyboard, CheckSquare, Blocks, Shield, Search, X, Info } from "lucide-react";
+import { User, Bell, Clock, Sparkles, Paintbrush, Keyboard, CheckSquare, Blocks, Shield, Search, X, Info, Bot } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import { Input } from "../primitives/Input";
 import { cn } from "../../lib/utils";
@@ -17,6 +17,7 @@ import { TasksTab } from "./tabs/TasksTab";
 import { IntegrationsTab } from "./tabs/IntegrationsTab";
 import { DataPrivacyTab } from "./tabs/DataPrivacyTab";
 import { AboutTab } from "./tabs/AboutTab";
+import { AssistantTab } from "./tabs/AssistantTab";
 
 type TabId =
     | "about"
@@ -24,6 +25,7 @@ type TabId =
     | "notifications"
     | "datetime"
     | "ai"
+    | "assistant"
     | "appearance"
     | "shortcuts"
     | "tasks"
@@ -43,6 +45,7 @@ const SETTINGS_CATEGORIES = [
     { id: "shortcuts", label: "Keyboard Shortcuts", icon: Keyboard },
 
     { label: "Workspace", isHeader: true },
+    { id: "assistant", label: "Cadence Assistant", icon: Bot },
     { id: "integrations", label: "Integrations", icon: Blocks, badge: "Soon" },
 
     { label: "Privacy & Control", isHeader: true },
@@ -92,6 +95,7 @@ export function SettingsDialog() {
             case "notifications": return <NotificationsTab />;
             case "datetime": return <DateTimeTab />;
             case "ai": return <AITab />;
+            case "assistant": return <AssistantTab />;
             case "appearance": return <AppearanceTab />;
             case "shortcuts": return <ShortcutsTab />;
             case "tasks": return <TasksTab />;

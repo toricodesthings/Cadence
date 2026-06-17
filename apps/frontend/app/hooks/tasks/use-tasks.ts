@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
-import type { Task, TaskState } from "../../types/task";
+import type { Task, TaskState } from "@cadence/contracts/task";
 import { useAuthState } from "../auth/use-auth-state";
 import { buildTasksQuery } from "../../lib/utils/task/task-scheduling";
 
@@ -33,7 +33,11 @@ export function useTasks(options: UseTasksOptions = {}) {
         staleTime: STALE_TIMES.TASKS,
         queryFn: async () => {
             const res = await client.api.tasks.$get({
-                query: buildTasksQuery(filterOptions),
+                // Query params are wire strings the route coerces/enum-validates; the
+                // builder's string map satisfies that contract at runtime.
+                query: buildTasksQuery(filterOptions) as NonNullable<
+                    Parameters<typeof client.api.tasks.$get>[0]
+                >["query"],
             });
             return unwrapResponse<Task[]>(res);
         },

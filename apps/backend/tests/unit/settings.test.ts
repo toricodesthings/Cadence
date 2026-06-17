@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { focusViewDefinitionSchema, savedFocusViewInputSchema, settingsPatchSchema } from "../../src/domains/settings/settings.schema";
+import { focusViewDefinitionSchema, savedFocusViewInputSchema, settingsPatchSchema } from "@cadence/contracts/settings";
 
 describe("settings patch schema", () => {
     it("accepts nested partial updates used by the frontend", () => {

@@ -1,10 +1,28 @@
 import { eq, and, inArray } from "drizzle-orm";
 import { projects, tags, taskSections } from "../db/schema";
 import { AppError } from "./errors";
-import type { DbClient } from "./db";
+import type { Tx } from "../types/db";
 
-/** Transaction type extracted from withRls callback parameter */
-type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+/**
+ * Verify that a single-row entity (keyed by `id`, owned via `userId`) belongs
+ * to the given user. Throws 404 if it does not exist, 403 if it belongs to
+ * another user. `label` names the entity in the error message.
+ */
+async function assertRowOwnership(
+    tx: Tx,
+    table: typeof projects | typeof taskSections,
+    userId: string,
+    id: string,
+    label: string,
+) {
+    const [row] = await tx
+        .select({ userId: table.userId })
+        .from(table)
+        .where(eq(table.id, id))
+        .limit(1);
+    if (!row) throw new AppError(404, "NOT_FOUND", `${label} not found`);
+    if (row.userId !== userId) throw new AppError(403, "FORBIDDEN", `${label} belongs to another user`);
+}
 
 /**
  * Verify that a project belongs to the given user.
@@ -12,13 +30,7 @@ type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
  * Throws 404 if the project does not exist.
  */
 export async function assertProjectOwnership(tx: Tx, userId: string, projectId: string) {
-    const [row] = await tx
-        .select({ userId: projects.userId })
-        .from(projects)
-        .where(eq(projects.id, projectId))
-        .limit(1);
-    if (!row) throw new AppError(404, "NOT_FOUND", "Project not found");
-    if (row.userId !== userId) throw new AppError(403, "FORBIDDEN", "Project belongs to another user");
+    await assertRowOwnership(tx, projects, userId, projectId, "Project");
 }
 
 /**
@@ -27,13 +39,7 @@ export async function assertProjectOwnership(tx: Tx, userId: string, projectId: 
  * Throws 404 if the section does not exist.
  */
 export async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string) {
-    const [row] = await tx
-        .select({ userId: taskSections.userId })
-        .from(taskSections)
-        .where(eq(taskSections.id, sectionId))
-        .limit(1);
-    if (!row) throw new AppError(404, "NOT_FOUND", "Section not found");
-    if (row.userId !== userId) throw new AppError(403, "FORBIDDEN", "Section belongs to another user");
+    await assertRowOwnership(tx, taskSections, userId, sectionId, "Section");
 }
 
 /**

@@ -7,6 +7,7 @@ import { useProjects } from "../../hooks/projects";
 import { Zap, Clock, CalendarX2, UserCheck, Brain, CloudFog, Search, X, BookmarkPlus, Pin, Trash2, Pencil } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import * as ContextMenu from "../primitives/ContextMenu";
+import { Tip } from "../primitives";
 
 const PRESET_ICONS: Record<string, React.ReactNode> = {
     Zap: <Zap size={14} />,
@@ -170,20 +171,20 @@ export function FocusViewBar() {
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                             {FOCUS_VIEW_PRESETS.map((preset) => (
-                                <button
-                                    key={preset.id}
-                                    type="button"
-                                    onClick={() => handleSelectPreset(preset)}
-                                    title={preset.description}
-                                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
-                                        activePresetId === preset.id
-                                            ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
-                                            : "bg-white/[0.04] text-twilight-text-soft border border-twilight-border/20 hover:bg-white/[0.08]"
-                                    }`}
-                                >
-                                    {PRESET_ICONS[preset.icon] ?? null}
-                                    {preset.name}
-                                </button>
+                                <Tip key={preset.id} label={preset.description ?? preset.name} side="top">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSelectPreset(preset)}
+                                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
+                                            activePresetId === preset.id
+                                                ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
+                                                : "bg-white/[0.04] text-twilight-text-soft border border-twilight-border/20 hover:bg-white/[0.08]"
+                                        }`}
+                                    >
+                                        {PRESET_ICONS[preset.icon] ?? null}
+                                        {preset.name}
+                                    </button>
+                                </Tip>
                             ))}
                         </div>
                     </div>

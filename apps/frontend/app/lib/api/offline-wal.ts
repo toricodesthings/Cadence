@@ -1,5 +1,5 @@
 import { get, set } from "idb-keyval";
-import type { CreateTaskInput, UpdateTaskInput } from "../../types/task";
+import type { CreateTaskInput, UpdateTaskInput } from "@cadence/contracts/task";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 

@@ -4,7 +4,7 @@ import { CurrentTimeIndicator } from "./CurrentTimeIndicator";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview } from "./CalendarDropTargets";
 import * as Popover from "../primitives/Popover";
-import * as Tooltip from "../primitives/Tooltip";
+import { Tip } from "../primitives";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { Plus, CalendarHeart, Focus, ArrowRight } from "lucide-react";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
@@ -12,7 +12,7 @@ import { toISODate } from "../../lib/utils/date-format";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 import type { PersonalEvent } from "../../types/settings";
 
@@ -305,56 +305,43 @@ export function WeekView({
                                         {d.getDate()}
                                     </div>
                                     {(holidaysByDate[ds]?.length ?? 0) > 0 && (
-                                        <Tooltip.Root>
-                                            <Tooltip.Trigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-solstice focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-solstice/60 cursor-pointer"
-                                                    aria-label={`Holiday: ${holidaysByDate[ds].map((holiday) => holiday.name).join(", ")}`}
-                                                >
-                                                    <span className="h-2 w-2 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]" />
-                                                </button>
-                                            </Tooltip.Trigger>
-                                            <Tooltip.Content>
-                                                {holidaysByDate[ds].map((holiday) => holiday.name).join(", ")}
-                                            </Tooltip.Content>
-                                        </Tooltip.Root>
+                                        <Tip label={holidaysByDate[ds].map((holiday) => holiday.name).join(", ")} side="top">
+                                            <button
+                                                type="button"
+                                                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-solstice focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-solstice/60 cursor-pointer"
+                                                aria-label={`Holiday: ${holidaysByDate[ds].map((holiday) => holiday.name).join(", ")}`}
+                                            >
+                                                <span className="h-2 w-2 rounded-full bg-solstice shadow-[0_0_8px_rgba(217,106,59,0.45)]" />
+                                            </button>
+                                        </Tip>
                                     )}
                                     {birthdayDate === ds && (
-                                        <Tooltip.Root>
-                                            <Tooltip.Trigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/60 cursor-pointer"
-                                                    aria-label="Your birthday"
-                                                >
-                                                    <span className="h-2 w-2 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]" />
-                                                </button>
-                                            </Tooltip.Trigger>
-                                            <Tooltip.Content>🎂 Your Birthday</Tooltip.Content>
-                                        </Tooltip.Root>
+                                        <Tip label="🎂 Your Birthday" side="top">
+                                            <button
+                                                type="button"
+                                                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-violet focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/60 cursor-pointer"
+                                                aria-label="Your birthday"
+                                            >
+                                                <span className="h-2 w-2 rounded-full bg-violet shadow-[0_0_8px_rgba(155,114,207,0.45)]" />
+                                            </button>
+                                        </Tip>
                                     )}
                                     {(personalEventsByDate[ds]?.length ?? 0) > 0 && (
-                                        <Tooltip.Root>
-                                            <Tooltip.Trigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="inline-flex min-w-4 items-center justify-center rounded-full text-accent-nav-schedule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/60 cursor-pointer"
-                                                    aria-label={`Event: ${personalEventsByDate[ds].map((e) => e.label).join(", ")}`}
-                                                >
-                                                    {personalEventsByDate[ds].length > 1 ? (
-                                                        <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-1 text-[9px] font-semibold text-accent-nav-schedule">
-                                                            {personalEventsByDate[ds].length}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="h-2 w-2 rounded-full bg-accent-nav-schedule shadow-[0_0_8px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
-                                                    )}
-                                                </button>
-                                            </Tooltip.Trigger>
-                                            <Tooltip.Content>
-                                                {personalEventsByDate[ds].map((e) => `${e.emoji ?? "🎉"} ${e.label}`).join(", ")}
-                                            </Tooltip.Content>
-                                        </Tooltip.Root>
+                                        <Tip label={personalEventsByDate[ds].map((e) => `${e.emoji ?? "🎉"} ${e.label}`).join(", ")} side="top">
+                                            <button
+                                                type="button"
+                                                className="inline-flex min-w-4 items-center justify-center rounded-full text-accent-nav-schedule focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/60 cursor-pointer"
+                                                aria-label={`Event: ${personalEventsByDate[ds].map((e) => e.label).join(", ")}`}
+                                            >
+                                                {personalEventsByDate[ds].length > 1 ? (
+                                                    <span className="inline-flex min-w-4 items-center justify-center rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-1 text-[9px] font-semibold text-accent-nav-schedule">
+                                                        {personalEventsByDate[ds].length}
+                                                    </span>
+                                                ) : (
+                                                    <span className="h-2 w-2 rounded-full bg-accent-nav-schedule shadow-[0_0_8px_color-mix(in_srgb,var(--accent-nav-schedule)_45%,transparent)]" />
+                                                )}
+                                            </button>
+                                        </Tip>
                                     )}
                                 </div>
                             </div>

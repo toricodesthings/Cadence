@@ -9,7 +9,7 @@ import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { usePauseHabit, useResumeHabit } from "../../hooks/habits/use-pause-habit";
 import { CadencePicker } from "./CadencePicker";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import type { Habit } from "../../types/habit";
+import type { Habit } from "@cadence/contracts/habit";
 
 interface HabitContextMenuWrapperProps {
     habit: Habit;

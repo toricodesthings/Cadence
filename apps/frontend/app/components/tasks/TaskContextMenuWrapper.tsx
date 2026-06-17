@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { TaskMenuItems } from "./TaskContextMenu";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 export interface TaskContextMenuWrapperProps {
     task: Task;

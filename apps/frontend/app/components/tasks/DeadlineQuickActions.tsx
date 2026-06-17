@@ -1,6 +1,6 @@
 import React from "react";
 import { CalendarCheck, CalendarPlus, CalendarRange, CalendarSearch } from "lucide-react";
-import * as Tooltip from "../primitives/Tooltip";
+import { Tip } from "../primitives";
 
 interface DeadlineQuickActionsProps {
     onSelect: (preset: "today" | "tomorrow" | "next_week" | "custom") => void;
@@ -21,23 +21,20 @@ export const DeadlineQuickActions: React.FC<DeadlineQuickActionsProps> = ({
     return (
         <div className="flex items-center gap-1 p-1">
             {actions.map(({ id, icon: Icon, label }) => (
-                <Tooltip.Root key={id}>
-                    <Tooltip.Trigger asChild>
-                        <button
-                            type="button"
-                            onClick={() => onSelect(id)}
-                            className={`
+                <Tip key={id} label={label} side="bottom">
+                    <button
+                        type="button"
+                        onClick={() => onSelect(id)}
+                        className={`
 								touch-target flex h-11 w-11 items-center justify-center rounded-2xl border border-transparent transition-colors
 								hover:bg-twilight-surface-hover
 								${activePreset === id ? "bg-accent-primary/20 text-accent-primary border-accent-primary/30" : "text-twilight-text-muted"}
 							`}
-                            aria-label={label}
-                        >
-                            <Icon size={16} aria-hidden="true" />
-                        </button>
-                    </Tooltip.Trigger>
-                    <Tooltip.Content side="bottom">{label}</Tooltip.Content>
-                </Tooltip.Root>
+                        aria-label={label}
+                    >
+                        <Icon size={16} aria-hidden="true" />
+                    </button>
+                </Tip>
             ))}
         </div>
     );

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Tip } from "../primitives";
 
 /**
  * CadencePicker — manifesto-compliant cadence selector
@@ -142,26 +143,26 @@ export function CadencePicker({ value, onChange }: CadencePickerProps) {
                         const selected = customDays.includes(day);
                         const { short, full } = DAY_ABBR[day];
                         return (
-                            <button
-                                key={day}
-                                type="button"
-                                title={full}
-                                aria-label={full}
-                                aria-pressed={selected}
-                                onClick={() => toggleDay(day)}
-                                className={`
-                                    flex-1 min-w-[44px] h-11 rounded-2xl text-[12px] font-semibold
-                                    transition-colors duration-200 cursor-pointer
-                                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50
-                                    touch-manipulation select-none
-                                    ${selected
-                                        ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 shadow-[0_0_10px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)]"
-                                        : "bg-white/[0.04] border border-white/[0.07] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.07]"
-                                    }
-                                `}
-                            >
-                                {short}
-                            </button>
+                            <Tip key={day} label={full} side="top">
+                                <button
+                                    type="button"
+                                    aria-label={full}
+                                    aria-pressed={selected}
+                                    onClick={() => toggleDay(day)}
+                                    className={`
+                                        flex-1 min-w-[44px] h-11 rounded-2xl text-[12px] font-semibold
+                                        transition-colors duration-200 cursor-pointer
+                                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50
+                                        touch-manipulation select-none
+                                        ${selected
+                                            ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 shadow-[0_0_10px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)]"
+                                            : "bg-white/[0.04] border border-white/[0.07] text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.07]"
+                                        }
+                                    `}
+                                >
+                                    {short}
+                                </button>
+                            </Tip>
                         );
                     })}
                 </div>

@@ -9,6 +9,7 @@ import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { Tip } from "../primitives";
 import * as Popover from "../primitives/Popover";
 import { TimePicker } from "../primitives";
 import { Switch } from "../primitives";
@@ -16,7 +17,7 @@ import { Button } from "../primitives/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { EventDatePicker } from "../events/EventDatePicker";
-import type { EffortLevel, TaskInteractionMode, TaskPriority } from "../../types/task";
+import type { EffortLevel, TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
 
 export interface CalendarEventInfo {
     date: string;
@@ -108,24 +109,24 @@ function WeekdayPicker({
             {WEEKDAY_ORDER.map((day) => {
                 const active = value.includes(day);
                 return (
-                    <button
-                        key={day}
-                        type="button"
-                        title={WEEKDAY_LABELS[day].long}
-                        aria-label={WEEKDAY_LABELS[day].long}
-                        aria-pressed={active}
-                        onClick={() => {
-                            if (active && value.length === 1) return;
-                            onChange(active ? value.filter((item) => item !== day) : [...value, day]);
-                        }}
-                        className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xs font-semibold transition-colors duration-200 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
-                            active
-                                ? "border border-accent-primary/30 bg-accent-primary/15 text-accent-primary shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
-                                : "border border-white/[0.07] bg-white/[0.04] text-twilight-text-muted hover:bg-white/[0.07] hover:text-twilight-text"
-                        }`}
-                    >
-                        {WEEKDAY_LABELS[day].letter}
-                    </button>
+                    <Tip key={day} label={WEEKDAY_LABELS[day].long} side="top">
+                        <button
+                            type="button"
+                            aria-label={WEEKDAY_LABELS[day].long}
+                            aria-pressed={active}
+                            onClick={() => {
+                                if (active && value.length === 1) return;
+                                onChange(active ? value.filter((item) => item !== day) : [...value, day]);
+                            }}
+                            className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xs font-semibold transition-colors duration-200 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                active
+                                    ? "border border-accent-primary/30 bg-accent-primary/15 text-accent-primary shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
+                                    : "border border-white/[0.07] bg-white/[0.04] text-twilight-text-muted hover:bg-white/[0.07] hover:text-twilight-text"
+                            }`}
+                        >
+                            {WEEKDAY_LABELS[day].letter}
+                        </button>
+                    </Tip>
                 );
             })}
         </div>

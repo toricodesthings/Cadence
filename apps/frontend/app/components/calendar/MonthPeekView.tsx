@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { CalendarDays } from "lucide-react";
 import { formatTime } from "../../lib/utils/date-format";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 

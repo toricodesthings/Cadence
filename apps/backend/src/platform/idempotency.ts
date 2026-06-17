@@ -1,9 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { mutationDedup } from "../db/schema";
-import type { DbClient } from "./db";
+import type { Tx } from "../types/db";
 import type { Context } from "hono";
-
-type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
 
 /**
  * Extract the idempotency key from the Idempotency-Key request header.

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import type { TaskSection } from "../../types/task";
+import type { TaskSection } from "@cadence/contracts/section";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";

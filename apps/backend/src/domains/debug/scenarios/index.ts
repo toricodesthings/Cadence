@@ -1,6 +1,4 @@
-import type { DbClient } from "../../../platform/db";
-
-type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+import type { Tx } from "../../../types/db";
 
 export interface Scenario {
     /** Human-readable name shown in seed response */

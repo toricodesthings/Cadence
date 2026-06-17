@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Button } from "../components/primitives/Button";
-import { ArrowRight, ArrowLeft, Clock, Check, Pause, Repeat } from "lucide-react";
+import { Tip } from "../components/primitives";
+import { ArrowRight, ArrowLeft, Clock, Check, Pause, Repeat, Sun, Sunrise, Moon, Trash2, LoaderCircle, type LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toISODate } from "../lib/utils/date-format";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
@@ -11,11 +12,20 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useWeeklyReviewActions } from "../hooks/core/use-weekly-review-actions";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { WeeklyResetSidebar, STEPS } from "../components/weekly-review/WeeklyResetSidebar";
+import { WeeklyResetHero } from "../components/weekly-review/WeeklyResetHero";
 import { trackUsageEvent } from "../lib/api/track-event";
 
 const STEP_STORAGE_KEY = "cadence-weekly-reset-step";
 
 /* ──────── Inline scannable list item ──────── */
+
+interface ReviewAction {
+    label: string;
+    shortLabel?: string;
+    icon: LucideIcon;
+    onClick: () => Promise<void> | void;
+    variant?: string;
+}
 
 function ReviewListItem({
     title,
@@ -26,7 +36,7 @@ function ReviewListItem({
     onRunAction,
 }: {
     title: string;
-    actions: Array<{ label: string; shortLabel?: string; onClick: () => Promise<void> | void; variant?: string }>;
+    actions: ReviewAction[];
     pendingActionKey: string | null;
     actionKeyPrefix: string;
     actionError: string | null;
@@ -42,23 +52,39 @@ function ReviewListItem({
                     const key = `${actionKeyPrefix}:${i}`;
                     const isPending = pendingActionKey === key;
                     const isDanger = act.variant === "cardDanger";
-                    return (
+                    const isPrimary = act.variant === "cardPrimary";
+                    const Icon = act.icon;
+                    // Primary action carries its label so the dominant choice is
+                    // obvious in <2s (§6.3); the rest demote to icon-only with a
+                    // stylized Tip + aria-label (§6.6) to keep the row scannable.
+                    const button = (
                         <button
-                            key={i}
                             type="button"
                             disabled={Boolean(pendingActionKey)}
                             onClick={() => void onRunAction(key, async () => { await act.onClick(); })}
-                            className={`touch-target inline-flex min-h-9 items-center justify-center rounded-xl px-3 text-xs font-medium transition-colors disabled:opacity-40 ${
+                            aria-label={act.label}
+                            className={`touch-target inline-flex items-center justify-center gap-1.5 rounded-xl text-xs font-medium transition-colors disabled:opacity-40 ${
+                                isPrimary ? "px-3.5" : "px-2.5"
+                            } ${
                                 isDanger
                                     ? "text-red-400 hover:bg-red-500/10"
-                                    : act.variant === "cardPrimary"
+                                    : isPrimary
                                         ? "bg-accent-primary/14 text-accent-primary hover:bg-accent-primary/20"
                                         : "text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
                             }`}
-                            title={act.label}
                         >
-                            {isPending ? "…" : act.shortLabel ?? act.label}
+                            {isPending ? (
+                                <LoaderCircle size={15} className="sync-spin" aria-hidden="true" />
+                            ) : (
+                                <Icon size={isPrimary ? 14 : 16} aria-hidden="true" />
+                            )}
+                            {isPrimary && !isPending && <span>{act.shortLabel ?? act.label}</span>}
                         </button>
+                    );
+                    return (
+                        <Tip key={i} label={act.label} side="top">
+                            {button}
+                        </Tip>
                     );
                 })}
             </div>
@@ -264,14 +290,15 @@ export default function WeeklyReview() {
                                 exit={{ opacity: 0, y: -12 }}
                                 className="flex flex-1 flex-col items-center justify-center text-center max-w-md mx-auto"
                             >
+                                <WeeklyResetHero className="mb-6 aspect-[2/1] w-full max-w-[300px]" />
                                 <h1 className="text-2xl lg:text-3xl font-display font-semibold text-twilight-text mb-3 leading-tight">
                                     Weekly Reset
                                 </h1>
-                                <p className="text-sm text-twilight-text-soft leading-relaxed mb-2">
-                                    Review what's accumulated, clear out noise, and step into the week with less on your mind.
+                                <p className="text-sm text-twilight-text-soft leading-relaxed mb-4">
+                                    Clear what's accumulated and step into the week with less on your mind.
                                 </p>
                                 <p className="inline-flex items-center gap-1.5 rounded-full border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-xs font-medium text-twilight-text-muted mb-8">
-                                    <Clock size={12} /> About 2 minutes
+                                    <Clock size={12} aria-hidden="true" /> About 2 minutes
                                 </p>
                                 <Button variant="primary" size="lg" onClick={() => {
                                     trackUsageEvent("weekly_reset.started", { route: "weekly-review" });
@@ -307,10 +334,10 @@ export default function WeeklyReview() {
                                                 title={item.rawText || "Empty"}
                                                 actionKeyPrefix={`inbox:${item.id}`}
                                                 actions={[
-                                                    { label: "Do Today", shortLabel: "Today", onClick: () => handleInboxAction(item, "today"), variant: "cardPrimary" },
-                                                    { label: "Do Tomorrow", shortLabel: "Tomorrow", onClick: () => handleInboxAction(item, "tomorrow") },
-                                                    { label: "Decide Later", shortLabel: "Later", onClick: () => handleInboxAction(item, "someday") },
-                                                    { label: "Move to Trash", shortLabel: "Trash", onClick: () => handleInboxAction(item, "delete"), variant: "cardDanger" },
+                                                    { label: "Do Today", shortLabel: "Today", icon: Sun, onClick: () => handleInboxAction(item, "today"), variant: "cardPrimary" },
+                                                    { label: "Do Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleInboxAction(item, "tomorrow") },
+                                                    { label: "Decide Later", shortLabel: "Later", icon: Moon, onClick: () => handleInboxAction(item, "someday") },
+                                                    { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleInboxAction(item, "delete"), variant: "cardDanger" },
                                                 ]}
                                                 pendingActionKey={pendingActionKey}
                                                 actionError={actionError}
@@ -358,10 +385,10 @@ export default function WeeklyReview() {
                                                     title={task.title}
                                                     actionKeyPrefix={`unscheduled:${task.id}`}
                                                     actions={[
-                                                        { label: "Assign Today", shortLabel: "Today", onClick: () => handleUnscheduledAction(task, "today"), variant: "cardPrimary" },
-                                                        { label: "Assign Tomorrow", shortLabel: "Tomorrow", onClick: () => handleUnscheduledAction(task, "tomorrow") },
-                                                        { label: "Move to Waitlist", shortLabel: "Later", onClick: () => handleUnscheduledAction(task, "someday") },
-                                                        { label: "Move to Trash", shortLabel: "Trash", onClick: () => handleUnscheduledAction(task, "delete"), variant: "cardDanger" },
+                                                        { label: "Assign Today", shortLabel: "Today", icon: Sun, onClick: () => handleUnscheduledAction(task, "today"), variant: "cardPrimary" },
+                                                        { label: "Assign Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleUnscheduledAction(task, "tomorrow") },
+                                                        { label: "Move to Waitlist", shortLabel: "Later", icon: Moon, onClick: () => handleUnscheduledAction(task, "someday") },
+                                                        { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleUnscheduledAction(task, "delete"), variant: "cardDanger" },
                                                     ]}
                                                     pendingActionKey={pendingActionKey}
                                                     actionError={actionError}
@@ -381,10 +408,10 @@ export default function WeeklyReview() {
                                                     title={task.title}
                                                     actionKeyPrefix={`waiting:${task.id}`}
                                                     actions={[
-                                                        { label: "Activate Today", shortLabel: "Today", onClick: () => handleWaitingAction(task, "today"), variant: "cardPrimary" },
-                                                        { label: "Activate Tomorrow", shortLabel: "Tomorrow", onClick: () => handleWaitingAction(task, "tomorrow") },
-                                                        { label: "Keep Waiting", shortLabel: "Keep", onClick: async () => { setKeptWaitingIds((prev) => new Set(prev).add(task.id)); } },
-                                                        { label: "Move to Trash", shortLabel: "Trash", onClick: () => handleWaitingAction(task, "delete"), variant: "cardDanger" },
+                                                        { label: "Activate Today", shortLabel: "Today", icon: Sun, onClick: () => handleWaitingAction(task, "today"), variant: "cardPrimary" },
+                                                        { label: "Activate Tomorrow", shortLabel: "Tomorrow", icon: Sunrise, onClick: () => handleWaitingAction(task, "tomorrow") },
+                                                        { label: "Keep Waiting", shortLabel: "Keep", icon: Check, onClick: async () => { setKeptWaitingIds((prev) => new Set(prev).add(task.id)); } },
+                                                        { label: "Move to Trash", shortLabel: "Trash", icon: Trash2, onClick: () => handleWaitingAction(task, "delete"), variant: "cardDanger" },
                                                     ]}
                                                     pendingActionKey={pendingActionKey}
                                                     actionError={actionError}
@@ -468,8 +495,9 @@ export default function WeeklyReview() {
                                 animate={{ opacity: 1, y: 0 }}
                                 className="flex flex-1 flex-col items-center justify-center text-center max-w-md mx-auto"
                             >
-                                <div className="w-16 h-16 rounded-2xl bg-accent-primary/15 flex items-center justify-center mb-6">
-                                    <Check size={28} className="text-accent-primary" />
+                                <WeeklyResetHero className="mb-5 aspect-[2/1] w-full max-w-[300px]" />
+                                <div className="w-14 h-14 rounded-2xl bg-accent-primary/15 flex items-center justify-center mb-5">
+                                    <Check size={26} className="text-accent-primary" aria-hidden="true" />
                                 </div>
                                 <h1 className="text-2xl font-display font-semibold text-twilight-text mb-2">You're set for the week.</h1>
                                 <p className="text-sm text-twilight-text-soft leading-relaxed mb-8">

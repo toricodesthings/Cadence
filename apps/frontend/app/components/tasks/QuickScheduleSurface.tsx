@@ -10,7 +10,7 @@ import {
     Calendar as CalendarIcon,
     CalendarRange,
 } from "lucide-react";
-import * as Tooltip from "../primitives/Tooltip";
+import { Tip } from "../primitives";
 import { CalendarGrid } from "../calendar/CalendarGrid";
 import { TimePickerInput } from "./TimePickerInput";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -297,24 +297,21 @@ export function QuickScheduleSurface({
                     const isActive = activePreset === id;
 
                     return (
-                        <Tooltip.Root key={id}>
-                            <Tooltip.Trigger asChild>
-                                <button
-                                    type="button"
-                                    onClick={() => handleQuickAction(id)}
-                                    aria-label={label}
-                                    aria-pressed={isActive}
-                                    className={`touch-target flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
-                                        isActive
-                                            ? "bg-accent-primary/12 text-accent-primary"
-                                            : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text-soft"
-                                    }`}
-                                >
-                                    <Icon size={16} aria-hidden="true" />
-                                </button>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content side="bottom">{label}</Tooltip.Content>
-                        </Tooltip.Root>
+                        <Tip key={id} label={label} side="bottom">
+                            <button
+                                type="button"
+                                onClick={() => handleQuickAction(id)}
+                                aria-label={label}
+                                aria-pressed={isActive}
+                                className={`touch-target flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+                                    isActive
+                                        ? "bg-accent-primary/12 text-accent-primary"
+                                        : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text-soft"
+                                }`}
+                            >
+                                <Icon size={16} aria-hidden="true" />
+                            </button>
+                        </Tip>
                     );
                 })}
             </div>

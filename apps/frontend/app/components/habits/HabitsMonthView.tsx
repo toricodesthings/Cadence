@@ -8,7 +8,7 @@ import { useProjects } from "../../hooks/projects/use-projects";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { toISODate } from "../../lib/utils/date-format";
-import type { Habit } from "../../types/habit";
+import type { Habit } from "@cadence/contracts/habit";
 import { HabitMenu } from "./HabitMenu";
 import { HabitContextMenuWrapper } from "./HabitContextMenuWrapper";
 

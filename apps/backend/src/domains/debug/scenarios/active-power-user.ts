@@ -20,7 +20,7 @@
  * - Full user settings with all notification channels enabled
  */
 
-import type { DbClient } from "../../../platform/db";
+import type { Tx } from "../../../types/db";
 import {
     createSeedProject,
     createSeedSection,
@@ -60,8 +60,6 @@ import {
 import { eq } from "drizzle-orm";
 
 export const SCENARIO_VERSION = "2.3.0";
-
-type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
 
 function getRequiredRow<T>(map: Map<string, T>, key: string, label: string): T {
     const row = map.get(key);

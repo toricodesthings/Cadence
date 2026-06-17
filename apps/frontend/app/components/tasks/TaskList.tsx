@@ -24,8 +24,8 @@ import { useTags } from "../../hooks/tags";
 import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { computeMidpointIndex } from "../../lib/utils/order-index";
 import { TaskContextMenuWrapper } from "./TaskContextMenuWrapper";
-import type { Tag } from "../../types/tag";
-import type { Task } from "../../types/task";
+import type { Tag } from "@cadence/contracts/tag";
+import type { Task } from "@cadence/contracts/task";
 import { MouseSensor, TouchSensor } from "../../lib/utils/dnd";
 
 interface TaskListProps {

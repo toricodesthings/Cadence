@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X } from "lucide-react";
 import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
-import type { Habit, HabitLog } from "../../types/habit";
+import type { Habit, HabitLog } from "@cadence/contracts/habit";
 import { useState } from "react";
 import * as Popover from "../primitives/Popover";
 import { toISODate } from "../../lib/utils/date-format";

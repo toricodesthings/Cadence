@@ -15,6 +15,7 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
 import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
+import { useAssistantStore } from "../stores/assistant-store";
 import { useInbox } from "../hooks/inbox";
 import { useTasks } from "../hooks/tasks";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
@@ -32,7 +33,8 @@ export default function HomeRoute() {
         state: "ACTIVE",
         hasNoProject: true,
     });
-    const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel } = useRightPanelStore();
+    const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } = useRightPanelStore();
+    const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
 
     useDocumentMeta(
         "Capture · Cadence",
@@ -129,15 +131,32 @@ export default function HomeRoute() {
         }
     };
 
-    /* ── Header: panel toggle for desktop; planner shortcut for mobile ── */
+    /* ── Header: panel toggle for desktop; planner shortcut for mobile ──
+       The arrow collapses/expands whichever pane the shared rail is currently
+       showing — Cadence when it holds the rail, the Review panel otherwise — so
+       it stays in sync with the rail's mutual exclusivity. */
+    // Mirror MainLayout's `assistantInRail`: Cadence holds the rail when it owns
+    // the active tab OR when there's no contextual panel for it to defer to.
+    // Without the second clause the closer mis-fires when the assistant snapped
+    // back into an empty rail (railView still "context") — toggling the calendar
+    // instead of closing Cadence.
+    const railShowsAssistant = assistantPanelOpen && (railView === "assistant" || !hasPanelContent);
+    const railOpen = railShowsAssistant ? assistantPanelOpen : holdingPanelOpen;
+    const toggleRail = railShowsAssistant ? toggleAssistantPanel : toggleHoldingPanel;
     const headerRight = shell.isWide ? (
         <button
             type="button"
-            onClick={toggleHoldingPanel}
+            onClick={toggleRail}
             className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-            aria-label={holdingPanelOpen ? "Hide review panel" : "Show review panel"}
+            aria-label={
+                railShowsAssistant
+                    ? "Hide Cadence"
+                    : holdingPanelOpen
+                        ? "Hide review panel"
+                        : "Show review panel"
+            }
         >
-            {holdingPanelOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
+            {railOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
         </button>
     ) : (
         <button
@@ -158,6 +177,8 @@ export default function HomeRoute() {
             requireAuth
             hideContextualOrb
             sidePanel={sidePanel}
+            sidePanelActive={Boolean(hasPanelContent)}
+            sidePanelLabel="Review"
             headerRight={headerRight}
             phoneHeaderRightInline
             contentWidth="default"

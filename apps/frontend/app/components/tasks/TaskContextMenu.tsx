@@ -11,7 +11,7 @@ import { QuickScheduleSurface } from "./QuickScheduleSurface";
 import { MoveToSubmenu } from "./MoveToSubmenu";
 import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
 
 type GenericMenu = typeof DropdownMenu | typeof ContextMenu;

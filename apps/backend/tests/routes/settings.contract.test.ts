@@ -28,7 +28,7 @@ vi.mock("../../src/platform/idempotency", () => ({
 }));
 
 import { settingsRoutes } from "../../src/domains/settings/settings.route";
-import { SETTINGS_DEFAULTS } from "../../src/domains/settings/settings-defaults";
+import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
 
 function createSettingsApp() {
     const app = new Hono<{ Variables: AuthVariables }>();

@@ -1,5 +1,6 @@
 import type { ActionDefinition, ActionGroup, ActionSection } from "../../lib/actions/action-grammar";
 import { groupActions } from "../../lib/actions/action-grammar";
+import { Tip } from "../primitives";
 
 interface ActionMenuSectionProps {
     actions: ActionDefinition[];
@@ -35,14 +36,13 @@ export function ActionMenuSection({ actions, onAction, disabledActions = {} }: A
                         const disabledReason = disabledActions[action.id];
                         const isDisabled = disabledReason !== undefined;
 
-                        return (
+                        const button = (
                             <button
                                 key={action.id}
                                 type="button"
                                 role="menuitem"
                                 disabled={isDisabled}
                                 onClick={() => onAction(action.id)}
-                                title={isDisabled ? disabledReason : undefined}
                                 className={`flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed
                                     ${action.section === "destructive"
                                         ? "text-twilight-text-muted/60 hover:text-red-400 hover:bg-red-500/10"
@@ -60,6 +60,15 @@ export function ActionMenuSection({ actions, onAction, disabledActions = {} }: A
                                 )}
                             </button>
                         );
+
+                        if (isDisabled && disabledReason) {
+                            return (
+                                <Tip key={action.id} label={disabledReason} side="top">
+                                    <span className="block">{button}</span>
+                                </Tip>
+                            );
+                        }
+                        return button;
                     })}
                 </div>
             ))}

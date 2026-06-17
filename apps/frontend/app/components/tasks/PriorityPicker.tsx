@@ -1,8 +1,8 @@
 import React from "react";
 import { Minus, ArrowDown, ArrowRight, ArrowUp, AlertCircle } from "lucide-react";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
-import type { TaskPriority } from "../../types/task";
-import * as Tooltip from "../primitives/Tooltip";
+import type { TaskPriority } from "@cadence/contracts/task";
+import { Tip } from "../primitives";
 
 interface PriorityPickerProps {
     currentPriority: TaskPriority;
@@ -39,33 +39,28 @@ export const PriorityPicker: React.FC<PriorityPickerProps> = ({
                     const isActive = currentPriority === p;
 
                     return (
-                        <Tooltip.Root key={p}>
-                            <Tooltip.Trigger asChild>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onSelect(p);
-                                    }}
-                                    className={`
+                        <Tip key={p} label={config.label} side="bottom">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelect(p);
+                                }}
+                                className={`
 									group flex h-9 w-full cursor-pointer items-center justify-center rounded-lg border transition-[background-color,border-color] duration-200
 									${isActive
-                                            ? "border-accent-primary bg-accent-primary/10 "
-                                            : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"
-                                        }
+                                        ? "border-accent-primary bg-accent-primary/10 "
+                                        : "border-twilight-border bg-white/[0.04] hover:border-twilight-text-muted/30"
+                                    }
 									`}
-                                    aria-label={config.label}
-                                >
-                                    <Icon
-                                        size={16}
-                                        className={`transition-colors ${isActive ? config.color : "text-twilight-text-muted group-hover:text-twilight-text"
-                                            }`}
-                                    />
-                                </button>
-                            </Tooltip.Trigger>
-                            <Tooltip.Content side="bottom" className="text-xs">
-                                {config.label}
-                            </Tooltip.Content>
-                        </Tooltip.Root>
+                                aria-label={config.label}
+                            >
+                                <Icon
+                                    size={16}
+                                    className={`transition-colors ${isActive ? config.color : "text-twilight-text-muted group-hover:text-twilight-text"
+                                        }`}
+                                />
+                            </button>
+                        </Tip>
                     );
                 })}
             </div>

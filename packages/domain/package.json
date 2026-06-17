@@ -1,0 +1,29 @@
+{
+  "name": "@cadence/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./errors": "./src/errors.ts",
+    "./task-temporal": "./src/task-temporal.ts",
+    "./task-recurrence": "./src/task-recurrence.ts",
+    "./ordering": "./src/ordering.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "node scripts/check-imports.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@cadence/contracts": "workspace:*",
+    "@cadence/nlp": "workspace:*",
+    "date-fns": "^4.4.0",
+    "rrule": "^2.8.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

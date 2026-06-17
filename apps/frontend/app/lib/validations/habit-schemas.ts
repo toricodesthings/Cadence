@@ -1,14 +1,26 @@
 import { z } from "zod";
+import { insertHabitSchema } from "@cadence/contracts/habit";
 
-export const createHabitSchema = z.object({
-    title: z.string().min(1, "Name is required").max(100, "Name is too long"),
-    description: z.string().max(500, "Description is too long").optional(),
-    recurrenceRule: z.string().min(1, "Recurrence is required"),
-    colorAccent: z.enum(["lantern", "glacier", "emerald", "amethyst", "rose", "sage"]),
-    targetTime: z.string().optional().nullable(),
-    reminderEnabled: z.boolean().optional(),
-    projectId: z.string().uuid().optional().nullable(),
-    tagIds: z.array(z.string().uuid()).optional(),
-});
+// Form schema is a DERIVATION of the canonical backend `insertHabitSchema`
+// (one source of truth) — not a parallel definition. Only form-only ergonomics
+// (restricted colour palette, friendly messages) are layered on top.
+export const createHabitSchema = insertHabitSchema
+    .pick({
+        title: true,
+        description: true,
+        recurrenceRule: true,
+        colorAccent: true,
+        targetTime: true,
+        reminderEnabled: true,
+        projectId: true,
+        tagIds: true,
+    })
+    .extend({
+        recurrenceRule: z.string().min(1, "Recurrence is required").max(500),
+        // Product rule: habit cards use a curated accent palette.
+        colorAccent: z.enum(["lantern", "glacier", "emerald", "amethyst", "rose", "sage"]),
+    });
 
-export type CreateHabitValues = z.infer<typeof createHabitSchema>;
+// z.input keeps defaulted fields optional so the react-hook-form values type
+// matches what the form actually submits.
+export type CreateHabitValues = z.input<typeof createHabitSchema>;

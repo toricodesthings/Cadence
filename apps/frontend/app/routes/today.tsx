@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3 } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
+import { Tip } from "../components/primitives";
 import { AgendaHabitDivider, AgendaRow } from "../components/shared/AgendaRow";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
@@ -40,7 +41,7 @@ import type { RankableTask } from "@cadence/nlp/ranking";
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
-import type { Task } from "../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 const RHYTHMS_STORAGE_KEY = "cadence-today-hide-rhythms";
 
@@ -592,15 +593,16 @@ export default function TodayRoute() {
                 </button>
             ),
             boardHeaderAction: (
-                <button
-                    type="button"
-                    onClick={toggleRhythms}
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
-                    aria-label={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"}
-                    title={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"}
-                >
-                    {hideRhythms ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
-                </button>
+                <Tip label={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"} side="bottom">
+                    <button
+                        type="button"
+                        onClick={toggleRhythms}
+                        className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
+                        aria-label={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"}
+                    >
+                        {hideRhythms ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
+                    </button>
+                </Tip>
             ),
             listSectionClassName: "rounded-[28px] border border-moonlit/20 bg-moonlit/[0.08] px-4 py-4 shadow-[0_18px_60px_rgba(7,14,26,0.18)]",
             boardSectionClassName: "border-moonlit/25 bg-moonlit/[0.08]",
@@ -614,6 +616,8 @@ export default function TodayRoute() {
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
+            sidePanelActive={Boolean(selectedTaskId)}
+            sidePanelLabel="Task"
             headerRight={headerRight}
             contentWidth="default"
             shellHeader={{

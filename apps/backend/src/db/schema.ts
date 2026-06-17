@@ -21,7 +21,7 @@ import { relations, sql } from 'drizzle-orm';
 const rlsUsing = sql`(user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`;
 
 // Settings schema is defined once in the settings domain and imported here.
-import { userSettingsSchema, type UserSettings } from '../domains/settings/settings.schema';
+import { userSettingsSchema, type UserSettings } from "@cadence/contracts/settings";
 export { userSettingsSchema as UserSettingsSchema, type UserSettings };
 
 // === ENUMS ===
@@ -43,6 +43,16 @@ export const sourceSurfaceEnum = pgEnum('source_surface', [
 ]);
 export const suggestionTypeEnum = pgEnum('suggestion_type', ['lighten_today', 'suggested_cleanup', 'move_overdue']);
 export const focusViewSourceEnum = pgEnum('focus_view_source', ['preset', 'composed', 'manual']);
+
+// AI assistant enums (see docs/ai_upgrade 04 — prompt storage, 08 — persistence)
+export const aiPromptLayerEnum = pgEnum('ai_prompt_layer', ['base', 'auxiliary']);
+export const aiPromptBlockKindEnum = pgEnum('ai_prompt_block_kind', [
+    'identity', 'safety', 'operating_principles', 'output_contract', 'tool_policy',
+    'runtime_context', 'human_metrics', 'persona_customization',
+    'retrieved_memory', 'workspace_snapshot', 'tone_neutral', 'tone_protective',
+]);
+export const aiMessageRoleEnum = pgEnum('ai_message_role', ['user', 'assistant', 'system']);
+export const aiMessageStatusEnum = pgEnum('ai_message_status', ['streaming', 'complete', 'failed', 'aborted']);
 
 // === TABLES ===
 
@@ -113,16 +123,32 @@ export const userMetrics = pgTable('user_metrics', {
 }).enableRLS();
 
 // 3. AI Memory Layer (Auto-Pruning Context via pgvector RAG)
+// Lifecycle/quality columns (salience/expiry/provenance/dedupe) added per
+// docs/ai_upgrade/06_memory_layer.md. RLS policy unchanged (owner access).
 export const aiMemories = pgTable('ai_memories', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     content: text('content').notNull(), // e.g., "User struggles to focus before 10 AM"
     embedding: vector('embedding', { dimensions: 1536 }), // pgvector for RAG similarity search (dimensions match chosen AI model)
     type: memoryTypeEnum('type').default('EPHEMERAL').notNull(),
+    salience: real('salience').default(0.5).notNull(),            // 0..1 importance; drives retrieval ranking & pruning
+    lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true, mode: 'string' }),
+    accessCount: integer('access_count').default(0).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }), // null for CORE; set for EPHEMERAL
+    sourceConversationId: uuid('source_conversation_id')          // provenance → ai_conversations
+        .references(() => aiConversations.id, { onDelete: 'set null' }),
+    sourceMessageId: text('source_message_id'),                   // which message produced it
+    embeddingModel: text('embedding_model'),                      // model id used → safe re-embed on model change
+    dedupeHash: text('dedupe_hash'),                              // normalized-content hash to avoid near-duplicates
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => {
     return {
         userIdIdx: index('ai_memories_user_id_idx').on(table.userId),
+        userTypeIdx: index('ai_memories_user_type_idx').on(table.userId, table.type),
+        expiresIdx: index('ai_memories_expires_idx').on(table.expiresAt),
+        dedupeUnique: uniqueIndex('ai_memories_user_dedupe_unique').on(table.userId, table.dedupeHash),
+        embeddingIdx: index('ai_memories_embedding_hnsw_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
         rlsPolicy: pgPolicy("ai_memories_owner_access", {
             as: "permissive",
             for: "all",
@@ -131,6 +157,85 @@ export const aiMemories = pgTable('ai_memories', {
         }),
     };
 }).enableRLS();
+
+// 3a. AI Prompt Blocks — modular, DB-stored system-prompt fragments.
+// GLOBAL APPLICATION CONFIG, identical for every user → intentionally NO RLS.
+// This table is system-owned: written only by migrations/admin tooling and read
+// by the prompt-cache loader; it is never reachable from user-scoped routes.
+// (Deliberate, recorded deviation from the "RLS or it doesn't ship" rule —
+// mirrors the documented types/inbox.ts exception style.) See docs/ai_upgrade/04.
+export const aiPromptBlocks = pgTable('ai_prompt_blocks', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    kind: aiPromptBlockKindEnum('kind').notNull(),
+    layer: aiPromptLayerEnum('layer').notNull(),
+    locale: text('locale').default('en').notNull(),               // future i18n
+    orderIndex: integer('order_index').notNull(),                 // deterministic composition order
+    template: text('template').notNull(),                         // may contain {{placeholders}}
+    version: integer('version').default(1).notNull(),             // per-block edit counter
+    isActive: boolean('is_active').default(true).notNull(),
+    notes: text('notes'),                                         // editor-facing change rationale
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => ({
+    activeLookupIdx: uniqueIndex('ai_prompt_blocks_active_kind_locale_unique').on(table.kind, table.locale),
+}));
+// NOTE: enableRLS() intentionally omitted — global config, not user data.
+
+// 3b. AI Prompt Revision — singleton cache-bust token (only row id=1).
+// Any write to ai_prompt_blocks bumps `revision` (admin write path / trigger).
+export const aiPromptRevision = pgTable('ai_prompt_revision', {
+    id: integer('id').primaryKey().default(1),                   // enforced singleton: only row id=1
+    revision: integer('revision').default(1).notNull(),          // bumped on ANY block change
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+// 3c. AI Conversations — one row per chat thread (owner RLS). See docs/ai_upgrade/08.
+export const aiConversations = pgTable('ai_conversations', {
+    id: uuid('id').defaultRandom().primaryKey(),                 // = chatId used by useChat
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    title: text('title'),                                        // AI-generated short title; null until set
+    model: text('model'),                                        // model id used for the thread
+    lastMessageAt: timestamp('last_message_at', { withTimezone: true, mode: 'string' }),
+    archived: boolean('archived').default(false).notNull(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(), // token totals, etc.
+    // Non-null while a turn is producing; compare-and-cleared on finish. Source of
+    // truth for "is there a live stream" — the resume GET keys off this (doc Update 4 §3).
+    activeStreamId: text('active_stream_id'),
+    // The most recently FINISHED stream + its terminal status, recorded as the active
+    // pointer is cleared on finish. Lets a slightly-late re-attach grace-replay the
+    // just-finished chunk-log (still alive ~60s) instead of popping in the final DB
+    // text, and drives the client's Retry affordance after reload (doc Update 4 §7.10).
+    lastStreamId: text('last_stream_id'),
+    lastStreamStatus: text('last_stream_status'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => ({
+    userIdIdx: index('ai_conversations_user_id_idx').on(table.userId),
+    userRecentIdx: index('ai_conversations_user_recent_idx').on(table.userId, table.lastMessageAt),
+    rlsPolicy: pgPolicy('ai_conversations_owner_access', {
+        as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing,
+    }),
+})).enableRLS();
+
+// 3d. AI Messages — one row per UIMessage (owner RLS). parts/metadata are jsonb.
+export const aiMessages = pgTable('ai_messages', {
+    id: text('id').primaryKey(),                                 // SDK-generated message id (generateId)
+    conversationId: uuid('conversation_id')
+        .references(() => aiConversations.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    role: aiMessageRoleEnum('role').notNull(),
+    parts: jsonb('parts').$type<unknown[]>().notNull(),         // the UIMessage.parts array (text, tool, data…)
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(), // usage, model, timing
+    status: aiMessageStatusEnum('status').default('complete').notNull(),
+    orderIndex: doublePrecision('order_index').notNull(),       // stable fractional ordering within a thread
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => ({
+    convoOrderIdx: index('ai_messages_convo_order_idx').on(table.conversationId, table.orderIndex),
+    userIdIdx: index('ai_messages_user_id_idx').on(table.userId),
+    rlsPolicy: pgPolicy('ai_messages_owner_access', {
+        as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing,
+    }),
+})).enableRLS();
 
 // 4a. Task Sections (User-defined grouping headers, scoped to a project)
 // In kanban view each section becomes a column.

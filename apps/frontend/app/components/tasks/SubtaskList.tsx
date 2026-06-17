@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
-import type { Subtask } from "../../types/task";
+import type { Subtask } from "@cadence/contracts/subtask";
 
 interface EditableSubtaskRowProps extends SortableSubtaskRenderProps {
     onDelete: (id: string) => void;

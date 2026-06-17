@@ -4,7 +4,7 @@ import { ArrowLeftRight, CalendarRange } from "lucide-react";
 import { useSwipeNavigation } from "../../hooks/use-swipe-navigation";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 import type { PersonalEvent } from "../../types/settings";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import { DayFocusView } from "./DayFocusView";
 
 interface WeekFocusViewProps {

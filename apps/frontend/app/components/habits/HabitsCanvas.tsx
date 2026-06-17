@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { toISODate } from "../../lib/utils/date-format";
-import type { Habit } from "../../types/habit";
+import type { Habit } from "@cadence/contracts/habit";
 import { HabitItem } from "./HabitItem";
 import { HabitMenu } from "./HabitMenu";
 import { HabitContextMenuWrapper } from "./HabitContextMenuWrapper";

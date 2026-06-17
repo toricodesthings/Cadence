@@ -7,7 +7,7 @@ import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { PageContent } from "../components/layout/PageLayout";
 import { Button } from "../components/primitives/Button";
 import { formatShortDate } from "../lib/utils/date-format";
-import type { Task } from "../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 function TrashTaskRow({ task }: { task: Task }) {
     const restoreTask = useRestoreTask();

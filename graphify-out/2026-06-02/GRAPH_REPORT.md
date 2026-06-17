@@ -5,12 +5,12 @@
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 15405 nodes · 21029 edges · 962 communities (837 shown, 125 thin omitted)
+- 15891 nodes · 21483 edges · 968 communities (836 shown, 132 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 256 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `130dadcc`
+- Built from commit: `3b505a98`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -944,6 +944,7 @@
 - [[_COMMUNITY_Community 944|Community 944]]
 - [[_COMMUNITY_Community 945|Community 945]]
 - [[_COMMUNITY_Community 946|Community 946]]
+- [[_COMMUNITY_Community 947|Community 947]]
 - [[_COMMUNITY_Community 948|Community 948]]
 - [[_COMMUNITY_Community 949|Community 949]]
 - [[_COMMUNITY_Community 950|Community 950]]
@@ -958,6 +959,12 @@
 - [[_COMMUNITY_Community 959|Community 959]]
 - [[_COMMUNITY_Community 960|Community 960]]
 - [[_COMMUNITY_Community 961|Community 961]]
+- [[_COMMUNITY_Community 962|Community 962]]
+- [[_COMMUNITY_Community 963|Community 963]]
+- [[_COMMUNITY_Community 964|Community 964]]
+- [[_COMMUNITY_Community 965|Community 965]]
+- [[_COMMUNITY_Community 966|Community 966]]
+- [[_COMMUNITY_Community 967|Community 967]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `useApiClient()` - 112 edges
@@ -1057,67 +1064,75 @@
 - **parse() orchestrates entity sub-parsers in deterministic order** — nlp_parse_index_parse, nlp_parse_recurrence_parser_parseRecurrence, nlp_parse_date_parser_parseDates, nlp_parse_priority_parser_parsePriority, nlp_parse_entity_parser_parseDuration, nlp_resolve_index_resolveProjectsAndTags [EXTRACTED 1.00]
 - **Sub-parsers all emit ParsedEntity defined in core** — nlp_parse_date_parser, nlp_parse_recurrence_parser, nlp_parse_priority_parser, nlp_parse_entity_parser, nlp_resolve_index [INFERRED 0.85]
 
-## Communities (962 total, 125 thin omitted)
+## Communities (968 total, 132 thin omitted)
 
 ### Community 0 - "Worker Runtime & AI Bindings"
 Cohesion: 0.00
 Nodes (816): AbortController, AbortSignal, Ai, Ai_Cf_Ai4Bharat_Indictrans2_En_Indic_1B_Input, Ai_Cf_Ai4Bharat_Indictrans2_En_Indic_1B_Output, Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Async_Batch, Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_AsyncResponse, Ai_Cf_Aisingapore_Gemma_Sea_Lion_V4_27B_It_Chat_Completion_Response (+808 more)
 
 ### Community 1 - "Theme & Display Primitives"
-Cohesion: 0.07
-Nodes (65): HolidayAccuracyHint(), HolidayPreferencesPanel(), HolidayQuickToggle(), DEFAULT_PERSONAL_EVENTS, deepMerge(), flushAllPendingSettingsMutations(), getLocalSettingsKey(), isObject() (+57 more)
+Cohesion: 0.02
+Nodes (130): BackgroundMode, BackgroundSettings(), BackgroundSettingsProps, PRESET_COLORS, PaletteCardProps, PalettePicker(), PalettePickerProps, SegmentedControl() (+122 more)
 
 ### Community 2 - "API Contracts & Schemas"
-Cohesion: 0.03
-Nodes (36): createEventApp(), createInsertTx(), createSelectTx(), { getDbClientMock, withRlsMock }, mockExecutionCtx, setupTrackingMock(), createInboxApp(), { getDbClientMock, withRlsMock, checkIdempotencyMock, recordMutationMock, getIdempotencyKeyMock } (+28 more)
+Cohesion: 0.04
+Nodes (35): createEventApp(), createInsertTx(), createSelectTx(), { getDbClientMock, withRlsMock }, mockExecutionCtx, setupTrackingMock(), createInboxApp(), { getDbClientMock, withRlsMock, checkIdempotencyMock, recordMutationMock, getIdempotencyKeyMock } (+27 more)
 
 ### Community 3 - "Task Board & Holding UI"
 Cohesion: 0.03
-Nodes (143): useCreateSectionMock, useDeleteSectionMock, useSectionsMock, useUpdateSectionMock, TaskCard overdue presentation tests, baseTask, cancelCompletionMock, clearCompletionMock (+135 more)
+Nodes (83): MonthPeekViewProps, DraggableTaskItem(), UnscheduledTasksSidebar(), YearViewProps, TaskCard overdue presentation tests, baseTask, cancelCompletionMock, clearCompletionMock (+75 more)
 
 ### Community 4 - "Shared Collection Views"
-Cohesion: 0.23
-Nodes (8): useDragScroll, BoardCanvas(), BoardCanvasProps, BoardColumn, BoardColumnShell(), BucketedCollectionSection, BucketedCollectionViewProps, useDragScroll()
+Cohesion: 0.05
+Nodes (36): Always Do, Before You Start, Bundled Resources, Cargo.toml, Channel Streaming Pattern, Command Returns Undefined, Common Mistakes, Common Patterns (+28 more)
 
 ### Community 5 - "Usage Event Tracking"
-Cohesion: 0.04
-Nodes (56): pendingEvents, setDiagnosticsEnabled(), trackUsageEvent diagnostics gate tests, trackUsageEvent(), UsageEvent, UsageEventMetadata, Capture-to-task placement pipeline, ClarifySheet() (+48 more)
+Cohesion: 0.06
+Nodes (34): pendingEvents, setDiagnosticsEnabled(), trackUsageEvent diagnostics gate tests, UsageEvent, UsageEventMetadata, Capture-to-task placement pipeline, ClarifySheet(), ClarifySheetProps (+26 more)
 
 ### Community 6 - "Task Item Components"
-Cohesion: 0.40
-Nodes (3): taskGetMock, useApiClientMock, useAuthStateMock
+Cohesion: 0.06
+Nodes (30): Anti-Pattern: Missing Capability, Capability Best Practices, Capability File Structure, Clipboard (`tauri-plugin-clipboard-manager`), Common Capability Patterns, Contents, Core Permissions, Custom Permission Files (+22 more)
 
 ### Community 7 - "App Layout & Routing"
-Cohesion: 0.03
-Nodes (134): useMutationOutbox(), usePersonalEvents(), CADENCE_PUBLIC_VERSION, CADENCE_CHANGELOG, ChangelogEntry, ChangelogGlyph, useDocumentMeta(), hasPrimaryModifier() (+126 more)
+Cohesion: 0.02
+Nodes (167): useMutationOutbox(), BackgroundLayer(), DEFAULT_PERSONAL_EVENTS, usePersonalEvents(), CADENCE_PUBLIC_VERSION, CADENCE_CHANGELOG, ChangelogEntry, ChangelogGlyph (+159 more)
 
 ### Community 8 - "Query Cache Reconciliation"
-Cohesion: 0.06
-Nodes (79): transformListCache(), TransformListCacheOptions, patchHabitMonthlyCache(), reconcileHabitInCaches(), reconcileInboxItemInCaches(), reconcileProjectInCaches(), reconcileTagInCaches(), reconcileTaskInCaches() (+71 more)
+Cohesion: 0.05
+Nodes (89): transformListCache(), TransformListCacheOptions, patchHabitMonthlyCache(), reconcileHabitInCaches(), reconcileInboxItemInCaches(), reconcileProjectInCaches(), reconcileTagInCaches(), reconcileTaskInCaches() (+81 more)
 
 ### Community 9 - "Backend DB Routes & Schema"
-Cohesion: 0.05
-Nodes (65): scheduled cron handler, handleOverdueCheck(), pruneStaleMutations(), handleOverdueCheck, pruneStaleMutations, aiMemories, analysisStatusEnum, captureKindEnum (+57 more)
+Cohesion: 0.08
+Nodes (30): aiMemories, analysisStatusEnum, captureKindEnum, captureStatusEnum, habitStatusEnum, inboxSections, memoryTypeEnum, notificationState (+22 more)
 
 ### Community 10 - "Calendar Views & Pickers"
 Cohesion: 0.03
-Nodes (121): addDaysToIso(), addMonthsToIso(), getTaskDurationMs(), parseYMD(), formatDateLabel(), CalendarGrid(), CalendarHeader(), CalendarHeaderProps (+113 more)
+Nodes (155): matchesTaskList(), trackUsageEvent(), buildCalendarAllDayDropId(), buildCalendarTimedDropId(), CalendarDropPreview, getDateFromTimedDropId(), getDropMinutesLabel(), parseCalendarTimedDropId() (+147 more)
 
 ### Community 11 - "Habits UI Components"
-Cohesion: 0.06
-Nodes (61): Optimistic Update with Rollback Pattern, RRULE recurrence rule, buildRrule(), ByDay, BYDAY_ORDER, CadencePicker(), CadencePickerProps, DAY_ABBR (+53 more)
+Cohesion: 0.05
+Nodes (56): Radix glass-themed primitive re-export layer, RRULE recurrence rule, buildRrule(), ByDay, BYDAY_ORDER, CadencePicker(), CadencePickerProps, DAY_ABBR (+48 more)
 
 ### Community 12 - "Task Domain Logic"
-Cohesion: 0.09
-Nodes (33): isDateOnly(), normalizeEndBoundary(), normalizeStartBoundary(), normalizeTaskFilters(), assertChronological(), classifyTaskReadShape(), hasTaskTemporalMutation(), normalizeAnchorDate() (+25 more)
+Cohesion: 0.04
+Nodes (83): createTaskApp(), {
+    getDbClientMock,
+    withRlsMock,
+    trackRescheduleMock,
+    trackCompletionMock,
+    trackEventMock,
+    trackBatchEventsMock,
+    trackBatchCompletionMock,
+}, CanonicalNlpSnapshot, projects, tags, taskNlpMetadata, taskNlpMetadataHistory, tasks (+75 more)
 
 ### Community 13 - "Calendar Event Dialogs"
-Cohesion: 0.04
-Nodes (63): AddPersonalEventDialog(), AddPersonalEventDialogProps, addHour(), buildUntilValue(), buildWeeklyRule(), CalendarEventPopover(), CalendarEventPopoverProps, ComposerMode (+55 more)
+Cohesion: 0.03
+Nodes (110): useCreateSectionMock, useDeleteSectionMock, useSectionsMock, useSubtasksByTaskIdsMock, useTagsMock, useUpdateSectionMock, useUpdateTaskMock, useCreateSectionMock (+102 more)
 
 ### Community 14 - "Task Notes Editor"
-Cohesion: 0.05
-Nodes (53): matchesTaskList(), CommandPalette(), CommandPaletteProps, GROUP_LABELS, GROUP_ORDER, KIND_ICON, useDebouncedCallback(), useAllHabits() (+45 more)
+Cohesion: 0.03
+Nodes (89): CommandPalette(), CommandPaletteProps, GROUP_LABELS, GROUP_ORDER, KIND_ICON, PRIORITY_CONFIG, useDebouncedCallback(), getToday() (+81 more)
 
 ### Community 15 - "Mobile App Shell"
 Cohesion: 0.06
@@ -1128,20 +1143,20 @@ Cohesion: 0.03
 Nodes (64): dependencies, @cadence/nlp, clsx, date-fns, @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities, emoji-mart (+56 more)
 
 ### Community 17 - "NLP Parse Types"
-Cohesion: 0.12
-Nodes (18): CanonicalNlpEnvelope, DismissalRecord, DurationValue, ParsedEntity, ParsedEntityType, ParseOptions, ParseResult, PRIORITY_LABELS (+10 more)
+Cohesion: 0.07
+Nodes (49): CanonicalNlpEnvelope, ConfidenceTier, DateValue, DismissalRecord, DurationValue, ParsedEntity, ParsedEntityType, ParseOptions (+41 more)
 
 ### Community 18 - "Workspace Cache & Admin"
-Cohesion: 0.11
-Nodes (21): hardRefreshWorkspaceCaches(), hardRefreshWorkspaceCaches tests, DraggableTaskItem(), UnscheduledTasksSidebar(), useWorkspaceSync(), useNotificationCenter(), handleClearData, handleSeedData (+13 more)
+Cohesion: 0.07
+Nodes (29): Autoscaling, Branching, Check Status Quo, Connection Methods & Drivers, Connection Pooling, Developer Tools, Fetching Docs as Markdown, Finding the Right Page (+21 more)
 
 ### Community 19 - "Calendar Grid & Time"
-Cohesion: 0.06
-Nodes (53): buildCalendarAllDayDropId(), buildCalendarTimedDropId(), CalendarDropPreview, getDateFromTimedDropId(), getDropMinutesLabel(), parseCalendarTimedDropId(), buildClusterLayouts(), buildTimedTaskLayouts() (+45 more)
+Cohesion: 0.08
+Nodes (23): Async Command, Basic Command, Channels: Typed Streaming, Command with Multiple Arguments, Command with Raw Binary Data, Command with Result Error Handling, Command with State, Command with Window Access (+15 more)
 
 ### Community 20 - "Inbox UI Components"
-Cohesion: 0.05
-Nodes (41): name, notNull, primaryKey, type, ai_suggestion, analysis_confidence_tier, order_index, placed_task_id (+33 more)
+Cohesion: 0.04
+Nodes (48): name, notNull, primaryKey, name, notNull, primaryKey, type, type (+40 more)
 
 ### Community 21 - "DB Schema Columns"
 Cohesion: 0.04
@@ -1156,24 +1171,24 @@ Cohesion: 0.04
 Nodes (50): default, name, notNull, primaryKey, type, color_accent, description, notes (+42 more)
 
 ### Community 24 - "DB Schema Columns"
-Cohesion: 0.05
-Nodes (44): name, notNull, primaryKey, type, default, name, notNull, primaryKey (+36 more)
+Cohesion: 0.04
+Nodes (49): name, notNull, primaryKey, type, name, notNull, primaryKey, type (+41 more)
 
 ### Community 25 - "DB Schema Columns"
-Cohesion: 0.05
-Nodes (39): current_streak, description, notes, paused_until, project_id, reminder_enabled, updated_at, default (+31 more)
+Cohesion: 0.04
+Nodes (49): default, name, notNull, primaryKey, type, archived, description, notes (+41 more)
 
 ### Community 26 - "API Client & Auth Fetch"
-Cohesion: 0.04
-Nodes (62): _fetchAuthJwtOnce, ApiClient, authenticatedFetch(), AuthenticatedFetchOptions, clearAuthJwtCache(), fetchAuthJwt(), _fetchAuthJwtOnce(), looksLikeJwt() (+54 more)
+Cohesion: 0.06
+Nodes (36): _fetchAuthJwtOnce, ApiClient, authenticatedFetch(), AuthenticatedFetchOptions, clearAuthJwtCache(), fetchAuthJwt(), _fetchAuthJwtOnce(), looksLikeJwt() (+28 more)
 
 ### Community 27 - "Command Schemas"
 Cohesion: 0.05
 Nodes (40): commands, description, identifier, commands, description, identifier, commands, description (+32 more)
 
 ### Community 28 - "Notifications & Reminders"
-Cohesion: 0.08
-Nodes (35): AppNotification, GROUP_LABELS, GROUP_ORDER, groupNotification(), NotificationGroup, NotificationKind, NotificationPriority, NOTIFICATION_STYLES (+27 more)
+Cohesion: 0.05
+Nodes (49): hardRefreshWorkspaceCaches(), hardRefreshWorkspaceCaches tests, useWorkspaceSync(), AppNotification, GROUP_LABELS, GROUP_ORDER, groupNotification(), NotificationGroup (+41 more)
 
 ### Community 29 - "Habit Schema Columns"
 Cohesion: 0.04
@@ -1204,8 +1219,8 @@ Cohesion: 0.05
 Nodes (42): due_date, duration_estimate, is_all_day, order_index, project_id, scheduled_end, scheduled_start, title (+34 more)
 
 ### Community 36 - "Community 36"
-Cohesion: 0.05
-Nodes (41): name, notNull, primaryKey, type, name, notNull, primaryKey, type (+33 more)
+Cohesion: 0.04
+Nodes (48): name, notNull, primaryKey, name, notNull, primaryKey, type, type (+40 more)
 
 ### Community 37 - "Community 37"
 Cohesion: 0.05
@@ -1224,8 +1239,8 @@ Cohesion: 0.05
 Nodes (41): commands, description, identifier, commands, description, identifier, commands, description (+33 more)
 
 ### Community 41 - "Community 41"
-Cohesion: 0.05
-Nodes (39): description, recurrence_rule, reminder_enabled, sort_order, target_time, title, total_completions, name (+31 more)
+Cohesion: 0.04
+Nodes (45): default, name, notNull, primaryKey, type, archived, current_streak, description (+37 more)
 
 ### Community 42 - "Community 42"
 Cohesion: 0.10
@@ -1320,8 +1335,8 @@ Cohesion: 0.04
 Nodes (45): default, name, notNull, primaryKey, type, archived, current_streak, description (+37 more)
 
 ### Community 65 - "Community 65"
-Cohesion: 0.06
-Nodes (59): Debug route deployment-stage gating, taskNotes, habitRoutes, ApiClient, countHeadings(), countWords(), generateExcerpt(), noteRoutes (+51 more)
+Cohesion: 0.12
+Nodes (39): taskSections, countHeadings(), countWords(), generateExcerpt(), authMiddleware, AuthVariables, ensureUserExists(), ApiError (+31 more)
 
 ### Community 66 - "Community 66"
 Cohesion: 0.05
@@ -1329,7 +1344,7 @@ Nodes (39): due_date, is_pinned, project_id, reminder_silenced, scheduled_start,
 
 ### Community 67 - "Community 67"
 Cohesion: 0.05
-Nodes (38): description, notes, paused_until, recurrence_rule, target_time, total_completions, updated_at, name (+30 more)
+Nodes (44): description, paused_until, project_id, recurrence_rule, sort_order, target_mode, target_time, total_skips (+36 more)
 
 ### Community 68 - "Community 68"
 Cohesion: 0.05
@@ -1340,16 +1355,16 @@ Cohesion: 0.06
 Nodes (37): default, name, notNull, primaryKey, type, color_accent, created_at, id (+29 more)
 
 ### Community 70 - "Community 70"
-Cohesion: 0.11
-Nodes (34): confidenceTierEnum, focusViewSourceEnum, sourceSurfaceEnum, ConfidenceTier, createSeedHabit(), createSeedInboxItem(), createSeedInboxSection(), createSeedNlpMetadata() (+26 more)
+Cohesion: 0.07
+Nodes (48): confidenceTierEnum, focusViewSourceEnum, sourceSurfaceEnum, ConfidenceTier, createSeedHabit(), createSeedInboxItem(), createSeedInboxSection(), createSeedNlpMetadata() (+40 more)
 
 ### Community 71 - "Community 71"
 Cohesion: 0.11
 Nodes (19): devDependencies, @cadence/backend, @cloudflare/workers-types, jsdom, @react-router/dev, tailwindcss, @tailwindcss/typography, @tailwindcss/vite (+11 more)
 
 ### Community 72 - "Community 72"
-Cohesion: 0.08
-Nodes (33): createIDBPersister(), ProvidersInner(), QueryClient auth-error recovery flow, getStoredNotificationPermission(), NotificationPermission, Offline WAL + mutation replay, DesktopBridgeHealthCheck, DesktopBridgeUpdateCheck (+25 more)
+Cohesion: 0.07
+Nodes (37): createIDBPersister(), ProvidersInner(), QueryClient auth-error recovery flow, Offline WAL + mutation replay, DesktopBridgeHealthCheck, DesktopBridgeUpdateCheck, installDesktopE2EBridge(), Window (+29 more)
 
 ### Community 73 - "Community 73"
 Cohesion: 0.06
@@ -1364,8 +1379,8 @@ Cohesion: 0.06
 Nodes (35): default, name, notNull, primaryKey, type, color_accent, created_at, emoji (+27 more)
 
 ### Community 76 - "Community 76"
-Cohesion: 0.07
-Nodes (29): BackgroundLayer(), BackgroundMode, BackgroundSettings(), BackgroundSettingsProps, PRESET_COLORS, PaletteCardProps, PalettePicker(), PalettePickerProps (+21 more)
+Cohesion: 0.16
+Nodes (19): findSubdivisionCode(), getLocaleRegion(), HolidaySubdivisionOption, inferCountryFromTimezone(), normalizeCountryCode(), normalizeText(), SUBDIVISION_ALIASES, holiday location resolver tests (+11 more)
 
 ### Community 77 - "Community 77"
 Cohesion: 0.12
@@ -1400,8 +1415,8 @@ Cohesion: 0.07
 Nodes (35): created_at, emoji, id, name, result_id, user_id, default, name (+27 more)
 
 ### Community 85 - "Community 85"
-Cohesion: 0.17
-Nodes (13): captureKindSchema, captureStatusSchema, InboxAnalysisStatus, inboxAnalysisStatusSchema, InsertInboxItem, insertInboxItemSchema, InsertInboxSection, insertInboxSectionSchema (+5 more)
+Cohesion: 0.10
+Nodes (20): Auto-Trigger Keywords, Companion Agent (Deprecated), Core Capabilities, Dependencies, Don't Use This Skill For, Error-Based Keywords, File Structure, Known Issues Prevention (+12 more)
 
 ### Community 86 - "Community 86"
 Cohesion: 0.10
@@ -1412,8 +1427,8 @@ Cohesion: 0.06
 Nodes (32): as, for, name, to, using, withCheck, columns, concurrently (+24 more)
 
 ### Community 88 - "Community 88"
-Cohesion: 0.10
-Nodes (28): getNativeStore(), DEFAULT_DESKTOP_COMMAND_PREFERENCES, DesktopCommandPreferences, emitChange(), ensureLoaded(), getFallbackStorage(), getSnapshot(), isDesktopCommandPreferences() (+20 more)
+Cohesion: 0.20
+Nodes (14): DESKTOP_LAYOUT_SCALE_ORDER, DESKTOP_LAYOUT_SCALE_VALUES, DesktopLayoutScale, emitChange(), ensureLoaded(), getSnapshot(), hasWindow(), isPersistedDesktopLayoutScale() (+6 more)
 
 ### Community 89 - "Community 89"
 Cohesion: 0.06
@@ -1452,12 +1467,12 @@ Cohesion: 0.06
 Nodes (32): as, for, name, to, using, withCheck, columns, concurrently (+24 more)
 
 ### Community 98 - "Community 98"
-Cohesion: 0.09
-Nodes (23): as, for, name, to, using, withCheck, columns, concurrently (+15 more)
+Cohesion: 0.06
+Nodes (32): as, for, name, to, using, withCheck, columns, concurrently (+24 more)
 
 ### Community 99 - "Community 99"
-Cohesion: 0.09
-Nodes (23): { checkIdempotencyMock, recordMutationMock, getIdempotencyKeyMock }, createSettingsApp(), { getDbClientMock, withRlsMock }, emitStructuredLog(), getRequestId(), getRouteLabel(), hashIdentifier(), JSON_SUMMARY_KEYS (+15 more)
+Cohesion: 0.06
+Nodes (33): debugRoutes, healthRoutes, emitStructuredLog(), getRequestId(), getRouteLabel(), hashIdentifier(), JSON_SUMMARY_KEYS, levelForStatus() (+25 more)
 
 ### Community 100 - "Community 100"
 Cohesion: 0.07
@@ -1476,28 +1491,28 @@ Cohesion: 0.07
 Nodes (30): default, name, notNull, primaryKey, type, default, name, notNull (+22 more)
 
 ### Community 104 - "Community 104"
-Cohesion: 0.06
-Nodes (61): CanonicalNlpSnapshot, inboxItems, projects, tags, taskNlpMetadata, taskNlpMetadataHistory, taskTags, users (+53 more)
+Cohesion: 0.08
+Nodes (24): { checkIdempotencyMock, recordMutationMock, getIdempotencyKeyMock }, createSettingsApp(), { getDbClientMock, withRlsMock }, { checkIdempotencyMock, recordMutationMock, getIdempotencyKeyMock }, createSettingsApp(), { getDbClientMock, withRlsMock }, CanonicalSettings, SETTINGS_DEFAULTS (+16 more)
 
 ### Community 105 - "Community 105"
 Cohesion: 0.14
 Nodes (25): Fractional (double precision) order_index ordering, JWT sub claim user scoping, Client mutation idempotency / dedup, NLP capture & intelligence pipeline, pgvector embeddings (vector 1536), Row-Level Security owner-access policy pattern, ai_memories table, habit_logs table (+17 more)
 
 ### Community 106 - "Community 106"
-Cohesion: 0.09
-Nodes (23): completed_at, resolved_at, status, target_date, name, notNull, primaryKey, type (+15 more)
+Cohesion: 0.07
+Nodes (29): completed_at, created_at, resolved_at, status, target_date, name, notNull, primaryKey (+21 more)
 
 ### Community 107 - "Community 107"
 Cohesion: 0.07
 Nodes (29): dependencies, expo, expo-constants, expo-font, expo-haptics, expo-image, expo-linking, expo-router (+21 more)
 
 ### Community 108 - "Community 108"
-Cohesion: 0.10
-Nodes (21): Backend App Entry (Hono), areDebugRoutesEnabled, isAllowedOrigin, rateLimitResponse, Debug Routes, clearUserData, requireAdmin, Debug Seed Fixture Builders (+13 more)
+Cohesion: 0.06
+Nodes (38): Backend App Entry (Hono), areDebugRoutesEnabled, isAllowedOrigin, rateLimitResponse, scheduled cron handler, handleOverdueCheck(), pruneStaleMutations(), handleOverdueCheck (+30 more)
 
 ### Community 109 - "Community 109"
-Cohesion: 0.12
-Nodes (23): Holding Page Audit & Remediation Plan, NLP Update 2 Master Plan, Atomic Capture-Processing Endpoint, Capture First, Classify Second, chrono-node Date Parser, ClarifySheet Surface, Confidence Tier Model (high/medium/low), Deterministic NLP Not LLM-First (+15 more)
+Cohesion: 0.10
+Nodes (28): Holding Page Audit & Remediation Plan, NLP Update 2 Master Plan, Cadence Mobile README, Atomic Capture-Processing Endpoint, Backend RPC Type Sharing (@cadence/backend), Capture First, Classify Second, chrono-node Date Parser, ClarifySheet Surface (+20 more)
 
 ### Community 110 - "Community 110"
 Cohesion: 0.17
@@ -1524,8 +1539,8 @@ Cohesion: 0.07
 Nodes (26): backgroundColor, backgroundImage, foregroundImage, monochromeImage, adaptiveIcon, edgeToEdgeEnabled, predictiveBackGestureEnabled, reactCompiler (+18 more)
 
 ### Community 116 - "Community 116"
-Cohesion: 0.05
-Nodes (40): default, name, notNull, primaryKey, type, archived, current_streak, description (+32 more)
+Cohesion: 0.04
+Nodes (45): default, name, notNull, primaryKey, type, archived, current_streak, description (+37 more)
 
 ### Community 117 - "Community 117"
 Cohesion: 0.08
@@ -1540,8 +1555,8 @@ Cohesion: 0.06
 Nodes (32): as, for, name, to, using, withCheck, columns, concurrently (+24 more)
 
 ### Community 120 - "Community 120"
-Cohesion: 0.16
-Nodes (21): resolveLoadingSeason, closeCurrentDesktopWindow(), completeQuickCapture(), configureGlobalQuickCaptureShortcut(), DesktopCommandId, DesktopCommandPayload, focusMainDesktopWindow(), getCurrentDesktopWindowLabel() (+13 more)
+Cohesion: 0.14
+Nodes (24): closeCurrentDesktopWindow(), completeQuickCapture(), configureGlobalQuickCaptureShortcut(), DesktopCommandId, DesktopCommandPayload, focusMainDesktopWindow(), getCurrentDesktopWindowLabel(), getFallbackStorage() (+16 more)
 
 ### Community 121 - "Community 121"
 Cohesion: 0.12
@@ -1568,8 +1583,8 @@ Cohesion: 0.08
 Nodes (26): inbox_items_section_id_inbox_sections_id_fk, inbox_items_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom (+18 more)
 
 ### Community 127 - "Community 127"
-Cohesion: 0.40
-Nodes (3): createEnv(), createLimiter(), { createRemoteJWKSetMock, jwtVerifyMock }
+Cohesion: 0.11
+Nodes (17): `addToolResult` → `addToolOutput`, Common Errors, `generateObject` → `generateText` with `output`, Manual JSON parsing → `generateText` with `output`, `maxSteps` → `stopWhen: isStepCount(n)`, `maxTokens` → `maxOutputTokens`, `messages` → `uiMessages` in `createAgentUIStreamResponse`, Other `output` options (+9 more)
 
 ### Community 128 - "Community 128"
 Cohesion: 0.11
@@ -1596,8 +1611,8 @@ Cohesion: 0.08
 Nodes (23): dialect, as, for, name, to, using, withCheck, id (+15 more)
 
 ### Community 134 - "Community 134"
-Cohesion: 0.19
-Nodes (11): WarningCode, applyFocusView(), toDateStr(), composeFocusView(), DEFAULT_DEFINITION, FOCUS_VIEW_PRESETS, FocusViewComposerResult, FocusViewDefinition (+3 more)
+Cohesion: 0.14
+Nodes (20): applyFocusView(), toDateStr(), composeFocusView(), DEFAULT_DEFINITION, FOCUS_VIEW_PRESETS, FocusViewComposerResult, FocusViewDefinition, FocusViewPreset (+12 more)
 
 ### Community 135 - "Community 135"
 Cohesion: 0.08
@@ -1760,24 +1775,24 @@ Cohesion: 0.08
 Nodes (25): habit_tags_habit_id_habits_id_fk, habit_tags_tag_id_tags_id_fk, habit_tags_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate (+17 more)
 
 ### Community 175 - "Community 175"
-Cohesion: 0.22
-Nodes (9): habit_tags_habit_id_habits_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo (+1 more)
+Cohesion: 0.08
+Nodes (25): habit_tags_habit_id_habits_id_fk, habit_tags_tag_id_tags_id_fk, habit_tags_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate (+17 more)
 
 ### Community 176 - "Community 176"
 Cohesion: 0.11
 Nodes (25): Postgres Row Level Security owner-access policy, Migration 0005: task_sections, tasks.section_id, Migration 0007: inbox sections, project emoji, Migration 0008: habits.archived column, Migration 0015: task_interaction_mode enum, Migration 0020: habit_tags, habit scheduling fields, Migration 0022: saved focus views, NLP metadata, task notes, Drizzle schema snapshot 0008 (+17 more)
 
 ### Community 177 - "Community 177"
-Cohesion: 0.10
-Nodes (20): computeCurrentStreak(), scanStreak(), StreakScanState, Tx, habitListQuerySchema, HabitStatus, habitStatusSchema, InsertHabit (+12 more)
+Cohesion: 0.08
+Nodes (24): habitLogs, habits, habitTags, computeCurrentStreak(), habitRoutes, scanStreak(), StreakScanState, Tx (+16 more)
 
 ### Community 178 - "Community 178"
 Cohesion: 0.08
 Nodes (23): dialect, as, for, name, to, using, withCheck, id (+15 more)
 
 ### Community 179 - "Community 179"
-Cohesion: 0.08
-Nodes (24): content, created_at, embedding, type, name, notNull, primaryKey, type (+16 more)
+Cohesion: 0.09
+Nodes (23): content, embedding, type, user_id, name, notNull, primaryKey, type (+15 more)
 
 ### Community 180 - "Community 180"
 Cohesion: 0.12
@@ -1788,8 +1803,8 @@ Cohesion: 0.09
 Nodes (13): AuthErrorBoundary, createTaskMutateMock, renderInput(), useNlpParseMock, clearFailedEntriesMock, renderBanner(), retryAndReplayMock, walSnapshot (+5 more)
 
 ### Community 182 - "Community 182"
-Cohesion: 0.08
-Nodes (24): content, created_at, embedding, type, name, notNull, primaryKey, type (+16 more)
+Cohesion: 0.09
+Nodes (23): content, embedding, type, user_id, name, notNull, primaryKey, type (+15 more)
 
 ### Community 183 - "Community 183"
 Cohesion: 0.08
@@ -1832,12 +1847,12 @@ Cohesion: 0.09
 Nodes (23): completed_at, habit_id, status, target_date, name, notNull, primaryKey, type (+15 more)
 
 ### Community 193 - "Community 193"
-Cohesion: 0.09
-Nodes (23): completed_at, resolved_at, status, target_date, name, notNull, primaryKey, type (+15 more)
+Cohesion: 0.07
+Nodes (29): completed_at, created_at, resolved_at, status, target_date, name, notNull, primaryKey (+21 more)
 
 ### Community 194 - "Community 194"
-Cohesion: 0.15
-Nodes (17): Implementation Plan 18: Final Polish Before Working Beta, Post-Release Audit Plan 20, AI-Readiness Metrics (task_metrics/user_metrics/ai_memories), AI Suggests, Never Overrides, Authenticated Shell Bundle Weight, Backend Route Contract Test Coverage, Cloudflare Direct-Push Deploy Gating Risk, Frontend CSP unsafe-inline Dependency (+9 more)
+Cohesion: 0.10
+Nodes (25): Implementation Plan 18: Final Polish Before Working Beta, Post-Release Audit Plan 20, Notes Update Master Plan, AI-Readiness Metrics (task_metrics/user_metrics/ai_memories), AI Suggests, Never Overrides, Authenticated Shell Bundle Weight, Backend Route Contract Test Coverage, Cloudflare Direct-Push Deploy Gating Risk (+17 more)
 
 ### Community 195 - "Community 195"
 Cohesion: 0.09
@@ -1968,8 +1983,8 @@ Cohesion: 0.09
 Nodes (23): order_index, processed, raw_text, section_id, default, name, notNull, primaryKey (+15 more)
 
 ### Community 227 - "Community 227"
-Cohesion: 0.09
-Nodes (23): as, for, name, to, using, withCheck, columns, concurrently (+15 more)
+Cohesion: 0.06
+Nodes (32): as, for, name, to, using, withCheck, columns, concurrently (+24 more)
 
 ### Community 228 - "Community 228"
 Cohesion: 0.09
@@ -1980,8 +1995,8 @@ Cohesion: 0.05
 Nodes (45): completed_at, habit_id, id, resolved_at, status, tag_id, target_date, user_id (+37 more)
 
 ### Community 230 - "Community 230"
-Cohesion: 0.08
-Nodes (24): content, created_at, embedding, type, name, notNull, primaryKey, type (+16 more)
+Cohesion: 0.09
+Nodes (23): content, embedding, type, user_id, name, notNull, primaryKey, type (+15 more)
 
 ### Community 231 - "Community 231"
 Cohesion: 0.07
@@ -1996,20 +2011,20 @@ Cohesion: 0.22
 Nodes (10): Canonical NLP quick-add parsing, Idempotency-Key mutation safety, Schedule-scoped recurrence expansion, tasks.contract.test, idempotency platform, inbox.contract.test, settings.contract.test, SETTINGS_DEFAULTS (+2 more)
 
 ### Community 234 - "Community 234"
-Cohesion: 0.25
-Nodes (8): columns, concurrently, isUnique, method, name, with, habit_logs_habit_date_idx, indexes
+Cohesion: 0.09
+Nodes (22): columns, concurrently, isUnique, method, name, with, columns, concurrently (+14 more)
 
 ### Community 235 - "Community 235"
-Cohesion: 0.09
-Nodes (22): habit_id, id, tag_id, user_id, name, notNull, primaryKey, type (+14 more)
+Cohesion: 0.12
+Nodes (17): habit_id, id, tag_id, name, notNull, primaryKey, type, default (+9 more)
 
 ### Community 236 - "Community 236"
 Cohesion: 0.09
 Nodes (21): devDependencies, date-fns, typescript, vitest, exports, ./core, ./focus-views, ./focus-views/apply (+13 more)
 
 ### Community 237 - "Community 237"
-Cohesion: 0.13
-Nodes (20): useAuthState, authClient, compressImageToBase64, beginSocialLink(), getAuthCallbackUrl(), Input, InputProps, AuthPage() (+12 more)
+Cohesion: 0.16
+Nodes (14): buildSubtitleLabel(), CalendarViewMode, ContextualAddTrigger(), MONTH_ICONS, MONTHS, ScheduleHeader(), ScheduleHeaderProps, VIEW_LABELS (+6 more)
 
 ### Community 238 - "Community 238"
 Cohesion: 0.09
@@ -2020,8 +2035,8 @@ Cohesion: 0.09
 Nodes (22): columns, concurrently, isUnique, method, name, with, columns, concurrently (+14 more)
 
 ### Community 240 - "Community 240"
-Cohesion: 0.09
-Nodes (23): completed_at, resolved_at, status, target_date, name, notNull, primaryKey, type (+15 more)
+Cohesion: 0.07
+Nodes (29): completed_at, created_at, resolved_at, status, target_date, name, notNull, primaryKey (+21 more)
 
 ### Community 241 - "Community 241"
 Cohesion: 0.09
@@ -2052,8 +2067,8 @@ Cohesion: 0.13
 Nodes (15): as, for, name, to, using, withCheck, habits_owner_access, checkConstraints (+7 more)
 
 ### Community 248 - "Community 248"
-Cohesion: 0.10
-Nodes (20): dialect, as, for, name, to, using, withCheck, id (+12 more)
+Cohesion: 0.13
+Nodes (15): as, for, name, to, using, withCheck, habit_logs_owner_access, checkConstraints (+7 more)
 
 ### Community 249 - "Community 249"
 Cohesion: 0.10
@@ -2132,12 +2147,12 @@ Cohesion: 0.11
 Nodes (18): inbox_sections_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo (+10 more)
 
 ### Community 268 - "Community 268"
-Cohesion: 0.09
-Nodes (22): habit_id, id, tag_id, user_id, name, notNull, primaryKey, type (+14 more)
+Cohesion: 0.12
+Nodes (17): habit_id, id, tag_id, name, notNull, primaryKey, type, default (+9 more)
 
 ### Community 269 - "Community 269"
-Cohesion: 0.15
-Nodes (19): Implementation Plan 5: Calendar View, Schedule Page UI/UX Refinement Plan 3, CalendarEventPopover Quick Creation, CalendarTaskChip Component, Shared calendar-utils Layout Math, Click-to-Time Scroll Offset Bug, dnd-kit Calendar Drag-and-Drop, Ghost-Block Click-to-Create Preview (+11 more)
+Cohesion: 0.09
+Nodes (32): Implementation Plan 5: Calendar View, Schedule Page UI/UX Refinement Plan 3, Habits System Upgrade Implementation Plan 4, Habits System Upgrade Plan, CalendarEventPopover Quick Creation, CalendarTaskChip Component, Shared calendar-utils Layout Math, Click-to-Time Scroll Offset Bug (+24 more)
 
 ### Community 270 - "Community 270"
 Cohesion: 0.18
@@ -2412,8 +2427,8 @@ Cohesion: 0.12
 Nodes (17): subtasks_task_id_tasks_id_fk, subtasks_user_id_users_id_fk, foreignKeys, columnsFrom, columnsTo, name, onDelete, onUpdate (+9 more)
 
 ### Community 338 - "Community 338"
-Cohesion: 0.22
-Nodes (9): habit_logs_habit_id_habits_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo (+1 more)
+Cohesion: 0.12
+Nodes (17): habit_logs_habit_id_habits_id_fk, habit_logs_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom (+9 more)
 
 ### Community 339 - "Community 339"
 Cohesion: 0.12
@@ -2628,8 +2643,8 @@ Cohesion: 0.12
 Nodes (17): habits_project_id_projects_id_fk, habits_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom (+9 more)
 
 ### Community 392 - "Community 392"
-Cohesion: 0.09
-Nodes (22): habit_id, id, tag_id, user_id, name, notNull, primaryKey, type (+14 more)
+Cohesion: 0.12
+Nodes (17): habit_id, id, tag_id, name, notNull, primaryKey, type, default (+9 more)
 
 ### Community 393 - "Community 393"
 Cohesion: 0.12
@@ -2764,8 +2779,8 @@ Cohesion: 0.13
 Nodes (15): columns, concurrently, isUnique, method, name, with, columns, concurrently (+7 more)
 
 ### Community 426 - "Community 426"
-Cohesion: 0.25
-Nodes (8): as, for, name, to, using, withCheck, habit_logs_owner_access, policies
+Cohesion: 0.13
+Nodes (15): as, for, name, to, using, withCheck, habit_logs_owner_access, checkConstraints (+7 more)
 
 ### Community 427 - "Community 427"
 Cohesion: 0.09
@@ -2860,16 +2875,16 @@ Cohesion: 0.13
 Nodes (15): as, for, name, to, using, withCheck, habit_tags_owner_access, checkConstraints (+7 more)
 
 ### Community 450 - "Community 450"
-Cohesion: 0.25
-Nodes (8): as, for, name, to, using, withCheck, habit_tags_owner_access, policies
+Cohesion: 0.10
+Nodes (20): dialect, as, for, name, to, using, withCheck, id (+12 more)
 
 ### Community 451 - "Community 451"
 Cohesion: 0.13
 Nodes (15): columns, concurrently, isUnique, method, name, with, columns, concurrently (+7 more)
 
 ### Community 452 - "Community 452"
-Cohesion: 0.25
-Nodes (8): columns, concurrently, isUnique, method, name, with, habit_tags_tag_id_idx, indexes
+Cohesion: 0.13
+Nodes (15): columns, concurrently, isUnique, method, name, with, columns, concurrently (+7 more)
 
 ### Community 453 - "Community 453"
 Cohesion: 0.13
@@ -2892,12 +2907,12 @@ Cohesion: 0.13
 Nodes (14): anyOf, anyOf, description, definitions, Application, Target, Value, description (+6 more)
 
 ### Community 458 - "Community 458"
-Cohesion: 0.12
-Nodes (20): Update 1 UI/UX Refinement Plan 2, Update 2 Comprehensive Audit & Remediation Plan, Cadence Release Candidate Refinement Plan, Generic ActionMenuSection Schema, Frontend /api vs Backend /api/v1 Mismatch, Command-Bar Action Hierarchy, Shared Compact-Shell Three-Layer Model, ControlsSheet / CompactPageControls (+12 more)
+Cohesion: 0.14
+Nodes (15): Update 1 UI/UX Refinement Plan 2, Update 2 Comprehensive Audit & Remediation Plan, Frontend /api vs Backend /api/v1 Mismatch, Command-Bar Action Hierarchy, Shared Compact-Shell Three-Layer Model, ControlsSheet / CompactPageControls, Peek/Focus Detail Panel Archetypes, Expanded QOL Implementation Backlog (+7 more)
 
 ### Community 459 - "Community 459"
-Cohesion: 0.22
-Nodes (13): Habits System Upgrade Implementation Plan 4, Habits System Upgrade Plan, Deterministic Streak Recomputation, Failure-Neutral Habit Language, Habit Cross-Surface Integration Policy, habit_logs (habitId, targetDate) Uniqueness, Habit Pause State (paused_until), Habit Target Mode (Ambient/Anchor/Block) (+5 more)
+Cohesion: 0.12
+Nodes (16): Additional Resources, API Reference, Client Methods, Complete Example: Agent with Tools, Context Object Properties, Dynamic Parameters, Error Handling, Error Status Codes (+8 more)
 
 ### Community 460 - "Community 460"
 Cohesion: 0.21
@@ -3012,12 +3027,12 @@ Cohesion: 0.22
 Nodes (7): exampleDirPath, fs, oldDirs, path, readline, rl, root
 
 ### Community 489 - "Community 489"
-Cohesion: 0.22
-Nodes (9): columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo, ai_memories_user_id_users_id_fk (+1 more)
+Cohesion: 0.12
+Nodes (15): 10. Deep Link (`tauri-plugin-deep-link`), 11. Opener (`tauri-plugin-opener`), 12. Process (`tauri-plugin-process`), 1. File System (`tauri-plugin-fs`), 2. Dialog (`tauri-plugin-dialog`), 3. Shell (`tauri-plugin-shell`), 4. HTTP (`tauri-plugin-http`), 5. Store (`tauri-plugin-store`) (+7 more)
 
 ### Community 490 - "Community 490"
-Cohesion: 0.22
-Nodes (9): habit_tags_habit_id_habits_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo (+1 more)
+Cohesion: 0.08
+Nodes (25): habit_tags_habit_id_habits_id_fk, habit_tags_tag_id_tags_id_fk, habit_tags_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate (+17 more)
 
 ### Community 491 - "Community 491"
 Cohesion: 0.12
@@ -3064,32 +3079,32 @@ Cohesion: 0.25
 Nodes (7): cargoTomlPath, desktopRoot, packageJson, packageJsonPath, syncedCargoToml, tauriConfig, tauriConfigPath
 
 ### Community 502 - "Community 502"
-Cohesion: 0.24
-Nodes (11): Feature Implementation Plan 16: Search/QuickAdd/Sync/Notifications, Deterministic Ranking Over Opaque AI, Holding Planner Panel, Honest Push vs Foreground Notification Boundary, Manual Workspace Sync (refetch & reassure), Persistent Reminder/Notification State, Three-Layer Notification System (in-app/foreground/push), QuickAddSurface (Task/Thought/Habit) (+3 more)
+Cohesion: 0.17
+Nodes (16): Feature Implementation Plan 16: Search/QuickAdd/Sync/Notifications, Cadence Release Candidate Refinement Plan, Generic ActionMenuSection Schema, Deep Object-Level Keybind Integration, Deep Research on Cadence (source doc), Deterministic Ranking Over Opaque AI, Holding Planner Panel, Honest Push vs Foreground Notification Boundary (+8 more)
 
 ### Community 503 - "Community 503"
-Cohesion: 0.36
-Nodes (8): Notes Update Master Plan, Stale-Write Conflict Handling Policy, Note Offline Save & Conflict Protocol, Note-to-Subtask/Task Conversion Transforms, Series-Scoped Recurring Note Ownership, Task-Native Notes (no detached document product), Task Note Room (immersive writing surface), Dedicated task_notes Backend Resource
+Cohesion: 0.12
+Nodes (15): Capability Permission, Checking for Updates in Code, Configuration (tauri.conf.json), Contents, Install, Key Generation, Linux, macOS (+7 more)
 
 ### Community 504 - "Community 504"
 Cohesion: 0.25
 Nodes (7): ALL_FIXTURES, COMBINED_FIXTURES, DATE_FIXTURES, FALSE_POSITIVE_FIXTURES, GoldenFixture, PRIORITY_FIXTURES, RECURRENCE_FIXTURES
 
 ### Community 505 - "Community 505"
-Cohesion: 0.25
-Nodes (8): habit_tags_tag_id_tags_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo
+Cohesion: 0.12
+Nodes (16): 5.10 Subscribe to Derived State, 5.11 Use Functional setState Updates, 5.12 Use Lazy State Initialization, 5.13 Use Transitions for Non-Urgent Updates, 5.14 Use useDeferredValue for Expensive Derived Renders, 5.15 Use useRef for Transient Values, 5.1 Calculate Derived State During Rendering, 5.2 Defer State Reads to Usage Point (+8 more)
 
 ### Community 506 - "Community 506"
-Cohesion: 0.25
-Nodes (8): habit_tags_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo
+Cohesion: 0.13
+Nodes (14): 1. Eliminating Waterfalls (CRITICAL), 2. Bundle Size Optimization (CRITICAL), 3. Server-Side Performance (HIGH), 4. Client-Side Data Fetching (MEDIUM-HIGH), 5. Re-render Optimization (MEDIUM), 6. Rendering Performance (MEDIUM), 7. JavaScript Performance (LOW-MEDIUM), 8. Advanced Patterns (LOW) (+6 more)
 
 ### Community 507 - "Community 507"
-Cohesion: 0.25
-Nodes (8): as, for, name, to, using, withCheck, habit_tags_owner_access, policies
+Cohesion: 0.13
+Nodes (15): as, for, name, to, using, withCheck, habit_tags_owner_access, checkConstraints (+7 more)
 
 ### Community 508 - "Community 508"
-Cohesion: 0.25
-Nodes (8): columns, concurrently, isUnique, method, name, with, habit_tags_tag_id_idx, indexes
+Cohesion: 0.13
+Nodes (15): columns, concurrently, isUnique, method, name, with, columns, concurrently (+7 more)
 
 ### Community 509 - "Community 509"
 Cohesion: 0.26
@@ -3108,8 +3123,8 @@ Cohesion: 0.21
 Nodes (9): applyMarkdownAction(), MarkdownEditorProps, ACTIONS, NotesToolbar(), NotesToolbarAction, NotesToolbarProps, ACTIONS, TaskNoteToolbarDock() (+1 more)
 
 ### Community 513 - "Community 513"
-Cohesion: 0.32
-Nodes (10): FOCUS_VIEWS_KEY(), FocusViewInput, FocusViewPatch, useCreateFocusView(), useDeleteFocusView(), useFocusViews(), useUpdateFocusView(), FocusViewBar() (+2 more)
+Cohesion: 0.13
+Nodes (15): 7.10 Hoist RegExp Creation, 7.11 Use flatMap to Map and Filter in One Pass, 7.12 Use Loop for Min/Max Instead of Sort, 7.13 Use Set/Map for O(1) Lookups, 7.14 Use toSorted() Instead of sort() for Immutability, 7.1 Avoid Layout Thrashing, 7.2 Build Index Maps for Repeated Lookups, 7.3 Cache Property Access in Loops (+7 more)
 
 ### Community 514 - "Community 514"
 Cohesion: 0.13
@@ -3120,12 +3135,12 @@ Cohesion: 0.13
 Nodes (15): columns, concurrently, isUnique, method, name, with, columns, concurrently (+7 more)
 
 ### Community 516 - "Community 516"
-Cohesion: 0.18
-Nodes (10): getTemplate(), NOTE_TEMPLATES, NoteTemplate, ALL_COMMANDS, CommandItem, FORMAT_COMMANDS, TaskNoteCommandMenu(), TaskNoteCommandMenuProps (+2 more)
+Cohesion: 0.14
+Nodes (13): Call-graph collapse, Candidate card, Cross-section (good for layered shallowness), Diagram patterns, Hand-built boxes-and-arrows (when Mermaid's layout fights you), Header, HTML Report Format, Mass diagram (good for "interface as wide as implementation") (+5 more)
 
 ### Community 517 - "Community 517"
-Cohesion: 0.26
-Nodes (11): ConfidenceTier, DateValue, DateParseOptions, FALSE_POSITIVE_GUARDS, formatDate(), formatDateTime(), formatHumanLabel(), HIGH_CONFIDENCE_PATTERNS (+3 more)
+Cohesion: 0.23
+Nodes (12): DEFAULT_DESKTOP_COMMAND_PREFERENCES, DesktopCommandPreferences, emitChange(), ensureLoaded(), getFallbackStorage(), getSnapshot(), isDesktopCommandPreferences(), persistPreferences() (+4 more)
 
 ### Community 518 - "Community 518"
 Cohesion: 0.13
@@ -3168,12 +3183,12 @@ Cohesion: 0.29
 Nodes (7): default, name, notNull, primaryKey, type, typeSchema, analysis_status
 
 ### Community 528 - "Community 528"
-Cohesion: 0.29
-Nodes (7): default, name, notNull, primaryKey, type, typeSchema, capture_kind
+Cohesion: 0.17
+Nodes (12): API Key Authentication, API Key Management, Authentication, Client Initialization, Complete OAuth Flow Example, createAuthCode, Environment Setup, exchangeAuthCodeForAPIKey (+4 more)
 
 ### Community 529 - "Community 529"
-Cohesion: 0.29
-Nodes (7): default, name, notNull, primaryKey, type, typeSchema, capture_status
+Cohesion: 0.17
+Nodes (12): Event Shapes, Event Type Reference, Example: Processing Stream Events, Example: Tracking New Messages, Function Call Arguments Delta Event, Message Stream Events, Reasoning Delta Event, Response Completed Event (+4 more)
 
 ### Community 530 - "Community 530"
 Cohesion: 0.29
@@ -3188,24 +3203,24 @@ Cohesion: 0.29
 Nodes (7): state, default, name, notNull, primaryKey, type, typeSchema
 
 ### Community 533 - "Community 533"
-Cohesion: 0.33
-Nodes (9): computeScore(), daysDiff(), RankableTask, RankedTask, RankingOptions, rankTasks(), ROUTE_DAMPENING, TaskRankReason (+1 more)
+Cohesion: 0.17
+Nodes (12): Message Roles, Multimodal Message (Array Content), Non-Streaming Response Structure, Parsed Tool Call, Response Message Types, Responses API Message Shapes, Step Result (for Stop Conditions), Text Message (+4 more)
 
 ### Community 534 - "Community 534"
 Cohesion: 0.29
 Nodes (7): state, default, name, notNull, primaryKey, type, typeSchema
 
 ### Community 535 - "Community 535"
-Cohesion: 0.29
-Nodes (7): columns, concurrently, isUnique, method, name, with, habit_tags_unique_pair
+Cohesion: 0.17
+Nodes (12): 6.10 Use React DOM Resource Hints, 6.11 Use useTransition Over Manual Loading States, 6.1 Animate SVG Wrapper Instead of SVG Element, 6.2 CSS content-visibility for Long Lists, 6.3 Hoist Static JSX Elements, 6.4 Optimize SVG Precision, 6.5 Prevent Hydration Mismatch Without Flickering, 6.6 Suppress Expected Hydration Mismatches (+4 more)
 
 ### Community 536 - "Community 536"
-Cohesion: 0.29
-Nodes (7): checkConstraints, compositePrimaryKeys, isRLSEnabled, name, schema, uniqueConstraints, public.habit_tags
+Cohesion: 0.18
+Nodes (10): 1. Classify the request, 2. Search official GitHub docs first, 3. Open the best page before answering, 4. Answer with docs-grounded guidance, Answer Shape, Bundled Reference, Common Mistakes, Search and Routing Tips (+2 more)
 
 ### Community 537 - "Community 537"
-Cohesion: 0.35
-Nodes (10): parseDuration(), parseWaitingOn(), buildCleanedTitle(), buildSummary(), deriveOverallConfidence(), parse(), parseCanonicalNlpEnvelope(), parseShorthand() (+2 more)
+Cohesion: 0.18
+Nodes (10): 3.10 Use after() for Non-Blocking Operations, 3.1 Authenticate Server Actions Like API Routes, 3.2 Avoid Duplicate Serialization in RSC Props, 3.3 Avoid Shared Module State for Request Data, 3.4 Cross-Request LRU Caching, 3.5 Hoist Static I/O to Module Level, 3.6 Minimize Serialization at RSC Boundaries, 3.7 Parallel Data Fetching with Component Composition (+2 more)
 
 ### Community 538 - "Community 538"
 Cohesion: 0.22
@@ -3216,8 +3231,8 @@ Cohesion: 0.22
 Nodes (9): checkConstraints, compositePrimaryKeys, indexes, isRLSEnabled, name, policies, schema, uniqueConstraints (+1 more)
 
 ### Community 540 - "Community 540"
-Cohesion: 0.22
-Nodes (9): columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo, ai_memories_user_id_users_id_fk (+1 more)
+Cohesion: 0.20
+Nodes (9): Custom Actions and Publishing, Deployments and Environments, Getting Started, GitHub Actions Topic Map, Migration and Tutorials, Monitoring, Logs, and Troubleshooting, Runners and Execution, Security and Supply Chain (+1 more)
 
 ### Community 541 - "Community 541"
 Cohesion: 0.29
@@ -3228,8 +3243,8 @@ Cohesion: 0.29
 Nodes (7): source_surface, default, name, notNull, primaryKey, type, typeSchema
 
 ### Community 543 - "Community 543"
-Cohesion: 0.22
-Nodes (9): habit_tags_habit_id_habits_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo (+1 more)
+Cohesion: 0.08
+Nodes (25): habit_tags_habit_id_habits_id_fk, habit_tags_tag_id_tags_id_fk, habit_tags_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate (+17 more)
 
 ### Community 544 - "Community 544"
 Cohesion: 0.25
@@ -3240,24 +3255,24 @@ Cohesion: 0.29
 Nodes (7): default, name, notNull, primaryKey, type, typeSchema, analysis_status
 
 ### Community 546 - "Community 546"
-Cohesion: 0.25
-Nodes (7): useCreateSectionMock, useDeleteSectionMock, useSectionsMock, useSubtasksByTaskIdsMock, useTagsMock, useUpdateSectionMock, useUpdateTaskMock
+Cohesion: 0.20
+Nodes (9): 4.1 Deduplicate Global Event Listeners, 4.2 Use Passive Event Listeners for Scrolling Performance, 4.3 Use SWR for Automatic Deduplication, 4.4 Version and Minimize localStorage Data, 4. Client-Side Data Fetching, Abstract, React Best Practices, References (+1 more)
 
 ### Community 547 - "Community 547"
-Cohesion: 0.25
-Nodes (8): habit_tags_tag_id_tags_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo
+Cohesion: 0.24
+Nodes (6): entry.client hydration, Providers(), App(), Layout(), resolveLoadingSeason, Loading()
 
 ### Community 548 - "Community 548"
 Cohesion: 0.29
 Nodes (7): target_mode, default, name, notNull, primaryKey, type, typeSchema
 
 ### Community 549 - "Community 549"
-Cohesion: 0.25
-Nodes (8): habit_tags_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo
+Cohesion: 0.22
+Nodes (8): 1. In-process, 2. Local-substitutable, 3. Remote but owned (Ports & Adapters), 4. True external (Mock), Deepening, Dependency categories, Seam discipline, Testing strategy: replace, don't layer
 
 ### Community 550 - "Community 550"
 Cohesion: 0.25
-Nodes (8): habit_logs_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo
+Nodes (7): sectionRoutes, CreateSection, createSectionSchema, SectionQuery, sectionQuerySchema, UpdateSection, updateSectionSchema
 
 ### Community 551 - "Community 551"
 Cohesion: 0.29
@@ -3296,16 +3311,16 @@ Cohesion: 0.33
 Nodes (6): updated_at, default, name, notNull, primaryKey, type
 
 ### Community 560 - "Community 560"
-Cohesion: 0.25
-Nodes (8): habit_tags_tag_id_tags_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo
+Cohesion: 0.29
+Nodes (6): 1. Explore, 2. Present candidates as an HTML report, 3. Grilling loop, Glossary, Improve Codebase Architecture, Process
 
 ### Community 561 - "Community 561"
 Cohesion: 0.33
 Nodes (6): longest_streak, default, name, notNull, primaryKey, type
 
 ### Community 562 - "Community 562"
-Cohesion: 0.25
-Nodes (8): habit_tags_user_id_users_id_fk, columnsFrom, columnsTo, name, onDelete, onUpdate, tableFrom, tableTo
+Cohesion: 0.29
+Nodes (6): Contents, Section 1: System Tray (`TrayIconBuilder`), Section 2: Sidecars (External Binaries), Section 3: Deep Links (`tauri-plugin-deep-link`), Section 4: Custom Protocols, Tauri v2+ Advanced Runtime Reference
 
 ### Community 563 - "Community 563"
 Cohesion: 0.33
@@ -3320,20 +3335,20 @@ Cohesion: 0.33
 Nodes (6): longest_streak, default, name, notNull, primaryKey, type
 
 ### Community 566 - "Community 566"
-Cohesion: 0.25
-Nodes (8): as, for, name, to, using, withCheck, habit_tags_owner_access, policies
+Cohesion: 0.13
+Nodes (15): as, for, name, to, using, withCheck, habit_tags_owner_access, checkConstraints (+7 more)
 
 ### Community 567 - "Community 567"
-Cohesion: 0.25
-Nodes (8): columns, concurrently, isUnique, method, name, with, habit_tags_tag_id_idx, indexes
+Cohesion: 0.13
+Nodes (15): columns, concurrently, isUnique, method, name, with, columns, concurrently (+7 more)
 
 ### Community 568 - "Community 568"
-Cohesion: 0.33
-Nodes (6): updated_at, default, name, notNull, primaryKey, type
+Cohesion: 0.29
+Nodes (7): default, name, notNull, primaryKey, type, typeSchema, analysis_status
 
 ### Community 569 - "Community 569"
 Cohesion: 0.29
-Nodes (7): default, name, notNull, primaryKey, type, typeSchema, capture_kind
+Nodes (7): target_mode, default, name, notNull, primaryKey, type, typeSchema
 
 ### Community 570 - "Community 570"
 Cohesion: 0.33
@@ -3349,7 +3364,7 @@ Nodes (6): buildClusterLayouts, buildTimedTaskLayouts, getTaskRange, minutesFrom
 
 ### Community 573 - "Community 573"
 Cohesion: 0.29
-Nodes (7): columns, concurrently, isUnique, method, name, with, habit_tags_unique_pair
+Nodes (7): Defining Tools, Generator Tools, Manual Tools, Regular Tools, Tool System, Tool Types, Using Tools with callModel
 
 ### Community 574 - "Community 574"
 Cohesion: 0.33
@@ -3369,7 +3384,7 @@ Nodes (6): processed, default, name, notNull, primaryKey, type
 
 ### Community 578 - "Community 578"
 Cohesion: 0.29
-Nodes (7): checkConstraints, compositePrimaryKeys, isRLSEnabled, name, schema, uniqueConstraints, public.habit_tags
+Nodes (7): 1.1 Check Cheap Conditions Before Async Flags, 1.2 Defer Await Until Needed, 1.3 Dependency-Based Parallelization, 1.4 Prevent Waterfall Chains in API Routes, 1.5 Promise.all() for Independent Operations, 1.6 Strategic Suspense Boundaries, 1. Eliminating Waterfalls
 
 ### Community 579 - "Community 579"
 Cohesion: 0.33
@@ -3401,11 +3416,11 @@ Nodes (6): processed, default, name, notNull, primaryKey, type
 
 ### Community 586 - "Community 586"
 Cohesion: 0.29
-Nodes (7): columns, concurrently, isUnique, method, name, with, habit_logs_habit_date_unique
+Nodes (7): 2.1 Avoid Barrel File Imports, 2.2 Conditional Module Loading, 2.3 Defer Non-Critical Third-Party Libraries, 2.4 Dynamic Imports for Heavy Components, 2.5 Prefer Statically Analyzable Paths, 2.6 Preload Based on User Intent, 2. Bundle Size Optimization
 
 ### Community 587 - "Community 587"
-Cohesion: 0.29
-Nodes (7): columns, concurrently, isUnique, method, name, with, habit_logs_user_id_idx
+Cohesion: 0.33
+Nodes (5): 1. Frame the problem space, 2. Spawn sub-agents, 3. Present and compare, Interface Design, Process
 
 ### Community 588 - "Community 588"
 Cohesion: 0.33
@@ -3460,8 +3475,8 @@ Cohesion: 0.33
 Nodes (6): current_streak, default, name, notNull, primaryKey, type
 
 ### Community 601 - "Community 601"
-Cohesion: 0.29
-Nodes (7): checkConstraints, compositePrimaryKeys, isRLSEnabled, name, schema, uniqueConstraints, public.habit_logs
+Cohesion: 0.33
+Nodes (5): Language, Principles, Rejected framings, Relationships, Terms
 
 ### Community 602 - "Community 602"
 Cohesion: 0.33
@@ -3496,12 +3511,12 @@ Cohesion: 0.33
 Nodes (6): current_streak, default, name, notNull, primaryKey, type
 
 ### Community 610 - "Community 610"
-Cohesion: 0.29
-Nodes (7): default, name, notNull, primaryKey, type, typeSchema, capture_kind
+Cohesion: 0.33
+Nodes (5): abstract, date, organization, references, version
 
 ### Community 611 - "Community 611"
-Cohesion: 0.29
-Nodes (7): default, name, notNull, primaryKey, type, typeSchema, capture_status
+Cohesion: 0.33
+Nodes (5): ALLOWED_EVENTS, TrackBatch, trackBatchSchema, TrackEvent, trackEventSchema
 
 ### Community 612 - "Community 612"
 Cohesion: 0.33
@@ -3625,15 +3640,15 @@ Nodes (6): reminder_enabled, default, name, notNull, primaryKey, type
 
 ### Community 642 - "Community 642"
 Cohesion: 0.33
-Nodes (6): sort_order, default, name, notNull, primaryKey, type
+Nodes (5): enabledPlugins, code-simplifier@claude-plugins-official, frontend-design@claude-plugins-official, javascript-typescript@claude-code-workflows, ui-design@claude-code-workflows
 
 ### Community 643 - "Community 643"
-Cohesion: 0.29
-Nodes (7): columns, concurrently, isUnique, method, name, with, habit_tags_unique_pair
+Cohesion: 0.33
+Nodes (6): total_completions, default, name, notNull, primaryKey, type
 
 ### Community 644 - "Community 644"
 Cohesion: 0.33
-Nodes (6): target_mode, default, name, notNull, primaryKey, type
+Nodes (6): updated_at, default, name, notNull, primaryKey, type
 
 ### Community 645 - "Community 645"
 Cohesion: 0.33
@@ -3676,12 +3691,12 @@ Cohesion: 0.33
 Nodes (6): default, name, notNull, primaryKey, type, color_accent
 
 ### Community 655 - "Community 655"
-Cohesion: 0.29
-Nodes (7): checkConstraints, compositePrimaryKeys, isRLSEnabled, name, schema, uniqueConstraints, public.habit_tags
+Cohesion: 0.33
+Nodes (6): current_streak, default, name, notNull, primaryKey, type
 
 ### Community 656 - "Community 656"
 Cohesion: 0.33
-Nodes (4): SECTIONS, ShortcutEntry, ShortcutReference(), ShortcutReferenceProps
+Nodes (6): processed, default, name, notNull, primaryKey, type
 
 ### Community 657 - "Community 657"
 Cohesion: 0.33
@@ -3696,16 +3711,16 @@ Cohesion: 0.33
 Nodes (6): sort_order, default, name, notNull, primaryKey, type
 
 ### Community 660 - "Community 660"
-Cohesion: 0.40
-Nodes (5): RecurrenceValue, RECURRENCE_PATTERNS, RecurrencePattern, WEEKDAY_LABELS, WEEKDAY_MAP
+Cohesion: 0.33
+Nodes (6): reminder_enabled, default, name, notNull, primaryKey, type
 
 ### Community 661 - "Community 661"
 Cohesion: 0.33
 Nodes (6): total_completions, default, name, notNull, primaryKey, type
 
 ### Community 662 - "Community 662"
-Cohesion: 0.40
-Nodes (5): ResolutionContext, extractUnconsumedWords(), FUSE_OPTIONS, resolveProjectsAndTags(), WordPosition
+Cohesion: 0.33
+Nodes (6): updated_at, default, name, notNull, primaryKey, type
 
 ### Community 663 - "Community 663"
 Cohesion: 0.33
@@ -3776,8 +3791,8 @@ Cohesion: 0.40
 Nodes (5): useMutationOutbox, offline mutation WAL, tasks hooks barrel, invalidateTaskCaches, useDuplicateTask
 
 ### Community 680 - "Community 680"
-Cohesion: 0.40
-Nodes (5): name, notNull, primaryKey, type, analysis
+Cohesion: 0.33
+Nodes (6): order_index, default, name, notNull, primaryKey, type
 
 ### Community 681 - "Community 681"
 Cohesion: 0.33
@@ -3788,8 +3803,8 @@ Cohesion: 0.33
 Nodes (6): longest_streak, default, name, notNull, primaryKey, type
 
 ### Community 683 - "Community 683"
-Cohesion: 0.40
-Nodes (5): paused_until, name, notNull, primaryKey, type
+Cohesion: 0.33
+Nodes (6): processed, default, name, notNull, primaryKey, type
 
 ### Community 684 - "Community 684"
 Cohesion: 0.40
@@ -3833,7 +3848,7 @@ Nodes (5): scheduled_end, name, notNull, primaryKey, type
 
 ### Community 695 - "Community 695"
 Cohesion: 0.33
-Nodes (6): total_skips, default, name, notNull, primaryKey, type
+Nodes (6): reminder_enabled, default, name, notNull, primaryKey, type
 
 ### Community 696 - "Community 696"
 Cohesion: 0.33
@@ -3868,8 +3883,8 @@ Cohesion: 0.40
 Nodes (5): recurrence_rule, name, notNull, primaryKey, type
 
 ### Community 704 - "Community 704"
-Cohesion: 0.40
-Nodes (5): project_id, name, notNull, primaryKey, type
+Cohesion: 0.33
+Nodes (6): sort_order, default, name, notNull, primaryKey, type
 
 ### Community 705 - "Community 705"
 Cohesion: 0.33
@@ -3889,11 +3904,11 @@ Nodes (5): name, notNull, primaryKey, type, analysis_version
 
 ### Community 709 - "Community 709"
 Cohesion: 0.33
-Nodes (6): default, name, notNull, primaryKey, type, archived
+Nodes (6): order_index, default, name, notNull, primaryKey, type
 
 ### Community 710 - "Community 710"
 Cohesion: 0.33
-Nodes (6): order_index, default, name, notNull, primaryKey, type
+Nodes (6): processed, default, name, notNull, primaryKey, type
 
 ### Community 711 - "Community 711"
 Cohesion: 0.40
@@ -3901,11 +3916,11 @@ Nodes (5): title, name, notNull, primaryKey, type
 
 ### Community 712 - "Community 712"
 Cohesion: 0.33
-Nodes (6): sort_order, default, name, notNull, primaryKey, type
+Nodes (6): 1. Prefer callModel Over Direct API Calls, 2. Use Zod for Tool Schemas, 3. Implement Stop Conditions, 4. Handle Errors Gracefully, 5. Use Streaming for Long Responses, Best Practices
 
 ### Community 713 - "Community 713"
-Cohesion: 0.33
-Nodes (6): total_completions, default, name, notNull, primaryKey, type
+Cohesion: 0.40
+Nodes (4): Authentication, Find Available Models, Usage, Vercel AI Gateway
 
 ### Community 714 - "Community 714"
 Cohesion: 0.40
@@ -3928,8 +3943,8 @@ Cohesion: 0.33
 Nodes (6): reminder_enabled, default, name, notNull, primaryKey, type
 
 ### Community 719 - "Community 719"
-Cohesion: 0.33
-Nodes (6): default, name, notNull, primaryKey, type, archived
+Cohesion: 0.40
+Nodes (5): notes, name, notNull, primaryKey, type
 
 ### Community 720 - "Community 720"
 Cohesion: 0.40
@@ -3972,8 +3987,8 @@ Cohesion: 0.50
 Nodes (4): commands, description, identifier, allow-items
 
 ### Community 730 - "Community 730"
-Cohesion: 0.33
-Nodes (6): current_streak, default, name, notNull, primaryKey, type
+Cohesion: 0.40
+Nodes (5): name, notNull, primaryKey, type, analysis_summary
 
 ### Community 731 - "Community 731"
 Cohesion: 0.50
@@ -4024,8 +4039,8 @@ Cohesion: 0.50
 Nodes (4): commands, description, identifier, deny-version
 
 ### Community 743 - "Community 743"
-Cohesion: 0.33
-Nodes (6): total_completions, default, name, notNull, primaryKey, type
+Cohesion: 0.40
+Nodes (5): project_id, name, notNull, primaryKey, type
 
 ### Community 744 - "Community 744"
 Cohesion: 0.50
@@ -4040,20 +4055,20 @@ Cohesion: 0.33
 Nodes (6): total_skips, default, name, notNull, primaryKey, type
 
 ### Community 747 - "Community 747"
-Cohesion: 0.33
-Nodes (6): updated_at, default, name, notNull, primaryKey, type
+Cohesion: 0.40
+Nodes (5): raw_text, name, notNull, primaryKey, type
 
 ### Community 748 - "Community 748"
-Cohesion: 0.50
-Nodes (3): createEnv(), createLimiter(), { createRemoteJWKSetMock, jwtVerifyMock }
+Cohesion: 0.40
+Nodes (5): recurrence_rule, name, notNull, primaryKey, type
 
 ### Community 749 - "Community 749"
 Cohesion: 0.50
 Nodes (4): commands, description, identifier, allow-set-app-theme
 
 ### Community 750 - "Community 750"
-Cohesion: 0.50
-Nodes (5): Cadence Mobile README, Backend RPC Type Sharing (@cadence/backend), Expo Mobile App (Expo Router), Shared Packages README, Shared Workspace Packages
+Cohesion: 0.40
+Nodes (5): target_time, name, notNull, primaryKey, type
 
 ### Community 751 - "Community 751"
 Cohesion: 0.50
@@ -4205,23 +4220,23 @@ Nodes (5): raw_text, name, notNull, primaryKey, type
 
 ### Community 915 - "Community 915"
 Cohesion: 0.40
-Nodes (5): name, notNull, primaryKey, type, analysis
+Nodes (5): name, notNull, primaryKey, type, ai_suggestion
 
 ### Community 916 - "Community 916"
 Cohesion: 0.40
-Nodes (5): recurrence_rule, name, notNull, primaryKey, type
+Nodes (5): raw_text, name, notNull, primaryKey, type
 
 ### Community 917 - "Community 917"
 Cohesion: 0.40
-Nodes (5): section_id, name, notNull, primaryKey, type
+Nodes (5): recurrence_rule, name, notNull, primaryKey, type
 
 ### Community 918 - "Community 918"
 Cohesion: 0.40
-Nodes (5): target_time, name, notNull, primaryKey, type
+Nodes (5): Input Formats, Message Arrays, Multimodal Content, String Input, System Instructions
 
 ### Community 919 - "Community 919"
 Cohesion: 0.40
-Nodes (5): title, name, notNull, primaryKey, type
+Nodes (5): 8.1 Do Not Put Effect Events in Dependency Arrays, 8.2 Initialize App Once, Not Per Mount, 8.3 Store Event Handlers in Refs, 8.4 useEffectEvent for Stable Callback Refs, 8. Advanced Patterns
 
 ### Community 920 - "Community 920"
 Cohesion: 0.40
@@ -4240,28 +4255,24 @@ Cohesion: 0.40
 Nodes (5): name, notNull, primaryKey, type, ai_suggestion
 
 ### Community 924 - "Community 924"
-Cohesion: 0.40
-Nodes (5): notes, name, notNull, primaryKey, type
+Cohesion: 0.50
+Nodes (3): Navigation Guide, Reference Files, Tauri v2 References
 
 ### Community 925 - "Community 925"
-Cohesion: 0.40
-Nodes (5): section_id, name, notNull, primaryKey, type
-
-### Community 926 - "Community 926"
-Cohesion: 0.40
-Nodes (5): name, notNull, primaryKey, type, analysis
+Cohesion: 0.50
+Nodes (3): File-System Paths, Import Paths, Prefer Statically Analyzable Paths
 
 ### Community 927 - "Community 927"
-Cohesion: 0.40
-Nodes (5): name, notNull, primaryKey, type, analysis_summary
+Cohesion: 0.67
+Nodes (3): Debug route deployment-stage gating, debug route availability, getDeploymentStage
 
 ### Community 928 - "Community 928"
-Cohesion: 0.40
-Nodes (5): name, notNull, primaryKey, type, analysis_version
+Cohesion: 0.67
+Nodes (3): Available Stop Conditions, Custom Stop Conditions, Multi-Turn Conversations with Stop Conditions
 
 ### Community 929 - "Community 929"
-Cohesion: 0.40
-Nodes (5): paused_until, name, notNull, primaryKey, type
+Cohesion: 0.67
+Nodes (3): Basic Usage, Core Concepts: callModel, Key Benefits
 
 ### Community 930 - "Community 930"
 Cohesion: 0.40
@@ -4270,6 +4281,10 @@ Nodes (5): project_id, name, notNull, primaryKey, type
 ### Community 931 - "Community 931"
 Cohesion: 0.40
 Nodes (5): target_time, name, notNull, primaryKey, type
+
+### Community 932 - "Community 932"
+Cohesion: 0.67
+Nodes (3): Claude Format, Format Conversion, OpenAI Format
 
 ### Community 934 - "Community 934"
 Cohesion: 0.50
@@ -4336,24 +4351,24 @@ Nodes (3): 9. Mounted Routes, Protected (all under `/api/v1/`), Public
   apps/frontend/app/lib/utils/ranking-reasons.ts · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **10609 isolated node(s):** `0. Mission`, `Key Principles`, `2.1 Universal API Rules`, `2.2 Runtime Rules`, `2.3 Security Rules` (+10604 more)
+- **10978 isolated node(s):** `Authentication`, `Usage`, `Find Available Models`, ``maxTokens` → `maxOutputTokens``, ``maxSteps` → `stopWhen: isStepCount(n)`` (+10973 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **125 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **132 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `getRankingReasonLabel` and `Local-timezone date handling (avoid UTC off-by-one)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `Fuse.js Fuzzy Resolution` connect `Community 109` to `Community 662`, `Community 134`?**
-  _High betweenness centrality (0.004) - this node is a cross-community bridge._
-- **Why does `NLP Update 2 Master Plan` connect `Community 109` to `Community 194`, `Community 459`, `Community 502`, `Community 270`?**
-  _High betweenness centrality (0.003) - this node is a cross-community bridge._
-- **Why does `Focus Views (saved smart filters)` connect `Community 270` to `Community 513`, `Community 109`, `App Layout & Routing`?**
-  _High betweenness centrality (0.003) - this node is a cross-community bridge._
+- **Why does `Focus Views (saved smart filters)` connect `Community 270` to `Community 109`, `App Layout & Routing`?**
+  _High betweenness centrality (0.002) - this node is a cross-community bridge._
+- **Why does `NLP Update 2 Master Plan` connect `Community 109` to `Community 194`, `Community 269`, `Community 502`, `Community 270`?**
+  _High betweenness centrality (0.002) - this node is a cross-community bridge._
+- **Why does `useApiClient()` connect `Query Cache Reconciliation` to `Theme & Display Primitives`, `Task Board & Holding UI`, `Usage Event Tracking`, `App Layout & Routing`, `Calendar Views & Pickers`, `Habits UI Components`, `Calendar Event Dialogs`, `Task Notes Editor`, `Notifications & Reminders`?**
+  _High betweenness centrality (0.001) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `useApiClient()` (e.g. with `useSettings()` and `useProcessInboxToTask()`) actually correct?**
   _`useApiClient()` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `useSettings()` (e.g. with `useApiClient()` and `useAuthState()`) actually correct?**
   _`useSettings()` has 2 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `0. Mission`, `Key Principles`, `2.1 Universal API Rules` to the rest of the system?**
-  _10653 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `Authentication`, `Usage`, `Find Available Models` to the rest of the system?**
+  _11022 weakly-connected nodes found - possible documentation gaps or missing edges._

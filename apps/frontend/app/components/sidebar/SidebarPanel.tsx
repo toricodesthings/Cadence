@@ -91,11 +91,15 @@ export function SidebarPanel({
     return (
         <div
             id="sidebar-panel"
-            className="flex h-full w-full shrink-0 flex-col pb-4"
+            className="flex h-full w-full min-w-0 shrink-0 flex-col pb-4"
             aria-label="Navigation panel"
         >
+            {/* `[&>div]:!block` defeats Radix's `display:table` viewport wrapper,
+                which otherwise grows to its widest child and gets sliced by the
+                rail's overflow:hidden. Forcing a block context makes every row
+                reflow/truncate to the current rail width instead of clipping (§4.8). */}
             <ScrollArea.Root className="mobile-scroll-region flex-1">
-                <ScrollArea.Viewport className="h-full px-3 py-5 scrollbar-thin">
+                <ScrollArea.Viewport className="h-full px-3 py-5 scrollbar-thin [&>div]:!block [&>div]:!min-w-0">
                     {/* Search bar — opens command palette for non-wide shells */}
                     {onSearchOpen && (
                         <>
@@ -105,7 +109,7 @@ export function SidebarPanel({
                                 aria-label="Search workspace"
                             >
                                 <Search size={15} className="shrink-0" aria-hidden="true" />
-                                <span>Search…</span>
+                                <span className="text-truncate-safe">Search…</span>
                             </button>
                             <Separator.Root className="h-px bg-twilight-border my-4" aria-hidden="true" />
                         </>
@@ -260,7 +264,7 @@ export function SidebarPanel({
                                 </div>
                             )}
                             {/* Tag bubbles */}
-                            <div className="flex flex-wrap gap-2 px-3">
+                            <div className="flex min-w-0 flex-wrap gap-2 px-3">
                                 {filteredTags.map(tag => (
                                     <TagBubble
                                         key={tag.id}

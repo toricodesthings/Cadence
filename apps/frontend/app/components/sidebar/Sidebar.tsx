@@ -7,6 +7,13 @@ import { useSidebarStore } from "../../stores/sidebar-store";
 import { X } from "lucide-react";
 import type { ShellMode } from "../../hooks/ui/use-shell-mode";
 
+/** Resize bounds — one honest minimum (`--sidebar-min-width`) shared by the
+ * wide-rail drag floor and the laptop panel, so the rail never silently forces
+ * a different second minimum. Below this, content truncates rather than the
+ * rail clipping (§4.8). */
+const SIDEBAR_MIN_WIDTH = 220;
+const SIDEBAR_MAX_WIDTH = 480;
+
 /** Main sidebar — root layout composing IconRail + SidebarPanel */
 export function Sidebar({
     mode,
@@ -57,8 +64,7 @@ export function Sidebar({
         if (isResizing) {
             const railOffset = mode === "wide" ? 56 : 0;
             const newWidth = e.clientX - railOffset;
-            // Min 180, Max 480
-            if (newWidth >= 180 && newWidth <= 480) {
+            if (newWidth >= SIDEBAR_MIN_WIDTH && newWidth <= SIDEBAR_MAX_WIDTH) {
                 setWidth(newWidth);
             }
         }
@@ -105,8 +111,8 @@ export function Sidebar({
                                 animate={{ x: 0, opacity: 1 }}
                                 exit={{ x: -24, opacity: 0 }}
                                 transition={sidebarMotionTransition}
-                                className="relative h-full"
-                                style={{ width, willChange: "transform, opacity" }}
+                                className="relative h-full w-full"
+                                style={{ willChange: "transform, opacity" }}
                             >
                                 <SidebarPanel onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
 
@@ -127,7 +133,7 @@ export function Sidebar({
     }
 
     if (mode === "laptop") {
-        const laptopWidth = Math.max(260, width);
+        const laptopWidth = Math.max(SIDEBAR_MIN_WIDTH, width);
 
         return (
             <AnimatePresence initial={false}>
@@ -147,8 +153,8 @@ export function Sidebar({
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: -24, opacity: 0 }}
                             transition={sidebarMotionTransition}
-                            className="relative h-full"
-                            style={{ width: laptopWidth, willChange: "transform, opacity" }}
+                            className="relative h-full w-full"
+                            style={{ willChange: "transform, opacity" }}
                         >
                             <SidebarPanel showWorkspaceNav={showWorkspaceNav} onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
 

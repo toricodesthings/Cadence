@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TaskCheckbox } from "../../../app/components/tasks/TaskCheckbox";
-import type { Task } from "../../../app/types/task";
+import type { Task } from "@cadence/contracts/task";
 
 const updateTaskMutateMock = vi.fn();
 const updateSubtaskMutateMock = vi.fn();

@@ -16,6 +16,7 @@ export * as Popover from "./Popover";
 export * as ScrollArea from "./ScrollArea";
 export * as Separator from "./Separator";
 export * as Tooltip from "./Tooltip";
+export { Tip, type TipProps } from "./Tooltip";
 export * as Dialog from "./Dialog";
 export * from "./Skeleton";
 export * from "./Switch";

@@ -6,18 +6,16 @@ import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
 import { toLocalDateStr, offsetLocalDateStr } from "../../platform/date-utils";
 import { habits, habitLogs, habitTags } from "../../db/schema";
-import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, monthlyHabitsQuerySchema, habitListQuerySchema, unresolvedQuerySchema } from "./habits.schema";
-import { uuidParamSchema } from "../../platform/common-schemas";
+import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, monthlyHabitsQuerySchema, habitListQuerySchema, unresolvedQuerySchema } from "@cadence/contracts/habit";
+import { uuidParamSchema } from "../../types/api";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { AppError, throwIfNotFound, assertNoConflict } from "../../platform/errors";
+import { logger, shorten, issuesFromError } from "../../platform/log";
 import { rrulestr } from "rrule";
 import { parseISO } from "date-fns";
 import { apiValidator } from "../../platform/validation";
-import type { DbClient } from "../../platform/db";
-
-/** RLS-scoped transaction handle (mirrors the type provided by `withRls`). */
-type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+import type { Tx } from "../../types/db";
 
 /**
  * Shared recurrence expansion — single source of truth.
@@ -31,7 +29,10 @@ function expandOccurrences(recurrenceRule: string, createdAt: string, startDate:
         const instances = rule.between(startDate, endDate, true);
         return instances.map((d) => d.toISOString().substring(0, 10));
     } catch (e) {
-        console.error("Invalid recurrence rule", recurrenceRule, e);
+        logger.warn("http", "recurrence_rule_invalid", {
+            rule: shorten(recurrenceRule),
+            issues: issuesFromError(e),
+        });
         return [];
     }
 }
@@ -158,7 +159,10 @@ export async function computeCurrentStreak(
         const dtstart = new Date(`${String(createdAt).substring(0, 10)}T00:00:00.000Z`);
         rule = rrulestr(recurrenceRule, { dtstart });
     } catch (e) {
-        console.error("Invalid recurrence rule", recurrenceRule, e);
+        logger.warn("http", "recurrence_rule_invalid", {
+            rule: shorten(recurrenceRule),
+            issues: issuesFromError(e),
+        });
         return 0;
     }
 

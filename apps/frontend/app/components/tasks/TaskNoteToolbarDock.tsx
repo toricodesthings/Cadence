@@ -11,6 +11,7 @@ import {
     Minus,
 } from "lucide-react";
 import type { NotesToolbarAction } from "./NotesToolbar";
+import { Tip } from "../primitives";
 
 const ACTIONS: Array<{ id: NotesToolbarAction; label: string; icon: typeof Bold; shortcut?: string }> = [
     { id: "bold", label: "Bold", icon: Bold, shortcut: "⌘B" },
@@ -37,16 +38,16 @@ export function TaskNoteToolbarDock({ onAction }: TaskNoteToolbarDockProps) {
     return (
         <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label="Formatting toolbar">
             {ACTIONS.map(({ id, label, icon: Icon, shortcut }) => (
-                <button
-                    key={id}
-                    type="button"
-                    onClick={() => onAction(id)}
-                    title={shortcut ? `${label} (${shortcut})` : label}
-                    className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
-                    aria-label={label}
-                >
-                    <Icon size={18} aria-hidden="true" />
-                </button>
+                <Tip key={id} label={shortcut ? `${label} (${shortcut})` : label} side="bottom">
+                    <button
+                        type="button"
+                        onClick={() => onAction(id)}
+                        className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
+                        aria-label={label}
+                    >
+                        <Icon size={18} aria-hidden="true" />
+                    </button>
+                </Tip>
             ))}
         </div>
     );

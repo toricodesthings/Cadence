@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { habitListQuerySchema, weeklyHabitsQuerySchema } from "../../src/domains/habits/habits.schema";
+import { habitListQuerySchema, weeklyHabitsQuerySchema } from "@cadence/contracts/habit";
 
 describe("habit route parity", () => {
     it("defaults archived list queries to active habits", () => {

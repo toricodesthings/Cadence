@@ -1,0 +1,1 @@
+ALTER TABLE "ai_conversations" ADD COLUMN "active_stream_id" text;

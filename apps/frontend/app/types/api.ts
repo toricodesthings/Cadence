@@ -1,19 +1,6 @@
-/** Standard API success envelope */
-export interface ApiResponse<T> {
-    data: T;
-    meta?: { total?: number; limit?: number; offset?: number };
-}
-
-/** Standard API error envelope */
-export interface ApiError {
-    error: {
-        code: string;
-        message: string;
-        status?: number;
-        isRetryable?: boolean;
-        details?: unknown;
-    };
-}
+// Envelope shapes are canonical in @cadence/contracts/common. The runtime error
+// class below stays in the frontend (it is behavior, not a contract).
+export type { ApiResponse, ApiError } from "@cadence/contracts/common";
 
 export class ApiErrorResponse extends Error {
     status: number;

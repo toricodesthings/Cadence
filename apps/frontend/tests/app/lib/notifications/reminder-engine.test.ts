@@ -17,8 +17,8 @@ import {
     type NotificationDismissalState,
     type BehaviorFilterOptions,
 } from "../../../../app/lib/notifications/reminder-engine";
-import type { Task } from "../../../../app/types/task";
-import type { Habit } from "../../../../app/types/habit";
+import type { Task } from "@cadence/contracts/task";
+import type { Habit } from "@cadence/contracts/habit";
 
 const BASE_TASK: Task = {
     id: "t1",

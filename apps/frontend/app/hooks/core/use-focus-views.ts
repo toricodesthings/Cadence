@@ -4,6 +4,7 @@ import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { useFocusViewStore, type SavedFocusView } from "../../stores/focus-view-store";
+import type { FocusViewDefinitionInput } from "@cadence/contracts/settings";
 
 const FOCUS_VIEWS_KEY = (userId: string | undefined) => ["settings", userId ?? "anonymous", "focusViews"] as const;
 
@@ -50,9 +51,14 @@ export function useCreateFocusView() {
     return useMutation({
         mutationFn: async (input: FocusViewInput) => {
             const res = await client.api.settings["focus-views"].$post({
+                // "custom" is a FE-only source; it is never persisted (DB enum is
+                // preset|composed|manual), so map it to "manual" on write. The nlp
+                // definition types `states` as the loose `string[]`; the values are
+                // valid task states, so we narrow to the contract shape.
                 json: {
                     ...input,
-                    clientMutationId: crypto.randomUUID(),
+                    source: input.source === "custom" ? "manual" : input.source,
+                    definition: input.definition as FocusViewDefinitionInput,
                 },
             });
             return unwrapResponse<SavedFocusView>(res);
@@ -74,7 +80,8 @@ export function useUpdateFocusView() {
                 param: { id },
                 json: {
                     ...patch,
-                    clientMutationId: crypto.randomUUID(),
+                    source: patch.source === "custom" ? "manual" : patch.source,
+                    definition: patch.definition as FocusViewDefinitionInput | undefined,
                 },
             });
             return unwrapResponse<SavedFocusView>(res);

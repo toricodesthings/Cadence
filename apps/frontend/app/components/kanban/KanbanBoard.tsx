@@ -20,8 +20,10 @@ import { RenameTaskDialog } from "../tasks/RenameTaskDialog";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import type { Task, TaskSection, Subtask } from "../../types/task";
-import type { Tag } from "../../types/tag";
+import type { TaskSection } from "@cadence/contracts/section";
+import type { Subtask } from "@cadence/contracts/subtask";
+import type { Task } from "@cadence/contracts/task";
+import type { Tag } from "@cadence/contracts/tag";
 import { BoardCanvas } from "../shared/BoardCanvas";
 
 interface KanbanBoardProps {

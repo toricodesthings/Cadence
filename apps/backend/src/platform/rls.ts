@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { DbClient } from "./db";
+import type { Tx } from "../types/db";
 
 /**
  * Wraps a database operation in a transaction where RLS context is set first.
@@ -9,7 +10,7 @@ import type { DbClient } from "./db";
 export async function withRls<T>(
     db: DbClient,
     userId: string,
-    fn: (tx: Parameters<Parameters<DbClient['transaction']>[0]>[0]) => Promise<T>,
+    fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
     return db.transaction(async (tx) => {
         await tx.execute(

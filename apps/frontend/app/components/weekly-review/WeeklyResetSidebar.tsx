@@ -1,4 +1,5 @@
 import { CheckCircle, ArrowLeft, Sparkles, Inbox, ListTodo, Flame, Sprout } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "../primitives/Button";
 
 export const STEPS = [
@@ -11,7 +12,7 @@ export const STEPS = [
 
 export function WeeklyResetSidebar({ currentStep, compact = false, onExit }: { currentStep: number; compact?: boolean; onExit?: () => void }) {
     return (
-        <div className={`${compact ? "w-[240px]" : "w-[280px]"} flex shrink-0 flex-col border-r border-twilight-border bg-twilight-surface/30 py-8 backdrop-blur-3xl relative overflow-hidden transition-all duration-500 z-50 shadow-2xl shadow-black/20`}>
+        <div className={`aurora-accent ${compact ? "w-[240px]" : "w-[280px]"} flex shrink-0 flex-col border-r border-twilight-border bg-twilight-surface/30 py-8 backdrop-blur-3xl relative overflow-hidden transition-all duration-500 z-50 shadow-2xl shadow-black/20`}>
             {/* Brand */}
             <div className="mb-12 flex items-center justify-start gap-4 px-6">
                 <img src="/logo.png" alt="Cadence" className="h-10 w-10 rounded-2xl object-cover shadow-[0_0_18px_color-mix(in_srgb,var(--accent-primary)_12%,transparent)]" />
@@ -50,9 +51,19 @@ export function WeeklyResetSidebar({ currentStep, compact = false, onExit }: { c
                                 <h3 className={`font-medium transition-colors duration-300 ${isActive ? "text-twilight-text" : isPast ? "text-twilight-text-soft" : "text-twilight-text-soft"}`}>
                                     {step.title}
                                 </h3>
-                                <p className={`text-[12px] transition-colors duration-300 ${isActive ? "text-twilight-text-muted" : "hidden"}`}>
-                                    {step.desc}
-                                </p>
+                                <AnimatePresence initial={false}>
+                                    {isActive && (
+                                        <motion.p
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                            className="overflow-hidden text-[12px] text-twilight-text-muted"
+                                        >
+                                            {step.desc}
+                                        </motion.p>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
                     );

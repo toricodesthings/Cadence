@@ -1,9 +1,9 @@
 import { eq, and, sql, gte, count, avg, inArray } from "drizzle-orm";
 import { type DbClient } from "./db";
+import type { Tx } from "../types/db";
 import { withRls } from "./rls";
 import { tasks, taskMetrics, usageEvents, userMetrics, habitLogs } from "../db/schema";
-
-type RlsTx = Parameters<Parameters<DbClient['transaction']>[0]>[0];
+import { logger, hashIdentifier, issuesFromError } from "./log";
 
 export async function trackReschedule(
     db: DbClient,
@@ -52,6 +52,7 @@ export async function trackCompletion(
 
         if (!task[0]) return;
 
+        const completedAt = new Date().toISOString();
         const createdToDone = Math.floor(
             (Date.now() - new Date(task[0].createdAt).getTime()) / 1000,
         );
@@ -61,7 +62,7 @@ export async function trackCompletion(
             .values({
                 taskId,
                 userId,
-                completedAt: new Date().toISOString(),
+                completedAt,
                 createdToDone,
             })
             .onConflictDoNothing();
@@ -69,7 +70,7 @@ export async function trackCompletion(
         await tx
             .update(taskMetrics)
             .set({
-                completedAt: new Date().toISOString(),
+                completedAt,
                 createdToDone,
             })
             .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)));
@@ -91,8 +92,14 @@ export async function trackEvent(
                 metadata: metadata ?? null,
             });
         });
-    } catch {
-        // Best-effort telemetry — never block the caller
+    } catch (err) {
+        // Best-effort telemetry — never block the caller, but surface the failure
+        // so a broken usage-event write is visible instead of silently lost.
+        logger.warn("http", "telemetry_write_failed", {
+            userHash: await hashIdentifier(userId),
+            event,
+            issues: issuesFromError(err),
+        });
     }
 }
 
@@ -140,8 +147,13 @@ export async function trackBatchEvents(
                 events.map((e) => ({ userId, event: e.event, metadata: e.metadata ?? null })),
             );
         });
-    } catch {
-        // Best-effort telemetry — never block the caller
+    } catch (err) {
+        // Best-effort telemetry — never block the caller, but surface the failure.
+        logger.warn("http", "telemetry_write_failed", {
+            userHash: await hashIdentifier(userId),
+            events: events.length,
+            issues: issuesFromError(err),
+        });
     }
 }
 
@@ -190,7 +202,7 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
     });
 }
 
-async function queryRescheduleVelocity(tx: RlsTx, userId: string, since: string) {
+async function queryRescheduleVelocity(tx: Tx, userId: string, since: string) {
     const [stats] = await tx
         .select({ avgReschedules: avg(taskMetrics.rescheduleCount) })
         .from(taskMetrics)
@@ -198,7 +210,7 @@ async function queryRescheduleVelocity(tx: RlsTx, userId: string, since: string)
     return parseFloat(String(stats?.avgReschedules ?? "0"));
 }
 
-async function queryOverdueCarryLoad(tx: RlsTx, userId: string) {
+async function queryOverdueCarryLoad(tx: Tx, userId: string) {
     const [stats] = await tx
         .select({ cnt: count() })
         .from(tasks)
@@ -206,7 +218,7 @@ async function queryOverdueCarryLoad(tx: RlsTx, userId: string) {
     return stats?.cnt ?? 0;
 }
 
-async function queryCompletedCount(tx: RlsTx, userId: string, since: string) {
+async function queryCompletedCount(tx: Tx, userId: string, since: string) {
     const [stats] = await tx
         .select({ cnt: count() })
         .from(taskMetrics)
@@ -214,7 +226,7 @@ async function queryCompletedCount(tx: RlsTx, userId: string, since: string) {
     return stats?.cnt ?? 0;
 }
 
-async function queryHabitAdherenceRate(tx: RlsTx, userId: string, since: string) {
+async function queryHabitAdherenceRate(tx: Tx, userId: string, since: string) {
     const [stats] = await tx
         .select({
             completed: sql<number>`COUNT(*) FILTER (WHERE ${habitLogs.status} = 'COMPLETED')`,
@@ -227,7 +239,7 @@ async function queryHabitAdherenceRate(tx: RlsTx, userId: string, since: string)
     return total > 0 ? completed / total : 0;
 }
 
-async function queryScheduleDensity(tx: RlsTx, userId: string, since: string) {
+async function queryScheduleDensity(tx: Tx, userId: string, since: string) {
     const [stats] = await tx
         .select({
             totalMinutes: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${tasks.scheduledEnd} - ${tasks.scheduledStart})) / 60), 0)`,
@@ -260,7 +272,7 @@ function computeBurnoutIndex(signals: {
     );
 }
 
-async function upsertUserMetrics(tx: RlsTx, userId: string, data: {
+async function upsertUserMetrics(tx: Tx, userId: string, data: {
     rescheduleVelocity: number;
     currentBurnoutIndex: number;
     completionRatio: number;

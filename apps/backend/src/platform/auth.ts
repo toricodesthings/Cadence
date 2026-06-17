@@ -1,9 +1,14 @@
 import { createMiddleware } from "hono/factory";
+import type { Context } from "hono";
 import type { Env } from "../types/env";
 import { getDeploymentStage } from "../types/env";
 import { AppError, createErrorBody } from "./errors";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { getRequestId, setRequestErrorCode } from "./request-log";
+import { logger, hashIdentifier, issuesFromError } from "./log";
+import { getDbClient } from "./db";
+import { withRls } from "./rls";
+import { users } from "../db/schema";
 
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 let cachedUrl = "";
@@ -43,25 +48,40 @@ export function isAdminUser(env: Env, identity: { userId: string; email?: string
 }
 
 function classifyAuthFailure(error: unknown) {
-    const message = error instanceof Error ? error.message : "Invalid token";
+    const message = (error instanceof Error ? error.message : "Invalid token").toLowerCase();
 
-    if (message.toLowerCase().includes("exp")) {
+    if (message.includes("exp")) {
         return new AppError(401, "TOKEN_EXPIRED", "Session expired");
     }
 
-    if (message.toLowerCase().includes("fetch") || message.toLowerCase().includes("network")) {
+    if (message.includes("fetch") || message.includes("network")) {
         return new AppError(503, "AUTH_PROVIDER_UNAVAILABLE", "Authentication provider unavailable", true);
     }
 
-    if (message.toLowerCase().includes("iss") || message.toLowerCase().includes("issuer")) {
+    if (message.includes("iss") || message.includes("issuer")) {
         return new AppError(401, "INVALID_ISSUER", "Token issuer not trusted");
     }
 
-    if (message.toLowerCase().includes("aud") || message.toLowerCase().includes("audience")) {
+    if (message.includes("aud") || message.includes("audience")) {
         return new AppError(401, "INVALID_AUDIENCE", "Token not intended for this API");
     }
 
     return new AppError(401, "UNAUTHORIZED", "Invalid token");
+}
+
+/** Build the standard JSON error response for an AppError and record its code. */
+function respondWithError(c: Context<any>, error: AppError) {
+    setRequestErrorCode(c, error.code);
+    return c.json(
+        createErrorBody({
+            code: error.code,
+            message: error.message,
+            status: error.statusCode,
+            isRetryable: error.isRetryable,
+            requestId: getRequestId(c),
+        }),
+        error.statusCode as any,
+    );
 }
 
 /**
@@ -70,11 +90,8 @@ function classifyAuthFailure(error: unknown) {
  * FK violations from racing against a background upsert.
  */
 async function ensureUserExists(env: Env, userId: string) {
-    const { getDbClient } = await import("./db");
-    const { withRls } = await import("./rls");
-    const { users } = await import("../db/schema");
-    const db = getDbClient(env as any);
-    await withRls(db as any, userId, async (tx) => {
+    const db = getDbClient(env);
+    await withRls(db, userId, async (tx) => {
         await tx.insert(users).values({ id: userId }).onConflictDoNothing();
     });
 }
@@ -84,26 +101,17 @@ export const authMiddleware = createMiddleware<{
     Variables: AuthVariables;
 }>(async (c, next) => {
     const header = c.req.header("Authorization");
-    if (!header?.startsWith("Bearer ")) {
-        setRequestErrorCode(c, "UNAUTHORIZED");
-        return c.json(
-            createErrorBody({
-                code: "UNAUTHORIZED",
-                message: "Missing token",
-                status: 401,
-                isRetryable: false,
-                requestId: getRequestId(c),
-            }),
-            401,
-        );
-    }
-
-    const token = header.slice(7);
     const jwksUrl = c.env.NEON_AUTH_JWKS_URL;
     const expectedIssuer = c.env.JWT_ISSUER;
     const expectedAudience = c.env.JWT_AUDIENCE;
 
     try {
+        if (!header?.startsWith("Bearer ")) {
+            throw new AppError(401, "UNAUTHORIZED", "Missing token");
+        }
+
+        const token = header.slice(7);
+
         if (!jwksUrl) {
             throw new AppError(500, "INTERNAL_SERVER_ERROR", "Missing NEON_AUTH_JWKS_URL");
         }
@@ -167,36 +175,15 @@ export const authMiddleware = createMiddleware<{
             try {
                 await ensureUserExists(c.env, payload.sub);
             } catch (dbErr) {
-                console.error("Failed to sync user synchronously:", dbErr);
+                logger.error("auth", "user_sync_failed", {
+                    userHash: await hashIdentifier(payload.sub),
+                    issues: issuesFromError(dbErr),
+                });
                 // Non-fatal: the user row may already exist. Let the route attempt proceed.
             }
         }
     } catch (e: any) {
-        if (e instanceof AppError) {
-            setRequestErrorCode(c, e.code);
-            return c.json(
-                createErrorBody({
-                    code: e.code,
-                    message: e.message,
-                    status: e.statusCode,
-                    isRetryable: e.isRetryable,
-                    requestId: getRequestId(c),
-                }),
-                e.statusCode as any,
-            );
-        }
-        const authError = classifyAuthFailure(e);
-        setRequestErrorCode(c, authError.code);
-        return c.json(
-            createErrorBody({
-                code: authError.code,
-                message: authError.message,
-                status: authError.statusCode,
-                isRetryable: authError.isRetryable,
-                requestId: getRequestId(c),
-            }),
-            authError.statusCode as any,
-        );
+        return respondWithError(c, e instanceof AppError ? e : classifyAuthFailure(e));
     }
 
     await next();

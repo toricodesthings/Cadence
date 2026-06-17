@@ -12,6 +12,11 @@ interface ResponsiveOverlayPanelProps {
     title?: string;
     showHeader?: boolean;
     mode?: "peek" | "focus";
+    /** When true, the children own the full sheet body as a flex column (header,
+     * scroll region, pinned footer) instead of sitting inside the default
+     * auto-scrolling body. Used by surfaces like the assistant that manage their
+     * own scroll + composer. */
+    fill?: boolean;
 }
 
 const SWIPE_THRESHOLD = 80;
@@ -42,6 +47,7 @@ export function ResponsiveOverlayPanel({
     title,
     showHeader = false,
     mode = "peek",
+    fill = false,
 }: ResponsiveOverlayPanelProps) {
     const shell = useShellMode();
     const isMobile = shell.isCompact;
@@ -230,16 +236,22 @@ export function ResponsiveOverlayPanel({
                                 </div>
                             ) : null}
 
-                            <div className="mobile-sheet-body scrollbar-thin">
-                                {children}
-                            </div>
+                            {fill ? (
+                                <div className="flex min-h-0 flex-1 flex-col">
+                                    {children}
+                                </div>
+                            ) : (
+                                <div className="mobile-sheet-body scrollbar-thin">
+                                    {children}
+                                </div>
+                            )}
                         </motion.aside>
                     </>
                 )}
             </AnimatePresence>,
             portalNode,
         );
-    }, [ariaLabel, children, handleDragEnd, handleKeyDown, isFocus, isMobile, isPeekMobile, labelId, onClose, open, portalNode, showHeader, title]);
+    }, [ariaLabel, children, fill, handleDragEnd, handleKeyDown, isFocus, isMobile, isPeekMobile, labelId, onClose, open, portalNode, showHeader, title]);
 
     return overlay;
 }

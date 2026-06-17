@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { CalendarDayCell } from "./CalendarDayCell";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 const DAYS_SHORT = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const DAYS_FULL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

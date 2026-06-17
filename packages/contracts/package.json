@@ -1,0 +1,35 @@
+{
+  "name": "@cadence/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./common": "./src/common.ts",
+    "./constants": "./src/constants.ts",
+    "./task": "./src/task.ts",
+    "./inbox": "./src/inbox.ts",
+    "./habit": "./src/habit.ts",
+    "./project": "./src/project.ts",
+    "./tag": "./src/tag.ts",
+    "./subtask": "./src/subtask.ts",
+    "./section": "./src/section.ts",
+    "./note": "./src/note.ts",
+    "./settings": "./src/settings.ts",
+    "./ai": "./src/ai.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "node scripts/check-imports.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@cadence/nlp": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

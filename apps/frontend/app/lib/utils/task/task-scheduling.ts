@@ -6,10 +6,13 @@ import {
     parseLocalDate,
     toISODate,
 } from "../date-format";
-import { rrulestr } from "rrule";
-import type { Task } from "../../../types/task";
+import { classifyTaskReadShape, type TaskReadShape } from "@cadence/domain/task-temporal";
+import { resolveOccurrenceAnchor } from "@cadence/domain/task-recurrence";
+import type { Task } from "@cadence/contracts/task";
 
 const canonicalAllDayDateTimePattern = /^(\d{4}-\d{2}-\d{2})T(?:00:00:00(?:\.000)?|12:00:00(?:\.000)?|23:59:59\.999)Z$/;
+const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+const offsetDateTimePattern = /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/;
 
 export type TaskScheduleKind =
     | "unscheduled"
@@ -152,16 +155,13 @@ export function getPassiveTimetableOccurrenceAnchor(
         return fallbackAnchor;
     }
 
-    try {
-        const rule = rrulestr(task.recurrenceRule, { dtstart: new Date(task.scheduledStart) });
-        const occurrence =
-            rule.after(startOfLocalDay(referenceDate), true)
-            ?? rule.before(startOfLocalDay(referenceDate), true)
-            ?? new Date(task.scheduledStart);
-        return occurrence.toISOString();
-    } catch {
-        return fallbackAnchor;
-    }
+    // Shared RRULE occurrence math lives in @cadence/domain; the passive-timetable
+    // gating + fallback stay here in the presentation layer.
+    return resolveOccurrenceAnchor(
+        task.recurrenceRule,
+        task.scheduledStart,
+        startOfLocalDay(referenceDate),
+    ) ?? fallbackAnchor;
 }
 
 export function toTaskDateOnly(value: string | null | undefined) {
@@ -176,28 +176,67 @@ export function toTaskDateOnly(value: string | null | undefined) {
     return toISODate(parseLocalDate(value));
 }
 
+export type TaskWriteTemporalField = "dueDate" | "scheduledStart" | "scheduledEnd";
+
+export function normalizeTaskWriteTemporalField(
+    value: string | null | undefined,
+    field: TaskWriteTemporalField,
+) {
+    if (!value) return value;
+    const trimmed = value.trim();
+    if (!trimmed) return value;
+
+    if (field === "dueDate") {
+        if (dateOnlyPattern.test(trimmed)) return trimmed;
+
+        const canonicalAllDayMatch = trimmed.match(canonicalAllDayDateTimePattern);
+        if (canonicalAllDayMatch) return canonicalAllDayMatch[1];
+
+        const parsed = parseLocalDate(trimmed);
+        if (Number.isNaN(parsed.getTime())) return trimmed;
+        return toISODate(parsed);
+    }
+
+    if (dateOnlyPattern.test(trimmed) || offsetDateTimePattern.test(trimmed)) {
+        return trimmed;
+    }
+
+    const parsed = parseLocalDate(trimmed);
+    if (Number.isNaN(parsed.getTime())) return trimmed;
+    return parsed.toISOString();
+}
+
+export function normalizeTaskWriteTemporalInput<T extends {
+    dueDate?: string | null;
+    scheduledStart?: string | null;
+    scheduledEnd?: string | null;
+}>(input: T): T {
+    return {
+        ...input,
+        ...(input.dueDate !== undefined && {
+            dueDate: normalizeTaskWriteTemporalField(input.dueDate, "dueDate"),
+        }),
+        ...(input.scheduledStart !== undefined && {
+            scheduledStart: normalizeTaskWriteTemporalField(input.scheduledStart, "scheduledStart"),
+        }),
+        ...(input.scheduledEnd !== undefined && {
+            scheduledEnd: normalizeTaskWriteTemporalField(input.scheduledEnd, "scheduledEnd"),
+        }),
+    };
+}
+
+// Canonical → legacy-FE label map (see Canonical_models §2.3 reconciliation table).
+const READ_SHAPE_TO_KIND: Record<TaskReadShape, TaskScheduleKind> = {
+    unscheduled: "unscheduled",
+    deadline_only: "deadline",
+    timed_block: "timed",
+    all_day_duration: "duration",
+    legacy_all_day_with_start: "legacy-all-day-start",
+    legacy_mixed_timed_deadline: "legacy-mixed-timed-deadline",
+};
+
 export function getTaskScheduleKind(task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay">): TaskScheduleKind {
-    if (!task.dueDate && !task.scheduledStart && !task.scheduledEnd) {
-        return "unscheduled";
-    }
-
-    if (task.isAllDay === false && task.scheduledStart) {
-        return task.dueDate ? "legacy-mixed-timed-deadline" : "timed";
-    }
-
-    if (task.isAllDay !== false && task.dueDate && task.scheduledEnd) {
-        return "duration";
-    }
-
-    if (task.isAllDay !== false && task.dueDate) {
-        return task.scheduledStart ? "legacy-all-day-start" : "deadline";
-    }
-
-    if (task.scheduledStart) {
-        return "legacy-all-day-start";
-    }
-
-    return "deadline";
+    return READ_SHAPE_TO_KIND[classifyTaskReadShape(task)];
 }
 
 export function getTaskScheduleSummary(

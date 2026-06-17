@@ -1,6 +1,6 @@
-import type { TaskPriority } from "../../types/task";
-import type { Project } from "../../types/project";
-import type { Tag } from "../../types/tag";
+import type { TaskPriority } from "@cadence/contracts/task";
+import type { Project } from "@cadence/contracts/project";
+import type { Tag } from "@cadence/contracts/tag";
 
 export type QuickAddTokenKind = "date" | "priority" | "project" | "tag" | "recurrence";
 

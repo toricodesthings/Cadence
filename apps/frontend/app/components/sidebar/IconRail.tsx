@@ -7,11 +7,10 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 
-import * as Tooltip from "../primitives/Tooltip";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as Popover from "../primitives/Popover";
 import * as AlertDialog from "../primitives/AlertDialog";
-import { Tip } from "./Tip";
+import { Tip } from "../primitives";
 import { useApiClient } from "../../hooks/auth/use-api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -27,6 +26,7 @@ import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
+import { useAssistantStore } from "../../stores/assistant-store";
 
 /** Nav item accent color definitions — per-concept wayfinding shades */
 const NAV_LINKS = [
@@ -106,6 +106,8 @@ export function IconRail({
     // Dialog states
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
+
+    const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
 
     // Notification center
     const { grouped, hasUnread, markRead, markAllRead, dismiss, defer } = useNotificationCenter();
@@ -292,22 +294,22 @@ export function IconRail({
 
     return (
         <div
-            className="flex h-full w-[60px] flex-col items-center gap-2 border-r border-twilight-border py-5 shrink-0"
+            className="flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0"
             role="navigation"
             aria-label="Icon navigation rail"
         >
             {/* Logo */}
             <div
-                className="size-11 flex items-center justify-center mb-2 mt-0"
+                className="size-10 flex items-center justify-center mb-0.5"
                 aria-label="Cadence"
             >
                 <img src="/logo.png" alt="Cadence" className="size-full object-cover" />
             </div>
 
-            <div className="w-[60%] h-px bg-twilight-border rounded-full my-1" aria-hidden="true" />
+            <div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
 
             {/* Primary nav links */}
-            <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1.5 w-full px-2">
+            <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1 w-full px-2">
                 {NAV_LINKS.map(({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
                     const isActive = location.pathname === to;
                     const showDot = to === "/habits" ? hasHabitsDue : notificationFn && notificationFn();
@@ -335,7 +337,23 @@ export function IconRail({
                 })}
             </nav>
 
-            <div className="w-[60%] h-px bg-twilight-border rounded-full my-1" aria-hidden="true" />
+            <div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
+
+            <Tip label="Ask Assistant" side="right">
+                <button
+                    onClick={toggleAssistantPanel}
+                    aria-label="Toggle AI Assistant Panel"
+                    className={`
+                        btn-icon relative rounded-2xl transition-all duration-200 outline-none
+                        ${assistantPanelOpen 
+                            ? "text-accent-primary bg-accent-primary/10 border border-accent-primary/20 glow-lantern shadow-[0_0_16px_rgba(230,165,85,0.15)]" 
+                            : "text-twilight-text-muted hover:text-accent-primary hover:bg-white/[0.04]"
+                        }
+                    `}
+                >
+                    <Sparkles size={18} aria-hidden="true" className={assistantPanelOpen ? "animate-pulse" : ""} />
+                </button>
+            </Tip>
 
             <Tip label="Search" side="right">
                 <button
@@ -402,7 +420,7 @@ export function IconRail({
             {canUseDeveloperTools ? (
                 <>
                     {/* Developer Tools */}
-                    <div className="w-[40%] h-px bg-twilight-border my-1 rounded-full opacity-50" aria-hidden="true" />
+                    <div className="w-[40%] h-px bg-twilight-border my-0.5 rounded-full opacity-50" aria-hidden="true" />
 
                     <AlertDialog.Root open={wipeConfirmOpen} onOpenChange={setWipeConfirmOpen}>
                         <DropdownMenu.Root>

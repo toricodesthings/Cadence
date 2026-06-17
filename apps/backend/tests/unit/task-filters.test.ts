@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-    normalizeEndBoundary,
-    normalizeStartBoundary,
-    normalizeTaskFilters,
-} from "../../src/domains/tasks/task-filters";
+import { normalizeEndBoundary, normalizeStartBoundary } from "@cadence/domain/task-temporal";
+import { normalizeTaskFilters } from "../../src/domains/tasks/task-filters";
 
 describe("task filter normalization", () => {
     it("expands date-only range boundaries to inclusive datetimes", () => {

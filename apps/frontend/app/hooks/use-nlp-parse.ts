@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { ParseResult, ParsedEntity } from "@cadence/nlp/core";
 import type { SourceSurface } from "@cadence/nlp/core";
-import type { TaskPriority } from "../types/task";
+import type { TaskPriority } from "@cadence/contracts/task";
 import type { QuickAddParsedToken, QuickAddParseResult } from "../lib/utils/quick-add-parser";
 import { trackUsageEvent } from "../lib/api/track-event";
 

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
-import type { Habit } from "../../types/habit";
+import type { Habit } from "@cadence/contracts/habit";
 import { useAuthState } from "../auth/use-auth-state";
 
 interface UseHabitsWeeklyOptions {
@@ -42,7 +42,7 @@ export function useAllHabits() {
         enabled: authReady && isAuthenticated,
         staleTime: STALE_TIMES.HABITS,
         queryFn: async () => {
-            const res = await client.api.habits.$get();
+            const res = await client.api.habits.$get({ query: {} });
             return unwrapResponse<Habit[]>(res);
         },
     });

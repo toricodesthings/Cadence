@@ -9,7 +9,7 @@ import { useDeleteHabit } from "../../hooks/habits/use-delete-habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { usePauseHabit, useResumeHabit } from "../../hooks/habits/use-pause-habit";
 import { CadencePicker } from "./CadencePicker";
-import type { Habit } from "../../types/habit";
+import type { Habit } from "@cadence/contracts/habit";
 
 interface HabitMenuProps {
     habit: Habit;

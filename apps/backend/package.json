@@ -23,26 +23,31 @@
 		"db:studio": "drizzle-kit studio"
 	},
 	"dependencies": {
+		"@ai-sdk/openai": "^3.0.69",
+		"@cadence/contracts": "workspace:*",
+		"@cadence/domain": "workspace:*",
 		"@cadence/nlp": "workspace:*",
 		"@hono/zod-validator": "^0.7.6",
 		"@neondatabase/auth": "0.2.0-beta.1",
 		"@neondatabase/neon-js": "0.2.0-beta.1",
+		"@upstash/redis": "^1.38.0",
+		"ai": "^6.0.199",
 		"date-fns": "^4.4.0",
 		"drizzle-orm": "^0.45.2",
-		"hono": "^4.12.23",
+		"hono": "^4.12.25",
 		"jose": "^6.2.3",
 		"postgres": "^3.4.9",
 		"rrule": "^2.8.1",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260603.1",
-		"@dotenvx/dotenvx": "^1.71.0",
-		"@types/node": "^25.9.1",
+		"@cloudflare/workers-types": "^4.20260610.1",
+		"@dotenvx/dotenvx": "^1.71.2",
+		"@types/node": "^25.9.2",
 		"dotenv": "^17.4.2",
 		"drizzle-kit": "^0.31.10",
 		"typescript": "^5.9.3",
 		"vitest": "^4.1.8",
-		"wrangler": "^4.97.0"
+		"wrangler": "^4.99.0"
 	}
 }

@@ -5,7 +5,11 @@ import { AppError } from "../../platform/errors";
 import { isAdminUser } from "../../platform/auth";
 import { scenarios, DEFAULT_SCENARIO } from "./scenarios";
 import {
+    aiConversations,
     aiMemories,
+    aiMessages,
+    aiPromptBlocks,
+    aiPromptRevision,
     habitLogs,
     habitTags,
     habits,
@@ -26,14 +30,17 @@ import {
     usageEvents,
     userMetrics,
 } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { apiValidator } from "../../platform/validation";
+import { promptBlockUpsertSchema } from "../ai/ai.schema";
 import type { Env } from "../../types/env";
+import type { Tx } from "../../types/db";
 import type { AuthVariables } from "../../platform/auth";
 
-export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
+// Router is defined below as a single CHAIN (after its helpers) so the route
+// schema flows into AppType for the Hono RPC client.
 
-type TransactionClient = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
-type RlsClient = DbClient | TransactionClient;
+type RlsClient = DbClient | Tx;
 
 function requireAdmin(c: Context<{ Bindings: Env; Variables: AuthVariables }>) {
     const userId = c.get("userId");
@@ -58,7 +65,10 @@ async function clearUserData(db: RlsClient, userId: string) {
     await db.delete(suggestions).where(eq(suggestions.userId, userId));
     await db.delete(usageEvents).where(eq(usageEvents.userId, userId));
     await db.delete(mutationDedup).where(eq(mutationDedup.userId, userId));
+    // AI threads: messages (child) → memories (provenance FK is set-null) → conversations
+    await db.delete(aiMessages).where(eq(aiMessages.userId, userId));
     await db.delete(aiMemories).where(eq(aiMemories.userId, userId));
+    await db.delete(aiConversations).where(eq(aiConversations.userId, userId));
     await db.delete(userMetrics).where(eq(userMetrics.userId, userId));
 
     // Task children (before tasks)
@@ -90,18 +100,18 @@ async function clearUserData(db: RlsClient, userId: string) {
 
 // ── Routes ───────────────────────────────────────────────────────────
 
-debugRoutes.post("/clear", async (c) => {
-    const { userId } = requireAdmin(c);
-    const db = getDbClient(c.env);
+export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
+    .post("/clear", async (c) => {
+        const { userId } = requireAdmin(c);
+        const db = getDbClient(c.env);
 
-    await withRls(db, userId, async (tx) => {
-        await clearUserData(tx, userId);
-    });
+        await withRls(db, userId, async (tx) => {
+            await clearUserData(tx, userId);
+        });
 
-    return c.json({ data: { message: "Cleared all user data except the user profile." } });
-});
-
-debugRoutes.post("/seed", async (c) => {
+        return c.json({ data: { message: "Cleared all user data except the user profile." } });
+    })
+    .post("/seed", async (c) => {
     const { userId } = requireAdmin(c);
     const db = getDbClient(c.env);
     const scenarioKey = (c.req.query("scenario") ?? DEFAULT_SCENARIO).toLowerCase();
@@ -127,16 +137,61 @@ debugRoutes.post("/seed", async (c) => {
         );
     }
 
-    return c.json({
-        data: {
-            message: `Seeded workspace with "${scenario.name}" scenario.`,
-            scenario: scenarioKey,
-            version: scenario.version,
-        },
-    });
-});
+        return c.json({
+            data: {
+                message: `Seeded workspace with "${scenario.name}" scenario.`,
+                scenario: scenarioKey,
+                version: scenario.version,
+            },
+        });
+    })
+    // Live-edit a system-prompt block without a deploy (doc 04 §5 option 2).
+    // ai_prompt_blocks is GLOBAL config (no RLS) — written here, read by the prompt
+    // cache. The revision bump in the SAME transaction is the cache-bust token; the
+    // in-isolate cache reloads on the next chat turn within the Tier-0 TTL.
+    .patch("/ai/prompt-blocks", apiValidator("json", promptBlockUpsertSchema), async (c) => {
+    requireAdmin(c);
+    const db = getDbClient(c.env);
+    const block = c.req.valid("json");
 
-debugRoutes.get("/capabilities", async (c) => {
-    const { userId, userEmail } = requireAdmin(c);
-    return c.json({ data: { canUseDeveloperTools: true, userId, email: userEmail ?? null } });
-});
+    await db.transaction(async (tx) => {
+        await tx
+            .insert(aiPromptBlocks)
+            .values({
+                kind: block.kind,
+                layer: block.layer,
+                locale: block.locale,
+                orderIndex: block.orderIndex,
+                template: block.template,
+                isActive: block.isActive ?? true,
+                notes: block.notes ?? null,
+            })
+            .onConflictDoUpdate({
+                target: [aiPromptBlocks.kind, aiPromptBlocks.locale],
+                set: {
+                    layer: block.layer,
+                    orderIndex: block.orderIndex,
+                    template: block.template,
+                    isActive: block.isActive ?? true,
+                    notes: block.notes ?? null,
+                    version: sql`${aiPromptBlocks.version} + 1`,
+                    updatedAt: sql`NOW()`,
+                },
+            });
+
+        // Bump the singleton revision (cache-bust). Create row id=1 on first write.
+        await tx
+            .insert(aiPromptRevision)
+            .values({ id: 1, revision: 1 })
+            .onConflictDoUpdate({
+                target: aiPromptRevision.id,
+                set: { revision: sql`${aiPromptRevision.revision} + 1`, updatedAt: sql`NOW()` },
+            });
+    });
+
+        return c.json({ data: { message: `Updated prompt block "${block.kind}" (${block.locale}); revision bumped.` } });
+    })
+    .get("/capabilities", async (c) => {
+        const { userId, userEmail } = requireAdmin(c);
+        return c.json({ data: { canUseDeveloperTools: true, userId, email: userEmail ?? null } });
+    });

@@ -238,7 +238,7 @@ export function FloatingActionBar() {
                                 >
                                     <span
                                         className="h-2.5 w-2.5 rounded-full"
-                                        style={{ backgroundColor: tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
+                                        style={{ backgroundColor: !tag.color || tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
                                     />
                                     <span className="truncate">{tag.name}</span>
                                 </button>

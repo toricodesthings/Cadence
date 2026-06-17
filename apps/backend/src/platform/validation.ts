@@ -21,16 +21,17 @@ export function apiValidator<T extends keyof ValidationTargets, S extends ZodSch
             return;
         }
 
+        const ctx = c as any;
         const issues = formatIssues(result.error.issues);
-        setRequestErrorCode(c as any, "INVALID_REQUEST");
-        await logValidationFailure(c as any, target, issues, result.data);
+        setRequestErrorCode(ctx, "INVALID_REQUEST");
+        await logValidationFailure(ctx, target, issues, result.data);
 
         return c.json(
             createErrorBody({
                 code: "INVALID_REQUEST",
                 message: "Request validation failed",
                 status: 400,
-                requestId: (c as any).get("requestId"),
+                requestId: ctx.get("requestId"),
                 issues,
             }),
             400,

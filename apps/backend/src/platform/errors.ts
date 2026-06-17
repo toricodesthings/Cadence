@@ -1,3 +1,5 @@
+import { DomainError } from "@cadence/domain/errors";
+
 export class AppError extends Error {
     constructor(
         public readonly statusCode: number,
@@ -42,29 +44,21 @@ export function createErrorBody(options: ErrorBodyOptions) {
 }
 
 export function formatErrorResponse(error: unknown, requestId?: string) {
-    if (error instanceof AppError) {
-        return {
-            body: createErrorBody({
-                code: error.code,
-                message: error.message,
-                status: error.statusCode,
-                isRetryable: error.isRetryable,
-                requestId,
-            }),
-            status: error.statusCode,
-            errorCode: error.code,
-        };
-    }
+    const appError = error instanceof AppError
+        ? error
+        : error instanceof DomainError
+            ? new AppError(error.status, error.code, error.message)
+            : new AppError(500, "INTERNAL_ERROR", "An unexpected error occurred", true);
 
     return {
         body: createErrorBody({
-            code: "INTERNAL_ERROR",
-            message: "An unexpected error occurred",
-            status: 500,
-            isRetryable: true,
+            code: appError.code,
+            message: appError.message,
+            status: appError.statusCode,
+            isRetryable: appError.isRetryable,
             requestId,
         }),
-        status: 500,
-        errorCode: "INTERNAL_ERROR",
+        status: appError.statusCode,
+        errorCode: appError.code,
     };
 }

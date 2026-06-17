@@ -23,6 +23,10 @@ export const queryKeys = {
         monthly: (id: string, year: number, month: number) => ["habits", id, "monthly", year, month] as const,
         unresolved: ["habits", "unresolved"] as const,
     },
+    ai: {
+        conversations: ["ai", "conversations"] as const,
+        conversation: (id: string) => ["ai", "conversation", id] as const,
+    },
 } as const;
 
 /** Differentiated stale times for each data type.

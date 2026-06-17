@@ -30,6 +30,7 @@ import { useSettings } from "../hooks/core/use-settings";
 import * as Dialog from "../components/primitives/Dialog";
 import * as AlertDialog from "../components/primitives/AlertDialog";
 import { Button } from "../components/primitives/Button";
+import { Tip } from "../components/primitives";
 import { resolveAccentColor } from "../lib/utils/color-resolver";
 import { EmojiPickerPopover } from "../components/shared/EmojiPickerPopover";
 import { PageContent } from "../components/layout/PageLayout";
@@ -386,24 +387,24 @@ export default function ProjectView() {
                         </div>
                         <div className="flex gap-2 items-center flex-wrap">
                             {PROJECT_ACCENT_OPTIONS.map((opt) => (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    onClick={() => {
-                                        setColorValue(opt.value);
-                                        setIsCustomColor(false);
-                                    }}
-                                    title={opt.label}
-                                    className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorValue === opt.value && !isCustomColor
-                                        ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
-                                        : "opacity-60 hover:opacity-100"
-                                        }`}
-                                    style={{ backgroundColor: opt.varName }}
-                                />
+                                <Tip key={opt.value} label={opt.label} side="top">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setColorValue(opt.value);
+                                            setIsCustomColor(false);
+                                        }}
+                                        className={`w-5 h-5 rounded-full transition-[transform,opacity] duration-150 cursor-pointer ${colorValue === opt.value && !isCustomColor
+                                            ? "ring-2 ring-offset-2 ring-offset-twilight-surface scale-110"
+                                            : "opacity-60 hover:opacity-100"
+                                            }`}
+                                        style={{ backgroundColor: opt.varName }}
+                                    />
+                                </Tip>
                             ))}
+                            <Tip label="Custom Hex Color" side="top">
                             <div
                                 className="relative flex items-center justify-center w-[22px] h-[22px] rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10 hover:ring-white/20 transition-all"
-                                title="Custom Hex Color"
                                 style={{ backgroundColor: colorValue.startsWith("#") ? colorValue : "transparent" }}
                             >
                                 <div className="absolute inset-0 bg-twilight-surface/30 backdrop-blur-sm pointer-events-none" />
@@ -420,6 +421,7 @@ export default function ProjectView() {
                                     <div className="absolute inset-0 ring-2 ring-twilight-surface/50 rounded-full pointer-events-none" />
                                 )}
                             </div>
+                            </Tip>
                         </div>
                         <div className="flex justify-end gap-2">
                             <button
@@ -472,6 +474,8 @@ export default function ProjectView() {
             <MainLayout
                 requireAuth
                 sidePanel={sidePanel}
+                sidePanelActive={Boolean(selectedTaskId)}
+                sidePanelLabel="Task"
                 headerRight={project ? (shell.isPhone ? (
                     <div className="flex items-center gap-2">
                     <Suspense fallback={null}><LazyFocusViewBar /></Suspense>

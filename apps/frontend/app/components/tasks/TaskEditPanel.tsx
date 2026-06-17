@@ -21,7 +21,6 @@ import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import * as Separator from "../primitives/Separator";
-import * as Tooltip from "../primitives/Tooltip";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
@@ -34,7 +33,7 @@ import {
     isPassiveTimetableTask,
     isRecurringTask,
 } from "../../lib/utils/task/task-scheduling";
-import type { Task, TaskPriority, TaskState, EffortLevel } from "../../types/task";
+import type { EffortLevel, Task, TaskPriority, TaskState } from "@cadence/contracts/task";
 import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 

@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { normalizeTaskTemporalFields } from "../tasks/task-normalization";
-import { insertHabitSchema } from "../habits/habits.schema";
-import { insertInboxItemSchema, insertInboxSectionSchema } from "../inbox/inbox.schema";
-import { insertProjectSchema } from "../projects/projects.schema";
-import { insertSubtaskSchema } from "../subtasks/subtasks.schema";
-import { insertTagSchema } from "../tags/tags.schema";
+import { normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
+import { insertHabitSchema } from "@cadence/contracts/habit";
+import { insertInboxItemSchema, insertInboxSectionSchema } from "@cadence/contracts/inbox";
+import { insertProjectSchema } from "@cadence/contracts/project";
+import { insertSubtaskSchema } from "@cadence/contracts/subtask";
+import { insertTagSchema } from "@cadence/contracts/tag";
 import { insertTaskSchema } from "../tasks/tasks.schema";
-import { upsertNoteSchema } from "../notes/notes.schema";
+import { upsertNoteSchema } from "@cadence/contracts/note";
 import type {
     sourceSurfaceEnum,
     confidenceTierEnum,

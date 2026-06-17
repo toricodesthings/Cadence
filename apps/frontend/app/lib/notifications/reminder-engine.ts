@@ -1,5 +1,5 @@
-import type { Task } from "../../types/task";
-import type { Habit } from "../../types/habit";
+import type { Task } from "@cadence/contracts/task";
+import type { Habit } from "@cadence/contracts/habit";
 import type { AppNotification } from "./notification-model";
 import { formatTime, formatShortDate, toISODate } from "../utils/date-format";
 

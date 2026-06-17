@@ -3,7 +3,7 @@ import { Check, Archive, GripVertical, Repeat, CalendarClock } from "lucide-reac
 import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import type { Task, TaskPriority } from "../../types/task";
+import type { Task, TaskPriority } from "@cadence/contracts/task";
 import { formatTime } from "../../lib/utils/date-format";
 import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";

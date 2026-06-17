@@ -14,16 +14,17 @@ import { normalizeTaskFilters, type NormalizedTaskFilters } from "./task-filters
 import {
     hasTaskTemporalMutation,
     normalizeTaskTemporalFields,
-} from "./task-normalization";
+} from "@cadence/domain/task-temporal";
 import {
     expandScheduleScopedTasks,
     isScheduleScopedTaskQuery,
     validateTaskRecurrenceRule,
-} from "./task-recurrence";
+} from "@cadence/domain/task-recurrence";
+import { computeGappedOrderIndex } from "@cadence/domain/ordering";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
-import { uuidParamSchema } from "../../platform/common-schemas";
-import { taskTagSchema } from "../tags/tags.schema";
+import { uuidParamSchema } from "../../types/api";
+import { taskTagSchema } from "@cadence/contracts/tag";
 import {
     sourceSurfaceSchema,
     batchRescheduleSchema,
@@ -540,11 +541,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const updated = await withRls(db, userId, async (tx) => {
             // If the client sent the full ordered list, rebalance all affected tasks
             if (orderedTaskIds && orderedTaskIds.length > 1) {
-                const GAP = 1024;
-
                 // Batch all reorder updates into a single UPDATE with CASE
                 const caseChunks = orderedTaskIds.map(
-                    (taskId, idx) => sql`WHEN ${taskId} THEN ${idx * GAP}`,
+                    (taskId, idx) => sql`WHEN ${taskId} THEN ${computeGappedOrderIndex(idx)}`,
                 );
                 await tx.execute(sql`
                     UPDATE tasks

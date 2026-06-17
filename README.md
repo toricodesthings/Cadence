@@ -4,7 +4,7 @@
 
 ### _The planner you can actually stick with._
 
-Cadence is a calm, privacy-first productivity app designed for real human brains — the kind that spiral, reschedule, abandon systems, and start over. It adapts to you. It does not punish you for being inconsistent.
+Cadence is a calm, fully-featured but also simple productivity app designed for real human brains — the kind that spiral, reschedule, abandon systems, and start over. It adapts to you. It does not punish you for being inconsistent.
 
 **[Live App](https://dashboard.cadenceapp.cloud) · [Open Source](#contributing) · [Privacy First](#privacy--trust) · [Always Free](#philosophy)**
 

@@ -46,6 +46,8 @@ export default function CompletedView() {
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
+            sidePanelActive={Boolean(selectedTaskId)}
+            sidePanelLabel="Task"
             contentWidth="default"
             shellHeader={{
                 title: "Completed",

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Flag, Clock } from "lucide-react";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import { useSwipeNavigation } from "../../hooks/use-swipe-navigation";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 import type { PersonalEvent } from "../../types/settings";
 import { formatTime } from "../../lib/utils/date-format";

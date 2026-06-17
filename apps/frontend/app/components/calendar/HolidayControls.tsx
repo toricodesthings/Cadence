@@ -2,7 +2,7 @@ import { Check, CircleAlert, LocateFixed, MapPin, SlidersHorizontal, Sparkles } 
 import { Button } from "../primitives/Button";
 import { Switch } from "../primitives";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
-import * as Tooltip from "../primitives/Tooltip";
+import { Tip } from "../primitives";
 import type { HolidayCountryOption } from "../../hooks/environment/use-holiday-overlay";
 
 interface HolidayControlsProps {
@@ -271,25 +271,23 @@ export function HolidayLocationPrompt({
 
 export function HolidayAccuracyHint({ variant = "pill" }: { variant?: "pill" | "icon" }) {
     return (
-        <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-                <button
-                    type="button"
-                    className={
-                        variant === "icon"
-                            ? "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
-                            : "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs text-twilight-text-soft"
-                    }
-                    aria-label="Holiday accuracy details"
-                >
-                    <CircleAlert size={12} aria-hidden="true" />
-                    {variant === "pill" ? "Less precise" : null}
-                </button>
-            </Tooltip.Trigger>
-            <Tooltip.Content>
-                Precise location is off, so regional holidays may fall back to broader country-level matches.
-            </Tooltip.Content>
-        </Tooltip.Root>
+        <Tip
+            side="top"
+            label="Precise location is off, so regional holidays may fall back to broader country-level matches."
+        >
+            <button
+                type="button"
+                className={
+                    variant === "icon"
+                        ? "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
+                        : "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs text-twilight-text-soft"
+                }
+                aria-label="Holiday accuracy details"
+            >
+                <CircleAlert size={12} aria-hidden="true" />
+                {variant === "pill" ? "Less precise" : null}
+            </button>
+        </Tip>
     );
 }
 

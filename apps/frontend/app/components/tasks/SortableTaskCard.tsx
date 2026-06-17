@@ -3,8 +3,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
 import { TaskCard } from "./TaskCard";
-import type { Tag } from "../../types/tag";
-import type { Task, Subtask } from "../../types/task";
+import type { Tag } from "@cadence/contracts/tag";
+import type { Subtask } from "@cadence/contracts/subtask";
+import type { Task } from "@cadence/contracts/task";
 
 interface SortableTaskCardProps {
     task: Task;

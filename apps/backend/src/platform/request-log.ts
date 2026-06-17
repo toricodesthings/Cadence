@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { logger, hashIdentifier, shorten, issuesFromError, type IssueSummary, type LogLevel } from "./log";
 
 export const REQUEST_ID_HEADER = "x-request-id";
 
@@ -27,35 +28,8 @@ const JSON_SUMMARY_KEYS = new Set([
 
 const PARAM_SUMMARY_KEYS = new Set(["id", "tagId"]);
 
-type LogLevel = "log" | "warn" | "error";
-
-export type ValidationIssueSummary = {
-    code: string;
-    message: string;
-    path: string;
-};
-
-type StructuredLogEvent = {
-    event: string;
-    level: LogLevel;
-    requestId: string;
-    method: string;
-    path: string;
-    status?: number;
-    route: string;
-    userHash: string | null;
-    errorCode?: string;
-    issues?: ValidationIssueSummary[];
-    timingMs?: number;
-    target?: string;
-    input?: Record<string, unknown>;
-    /** Optional client-supplied correlation ID, validated and stored separately. */
-    clientRequestId?: string;
-};
-
-function shorten(value: string) {
-    return value.length > 120 ? `${value.slice(0, 117)}...` : value;
-}
+/** Re-exported under the legacy name so domain code keeps importing from here. */
+export type ValidationIssueSummary = IssueSummary;
 
 function summarizeValue(key: string, value: unknown) {
     if (value === undefined) return undefined;
@@ -76,12 +50,6 @@ function summarizeValue(key: string, value: unknown) {
     return value;
 }
 
-async function hashIdentifier(value: string) {
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-    return hash.slice(0, 16);
-}
-
 function sanitizeRecord(
     data: Record<string, unknown>,
     allowedKeys: Set<string>,
@@ -97,26 +65,10 @@ function sanitizeRecord(
     return summary;
 }
 
-function emitStructuredLog(event: StructuredLogEvent) {
-    const payload = JSON.stringify(event);
-
-    if (event.level === "error") {
-        console.error(payload);
-        return;
-    }
-
-    if (event.level === "warn") {
-        console.warn(payload);
-        return;
-    }
-
-    console.log(payload);
-}
-
 function levelForStatus(status: number): LogLevel {
     if (status >= 500) return "error";
     if (status >= 400) return "warn";
-    return "log";
+    return "info";
 }
 
 export function getRequestId(c: Context<any>) {
@@ -129,6 +81,32 @@ export function getRouteLabel(c: Context<any>) {
 
 export function setRequestErrorCode(c: Context<any>, errorCode: string) {
     c.set("errorCode", errorCode);
+}
+
+/**
+ * Mark a request as already having an explicit failure log emitted, so the
+ * request-context middleware does not emit a second `request_completed` line
+ * for the same failure. This is what guarantees exactly one structured entry
+ * per failed request regardless of whether the failure threw or returned.
+ */
+function markLogged(c: Context<any>) {
+    c.set("logged", true);
+}
+
+/**
+ * Shared envelope fields every structured log event carries: request
+ * identity, the request line, the hashed user, and elapsed time.
+ */
+async function baseLogFields(c: Context<any>, requestId: string) {
+    const userId = c.var.userId;
+    return {
+        requestId,
+        method: c.req.method,
+        path: c.req.path,
+        route: getRouteLabel(c),
+        userHash: userId ? await hashIdentifier(userId) : null,
+        timingMs: Date.now() - c.get("requestStartedAt"),
+    };
 }
 
 /**
@@ -168,24 +146,18 @@ export function createRequestContext() {
         c.header(REQUEST_ID_HEADER, requestId);
 
         const status = c.res.status;
-        if (status < 400) {
+
+        // Happy paths are intentionally silent — Cloudflare's invocation log
+        // already covers 2xx/3xx. Skip too if an explicit failure log was
+        // emitted (validation / onError), preventing a duplicate line.
+        if (status < 400 || c.get("logged")) {
             return;
         }
 
-        const timingMs = Date.now() - c.get("requestStartedAt");
-        const userId = c.var.userId;
-
-        emitStructuredLog({
-            event: "request_completed",
-            level: levelForStatus(status),
-            requestId,
-            method: c.req.method,
-            path: c.req.path,
+        logger[levelForStatus(status)]("http", "request_completed", {
+            ...(await baseLogFields(c, requestId)),
             status,
-            route: getRouteLabel(c),
-            userHash: userId ? await hashIdentifier(userId) : null,
             errorCode: c.var.errorCode,
-            timingMs,
             ...(clientRequestId ? { clientRequestId } : {}),
         });
     };
@@ -198,23 +170,16 @@ export async function logValidationFailure(
     rawData: unknown,
 ) {
     const requestId = getRequestId(c);
-    const userId = c.var.userId;
     const record = rawData && typeof rawData === "object" ? rawData as Record<string, unknown> : {};
     const allowedKeys = target === "json" ? JSON_SUMMARY_KEYS : target === "param" ? PARAM_SUMMARY_KEYS : QUERY_SUMMARY_KEYS;
 
-    emitStructuredLog({
-        event: "validation_failed",
-        level: "warn",
-        requestId,
-        method: c.req.method,
-        path: c.req.path,
+    markLogged(c);
+    logger.warn("http", "validation_failed", {
+        ...(await baseLogFields(c, requestId)),
         status: 400,
-        route: getRouteLabel(c),
-        userHash: userId ? await hashIdentifier(userId) : null,
         errorCode: "INVALID_REQUEST",
         issues,
         target,
-        timingMs: Date.now() - c.get("requestStartedAt"),
         input: sanitizeRecord(record, allowedKeys),
     });
 }
@@ -226,35 +191,12 @@ export async function logErrorResponse(
     errorCode: string,
 ) {
     const requestId = getRequestId(c);
-    const userId = c.var.userId;
-    const issueList: ValidationIssueSummary[] = [];
-    if (error instanceof Error) {
-        issueList.push({
-            code: error.name || "Error",
-            message: shorten(error.message),
-            path: "",
-        });
-        if (error.cause instanceof Error) {
-            issueList.push({
-                code: error.cause.name || "Cause",
-                message: shorten(error.cause.message),
-                path: "cause",
-            });
-        }
-    }
-    const issues = issueList.length > 0 ? issueList : undefined;
 
-    emitStructuredLog({
-        event: "request_failed",
-        level: levelForStatus(status),
-        requestId,
-        method: c.req.method,
-        path: c.req.path,
+    markLogged(c);
+    logger[levelForStatus(status)]("http", "request_failed", {
+        ...(await baseLogFields(c, requestId)),
         status,
-        route: getRouteLabel(c),
-        userHash: userId ? await hashIdentifier(userId) : null,
         errorCode,
-        issues,
-        timingMs: Date.now() - c.get("requestStartedAt"),
+        issues: issuesFromError(error),
     });
 }

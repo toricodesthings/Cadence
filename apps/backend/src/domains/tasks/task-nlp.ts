@@ -1,10 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
 import { users, projects, tags, taskNlpMetadata, taskNlpMetadataHistory } from "../../db/schema";
-import { type DbClient } from "../../platform/db";
-
-/** RLS-scoped transaction handle (mirrors the type provided by `withRls`). */
-type Tx = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+import type { Tx } from "../../types/db";
 
 export function confidenceRank(confidence: "high" | "medium" | "low" | undefined) {
     return confidence === "high" ? 2 : confidence === "medium" ? 1 : 0;

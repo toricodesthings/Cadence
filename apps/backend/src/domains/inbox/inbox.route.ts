@@ -6,14 +6,14 @@ import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platf
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
 import { inboxItems, inboxSections, tasks, taskTags, taskNlpMetadata, taskNlpMetadataHistory, projects, tags, users } from "../../db/schema";
-import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "./inbox.schema";
-import { uuidParamSchema } from "../../platform/common-schemas";
+import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
+import { uuidParamSchema } from "../../types/api";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { normalizeTaskTemporalFields } from "../tasks/task-normalization";
-import { validateTaskRecurrenceRule } from "../tasks/task-recurrence";
+import { normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
+import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { sourceSurfaceSchema } from "../tasks/tasks.schema";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot, isDateOnlyValue } from "../tasks/task-nlp";
 

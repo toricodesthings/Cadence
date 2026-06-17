@@ -7,8 +7,32 @@
 @plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * TAILWIND SOURCE & SAFELIST — §7.3 Token Reliability
+ *
+ * "A color must work on a freshly started dev server, not only after a hot
+ * reload." Declaring sources explicitly makes the v4 JIT scanner deterministic
+ * on a cold `dev` start. Without this, Tailwind's default content auto-detection
+ * can miss a class on first boot and emit NEITHER the utility NOR its backing
+ * --color-* variable — so the class becomes a silent no-op until a later edit
+ * re-scans and it "fixes itself."
+ *
+ * The @source inline() safelist covers the semantic colors that are applied
+ * conditionally or composed at runtime (passed as props, opacity-modified, etc.)
+ * — the ones the scanner is most likely to skip. Colors that are only ever
+ * chosen at runtime (project accents from resolveAccentColor) stay as inline
+ * hex styles and intentionally sidestep the JIT.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+@source "./**/*.{ts,tsx}";
+@source inline("{bg,text,border,ring}-feedback-{success,error}");
+@source inline("{bg,text,border}-feedback-{success,error}/{10,15,18,20}");
+@source inline("{bg,text}-accent-nav-{capture,schedule,today,upcoming,habits}");
+@source inline("{hover:,}bg-accent-nav-{capture,schedule,today,upcoming,habits}/{8,12,15}");
+@source inline("{bg,text,border}-priority-{low,medium,high,urgent}");
 
-@theme {
+@theme static {
   /* === TYPOGRAPHY === */
   --font-sans: "Sora Variable", "Sora", system-ui, -apple-system, sans-serif;
   --font-display: "Outfit Variable", "Outfit", system-ui, sans-serif;
@@ -90,6 +114,11 @@
   /* === SIDEBAR ANIMATION === */
   --sidebar-transition-duration: 280ms;
   --sidebar-width: 224px;
+  /* One honest minimum where every row still reads; truncation handles the
+     rest (§4.8). Shared by the wide rail drag-floor and the laptop panel so
+     there is no silent second minimum. */
+  --sidebar-min-width: 220px;
+  --sidebar-max-width: 480px;
 
   /* Auth UI token bridge */
   --background: var(--color-twilight-deep);
@@ -131,8 +160,12 @@
   --z-route-overlay: 70;
   --z-utility-surface: 80;
   --z-fullscreen-surface: 90;
-  --z-floating-ui: 100;
   --z-system-dialog: 110;
+  /* Floating UI (selects, dropdowns, popovers, tooltips, context menus) sits
+     ABOVE system dialogs so it stays usable when triggered from inside a modal.
+     Background floating UI can't appear over a modal because the inert backdrop
+     blocks it, so raising this layer is safe. */
+  --z-floating-ui: 120;
 }
 
 /*
@@ -874,6 +907,26 @@
     min-height: 100vh;
     min-height: 100dvh;
     background: var(--color-twilight-void);
+  }
+
+  /* Tailwind v4 Preflight no longer sets cursor:pointer on buttons. Restore it
+     for all interaction surfaces so every clickable affordance feels clickable.
+     Disabled controls keep the not-allowed cursor; utilities still override. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  label[for],
+  summary,
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
   }
 
   * {
@@ -1751,6 +1804,46 @@ a:active {
   box-shadow: 0 0 24px rgba(126, 184, 212, 0.06), 0 0 80px rgba(126, 184, 212, 0.03);
 }
 
+/* ── Accent aurora surface ──
+   A whisper of the user's accent colour pooled into a couple of soft, round
+   lights — mood lighting, not a gradient stripe. Painted on a -1 layer (behind
+   content, above the panel's own background) so it lifts the glass without
+   touching legibility. Two things keep it calm rather than "stitched on":
+     · `circle` (never `ellipse %`) so each pool stays round on a tall, narrow
+       rail instead of smearing into a vertical band;
+     · a long fade with no hard stop, at very low opacity, so there is no
+       visible disc edge — it reads as light, not a shape. */
+@utility aurora-accent {
+  position: relative;
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      /* upper pool — a gentle warmth near the top */
+      radial-gradient(circle 300px at 16% 6%,
+        color-mix(in srgb, var(--accent-primary) 5%, transparent),
+        transparent 72%),
+      /* mid-right whisper — keeps the light off-centre */
+      radial-gradient(circle 220px at 98% 40%,
+        color-mix(in srgb, var(--accent-primary) 3%, transparent),
+        transparent 74%),
+      /* low pool — drifts gently off the bottom edge */
+      radial-gradient(circle 320px at 30% 105%,
+        color-mix(in srgb, var(--accent-primary) 3.5%, transparent),
+        transparent 72%);
+  }
+}
+
+/* Daylight runs brighter — pull the aurora back so it stays a whisper. */
+[data-theme="daylight"] .aurora-accent::before {
+  opacity: 0.5;
+}
+
 @utility scrollbar-hide {
   scrollbar-width: none;
   &::-webkit-scrollbar {
@@ -1862,6 +1955,43 @@ a:active {
   .cadence-now-line-sheen {
     animation: none !important;
     opacity: 0.45;
+  }
+}
+
+/* ── Weekly Reset hero — gentle ambient life (§5 Motion: regulation, not
+   celebration). Pure CSS so the in-app data-motion="reduced" rule and the OS
+   prefers-reduced-motion query both collapse it to a static gradient. ── */
+@keyframes weeklyResetSway {
+    0% {
+        transform: rotate(-2deg);
+    }
+    50% {
+        transform: rotate(2deg);
+    }
+    100% {
+        transform: rotate(-2deg);
+    }
+}
+
+@keyframes weekly-reset-drift {
+  0% { transform: translateY(3px); opacity: 0; }
+  18% { opacity: 0.85; }
+  82% { opacity: 0.6; }
+  100% { transform: translateY(-16px); opacity: 0; }
+}
+
+.weekly-reset-sway {
+  animation: weekly-reset-sway 7.5s var(--ease-in-out-quart) infinite;
+}
+
+.weekly-reset-drift {
+  animation: weekly-reset-drift 6.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weekly-reset-sway,
+  .weekly-reset-drift {
+    animation: none !important;
   }
 }
 

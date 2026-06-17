@@ -1,7 +1,18 @@
 import { ApiErrorResponse, type ApiError } from "../../types/api";
 
+/**
+ * Minimal response surface these helpers actually use. Both the DOM `Response`
+ * and Hono RPC's `ClientResponse<…>` (which omits `webSocket`) satisfy it, so a
+ * fully-typed `hc<AppType>` client can flow through without casts.
+ */
+export interface UnwrappableResponse {
+    ok: boolean;
+    status: number;
+    json(): Promise<unknown>;
+}
+
 /** Extract a structured error message from a failed API response */
-export async function parseApiError(response: Response): Promise<ApiErrorResponse> {
+export async function parseApiError(response: UnwrappableResponse): Promise<ApiErrorResponse> {
     try {
         const body = (await response.json()) as ApiError;
         return new ApiErrorResponse({
@@ -22,7 +33,7 @@ export async function parseApiError(response: Response): Promise<ApiErrorRespons
 }
 
 /** Unwrap a successful API response, throwing on non-ok status */
-export async function unwrapResponse<T>(response: Response): Promise<T> {
+export async function unwrapResponse<T>(response: UnwrappableResponse): Promise<T> {
     if (!response.ok) {
         throw await parseApiError(response);
     }

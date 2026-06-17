@@ -10,7 +10,7 @@
  * frontend behavior.
  */
 
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 /**
  * Returns the canonical note owner task ID for any task.

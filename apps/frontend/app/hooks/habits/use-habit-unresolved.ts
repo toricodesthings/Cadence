@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
-import type { UnresolvedHabitSummary } from "../../types/habit";
+import type { UnresolvedHabitSummary } from "@cadence/contracts/habit";
 import { useAuthState } from "../auth/use-auth-state";
 
 /** Fetch unresolved habit summaries (yesterday + today recovery window). */

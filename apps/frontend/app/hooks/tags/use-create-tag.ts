@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import type { Tag, CreateTagInput } from "../../types/tag";
+import type { Tag, CreateTagInput } from "@cadence/contracts/tag";
 import { toast } from "sonner";
 import { reconcileTagInCaches } from "../../lib/api/cache-sync";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";

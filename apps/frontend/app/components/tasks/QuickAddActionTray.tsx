@@ -4,7 +4,7 @@ import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { useProjects } from "../../hooks/projects";
 import { useTags } from "../../hooks/tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
-import type { TaskPriority } from "../../types/task";
+import type { TaskPriority } from "@cadence/contracts/task";
 import type { UserSettings } from "../../types/settings";
 
 type QuickAddAction = "date" | "priority" | "project" | "tag";
@@ -212,7 +212,7 @@ export function QuickAddActionTray({
                                         >
                                             <span
                                                 className="h-2.5 w-2.5 rounded-full"
-                                                style={{ backgroundColor: tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
+                                                style={{ backgroundColor: !tag.color || tag.color === "default" ? "var(--color-twilight-text-muted)" : tag.color }}
                                             />
                                             <span className="truncate">{tag.name}</span>
                                         </button>

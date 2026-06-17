@@ -17,7 +17,7 @@ import { usePauseHabit, useResumeHabit } from "../../hooks/habits/use-pause-habi
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
-import type { Habit } from "../../types/habit";
+import type { Habit } from "@cadence/contracts/habit";
 import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

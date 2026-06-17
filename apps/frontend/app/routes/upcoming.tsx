@@ -51,7 +51,7 @@ import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
-import type { Task } from "../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then((m) => ({ default: m.FocusViewBar })));
 
@@ -594,6 +594,8 @@ export default function Upcoming() {
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
+            sidePanelActive={Boolean(selectedTaskId)}
+            sidePanelLabel="Task"
             headerRight={shell.isPhone ? (
                 <div className="flex items-center gap-2">
                 <Suspense fallback={null}><LazyFocusViewBar /></Suspense>

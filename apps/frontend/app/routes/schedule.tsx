@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import * as Popover from "../components/primitives/Popover";
 import { Switch } from "../components/primitives/Switch";
+import { Tip } from "../components/primitives";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
 import {
@@ -41,7 +42,7 @@ import {
     getEffectiveTaskDate,
     parseEffectiveTaskDate,
 } from "../lib/utils/date-format";
-import type { Task } from "../types/task";
+import type { Task } from "@cadence/contracts/task";
 import { useVirtualHabitTasks } from "../hooks/habits/use-virtual-habit-tasks";
 import { useApiClient } from "../hooks/auth/use-api-client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -962,15 +963,16 @@ export default function Schedule() {
                         <span>Show holidays</span>
                         <div className="flex items-center gap-2">
                             {holidayOverlay.holidaySettings.enabled && (
-                                <button
-                                    type="button"
-                                    className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                    onClick={(e) => { e.preventDefault(); navigate("?settings=datetime"); }}
-                                    aria-label="Configure holiday location"
-                                    title="Configure holiday location"
-                                >
-                                    <Wrench size={14} />
-                                </button>
+                                <Tip label="Configure holiday location" side="top">
+                                    <button
+                                        type="button"
+                                        className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                        onClick={(e) => { e.preventDefault(); navigate("?settings=datetime"); }}
+                                        aria-label="Configure holiday location"
+                                    >
+                                        <Wrench size={14} />
+                                    </button>
+                                </Tip>
                             )}
                             <Switch
                                 checked={holidayOverlay.holidaySettings.enabled}
@@ -987,15 +989,16 @@ export default function Schedule() {
                         <span>Show personal events</span>
                         <div className="flex items-center gap-2">
                             {personalEvents.enabled && (
-                                <button
-                                    type="button"
-                                    className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                    onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
-                                    aria-label="Manage events"
-                                    title="Manage events"
-                                >
-                                    <Wrench size={14} />
-                                </button>
+                                <Tip label="Manage events" side="top">
+                                    <button
+                                        type="button"
+                                        className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                        onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
+                                        aria-label="Manage events"
+                                    >
+                                        <Wrench size={14} />
+                                    </button>
+                                </Tip>
                             )}
                             <Switch
                                 checked={personalEvents.enabled}
@@ -1044,15 +1047,16 @@ export default function Schedule() {
                         <span>Show personal events</span>
                         <div className="flex items-center gap-2">
                             {personalEvents.enabled && (
-                                <button
-                                    type="button"
-                                    className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                    onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
-                                    aria-label="Manage events"
-                                    title="Manage events"
-                                >
-                                    <Wrench size={14} />
-                                </button>
+                                <Tip label="Manage events" side="top">
+                                    <button
+                                        type="button"
+                                        className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                        onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
+                                        aria-label="Manage events"
+                                    >
+                                        <Wrench size={14} />
+                                    </button>
+                                </Tip>
                             )}
                             <Switch
                                 checked={personalEvents.enabled}
@@ -1133,7 +1137,7 @@ export default function Schedule() {
     );
 
     return (
-        <MainLayout requireAuth hideHeader hideContextualOrb sidePanel={sidePanel}>
+        <MainLayout requireAuth hideHeader hideContextualOrb sidePanel={sidePanel} sidePanelActive={Boolean(selectedTaskId)} sidePanelLabel="Task">
             <DndContext
                 sensors={sensors}
                 collisionDetection={(args) => {

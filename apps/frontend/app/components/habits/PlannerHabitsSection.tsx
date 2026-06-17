@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { useHabitsWeekly } from "../../hooks/habits/use-habits";
 import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
 import { toISODate } from "../../lib/utils/date-format";
-import type { Habit, HabitLog } from "../../types/habit";
+import type { Habit, HabitLog } from "@cadence/contracts/habit";
 
 interface TodayHabitRowProps {
     habit: Habit;

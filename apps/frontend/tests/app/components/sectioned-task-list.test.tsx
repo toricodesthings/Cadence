@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionedTaskList } from "../../../app/components/tasks/SectionedTaskList";
-import type { Task, TaskSection } from "../../../app/types/task";
+import type { TaskSection } from "@cadence/contracts/section";
+import type { Task } from "@cadence/contracts/task";
 
 const useSectionsMock = vi.fn();
 const useCreateSectionMock = vi.fn();

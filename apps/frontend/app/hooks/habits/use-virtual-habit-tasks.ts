@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useHabitsWeekly } from "./use-habits";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 /**
  * Fetches habits for a date range and maps them to virtual Task objects

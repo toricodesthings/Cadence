@@ -28,8 +28,9 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import { formatShortDate, toISODate } from "../../lib/utils/date-format";
 import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
-import type { Tag } from "../../types/tag";
-import type { Task, Subtask } from "../../types/task";
+import type { Tag } from "@cadence/contracts/tag";
+import type { Subtask } from "@cadence/contracts/subtask";
+import type { Task } from "@cadence/contracts/task";
 
 interface TaskCardProps {
     task: Task;
@@ -92,7 +93,7 @@ type CollapsedSignal = {
 };
 
 function getTagTone(tag?: Tag) {
-    if (!tag || tag.color === "default") {
+    if (!tag || !tag.color || tag.color === "default") {
         return {
             backgroundColor: "rgba(255,255,255,0.04)",
             borderColor: "rgba(255,255,255,0.08)",

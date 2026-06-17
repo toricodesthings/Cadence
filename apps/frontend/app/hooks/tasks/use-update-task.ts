@@ -8,7 +8,7 @@ import {
     invalidateTaskCaches,
     cancelTaskQueries,
 } from "./optimistic-helpers";
-import type { Task, UpdateTaskInput } from "../../types/task";
+import type { Task, UpdateTaskInput } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";

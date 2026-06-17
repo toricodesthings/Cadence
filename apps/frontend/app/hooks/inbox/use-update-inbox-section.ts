@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
-import type { UpdateInboxSection } from "@cadence/backend/types/inbox";
+import type { UpdateInboxSection } from "@cadence/contracts/inbox";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useUpdateInboxSection() {

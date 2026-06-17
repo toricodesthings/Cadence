@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import { toISODate, parseLocalDate } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
 

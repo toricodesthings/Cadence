@@ -34,6 +34,47 @@ export interface Env {
     RATE_LIMITER_READ: RateLimit;
     RATE_LIMITER_WRITE: RateLimit;
     RATE_LIMITER_ADMIN: RateLimit;
+
+    // ── AI ──
+    OPENROUTER_API_KEY?: string;
+    /** Chat model id (OpenAI-compatible via OpenRouter). Defaults to google/gemini-2.5-flash. */
+    AI_CHAT_MODEL?: string;
+    /** Master switch for the memory (pgvector RAG) layer. "true" enables retrieval/extraction. */
+    AI_MEMORY_ENABLED?: string;
+    /** Embedding model id — must output 1536 dims to match ai_memories.embedding. */
+    AI_EMBEDDING_MODEL?: string;
+    /** Optional dedicated embedding API key; falls back to OPENROUTER_API_KEY when unset. */
+    AI_EMBEDDING_API_KEY?: string;
+    /** Optional OpenAI-compatible base URL for embeddings; falls back to the OpenRouter base. */
+    AI_EMBEDDING_BASE_URL?: string;
+
+    // ── AI stream resumption (Upstash Redis, REST) ──
+    /** Upstash Redis REST endpoint. When absent, resumption is disabled (streaming still works). */
+    UPSTASH_REDIS_REST_URL?: string;
+    /** Upstash Redis REST token. */
+    UPSTASH_REDIS_REST_TOKEN?: string;
+    /** Master switch for resumable streams + hard abort. "true" enables. Default off until rolled out. */
+    AI_STREAM_RESUME_ENABLED?: string;
+
+    // ── AI usage budget / rate limiting (reuses the Upstash REST client) ──
+    // Always-on guardrail — there is NO enable flag. The 5-hour + 1-week × requests
+    // + tokens budget is enforced whenever Upstash is reachable. All limits are
+    // env-tunable so policy can be retuned per model cost without a code deploy
+    // (docs/Update 4/06-16-2026_ai-rate-limiting-and-abuse-protection-plan.md §6).
+    /** Max chat turns per 5h window. Default 150. */
+    AI_RL_REQUESTS_5H?: string;
+    /** Max tokens (reserved+settled) per 5h window. Default 750000. */
+    AI_RL_TOKENS_5H?: string;
+    /** Max chat turns per 1-week window. Default 1500. */
+    AI_RL_REQUESTS_7D?: string;
+    /** Max tokens per 1-week window. Default 6000000. */
+    AI_RL_TOKENS_7D?: string;
+    /** Max simultaneous open streams per user. Default 3. */
+    AI_RL_MAX_CONCURRENT?: string;
+    /** Per-turn token hold at admission, reconciled to actual on finish. Default 6000. */
+    AI_RL_RESERVE_TOKENS?: string;
+    /** "open" (allow on Redis outage, default) | "closed" (reject when the store is down). */
+    AI_RATE_LIMIT_FAIL_MODE?: string;
 }
 
 /** Parse DEPLOYMENT_STAGE with safe fallback to "production". */

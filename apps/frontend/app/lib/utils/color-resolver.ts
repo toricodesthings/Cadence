@@ -19,7 +19,7 @@ const ACCENT_MAP: Record<string, string> = {
     cyan: "#06b6d4",
 };
 
-export function resolveAccentColor(accent: string): string {
+export function resolveAccentColor(accent: string | null | undefined): string {
     if (accent && accent.startsWith("#")) return accent;
-    return ACCENT_MAP[accent] ?? ACCENT_MAP["luminous-amber"];
+    return ACCENT_MAP[accent ?? "luminous-amber"] ?? ACCENT_MAP["luminous-amber"];
 }

@@ -123,21 +123,16 @@ export async function authenticatedFetch(
 
 /**
  * Create a typed Hono RPC client with optional auth token injection.
- * Note: The return type assertion `as ApiClient` is required because tsc cannot
- * fully resolve the cross-project Hono generic when the backend uses Cloudflare
- * Worker bindings. The actual runtime type is correct — Vite/esbuild resolves it fine.
+ * `AppType` flows end-to-end: routes return `@cadence/contracts` shapes, so
+ * `ApiClient` is fully inferred (no `as any` collapse).
  */
 export function createApiClient(token?: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const root = hc<AppType>(API_BASE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         fetch: platformFetch,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
+    });
     // Backend routes mount under /api/v1/ — expose the v1 subtree as `.api`
     return { api: root.api.v1 };
 }
 
-// Derive as any to avoid circular-unknown collapse
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ApiClient = ReturnType<typeof createApiClient>;

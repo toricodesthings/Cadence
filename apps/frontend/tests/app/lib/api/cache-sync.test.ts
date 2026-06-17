@@ -7,8 +7,8 @@ import {
     removeTaskFromCaches,
 } from "../../../../app/lib/api/cache-sync";
 import { queryKeys } from "../../../../app/lib/api/query-keys";
-import type { Habit } from "../../../../app/types/habit";
-import type { Task } from "../../../../app/types/task";
+import type { Habit } from "@cadence/contracts/habit";
+import type { Task } from "@cadence/contracts/task";
 
 function createTask(overrides: Partial<Task> = {}): Task {
     return {

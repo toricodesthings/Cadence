@@ -3,7 +3,7 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toast } from "sonner";
-import type { Tag } from "../../types/tag";
+import type { Tag } from "@cadence/contracts/tag";
 import { useAuthState } from "../auth/use-auth-state";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 

@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ReactNode } from "react";
-import type { Subtask } from "../../types/task";
+import type { Subtask } from "@cadence/contracts/subtask";
 
 type RenderableSubtask = Subtask & { __optimisticKey?: string };
 

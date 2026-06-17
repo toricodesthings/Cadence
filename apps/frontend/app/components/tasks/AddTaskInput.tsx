@@ -7,7 +7,7 @@ import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { QuickAddActionTray } from "./QuickAddActionTray";

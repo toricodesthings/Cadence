@@ -1,8 +1,9 @@
 import { eq, and, lt, sql, inArray } from "drizzle-orm";
 import { getDbClient } from "../platform/db";
-import { tasks, taskMetrics, mutationDedup } from "../db/schema";
+import { tasks, taskMetrics, mutationDedup, aiMemories } from "../db/schema";
 import { withRls } from "../platform/rls";
 import { computeWorkloadSignals } from "../platform/metrics";
+import { logger, hashIdentifier, issuesFromError } from "../platform/log";
 import type { Env } from "../types/env";
 
 export async function handleOverdueCheck(env: Env) {
@@ -25,7 +26,10 @@ export async function handleOverdueCheck(env: Env) {
         tasksByUser.set(task.userId, ids);
     }
 
-    console.info(`Overdue check: ${overdueTasks.length} tasks across ${tasksByUser.size} users`);
+    logger.info("cron", "overdue_check_started", {
+        tasks: overdueTasks.length,
+        users: tasksByUser.size,
+    });
 
     for (const [userId, taskIds] of tasksByUser) {
         await withRls(db, userId, async (tx) => {
@@ -45,7 +49,10 @@ export async function handleOverdueCheck(env: Env) {
         try {
             await computeWorkloadSignals(db, userId);
         } catch (err) {
-            console.error(`Failed to recompute workload signals for user ${userId}:`, err);
+            logger.error("cron", "workload_recompute_failed", {
+                userHash: await hashIdentifier(userId),
+                issues: issuesFromError(err),
+            });
         }
     }
 }
@@ -64,6 +71,33 @@ export async function pruneStaleMutations(env: Env) {
         .returning({ id: mutationDedup.id });
 
     if (deleted.length > 0) {
-        console.info(`Pruned ${deleted.length} stale mutation_dedup entries`);
+        logger.info("cron", "mutation_dedup_pruned", { pruned: deleted.length });
     }
+}
+
+/**
+ * Auto-prune the AI memory layer (doc 06 §6). Deletes EXPIRED EPHEMERAL memories
+ * only — CORE memories are NEVER pruned automatically. Bounded to a capped batch
+ * per run to keep the pgvector index high-signal and cheap. Cron runs as table
+ * owner (intentionally bypasses RLS to sweep all users), mirroring handleOverdueCheck.
+ */
+export async function pruneAiMemories(env: Env) {
+    const db = getDbClient(env);
+    const now = new Date().toISOString();
+    const BATCH = 500;
+
+    const idsToDelete = await db
+        .select({ id: aiMemories.id })
+        .from(aiMemories)
+        .where(and(eq(aiMemories.type, "EPHEMERAL"), lt(aiMemories.expiresAt, now)))
+        .limit(BATCH);
+
+    if (idsToDelete.length === 0) return;
+
+    const deleted = await db
+        .delete(aiMemories)
+        .where(inArray(aiMemories.id, idsToDelete.map((r) => r.id)))
+        .returning({ id: aiMemories.id });
+
+    logger.info("cron", "memory_prune_summary", { pruned: deleted.length });
 }

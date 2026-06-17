@@ -20,6 +20,7 @@ import { eventRoutes } from "./domains/events/events.route";
 import { suggestionRoutes } from "./domains/suggestions/suggestions.route";
 import { proxyRoutes } from "./domains/proxy/proxy.route";
 import { noteRoutes } from "./domains/notes/notes.route";
+import { aiRoutes } from "./domains/ai/ai.route";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -175,29 +176,35 @@ app.use("/api/v1/debug/*", async (c, next) => {
   }
   await next();
 });
-app.route("/api/v1/tasks", taskRoutes);
-app.route("/api/v1/projects", projectRoutes);
-app.route("/api/v1/inbox", inboxRoutes);
-app.route("/api/v1/tags", tagRoutes);
-app.route("/api/v1/habits", habitRoutes);
-app.route("/api/v1", subtaskRoutes);
-app.route("/api/v1", noteRoutes);
-app.route("/api/v1/sections", sectionRoutes);
-app.route("/api/v1/settings", settingsRoutes);
-app.route("/api/v1/events", eventRoutes);
-app.route("/api/v1/suggestions", suggestionRoutes);
-app.route("/api/v1/proxy", proxyRoutes);
-app.route("/api/v1/debug", debugRoutes);
+// Mounts are CHAINED so the accumulated route schema flows into `AppType` — this
+// is what gives the frontend Hono RPC client (`hc<AppType>`) real end-to-end type
+// inference. Mounting as separate statements would discard the per-route types.
+const apiApp = app
+  .route("/api/v1/tasks", taskRoutes)
+  .route("/api/v1/projects", projectRoutes)
+  .route("/api/v1/inbox", inboxRoutes)
+  .route("/api/v1/tags", tagRoutes)
+  .route("/api/v1/habits", habitRoutes)
+  .route("/api/v1", subtaskRoutes)
+  .route("/api/v1", noteRoutes)
+  .route("/api/v1/sections", sectionRoutes)
+  .route("/api/v1/settings", settingsRoutes)
+  .route("/api/v1/events", eventRoutes)
+  .route("/api/v1/suggestions", suggestionRoutes)
+  .route("/api/v1/proxy", proxyRoutes)
+  .route("/api/v1/debug", debugRoutes)
+  .route("/api/v1/ai", aiRoutes);
 
 // ── Type export for Hono RPC ──
-export type AppType = typeof app;
+export type AppType = typeof apiApp;
 
-import { handleOverdueCheck, pruneStaleMutations } from "./cron/overdue-check";
+import { handleOverdueCheck, pruneStaleMutations, pruneAiMemories } from "./cron/overdue-check";
 
 export default {
   fetch: app.fetch,
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleOverdueCheck(env));
     ctx.waitUntil(pruneStaleMutations(env));
+    ctx.waitUntil(pruneAiMemories(env));
   },
 };

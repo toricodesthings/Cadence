@@ -3,7 +3,7 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
-import type { Task } from "../../types/task";
+import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";

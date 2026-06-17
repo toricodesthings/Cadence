@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Lightbulb, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { deriveNoteSuggestions, type NoteSuggestion } from "../../lib/notes/note-suggestions";
+import { Tip } from "../primitives";
 
 interface TaskNoteSuggestionsProps {
     body: string;
@@ -53,9 +54,10 @@ function SuggestionChip({
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.15 }}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 bg-white/[0.04] border border-twilight-border text-xs text-twilight-text-muted"
-            title={suggestion.description}
         >
-            <span className="truncate max-w-[180px]">{suggestion.title}</span>
+            <Tip label={suggestion.description} side="top">
+                <span className="truncate max-w-[180px]">{suggestion.title}</span>
+            </Tip>
             <button
                 type="button"
                 onClick={(e) => {

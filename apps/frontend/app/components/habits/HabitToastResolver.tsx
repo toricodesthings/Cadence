@@ -9,7 +9,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { toISODate } from "../../lib/utils/date-format";
 import { snapshotHabitCache, rollbackHabitCache, cancelHabitQueries } from "../../hooks/habits/optimistic-helpers";
 import { transformListCache } from "../../lib/api/cache-guards";
-import type { Habit, UnresolvedHabitSummary } from "../../types/habit";
+import type { Habit, UnresolvedHabitSummary } from "@cadence/contracts/habit";
 
 export function HabitToastResolver() {
     const { data } = useHabitUnresolvedSummary();

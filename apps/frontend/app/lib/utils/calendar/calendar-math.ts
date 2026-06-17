@@ -1,5 +1,5 @@
 import { toISODate } from "../date-format";
-import type { Task } from "../../../types/task";
+import type { Task } from "@cadence/contracts/task";
 
 export function parseYMD(dateStr: string): { y: number; m: number; d: number } {
     const [y, m, d] = dateStr.split("-").map(Number);

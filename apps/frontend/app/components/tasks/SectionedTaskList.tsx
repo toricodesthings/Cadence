@@ -7,7 +7,8 @@ import { AddTaskInput } from "./AddTaskInput";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import type { Task, TaskSection } from "../../types/task";
+import type { TaskSection } from "@cadence/contracts/section";
+import type { Task } from "@cadence/contracts/task";
 
 interface SectionedTaskListProps {
     tasks: Task[];

@@ -1,4 +1,4 @@
-import type { InboxItem } from "../../types/inbox";
+import type { InboxItem } from "@cadence/contracts/inbox";
 import { InboxItemCard } from "./InboxItemCard";
 
 interface InboxListProps {

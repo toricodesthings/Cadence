@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import type { TaskNote } from "../../types/task";
+import type { TaskNote } from "@cadence/contracts/note";
 import { useAuthState } from "../auth/use-auth-state";
 
 const NOTE_KEY = (taskId: string) => ["tasks", taskId, "note"] as const;

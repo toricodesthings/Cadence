@@ -11,7 +11,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { useInboxSections, useCreateInboxSection, useDeleteInboxSection, useUpdateInboxSection, useUpdateInboxItem } from "../../hooks/inbox";
 import { InboxItemCard } from "./InboxItemCard";
-import type { InboxItem, InboxSection } from "../../types/inbox";
+import type { InboxItem, InboxSection } from "@cadence/contracts/inbox";
 
 interface InboxBoardProps {
     items: InboxItem[];

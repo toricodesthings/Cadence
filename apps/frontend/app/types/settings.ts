@@ -1,7 +1,14 @@
 /**
- * Canonical frontend settings types — mirrors the backend SETTINGS_DEFAULTS shape.
- * The backend normalizes on read, so the frontend always receives the full shape.
+ * Frontend settings view types.
+ *
+ * The canonical schema + defaults live in @cadence/contracts/settings. The
+ * backend normalizes on read, so the frontend always receives the full shape —
+ * which is why `UserSettings` here is the fully-required, widened view (not the
+ * sparse storage/patch shape). `SETTINGS_DEFAULTS` and `DeepPartial` are
+ * re-exported from contracts to keep a single source of truth for the data.
  */
+export { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
+export type { DeepPartial } from "@cadence/contracts/settings";
 
 export interface PersonalEvent {
     id: string;
@@ -151,130 +158,18 @@ export interface UserSettings {
         exportFormat: "json" | "csv";
         lastExportRequestedAt: string | null;
     };
+    assistant: {
+        persona: "secretary" | "coach" | "minimalist" | "companion";
+        tone: "neutral" | "warm" | "playful" | "clinical";
+        verbosity: "terse" | "balanced" | "detailed";
+        emoji: boolean;
+        nickname: string | null;
+        assistantName: string;
+        customInstructions: string | null;
+        proactiveSuggestions: boolean;
+        memoryEnabled: boolean;
+        adaptiveTone: boolean;
+    };
     /** @deprecated — migrated to tasks.defaultView by the backend */
     preferredView?: "list" | "kanban";
 }
-
-/** Canonical defaults — mirrors backend SETTINGS_DEFAULTS for local cache hydration */
-export const SETTINGS_DEFAULTS: UserSettings = {
-    profile: { pronouns: "", birthday: null },
-    appearance: {
-        theme: "twilight",
-        accentIntensity: "balanced",
-        motion: "system",
-        density: "comfortable",
-        palette: "lantern",
-        themePreset: "default",
-        backgroundMode: "theme",
-        backgroundColor: null,
-        backgroundGradient: null,
-    },
-    notifications: {
-        email: true,
-        browser: false,
-        taskReminders: true,
-        habitReminders: true,
-        dueDateAlerts: true,
-        quietHoursEnabled: false,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-        habitReminderLeadMinutes: 15,
-        showHabitNavDueCount: true,
-        bundleMissedRoutinePrompts: true,
-    },
-    dateTime: {
-        weekStart: "Sunday",
-        timezone: "local",
-        timeDisplay: "12h",
-        dateStyle: "mdy",
-    },
-    calendar: {
-        defaultView: "month",
-        showWeekNumbers: false,
-        showWeekends: true,
-        clutter: {
-            showAllDay: true,
-            showTimedTasks: true,
-            showHabitAnchors: true,
-        },
-        holidays: {
-            enabled: true,
-            usePreciseLocation: false,
-            locationMode: "auto",
-            countryCode: null,
-            subdivisionCode: null,
-            promptDismissedAt: null,
-        },
-        personalEvents: {
-            enabled: true,
-            items: [],
-        },
-    },
-    tasks: {
-        defaultDueDate: null,
-        defaultView: "list",
-        defaultPriority: "none",
-        defaultDurationMinutes: null,
-        newTaskPlacement: "bottom",
-        openDetailOnCreate: false,
-        hideCompleted: false,
-        hideTrash: false,
-        showDoneCelebration: true,
-        quickAdd: {
-            preset: "planner",
-            style: "label",
-            actions: ["date", "priority", "project"],
-        },
-        intelligence: {
-            nlpEnabled: true,
-            autoParseOnCapture: true,
-            confidenceThreshold: "medium",
-            showExplanations: true,
-            lowStimulationMode: false,
-            smartSortEnabled: true,
-            focusViewsEnabled: true,
-            focusViewPresentation: "compact" as const,
-            dismissedEntityIds: [],
-            dismissedEntities: [],
-        },
-    },
-    shortcuts: {
-        enabled: true,
-        showHints: true,
-        bindings: {
-            commandPalette: "mod+k",
-            newTask: "t",
-            focusSearch: "/",
-            toggleView: "v",
-            completeTask: "c",
-            archiveTask: "e",
-            rescheduleTask: "r",
-            pinTask: "p",
-            openMenu: "m",
-            editObject: "e",
-            quickActions: ".",
-            capture: "q",
-            quickAddTask: "shift+q",
-        },
-    },
-    integrations: {
-        googleCalendar: { enabled: false, syncMode: "one_way", includeCompleted: false },
-        appleCalendar: { enabled: false, syncMode: "one_way" },
-        notion: { enabled: false, createBacklinks: false },
-        obsidian: { enabled: false, appendTaskLinks: false },
-        ics: { enabled: false, includeHabits: false },
-    },
-    privacy: {
-        usageDiagnostics: true,
-        crashReports: true,
-        storeRecentSearches: true,
-        storeDismissedPrompts: true,
-        exportFormat: "json",
-        lastExportRequestedAt: null,
-    },
-};
-
-// Deep partial for type-safe patch bodies
-export type DeepPartial<T> = T extends object ? {
-    [P in keyof T]?: DeepPartial<T[P]>;
-} : T;

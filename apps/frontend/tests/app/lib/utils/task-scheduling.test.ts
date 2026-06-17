@@ -6,9 +6,10 @@ import {
     getTaskScheduleSummary,
     getTaskTimelineAnchor,
     isRecurringTaskInstance,
+    normalizeTaskWriteTemporalInput,
 } from "../../../../app/lib/utils/task/task-scheduling";
 import { formatTime } from "../../../../app/lib/utils/date-format";
-import type { Task } from "../../../../app/types/task";
+import type { Task } from "@cadence/contracts/task";
 
 function createTask(overrides: Partial<Task> = {}): Task {
     return {
@@ -153,5 +154,43 @@ describe("task scheduling helpers", () => {
         expect(
             getTaskTimelineAnchor(passiveSeries, new Date("2026-03-11T08:00:00.000Z")),
         ).toBe("2026-03-12");
+    });
+
+    it("normalizes task write temporal fields through the canonical local date path", () => {
+        expect(
+            normalizeTaskWriteTemporalInput({
+                title: "Book dentist",
+                dueDate: "2026-06-10T12:00:00.000",
+                isAllDay: true,
+            }),
+        ).toEqual({
+            title: "Book dentist",
+            dueDate: "2026-06-10",
+            isAllDay: true,
+        });
+
+        const timed = normalizeTaskWriteTemporalInput({
+            title: "Write brief",
+            scheduledStart: "2026-06-10T14:00:00.000",
+            scheduledEnd: "2026-06-10T15:30:00.000",
+            isAllDay: false,
+        });
+
+        expect(timed.scheduledStart).toBe(new Date("2026-06-10T14:00:00.000").toISOString());
+        expect(timed.scheduledEnd).toBe(new Date("2026-06-10T15:30:00.000").toISOString());
+    });
+
+    it("preserves already-valid task write temporal fields", () => {
+        expect(
+            normalizeTaskWriteTemporalInput({
+                dueDate: "2026-06-10",
+                scheduledStart: "2026-06-10T14:00:00.000Z",
+                scheduledEnd: "2026-06-10T15:30:00.000-04:00",
+            }),
+        ).toEqual({
+            dueDate: "2026-06-10",
+            scheduledStart: "2026-06-10T14:00:00.000Z",
+            scheduledEnd: "2026-06-10T15:30:00.000-04:00",
+        });
     });
 });
