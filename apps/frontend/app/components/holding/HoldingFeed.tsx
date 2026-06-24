@@ -14,6 +14,7 @@ interface HoldingFeedProps {
     selectedInboxItemId: string | null;
     onSelectTask: (taskId: string) => void;
     onSelectInboxItem: (itemId: string) => void;
+    onClarifyInboxItem: (itemId: string) => void;
 }
 
 /**
@@ -26,7 +27,7 @@ interface HoldingFeedProps {
  * Per Law 1: captures lead because that is the page's primary job.
  * Per H5: the page must foreground inbox items, not unscheduled tasks.
  */
-export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selectedInboxItemId, onSelectTask, onSelectInboxItem }: HoldingFeedProps) {
+export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selectedInboxItemId, onSelectTask, onSelectInboxItem, onClarifyInboxItem }: HoldingFeedProps) {
     const [readyExpanded, setReadyExpanded] = useState(true);
 
     // Only show captures still in clarifying state (C5 — placed/discarded are resolved)
@@ -78,7 +79,7 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
                             items={activeCaptures}
                             selectedItemId={selectedInboxItemId}
                             onSelectItem={onSelectInboxItem}
-                            onClarify={onSelectInboxItem}
+                            onClarify={onClarifyInboxItem}
                         />
                     </div>
                 </section>

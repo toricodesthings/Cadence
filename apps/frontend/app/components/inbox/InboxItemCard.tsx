@@ -4,7 +4,8 @@ import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/
 import { useSettings } from "../../hooks/core/use-settings";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import { Sun, Sparkles, Search, MoreHorizontal, Sunrise, Clock, Trash2 } from "lucide-react";
+import { isPersistedId } from "../../lib/api/optimistic-id";
+import { Sun, Sparkles, Search, MoreHorizontal, Sunrise, Clock, Trash2, Loader2 } from "lucide-react";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { useState, useCallback, useRef, useEffect } from "react";
 
@@ -32,7 +33,13 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
     const { data: userSettings } = useSettings();
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const showExplanations = userSettings?.tasks?.intelligence?.showExplanations !== false;
+    // A freshly captured item still carries a temp id until the create resolves.
+    // Acting on it before then targets a non-existent server row (400 "Invalid
+    // UUID"), so quick actions stay disabled — with a visible "Saving…" cue —
+    // until the capture is persisted.
+    const isPersisted = isPersistedId(item.id);
     const isPending = processToTask.isPending || updateItem.isPending;
+    const actionsDisabled = isPending || !isPersisted;
     const [overflowOpen, setOverflowOpen] = useState(false);
     const overflowRef = useRef<HTMLDivElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
@@ -77,6 +84,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
     };
 
     const place = useCallback((scheduledDate?: string) => {
+        if (!isPersisted) return;
         trackCaptureAction(scheduledDate === todayISO() ? "today" : scheduledDate === tomorrowISO() ? "tomorrow" : scheduledDate ? "scheduled" : "later");
         processToTask.mutate({
             inboxItemId: item.id,
@@ -90,15 +98,21 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
             waitingOn: analysis?.waitingOn ?? null,
             nlp: buildInboxEnvelope(scheduledDate),
         });
-    }, [item.id, item.rawText, analysis, processToTask, buildInboxEnvelope]);
+    }, [item.id, item.rawText, analysis, processToTask, buildInboxEnvelope, isPersisted]);
 
     const discard = useCallback(() => {
+        if (!isPersisted) return;
         trackCaptureAction("discard");
         updateItem.mutate({
             id: item.id,
             captureStatus: "discarded",
         });
-    }, [item.id, updateItem]);
+    }, [item.id, updateItem, isPersisted]);
+
+    const clarify = useCallback(() => {
+        if (!isPersisted) return;
+        onClarify?.(item.id);
+    }, [item.id, onClarify, isPersisted]);
 
     // Close overflow on outside click
     useEffect(() => {
@@ -123,7 +137,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
             switch (e.key) {
                 case "Enter":
                     e.preventDefault();
-                    onClarify?.(item.id);
+                    clarify();
                     break;
                 case "1":
                     e.preventDefault();
@@ -146,7 +160,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [isFocused, item.id, onClarify, place, discard]);
+    }, [isFocused, item.id, clarify, place, discard]);
 
     return (
         <ContextMenu.Root onOpenChange={(isOpen) => {
@@ -168,7 +182,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
             {/* ── Tappable capture text + timestamp ── */}
             <button
                 type="button"
-                onClick={() => onSelect?.(item.id)}
+                onClick={() => { if (isPersisted) onSelect?.(item.id); }}
                 className="flex w-full items-start gap-3 text-left cursor-pointer"
             >
                 <p className="flex-1 min-w-0 text-[15px] text-twilight-text leading-relaxed whitespace-pre-wrap break-words">
@@ -196,29 +210,38 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                     label="Today"
                     icon={<Sun size={13} aria-hidden="true" />}
                     onClick={() => place(todayISO())}
-                    disabled={isPending}
+                    disabled={actionsDisabled}
                     hint="1"
                     className="bg-accent-primary/10 text-accent-primary ring-accent-primary/20 hover:bg-accent-primary/20 min-h-10"
                 />
                 <ActionPill
                     label="Clarify"
                     icon={<Search size={13} aria-hidden="true" />}
-                    onClick={() => onClarify?.(item.id)}
-                    disabled={isPending}
+                    onClick={clarify}
+                    disabled={actionsDisabled}
                     hint="↵"
                     className="bg-moonlit/10 text-moonlit ring-moonlit/20 hover:bg-moonlit/20 min-h-10"
                 />
 
                 <span className="flex-1" />
 
+                {/* Pending-save cue — explains why actions are momentarily inert */}
+                {!isPersisted && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-twilight-text-muted/70">
+                        <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                        Saving…
+                    </span>
+                )}
+
                 {/* Overflow trigger */}
                 <div className="relative" ref={overflowRef}>
                     <button
                         type="button"
                         onClick={() => setOverflowOpen((prev) => !prev)}
+                        disabled={actionsDisabled}
                         aria-label="More actions"
                         aria-expanded={overflowOpen}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-twilight-text-muted/60 hover:text-twilight-text-soft hover:bg-white/[0.06] transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-twilight-text-muted/60 hover:text-twilight-text-soft hover:bg-white/[0.06] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                         <MoreHorizontal size={15} aria-hidden="true" />
                     </button>
@@ -233,14 +256,14 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                                 label="Tomorrow"
                                 hint="2"
                                 onClick={() => { place(tomorrowISO()); setOverflowOpen(false); }}
-                                disabled={isPending}
+                                disabled={actionsDisabled}
                             />
                             <OverflowItem
                                 icon={<Clock size={14} />}
                                 label="Later"
                                 hint="3"
                                 onClick={() => { place(); setOverflowOpen(false); }}
-                                disabled={isPending}
+                                disabled={actionsDisabled}
                             />
                             <div className="my-1 border-t border-twilight-border/40" />
                             <OverflowItem
@@ -248,7 +271,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                                 label="Discard"
                                 hint="⌫"
                                 onClick={() => { discard(); setOverflowOpen(false); }}
-                                disabled={isPending}
+                                disabled={actionsDisabled}
                                 destructive
                             />
                         </div>
@@ -265,7 +288,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                     <kbd className="ml-auto text-[10px] opacity-40 font-mono">1</kbd>
                 </div>
             </ContextMenu.Item>
-            <ContextMenu.Item onSelect={() => onClarify?.(item.id)}>
+            <ContextMenu.Item onSelect={clarify}>
                 <div className="flex items-center gap-2">
                     <Search size={16} />
                     <span>Clarify</span>

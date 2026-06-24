@@ -131,6 +131,17 @@ export default function HomeRoute() {
         }
     };
 
+    // Clarify always opens the sheet (never toggles it shut) so the action is
+    // deterministic — clicking "Clarify" reliably surfaces the triage pane.
+    const handleClarifyInboxItem = (itemId: string) => {
+        setSelectedTaskId(null);
+        setSelectedInboxItemId(itemId);
+        if (!shell.isWide) {
+            setMobileDetailMode("peek");
+            setMobilePanelOpen(true);
+        }
+    };
+
     /* ── Header: panel toggle for desktop; planner shortcut for mobile ──
        The arrow collapses/expands whichever pane the shared rail is currently
        showing — Cadence when it holds the rail, the Review panel otherwise — so
@@ -209,6 +220,7 @@ export default function HomeRoute() {
                             selectedInboxItemId={selectedInboxItemId}
                             onSelectTask={handleSelectTask}
                             onSelectInboxItem={handleSelectInboxItem}
+                            onClarifyInboxItem={handleClarifyInboxItem}
                         />
                     )}
                 </PageContent>

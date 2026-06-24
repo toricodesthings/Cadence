@@ -14,21 +14,26 @@ import {
 import { Loading } from "./components/shared/Loading";
 import { Providers } from "./providers";
 import { RUNTIME_TARGET } from "./lib/env";
-import "./app.css";
+// Load the stylesheet as a real <link> (via ?url) rather than a side-effect
+// `import "./app.css"`. A side-effect import makes React Router inline the
+// route CSS as dev "critical CSS" and lets Vite swap it for a JS-injected
+// <style> after hydration. On a contended cold start (backend + frontend boot
+// in parallel) that hand-off can strand a partially-scanned stylesheet in the
+// tab — some Tailwind utilities silently missing until an unrelated HMR event
+// repaints them. A render-blocking <link> always loads the complete, warm
+// server-generated CSS and is re-fetched deterministically on reload. (§7.3)
+import appStylesHref from "./app.css?url";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/sora";
 
 import type { LinksFunction } from "react-router";
 
-export const links: LinksFunction = () =>
-  RUNTIME_TARGET === "desktop"
+export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: appStylesHref },
+  ...(RUNTIME_TARGET === "desktop"
     ? []
-    : [
-      {
-        rel: "manifest",
-        href: "/manifest.webmanifest",
-      },
-    ];
+    : [{ rel: "manifest" as const, href: "/manifest.webmanifest" }]),
+];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

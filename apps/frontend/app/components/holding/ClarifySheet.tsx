@@ -141,6 +141,10 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                 recurrenceRule: schedule?.recurrenceRule ?? nlp.recurrenceRule,
                 waitingOn: nlp.waitingOn,
                 nlp: buildNlpEnvelope(resolvedScheduledDate),
+                // The "open full editor" path needs this sheet to stay mounted so
+                // its per-call onSuccess can receive the new task id. Plain
+                // placements close instantly via optimistic removal instead.
+                skipOptimisticRemoval: options?.openEditor === true,
             },
             {
                 onSuccess: (task) => {

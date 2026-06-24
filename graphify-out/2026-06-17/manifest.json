@@ -15,13 +15,13 @@
     "semantic_hash": "3545a702573b8d769d1ee14b6f51055b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle.config.ts": {
-    "mtime": 1781636622.2361197,
+    "mtime": 1774594766.3874507,
     "ast_hash": "09cd404c9bd1c4308ea053f5d38b6e65",
     "semantic_hash": "09cd404c9bd1c4308ea053f5d38b6e65"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/package.json": {
-    "mtime": 1781064669.3510613,
-    "ast_hash": "f3613c51ff4be4494bcaf253a2e20b32",
+    "mtime": 1780456291.9893074,
+    "ast_hash": "f7a2638c4459adfcbccde798b525078e",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/setup.ts": {
@@ -30,9 +30,9 @@
     "semantic_hash": "628a4eec3f8ccf7f7b41e676a50783b5"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/routes/settings.contract.test.ts": {
-    "mtime": 1780776283.2702556,
-    "ast_hash": "021d4042a3a55cd1735ec08ab6906aa1",
-    "semantic_hash": ""
+    "mtime": 1774058232.2598646,
+    "ast_hash": "3f75bfff8787f6e33fba853f4308b526",
+    "semantic_hash": "3f75bfff8787f6e33fba853f4308b526"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/routes/inbox.contract.test.ts": {
     "mtime": 1774058232.2598646,
@@ -40,14 +40,24 @@
     "semantic_hash": "996f5817e71627742ca9c4f70b39790b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/task-filters.test.ts": {
-    "mtime": 1780776080.7568598,
-    "ast_hash": "feb81116eecc03f97ee62430d73ef245",
-    "semantic_hash": ""
+    "mtime": 1774058164.208508,
+    "ast_hash": "78c5f73d96cecb344e5f08245f9c4d8f",
+    "semantic_hash": "78c5f73d96cecb344e5f08245f9c4d8f"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/task-normalization.test.ts": {
+    "mtime": 1774738889.3077755,
+    "ast_hash": "f5400500bbf1730a33c5f0936a38adde",
+    "semantic_hash": "f5400500bbf1730a33c5f0936a38adde"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/request-log.test.ts": {
-    "mtime": 1780528838.0379117,
-    "ast_hash": "a7188f5d14c16133a7a053dcccc9657d",
-    "semantic_hash": ""
+    "mtime": 1774058164.208508,
+    "ast_hash": "46259f05c3ca4211e2a81a22c21e25c2",
+    "semantic_hash": "46259f05c3ca4211e2a81a22c21e25c2"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/task-recurrence.test.ts": {
+    "mtime": 1774058164.208508,
+    "ast_hash": "f03d07a7127ed0fc6f4121cad89c30af",
+    "semantic_hash": "f03d07a7127ed0fc6f4121cad89c30af"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/task.test.ts": {
     "mtime": 1774058164.208508,
@@ -55,9 +65,9 @@
     "semantic_hash": "f05192e49404d04088c9754af7077db1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/settings.test.ts": {
-    "mtime": 1780776284.9018545,
-    "ast_hash": "fe512094dff660748db4340e39d23e67",
-    "semantic_hash": ""
+    "mtime": 1774058164.208508,
+    "ast_hash": "f8e204c54638194a5331543ed7054b8d",
+    "semantic_hash": "f8e204c54638194a5331543ed7054b8d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/debug-seed.test.ts": {
     "mtime": 1774207869.1111052,
@@ -80,9 +90,9 @@
     "semantic_hash": "673a9591a10fec06f33037bf238bae2a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/settings.contract.test.ts": {
-    "mtime": 1780776281.4602008,
-    "ast_hash": "021d4042a3a55cd1735ec08ab6906aa1",
-    "semantic_hash": ""
+    "mtime": 1774058164.208508,
+    "ast_hash": "3f75bfff8787f6e33fba853f4308b526",
+    "semantic_hash": "3f75bfff8787f6e33fba853f4308b526"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/events.contract.test.ts": {
     "mtime": 1774736691.4558008,
@@ -95,9 +105,9 @@
     "semantic_hash": "996f5817e71627742ca9c4f70b39790b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/habits.test.ts": {
-    "mtime": 1780776279.9366078,
-    "ast_hash": "af280113e9ac30dc40416fb2185eb893",
-    "semantic_hash": ""
+    "mtime": 1774738883.6053753,
+    "ast_hash": "8a20ea569297bfe402f85b5b2f52a356",
+    "semantic_hash": "8a20ea569297bfe402f85b5b2f52a356"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/tasks.test.ts": {
     "mtime": 1774058164.208508,
@@ -145,29 +155,34 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/index.ts": {
-    "mtime": 1780886664.947419,
-    "ast_hash": "950a817db13911e9c02a8a03166d0a3a",
-    "semantic_hash": ""
+    "mtime": 1774737165.632765,
+    "ast_hash": "25c2302d96b2ec104ad2e140301744d9",
+    "semantic_hash": "25c2302d96b2ec104ad2e140301744d9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/types/env.ts": {
-    "mtime": 1781638262.6937017,
-    "ast_hash": "0ec1bf9614036e3a0bca4ef7710d8ed2",
-    "semantic_hash": ""
+    "mtime": 1774036479.6180074,
+    "ast_hash": "1f2774993c5fa1528686d7b11d4b5b54",
+    "semantic_hash": "1f2774993c5fa1528686d7b11d4b5b54"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/types/inbox.ts": {
+    "mtime": 1774072694.702832,
+    "ast_hash": "60802fc92dbdb7e7b2b24fca787ee88a",
+    "semantic_hash": "60802fc92dbdb7e7b2b24fca787ee88a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/db/schema.ts": {
-    "mtime": 1781465088.114367,
-    "ast_hash": "d934acf46af39b48e356848370a54292",
-    "semantic_hash": ""
+    "mtime": 1780365998.3668764,
+    "ast_hash": "86d267522245e5754b1fddf54d506462",
+    "semantic_hash": "86d267522245e5754b1fddf54d506462"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/cron/overdue-check.ts": {
-    "mtime": 1780639054.063927,
-    "ast_hash": "700ad3c298ea05023be373dfbfa91825",
-    "semantic_hash": ""
+    "mtime": 1774042245.1259007,
+    "ast_hash": "ec705fbbbfee700375eed1373cc5f334",
+    "semantic_hash": "ec705fbbbfee700375eed1373cc5f334"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/errors.ts": {
-    "mtime": 1780726076.0690055,
-    "ast_hash": "c1ad9408a3f45e7dfa39234c4cf218f9",
-    "semantic_hash": ""
+    "mtime": 1774039124.1829941,
+    "ast_hash": "dc78d954ff9f57b97c66ed18fdcc6b00",
+    "semantic_hash": "dc78d954ff9f57b97c66ed18fdcc6b00"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/date-utils.ts": {
     "mtime": 1774575302.835761,
@@ -175,9 +190,14 @@
     "semantic_hash": "85fd1a9f9ac8d163582096f250a0d3e2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/idempotency.ts": {
-    "mtime": 1780528867.9995053,
-    "ast_hash": "2f0ff2c051d240097ff308d815b17703",
-    "semantic_hash": ""
+    "mtime": 1774058164.130508,
+    "ast_hash": "b82dfeed4941deccaa23643efb63466b",
+    "semantic_hash": "b82dfeed4941deccaa23643efb63466b"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/common-schemas.ts": {
+    "mtime": 1774208217.7893107,
+    "ast_hash": "752377f77d3670ba0f863479062f7c37",
+    "semantic_hash": "752377f77d3670ba0f863479062f7c37"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/db.ts": {
     "mtime": 1774039124.1749148,
@@ -185,83 +205,103 @@
     "semantic_hash": "073d6d39d767ab9574a184cc598b1d2a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/auth.ts": {
-    "mtime": 1780528660.0355432,
-    "ast_hash": "10db26c1c8a447c91062c8ef0200f1d0",
+    "mtime": 1780457123.2945476,
+    "ast_hash": "407c054caa807218de162c26a028ea9d",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/ownership.ts": {
-    "mtime": 1780528868.5953424,
-    "ast_hash": "ef0030cdb4b629aa288b869dbef15af4",
-    "semantic_hash": ""
+    "mtime": 1774053502.5618525,
+    "ast_hash": "3ef89ad5ebafaf77447de9efd8524165",
+    "semantic_hash": "3ef89ad5ebafaf77447de9efd8524165"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/metrics.ts": {
-    "mtime": 1780529045.057207,
-    "ast_hash": "d72928c21ce6f72215f7a69e7dc77b02",
-    "semantic_hash": ""
+    "mtime": 1780366039.5742867,
+    "ast_hash": "c81444226aef6e7b9474790347f481ae",
+    "semantic_hash": "c81444226aef6e7b9474790347f481ae"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/request-log.ts": {
-    "mtime": 1780528646.1135192,
-    "ast_hash": "3dd8a1ef0faa2553261519302c580353",
-    "semantic_hash": ""
+    "mtime": 1774039124.1951132,
+    "ast_hash": "d6e99108803947e14301bc355a241cf3",
+    "semantic_hash": "d6e99108803947e14301bc355a241cf3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/rls.ts": {
-    "mtime": 1780529070.4834085,
-    "ast_hash": "198bd56509d44ad65360d328b601309d",
-    "semantic_hash": ""
+    "mtime": 1774039124.1789544,
+    "ast_hash": "dff4b2dbde89d5f2d27133b26bb58ff8",
+    "semantic_hash": "dff4b2dbde89d5f2d27133b26bb58ff8"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/validation.ts": {
-    "mtime": 1780527804.5739238,
-    "ast_hash": "5c3a98fea9907b800c5fe761e239508e",
-    "semantic_hash": ""
+    "mtime": 1774039124.187034,
+    "ast_hash": "2154be51a0f7abe1d36e2ef48a29c031",
+    "semantic_hash": "2154be51a0f7abe1d36e2ef48a29c031"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/index.ts": {
-    "mtime": 1780528842.9241333,
-    "ast_hash": "06cc95b782514b9e3cea9f99deef00ba",
+    "mtime": 1780454772.4126294,
+    "ast_hash": "ba8c239e7a65a107a3f8c8f2b3913a84",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/debug/debug-seed.ts": {
-    "mtime": 1780776067.186808,
-    "ast_hash": "cc033789e8704c9a5707f29d3887736d",
-    "semantic_hash": ""
+    "mtime": 1774058164.156508,
+    "ast_hash": "3d63b63b879834fc8ddd59521a6cbadb",
+    "semantic_hash": "3d63b63b879834fc8ddd59521a6cbadb"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/debug/debug.route.ts": {
-    "mtime": 1780887387.6156714,
-    "ast_hash": "c070ae93e11f9f69617985d046f75e84",
-    "semantic_hash": ""
+    "mtime": 1774055868.808471,
+    "ast_hash": "fa689ccedbf740bff226616e067fb96b",
+    "semantic_hash": "fa689ccedbf740bff226616e067fb96b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/debug/scenarios/active-power-user.ts": {
-    "mtime": 1780528894.502683,
-    "ast_hash": "436c6ed001c7c0e4a473d9cee42a2e8a",
-    "semantic_hash": ""
+    "mtime": 1774736677.8773859,
+    "ast_hash": "341b0d2c5eec92d9c9a18d90f0c1fe0c",
+    "semantic_hash": "341b0d2c5eec92d9c9a18d90f0c1fe0c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/debug/scenarios/index.ts": {
-    "mtime": 1780528877.805639,
-    "ast_hash": "f901d26e75c4ec25fda19ada3d7e6de2",
-    "semantic_hash": ""
+    "mtime": 1774058164.156508,
+    "ast_hash": "5d231cc1d923cb88eef7c077da9dc2d2",
+    "semantic_hash": "5d231cc1d923cb88eef7c077da9dc2d2"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/habits/habits.schema.ts": {
+    "mtime": 1774575302.835761,
+    "ast_hash": "93c60e9ab2dbb404e7f72c70d7597850",
+    "semantic_hash": "93c60e9ab2dbb404e7f72c70d7597850"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/habits/habits.route.ts": {
-    "mtime": 1780776067.186808,
-    "ast_hash": "e9bce8faf25a5922774598f4ca8eb3f9",
+    "mtime": 1780456510.257578,
+    "ast_hash": "2f6ad256e0f6745b416e36f2ee4ea4e1",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/inbox/inbox.route.ts": {
-    "mtime": 1780776067.186808,
-    "ast_hash": "265484df7e8dd1bf3e489f5f47a32628",
+    "mtime": 1780454789.612229,
+    "ast_hash": "1379c48146e335935e44dec7b78119a4",
     "semantic_hash": ""
   },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/inbox/inbox.schema.ts": {
+    "mtime": 1774587719.9075103,
+    "ast_hash": "a4667bde54245383e41e0a7cf43e25ba",
+    "semantic_hash": "a4667bde54245383e41e0a7cf43e25ba"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/subtasks/subtasks.schema.ts": {
+    "mtime": 1774735500.9153032,
+    "ast_hash": "76122a3222ede8865742af7e3ba8abc6",
+    "semantic_hash": "76122a3222ede8865742af7e3ba8abc6"
+  },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/subtasks/subtasks.route.ts": {
-    "mtime": 1780776067.191059,
-    "ast_hash": "ee3a48391f2d0bf28c6862b0a4e118e9",
+    "mtime": 1780452831.2858987,
+    "ast_hash": "8b4e5d3c3b0b622daec876934dc42301",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/notes/notes.route.ts": {
-    "mtime": 1780776067.186808,
-    "ast_hash": "f7152a42282f235f645a3698f818a619",
+    "mtime": 1780452962.7466934,
+    "ast_hash": "81af7456ab13ef1bd79cbb41a6073182",
     "semantic_hash": ""
   },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/notes/notes.schema.ts": {
+    "mtime": 1774077973.054097,
+    "ast_hash": "8a3de0b4403cd2b304149f40e5f93734",
+    "semantic_hash": "8a3de0b4403cd2b304149f40e5f93734"
+  },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/suggestions/suggestions.route.ts": {
-    "mtime": 1780887238.8967927,
-    "ast_hash": "53641c19ec81ce80decd7e28980e1e2c",
+    "mtime": 1780452896.704004,
+    "ast_hash": "fd95099ddb2f56dbcae53afcecd54a06",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/suggestions/suggestions.schema.ts": {
@@ -270,33 +310,58 @@
     "semantic_hash": "30c0cea2da0e2a818acd7254083d8b23"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/projects/projects.route.ts": {
-    "mtime": 1780776067.186808,
-    "ast_hash": "0a012a2995c6b0983f36f75d065c3ce4",
-    "semantic_hash": ""
+    "mtime": 1774058164.156508,
+    "ast_hash": "5b07884c9e4ff46f857b5e706b624406",
+    "semantic_hash": "5b07884c9e4ff46f857b5e706b624406"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/projects/projects.schema.ts": {
+    "mtime": 1774042169.151468,
+    "ast_hash": "323867486817cfe68dc0bfb884a7d99c",
+    "semantic_hash": "323867486817cfe68dc0bfb884a7d99c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/task-filters.ts": {
-    "mtime": 1780776096.9332914,
-    "ast_hash": "a087b38e622c41b6da8dc28397c67477",
-    "semantic_hash": ""
+    "mtime": 1774042168.9781349,
+    "ast_hash": "30a88a4f21fd0c3d0672a2255b1cb015",
+    "semantic_hash": "30a88a4f21fd0c3d0672a2255b1cb015"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/task-normalization.ts": {
+    "mtime": 1774207028.6825123,
+    "ast_hash": "8193621c40d16200f3bf88c1a8ecbf64",
+    "semantic_hash": "8193621c40d16200f3bf88c1a8ecbf64"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/tasks.route.ts": {
-    "mtime": 1780885794.253334,
-    "ast_hash": "f4bb2ad81ed0202f5147f73090cd715f",
+    "mtime": 1780454857.216287,
+    "ast_hash": "b8782b41f1ca9bffc78bb189e2c7a5be",
     "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/task-recurrence.ts": {
+    "mtime": 1774042326.8699012,
+    "ast_hash": "153b1b36dfa7b161c696ae27577f8c0e",
+    "semantic_hash": "153b1b36dfa7b161c696ae27577f8c0e"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/tasks.schema.ts": {
-    "mtime": 1780776076.6386423,
-    "ast_hash": "1a1252106c9136b4021b834669a7d36a",
-    "semantic_hash": ""
+    "mtime": 1774077973.054097,
+    "ast_hash": "1e199b91d07ca1d752defbf29e5afb1d",
+    "semantic_hash": "1e199b91d07ca1d752defbf29e5afb1d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/settings/settings.route.ts": {
-    "mtime": 1780776067.191059,
-    "ast_hash": "1f39c467ee1ea025a86b13558992adde",
+    "mtime": 1780456553.2046273,
+    "ast_hash": "81e2bedb48e420ef570d56ac430713fc",
     "semantic_hash": ""
   },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/settings/settings.schema.ts": {
+    "mtime": 1774555770.8049967,
+    "ast_hash": "42c2a93ab0039b11a01510d8c278f2d3",
+    "semantic_hash": "42c2a93ab0039b11a01510d8c278f2d3"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/settings/settings-defaults.ts": {
+    "mtime": 1774555770.8049967,
+    "ast_hash": "a31d06a3c6bd83808ff7dbfd6823112b",
+    "semantic_hash": "a31d06a3c6bd83808ff7dbfd6823112b"
+  },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/proxy/proxy.route.ts": {
-    "mtime": 1780528812.64502,
-    "ast_hash": "c247db2038df2684159b2d3101adb1bb",
+    "mtime": 1780456544.8974273,
+    "ast_hash": "d8535cd1802bb3283444a83302df6f7f",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/proxy/proxy.schema.ts": {
@@ -305,9 +370,14 @@
     "semantic_hash": "45d20feaea3533f2259a3f974569b043"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tags/tags.route.ts": {
-    "mtime": 1780776067.191059,
-    "ast_hash": "b33941fec59c8c5678fd64d690d3c487",
-    "semantic_hash": ""
+    "mtime": 1774058164.156508,
+    "ast_hash": "d9cf6ee2b188787f32ec44ca529631f7",
+    "semantic_hash": "d9cf6ee2b188787f32ec44ca529631f7"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tags/tags.schema.ts": {
+    "mtime": 1774042169.190468,
+    "ast_hash": "f6658d0d89fb54a36c41812e749fff19",
+    "semantic_hash": "f6658d0d89fb54a36c41812e749fff19"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/events/events.schema.ts": {
     "mtime": 1774736660.73691,
@@ -320,14 +390,19 @@
     "semantic_hash": "9d9700380db966055f424267f5868693"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/health/health.route.ts": {
-    "mtime": 1781044050.0222597,
-    "ast_hash": "7d2b7e0dfd26ba09b918dfee24475dbf",
-    "semantic_hash": ""
+    "mtime": 1774052516.8053262,
+    "ast_hash": "5047d391c2f54984ac3b7d2ed3142a87",
+    "semantic_hash": "5047d391c2f54984ac3b7d2ed3142a87"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/sections/sections.route.ts": {
-    "mtime": 1780776067.191059,
-    "ast_hash": "f14598270b4ed467519719a7a3eb86bf",
+    "mtime": 1780373881.5136294,
+    "ast_hash": "6c7ab88070852f746122ff8cd3f2d125",
     "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/sections/sections.schema.ts": {
+    "mtime": 1774042169.2598014,
+    "ast_hash": "a81e57982c421a097efbe937c5802ba3",
+    "semantic_hash": "a81e57982c421a097efbe937c5802ba3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/0018_bored_shadowcat.sql": {
     "mtime": 1773689607.940102,
@@ -575,9 +650,9 @@
     "semantic_hash": "d228b3d5a8418951fab560410586e502"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/meta/_journal.json": {
-    "mtime": 1781465483.8695426,
-    "ast_hash": "70c088f7f753766a3bf0e1e4f9a3590c",
-    "semantic_hash": ""
+    "mtime": 1780366015.8522165,
+    "ast_hash": "778f399b712b144901c65d1957bbd429",
+    "semantic_hash": "778f399b712b144901c65d1957bbd429"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/meta/0012_snapshot.json": {
     "mtime": 1773622724.826909,
@@ -695,9 +770,9 @@
     "semantic_hash": "ac8c547deed659c347378972d5ecd6b9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/package.json": {
-    "mtime": 1781064648.5573087,
-    "ast_hash": "4ea1a3fadf0f0f7bf91dc9ba6ca0e75b",
-    "semantic_hash": ""
+    "mtime": 1774594869.5571702,
+    "ast_hash": "a8fa60ccf3f2e586f7b15af28351694f",
+    "semantic_hash": "a8fa60ccf3f2e586f7b15af28351694f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/public/register-sw.js": {
     "mtime": 1774506865.1519911,
@@ -735,14 +810,14 @@
     "semantic_hash": "5a581766adbe6b141c3b9fc3ce4b6474"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/utils/task-scheduling.test.ts": {
-    "mtime": 1780775430.1629748,
-    "ast_hash": "57d01651b61eecfd60d12f8c2d365100",
-    "semantic_hash": ""
+    "mtime": 1774207869.1111052,
+    "ast_hash": "8c321e89b306a81b5276f3e39639ffbb",
+    "semantic_hash": "8c321e89b306a81b5276f3e39639ffbb"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/notifications/reminder-engine.test.ts": {
-    "mtime": 1780775430.1629748,
-    "ast_hash": "af67f27a3c1e8f4cc9810cc380fd08bf",
-    "semantic_hash": ""
+    "mtime": 1774571094.7764447,
+    "ast_hash": "7b05724066796380ace482fbbbcf67e4",
+    "semantic_hash": "7b05724066796380ace482fbbbcf67e4"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/holidays/location-resolver.test.ts": {
     "mtime": 1773544093.2592702,
@@ -765,9 +840,9 @@
     "semantic_hash": "b57b5a53ce12c82f341964af7d4d2d2a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/api/cache-sync.test.ts": {
-    "mtime": 1780775430.1629748,
-    "ast_hash": "aaff7aa780994c484640b671dcd7bab3",
-    "semantic_hash": ""
+    "mtime": 1773947226.0146253,
+    "ast_hash": "f990c06a95d2bad5786dc12ef485ab18",
+    "semantic_hash": "f990c06a95d2bad5786dc12ef485ab18"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/api/helpers.test.ts": {
     "mtime": 1773544093.2636034,
@@ -785,14 +860,14 @@
     "semantic_hash": "090e111237c6965e822dc0d503cfa742"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/components/sectioned-task-list.test.tsx": {
-    "mtime": 1780775430.1587462,
-    "ast_hash": "e0db2cb91fc1cac2e32d21d0de8b7f57",
-    "semantic_hash": ""
+    "mtime": 1773716473.7083385,
+    "ast_hash": "28dba5729badb8bcb4c63dd4437f407e",
+    "semantic_hash": "28dba5729badb8bcb4c63dd4437f407e"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/components/task-checkbox.test.tsx": {
-    "mtime": 1780775430.1587462,
-    "ast_hash": "bb517c66ca08c31e178a92398f611c55",
-    "semantic_hash": ""
+    "mtime": 1773623149.1539886,
+    "ast_hash": "d12b66104f71001d89f83435ee379848",
+    "semantic_hash": "d12b66104f71001d89f83435ee379848"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/components/kanban-board.test.tsx": {
     "mtime": 1774736066.337172,
@@ -900,9 +975,9 @@
     "semantic_hash": "1a3afc474ef16cdd2ae9c133fa9b0e00"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/quick-add-parser.ts": {
-    "mtime": 1780775430.150289,
-    "ast_hash": "67cd97acfe4d18d32ba3e92e0bef8579",
-    "semantic_hash": ""
+    "mtime": 1774555770.8049967,
+    "ast_hash": "d90faf139d28c49fd8f60a9b858aad29",
+    "semantic_hash": "d90faf139d28c49fd8f60a9b858aad29"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/cadence-toast.ts": {
     "mtime": 1774482273.164224,
@@ -940,9 +1015,9 @@
     "semantic_hash": "cbd01ec4d4d71a0539df0ffe4e2ad934"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/order-index.ts": {
-    "mtime": 1780885766.0169718,
-    "ast_hash": "2e192a3ed1e03a2a14ec2db2dbf5bfff",
-    "semantic_hash": ""
+    "mtime": 1774482273.1774237,
+    "ast_hash": "2038fb0163608035b64f82ce880ccea3",
+    "semantic_hash": "2038fb0163608035b64f82ce880ccea3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/index.ts": {
     "mtime": 1774482273.1774237,
@@ -950,9 +1025,9 @@
     "semantic_hash": "dc324dbc575d62dad0e6a44770e3048a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/color-resolver.ts": {
-    "mtime": 1780888384.8070238,
-    "ast_hash": "a2db925ee690e321d676ea2705dfbc56",
-    "semantic_hash": ""
+    "mtime": 1774482273.1686237,
+    "ast_hash": "a1315654a9bc7f2aed91eb2b61deaf5b",
+    "semantic_hash": "a1315654a9bc7f2aed91eb2b61deaf5b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/dnd.ts": {
     "mtime": 1774482273.1730237,
@@ -960,24 +1035,24 @@
     "semantic_hash": "d00fb7e62326b9d2b813ececb0d23e79"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/task/task-scheduling.ts": {
-    "mtime": 1780775430.150289,
-    "ast_hash": "1b07f830e69554aa8979e9078c1b1593",
-    "semantic_hash": ""
+    "mtime": 1774482273.1818237,
+    "ast_hash": "9fbd072a499abf3fa929ecfb20b59bc1",
+    "semantic_hash": "9fbd072a499abf3fa929ecfb20b59bc1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/task/sort-tasks.ts": {
-    "mtime": 1780775430.150289,
-    "ast_hash": "2701037accd5429c71274b80e7709008",
-    "semantic_hash": ""
+    "mtime": 1774482273.1818237,
+    "ast_hash": "3dca1ac24607b4c2ea5ef962e5add6d0",
+    "semantic_hash": "3dca1ac24607b4c2ea5ef962e5add6d0"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/task/task-defaults.ts": {
-    "mtime": 1780775430.150289,
-    "ast_hash": "77ffa175a399553a00acf3d5f12636ab",
-    "semantic_hash": ""
+    "mtime": 1774482273.1818237,
+    "ast_hash": "b1fdbb439c0da5e2ee1cffe222e99b8b",
+    "semantic_hash": "b1fdbb439c0da5e2ee1cffe222e99b8b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/calendar/calendar-math.ts": {
-    "mtime": 1780775430.1460605,
-    "ast_hash": "1d49e657e9b711e45ed0661e432871ba",
-    "semantic_hash": ""
+    "mtime": 1774482273.1686237,
+    "ast_hash": "11b0b39703756f03acba542dfa5979bd",
+    "semantic_hash": "11b0b39703756f03acba542dfa5979bd"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/calendar/calendar-dnd.ts": {
     "mtime": 1774482273.164224,
@@ -985,14 +1060,14 @@
     "semantic_hash": "22508c41d03494edfd06b2e100884065"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/utils/calendar/calendar-utils.ts": {
-    "mtime": 1780775430.1460605,
-    "ast_hash": "7315696e53e0ae06aa4a7509de2390bd",
-    "semantic_hash": ""
+    "mtime": 1774482273.1686237,
+    "ast_hash": "dd4fd33e5b5abdcd70586395a5741c84",
+    "semantic_hash": "dd4fd33e5b5abdcd70586395a5741c84"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/notes/recurring-note-scope.ts": {
-    "mtime": 1780775430.1460605,
-    "ast_hash": "fcd97800855b9f1a4ade3618e7a64d3c",
-    "semantic_hash": ""
+    "mtime": 1774482273.1510239,
+    "ast_hash": "e2287be39b86ff9e66b0011a43e90ea7",
+    "semantic_hash": "e2287be39b86ff9e66b0011a43e90ea7"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/notes/note-outline.ts": {
     "mtime": 1774482273.1510239,
@@ -1015,9 +1090,9 @@
     "semantic_hash": "9ea72211a8eb7b5ca5c96b551b0e46e7"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/notifications/reminder-engine.ts": {
-    "mtime": 1780775430.1460605,
-    "ast_hash": "f6d6a35253d49e2e1b3333187de4f658",
-    "semantic_hash": ""
+    "mtime": 1774571094.7764447,
+    "ast_hash": "cae9f7d642751cc0e1f61850b49d2a38",
+    "semantic_hash": "cae9f7d642751cc0e1f61850b49d2a38"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/notifications/notification-model.ts": {
     "mtime": 1774482273.1510239,
@@ -1070,14 +1145,14 @@
     "semantic_hash": "1c690507e59a44929850575c2d11de06"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/offline-wal.ts": {
-    "mtime": 1780775430.1460605,
-    "ast_hash": "b0b67a81e890417ef655b7cec1f80863",
-    "semantic_hash": ""
+    "mtime": 1774587719.9075103,
+    "ast_hash": "bf97fba34adfdc8f1483025e5b1388a9",
+    "semantic_hash": "bf97fba34adfdc8f1483025e5b1388a9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/query-keys.ts": {
-    "mtime": 1780706844.2602496,
-    "ast_hash": "2546ec0c030317cc7c0f05c6a15fa2ba",
-    "semantic_hash": ""
+    "mtime": 1774482273.1422238,
+    "ast_hash": "5df91e2f1e966df5b54bf89ec621ea76",
+    "semantic_hash": "5df91e2f1e966df5b54bf89ec621ea76"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/cache-guards.ts": {
     "mtime": 1774482273.1334238,
@@ -1095,14 +1170,14 @@
     "semantic_hash": "7ff4c14bb92b3d9e11860ddbb364fad2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/client.ts": {
-    "mtime": 1780886035.111045,
-    "ast_hash": "8d2770b11943566974c14932a52d07c2",
-    "semantic_hash": ""
+    "mtime": 1774742689.6419005,
+    "ast_hash": "79665a09f9c0d4b635ccf7cbaeace6c1",
+    "semantic_hash": "79665a09f9c0d4b635ccf7cbaeace6c1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/cache-sync.ts": {
-    "mtime": 1780775430.1460605,
-    "ast_hash": "bdb106162bad0d9db8787177cdd8a519",
-    "semantic_hash": ""
+    "mtime": 1774482273.1334238,
+    "ast_hash": "fbfe26d4935383ead25bcbb6c6461405",
+    "semantic_hash": "fbfe26d4935383ead25bcbb6c6461405"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/persister.ts": {
     "mtime": 1774482273.1378238,
@@ -1110,9 +1185,9 @@
     "semantic_hash": "33abfd6be593d73ad7faad1af6c93880"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/helpers.ts": {
-    "mtime": 1780886864.5329363,
-    "ast_hash": "d70a49c79086f092cb2ceef40860c05a",
-    "semantic_hash": ""
+    "mtime": 1774482273.1334238,
+    "ast_hash": "fc89a02d8d5ae91a8d22b74edb54e6c9",
+    "semantic_hash": "fc89a02d8d5ae91a8d22b74edb54e6c9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/api/offline-mutation.ts": {
     "mtime": 1774482273.1378238,
@@ -1135,14 +1210,14 @@
     "semantic_hash": "5af2a2841097e53456c2429c788c0f6a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/constants/colors.ts": {
-    "mtime": 1780788051.2145538,
-    "ast_hash": "5b00bc261cb712c14abf04e5a08dab6c",
-    "semantic_hash": ""
+    "mtime": 1774482272.8430238,
+    "ast_hash": "446c6f67f2cd0325e9eb36c037557c7e",
+    "semantic_hash": "446c6f67f2cd0325e9eb36c037557c7e"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/constants/priority.ts": {
-    "mtime": 1780788038.443646,
-    "ast_hash": "31f7529542e61242051e670449bdf44b",
-    "semantic_hash": ""
+    "mtime": 1774482273.1466238,
+    "ast_hash": "4924db5886f806426b8b957cae97f05d",
+    "semantic_hash": "4924db5886f806426b8b957cae97f05d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/constants/changelog.ts": {
     "mtime": 1774494155.5429974,
@@ -1155,9 +1230,9 @@
     "semantic_hash": "992c2de1eacdf84745c8060e4466de93"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/validations/habit-schemas.ts": {
-    "mtime": 1780774449.4092221,
-    "ast_hash": "6790d4d53522e84a906ff6d5c2e271f4",
-    "semantic_hash": ""
+    "mtime": 1774482273.1818237,
+    "ast_hash": "c73ddaed8cae4529d036629507d64e02",
+    "semantic_hash": "c73ddaed8cae4529d036629507d64e02"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/events.tsx": {
     "mtime": 1774571094.6752448,
@@ -1165,24 +1240,24 @@
     "semantic_hash": "e9f2becacd73fb487a92d5260ef796a3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/completed.tsx": {
-    "mtime": 1780991589.4192033,
-    "ast_hash": "c5de6b4a62009e2e644881a73d402b18",
-    "semantic_hash": ""
+    "mtime": 1774482273.1862237,
+    "ast_hash": "dc38e0423d5f802b3d2ef71412fe9f0c",
+    "semantic_hash": "dc38e0423d5f802b3d2ef71412fe9f0c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/schedule.tsx": {
-    "mtime": 1781638276.4853466,
-    "ast_hash": "e11245c67b827922f50ade43cbfb7024",
-    "semantic_hash": ""
+    "mtime": 1774572353.15916,
+    "ast_hash": "e0e515073ac0af68c4f47902003addcc",
+    "semantic_hash": "e0e515073ac0af68c4f47902003addcc"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/today.tsx": {
-    "mtime": 1781638231.3373773,
-    "ast_hash": "c6bda3410bf64dc5e04dec73cb643044",
-    "semantic_hash": ""
+    "mtime": 1774572194.3839276,
+    "ast_hash": "8d86fbdbe83f792aeb61c19461229bfe",
+    "semantic_hash": "8d86fbdbe83f792aeb61c19461229bfe"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/trash.tsx": {
-    "mtime": 1780775430.1587462,
-    "ast_hash": "69a93f40e2b14d0ba74ec380d23fac20",
-    "semantic_hash": ""
+    "mtime": 1774482273.2038238,
+    "ast_hash": "b8f856dd5b34e49b7826743852f797a5",
+    "semantic_hash": "b8f856dd5b34e49b7826743852f797a5"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/help-feedback.tsx": {
     "mtime": 1774494411.890987,
@@ -1195,9 +1270,9 @@
     "semantic_hash": "11dd448fbe78042dd647e2947adec82f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/weekly-review.tsx": {
-    "mtime": 1781585351.1179273,
-    "ast_hash": "9379b5ac0b17413a9f533a19cb811d0a",
-    "semantic_hash": ""
+    "mtime": 1774571094.6752448,
+    "ast_hash": "84feaa891b941a4c8405dc813e28cb04",
+    "semantic_hash": "84feaa891b941a4c8405dc813e28cb04"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/desktop.quick-capture.tsx": {
     "mtime": 1774482273.1862237,
@@ -1215,9 +1290,9 @@
     "semantic_hash": "85b9d1a23ab09610c9b0c515c8492e6c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/upcoming.tsx": {
-    "mtime": 1780991583.6045206,
-    "ast_hash": "18c8dc7c9aa3ad24d342d26dde414442",
-    "semantic_hash": ""
+    "mtime": 1774572194.3839276,
+    "ast_hash": "21817053787895db79bdddf16a4e2aec",
+    "semantic_hash": "21817053787895db79bdddf16a4e2aec"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/auth.tsx": {
     "mtime": 1774482273.1862237,
@@ -1225,9 +1300,9 @@
     "semantic_hash": "196ca0a9f7722df81f8b873256c93266"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/home.tsx": {
-    "mtime": 1781072346.1028562,
-    "ast_hash": "b20c0a48e5d79248d1335609185d6d56",
-    "semantic_hash": ""
+    "mtime": 1774555770.8613756,
+    "ast_hash": "99e964bd922514325f9b3d3b25f8da9e",
+    "semantic_hash": "99e964bd922514325f9b3d3b25f8da9e"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/privacy-policy.tsx": {
     "mtime": 1774482273.1950238,
@@ -1235,24 +1310,49 @@
     "semantic_hash": "48687ba21f538fd10800ec295dc871a3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/routes/project.tsx": {
-    "mtime": 1781638296.441916,
-    "ast_hash": "9c6b2ea17233d00602ac8919a81f6fcc",
-    "semantic_hash": ""
+    "mtime": 1774735944.4364517,
+    "ast_hash": "b4da8292f15f2fa5811de4e313fc4285",
+    "semantic_hash": "b4da8292f15f2fa5811de4e313fc4285"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/task.ts": {
+    "mtime": 1774482273.2258239,
+    "ast_hash": "c6ddd4a75d7afc385f463ced7e4d60aa",
+    "semantic_hash": "c6ddd4a75d7afc385f463ced7e4d60aa"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/tag.ts": {
+    "mtime": 1774482273.2258239,
+    "ast_hash": "8439e39f6a8971d31a742df25b341abb",
+    "semantic_hash": "8439e39f6a8971d31a742df25b341abb"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/settings.ts": {
-    "mtime": 1780773946.1281636,
-    "ast_hash": "351e0b0eae170de0a0e4ab074c331be9",
-    "semantic_hash": ""
+    "mtime": 1774555770.8049967,
+    "ast_hash": "2a8610374e73e0994b1dc403dd662b6f",
+    "semantic_hash": "2a8610374e73e0994b1dc403dd662b6f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/browser-image-compression.d.ts": {
     "mtime": 1774482273.2126238,
     "ast_hash": "572e551bc9541850ad8e79e64485672e",
     "semantic_hash": "572e551bc9541850ad8e79e64485672e"
   },
+  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/project.ts": {
+    "mtime": 1774482273.2170238,
+    "ast_hash": "7f3f3c48341cba58d1e202d034695f87",
+    "semantic_hash": "7f3f3c48341cba58d1e202d034695f87"
+  },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/api.ts": {
-    "mtime": 1780773559.3896654,
-    "ast_hash": "f37dd18f4fbe7caaf98194770401cc85",
-    "semantic_hash": ""
+    "mtime": 1774482273.2126238,
+    "ast_hash": "cb22d4506375517e35fa256e8ed32d21",
+    "semantic_hash": "cb22d4506375517e35fa256e8ed32d21"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/habit.ts": {
+    "mtime": 1774482273.2126238,
+    "ast_hash": "7c1eab9d95d692acae6bfb9fb28bb67e",
+    "semantic_hash": "7c1eab9d95d692acae6bfb9fb28bb67e"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/inbox.ts": {
+    "mtime": 1774482273.2170238,
+    "ast_hash": "f72b2bd009142a17111e292d17b4675f",
+    "semantic_hash": "f72b2bd009142a17111e292d17b4675f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/platform/desktop-shell.ts": {
     "mtime": 1774482273.1862237,
@@ -1325,9 +1425,9 @@
     "semantic_hash": "6c3ec2a43c111fe655fcab3716599824"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/stores/right-panel-store.ts": {
-    "mtime": 1780984737.8717635,
-    "ast_hash": "8365b0cfe2084147b88bf5ffad3cdb57",
-    "semantic_hash": ""
+    "mtime": 1774482273.2082238,
+    "ast_hash": "e2dae4461dfc2f0fe5ca72450be5663b",
+    "semantic_hash": "e2dae4461dfc2f0fe5ca72450be5663b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/stores/tag-filter-store.ts": {
     "mtime": 1774482273.2126238,
@@ -1340,14 +1440,14 @@
     "semantic_hash": "1074ff09188781069bf58f36267dab73"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/holding/ClarifySheet.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "4b0a7f1c34130dc39431b38bf234be03",
-    "semantic_hash": ""
+    "mtime": 1774587719.9075103,
+    "ast_hash": "4c3e7a44378bee787e0e7da2118fb2ad",
+    "semantic_hash": "4c3e7a44378bee787e0e7da2118fb2ad"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/holding/HoldingPlannerPanel.tsx": {
-    "mtime": 1781073754.327061,
-    "ast_hash": "503d3aca0e42867a217cf6e0b3ef1e63",
-    "semantic_hash": ""
+    "mtime": 1774482273.0058239,
+    "ast_hash": "2122d242dde59c80d6dd1074ffef0dda",
+    "semantic_hash": "2122d242dde59c80d6dd1074ffef0dda"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/holding/CaptureInput.tsx": {
     "mtime": 1774555770.8613756,
@@ -1355,9 +1455,9 @@
     "semantic_hash": "31eae5faa5f7966d9435839f9a0c270b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/holding/HoldingFeed.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "6e4bd4b810bc1f7a7e980cf3fdbebb9a",
-    "semantic_hash": ""
+    "mtime": 1774741790.4394565,
+    "ast_hash": "f0581e4b3729e4dcdd0b188fc257a7fd",
+    "semantic_hash": "f0581e4b3729e4dcdd0b188fc257a7fd"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitDayPlaceholder.tsx": {
     "mtime": 1774498959.3407586,
@@ -1365,29 +1465,29 @@
     "semantic_hash": "eb73bdbd0532fdbbc3f07d31dc744b05"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitContextMenuWrapper.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "ee98891c3314d5dcd87994b3703a0980",
-    "semantic_hash": ""
+    "mtime": 1774571094.6972446,
+    "ast_hash": "4836771d33f8853a3980397a3a3fea15",
+    "semantic_hash": "4836771d33f8853a3980397a3a3fea15"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/PlannerHabitsSection.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "14d3c4aab07b2b2bf576e015c0f2cc6e",
-    "semantic_hash": ""
+    "mtime": 1774571094.7764447,
+    "ast_hash": "9ddf2724391d59c2349cc5e3c5a4e1e4",
+    "semantic_hash": "9ddf2724391d59c2349cc5e3c5a4e1e4"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/CadencePicker.tsx": {
-    "mtime": 1781638222.6115167,
-    "ast_hash": "ee31b329521036455fbe7e39d23df967",
-    "semantic_hash": ""
+    "mtime": 1774491001.2192652,
+    "ast_hash": "aebf4aef262146be7c2c9ccb158497f7",
+    "semantic_hash": "aebf4aef262146be7c2c9ccb158497f7"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitDetailPanel.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "5df3f0fc8bf3660938931d719e8783c1",
-    "semantic_hash": ""
+    "mtime": 1774491001.2192652,
+    "ast_hash": "55b6052b47f608f6ce13ada673452333",
+    "semantic_hash": "55b6052b47f608f6ce13ada673452333"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitsMonthView.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "c7699a9e76b1c861ace44c3415c005a8",
-    "semantic_hash": ""
+    "mtime": 1774574397.7193534,
+    "ast_hash": "3920a467f7729cec3f9d945653a83f89",
+    "semantic_hash": "3920a467f7729cec3f9d945653a83f89"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/CreateHabitDialog.tsx": {
     "mtime": 1774573767.4200091,
@@ -1395,39 +1495,39 @@
     "semantic_hash": "9f6b82ae62b5dd8d883131cbea44a027"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitsCanvas.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "24f1823e2f66b3b0ea515ac4811c41b5",
-    "semantic_hash": ""
+    "mtime": 1774574397.7193534,
+    "ast_hash": "2cc374d178a33fcaca400104f7480463",
+    "semantic_hash": "2cc374d178a33fcaca400104f7480463"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitToastResolver.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "521a566cf3376602f141591be8023583",
-    "semantic_hash": ""
+    "mtime": 1774575857.28255,
+    "ast_hash": "dcbbb4106d3a35ba38c5f5f4ca4af599",
+    "semantic_hash": "dcbbb4106d3a35ba38c5f5f4ca4af599"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitMenu.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "88385d301aa0ece79379c98d59d57091",
-    "semantic_hash": ""
+    "mtime": 1774571094.6708448,
+    "ast_hash": "dd7f542b1c1bb8136380a78d08babd45",
+    "semantic_hash": "dd7f542b1c1bb8136380a78d08babd45"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/habits/HabitItem.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "84963b4e301acda82eda234a206ee643",
-    "semantic_hash": ""
+    "mtime": 1774575857.28255,
+    "ast_hash": "97ff5cc77f8a4b151cf5e1ceb6a557c4",
+    "semantic_hash": "97ff5cc77f8a4b151cf5e1ceb6a557c4"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/inbox/InboxBoard.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "2b817c7f1d4181db59190432d7e0214d",
-    "semantic_hash": ""
+    "mtime": 1774482273.0058239,
+    "ast_hash": "64402c55c268cf79d309bcb9d29a6fba",
+    "semantic_hash": "64402c55c268cf79d309bcb9d29a6fba"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/inbox/InboxList.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "8dfcc676256ecd8d3a11ca2d667e6a77",
-    "semantic_hash": ""
+    "mtime": 1774572194.3839276,
+    "ast_hash": "c4f996c253c86931f7224a4f4eb7734d",
+    "semantic_hash": "c4f996c253c86931f7224a4f4eb7734d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/inbox/InboxItemCard.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "ac356418e59816373d0d4e9f4e6ae09f",
-    "semantic_hash": ""
+    "mtime": 1774587234.6374626,
+    "ast_hash": "8edfe72e1b3d33d788d1f8c05bfda19d",
+    "semantic_hash": "8edfe72e1b3d33d788d1f8c05bfda19d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/notifications/NotificationCenter.tsx": {
     "mtime": 1774571094.7764447,
@@ -1435,9 +1535,9 @@
     "semantic_hash": "b30ae7d85eec6ab50398e0c334c6be2b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/focus-views/FocusViewBar.tsx": {
-    "mtime": 1781638214.2400482,
-    "ast_hash": "ea40b28eee3f789c9865ab2b17494049",
-    "semantic_hash": ""
+    "mtime": 1774572194.3839276,
+    "ast_hash": "f6a37c05d9149e54629daf435fd653a7",
+    "semantic_hash": "f6a37c05d9149e54629daf435fd653a7"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/desktop/SyncInspectorDialog.tsx": {
     "mtime": 1774482272.9926238,
@@ -1500,9 +1600,9 @@
     "semantic_hash": "8a32ce99975409400c7ee64ea35fcbc3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/shared/ResponsiveOverlayPanel.tsx": {
-    "mtime": 1781498398.4338317,
-    "ast_hash": "0af12d5a6faa94b5608da95955e8c0bc",
-    "semantic_hash": ""
+    "mtime": 1774482273.0498238,
+    "ast_hash": "e16cc5749f538b1fb71b39764c391412",
+    "semantic_hash": "e16cc5749f538b1fb71b39764c391412"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/shared/SortMenu.tsx": {
     "mtime": 1774491001.1752653,
@@ -1520,9 +1620,9 @@
     "semantic_hash": "57a57d00f0ffe633de913d511bc30618"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/shared/ActionMenuSection.tsx": {
-    "mtime": 1781638252.914536,
-    "ast_hash": "a63e5d231a7cf0a495dbce4fc31b90d6",
-    "semantic_hash": ""
+    "mtime": 1774738847.1338224,
+    "ast_hash": "0695078928ab2a26c5ce6320a728012c",
+    "semantic_hash": "0695078928ab2a26c5ce6320a728012c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/shared/BucketedCollectionView.tsx": {
     "mtime": 1774741790.4394565,
@@ -1575,9 +1675,9 @@
     "semantic_hash": "66901e4684822358617c6e6760a80aa2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskCard.tsx": {
-    "mtime": 1780888401.144936,
-    "ast_hash": "9e995585366ad8c36163a58025524e48",
-    "semantic_hash": ""
+    "mtime": 1774737509.4887502,
+    "ast_hash": "3d585737dfb70f612936d13fec8eddd5",
+    "semantic_hash": "3d585737dfb70f612936d13fec8eddd5"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/RenameTaskDialog.tsx": {
     "mtime": 1774482273.0718238,
@@ -1590,29 +1690,29 @@
     "semantic_hash": "5e4ce35923a7a4b58d008dba59f8c655"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/AddTaskInput.tsx": {
-    "mtime": 1780775430.120689,
-    "ast_hash": "f1b830672e53b2ea46df8507c7b8d6de",
-    "semantic_hash": ""
+    "mtime": 1774735872.702585,
+    "ast_hash": "aec64bdbcc0b43679d847c0c2a558ed9",
+    "semantic_hash": "aec64bdbcc0b43679d847c0c2a558ed9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/EffortDots.tsx": {
-    "mtime": 1781638192.7965217,
-    "ast_hash": "0753c8cd62d95d17d92b37f4e6294e80",
-    "semantic_hash": ""
+    "mtime": 1774482273.0630238,
+    "ast_hash": "3e21a635c34492bd8e7b5c365f6b8e57",
+    "semantic_hash": "3e21a635c34492bd8e7b5c365f6b8e57"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/QuickScheduleSurface.tsx": {
-    "mtime": 1781636740.5547907,
-    "ast_hash": "52918fba7dec4234d2f82a8093bbe2fe",
-    "semantic_hash": ""
+    "mtime": 1774482273.0718238,
+    "ast_hash": "724254d72fffea7b31c64f618aeaaf41",
+    "semantic_hash": "724254d72fffea7b31c64f618aeaaf41"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/SectionedTaskList.tsx": {
-    "mtime": 1780775430.1249175,
-    "ast_hash": "e51a9276da6db8fd2171bad43b80f2e7",
-    "semantic_hash": ""
+    "mtime": 1774741790.4394565,
+    "ast_hash": "f38c225cf2ffded6ca28fdff5d333d44",
+    "semantic_hash": "f38c225cf2ffded6ca28fdff5d333d44"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/PriorityPicker.tsx": {
-    "mtime": 1781636762.0494688,
-    "ast_hash": "a31d90ca714232fcb5d8734ab2b7a294",
-    "semantic_hash": ""
+    "mtime": 1774482273.0674238,
+    "ast_hash": "01131dba6f8545c5566a8f8ffa3417f1",
+    "semantic_hash": "01131dba6f8545c5566a8f8ffa3417f1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/NotesToolbar.tsx": {
     "mtime": 1774482273.0674238,
@@ -1625,24 +1725,24 @@
     "semantic_hash": "a066b91c6e6cac695b843e7407778cff"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskContextMenu.tsx": {
-    "mtime": 1780775430.129146,
-    "ast_hash": "132c99a32a505be4e89ba40db09b1968",
-    "semantic_hash": ""
+    "mtime": 1774587234.6374626,
+    "ast_hash": "288d6e1804658c7a96fd7376bf24c6c2",
+    "semantic_hash": "288d6e1804658c7a96fd7376bf24c6c2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskContextMenuWrapper.tsx": {
-    "mtime": 1780775430.129146,
-    "ast_hash": "0a177e69bfb3f24103852d1fe0da98e2",
-    "semantic_hash": ""
+    "mtime": 1774571094.6972446,
+    "ast_hash": "426049d10eca5fdd638f5cb3c8e581df",
+    "semantic_hash": "426049d10eca5fdd638f5cb3c8e581df"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/QuickAddActionTray.tsx": {
-    "mtime": 1780888421.876692,
-    "ast_hash": "b12cc92a118e63f30a2bf72301a98fcb",
-    "semantic_hash": ""
+    "mtime": 1774482273.0674238,
+    "ast_hash": "9499da25ce66bc4e4fc52abf4cd2878a",
+    "semantic_hash": "9499da25ce66bc4e4fc52abf4cd2878a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskEditPanel.tsx": {
-    "mtime": 1781638280.1170928,
-    "ast_hash": "dbfc80aced53ebfbee55492d15d82be8",
-    "semantic_hash": ""
+    "mtime": 1774737865.7538507,
+    "ast_hash": "73f9df638aaabc7ec815708d7b3ffb75",
+    "semantic_hash": "73f9df638aaabc7ec815708d7b3ffb75"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/EmptyState.tsx": {
     "mtime": 1774482273.0630238,
@@ -1655,14 +1755,14 @@
     "semantic_hash": "a0b968f65da37572782bf65311701df8"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskList.tsx": {
-    "mtime": 1780775430.129146,
-    "ast_hash": "49ffca781ecfb4eef44750b508104221",
-    "semantic_hash": ""
+    "mtime": 1774482273.0850239,
+    "ast_hash": "44262f409acd0d9c3b16e1a222752ceb",
+    "semantic_hash": "44262f409acd0d9c3b16e1a222752ceb"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskCheckbox.tsx": {
-    "mtime": 1780775430.129146,
-    "ast_hash": "e1c05aa141b75b22a6040220ac32e7db",
-    "semantic_hash": ""
+    "mtime": 1774587234.6609254,
+    "ast_hash": "61680ab3e17add07bf47f4d52b1cd5d1",
+    "semantic_hash": "61680ab3e17add07bf47f4d52b1cd5d1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/ParseSummaryChips.tsx": {
     "mtime": 1774571094.7764447,
@@ -1670,9 +1770,9 @@
     "semantic_hash": "4663ce5bc7b322a8b5ff7b0837be4809"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/SortableSubtaskList.tsx": {
-    "mtime": 1780775430.1249175,
-    "ast_hash": "b73396f301c93f710c69adede4d4f22a",
-    "semantic_hash": ""
+    "mtime": 1774737279.503715,
+    "ast_hash": "ab76cb0d7b211827a5e54efda6d0d23c",
+    "semantic_hash": "ab76cb0d7b211827a5e54efda6d0d23c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/MoveToSubmenu.tsx": {
     "mtime": 1774482273.0674238,
@@ -1680,9 +1780,9 @@
     "semantic_hash": "00db3b5edaea9364942768da1098c7fa"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskNoteToolbarDock.tsx": {
-    "mtime": 1781638235.8743837,
-    "ast_hash": "85314d74174ba7922f7cae11d34b8977",
-    "semantic_hash": ""
+    "mtime": 1774482273.089424,
+    "ast_hash": "2657fb9c774b570fac61551d60fd7ec9",
+    "semantic_hash": "2657fb9c774b570fac61551d60fd7ec9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TimePickerInput.tsx": {
     "mtime": 1774482273.089424,
@@ -1690,9 +1790,9 @@
     "semantic_hash": "47ce5414c6a7c4e55eb58e16a067aa6f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/FloatingActionBar.tsx": {
-    "mtime": 1780888419.813092,
-    "ast_hash": "c578e90a39ca41b8a381a2642ab1e3c9",
-    "semantic_hash": ""
+    "mtime": 1774482273.0674238,
+    "ast_hash": "4f6e291a1d0726d9d767efd059e6cd95",
+    "semantic_hash": "4f6e291a1d0726d9d767efd059e6cd95"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskListSkeleton.tsx": {
     "mtime": 1774482273.0850239,
@@ -1715,14 +1815,14 @@
     "semantic_hash": "aacc6d910076283755da90ba8cad44b9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/SortableTaskCard.tsx": {
-    "mtime": 1780775430.1249175,
-    "ast_hash": "073de008394048d791b3a6c3be8dff61",
-    "semantic_hash": ""
+    "mtime": 1774491001.2192652,
+    "ast_hash": "df984c472ad040f328cf52d0a867930b",
+    "semantic_hash": "df984c472ad040f328cf52d0a867930b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskNoteSuggestions.tsx": {
-    "mtime": 1781638244.5681777,
-    "ast_hash": "f791045fda0d7f889d82dff61212abf1",
-    "semantic_hash": ""
+    "mtime": 1774482273.0850239,
+    "ast_hash": "245362fa78228d7238db5343bc034e2a",
+    "semantic_hash": "245362fa78228d7238db5343bc034e2a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskNoteSaveStatus.tsx": {
     "mtime": 1774482273.0850239,
@@ -1730,14 +1830,14 @@
     "semantic_hash": "26dc2fd1316e1e3a3f6292b653f3dd4b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/SubtaskList.tsx": {
-    "mtime": 1780775430.1249175,
-    "ast_hash": "04380bc09f21a9a248285cae1d5662bb",
-    "semantic_hash": ""
+    "mtime": 1774737432.497043,
+    "ast_hash": "85c6fa804d4e8dce44a3c022cbdde5f3",
+    "semantic_hash": "85c6fa804d4e8dce44a3c022cbdde5f3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TagPickerSubmenu.tsx": {
-    "mtime": 1780888423.9446921,
-    "ast_hash": "f5ed21194f6a2be072920d943c3ad1c7",
-    "semantic_hash": ""
+    "mtime": 1774482273.0762239,
+    "ast_hash": "ec0dd1257b0e514e02f5e9de3060ec2f",
+    "semantic_hash": "ec0dd1257b0e514e02f5e9de3060ec2f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/TaskNoteOutline.tsx": {
     "mtime": 1774482273.0850239,
@@ -1745,14 +1845,14 @@
     "semantic_hash": "5629e1fc52292a9f23cba6b2eab9ceaa"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/DeadlineQuickActions.tsx": {
-    "mtime": 1781636703.2545438,
-    "ast_hash": "9d60aec0616b3c2ccb9dfdc8ed3d08ff",
-    "semantic_hash": ""
+    "mtime": 1774482273.0630238,
+    "ast_hash": "502ccc7b51eaf0dad43b0e325d2517e7",
+    "semantic_hash": "502ccc7b51eaf0dad43b0e325d2517e7"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/EffortPicker.tsx": {
-    "mtime": 1781636786.0501251,
-    "ast_hash": "21542c503342d088bc671befed4b3682",
-    "semantic_hash": ""
+    "mtime": 1774482273.0630238,
+    "ast_hash": "3c4fb9f67bbc07ac07346e37804df154",
+    "semantic_hash": "3c4fb9f67bbc07ac07346e37804df154"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/tasks/DeadlinePickerPopover.tsx": {
     "mtime": 1774482273.0630238,
@@ -1775,9 +1875,9 @@
     "semantic_hash": "99dafa1e0d07938a02124038a96c04c5"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/primitives/Tooltip.tsx": {
-    "mtime": 1781585223.693357,
-    "ast_hash": "7785d9b2e1f7287eb73f60f62f80f147",
-    "semantic_hash": ""
+    "mtime": 1774482273.0278237,
+    "ast_hash": "96f7882e35d800b590795d3b04d1a9d7",
+    "semantic_hash": "96f7882e35d800b590795d3b04d1a9d7"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/primitives/Popover.tsx": {
     "mtime": 1774482273.023424,
@@ -1835,9 +1935,9 @@
     "semantic_hash": "54091e96d97964c448f32e2e9e70d575"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/primitives/index.ts": {
-    "mtime": 1781585235.304957,
-    "ast_hash": "74086624a79161c9a1575181077ec968",
-    "semantic_hash": ""
+    "mtime": 1774482273.0278237,
+    "ast_hash": "33511e27c0f1ccdf870d26b17a48842b",
+    "semantic_hash": "33511e27c0f1ccdf870d26b17a48842b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/primitives/Input.tsx": {
     "mtime": 1774482273.023424,
@@ -1850,9 +1950,9 @@
     "semantic_hash": "68eb099e1f685b81686d5a9fea606b1f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/weekly-review/WeeklyResetSidebar.tsx": {
-    "mtime": 1781499902.400192,
-    "ast_hash": "5a4bd1bb3d208871ec01ab9bd68f6744",
-    "semantic_hash": ""
+    "mtime": 1774571094.6708448,
+    "ast_hash": "e047df7a0c905a6245ecf8b3c7bdb046",
+    "semantic_hash": "e047df7a0c905a6245ecf8b3c7bdb046"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/weekly-review/ReviewCard.tsx": {
     "mtime": 1774482273.089424,
@@ -1860,9 +1960,9 @@
     "semantic_hash": "5884a8b306ca5a4d42db297a981e35dd"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/settings/SettingsDialog.tsx": {
-    "mtime": 1780716559.7892857,
-    "ast_hash": "569f2d234a40231a0767114c9cf9f0a3",
-    "semantic_hash": ""
+    "mtime": 1774587234.6374626,
+    "ast_hash": "93a56207e7322c7922af4224418e4d64",
+    "semantic_hash": "93a56207e7322c7922af4224418e4d64"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/settings/tabs/NotificationsTab.tsx": {
     "mtime": 1774482273.0454237,
@@ -1950,14 +2050,19 @@
     "semantic_hash": "7b0b14c45cce836a84d30c8ffb9f231e"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/CreateProjectPopover.tsx": {
-    "mtime": 1781638269.6211832,
-    "ast_hash": "743860a2366993b051a17f6010cfc630",
-    "semantic_hash": ""
+    "mtime": 1774482273.0586238,
+    "ast_hash": "ca93db972584d811157c44e90ae8d05b",
+    "semantic_hash": "ca93db972584d811157c44e90ae8d05b"
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/Tip.tsx": {
+    "mtime": 1774482273.0630238,
+    "ast_hash": "443e842a21d70873491bf48ee4e7248f",
+    "semantic_hash": "443e842a21d70873491bf48ee4e7248f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/ProjectLink.tsx": {
-    "mtime": 1781638264.1932235,
-    "ast_hash": "4b0a5a545377881ae18b2ee4a99b53a4",
-    "semantic_hash": ""
+    "mtime": 1774571094.6972446,
+    "ast_hash": "0f251a002fa378bf95d5b228e67a4dcc",
+    "semantic_hash": "0f251a002fa378bf95d5b228e67a4dcc"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/NavLink.tsx": {
     "mtime": 1774494411.8733869,
@@ -1970,34 +2075,34 @@
     "semantic_hash": "5b9e30ddb73c5ef67f20c6461f240331"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/SidebarPanel.tsx": {
-    "mtime": 1781585536.9810863,
-    "ast_hash": "4427424a31857688a31b98027bbf3c8c",
-    "semantic_hash": ""
+    "mtime": 1774494411.8733869,
+    "ast_hash": "efeb933eadd92a64c5fb653a04bc5cb1",
+    "semantic_hash": "efeb933eadd92a64c5fb653a04bc5cb1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/IconRail.tsx": {
-    "mtime": 1781638278.355774,
-    "ast_hash": "afa7d8c6b755ff115d8db21e9dc79db8",
-    "semantic_hash": ""
+    "mtime": 1774571094.7764447,
+    "ast_hash": "778677b124ffc76164b81f672f5da784",
+    "semantic_hash": "778677b124ffc76164b81f672f5da784"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/Sidebar.tsx": {
-    "mtime": 1781499312.6945503,
-    "ast_hash": "8dbfac3d57f41b576b9db9600c12f805",
-    "semantic_hash": ""
+    "mtime": 1774482273.0586238,
+    "ast_hash": "da6175ef58e83d92141d8ca4a2b58813",
+    "semantic_hash": "da6175ef58e83d92141d8ca4a2b58813"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/sidebar/TagBubble.tsx": {
-    "mtime": 1781499356.2003675,
-    "ast_hash": "6e69e87379f71009e6c812cc96f2b703",
-    "semantic_hash": ""
+    "mtime": 1774491001.2192652,
+    "ast_hash": "5331fed346453d679ca0c4336eb22746",
+    "semantic_hash": "5331fed346453d679ca0c4336eb22746"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/WeekView.tsx": {
-    "mtime": 1781636840.2046402,
-    "ast_hash": "74d90a0a141c78741618a60c96eb6d7b",
-    "semantic_hash": ""
+    "mtime": 1774571094.6972446,
+    "ast_hash": "16f719d6ead7db9ff95664c5e6213d72",
+    "semantic_hash": "16f719d6ead7db9ff95664c5e6213d72"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/DayView.tsx": {
-    "mtime": 1780775430.1037745,
-    "ast_hash": "adc446e736af2b11ee856bf7768b030a",
-    "semantic_hash": ""
+    "mtime": 1774571094.6972446,
+    "ast_hash": "956eb3db66ff3bd1d18866541c321891",
+    "semantic_hash": "956eb3db66ff3bd1d18866541c321891"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CalendarDropTargets.tsx": {
     "mtime": 1774482272.9706237,
@@ -2005,9 +2110,9 @@
     "semantic_hash": "d3e118ef3308b45a80117b80cfedd1cd"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CalendarTaskChip.tsx": {
-    "mtime": 1780775430.1037745,
-    "ast_hash": "e39c77ea6bfdea538d188123a2526953",
-    "semantic_hash": ""
+    "mtime": 1774491001.2192652,
+    "ast_hash": "40ae44d5446bfe180e25b6afbc7df4b1",
+    "semantic_hash": "40ae44d5446bfe180e25b6afbc7df4b1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/TimeGutter.tsx": {
     "mtime": 1774482272.9882238,
@@ -2015,9 +2120,9 @@
     "semantic_hash": "e4d2abc80c864cdae7d91663916a85f9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/YearView.tsx": {
-    "mtime": 1780775430.1080031,
-    "ast_hash": "f15876b773e61f07c30b97a160360bf5",
-    "semantic_hash": ""
+    "mtime": 1774494411.794187,
+    "ast_hash": "713c94ff41484e3fab72fb8c8a88c5bf",
+    "semantic_hash": "713c94ff41484e3fab72fb8c8a88c5bf"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CalendarHeader.tsx": {
     "mtime": 1774482272.9794238,
@@ -2025,9 +2130,9 @@
     "semantic_hash": "b7a267c43c4962a02512e4e8898f0071"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CalendarGrid.tsx": {
-    "mtime": 1780775430.1037745,
-    "ast_hash": "fc522ea8b4b070f214063ca6da3edbca",
-    "semantic_hash": ""
+    "mtime": 1774482272.9794238,
+    "ast_hash": "be6ba75dac2716f423e9ab4954c9a32a",
+    "semantic_hash": "be6ba75dac2716f423e9ab4954c9a32a"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CurrentTimeIndicator.tsx": {
     "mtime": 1774482272.9794238,
@@ -2035,9 +2140,9 @@
     "semantic_hash": "dd301606becde4ff1885204f954b8b43"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CalendarEventPopover.tsx": {
-    "mtime": 1781585246.5362778,
-    "ast_hash": "f99b516f126fe1efb9aeca57027d8932",
-    "semantic_hash": ""
+    "mtime": 1774573461.753635,
+    "ast_hash": "6b6437b431fa922a5f85128a24ccecef",
+    "semantic_hash": "6b6437b431fa922a5f85128a24ccecef"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/GhostTaskInput.tsx": {
     "mtime": 1774491001.2192652,
@@ -2045,14 +2150,14 @@
     "semantic_hash": "dac3c620647f73facda78adcb717d354"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/UnscheduledTasksSidebar.tsx": {
-    "mtime": 1780775430.1080031,
-    "ast_hash": "da8e5cb85d0716f1c1d476ad197da419",
-    "semantic_hash": ""
+    "mtime": 1774571094.6972446,
+    "ast_hash": "f97ac690b53a4f497de241c9854490ea",
+    "semantic_hash": "f97ac690b53a4f497de241c9854490ea"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CalendarDayCell.tsx": {
-    "mtime": 1780775430.099546,
-    "ast_hash": "b6d2b877963be1bbc697d04b10619ef6",
-    "semantic_hash": ""
+    "mtime": 1774494411.794187,
+    "ast_hash": "17dcecb3dea1ef3eaae66036d9c50976",
+    "semantic_hash": "17dcecb3dea1ef3eaae66036d9c50976"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/CalendarView.tsx": {
     "mtime": 1774482272.9794238,
@@ -2065,9 +2170,9 @@
     "semantic_hash": "7d08f1a4d744f966cd2ce76768b7067b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/DayFocusView.tsx": {
-    "mtime": 1780775430.1037745,
-    "ast_hash": "16d2fdee82845607c97945f34fbde31d",
-    "semantic_hash": ""
+    "mtime": 1774494411.794187,
+    "ast_hash": "5a1334403f7fa3afedfd34e8e897ac39",
+    "semantic_hash": "5a1334403f7fa3afedfd34e8e897ac39"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/ScheduleHeader.tsx": {
     "mtime": 1774574186.4448328,
@@ -2080,24 +2185,24 @@
     "semantic_hash": "a85613090643caa16a22cbe3cda35065"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/HolidayControls.tsx": {
-    "mtime": 1781636889.9274642,
-    "ast_hash": "023492657f26638fb9ccd998cee5fd4d",
-    "semantic_hash": ""
+    "mtime": 1774482272.9838238,
+    "ast_hash": "113f96b636e1cf8a8edebc1fb6fb610d",
+    "semantic_hash": "113f96b636e1cf8a8edebc1fb6fb610d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/WeekFocusView.tsx": {
-    "mtime": 1780775430.1080031,
-    "ast_hash": "f17c1cfc1d14de779ee0fdb37842de43",
-    "semantic_hash": ""
+    "mtime": 1774482272.9882238,
+    "ast_hash": "cc7c5b6474171422fc2a7b1757111a73",
+    "semantic_hash": "cc7c5b6474171422fc2a7b1757111a73"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/calendar/MonthPeekView.tsx": {
-    "mtime": 1780775430.1037745,
-    "ast_hash": "e361f066e2f95f0132bc8c9d8a19598b",
-    "semantic_hash": ""
+    "mtime": 1774494412.0185869,
+    "ast_hash": "0402b45d69c7f1fab31b3a702518d741",
+    "semantic_hash": "0402b45d69c7f1fab31b3a702518d741"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/layout/MainLayout.tsx": {
-    "mtime": 1781585307.2349224,
-    "ast_hash": "1f987f84f421433c513e549271a5f431",
-    "semantic_hash": ""
+    "mtime": 1774571094.6972446,
+    "ast_hash": "349660e7751611f7f12edd2e58a73882",
+    "semantic_hash": "349660e7751611f7f12edd2e58a73882"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/layout/PlannerHeader.tsx": {
     "mtime": 1774555770.8613756,
@@ -2130,14 +2235,14 @@
     "semantic_hash": "c4943a26eaa3e848c65a30d0652bfce2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/kanban/KanbanBoard.tsx": {
-    "mtime": 1780775430.1122317,
-    "ast_hash": "2bca9c833a327ea190733f230885c31a",
-    "semantic_hash": ""
+    "mtime": 1774735936.0060515,
+    "ast_hash": "16a7788d49fc36077baba2b2fde71552",
+    "semantic_hash": "16a7788d49fc36077baba2b2fde71552"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/use-nlp-parse.ts": {
-    "mtime": 1780775430.1418319,
-    "ast_hash": "58a33df6a83fcbcce5a06119f4ef685d",
-    "semantic_hash": ""
+    "mtime": 1774735846.3157845,
+    "ast_hash": "3dc49ff5fe05886e46a34e04fd93fd2d",
+    "semantic_hash": "3dc49ff5fe05886e46a34e04fd93fd2d"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/use-swipe-navigation.ts": {
     "mtime": 1774482273.1334238,
@@ -2150,29 +2255,29 @@
     "semantic_hash": "2157373daf3d8911359f7e686300c235"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/use-create-habit.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "9b66af108a16cdf96408cc03730400ca",
-    "semantic_hash": ""
+    "mtime": 1774482273.093824,
+    "ast_hash": "d541ebb61b39971c7b0dec1ba7cbca6f",
+    "semantic_hash": "d541ebb61b39971c7b0dec1ba7cbca6f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/use-habits.ts": {
-    "mtime": 1780887665.8872938,
-    "ast_hash": "bd7c582632816caea62b88040b31a951",
-    "semantic_hash": ""
+    "mtime": 1774575302.835761,
+    "ast_hash": "17e5b8dd393bb87e5fa239c36b8cc33b",
+    "semantic_hash": "17e5b8dd393bb87e5fa239c36b8cc33b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/use-resolve-habit.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "2cae8d7bedd8c4453bd3e692bf6d0f60",
-    "semantic_hash": ""
+    "mtime": 1774482273.1026237,
+    "ast_hash": "c16dd640dc078b466afa229871f6564f",
+    "semantic_hash": "c16dd640dc078b466afa229871f6564f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/use-update-habit.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "26cb3576ab9d2a5a2d8cee2ef46a6605",
-    "semantic_hash": ""
+    "mtime": 1774482273.1026237,
+    "ast_hash": "fe549d261238703072d7d69f66ad79e3",
+    "semantic_hash": "fe549d261238703072d7d69f66ad79e3"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/use-habit-unresolved.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "0eaabffa6a04855025cbbb0b3d1af971",
-    "semantic_hash": ""
+    "mtime": 1774482273.0982237,
+    "ast_hash": "bd64286552bb14a3688da4666aa5e8bd",
+    "semantic_hash": "bd64286552bb14a3688da4666aa5e8bd"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/use-pause-habit.ts": {
     "mtime": 1774482273.0982237,
@@ -2180,9 +2285,9 @@
     "semantic_hash": "af248e4fc5f6a6875b23a7abe84e3f9b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/use-virtual-habit-tasks.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "4b85350c998fd6ac4eee79396311084a",
-    "semantic_hash": ""
+    "mtime": 1774482273.1026237,
+    "ast_hash": "3069a03546180b48f708e4c783ee8199",
+    "semantic_hash": "3069a03546180b48f708e4c783ee8199"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/habits/optimistic-helpers.ts": {
     "mtime": 1774482273.093824,
@@ -2200,9 +2305,9 @@
     "semantic_hash": "a0f810ca318f573ee7a26ce0deb25156"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-update-inbox-section.ts": {
-    "mtime": 1780773451.1225393,
-    "ast_hash": "7fe64e46d9cd4d6b5e05d7ece6e2c2ee",
-    "semantic_hash": ""
+    "mtime": 1774482273.1070237,
+    "ast_hash": "71639800ad72d0f427527724959adc98",
+    "semantic_hash": "71639800ad72d0f427527724959adc98"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-delete-inbox-section.ts": {
     "mtime": 1774482273.1070237,
@@ -2210,19 +2315,19 @@
     "semantic_hash": "3cd16aaef30a2828abfb013116247aa7"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-create-inbox-item.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "974793261edda14691382a73ec432995",
-    "semantic_hash": ""
+    "mtime": 1774482273.1026237,
+    "ast_hash": "ae48731d82b5970bf6b1c795cf41333e",
+    "semantic_hash": "ae48731d82b5970bf6b1c795cf41333e"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-delete-inbox-item.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "6888218a4d92d4c229e88e7eaa907d7a",
-    "semantic_hash": ""
+    "mtime": 1774482273.1070237,
+    "ast_hash": "adddd01b814bbfc78185bed31280a632",
+    "semantic_hash": "adddd01b814bbfc78185bed31280a632"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-process-inbox-to-task.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "476d235f9e8eb4af8ba9d4d4495eefec",
-    "semantic_hash": ""
+    "mtime": 1774587719.9075103,
+    "ast_hash": "e8ae2b0a2448ea7bc24a5cff7934dad2",
+    "semantic_hash": "e8ae2b0a2448ea7bc24a5cff7934dad2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-inbox-sections.ts": {
     "mtime": 1774482273.1070237,
@@ -2230,14 +2335,14 @@
     "semantic_hash": "93b1dffb91d3d89d21c1dcb2564bafb9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-inbox.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "0cc8f97037f0fab96abdc60991e0511e",
-    "semantic_hash": ""
+    "mtime": 1774482273.1070237,
+    "ast_hash": "5334122aa8ba2972ab0ff09c42e45a6b",
+    "semantic_hash": "5334122aa8ba2972ab0ff09c42e45a6b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-create-inbox-section.ts": {
-    "mtime": 1780773452.5961115,
-    "ast_hash": "86ba0612c077fda93f33178043b4a877",
-    "semantic_hash": ""
+    "mtime": 1774482273.1026237,
+    "ast_hash": "8fcd86c0077931dfdf15ef4af87e0264",
+    "semantic_hash": "8fcd86c0077931dfdf15ef4af87e0264"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/index.ts": {
     "mtime": 1774482273.1026237,
@@ -2245,29 +2350,29 @@
     "semantic_hash": "ec9c4ccbaf136d0f7c9fc158d53e418f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/inbox/use-update-inbox-item.ts": {
-    "mtime": 1780773454.2667315,
-    "ast_hash": "45958f889c3f9838401749a8b661664d",
-    "semantic_hash": ""
+    "mtime": 1774482273.1070237,
+    "ast_hash": "339f805324fb97c1a267e040ec6694b1",
+    "semantic_hash": "339f805324fb97c1a267e040ec6694b1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/projects/use-update-project.ts": {
-    "mtime": 1780888437.6441824,
-    "ast_hash": "6e572ee39a41c9564633efe4aad83993",
-    "semantic_hash": ""
+    "mtime": 1774482273.1114237,
+    "ast_hash": "d88c3f5e041016332df6209172189bc8",
+    "semantic_hash": "d88c3f5e041016332df6209172189bc8"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/projects/use-delete-project.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "323799306eac51df026ab050e25d53d8",
-    "semantic_hash": ""
+    "mtime": 1774482273.1114237,
+    "ast_hash": "23117983dc1771580bbe10c11942a739",
+    "semantic_hash": "23117983dc1771580bbe10c11942a739"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/projects/use-projects.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "19b69a80fbc42ad276870b24fed34e19",
-    "semantic_hash": ""
+    "mtime": 1774482273.1114237,
+    "ast_hash": "8e674f952403f8c8cd9a55efbd3c9c89",
+    "semantic_hash": "8e674f952403f8c8cd9a55efbd3c9c89"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/projects/use-create-project.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "1ae665ffebe7f9c91993e6afa1a14841",
-    "semantic_hash": ""
+    "mtime": 1774482273.1114237,
+    "ast_hash": "a3c1ef7539fbe979531cb389004652a2",
+    "semantic_hash": "a3c1ef7539fbe979531cb389004652a2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/projects/index.ts": {
     "mtime": 1774482273.1114237,
@@ -2350,39 +2455,39 @@
     "semantic_hash": "9a8de029f05e98d9b7d13acb21dab5c9"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-reorder-task.ts": {
-    "mtime": 1780775430.1418319,
-    "ast_hash": "5b3881505b30fb0e2ed92babd53090a5",
-    "semantic_hash": ""
+    "mtime": 1774482273.1202238,
+    "ast_hash": "05cf3216835cea33b11849edf8cda439",
+    "semantic_hash": "05cf3216835cea33b11849edf8cda439"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-delete-task.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "84b95b657b5e686f011ee271a38c00ec",
-    "semantic_hash": ""
+    "mtime": 1774482273.1202238,
+    "ast_hash": "b8ff741755405ba53ddb523ac43e599f",
+    "semantic_hash": "b8ff741755405ba53ddb523ac43e599f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-restore-task.ts": {
-    "mtime": 1780775430.1418319,
-    "ast_hash": "66b825045c1b677e878b938e06f8c644",
-    "semantic_hash": ""
+    "mtime": 1774735901.0472531,
+    "ast_hash": "fbd73ad7b983106effc6a0adde482780",
+    "semantic_hash": "fbd73ad7b983106effc6a0adde482780"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-task-note-api.ts": {
-    "mtime": 1780775430.1418319,
-    "ast_hash": "eb042dd7ae2b2d22af0431ac40616540",
-    "semantic_hash": ""
+    "mtime": 1774482273.1246238,
+    "ast_hash": "fae73bbf2084e7374e4902391ab4ee9c",
+    "semantic_hash": "fae73bbf2084e7374e4902391ab4ee9c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-batch-state.ts": {
-    "mtime": 1780887667.4096937,
-    "ast_hash": "cedcb63c3b9e4d5851406c7fbe9ed041",
-    "semantic_hash": ""
+    "mtime": 1774482273.1202238,
+    "ast_hash": "a75a1172b5b6543c072180e5e7ac3754",
+    "semantic_hash": "a75a1172b5b6543c072180e5e7ac3754"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-update-task.ts": {
-    "mtime": 1780775430.1418319,
-    "ast_hash": "3d33a7a6574959519b59c72f9d24fa41",
-    "semantic_hash": ""
+    "mtime": 1774482273.1246238,
+    "ast_hash": "4c0893eb79f7ae2286524498bbabe923",
+    "semantic_hash": "4c0893eb79f7ae2286524498bbabe923"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-archive-task.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "5e2fb3e3c2717b0427a12632139fbb7e",
-    "semantic_hash": ""
+    "mtime": 1774735909.195502,
+    "ast_hash": "1049c7b3040e910f4cc8aaaa05aaaefd",
+    "semantic_hash": "1049c7b3040e910f4cc8aaaa05aaaefd"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-task-note.ts": {
     "mtime": 1774482273.1246238,
@@ -2390,24 +2495,24 @@
     "semantic_hash": "749e1a8f4aa6ee3bdfc30a2fd62b3508"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-tasks.ts": {
-    "mtime": 1780887690.0989783,
-    "ast_hash": "efd1f68301744936a6b6b0271e15ccc4",
-    "semantic_hash": ""
+    "mtime": 1774482273.1246238,
+    "ast_hash": "10eae80a2ae606eb7cb2f22d4edb85ad",
+    "semantic_hash": "10eae80a2ae606eb7cb2f22d4edb85ad"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-create-task.ts": {
-    "mtime": 1780887662.1666558,
-    "ast_hash": "47d96a9e82bd860c34ff8e0858f48f93",
-    "semantic_hash": ""
+    "mtime": 1774735619.3669474,
+    "ast_hash": "576cdf11d716f68a8cd39e1a180aa795",
+    "semantic_hash": "576cdf11d716f68a8cd39e1a180aa795"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-subtasks.ts": {
-    "mtime": 1780775430.1418319,
-    "ast_hash": "ef790ece429d6d32e57c9adfcfad9486",
-    "semantic_hash": ""
+    "mtime": 1774737268.7985146,
+    "ast_hash": "792f05e729fb77c5ac508ed7187d04ca",
+    "semantic_hash": "792f05e729fb77c5ac508ed7187d04ca"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/use-duplicate-task.ts": {
-    "mtime": 1780775430.1418319,
-    "ast_hash": "3ce15e823f61bbb05495ec3cc809164a",
-    "semantic_hash": ""
+    "mtime": 1774482273.1202238,
+    "ast_hash": "e7c3332f4b66025692a596325b355da2",
+    "semantic_hash": "e7c3332f4b66025692a596325b355da2"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tasks/optimistic-helpers.ts": {
     "mtime": 1774482273.1202238,
@@ -2470,14 +2575,14 @@
     "semantic_hash": "f5852846940f8b063649bfb067ee114b"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/core/use-focus-views.ts": {
-    "mtime": 1780888944.0345232,
-    "ast_hash": "15bceb946231a58f9f4d7920b1bb36fe",
-    "semantic_hash": ""
+    "mtime": 1774482273.093824,
+    "ast_hash": "f9df4de754b65ec1057eb193381e42b6",
+    "semantic_hash": "f9df4de754b65ec1057eb193381e42b6"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/core/use-weekly-review-actions.ts": {
-    "mtime": 1780775430.1333747,
-    "ast_hash": "61f01b30ab366135b797d05c1c09c0d1",
-    "semantic_hash": ""
+    "mtime": 1774482273.093824,
+    "ast_hash": "df7cad8930de42a02207d43416d57313",
+    "semantic_hash": "df7cad8930de42a02207d43416d57313"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/calendar/use-personal-events.ts": {
     "mtime": 1774482273.089424,
@@ -2485,24 +2590,24 @@
     "semantic_hash": "8c12e4d645c76b86499e907c70c6016f"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tags/use-create-tag.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "4a8108f398b4dceebb5a6a7092bfd53a",
-    "semantic_hash": ""
+    "mtime": 1774482273.1158237,
+    "ast_hash": "1655d4195059796a9754f6fdde21f5a1",
+    "semantic_hash": "1655d4195059796a9754f6fdde21f5a1"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tags/use-delete-tag.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "e349cfa60ddc998423579d630ab11c69",
-    "semantic_hash": ""
+    "mtime": 1774482273.1158237,
+    "ast_hash": "2157233b2a84cc1ab9e323e7598aef7c",
+    "semantic_hash": "2157233b2a84cc1ab9e323e7598aef7c"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tags/use-tags.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "6e4a8a148b54e1a369c2030d8d3a9c37",
-    "semantic_hash": ""
+    "mtime": 1774482273.1158237,
+    "ast_hash": "454d2d9e8ffc29bf7ec3c7796fc60b42",
+    "semantic_hash": "454d2d9e8ffc29bf7ec3c7796fc60b42"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tags/use-task-tags.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "4df2d33c4203b52e57c8c728413dfa0b",
-    "semantic_hash": ""
+    "mtime": 1774482273.1158237,
+    "ast_hash": "f55e1bea05b0c171fa17c6c8d900ae29",
+    "semantic_hash": "f55e1bea05b0c171fa17c6c8d900ae29"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/tags/index.ts": {
     "mtime": 1774482273.1158237,
@@ -2510,9 +2615,9 @@
     "semantic_hash": "e6bf8660e4f7ab93cbebe2fbffaa32da"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/sections/use-sections.ts": {
-    "mtime": 1780775430.1376033,
-    "ast_hash": "55de4b7882bd828662e79ce3948ef8b9",
-    "semantic_hash": ""
+    "mtime": 1774482273.1158237,
+    "ast_hash": "d788964d8298cdebfde35ecf25b74203",
+    "semantic_hash": "d788964d8298cdebfde35ecf25b74203"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/sections/index.ts": {
     "mtime": 1774482273.1158237,
@@ -2730,8 +2835,8 @@
     "semantic_hash": "31bcb17b6c6757241abda8661d4b1169"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/AGENTS.md": {
-    "mtime": 1780889057.069581,
-    "ast_hash": "a5e07027b960a802dbca533a0b1bcb3b",
+    "mtime": 1780455306.3450994,
+    "ast_hash": "d803b704e87511728b08302f4e40c814",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/README.md": {
@@ -2960,9 +3065,9 @@
     "semantic_hash": "d7eb57f3d24f3f731dcd91998dd01e3a"
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/README.md": {
-    "mtime": 1780775658.0715518,
-    "ast_hash": "145a02e6377f7f87ec6d2a70de0ce1a9",
-    "semantic_hash": ""
+    "mtime": 1772859451.6321604,
+    "ast_hash": "dc5aca2489590ab79946d467c79c4844",
+    "semantic_hash": "dc5aca2489590ab79946d467c79c4844"
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/src-tauri/icons/Square107x107Logo.png": {
     "mtime": 1773551975.523275,
@@ -3265,13 +3370,13 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/package.json": {
-    "mtime": 1781043470.47873,
-    "ast_hash": "43347e99fe2413be442b956c1d112000",
+    "mtime": 1780458278.5742638,
+    "ast_hash": "4ad1b62c9d06e03b2ed2eda21c70d38d",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/turbo.json": {
-    "mtime": 1781043459.0434878,
-    "ast_hash": "22a6d5ad3b82774691e5d9eee9148859",
+    "mtime": 1774058164.156508,
+    "ast_hash": "04ac16eaade89187943d2c8e574d57a6",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/.agents/skills/vercel-react-best-practices/metadata.json": {
@@ -3300,8 +3405,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/task-nlp.ts": {
-    "mtime": 1780528870.4853616,
-    "ast_hash": "b8ded5bd90f10d65e8681e639353593d",
+    "mtime": 1780454763.99056,
+    "ast_hash": "1eac5afb62736e534059a674f4674d15",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/0026_loving_anita_blake.sql": {
@@ -3320,8 +3425,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/README.md": {
-    "mtime": 1780775440.244966,
-    "ast_hash": "6f8e48f23b60d857d3a1e43cae7b37cb",
+    "mtime": 1774128764.949161,
+    "ast_hash": "a3517bc532b0b3f7f7bfadba1b38500c",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/.agents/skills/postgresql-table-design/SKILL.md": {
@@ -4007,766 +4112,6 @@
   "/home/shep/projects/My Portfolio/Cadence/.github/agents/dboptimizer.agent.md": {
     "mtime": 1773638831.2206655,
     "ast_hash": "db783d0622c5cd2e0fa8122363b6bdba",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/tsconfig.json": {
-    "mtime": 1780725825.6044936,
-    "ast_hash": "3c4c9822e9e189605171966f8534fba2",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/package.json": {
-    "mtime": 1780885748.8967192,
-    "ast_hash": "d300fc53210e9120e255231f0085f8f8",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/errors.ts": {
-    "mtime": 1780725827.736104,
-    "ast_hash": "b314ce1ffe6beb51ff8eb902a52d17c5",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/task-temporal.golden.test.ts": {
-    "mtime": 1780774692.7013528,
-    "ast_hash": "53efc1d67f8e8eeba9da1799a186578d",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/ordering.test.ts": {
-    "mtime": 1780885805.803334,
-    "ast_hash": "6ec1eccd2697fd9d3ae42e0a8562e073",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/task-temporal.test.ts": {
-    "mtime": 1780774661.7186668,
-    "ast_hash": "1b273a73ceaaff02665d07656b0d409c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/task-recurrence.test.ts": {
-    "mtime": 1780774673.904948,
-    "ast_hash": "5c552a69f4d94f1e02825b04160be381",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/task-temporal.ts": {
-    "mtime": 1780725847.4995923,
-    "ast_hash": "5eade3f997188917bdf604946cc1f514",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/task-recurrence.ts": {
-    "mtime": 1780725870.2607162,
-    "ast_hash": "0f1a680fe60eccd614889a2d89681010",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/ordering.ts": {
-    "mtime": 1780885740.0835192,
-    "ast_hash": "b924c533764b730a6b47580f52785eef",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/src/index.ts": {
-    "mtime": 1780885750.4103193,
-    "ast_hash": "f2c64652768361d66ddba27809b8ad93",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/domain/scripts/check-imports.mjs": {
-    "mtime": 1780775034.4715636,
-    "ast_hash": "d65ccc8c78d8a2315b94f4172f69a2b4",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/tsconfig.json": {
-    "mtime": 1780725360.0394053,
-    "ast_hash": "3c4c9822e9e189605171966f8534fba2",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/package.json": {
-    "mtime": 1780788006.8380346,
-    "ast_hash": "994b40e17a69d523d3a0947b84bca43f",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/note.ts": {
-    "mtime": 1780725419.01897,
-    "ast_hash": "e8b31bc43d324fa0003d965ddd88b314",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/ai.ts": {
-    "mtime": 1781638271.121524,
-    "ast_hash": "0e03a3843be77c77b7938e04716c00d4",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/task.ts": {
-    "mtime": 1780774421.5784075,
-    "ast_hash": "6e46ed71a5a48269f8e8ced03a31795e",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/section.ts": {
-    "mtime": 1780725416.2549899,
-    "ast_hash": "100c5612b7197ff78838b2164fd3e4b1",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/constants.ts": {
-    "mtime": 1780787999.7223704,
-    "ast_hash": "ee0163e9f98679e4ff735f96c95fc472",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/tag.ts": {
-    "mtime": 1780887708.20495,
-    "ast_hash": "49821900fb801a516835f01edb59019a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/settings.ts": {
-    "mtime": 1780725555.5928755,
-    "ast_hash": "dbcf8e5b8992eea9e177316f80168bbd",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/index.test.ts": {
-    "mtime": 1780885404.8629146,
-    "ast_hash": "bdc79b13991c555427f1f16a089d3dbf",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/subtask.ts": {
-    "mtime": 1780774428.2487032,
-    "ast_hash": "9324648aca104fa006c57d6b51cefb58",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/project.ts": {
-    "mtime": 1780887713.528384,
-    "ast_hash": "b45d5ca3282729b5b6458057015064b6",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/common.ts": {
-    "mtime": 1780725365.7075782,
-    "ast_hash": "c7a1dab29791e49762ac8d20eb703b00",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/habit.ts": {
-    "mtime": 1780774439.8066435,
-    "ast_hash": "ae381b149463c3003bec85f8d7f67e2f",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/index.ts": {
-    "mtime": 1780788007.9380348,
-    "ast_hash": "ab6f9db5e1a15c9fd3dd69428476ecbd",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/inbox.ts": {
-    "mtime": 1780774436.0507307,
-    "ast_hash": "fa686c9d1c07398e504fda9dcdfe18c4",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/contracts/scripts/check-imports.mjs": {
-    "mtime": 1780775032.7400236,
-    "ast_hash": "e6a979346b11d0fbe84a7a59c7b74a60",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/scripts/__init__.py": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "4bfea67395a7ba04f363df51355d1ef8",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/scripts/__main__.py": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "746aff14c3a098a28fe9d01d54f174a9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/scripts/detect.py": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "b0fe8099be4fae2bade0de8253c950f1",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/scripts/compress.py": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "52630355324ce6788883c43139f992e0",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/scripts/benchmark.py": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "b4a8fd8070777a15f1f183d7c9992dcd",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/scripts/cli.py": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "e52ddb86f61b5d2095fa2b25f1ae73a7",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/scripts/validate.py": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "b4f283bc53e5d352fb0120827fd4fafa",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-input-guard.test.ts": {
-    "mtime": 1780630699.8802383,
-    "ast_hash": "d236689922e681fdec32a72937f0aa03",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/prompt-composer.test.ts": {
-    "mtime": 1780708452.7285016,
-    "ast_hash": "b68c0a04a85e7e82cc0465f20d3a52ca",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/contract-parity.test.ts": {
-    "mtime": 1780774575.472902,
-    "ast_hash": "4e8bf4688bf5e37599813711ad8d0292",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-message-mapper.test.ts": {
-    "mtime": 1780637261.9598353,
-    "ast_hash": "dc00054185c572b0a2e5a68c2a63684d",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/persona-directives.test.ts": {
-    "mtime": 1780723815.3066494,
-    "ast_hash": "aa99a830e945892dc20ce53aae7dd328",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-tools.test.ts": {
-    "mtime": 1780638620.312179,
-    "ast_hash": "1d121262e3a6920c1f27b008c537c5fe",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/redis.test.ts": {
-    "mtime": 1781044263.830532,
-    "ast_hash": "4ffdca2f726c177348c9a2d55679c0a0",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-resume-store.test.ts": {
-    "mtime": 1781047045.6353989,
-    "ast_hash": "e953e4da36bcac07e8c400ae12f3c59e",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-injection-policy.test.ts": {
-    "mtime": 1780637207.9958239,
-    "ast_hash": "da00923bd89ba4c5bc0c7eefa5e8f4f7",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/log.test.ts": {
-    "mtime": 1780528851.9539871,
-    "ast_hash": "dc1184eb98769ca12cbf2fcefc5f005e",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-rate-limit.test.ts": {
-    "mtime": 1781681347.6674902,
-    "ast_hash": "ce41ed83a83e4a1fd48724b149633ced",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-memory-ranking.test.ts": {
-    "mtime": 1780638413.8484137,
-    "ast_hash": "ed3b4cae3e69f9156395828de092912a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/ai-stream.contract.test.ts": {
-    "mtime": 1781465596.6988633,
-    "ast_hash": "7ca12341bf25654bf0cbcd7a28319207",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/ai-rate-limit.contract.test.ts": {
-    "mtime": 1781681355.8834422,
-    "ast_hash": "3ad0bf0dec18977cd2a27e27cfd8110b",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/helpers/fake-redis.ts": {
-    "mtime": 1781681256.7814112,
-    "ast_hash": "2dbec62cfcb5cc551e92281f110450d9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/types/db.ts": {
-    "mtime": 1780528829.5322614,
-    "ast_hash": "dc4b75291e42a8d7cc34bf01d1e2ffc8",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/types/api.ts": {
-    "mtime": 1780773429.6941276,
-    "ast_hash": "ec84eb7a7f42009c9d555d6a368b83ac",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/redis.ts": {
-    "mtime": 1781638253.2807636,
-    "ast_hash": "ce02c4edd73f2c0af17be061a523bf08",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/platform/log.ts": {
-    "mtime": 1780528601.4833996,
-    "ast_hash": "301f60d8e68bc9f204e5be254accc74a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/ai.route.ts": {
-    "mtime": 1781681214.3240592,
-    "ast_hash": "95b69ae23565a0c86e0a3d5d23b0a903",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/agent.ts": {
-    "mtime": 1780776067.1825569,
-    "ast_hash": "c53f1e867e62013b038dcf6992228f39",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/ai.schema.ts": {
-    "mtime": 1780773390.767532,
-    "ast_hash": "c039aacacbc3ae63218de7ddc6fdb602",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/memory/memory-write.ts": {
-    "mtime": 1780638395.0838559,
-    "ast_hash": "3945aca07c85c106a6ca4f757992605a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/memory/memory-retrieval.ts": {
-    "mtime": 1780638366.2318509,
-    "ast_hash": "255e8fe500f700c914c556534162d581",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/memory/embedding.ts": {
-    "mtime": 1780638337.8998606,
-    "ast_hash": "5bb3f9aaee2be5f23843daa0d49c8afe",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/streaming/abort-watcher.ts": {
-    "mtime": 1781043732.3005877,
-    "ast_hash": "086100f17453cc623c5d71b8fe6357c3",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/streaming/replay.ts": {
-    "mtime": 1781047039.8201852,
-    "ast_hash": "062f42ed57d6c025ca292f3820a2322a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/streaming/stream-keys.ts": {
-    "mtime": 1781043687.9094796,
-    "ast_hash": "7fc79716d7c799a59133438788abaae9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/streaming/resume-store.ts": {
-    "mtime": 1781073558.894493,
-    "ast_hash": "419dbed4e0aa393878511d791ce0c541",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/persistence/conversation-repo.ts": {
-    "mtime": 1781465508.241509,
-    "ast_hash": "3f95e2685a89b7996651296d9b19ea55",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/persistence/message-mapper.ts": {
-    "mtime": 1780773405.5115042,
-    "ast_hash": "90753af310028a29f4d639f983871526",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/sections.ts": {
-    "mtime": 1780638487.9963863,
-    "ast_hash": "8dfb198a9884a68fe5dac5b8f5ed9a33",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/tasks.ts": {
-    "mtime": 1780715790.5334454,
-    "ast_hash": "5ee3ecdab579cc9b1cca2591f688a6e0",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/projects.ts": {
-    "mtime": 1780708293.1500206,
-    "ast_hash": "4eca4199c704c5598375df306f05fe4c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/suggestions.ts": {
-    "mtime": 1780708307.257659,
-    "ast_hash": "526bf2fa59111e4c711c5ac041d71fe9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/tags.ts": {
-    "mtime": 1780708295.70329,
-    "ast_hash": "94d6f42228ab30cb78004b14c633e87a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/calendar.ts": {
-    "mtime": 1780776090.0638227,
-    "ast_hash": "6388c1cd941ef4ebf2847c018ac31161",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/habits.ts": {
-    "mtime": 1780708298.7785227,
-    "ast_hash": "de327672fc993f8d9ae7111af220dc31",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/metrics.ts": {
-    "mtime": 1780638677.8561232,
-    "ast_hash": "3363a13748f796d8937b9e439fca4e53",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/projections.ts": {
-    "mtime": 1780638422.1536794,
-    "ast_hash": "031f3137be2882c7e19a12dd1c871d8f",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/index.ts": {
-    "mtime": 1780638389.7038646,
-    "ast_hash": "1e99ea5cdc2c2e80c6dec53a0e326bb9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/tools/inbox.ts": {
-    "mtime": 1780716012.3960443,
-    "ast_hash": "9b245e28d5496537de5c5eeed64ef504",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/prompt/prompt-composer.ts": {
-    "mtime": 1780637264.259828,
-    "ast_hash": "dafa8cd7ba9cfccba937950ccd0b028e",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/prompt/persona-directives.ts": {
-    "mtime": 1780723800.9786577,
-    "ast_hash": "ff62122271828e019e3757263a016667",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/prompt/prompt-cache.ts": {
-    "mtime": 1780708441.0381675,
-    "ast_hash": "2bc4940989c497244d186f8a18a3f10d",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/prompt/prompt-blocks.schema.ts": {
-    "mtime": 1780637214.2478302,
-    "ast_hash": "23b10c52b2eb47f171151a8e71e4084c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/safety/input-guard.ts": {
-    "mtime": 1780630643.36236,
-    "ast_hash": "17ab2f62db87fe36eeb39e3377e663d2",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/safety/rate-limit.ts": {
-    "mtime": 1781681270.9755573,
-    "ast_hash": "d3681cb563e577947c3fc18007c7cfaf",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/safety/rate-limit-keys.ts": {
-    "mtime": 1781681053.2027633,
-    "ast_hash": "a64632b43a950f90107a3e4a48a059c6",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/safety/injection-policy.ts": {
-    "mtime": 1780637218.135832,
-    "ast_hash": "69eb6deab0ddda13a1e1a942e471a37d",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/ai/safety/stream-error.ts": {
-    "mtime": 1781043780.015913,
-    "ast_hash": "3f1ef9322cef05f660d55e488049e73e",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/0029_lying_loners.sql": {
-    "mtime": 1781465483.8695426,
-    "ast_hash": "9d8eec50d9f5137ad4da2ae5b99e4db4",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/0028_bored_betty_brant.sql": {
-    "mtime": 1781043375.728301,
-    "ast_hash": "dce37cc9d35d93fe7846cf61ce53ec64",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/0027_safe_dreaming_celestial.sql": {
-    "mtime": 1780630277.0578876,
-    "ast_hash": "2e222c9a7f330b6ebc22a4a31d195c6c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/meta/0029_snapshot.json": {
-    "mtime": 1781465483.8695426,
-    "ast_hash": "90b759de106ac5b97174a69d85857e3a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/meta/0028_snapshot.json": {
-    "mtime": 1781043375.728301,
-    "ast_hash": "3ef1b8449cc6887df6ea0b423b426c37",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/backend/drizzle/meta/0027_snapshot.json": {
-    "mtime": 1780630277.0578876,
-    "ast_hash": "5a421161910bfa4b57cb89e1851a5f24",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/ai/stop-stream.test.ts": {
-    "mtime": 1781052290.6008508,
-    "ast_hash": "cd67e4e3ab79a9ffa88cdc5259d70528",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/ai/input-guard.test.ts": {
-    "mtime": 1780706888.060162,
-    "ast_hash": "ee9614c945a9d34dba749c28d3aacf84",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/lib/ai/stream-error.test.ts": {
-    "mtime": 1780706877.2503655,
-    "ast_hash": "f15cefc05aec6217798f8d4b26dfaa76",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tests/app/hooks/ai/use-conversation-broadcast.test.ts": {
-    "mtime": 1781466363.4044604,
-    "ast_hash": "b9cc0402003a443404e22c0bdde34ea1",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/ai/input-guard.ts": {
-    "mtime": 1780706844.2819495,
-    "ast_hash": "fd42aacf8c212fad35b5c60f184f0f65",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/ai/stop-stream.ts": {
-    "mtime": 1781052010.6311448,
-    "ast_hash": "02a3b6d276c5c94d83bd8b2a8f6bf077",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/ai/stream-error.ts": {
-    "mtime": 1780706844.2819495,
-    "ast_hash": "c460bc3d604637ce00ab27cd59776a9e",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/ai/chat-transport.ts": {
-    "mtime": 1780706844.2819495,
-    "ast_hash": "b783ba3512e55fcfa29d6d0cd190e486",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/stores/assistant-store.ts": {
-    "mtime": 1780706844.2819495,
-    "ast_hash": "b6412b132a5aa015e2ba86f6a9167274",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/ConversationListItem.tsx": {
-    "mtime": 1780706844.2732694,
-    "ast_hash": "e9589971ecba943c9c1c7ec1e0fbee8f",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/ChatErrorBubble.tsx": {
-    "mtime": 1780706844.2732694,
-    "ast_hash": "204a78bdef005fda6724fddf19e2b179",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/AssistantLauncher.tsx": {
-    "mtime": 1781465973.9210474,
-    "ast_hash": "ca416db6a01184751bdb12426269aec9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/ToolActivityChip.tsx": {
-    "mtime": 1781636906.4887524,
-    "ast_hash": "df1c53d16b7cf62b630cd703942a8672",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/ConversationList.tsx": {
-    "mtime": 1780706844.2732694,
-    "ast_hash": "ad1abdc834e25274c70bec12fcf6400c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/Markdown.tsx": {
-    "mtime": 1780706844.2732694,
-    "ast_hash": "96c06b24dac933d3bda5ec743b7c0ec4",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/ReadReceipt.tsx": {
-    "mtime": 1781638241.2922013,
-    "ast_hash": "5f9149aa318de6c4aa0d03a1f8e7d05c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/MessageBubble.tsx": {
-    "mtime": 1780982330.1483047,
-    "ast_hash": "3b2edcca5644b4ea396d85e0a3d8fa0b",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/tool-registry.tsx": {
-    "mtime": 1780706844.2732694,
-    "ast_hash": "ed8364ad7b4d1595d615577e9709d236",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/MessageActions.tsx": {
-    "mtime": 1781585243.898157,
-    "ast_hash": "33152ede673b925cacf8e5bca9c0ab01",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/AssistantSidePanel.tsx": {
-    "mtime": 1781585265.9182775,
-    "ast_hash": "38e48bfc42bbc0e1bf5b621d3d659a28",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/use-proposal-resolver.ts": {
-    "mtime": 1780706844.2776093,
-    "ast_hash": "5b4fa5fd15952255dc5425b7b0213635",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/TaskProposalCard.tsx": {
-    "mtime": 1780773687.7849805,
-    "ast_hash": "aa44d9e839a1fc7a953083e51de7bfc9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/SuggestionActionCard.tsx": {
-    "mtime": 1780706844.2776093,
-    "ast_hash": "9a4a0fe2112df889e269b2f4ab24467d",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/DangerConfirmCard.tsx": {
-    "mtime": 1780706844.2776093,
-    "ast_hash": "e06265f7b09dc26d33841675eca82e2f",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/ProposalCard.tsx": {
-    "mtime": 1780982167.5941823,
-    "ast_hash": "320990223bcded9dfc366336eedfc3e2",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/CreateTagCard.tsx": {
-    "mtime": 1780706844.2776093,
-    "ast_hash": "b745505c4fdbc63dfe36faa2b133a731",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/InboxClusterCard.tsx": {
-    "mtime": 1780706844.2776093,
-    "ast_hash": "eb52db15f39eca686873927e7e9b1040",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/LogHabitCard.tsx": {
-    "mtime": 1780775430.0910888,
-    "ast_hash": "844f897a5a1aa967267fa286f154581c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/CreateProjectCard.tsx": {
-    "mtime": 1780706844.2776093,
-    "ast_hash": "cec6037e3d6f50a508e27542899fdedd",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/CompleteTasksCard.tsx": {
-    "mtime": 1780706844.2776093,
-    "ast_hash": "e5ae21a5e903047e05da6fe67229cec6",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/card-lookups.ts": {
-    "mtime": 1780775430.0953174,
-    "ast_hash": "7f9f3e1b8b868851347bf0f4ed703383",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/BatchRescheduleCard.tsx": {
-    "mtime": 1780715912.8198833,
-    "ast_hash": "d3909636db65746d3a5352d26d03a4c7",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/assistant/widgets/InboxStructureCard.tsx": {
-    "mtime": 1780715918.3793035,
-    "ast_hash": "a174f841d61854ad0227819d5ec29d6f",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/command-palette/MobileSearchSheet.tsx": {
-    "mtime": 1781499539.18831,
-    "ast_hash": "93ff518653eb14b1ef6521969e32ffca",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/weekly-review/WeeklyResetHero.tsx": {
-    "mtime": 1781639005.6669402,
-    "ast_hash": "57900b32253694ff98f250344e2e416d",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/settings/tabs/AssistantTab.tsx": {
-    "mtime": 1780723791.0466566,
-    "ast_hash": "90438004f3def829bb814808a25fc522",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/components/layout/RailViewToggle.tsx": {
-    "mtime": 1781585245.121357,
-    "ast_hash": "6582fdcfa7815bf826abe3aa7c90c3dc",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/search/use-search-navigation.ts": {
-    "mtime": 1781500256.1521304,
-    "ast_hash": "4f1ad1969ef35ec6c6a00c84db2a6814",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/ai/use-conversation-broadcast.ts": {
-    "mtime": 1781466171.9889512,
-    "ast_hash": "1f050c10e253d1a599f2c97183cde8fd",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/ai/use-conversations.ts": {
-    "mtime": 1781466187.2431948,
-    "ast_hash": "dbbd95165875633c1723183e842f7403",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/ai/use-assistant-persona.ts": {
-    "mtime": 1780716643.0049365,
-    "ast_hash": "1148f5df1967f9d619696520d1ccb69e",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/ai/use-conversation-mutations.ts": {
-    "mtime": 1780706844.2819495,
-    "ast_hash": "55238e2331eb698055e0a1730e6aa542",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/packages/AGENTS.md": {
-    "mtime": 1780885388.3697953,
-    "ast_hash": "e8b06fd18b399341beda31f2c8dfd773",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman/README.md": {
-    "mtime": 1780723995.9586546,
-    "ast_hash": "72a5c06aa99126d55573e87721c37ab4",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman/SKILL.md": {
-    "mtime": 1780723995.9586546,
-    "ast_hash": "5c43ca000385e41e9d9dd02c8574dfa0",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-help/README.md": {
-    "mtime": 1780723997.1426537,
-    "ast_hash": "9c9cf8de78df2a8831c57d6bc88d942b",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-help/SKILL.md": {
-    "mtime": 1780723997.1426537,
-    "ast_hash": "f9207c207cfd1f7fc24152f40530fe1a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-review/README.md": {
-    "mtime": 1780723997.4066534,
-    "ast_hash": "ae3bdc81125037690fc50504e2917c83",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-review/SKILL.md": {
-    "mtime": 1780723997.4066534,
-    "ast_hash": "fbb47ffb83198a1ed37a453417e691e2",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/README.md": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "3bda4de7432953bceb7f230da97f2c12",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/SECURITY.md": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "ab7d04be07bb9b8e851fb2758040432b",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-compress/SKILL.md": {
-    "mtime": 1780723996.894654,
-    "ast_hash": "7f0c9f11595a612a536954c6be767910",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-stats/README.md": {
-    "mtime": 1780723997.674653,
-    "ast_hash": "ad1001beaabf7ab16a0113b2efc8b720",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-stats/SKILL.md": {
-    "mtime": 1780723997.674653,
-    "ast_hash": "5c195635a9349369df34699f8d3b3445",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-commit/README.md": {
-    "mtime": 1780723996.2186549,
-    "ast_hash": "15f57347c5b5449b79fdf24fdab21f31",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/caveman-commit/SKILL.md": {
-    "mtime": 1780723996.2186549,
-    "ast_hash": "fe4fea8312d0799857a3e9f93fe27b3c",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/emil-design-eng/SKILL.md": {
-    "mtime": 1775599945.0135777,
-    "ast_hash": "fd025de68df6836a0c52564d7ac85e72",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/cavecrew/README.md": {
-    "mtime": 1780723995.7026546,
-    "ast_hash": "d24b6cd745e2fe7136a236e063717376",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/.agents/skills/cavecrew/SKILL.md": {
-    "mtime": 1780723995.7026546,
-    "ast_hash": "f184873cd9c507fa872cc86fd36722e3",
     "semantic_hash": ""
   }
 }

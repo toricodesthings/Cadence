@@ -8,6 +8,7 @@ import { reconcileInboxItemInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { createTempId } from "../../lib/api/optimistic-id";
 
 export function useCreateInboxItem() {
     const client = useApiClient();
@@ -30,7 +31,7 @@ export function useCreateInboxItem() {
             const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
 
             const optimisticItem: InboxItem = {
-                id: `temp-${Date.now()}`,
+                id: createTempId(),
                 userId: "",
                 rawText,
                 sectionId: null,
