@@ -13,9 +13,9 @@
     "e2e:smoke": "pnpm run sync-version && mocha --timeout 180000 \"e2e/**/*.test.mjs\""
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.10.1",
-    "chai": "^5.3.3",
-    "mocha": "^12.0.0",
-    "selenium-webdriver": "^4.38.0"
+    "@tauri-apps/cli": "2.11.4",
+    "chai": "^6.2.2",
+    "mocha": "^12.0.1",
+    "selenium-webdriver": "^4.49.0"
   }
 }

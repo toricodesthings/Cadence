@@ -45,6 +45,7 @@
     "@cadence/backend": "workspace:*",
     "@cloudflare/workers-types": "^5.20260910.1",
     "@types/react": "~19.2.14",
+    "@types/react-dom": "~19.2.3",
     "eslint": "^9.7.0",
     "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
