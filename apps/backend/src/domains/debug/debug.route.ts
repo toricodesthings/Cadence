@@ -10,6 +10,7 @@ import {
     aiMessages,
     aiPromptBlocks,
     aiPromptRevision,
+    aiTitlePrompts,
     habitLogs,
     habitTags,
     habits,
@@ -32,7 +33,7 @@ import {
 } from "../../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { apiValidator } from "../../platform/validation";
-import { promptBlockUpsertSchema } from "../ai/ai.schema";
+import { promptBlockUpsertSchema, titlePromptUpsertSchema } from "../ai/ai.schema";
 import type { Env } from "../../types/env";
 import type { Tx } from "../../types/db";
 import type { AuthVariables } from "../../platform/auth";
@@ -190,6 +191,35 @@ export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     });
 
         return c.json({ data: { message: `Updated prompt block "${block.kind}" (${block.locale}); revision bumped.` } });
+    })
+    // Live-edit the conversation auto-title system prompt (ai_title_prompts is GLOBAL
+    // config — no RLS). One active row per locale; the title-prompt loader's TTL cache
+    // picks up the change on the next titled turn within ~60s.
+    .patch("/ai/title-prompt", apiValidator("json", titlePromptUpsertSchema), async (c) => {
+        requireAdmin(c);
+        const db = getDbClient(c.env);
+        const body = c.req.valid("json");
+
+        await db
+            .insert(aiTitlePrompts)
+            .values({
+                locale: body.locale,
+                template: body.template,
+                isActive: body.isActive ?? true,
+                notes: body.notes ?? null,
+            })
+            .onConflictDoUpdate({
+                target: aiTitlePrompts.locale,
+                set: {
+                    template: body.template,
+                    isActive: body.isActive ?? true,
+                    notes: body.notes ?? null,
+                    version: sql`${aiTitlePrompts.version} + 1`,
+                    updatedAt: sql`NOW()`,
+                },
+            });
+
+        return c.json({ data: { message: `Updated title prompt (${body.locale}).` } });
     })
     .get("/capabilities", async (c) => {
         const { userId, userEmail } = requireAdmin(c);

@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useAssistantStore } from "../../stores/assistant-store";
+import { useSettings } from "../../hooks/core/use-settings";
+import { SETTINGS_DEFAULTS } from "../../types/settings";
 
 /**
  * Floating Sparkles button that opens the Cadence assistant on non-wide shells,
@@ -14,6 +16,9 @@ import { useAssistantStore } from "../../stores/assistant-store";
  */
 export function AssistantLauncher({ besideOrb = false }: { besideOrb?: boolean }) {
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
+    const { data: settings } = useSettings();
+    const assistantName =
+        settings?.assistant?.assistantName?.trim() || SETTINGS_DEFAULTS.assistant.assistantName;
 
     return (
         <div
@@ -31,8 +36,8 @@ export function AssistantLauncher({ besideOrb = false }: { besideOrb?: boolean }
                         exit={{ opacity: 0, scale: 0.8 }}
                         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                         onClick={toggleAssistantPanel}
-                        aria-label="Ask Cadence"
-                        className="glow-lantern pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/25 bg-twilight-deep/96 text-accent-primary shadow-[0_24px_54px_rgba(0,0,0,0.34)] backdrop-blur-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                        aria-label={`Ask ${assistantName}`}
+                        className="glow-accent pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/25 bg-twilight-deep/96 text-accent-primary shadow-[0_24px_54px_rgba(0,0,0,0.34)] backdrop-blur-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <Sparkles size={20} aria-hidden="true" />
                     </motion.button>

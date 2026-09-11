@@ -24,3 +24,13 @@ export const promptBlockUpsertSchema = z.object({
     notes: z.string().max(500).optional(),
 });
 export type PromptBlockUpsert = z.infer<typeof promptBlockUpsertSchema>;
+
+// ── Admin: conversation auto-title prompt editing (ai_title_prompts) ──
+// One active row per locale; the title-prompt loader picks it up within its TTL.
+export const titlePromptUpsertSchema = z.object({
+    locale: z.string().min(2).max(10).default("en"),
+    template: z.string().min(1).max(20_000),
+    isActive: z.boolean().optional(),
+    notes: z.string().max(500).optional(),
+});
+export type TitlePromptUpsert = z.infer<typeof titlePromptUpsertSchema>;

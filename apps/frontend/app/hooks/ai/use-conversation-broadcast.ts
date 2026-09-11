@@ -28,12 +28,14 @@ const TAB_ID =
         ? crypto.randomUUID()
         : Math.random().toString(36).slice(2);
 
-export type ChatBroadcastType = "stream-started" | "stream-finished";
+export type ChatBroadcastType = "stream-started" | "stream-finished" | "title-updated";
 
 interface ChatBroadcastMessage {
     type: ChatBroadcastType;
     conversationId: string;
     senderId: string;
+    /** Carried on "title-updated" so peers apply the title without a refetch. */
+    title?: string;
 }
 
 /**
@@ -42,8 +44,8 @@ interface ChatBroadcastMessage {
  * whether the event is relevant to the thread it is currently showing.
  */
 export function useConversationBroadcast(
-    onRemoteActivity: (type: ChatBroadcastType, conversationId: string) => void,
-): (type: ChatBroadcastType, conversationId: string) => void {
+    onRemoteActivity: (type: ChatBroadcastType, conversationId: string, title?: string) => void,
+): (type: ChatBroadcastType, conversationId: string, title?: string) => void {
     const channelRef = useRef<BroadcastChannel | null>(null);
     // Keep the latest handler without re-subscribing the channel on every render.
     const handlerRef = useRef(onRemoteActivity);
@@ -56,7 +58,7 @@ export function useConversationBroadcast(
         const onMessage = (event: MessageEvent<ChatBroadcastMessage>) => {
             const msg = event.data;
             if (!msg || msg.senderId === TAB_ID) return; // ignore this tab's own posts
-            handlerRef.current(msg.type, msg.conversationId);
+            handlerRef.current(msg.type, msg.conversationId, msg.title);
         };
         channel.addEventListener("message", onMessage);
         return () => {
@@ -66,11 +68,12 @@ export function useConversationBroadcast(
         };
     }, []);
 
-    return useCallback((type: ChatBroadcastType, conversationId: string) => {
+    return useCallback((type: ChatBroadcastType, conversationId: string, title?: string) => {
         channelRef.current?.postMessage({
             type,
             conversationId,
             senderId: TAB_ID,
+            title,
         } satisfies ChatBroadcastMessage);
     }, []);
 }

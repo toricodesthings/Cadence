@@ -163,7 +163,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
         execute: async ({ query, limit }) =>
             safeExecute("search_tasks", userId, async () => {
                 const cap = clampLimit(limit);
-                const pattern = `%${query}%`;
+                // Escape LIKE wildcards so a model-supplied "%"/"_" matches literally
+                // instead of widening the scan.
+                const pattern = `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
                 const db = getDbClient(env);
                 const rows = await withRls(db, userId, async (tx) =>
                     tx

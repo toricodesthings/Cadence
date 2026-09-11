@@ -26,6 +26,7 @@ export const queryKeys = {
     ai: {
         conversations: ["ai", "conversations"] as const,
         conversation: (id: string) => ["ai", "conversation", id] as const,
+        usage: ["ai", "usage"] as const,
     },
 } as const;
 

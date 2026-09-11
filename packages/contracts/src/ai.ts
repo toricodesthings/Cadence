@@ -1,10 +1,16 @@
 import { z } from "zod";
-import { createTaskInputSchema } from "./task";
 
 const isoDateTime = z.iso.datetime({ offset: true });
 
 /** Upper bound on UIMessage parts. Per-part byte caps are enforced server-side. */
 export const MAX_PARTS_PER_MESSAGE = 32;
+
+/**
+ * Max summed length of all text parts in a single message. Single source of
+ * truth for BOTH halves: the backend guard rejects with 400, the frontend
+ * composer blocks the send with an inline notice before the request.
+ */
+export const MAX_MESSAGE_CHARS = 8_000;
 
 // ── Message role / status enums (canonical; mapper imports these) ──
 export const messageRoleSchema = z.enum(["user", "assistant", "system"]);
@@ -28,20 +34,34 @@ export const uiMessageSchema = z.object({
 });
 export type UIMessageInput = z.infer<typeof uiMessageSchema>;
 
+/**
+ * The incoming chat turn MUST be a user message. Role is pinned at the schema
+ * level so a crafted request can never persist an "assistant"/"system" row into
+ * history and have it replayed into model context as elevated instructions.
+ */
+export const userMessageSchema = uiMessageSchema.extend({ role: z.literal("user") });
+
+/** An assistant-role message snapshot (stop-endpoint partial persistence). */
+export const assistantMessageSchema = uiMessageSchema.extend({ role: z.literal("assistant") });
+
 /** Chat request — load-by-id: client sends the latest user message + conversationId. */
-export const chatRequestSchema = z
-    .object({
-        conversationId: z.string().uuid().optional(),
-        message: uiMessageSchema.optional(),
-        messages: z.array(uiMessageSchema).optional(), // legacy (deprecated)
-        timezone: z.string().default("UTC"),
-        currentDate: z.string().describe("ISO timestamp representing user's current clock time"),
-        clientMessageId: z.string().max(64).optional(),
-    })
-    .refine((d) => !!d.message || (Array.isArray(d.messages) && d.messages.length > 0), {
-        message: "Either `message` or a non-empty `messages` array is required",
-        path: ["message"],
-    });
+export const chatRequestSchema = z.object({
+    conversationId: z.string().uuid().optional(),
+    message: userMessageSchema,
+    timezone: z.string().default("UTC"),
+    currentDate: z.string().describe("ISO timestamp representing user's current clock time"),
+    /** BCP-47 locale of the client (e.g. "en-CA") — feeds runtime prompt context. */
+    locale: z.string().min(2).max(35).optional(),
+    clientMessageId: z.string().max(64).optional(),
+    /**
+     * Edit-truncation anchor. Sent ONLY on an explicit message edit: the id of
+     * the last message the client kept (rows after it are dropped server-side
+     * so the edited-away tail can't resurrect on reload), or null when the
+     * FIRST message was edited (the whole thread restarts). Omitted on normal
+     * sends/regenerates — regeneration anchors on the re-sent message id itself.
+     */
+    editAnchorId: z.string().min(1).max(128).nullable().optional(),
+});
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
 // ── Conversation management endpoints ──
@@ -75,9 +95,29 @@ export type ConversationPatch = z.infer<typeof conversationPatchSchema>;
  */
 export const stopStreamSchema = z.object({
     activeStreamId: z.string().optional(),
-    assistantMessage: uiMessageSchema.optional(),
+    // Role pinned to "assistant": the snapshot may only ever land as an aborted
+    // assistant turn, never as a forged user/system row. The server additionally
+    // verifies the id matches the live stream's assistant message id.
+    assistantMessage: assistantMessageSchema.optional(),
 });
 export type StopStreamRequest = z.infer<typeof stopStreamSchema>;
+
+// ── Tool-output persistence (HITL proposal decisions) ──
+// Proposal cards resolve client-side (`addToolResult` is local state only), so the
+// decision must be persisted explicitly or a reload re-offers an already-committed
+// write. The client may ONLY attach an output to an EXISTING tool part on an
+// assistant message it owns — it can never rewrite text or add parts.
+export const toolOutputParamSchema = z.object({
+    id: z.string().uuid(),
+    messageId: z.string().min(1).max(128),
+});
+
+export const toolOutputRequestSchema = z.object({
+    toolCallId: z.string().min(1).max(128),
+    /** Small structured outcome (e.g. { decision: "commit" }). Size-capped server-side. */
+    output: z.record(z.string(), z.unknown()),
+});
+export type ToolOutputRequest = z.infer<typeof toolOutputRequestSchema>;
 
 // ── Conversation entity (Row + entity) ──
 export const aiConversationRowSchema = z.object({
@@ -103,6 +143,19 @@ export type AiConversationRow = z.infer<typeof aiConversationRowSchema>;
 
 export const conversationSchema = aiConversationRowSchema;
 export type Conversation = z.infer<typeof conversationSchema>;
+
+// ── Auto-title streaming (data part) ──
+// On the FIRST turn of a new conversation the backend generates a short title in
+// parallel with the reply and streams it back as a TRANSIENT UIMessage data part
+// (delivered to `useChat({ onData })`, never persisted into message.parts). The
+// title itself is persisted separately on `ai_conversations.title`.
+export const CONVERSATION_TITLE_DATA_TYPE = "data-conversation-title" as const;
+
+export const conversationTitleDataSchema = z.object({
+    conversationId: z.uuid(),
+    title: z.string().min(1).max(200),
+});
+export type ConversationTitleData = z.infer<typeof conversationTitleDataSchema>;
 
 // ── Message Row (for parity guard). The client entity is the UIMessage projection. ──
 export const aiMessageRowSchema = z.object({
@@ -142,17 +195,3 @@ export const aiUsageSchema = z.object({
     }),
 });
 export type AiUsage = z.infer<typeof aiUsageSchema>;
-
-// ── Widget / tool-output payloads (eliminates the assistant `any`) ──
-export const taskProposalPartSchema = z.object({
-    draft: createTaskInputSchema, // the AI's proposed task IS a CreateTaskInput
-    rationale: z.string().optional(),
-});
-export type TaskProposalPart = z.infer<typeof taskProposalPartSchema>;
-
-export const dangerConfirmPartSchema = z.object({
-    action: z.string(),
-    summary: z.string(),
-    payload: z.record(z.string(), z.unknown()).optional(),
-});
-export type DangerConfirmPart = z.infer<typeof dangerConfirmPartSchema>;

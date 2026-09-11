@@ -8,7 +8,8 @@
     "./errors": "./src/errors.ts",
     "./task-temporal": "./src/task-temporal.ts",
     "./task-recurrence": "./src/task-recurrence.ts",
-    "./ordering": "./src/ordering.ts"
+    "./ordering": "./src/ordering.ts",
+    "./ai-title": "./src/ai-title.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

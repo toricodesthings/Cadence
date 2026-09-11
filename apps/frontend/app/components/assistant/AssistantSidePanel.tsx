@@ -22,18 +22,28 @@ import {
     streamErrorFromError,
     type StreamError,
 } from "../../lib/ai/stream-error";
-import { useConversationMessages } from "../../hooks/ai/use-conversations";
+import {
+    useConversationMessages,
+    type ConversationSummary,
+    type ConversationDetail,
+} from "../../hooks/ai/use-conversations";
+import { useAiUsage } from "../../hooks/ai/use-ai-usage";
+import { describeUsage } from "../../lib/ai/usage";
+import { useSettings } from "../../hooks/core/use-settings";
+import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { useConversationBroadcast, type ChatBroadcastType } from "../../hooks/ai/use-conversation-broadcast";
 import { queryKeys } from "../../lib/api/query-keys";
 import { authenticatedFetch } from "../../lib/api/client";
 import { stopServerStream } from "../../lib/ai/stop-stream";
+import { deriveFallbackTitle } from "@cadence/domain/ai-title";
+import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData } from "@cadence/contracts/ai";
 
 const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 
-/** Three soft bouncing dots — the "Cadence is typing…" affordance. */
-function TypingDots() {
+/** Three soft bouncing dots — the "assistant is typing…" affordance. */
+function TypingDots({ name }: { name: string }) {
     return (
-        <span className="flex items-center gap-1 py-0.5" aria-label="Cadence is typing">
+        <span className="flex items-center gap-1 py-0.5" aria-label={`${name} is typing`}>
             {[0, 1, 2].map((i) => (
                 <span
                     key={i}
@@ -91,11 +101,25 @@ export function AssistantSidePanel({
     const reduceMotion = useReducedMotion();
     const online = useOnline();
     const queryClient = useQueryClient();
+    // The assistant's (renameable) name — the same identity the model speaks
+    // with (settings.assistant.assistantName), so the panel chrome and the
+    // model's self-reference never disagree.
+    const { data: settings } = useSettings();
+    const assistantName =
+        settings?.assistant?.assistantName?.trim() || SETTINGS_DEFAULTS.assistant.assistantName;
+    // Usage budget transparency — a calm "≈ N messages left" line appears in the
+    // composer footer only when a window is running low (never a meter otherwise).
+    const { data: usage } = useAiUsage(assistantPanelOpen);
+    const usageNotice = useMemo(() => describeUsage(usage, Date.now()), [usage]);
     const [input, setInput] = useState("");
     const [inputNotice, setInputNotice] = useState<string | null>(null);
     // A brand-new (client-minted) thread has no server row yet — skip the
     // load-by-id fetch for it so we don't 404 before its first turn is sent.
     const [isFreshThread, setIsFreshThread] = useState(false);
+    // The active thread's title, shown in the header. Set optimistically on the
+    // first send (derived), then by the streamed `data-conversation-title` part,
+    // and seeded from history when an existing thread loads.
+    const [threadTitle, setThreadTitle] = useState<string | null>(null);
     const scrollViewportRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     // Whether the user is parked near the bottom of the thread. Auto-scroll only
@@ -155,11 +179,22 @@ export function AssistantSidePanel({
     // SDK treats that (last message already the complete assistant) as a continuation and
     // re-streams the finished text onto itself → a doubled reply. Manual control = exactly
     // one resume, only when we actually want to re-attach to a stream we're not showing.
+    // Title data parts arrive via onData; route them through a ref so the (stable)
+    // handler always sees the latest applyTitle/broadcast without rebuilding useChat.
+    const handleTitleDataRef = useRef<(data: ConversationTitleData) => void>(() => {});
+
     const { messages, sendMessage, regenerate, setMessages, addToolResult, status, stop, error, resumeStream } =
         useChat({
             transport,
             id: activeConversationId ?? undefined,
             resume: false,
+            // The server streams the auto-title as a TRANSIENT data part on the first
+            // turn (never persisted into parts) — surface it live to header + sidebar.
+            onData: (part) => {
+                if (part.type === CONVERSATION_TITLE_DATA_TYPE) {
+                    handleTitleDataRef.current(part.data as ConversationTitleData);
+                }
+            },
         });
 
     const isStreaming = status === "submitted" || status === "streaming";
@@ -191,8 +226,33 @@ export function AssistantSidePanel({
     // When another tab on THIS thread starts/finishes a turn, re-sync from the server:
     // clear the one-shot load marker so fresh history (the peer's new turn) is re-applied
     // by the load effect. We re-seed only (never live-resume) — see skipResumeOnNextLoadRef.
+    // Apply a freshly generated/announced title to the header (when it's the active
+    // thread) AND the React Query caches (sidebar list row + loaded detail), so both
+    // reflect it immediately with no refetch. Never clears an existing title.
+    const applyTitle = useCallback(
+        (convId: string, title: string) => {
+            if (!title) return;
+            if (convId === conversationIdRef.current) setThreadTitle(title);
+            queryClient.setQueryData<ConversationSummary[]>(queryKeys.ai.conversations, (prev) =>
+                prev?.map((c) => (c.id === convId ? { ...c, title } : c)),
+            );
+            queryClient.setQueryData(queryKeys.ai.conversation(convId), (prev: unknown) => {
+                const p = prev as { conversation?: ConversationDetail } | undefined;
+                if (!p?.conversation) return prev;
+                return { ...p, conversation: { ...p.conversation, title } };
+            });
+        },
+        [queryClient],
+    );
+
     const handleRemoteActivity = useCallback(
-        (_type: ChatBroadcastType, convId: string) => {
+        (type: ChatBroadcastType, convId: string, title?: string) => {
+            // A peer titled this thread — apply it (header + caches) regardless of which
+            // thread we're viewing; never triggers the history re-seed dance below.
+            if (type === "title-updated") {
+                if (title) applyTitle(convId, title);
+                return;
+            }
             if (convId !== conversationIdRef.current) return; // not the visible thread
             if (statusRef.current === "submitted" || statusRef.current === "streaming") return; // we're the producer
             loadedThreadRef.current = null;
@@ -200,17 +260,24 @@ export function AssistantSidePanel({
             queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversation(convId) });
             queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations });
         },
-        [queryClient],
+        [queryClient, applyTitle],
     );
     const broadcastChatActivity = useConversationBroadcast(handleRemoteActivity);
+
+    // Wire the streamed-title handler now that applyTitle + broadcast exist: update
+    // local caches/header, then announce to peer tabs so their sidebars update too.
+    handleTitleDataRef.current = (data: ConversationTitleData) => {
+        applyTitle(data.conversationId, data.title);
+        broadcastChatActivity("title-updated", data.conversationId, data.title);
+    };
 
     // Originate a turn locally: flag it so the status effect knows to broadcast
     // about it (and ONLY it), then hand off to the SDK. A resumed stream never goes
     // through these, so it stays silent and can't trigger a cross-tab resume loop.
     const sendLocal = useCallback(
-        (message: Parameters<typeof sendMessage>[0]) => {
+        (message: Parameters<typeof sendMessage>[0], options?: Parameters<typeof sendMessage>[1]) => {
             localTurnRef.current = true;
-            sendMessage(message);
+            sendMessage(message, options);
         },
         [sendMessage],
     );
@@ -242,6 +309,7 @@ export function AssistantSidePanel({
         if (history?.messages) {
             loadedThreadRef.current = activeConversationId;
             setMessages(history.messages as UIMessage[]);
+            setThreadTitle(history.conversation?.title ?? null);
             // Re-attach ONLY on a genuine (re)load (refresh / reconnect / thread-switch) AND
             // only when a stream is actually live (activeStreamId set) — that catches a turn
             // we're not already showing. Cross-tab re-syncs set skipResume (re-seed only): the
@@ -326,6 +394,8 @@ export function AssistantSidePanel({
         // shows even if they missed the live window (reliable guarantee, short turns).
         if (status === "ready" || status === "error") {
             localTurnRef.current = false;
+            // The turn spent budget — refresh the usage line with real numbers.
+            queryClient.invalidateQueries({ queryKey: queryKeys.ai.usage });
             broadcastChatActivity("stream-finished", convId);
         }
     }, [status, queryClient, broadcastChatActivity]);
@@ -339,6 +409,7 @@ export function AssistantSidePanel({
             loadedThreadRef.current = null;
             setIsFreshThread(false);
             setMessages([]);
+            setThreadTitle(null); // re-seeded from the chosen thread's history load
             setActiveConversation(id);
         },
         [messages, syncMessagesToCache, setActiveConversation, setMessages],
@@ -351,6 +422,7 @@ export function AssistantSidePanel({
         clientMessageIdRef.current = crypto.randomUUID();
         setIsFreshThread(true);
         setMessages([]);
+        setThreadTitle(null);
         startNewConversation();
     }, [messages, syncMessagesToCache, setMessages, startNewConversation]);
 
@@ -373,9 +445,9 @@ export function AssistantSidePanel({
     }, []);
 
     // ── Send (input guard + offline guard) ───────────────────────────────────
-    const handleSubmit = (e?: React.FormEvent) => {
-        e?.preventDefault();
-        const text = input.trim();
+    // Shared by the composer submit and the empty-state starter chips.
+    const submitText = (raw: string) => {
+        const text = raw.trim();
         if (!text || isStreaming) return;
 
         if (!online) {
@@ -391,9 +463,20 @@ export function AssistantSidePanel({
         // Fresh idempotency token for this user turn (reused verbatim on Retry).
         clientMessageIdRef.current = crypto.randomUUID();
         setInputNotice(null);
+        // Optimistic instant title for a brand-new thread so the header/sidebar never
+        // sit blank — replaced by the AI title when its data part streams back (~300ms).
+        const convId = conversationIdRef.current;
+        if (convId && isFreshThread && messages.length === 0) {
+            applyTitle(convId, deriveFallbackTitle(text));
+        }
         sendLocal({ text });
         setInput("");
         requestAnimationFrame(() => scrollToBottom());
+    };
+
+    const handleSubmit = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        submitText(input);
     };
 
     // Hard abort (doc Update 4 §8): hit the SERVER stop endpoint FIRST (real
@@ -419,11 +502,15 @@ export function AssistantSidePanel({
 
     // Truncate the conversation to before the edited message and resend the new
     // text — the AI SDK prompt-editing pattern. A new turn = a new idempotency key.
+    // The server mirrors the truncation via `editAnchorId` (the last KEPT message,
+    // or null when the first message is edited) so the edited-away tail can't
+    // resurrect from the DB on reload.
     const handleEdit = (index: number, nextText: string) => {
         if (isStreaming) void handleStop();
         clientMessageIdRef.current = crypto.randomUUID();
+        const editAnchorId = index > 0 ? (messages[index - 1]?.id ?? null) : null;
         setMessages((prev) => prev.slice(0, index));
-        sendLocal({ text: nextText });
+        sendLocal({ text: nextText }, { body: { editAnchorId } });
         requestAnimationFrame(() => scrollToBottom());
     };
 
@@ -540,24 +627,37 @@ export function AssistantSidePanel({
         <div
             className="aurora-accent flex h-full flex-col bg-twilight-deep/95 backdrop-blur-xl"
             role="dialog"
-            aria-label="Cadence Assistant conversation"
+            aria-label={`${assistantName} assistant conversation`}
         >
             {/* Header — styled like a conversation thread header */}
             <header className="flex h-16 shrink-0 items-center justify-between border-b border-twilight-border px-4">
                 <div className="flex items-center gap-3">
                     <div className="relative">
-                        <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-lantern">
+                        <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">
                             <Sparkles size={17} />
                         </div>
                         <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-feedback-success ring-2 ring-twilight-deep" />
                     </div>
-                    <div className="leading-tight">
+                    <div className="min-w-0 leading-tight">
                         <h2 className="font-display text-lg font-semibold tracking-tight text-twilight-text">
-                            Cadence
+                            {assistantName}
                         </h2>
-                        <span className="text-[11px] font-medium text-feedback-success">
-                            Active now
-                        </span>
+                        {threadTitle ? (
+                            <motion.span
+                                key={threadTitle}
+                                initial={reduceMotion ? false : { opacity: 0, y: 2 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, ease: EASE_OUT_EXPO }}
+                                className="block max-w-[220px] truncate text-[11px] font-medium text-twilight-text-muted"
+                                title={threadTitle}
+                            >
+                                {threadTitle}
+                            </motion.span>
+                        ) : (
+                            <span className="text-[11px] font-medium text-feedback-success">
+                                Active now
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -595,7 +695,7 @@ export function AssistantSidePanel({
                 reading every streamed token (the visible thread carries the
                 content itself and is navigable). */}
             <div className="sr-only" role="status" aria-live="polite">
-                {isStreaming ? "Cadence is responding" : ""}
+                {isStreaming ? `${assistantName} is responding` : ""}
             </div>
 
             {/* Message thread */}
@@ -604,16 +704,32 @@ export function AssistantSidePanel({
                     <div className="flex flex-col gap-3">
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-14 text-center">
-                                <div className="mb-4 flex h-12 w-12 min-w-12 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-lantern">
+                                <div className="mb-4 flex h-12 w-12 min-w-12 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">
                                     <Sparkles size={22} />
                                 </div>
                                 <p className="text-sm font-medium text-twilight-text">
-                                    Say hey to Cadence
+                                    Say hey to {assistantName}
                                 </p>
                                 <p className="mt-2 max-w-[240px] text-[13px] leading-relaxed text-twilight-text-muted">
                                     Drop a messy thought, ask to clear overdue items, or plan your
                                     morning into tiny frictionless steps.
                                 </p>
+                                {/* Starter prompts — the empty screen invites the first act
+                                    (manifesto §0.2 law 1). Each maps to a real capability. */}
+                                <div className="mt-5 flex flex-wrap justify-center gap-1.5">
+                                    {["Plan my morning", "What’s overdue?", "Tidy my inbox"].map(
+                                        (prompt) => (
+                                            <button
+                                                key={prompt}
+                                                type="button"
+                                                onClick={() => submitText(prompt)}
+                                                className="rounded-full border border-twilight-border bg-twilight-surface px-3 py-1.5 text-[12px] text-twilight-text-soft transition-colors hover:border-accent-primary/30 hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
+                                            >
+                                                {prompt}
+                                            </button>
+                                        ),
+                                    )}
+                                </div>
                             </div>
                         ) : null}
 
@@ -665,6 +781,9 @@ export function AssistantSidePanel({
                                                 showAvatar={!grouped}
                                                 canRegenerate={!isUser && isLastAssistant && !isStreaming}
                                                 canEdit={isUser && !isStreaming}
+                                                // Touch has no hover: keep the LATEST reply's actions
+                                                // visible there so Copy/Regenerate stay reachable.
+                                                touchReveal={!isUser && isLastAssistant && !isStreaming}
                                                 onRegenerate={() => regenerateLocal({ messageId: message.id })}
                                                 onSaveEdit={(next) => handleEdit(index, next)}
                                             />
@@ -680,7 +799,12 @@ export function AssistantSidePanel({
                                         {/* Proposal / write tool cards via the registry dispatcher */}
                                         {cardParts.map((part, i) => (
                                             <div key={part.toolCallId || i} className="pl-9 pt-1.5">
-                                                <ToolPart part={part} addToolResult={reportToolResult} />
+                                                <ToolPart
+                                                    part={part}
+                                                    addToolResult={reportToolResult}
+                                                    conversationId={activeConversationId}
+                                                    messageId={message.id}
+                                                />
                                             </div>
                                         ))}
 
@@ -729,7 +853,7 @@ export function AssistantSidePanel({
                                 >
                                     <ChatAvatar isUser={false} userInitial={userInitial} />
                                     <div className="rounded-2xl rounded-bl-md border border-twilight-border bg-twilight-surface px-3.5 py-3">
-                                        <TypingDots />
+                                        <TypingDots name={assistantName} />
                                     </div>
                                 </motion.div>
                             ) : null}
@@ -789,32 +913,38 @@ export function AssistantSidePanel({
                             }
                         }}
                         rows={1}
-                        placeholder="Message Cadence…"
+                        placeholder={`Message ${assistantName}…`}
                         // ≥16px on mobile prevents iOS Safari from zooming on focus.
                         className={`max-h-[120px] flex-1 resize-none bg-transparent py-1 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${isMobile ? "text-base" : "text-[14px]"}`}
                     />
                     {isStreaming ? (
-                        <button
-                            type="button"
-                            onClick={() => void handleStop()}
-                            className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error transition-all hover:scale-[1.04] cursor-pointer"
-                            aria-label="Stop generation"
-                        >
-                            <span className="h-2.5 w-2.5 rounded-sm bg-feedback-error" />
-                        </button>
+                        <Tip label="Stop generating" side="top">
+                            <button
+                                type="button"
+                                onClick={() => void handleStop()}
+                                className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error transition-all hover:scale-[1.04] active:scale-[0.97] cursor-pointer"
+                                aria-label="Stop generating"
+                            >
+                                <span className="h-2.5 w-2.5 rounded-sm bg-feedback-error" />
+                            </button>
+                        </Tip>
                     ) : (
-                        <button
-                            type="submit"
-                            disabled={!input.trim() || !online}
-                            className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary/20 text-accent-primary transition-all hover:scale-[1.04] hover:bg-accent-primary/30 disabled:pointer-events-none disabled:opacity-30 cursor-pointer"
-                            aria-label="Send message"
-                        >
-                            <Send size={15} className="translate-x-px" />
-                        </button>
+                        <Tip label="Send message" side="top">
+                            <button
+                                type="submit"
+                                disabled={!input.trim() || !online}
+                                className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary/20 text-accent-primary transition-all hover:scale-[1.04] hover:bg-accent-primary/30 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-30 cursor-pointer"
+                                aria-label="Send message"
+                            >
+                                <Send size={15} className="translate-x-px" />
+                            </button>
+                        </Tip>
                     )}
                 </div>
+                {/* Footer: the low-budget hint takes the line over the AI disclaimer
+                    only while a usage window is actually running low (§9.4). */}
                 <p className="mt-2 truncate text-center text-[10px] text-twilight-text-muted">
-                    Cadence is AI and can make mistakes.
+                    {usageNotice ?? `${assistantName} is AI and can make mistakes.`}
                 </p>
             </form>
 

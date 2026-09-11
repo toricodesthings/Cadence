@@ -8,13 +8,17 @@
  * envelope and logging cover it — no new error channel.
  */
 
+import {
+    MAX_MESSAGE_CHARS as SHARED_MAX_MESSAGE_CHARS,
+    MAX_PARTS_PER_MESSAGE as SHARED_MAX_PARTS_PER_MESSAGE,
+} from "@cadence/contracts/ai";
 import { AppError } from "../../../platform/errors";
 
-/** Max summed length of all text parts in a single message. */
-export const MAX_MESSAGE_CHARS = 8_000;
+/** Max summed length of all text parts in a single message (single source: contracts). */
+export const MAX_MESSAGE_CHARS = SHARED_MAX_MESSAGE_CHARS;
 
-/** Max number of `parts` entries in a single message. */
-export const MAX_PARTS_PER_MESSAGE = 32;
+/** Max number of `parts` entries in a single message (single source: contracts). */
+export const MAX_PARTS_PER_MESSAGE = SHARED_MAX_PARTS_PER_MESSAGE;
 
 /** Max UTF-8 byte size of any single part (after JSON serialization). */
 export const MAX_PART_BYTES = 16_000;

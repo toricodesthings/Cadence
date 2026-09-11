@@ -34,10 +34,13 @@ export function makeChatTransport(
     return new DefaultChatTransport({
         api: `${API_BASE_URL}/api/v1/ai/chat`,
         fetch: fetchImpl,
-        prepareSendMessagesRequest: ({ messages }) => {
+        // `body` carries per-send extras (e.g. the edit-truncation anchor passed
+        // via sendMessage(msg, { body })); canonical fields below always win.
+        prepareSendMessagesRequest: ({ messages, body }) => {
             const clientMessageId = getClientMessageId();
             return {
                 body: {
+                    ...(body as Record<string, unknown> | undefined),
                     conversationId: getConversationId(),
                     // load-by-id: only the latest message; backend rebuilds history.
                     message: messages[messages.length - 1],
@@ -45,6 +48,8 @@ export function makeChatTransport(
                     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                     // FRESH per request — never a memoized clock.
                     currentDate: new Date().toISOString(),
+                    // BCP-47 client locale → runtime prompt context ({{locale}}).
+                    locale: typeof navigator !== "undefined" ? navigator.language : undefined,
                 },
                 headers: { "Idempotency-Key": clientMessageId },
             };

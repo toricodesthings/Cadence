@@ -4,3 +4,4 @@ export * from "./errors";
 export * from "./task-temporal";
 export * from "./task-recurrence";
 export * from "./ordering";
+export * from "./ai-title";

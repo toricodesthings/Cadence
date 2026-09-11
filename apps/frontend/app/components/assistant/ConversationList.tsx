@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ChevronLeft, Plus, Sparkles, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import * as ScrollArea from "../primitives/ScrollArea";
+import { Tip } from "../primitives";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { useConversations } from "../../hooks/ai/use-conversations";
@@ -53,14 +54,16 @@ export function ConversationList({
             {/* Header — mirrors the panel header geometry */}
             <header className="flex h-16 shrink-0 items-center justify-between border-b border-twilight-border px-4">
                 <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
-                        aria-label="Back to conversation"
-                    >
-                        <ChevronLeft size={18} />
-                    </button>
+                    <Tip label="Back to conversation" side="bottom">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
+                            aria-label="Back to conversation"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                    </Tip>
                     <h2 className="font-display text-lg font-semibold tracking-tight text-twilight-text">
                         Conversations
                     </h2>
@@ -103,13 +106,13 @@ export function ConversationList({
                         </button>
                     ) : active.length === 0 && archived.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-14 text-center">
-                            <div className="mb-4 flex h-12 w-12 min-w-12 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-lantern">
+                            <div className="mb-4 flex h-12 w-12 min-w-12 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">
                                 <Sparkles size={22} />
                             </div>
-                            <p className="text-sm font-medium text-twilight-text">Say hey to Cadence</p>
+                            <p className="text-sm font-medium text-twilight-text">No conversations yet</p>
                             <p className="mt-2 max-w-[240px] text-[13px] leading-relaxed text-twilight-text-muted">
-                                Drop a messy thought, ask to clear overdue items, or plan your morning
-                                into tiny frictionless steps.
+                                Every chat is saved here, so you can pick any thread back up
+                                right where you left it.
                             </p>
                             <Button
                                 variant="cardPrimary"

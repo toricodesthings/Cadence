@@ -40,11 +40,14 @@ function ActionButton({
 export function MessageActions({
     isUser,
     text,
+    touchReveal,
     onRegenerate,
     onEdit,
 }: {
     isUser: boolean;
     text: string;
+    /** Keep the cluster visible + interactive on touch-only devices (no hover there). */
+    touchReveal?: boolean;
     onRegenerate?: () => void;
     onEdit?: () => void;
 }) {
@@ -57,15 +60,17 @@ export function MessageActions({
             toast.success("Copied to clipboard");
             window.setTimeout(() => setCopied(false), 1400);
         } catch {
-            toast.error("Couldn't copy message");
+            toast.error("Couldn’t copy message");
         }
     };
 
     return (
         <div
             className={`flex items-center gap-1 opacity-0 translate-y-0.5 pointer-events-none transition-[opacity,transform] duration-150 group-hover/msg:pointer-events-auto group-hover/msg:translate-y-0 group-hover/msg:opacity-100 group-focus-within/msg:pointer-events-auto group-focus-within/msg:translate-y-0 group-focus-within/msg:opacity-100 ${
-                isUser ? "flex-row-reverse" : "flex-row"
-            }`}
+                touchReveal
+                    ? "touch-reveal [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:translate-y-0"
+                    : ""
+            } ${isUser ? "flex-row-reverse" : "flex-row"}`}
         >
             <ActionButton label="Copy message" onClick={handleCopy}>
                 <AnimatePresence mode="wait" initial={false}>

@@ -25,7 +25,7 @@ describe("useConversationBroadcast", () => {
         open().postMessage({ type: "stream-started", conversationId: "conv-1", senderId: "other-tab" });
         await tick();
 
-        expect(handler).toHaveBeenCalledWith("stream-started", "conv-1");
+        expect(handler).toHaveBeenCalledWith("stream-started", "conv-1", undefined);
     });
 
     it("delivers the finished payload verbatim", async () => {
@@ -35,7 +35,22 @@ describe("useConversationBroadcast", () => {
         open().postMessage({ type: "stream-finished", conversationId: "abc", senderId: "x" });
         await tick();
 
-        expect(handler).toHaveBeenCalledWith("stream-finished", "abc");
+        expect(handler).toHaveBeenCalledWith("stream-finished", "abc", undefined);
+    });
+
+    it("forwards the title on a title-updated message", async () => {
+        const handler = vi.fn();
+        renderHook(() => useConversationBroadcast(handler));
+
+        open().postMessage({
+            type: "title-updated",
+            conversationId: "abc",
+            senderId: "x",
+            title: "Plan My Taxes",
+        });
+        await tick();
+
+        expect(handler).toHaveBeenCalledWith("title-updated", "abc", "Plan My Taxes");
     });
 
     it("ignores echoes carrying this tab's own senderId", async () => {

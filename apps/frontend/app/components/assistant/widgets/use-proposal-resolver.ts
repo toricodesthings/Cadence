@@ -15,6 +15,7 @@
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { hardRefreshWorkspaceCaches } from "../../../lib/api/workspace-cache";
+import { useApiClient } from "../../../hooks/auth/use-api-client";
 import type { ProposalCardState } from "./ProposalCard";
 
 /** Typed-enough context every proposal renderer receives (tool parts stay `any`). */
@@ -32,6 +33,9 @@ export interface ToolRenderContext {
     }) => void;
     /** The backend tool name (e.g. "propose_create_task"). */
     toolName: string;
+    /** Thread + message hosting this part — used to persist the decision server-side. */
+    conversationId?: string | null;
+    messageId?: string;
 }
 
 /** Map an AI SDK tool-part `state` to the ProposalCard's render state. */
@@ -58,7 +62,8 @@ export function useProposalResolver(
     performWrite: () => Promise<Record<string, unknown> | void>,
 ) {
     const queryClient = useQueryClient();
-    const { part, addToolResult, toolName } = ctx;
+    const client = useApiClient();
+    const { part, addToolResult, toolName, conversationId, messageId } = ctx;
 
     // Reload-safe: if the part is already resolved, read the settled decision.
     const persistedDecision: "commit" | "discard" | undefined = part?.output?.decision;
@@ -71,6 +76,24 @@ export function useProposalResolver(
 
     const decision = persistedDecision ?? localDecision ?? null;
 
+    // Persist the decision onto the stored assistant message (`addToolResult` is
+    // client-local only). Without this, a reload re-offers an already-committed
+    // proposal and the model never learns the outcome on later turns. Best-effort:
+    // a failure never blocks the card (the REST write above is the real change).
+    const persistDecision = useCallback(
+        (output: Record<string, unknown>) => {
+            const toolCallId: unknown = part?.toolCallId;
+            if (!conversationId || !messageId || typeof toolCallId !== "string") return;
+            void client.api.ai.conversations[":id"].messages[":messageId"]["tool-output"]
+                .$post({
+                    param: { id: conversationId, messageId },
+                    json: { toolCallId, output },
+                })
+                .catch(() => {});
+        },
+        [client, conversationId, messageId, part?.toolCallId],
+    );
+
     const confirm = useCallback(async () => {
         setResolving(true);
         setWriteError(null);
@@ -78,11 +101,9 @@ export function useProposalResolver(
             const result = (await performWrite()) ?? {};
             // The real write already happened above; this only informs the model.
             await hardRefreshWorkspaceCaches(queryClient);
-            addToolResult({
-                tool: toolName,
-                toolCallId: part.toolCallId,
-                output: { decision: "commit", ...result },
-            });
+            const output = { decision: "commit", ...result };
+            addToolResult({ tool: toolName, toolCallId: part.toolCallId, output });
+            persistDecision(output);
             setLocalDecision("commit");
         } catch (err) {
             // Never a dead end (§3.3 E) — re-enable and offer a retry.
@@ -90,7 +111,7 @@ export function useProposalResolver(
         } finally {
             setResolving(false);
         }
-    }, [performWrite, queryClient, addToolResult, toolName, part?.toolCallId]);
+    }, [performWrite, queryClient, addToolResult, toolName, part?.toolCallId, persistDecision]);
 
     const discard = useCallback(() => {
         addToolResult({
@@ -98,8 +119,9 @@ export function useProposalResolver(
             toolCallId: part.toolCallId,
             output: { decision: "discard" },
         });
+        persistDecision({ decision: "discard" });
         setLocalDecision("discard");
-    }, [addToolResult, toolName, part?.toolCallId]);
+    }, [addToolResult, toolName, part?.toolCallId, persistDecision]);
 
     return { resolving, writeError, decision, confirm, discard };
 }

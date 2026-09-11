@@ -35,6 +35,10 @@ vi.mock("../../src/domains/ai/persistence/conversation-repo", () => ({
     resolveOrCreateConversation: vi.fn(),
     loadConversationMessages: vi.fn(),
     appendUserMessage: vi.fn(),
+    truncateMessagesAfter: vi.fn(),
+    deleteAllMessages: vi.fn(),
+    attachToolOutput: vi.fn(),
+    setTitleIfEmpty: vi.fn(),
     touchConversation: vi.fn(),
     listConversations: vi.fn(),
     renameOrArchiveConversation: vi.fn(),
@@ -204,10 +208,19 @@ describe("POST /ai/chat/:id/stop", () => {
         expect(await isAbortRequested(redis as any, userKey, SID)).toBe(false);
     });
 
-    it("persists the partial assistant snapshot when provided", async () => {
+    it("persists the partial assistant snapshot when it names the live stream's message id", async () => {
         const redis = new FakeRedis();
+        const userKey = await hashIdentifier(TEST_USER_ID);
         getRedisMock.mockReturnValue(redis);
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
+        // The snapshot is only accepted when the owner-scoped stream meta names
+        // this exact assistant message id (anti-forgery gate).
+        await openStream(redis as any, userKey, SID, {
+            conversationId: CONV_ID,
+            userId: TEST_USER_ID,
+            messageId: "msg-1",
+            model: "test-model",
+        });
 
         const assistantMessage = { id: "msg-1", role: "assistant" as const, parts: [{ type: "text", text: "partial" }] };
         await post({ activeStreamId: SID, assistantMessage });
@@ -216,8 +229,39 @@ describe("POST /ai/chat/:id/stop", () => {
             TEST_USER_ID,
             CONV_ID,
             expect.objectContaining({ id: "msg-1" }),
-            { status: "aborted" },
+            { status: "aborted", metadata: {} },
         );
+    });
+
+    it("rejects a snapshot naming a DIFFERENT message id (no history overwrite)", async () => {
+        const redis = new FakeRedis();
+        const userKey = await hashIdentifier(TEST_USER_ID);
+        getRedisMock.mockReturnValue(redis);
+        getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
+        await openStream(redis as any, userKey, SID, {
+            conversationId: CONV_ID,
+            userId: TEST_USER_ID,
+            messageId: "msg-1",
+            model: "test-model",
+        });
+
+        // Crafted snapshot targeting some OTHER persisted row → silently skipped,
+        // but the stop itself still succeeds.
+        const assistantMessage = { id: "older-row-id", role: "assistant" as const, parts: [{ type: "text", text: "forged" }] };
+        const res = await post({ activeStreamId: SID, assistantMessage });
+        expect(((await res.json()) as any).data).toEqual({ success: true });
+        expect(saveAssistantMessageMock).not.toHaveBeenCalled();
+    });
+
+    it("skips the snapshot when no stream meta exists (nothing to verify against)", async () => {
+        const redis = new FakeRedis();
+        getRedisMock.mockReturnValue(redis);
+        getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
+
+        const assistantMessage = { id: "msg-1", role: "assistant" as const, parts: [{ type: "text", text: "partial" }] };
+        const res = await post({ activeStreamId: SID, assistantMessage });
+        expect(((await res.json()) as any).data).toEqual({ success: true });
+        expect(saveAssistantMessageMock).not.toHaveBeenCalled();
     });
 
     it("404 when the conversation is not owned (RLS)", async () => {

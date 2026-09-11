@@ -33,7 +33,7 @@ export function ChatAvatar({
         );
     }
     return (
-        <div className="flex h-7 w-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-lantern">
+        <div className="flex h-7 w-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">
             <Sparkles size={14} />
         </div>
     );
@@ -55,6 +55,7 @@ export function MessageBubble({
     showAvatar,
     canRegenerate,
     canEdit,
+    touchReveal,
     onRegenerate,
     onSaveEdit,
 }: {
@@ -65,6 +66,8 @@ export function MessageBubble({
     showAvatar: boolean;
     canRegenerate?: boolean;
     canEdit?: boolean;
+    /** Keep the action cluster visible on touch-only devices (no hover to reveal it). */
+    touchReveal?: boolean;
     onRegenerate?: () => void;
     onSaveEdit?: (next: string) => void;
 }) {
@@ -178,6 +181,7 @@ export function MessageBubble({
                             <MessageActions
                                 isUser={isUser}
                                 text={text}
+                                touchReveal={touchReveal}
                                 onRegenerate={canRegenerate ? onRegenerate : undefined}
                                 onEdit={canEdit ? () => setEditing(true) : undefined}
                             />

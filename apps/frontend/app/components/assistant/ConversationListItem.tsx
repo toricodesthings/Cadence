@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Trash2, Check, X } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
+import * as AlertDialog from "../primitives/AlertDialog";
+import { Button } from "../primitives/Button";
+import { Tip } from "../primitives";
 import type { ConversationSummary } from "../../hooks/ai/use-conversations";
 
 /** Compact, calm relative time ("2m ago", "Yesterday", "Mon"). */
@@ -47,6 +50,7 @@ export function ConversationListItem({
 }) {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState("");
+    const [deleteOpen, setDeleteOpen] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const title = conversation.title?.trim() || fallbackTitle || "New conversation";
@@ -83,32 +87,38 @@ export function ConversationListItem({
                     className="min-w-0 flex-1 rounded-lg border border-accent-primary/40 bg-twilight-surface px-2 py-1 text-sm text-twilight-text focus:outline-none"
                     aria-label="Rename conversation"
                 />
-                <button
-                    type="button"
-                    onClick={commit}
-                    className="flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-accent-primary hover:bg-twilight-surface-hover cursor-pointer"
-                    aria-label="Save name"
-                >
-                    <Check size={14} />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setEditing(false)}
-                    className="flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted hover:bg-twilight-surface-hover cursor-pointer"
-                    aria-label="Cancel rename"
-                >
-                    <X size={14} />
-                </button>
+                <Tip label="Save name" side="top">
+                    <button
+                        type="button"
+                        onClick={commit}
+                        className="flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-accent-primary hover:bg-twilight-surface-hover cursor-pointer"
+                        aria-label="Save name"
+                    >
+                        <Check size={14} />
+                    </button>
+                </Tip>
+                <Tip label="Cancel" side="top">
+                    <button
+                        type="button"
+                        onClick={() => setEditing(false)}
+                        className="flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted hover:bg-twilight-surface-hover cursor-pointer"
+                        aria-label="Cancel rename"
+                    >
+                        <X size={14} />
+                    </button>
+                </Tip>
             </div>
         );
     }
 
     return (
         <div
-            className={`group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors ${
+            // border-l-2 is always present (transparent when inactive) so the
+            // active accent rule never nudges row content sideways.
+            className={`group flex items-center justify-between rounded-xl border-l-2 px-3 py-2.5 text-sm transition-colors ${
                 active
-                    ? "border-l-2 border-accent-primary bg-accent-primary/8 text-twilight-text"
-                    : "text-twilight-text-soft hover:bg-twilight-surface-hover"
+                    ? "border-accent-primary bg-accent-primary/8 text-twilight-text"
+                    : "border-transparent text-twilight-text-soft hover:bg-twilight-surface-hover"
             }`}
         >
             <button
@@ -124,15 +134,17 @@ export function ConversationListItem({
             </button>
 
             <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                    <button
-                        type="button"
-                        className="ml-1.5 flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
-                        aria-label="Conversation options"
-                    >
-                        <MoreHorizontal size={16} />
-                    </button>
-                </DropdownMenu.Trigger>
+                <Tip label="Conversation options" side="top">
+                    <DropdownMenu.Trigger asChild>
+                        <button
+                            type="button"
+                            className="ml-1.5 flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
+                            aria-label="Conversation options"
+                        >
+                            <MoreHorizontal size={16} />
+                        </button>
+                    </DropdownMenu.Trigger>
+                </Tip>
                 <DropdownMenu.Content align="end" className="min-w-[160px]">
                     <DropdownMenu.Item onSelect={() => setEditing(true)} className="gap-2 text-[14px]">
                         <Pencil size={14} />
@@ -157,7 +169,7 @@ export function ConversationListItem({
                     <DropdownMenu.Separator />
                     <DropdownMenu.Item
                         variant="danger"
-                        onSelect={() => onDelete()}
+                        onSelect={() => setDeleteOpen(true)}
                         className="gap-2 text-[14px]"
                     >
                         <Trash2 size={14} />
@@ -165,6 +177,32 @@ export function ConversationListItem({
                     </DropdownMenu.Item>
                 </DropdownMenu.Content>
             </DropdownMenu.Root>
+
+            {/* Deleting a thread is permanent — confirm through the app's standard
+                calm dialog (same pattern as project delete), never one-click. */}
+            <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <AlertDialog.Content>
+                    <AlertDialog.Header>
+                        <AlertDialog.Title>Delete “{title}”?</AlertDialog.Title>
+                        <AlertDialog.Description>
+                            This permanently deletes the conversation and its messages. It
+                            can’t be undone.
+                        </AlertDialog.Description>
+                    </AlertDialog.Header>
+                    <AlertDialog.Footer>
+                        <AlertDialog.Cancel asChild>
+                            <Button variant="ghost" size="md">
+                                Cancel
+                            </Button>
+                        </AlertDialog.Cancel>
+                        <AlertDialog.Action asChild>
+                            <Button variant="danger" size="md" onClick={() => onDelete()}>
+                                Delete conversation
+                            </Button>
+                        </AlertDialog.Action>
+                    </AlertDialog.Footer>
+                </AlertDialog.Content>
+            </AlertDialog.Root>
         </div>
     );
 }

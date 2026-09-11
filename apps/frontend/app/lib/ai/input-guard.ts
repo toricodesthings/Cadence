@@ -3,17 +3,19 @@
  * AI-specific guard so the user gets a calm inline notice BEFORE the request,
  * instead of eating a raw 400 (ai_frontend.md §4.2).
  *
- * IMPORTANT: keep these numbers in lockstep with the backend source of truth at
- *   apps/backend/src/domains/ai/safety/input-guard.ts
- * If the backend caps change, change them here too — they are duplicated on
- * purpose (no shared package between the two halves of the feature).
+ * Both halves read the SAME constants from @cadence/contracts/ai — the backend
+ * guard rejects with 400, this guard blocks the send inline. One edit, both sides.
  */
+import {
+    MAX_MESSAGE_CHARS as SHARED_MAX_MESSAGE_CHARS,
+    MAX_PARTS_PER_MESSAGE,
+} from "@cadence/contracts/ai";
 
 /** Max summed length of all text parts in a single message. */
-export const MAX_MESSAGE_CHARS = 8_000;
+export const MAX_MESSAGE_CHARS = SHARED_MAX_MESSAGE_CHARS;
 
 /** Max number of `parts` entries in a single message. */
-export const MAX_PARTS = 32;
+export const MAX_PARTS = MAX_PARTS_PER_MESSAGE;
 
 export interface InputGuardResult {
     ok: boolean;

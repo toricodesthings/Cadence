@@ -10,7 +10,7 @@
  * We persist UIMessage fidelity only (see message-mapper.ts) — never
  * ModelMessages. See docs/ai_upgrade/08.
  */
-import { and, asc, desc, eq, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { aiConversations, aiMessages } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 import { AppError } from "../../../platform/errors";
@@ -40,19 +40,21 @@ function clampLimit(requested: number | undefined, fallback: number, max: number
 /**
  * Resolve an existing conversation (asserting ownership) or create a new one.
  * Throws 404 if a provided `conversationId` does not resolve to an owned row.
+ * Returns the row's current `title` so the caller can decide whether to auto-title
+ * (a freshly created row, or an existing untitled one, → title is null).
  */
 export async function resolveOrCreateConversation(
     tx: Tx,
     userId: string,
     args: { conversationId?: string; model?: string },
-): Promise<{ id: string; created: boolean }> {
+): Promise<{ id: string; created: boolean; title: string | null }> {
     if (args.conversationId) {
         const [existing] = await tx
-            .select({ id: aiConversations.id })
+            .select({ id: aiConversations.id, title: aiConversations.title })
             .from(aiConversations)
             .where(and(eq(aiConversations.id, args.conversationId), eq(aiConversations.userId, userId)));
 
-        if (existing) return { id: existing.id, created: false };
+        if (existing) return { id: existing.id, created: false, title: existing.title };
 
         // Create-if-absent with the client-chosen id (still ownership-scoped by
         // userId) so the client can own the thread id — needed for the sidebar /
@@ -63,7 +65,7 @@ export async function resolveOrCreateConversation(
             .onConflictDoNothing()
             .returning({ id: aiConversations.id });
 
-        return { id: created?.id ?? args.conversationId, created: true };
+        return { id: created?.id ?? args.conversationId, created: true, title: null };
     }
 
     const [row] = await tx
@@ -71,7 +73,7 @@ export async function resolveOrCreateConversation(
         .values({ userId, model: args.model ?? null })
         .returning({ id: aiConversations.id });
 
-    return { id: row.id, created: true };
+    return { id: row.id, created: true, title: null };
 }
 
 /**
@@ -135,21 +137,29 @@ export async function getLastOrderIndex(tx: Tx, conversationId: string): Promise
  * Append an incoming user message idempotently. If a row with this `id` already
  * exists, the insert no-ops (onConflictDoNothing on the PK) and we return
  * `deduped: true` so retries don't duplicate. Status is 'complete'.
+ *
+ * SECURITY: client-supplied `metadata` is intentionally DISCARDED — a crafted
+ * turn could otherwise persist spoofed fields (e.g. `status: "failed"`, forged
+ * usage numbers) that the client and model later read back as truth. The only
+ * metadata a user row carries is the server-chosen idempotency token.
  */
 export async function appendUserMessage(
     tx: Tx,
     userId: string,
     conversationId: string,
     msg: { id: string; role: string; parts?: unknown[]; metadata?: Record<string, unknown> },
-    _opts: { clientMessageId?: string },
+    opts: { clientMessageId?: string },
 ): Promise<{ id: string; deduped: boolean }> {
     const lastOrderIndex = await getLastOrderIndex(tx, conversationId);
-    const row = uiMessageToRow(msg, {
-        conversationId,
-        userId,
-        orderIndex: nextOrderIndex(lastOrderIndex),
-        status: "complete",
-    });
+    const row = uiMessageToRow(
+        { ...msg, metadata: opts.clientMessageId ? { clientMessageId: opts.clientMessageId } : {} },
+        {
+            conversationId,
+            userId,
+            orderIndex: nextOrderIndex(lastOrderIndex),
+            status: "complete",
+        },
+    );
 
     const inserted = await tx
         .insert(aiMessages)
@@ -159,6 +169,116 @@ export async function appendUserMessage(
 
     // No row returned → the PK already existed → this is a deduped retry.
     return { id: msg.id, deduped: inserted.length === 0 };
+}
+
+/**
+ * Server-side truncation for the regenerate / edit flows. When the incoming user
+ * message id ALREADY exists in the thread, the client is re-running that turn —
+ * every row after it (the superseded assistant reply, any later turns the client
+ * locally discarded) must be deleted, or a reload resurrects them and the model
+ * sees a forked history. Returns true when the anchor message was found (and any
+ * later rows were removed).
+ */
+export async function truncateMessagesAfter(
+    tx: Tx,
+    userId: string,
+    conversationId: string,
+    messageId: string,
+): Promise<boolean> {
+    const [anchor] = await tx
+        .select({ orderIndex: aiMessages.orderIndex })
+        .from(aiMessages)
+        .where(
+            and(
+                eq(aiMessages.id, messageId),
+                eq(aiMessages.conversationId, conversationId),
+                eq(aiMessages.userId, userId),
+            ),
+        )
+        .limit(1);
+    if (!anchor) return false;
+
+    await tx
+        .delete(aiMessages)
+        .where(
+            and(
+                eq(aiMessages.conversationId, conversationId),
+                eq(aiMessages.userId, userId),
+                gt(aiMessages.orderIndex, anchor.orderIndex),
+            ),
+        );
+    return true;
+}
+
+/**
+ * Delete every message in a thread (first-message edit — the thread restarts
+ * from the new turn). Owner-scoped; the conversation row itself is kept.
+ */
+export async function deleteAllMessages(
+    tx: Tx,
+    userId: string,
+    conversationId: string,
+): Promise<void> {
+    await tx
+        .delete(aiMessages)
+        .where(and(eq(aiMessages.conversationId, conversationId), eq(aiMessages.userId, userId)));
+}
+
+/**
+ * Attach a client-resolved tool output (HITL proposal decision) to an EXISTING
+ * tool part on an assistant message. Deliberately narrow: the client can only
+ * fill `output`/`state` on a part whose `toolCallId` already exists and that is
+ * not yet resolved — it can never rewrite assistant text, add parts, or flip an
+ * already-settled decision. Returns true when a part was updated.
+ */
+export async function attachToolOutput(
+    tx: Tx,
+    userId: string,
+    conversationId: string,
+    messageId: string,
+    args: { toolCallId: string; output: Record<string, unknown> },
+): Promise<boolean> {
+    const [row] = await tx
+        .select({ parts: aiMessages.parts, role: aiMessages.role })
+        .from(aiMessages)
+        .where(
+            and(
+                eq(aiMessages.id, messageId),
+                eq(aiMessages.conversationId, conversationId),
+                eq(aiMessages.userId, userId),
+            ),
+        )
+        .limit(1);
+    if (!row || row.role !== "assistant" || !Array.isArray(row.parts)) return false;
+
+    let changed = false;
+    const parts = (row.parts as unknown[]).map((part) => {
+        if (
+            part &&
+            typeof part === "object" &&
+            typeof (part as { type?: unknown }).type === "string" &&
+            ((part as { type: string }).type.startsWith("tool-")) &&
+            (part as { toolCallId?: unknown }).toolCallId === args.toolCallId &&
+            (part as { state?: unknown }).state !== "output-available"
+        ) {
+            changed = true;
+            return { ...(part as Record<string, unknown>), state: "output-available", output: args.output };
+        }
+        return part;
+    });
+    if (!changed) return false;
+
+    await tx
+        .update(aiMessages)
+        .set({ parts })
+        .where(
+            and(
+                eq(aiMessages.id, messageId),
+                eq(aiMessages.conversationId, conversationId),
+                eq(aiMessages.userId, userId),
+            ),
+        );
+    return true;
 }
 
 /**
@@ -229,6 +349,30 @@ export async function touchConversation(
     } catch (error) {
         logger.warn("ai", "ai_persist_failed", { op: "touchConversation", conversationId, error });
     }
+}
+
+/**
+ * Set the conversation title ONLY if it is still empty (auto-titler). The
+ * `title IS NULL` guard makes this idempotent and concurrency-safe: a retry, a
+ * race between turns, or a user's manual rename are all preserved — we never
+ * clobber an existing title. Failures are caller-swallowed (titling is best-effort).
+ */
+export async function setTitleIfEmpty(
+    tx: Tx,
+    userId: string,
+    conversationId: string,
+    title: string,
+): Promise<void> {
+    await tx
+        .update(aiConversations)
+        .set({ title, updatedAt: sql`NOW()` })
+        .where(
+            and(
+                eq(aiConversations.id, conversationId),
+                eq(aiConversations.userId, userId),
+                isNull(aiConversations.title),
+            ),
+        );
 }
 
 /** List a user's conversations, most recent first (nulls last), paginated. */

@@ -162,7 +162,7 @@ export async function getAgentInstance(
     };
 
     const tone = selectToneBlock(metrics, persona.adaptiveTone);
-    const compiled = await getCompiledBlocks(env, locale);
+    const compiled = await getCompiledBlocks(env);
     const forTurn: CompiledPromptBlocks = {
         base: compiled.base,
         auxiliary: selectAuxiliary(compiled, tone, memories.length > 0),

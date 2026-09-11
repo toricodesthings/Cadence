@@ -124,10 +124,15 @@ export function getToolDescriptor(toolName: string): ToolDescriptor | undefined 
 export function ToolPart({
     part,
     addToolResult,
+    conversationId,
+    messageId,
 }: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     part: any;
     addToolResult: ToolRenderContext["addToolResult"];
+    /** Thread + message hosting this part — lets proposals persist their decision. */
+    conversationId?: string | null;
+    messageId?: string;
 }) {
     const toolName = safeToolName(part);
     const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
@@ -148,7 +153,7 @@ export function ToolPart({
 
     // proposal
     const state = partRenderState(part);
-    const ctx: ToolRenderContext = { part, addToolResult, toolName: toolName! };
+    const ctx: ToolRenderContext = { part, addToolResult, toolName: toolName!, conversationId, messageId };
     return <>{descriptor.render?.(ctx, state)}</>;
 }
 

@@ -189,6 +189,23 @@ export const aiPromptRevision = pgTable('ai_prompt_revision', {
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
+// 3c. AI Title Prompt — the system prompt for the conversation auto-titler.
+// Kept OUT of ai_prompt_blocks (it is not composed into the agent's base/auxiliary
+// stack) but still DB-backed + live-editable, with a compiled-in default floor in
+// title/title-prompt.ts. One active row per locale. Global config — no RLS.
+export const aiTitlePrompts = pgTable('ai_title_prompts', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    locale: text('locale').default('en').notNull(),
+    template: text('template').notNull(),
+    version: integer('version').default(1).notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    notes: text('notes'),                                         // editor-facing change rationale
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => ({
+    localeUnique: uniqueIndex('ai_title_prompts_locale_unique').on(table.locale),
+}));
+
 // 3c. AI Conversations — one row per chat thread (owner RLS). See docs/ai_upgrade/08.
 export const aiConversations = pgTable('ai_conversations', {
     id: uuid('id').defaultRandom().primaryKey(),                 // = chatId used by useChat
