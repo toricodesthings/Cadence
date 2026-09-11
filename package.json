@@ -56,7 +56,8 @@
         "pg": ">=0",
         "react": ">=19",
         "better-auth>vitest": "5",
-        "@better-auth/api-key>better-call": "2"
+        "@better-auth/api-key>better-call": "2",
+        "@triplit/logger>typescript": "7"
       }
     }
   }
