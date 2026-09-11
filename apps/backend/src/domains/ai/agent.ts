@@ -1,4 +1,4 @@
-import { ToolLoopAgent, stepCountIs } from "ai";
+import { ToolLoopAgent, isStepCount } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
@@ -198,7 +198,7 @@ export async function getAgentInstance(
         model: getModel(env),
         instructions,
         tools: buildToolRegistry(env, userId, agentCtx),
-        stopWhen: stepCountIs(MAX_TOOL_STEPS),
+        stopWhen: isStepCount(MAX_TOOL_STEPS),
         temperature: 0.4,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
