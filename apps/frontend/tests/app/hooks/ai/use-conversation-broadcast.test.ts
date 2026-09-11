@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { useConversationBroadcast } from "../../../../app/hooks/ai/use-conversation-broadcast";
 
 const CHANNEL = "cadence:ai:chat";
 
-/** Flush the BroadcastChannel delivery queue (async in Node/jsdom). */
-const tick = () => new Promise((r) => setTimeout(r, 0));
+/**
+ * Flush the BroadcastChannel delivery queue (async in Node/jsdom). One macrotask
+ * is not always enough under parallel load, so drain several turns. Positive
+ * assertions use waitFor instead; this is for asserting something did NOT happen.
+ */
+const tick = async () => {
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+};
 
 describe("useConversationBroadcast", () => {
     const channels: BroadcastChannel[] = [];
@@ -23,9 +29,7 @@ describe("useConversationBroadcast", () => {
         renderHook(() => useConversationBroadcast(handler));
 
         open().postMessage({ type: "stream-started", conversationId: "conv-1", senderId: "other-tab" });
-        await tick();
-
-        expect(handler).toHaveBeenCalledWith("stream-started", "conv-1", undefined);
+        await waitFor(() => expect(handler).toHaveBeenCalledWith("stream-started", "conv-1", undefined));
     });
 
     it("delivers the finished payload verbatim", async () => {
@@ -33,9 +37,7 @@ describe("useConversationBroadcast", () => {
         renderHook(() => useConversationBroadcast(handler));
 
         open().postMessage({ type: "stream-finished", conversationId: "abc", senderId: "x" });
-        await tick();
-
-        expect(handler).toHaveBeenCalledWith("stream-finished", "abc", undefined);
+        await waitFor(() => expect(handler).toHaveBeenCalledWith("stream-finished", "abc", undefined));
     });
 
     it("forwards the title on a title-updated message", async () => {
@@ -48,9 +50,7 @@ describe("useConversationBroadcast", () => {
             senderId: "x",
             title: "Plan My Taxes",
         });
-        await tick();
-
-        expect(handler).toHaveBeenCalledWith("title-updated", "abc", "Plan My Taxes");
+        await waitFor(() => expect(handler).toHaveBeenCalledWith("title-updated", "abc", "Plan My Taxes"));
     });
 
     it("ignores echoes carrying this tab's own senderId", async () => {
@@ -65,8 +65,7 @@ describe("useConversationBroadcast", () => {
         const { result } = renderHook(() => useConversationBroadcast(handler));
 
         result.current("stream-finished", "conv-1"); // hook posts, stamped with its TAB_ID
-        await tick();
-        expect(ownId).toBeDefined();
+        await waitFor(() => expect(ownId).toBeDefined());
         expect(handler).not.toHaveBeenCalled(); // the hook never reacts to its own post
 
         // A different channel replaying a message stamped with our id is still ignored.
@@ -82,9 +81,8 @@ describe("useConversationBroadcast", () => {
 
         const { result } = renderHook(() => useConversationBroadcast(vi.fn()));
         result.current("stream-started", "conv-9");
-        await tick();
+        await waitFor(() => expect(received).toHaveLength(1));
 
-        expect(received).toHaveLength(1);
         expect(received[0]).toMatchObject({ type: "stream-started", conversationId: "conv-9" });
         expect((received[0] as { senderId?: string }).senderId).toBeTruthy();
     });

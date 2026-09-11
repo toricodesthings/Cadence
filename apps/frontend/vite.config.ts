@@ -46,6 +46,10 @@ export default defineConfig(({ mode }) => ({
     environment: "jsdom",
     globals: false,
     setupFiles: ["./tests/setup.ts"],
+    // Several suites call vi.resetModules() and re-import a module graph (hono/client,
+    // outbox) per test; under full-suite parallel load that import alone can exceed the
+    // 5s default and flake. The assertions themselves are instant.
+    testTimeout: 15_000,
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
   },
 }));
