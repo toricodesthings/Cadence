@@ -28,8 +28,6 @@
 		"@cadence/domain": "workspace:*",
 		"@cadence/nlp": "workspace:*",
 		"@hono/zod-validator": "^0.9.1",
-		"@neondatabase/auth": "0.2.0-beta.1",
-		"@neondatabase/neon-js": "0.2.0-beta.1",
 		"@upstash/redis": "^1.38.4",
 		"ai": "^6.0.199",
 		"date-fns": "^4.4.0",
@@ -48,6 +46,6 @@
 		"drizzle-kit": "^0.31.10",
 		"typescript": "^5.9.3",
 		"vitest": "^5.0.0",
-		"wrangler": "^4.99.0"
+		"wrangler": "^4.131.1"
 	}
 }

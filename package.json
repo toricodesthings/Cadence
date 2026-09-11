@@ -40,7 +40,8 @@
       "path-to-regexp@<0.1.13": "0.1.13",
       "picomatch@<2.3.2": "2.3.2",
       "picomatch@>=4.0.0 <4.0.4": "4.0.4",
-      "zod": "^4.6.2"
+      "zod": "^4.6.2",
+      "@daveyplate/better-auth-ui>@better-auth/api-key": "1.6.23"
     },
     "peerDependencyRules": {
       "ignoreMissing": [
@@ -53,7 +54,9 @@
       ],
       "allowedVersions": {
         "pg": ">=0",
-        "react": ">=19"
+        "react": ">=19",
+        "better-auth>vitest": "5",
+        "@better-auth/api-key>better-call": "2"
       }
     }
   }
