@@ -1,16 +1,16 @@
 # Graph Report - Cadence  (2026-09-12)
 
 ## Corpus Check
-- 879 files · ~854,300 words
+- 882 files · ~852,369 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2053 nodes · 2631 edges · 165 communities (147 shown, 18 thin omitted)
-- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 132 edges (avg confidence: 0.75)
+- 2249 nodes · 2852 edges · 175 communities (147 shown, 28 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 134 edges (avg confidence: 0.75)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `381988d3`
+- Built from commit: `98a0562c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -176,6 +176,16 @@
 - [[_COMMUNITY_Community 160|Community 160]]
 - [[_COMMUNITY_Community 163|Community 163]]
 - [[_COMMUNITY_Community 164|Community 164]]
+- [[_COMMUNITY_Community 165|Community 165]]
+- [[_COMMUNITY_Community 166|Community 166]]
+- [[_COMMUNITY_Community 167|Community 167]]
+- [[_COMMUNITY_Community 168|Community 168]]
+- [[_COMMUNITY_Community 169|Community 169]]
+- [[_COMMUNITY_Community 170|Community 170]]
+- [[_COMMUNITY_Community 171|Community 171]]
+- [[_COMMUNITY_Community 172|Community 172]]
+- [[_COMMUNITY_Community 173|Community 173]]
+- [[_COMMUNITY_Community 174|Community 174]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `DesignSystemGenerator` - 45 edges
@@ -183,29 +193,29 @@
 3. `search()` - 40 edges
 4. `search_stack()` - 30 edges
 5. `str` - 25 edges
-6. `Cadence Backend — Agent Instructions` - 22 edges
-7. `BM25` - 22 edges
-8. `Cadence Frontend - Agent Instructions` - 20 edges
-9. `scripts` - 19 edges
-10. `sampleMinimums` - 19 edges
+6. `BM25` - 22 edges
+7. `Cadence Backend — Agent Instructions` - 19 edges
+8. `scripts` - 19 edges
+9. `sampleMinimums` - 19 edges
+10. `detect_domain()` - 17 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `generateConversationTitle()` --calls--> `deriveFallbackTitle()`  [INFERRED]
   apps/backend/src/domains/ai/title/generate-title.ts → packages/domain/src/ai-title.ts
 - `generateConversationTitle()` --calls--> `normalizeTitle()`  [INFERRED]
   apps/backend/src/domains/ai/title/generate-title.ts → packages/domain/src/ai-title.ts
+- `normalizeSettings()` --calls--> `deepMerge()`  [INFERRED]
+  apps/backend/src/domains/settings/settings.route.ts → packages/contracts/src/settings.ts
+- `readLocalCache()` --calls--> `deepMerge()`  [INFERRED]
+  apps/frontend/app/hooks/core/use-settings.ts → packages/contracts/src/settings.ts
 - `TestDomainDetection` --uses--> `BM25`  [INFERRED]
   .agents/skills/ui-ux-pro-max/scripts/tests/test_core.py → .agents/skills/ui-ux-pro-max/scripts/core.py
-- `TestPersistence` --uses--> `BM25`  [INFERRED]
-  .agents/skills/ui-ux-pro-max/scripts/tests/test_core.py → .agents/skills/ui-ux-pro-max/scripts/core.py
-- `TestReasoningMatch` --uses--> `BM25`  [INFERRED]
-  .agents/skills/ui-ux-pro-max/scripts/tests/test_core.py → .agents/skills/ui-ux-pro-max/scripts/core.py
 
-## Communities (165 total, 18 thin omitted)
+## Communities (175 total, 28 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.06
-Nodes (46): aiConversations, aiMemories, aiMessageRoleEnum, aiMessages, aiMessageStatusEnum, aiPromptBlockKindEnum, aiPromptLayerEnum, analysisStatusEnum (+38 more)
+Nodes (45): aiConversations, aiMemories, aiMessageRoleEnum, aiMessages, aiMessageStatusEnum, aiPromptBlockKindEnum, aiPromptLayerEnum, analysisStatusEnum (+37 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.06
@@ -220,12 +230,12 @@ Cohesion: 0.18
 Nodes (11): conversation_id, parts, name, notNull, primaryKey, type, name, notNull (+3 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.14
-Nodes (20): AgentBuildOptions, compileDefaults(), getAgentInstance(), getModel(), getModelId(), loadUserContext(), maybeRetrieveMemories(), selectAuxiliary() (+12 more)
+Cohesion: 0.15
+Nodes (19): AgentBuildOptions, compileDefaults(), getAgentInstance(), getModel(), getModelId(), loadUserContext(), maybeRetrieveMemories(), selectAuxiliary() (+11 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.15
-Nodes (18): ChatMessage, appendUserMessage(), attachToolOutput(), clampLimit(), deleteAllMessages(), deleteConversation(), finalizeActiveStream(), getConversation() (+10 more)
+Cohesion: 0.09
+Nodes (30): aiRoutes, ChatMessage, createApp(), { getDbClientMock, withRlsMock, getRedisMock, getConversationMock, saveAssistantMessageMock }, post(), createApp(), { getDbClientMock, withRlsMock, getRedisMock, getConversationMock, attachToolOutputMock }, post() (+22 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.05
@@ -237,7 +247,7 @@ Nodes (8): columns, concurrently, isUnique, method, name, with, ai_memories_expi
 
 ### Community 8 - "Community 8"
 Cohesion: 0.06
-Nodes (35): AiConversationRow, aiConversationRowSchema, AiMessageRow, aiMessageRowSchema, AiUsage, aiUsageSchema, AiUsageWindow, aiUsageWindowSchema (+27 more)
+Nodes (34): AiConversationRow, aiConversationRowSchema, AiMessageRow, aiMessageRowSchema, AiUsage, aiUsageSchema, AiUsageWindow, aiUsageWindowSchema (+26 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.18
@@ -360,8 +370,8 @@ Cohesion: 0.11
 Nodes (19): scripts, build, build:desktop, cf-typegen, db:generate, db:migrate, db:studio, deploy:backend (+11 more)
 
 ### Community 46 - "Community 46"
-Cohesion: 0.06
-Nodes (33): devDependencies, @cadence/backend, @cloudflare/workers-types, jsdom, @react-router/dev, tailwindcss, @tailwindcss/typography, @tailwindcss/vite (+25 more)
+Cohesion: 0.12
+Nodes (17): devDependencies, @cadence/backend, @cloudflare/workers-types, jsdom, @react-router/dev, tailwindcss, @tailwindcss/typography, @tailwindcss/vite (+9 more)
 
 ### Community 47 - "Community 47"
 Cohesion: 0.07
@@ -384,8 +394,8 @@ Cohesion: 0.33
 Nodes (6): created_at, default, name, notNull, primaryKey, type
 
 ### Community 52 - "Community 52"
-Cohesion: 0.17
-Nodes (12): aiRoutes, createApp(), { getDbClientMock, withRlsMock, getRedisMock, getConversationMock, saveAssistantMessageMock }, post(), createApp(), { getDbClientMock, withRlsMock, getRedisMock, getConversationMock, attachToolOutputMock }, post(), assertMessageWithinCaps() (+4 more)
+Cohesion: 0.08
+Nodes (26): getLocalSettingsKey(), readLocalCache(), registeredFlushers, SETTINGS_KEY(), useSettings(), useUpdateSettings(), normalizeSettings(), CanonicalSettings (+18 more)
 
 ### Community 53 - "Community 53"
 Cohesion: 0.11
@@ -396,8 +406,8 @@ Cohesion: 0.33
 Nodes (6): ChangelogEntry, ChangelogGlyph, formatVersionLabel(), parseChangelog(), readReleaseInfo(), release
 
 ### Community 55 - "Community 55"
-Cohesion: 0.08
-Nodes (25): dependencies, chrono-node, fuse.js, rrule, devDependencies, date-fns, typescript, vitest (+17 more)
+Cohesion: 0.07
+Nodes (26): dependencies, chrono-node, fuse.js, rrule, devDependencies, date-fns, typescript, vitest (+18 more)
 
 ### Community 56 - "Community 56"
 Cohesion: 0.21
@@ -420,8 +430,8 @@ Cohesion: 0.33
 Nodes (5): promptBlockKindSchema, PromptBlockUpsert, promptBlockUpsertSchema, TitlePromptUpsert, titlePromptUpsertSchema
 
 ### Community 61 - "Community 61"
-Cohesion: 0.13
-Nodes (14): 0. Mission, 12. Test Structure, 13. Auth, 15. Environment and Bindings, 16. Package Commands, 17. Logging Rules, 18. Anti-Patterns, 19. Clean Code & Maintainability (+6 more)
+Cohesion: 0.10
+Nodes (19): 10. Debug Seed System (`src/domains/debug/`), 11. Tests, 12. Auth (`platform/auth.ts`), 13. Background Jobs, 14. Environment & Bindings, 15. Commands, 16. Logging (`platform/log.ts`), 17. Anti-Patterns (+11 more)
 
 ### Community 62 - "Community 62"
 Cohesion: 0.24
@@ -460,8 +470,8 @@ Cohesion: 0.06
 Nodes (30): Architecture: How to Use Neon, Backend Primitives, Branch configuration, Branch-First Dev Flow, Choosing the Right Skill, Fetching Docs as Markdown, Finding the Right Page, Function env and `neon deploy` (+22 more)
 
 ### Community 71 - "Community 71"
-Cohesion: 0.12
-Nodes (12): _contrast_ratio(), _derive_dark_palette(), _palette_is_dark(), WCAG relative luminance of a #RRGGBB string, or None if unparseable., True when a colors.csv row's Background is a dark surface., WCAG contrast ratio for two hex colors, or None if either is invalid., Keep product brand tokens while deriving accessible dark surfaces., Pick the highest-ranked palette matching the resolved mode.      Only the dark c (+4 more)
+Cohesion: 0.10
+Nodes (14): _contrast_ratio(), _derive_dark_palette(), _palette_is_dark(), WCAG relative luminance of a #RRGGBB string, or None if unparseable., True when a colors.csv row's Background is a dark surface., WCAG contrast ratio for two hex colors, or None if either is invalid., Keep product brand tokens while deriving accessible dark surfaces., Pick the highest-ranked palette matching the resolved mode.      Only the dark c (+6 more)
 
 ### Community 72 - "Community 72"
 Cohesion: 0.11
@@ -476,24 +486,24 @@ Cohesion: 0.09
 Nodes (22): computedHash, skillPath, source, sourceType, skills, neon, ui-ux-pro-max, vercel-react-best-practices (+14 more)
 
 ### Community 75 - "Community 75"
-Cohesion: 0.12
-Nodes (18): int, ansi_ljust(), format_ascii_box(), hex_to_ansi(), Execute searches across multiple domains., Find matching reasoning rule for a category., Apply reasoning rules to search results., Select best matching result based on priority keywords. (+10 more)
+Cohesion: 0.13
+Nodes (17): int, ansi_ljust(), format_ascii_box(), hex_to_ansi(), Execute searches across multiple domains., Find matching reasoning rule for a category., Apply reasoning rules to search results., Select best matching result based on priority keywords. (+9 more)
 
 ### Community 76 - "Community 76"
 Cohesion: 0.15
 Nodes (6): read_rows(), split_values(), style_identities(), TestGeneratedCatalogContract, TestLandingAndStackContract, TestStyleIdentityContract
 
 ### Community 77 - "Community 77"
-Cohesion: 0.13
-Nodes (7): DesignSystemGenerator, Generates design system recommendations from aggregated searches., Load reasoning rules from CSV., TestReasoningMatch, TestReasoningContract, The exact reproduction from issue #428., TestEndToEndCoherence
+Cohesion: 0.15
+Nodes (6): DesignSystemGenerator, Generates design system recommendations from aggregated searches., Load reasoning rules from CSV., Extract results list from search result dict., TestReasoningMatch, TestReasoningContract
 
 ### Community 78 - "Community 78"
 Cohesion: 0.14
 Nodes (21): sampleMinimums, sampleMinimums, sampleMinimums, cases, designSystem, domain:chart, domain:color, domain:google-fonts (+13 more)
 
 ### Community 79 - "Community 79"
-Cohesion: 0.10
-Nodes (8): Resolve a deprecated in-domain alias, or expose a cross-domain redirect., Main search function with auto-domain detection, search(), _style_search_destination(), TestSearchDomains, read_rows(), TestStyleTaxonomy, TestTextLayoutRetrieval
+Cohesion: 0.16
+Nodes (6): Resolve a deprecated in-domain alias, or expose a cross-domain redirect., Main search function with auto-domain detection, search(), _style_search_destination(), TestSearchDomains, TestTextLayoutRetrieval
 
 ### Community 80 - "Community 80"
 Cohesion: 0.11
@@ -532,12 +542,12 @@ Cohesion: 0.15
 Nodes (12): approvingMaintainer, baselineRevision, oracleFingerprint, runtimeFingerprint, schemaVersion, splitPolicy, calibration, held_out (+4 more)
 
 ### Community 90 - "Community 90"
-Cohesion: 0.17
-Nodes (11): 0. Mission, 13. Auth Rules, 15. Commands, 16. Anti-Patterns to Avoid, 17. What to Preserve When Editing, 18. Default Checklist for New Frontend Work, 2. Current Tech Stack, 4. Route Inventory and Product Domains (+3 more)
+Cohesion: 0.12
+Nodes (15): 10. Auth, 11. Web vs. Desktop Boundary (`app/platform/`), 12. Commands, 13. Anti-Patterns, 14. Checklist, 1. Non-Negotiables, 2. Tech Stack, 3. Runtime Shape (+7 more)
 
 ### Community 91 - "Community 91"
-Cohesion: 0.18
-Nodes (11): 11.10 Holding planner panel, 11.1 Tasks, 11.2 Ordering, 11.3 Calendar / schedule, 11.4 Habits, 11.5 Inbox, 11.6 Settings, 11.7 Keyboard shortcuts, command palette, and universal search (+3 more)
+Cohesion: 0.08
+Nodes (24): CaptureKind, captureKindSchema, CaptureStatus, captureStatusSchema, InboxAnalysisStatus, inboxAnalysisStatusSchema, InboxItem, InboxItemRow (+16 more)
 
 ### Community 92 - "Community 92"
 Cohesion: 0.18
@@ -548,7 +558,7 @@ Cohesion: 0.44
 Nodes (11): metrics, metrics, metrics, designSystemCoherence, mrrAt3, ndcgAt3, negativeAbstention, precisionAt1 (+3 more)
 
 ### Community 94 - "Community 94"
-Cohesion: 0.19
+Cohesion: 0.24
 Nodes (7): _query_wants_dark(), True when a styles.csv row describes itself as dark-first., True when the query explicitly asks for a dark theme., Resolve the mode the rest of the output has to agree with., _resolve_color_mode(), _style_is_dark_primary(), TestModeResolution
 
 ### Community 95 - "Community 95"
@@ -684,16 +694,16 @@ Cohesion: 0.29
 Nodes (6): engines, node, name, packageManager, private, version
 
 ### Community 135 - "Community 135"
-Cohesion: 0.33
-Nodes (6): 7.1 Per-Request Clients Only, 7.2 RLS Pattern, 7.3 Type Aliases, 7.4 Ownership Validation, 7.5 Migration Rules, 7. Database Access Rules
+Cohesion: 0.09
+Nodes (22): batchRescheduleSchema, batchStateSchema, CanonicalNlpEnvelopeInput, canonicalNlpEnvelopeSchema, CreateTaskInput, EffortLevel, effortLevelSchema, InsertTask (+14 more)
 
 ### Community 136 - "Community 136"
-Cohesion: 0.33
-Nodes (6): 7.1 `app/app.css` is the source of truth, 7.2 Token layers, 7.3 Modes: every surface must work under all of them, 7.4 Utilities, layers, and layout, 7.5 Contrast and legacy, 7. Design System Rules
+Cohesion: 0.09
+Nodes (21): Habit, habitListQuerySchema, HabitLog, habitLogSchema, HabitRow, habitRowSchema, habitSchema, HabitStatus (+13 more)
 
 ### Community 137 - "Community 137"
-Cohesion: 0.33
-Nodes (6): 9.1 No raw `fetch` for app API calls, 9.2 TanStack Query is mandatory for server state, 9.3 Optimistic UI is a product rule, 9.4 Query keys are centralized, 9.5 Error handling, 9. Data Fetching and Mutation Rules
+Cohesion: 0.10
+Nodes (19): 0. The packages and their one-line jobs, 1.1 The three schema families (per domain module), 1.2 Row schemas are load-bearing — keep them `$inferSelect`-exact, 1.3 `z.input` vs `z.infer` (output) — pick deliberately, 1.4 Entity may intentionally diverge from Row, 1.5 `settings.ts` and `ai.ts` are special, 1.5b Shared constants — `constants.ts` (Tier 2), 1.6 Adding / changing a contract — checklist (+11 more)
 
 ### Community 138 - "Community 138"
 Cohesion: 0.33
@@ -712,88 +722,88 @@ Cohesion: 0.40
 Nodes (4): AGENTS.md files are the current truth, Cadence — Repo Rules for Agents, Docs and planning live in `/docs` (local only, git-ignored), Versions and releases
 
 ### Community 142 - "Community 142"
-Cohesion: 0.40
-Nodes (5): 10. Domain Model, Enums (12 pgEnums), FK Cascades, Settings, Tables (26 total)
+Cohesion: 0.14
+Nodes (12): createHabitApp(), createPatchTx(), { getDbClientMock, withRlsMock }, HABIT_ROW, patchHabit(), habitLogs, habits, habitTags (+4 more)
 
 ### Community 143 - "Community 143"
-Cohesion: 0.40
-Nodes (5): 2.1 Universal API Rules, 2.2 Runtime Rules, 2.3 Security Rules, 2.4 Code Organization Rules (UCURD — non-negotiable), 2. Core Non-Negotiables
+Cohesion: 0.14
+Nodes (13): ApiError, ApiResponse, flexibleDateTimeSchema, isoDateTimeSchema, Pagination, paginationSchema, taskIdParamSchema, uuidParamSchema (+5 more)
 
 ### Community 144 - "Community 144"
-Cohesion: 0.40
-Nodes (5): 5. Where New Code Goes, Adding a new domain, Adding a new feature to an existing domain, Adding a shared type or schema → `src/types/`, Adding platform infrastructure
+Cohesion: 0.14
+Nodes (13): updateHabitSchema, CreateProjectInput, InsertProject, insertProjectSchema, Project, ProjectRow, projectRowSchema, UpdateProject (+5 more)
 
 ### Community 145 - "Community 145"
-Cohesion: 0.40
-Nodes (5): 8.1 Versioning, 8.2 Response Envelope, 8.3 Idempotency, 8.4 Caching, 8. API Conventions
+Cohesion: 0.15
+Nodes (12): Cadence Backend, Commands, Deployment Model, Environment Configuration, In plain terms, Operational Notes, Pre-Push Checklist, Related Docs (+4 more)
 
 ### Community 146 - "Community 146"
-Cohesion: 0.40
-Nodes (5): 12.1 Primitives layer first, 12.2 Composition over boolean explosion, 12.3 Thin routes, richer domain components, 12.4 Reusable helpers belong in shared utilities, 12. Component Patterns
-
-### Community 147 - "Community 147"
-Cohesion: 0.40
-Nodes (5): 8.1 Typography, 8.2 Focus states, 8.3 Touch and pointer behavior, 8.4 Motion rules, 8. Typography and Interaction Rules
+Cohesion: 0.15
+Nodes (13): scripts, build, build:desktop, cf-typegen, deploy, deploy:dev, dev, dev:desktop (+5 more)
 
 ### Community 148 - "Community 148"
 Cohesion: 0.40
 Nodes (5): last_message_at, name, notNull, primaryKey, type
 
 ### Community 150 - "Community 150"
-Cohesion: 0.50
-Nodes (4): 11. Debug Seed System, Adding a New Scenario, Architecture, Usage
+Cohesion: 0.17
+Nodes (11): 10. Checklist for New Native Behavior, 1. What Lives Where, 2. Versioning — Never Hand-Edit, 3. Rust Shell (`src-tauri/src/lib.rs`), 4. Capabilities & Security — Least Privilege, 5. Updater & Distribution, 6. Dev Workflow, 7. Testing (+3 more)
 
 ### Community 151 - "Community 151"
 Cohesion: 0.50
 Nodes (4): devDependencies, release-it, @release-it/keep-a-changelog, turbo
 
 ### Community 152 - "Community 152"
-Cohesion: 0.50
-Nodes (4): 10.1 Server state, 10.2 Local cross-component UI state, 10.3 Local device cache, 10. State Management Rules
+Cohesion: 0.20
+Nodes (9): Cadence Frontend, Commands, Conventions, Features, In plain terms, Production Notes, Related Docs, Stack (+1 more)
 
 ### Community 153 - "Community 153"
-Cohesion: 0.50
-Nodes (4): 14.1 Worker compatibility, 14.2 Current env vars, 14.3 Frontend worker role, 14. Cloudflare and Environment Rules
+Cohesion: 0.20
+Nodes (9): CreateSection, createSectionSchema, SectionQuery, sectionQuerySchema, TaskSection, TaskSectionRow, taskSectionRowSchema, UpdateSection (+1 more)
 
 ### Community 154 - "Community 154"
-Cohesion: 0.50
-Nodes (4): 1.1 Product and platform rules, 1.2 Design rules, 1.3 Architecture rules, 1. Core Non-Negotiables
-
-### Community 155 - "Community 155"
-Cohesion: 0.50
-Nodes (4): 6.1 `MainLayout` is the shared shell, 6.2 Layout principles, 6.3 Provider placement, 6. Layout and Composition Patterns
-
-### Community 156 - "Community 156"
-Cohesion: 0.67
-Nodes (3): 14. Background Jobs, Cron (`wrangler.jsonc`), Task Metrics (`src/platform/metrics.ts`)
+Cohesion: 0.20
+Nodes (9): CreateTagInput, InsertTag, insertTagSchema, Tag, TagRow, tagRowSchema, TaskTagInput, taskTagSchema (+1 more)
 
 ### Community 157 - "Community 157"
-Cohesion: 0.67
-Nodes (3): 9. Mounted Routes, Protected (all under `/api/v1/`), Public
+Cohesion: 0.22
+Nodes (8): bulkSubtasksSchema, insertSubtaskSchema, reorderSubtaskSchema, Subtask, SubtaskRow, subtaskRowSchema, subtaskSchema, updateSubtaskSchema
 
 ### Community 158 - "Community 158"
-Cohesion: 0.67
-Nodes (3): 3.1 Application shell, 3.2 Deployment model, 3. Runtime Shape
+Cohesion: 0.29
+Nodes (5): booleanQuerySchema, TaskFilters, taskFiltersSchema, taskFiltersSchemaBase, taskListQuerySchema
+
+### Community 159 - "Community 159"
+Cohesion: 0.29
+Nodes (6): Cadence Desktop, Commands, In plain terms, Related Docs, Structure, What the native shell actually adds
+
+### Community 160 - "Community 160"
+Cohesion: 0.40
+Nodes (3): FORBIDDEN, root, violations
+
+### Community 165 - "Community 165"
+Cohesion: 0.50
+Nodes (3): name, private, type
 
 ## Knowledge Gaps
-- **1131 isolated node(s):** `$schema`, `commitMessage`, `tagName`, `tagAnnotation`, `requireBranch` (+1126 more)
+- **1270 isolated node(s):** `AGENTS.md files are the current truth`, `Versions and releases`, `Docs and planning live in `/docs` (local only, git-ignored)`, `Removed`, `Fixed` (+1265 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **28 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `columns` connect `Community 20` to `Community 32`, `Community 33`, `Community 34`, `Community 35`, `Community 139`, `Community 16`, `Community 17`, `Community 18`, `Community 51`, `Community 19`, `Community 116`, `Community 122`, `Community 29`, `Community 30`, `Community 31`?**
-  _High betweenness centrality (0.017) - this node is a cross-community bridge._
-- **Why does `public.ai_conversations` connect `Community 6` to `Community 120`, `Community 2`?**
+- **Why does `DesignSystemGenerator` connect `Community 77` to `Community 71`, `Community 73`, `Community 75`, `Community 76`, `Community 79`, `Community 82`, `Community 85`, `Community 118`, `Community 94`?**
   _High betweenness centrality (0.011) - this node is a cross-community bridge._
-- **Why does `public.ai_memories` connect `Community 116` to `Community 102`, `Community 7`, `Community 10`, `Community 20`, `Community 120`?**
-  _High betweenness centrality (0.011) - this node is a cross-community bridge._
+- **Why does `search()` connect `Community 79` to `Community 98`, `Community 68`, `Community 69`, `Community 105`, `Community 73`, `Community 75`, `Community 82`, `Community 147`, `Community 85`, `Community 22`?**
+  _High betweenness centrality (0.010) - this node is a cross-community bridge._
 - **Are the 30 inferred relationships involving `DesignSystemGenerator` (e.g. with `TestBm25CoreBehavior` and `TestDiagnosticsContracts`) actually correct?**
   _`DesignSystemGenerator` has 30 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 22 inferred relationships involving `search()` (e.g. with `.generate()` and `._multi_domain_search()`) actually correct?**
   _`search()` has 22 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 19 inferred relationships involving `search_stack()` (e.g. with `.test_diagnostics_opt_in_is_additive_for_stack_search()` and `.test_every_stack_file_exists_and_is_searchable()`) actually correct?**
   _`search_stack()` has 19 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `$schema`, `commitMessage`, `tagName` to the rest of the system?**
-  _1199 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `AGENTS.md files are the current truth`, `Versions and releases`, `Docs and planning live in `/docs` (local only, git-ignored)` to the rest of the system?**
+  _1338 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Community 0` be split into smaller, more focused modules?**
+  _Cohesion score 0.058823529411764705 - nodes in this community are weakly interconnected._

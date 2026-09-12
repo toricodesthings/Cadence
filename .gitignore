@@ -34,3 +34,5 @@ npm-debug.log*
 # Windows alternate-stream metadata accidentally materialized as files on Unix
 *:Zone.Identifier
 *Zone.Identifier
+
+/graphify-out/

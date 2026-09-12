@@ -100,23 +100,23 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/note.ts": {
-    "mtime": 1780725419.01897,
-    "ast_hash": "e8b31bc43d324fa0003d965ddd88b314",
+    "mtime": 1789251578.5841072,
+    "ast_hash": "5d69abd8419749b3b7dba3a965c226db",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/ai.ts": {
-    "mtime": 1783879652.959179,
-    "ast_hash": "e47fc8d78bd773ebf9b0e2dc35b6c232",
+    "mtime": 1789251578.641307,
+    "ast_hash": "1aa5e02be57a2cf56b44a9aba8e24c61",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/task.ts": {
-    "mtime": 1780774421.5784075,
-    "ast_hash": "6e46ed71a5a48269f8e8ced03a31795e",
+    "mtime": 1789251578.548907,
+    "ast_hash": "9bf1c9323dda8365e8de92418f53478a",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/section.ts": {
-    "mtime": 1780725416.2549899,
-    "ast_hash": "100c5612b7197ff78838b2164fd3e4b1",
+    "mtime": 1789251578.6193073,
+    "ast_hash": "651aefc983856353c07c13c8335b1d6f",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/constants.ts": {
@@ -125,38 +125,38 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/tag.ts": {
-    "mtime": 1780887708.20495,
-    "ast_hash": "49821900fb801a516835f01edb59019a",
+    "mtime": 1789251660.0662987,
+    "ast_hash": "8b26a21c865ac9e6cfdead85ca3f9319",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/settings.ts": {
-    "mtime": 1780725555.5928755,
-    "ast_hash": "dbcf8e5b8992eea9e177316f80168bbd",
+    "mtime": 1789251758.6418896,
+    "ast_hash": "db3ed9723943d583801c94d850cbec6f",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/index.test.ts": {
-    "mtime": 1780885404.8629146,
-    "ast_hash": "bdc79b13991c555427f1f16a089d3dbf",
+    "mtime": 1789251661.2674987,
+    "ast_hash": "54aad37c323180087f5d4cb5bf553f87",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/subtask.ts": {
-    "mtime": 1780774428.2487032,
-    "ast_hash": "9324648aca104fa006c57d6b51cefb58",
+    "mtime": 1789251578.6061072,
+    "ast_hash": "297bf232677fbca2e8b67399e46c5820",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/project.ts": {
-    "mtime": 1780887713.528384,
-    "ast_hash": "b45d5ca3282729b5b6458057015064b6",
+    "mtime": 1789251660.0706987,
+    "ast_hash": "50543a02b5be9795e7a95594dc6d743e",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/common.ts": {
-    "mtime": 1780725365.7075782,
-    "ast_hash": "c7a1dab29791e49762ac8d20eb703b00",
+    "mtime": 1789251579.8777072,
+    "ast_hash": "2f796fe004c3d7cdba4e256e22a27e51",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/habit.ts": {
-    "mtime": 1780774439.8066435,
-    "ast_hash": "ae381b149463c3003bec85f8d7f67e2f",
+    "mtime": 1789251660.0750988,
+    "ast_hash": "1263da9984cf582e6604b061dc346044",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/index.ts": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/src/inbox.ts": {
-    "mtime": 1780774436.0507307,
-    "ast_hash": "fa686c9d1c07398e504fda9dcdfe18c4",
+    "mtime": 1789251578.566507,
+    "ast_hash": "49fd51d102a327648d2677c4beb68fb0",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/contracts/scripts/check-imports.mjs": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/nlp/package.json": {
-    "mtime": 1789148185.4345756,
-    "ast_hash": "9f5d70055fff41ba34602dad9aad5cbd",
+    "mtime": 1789251613.9419496,
+    "ast_hash": "0774c400611e31b63795eb30925edd58",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/nlp/src/index.test.ts": {
@@ -595,8 +595,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/debug-seed.test.ts": {
-    "mtime": 1774207869.1111052,
-    "ast_hash": "ea0b8a86b63621bb1d0616325d478a58",
+    "mtime": 1789251816.6173716,
+    "ast_hash": "b22ece5928e632e0247ecf0091f0dc78",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/unit/ai-memory-ranking.test.ts": {
@@ -655,8 +655,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/tags.contract.test.ts": {
-    "mtime": 1774058164.208508,
-    "ast_hash": "9fc8ad4ff7de2d956907b719731be897",
+    "mtime": 1789251837.8342,
+    "ast_hash": "ebf0cb3b100a43a1f3c4b852e961c0c5",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/subtasks.contract.test.ts": {
@@ -670,8 +670,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/projects.contract.test.ts": {
-    "mtime": 1774058164.208508,
-    "ast_hash": "e40a30989d7de8e758d4aa68a304d2b2",
+    "mtime": 1789251826.579693,
+    "ast_hash": "9090ee80a46cb2f0e469813d84d861ab",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/tasks.contract.test.ts": {
@@ -825,8 +825,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/habits/habits.route.ts": {
-    "mtime": 1780776067.186808,
-    "ast_hash": "e9bce8faf25a5922774598f4ca8eb3f9",
+    "mtime": 1789251660.0662987,
+    "ast_hash": "1a6f32910bcf1de4c563c462fef996cf",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/inbox/inbox.route.ts": {
@@ -880,13 +880,13 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/tasks/tasks.schema.ts": {
-    "mtime": 1780776076.6386423,
-    "ast_hash": "1a1252106c9136b4021b834669a7d36a",
+    "mtime": 1789251668.6755924,
+    "ast_hash": "87b0f99bce63514892111f5bb2fcee73",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/settings/settings.route.ts": {
-    "mtime": 1780776067.191059,
-    "ast_hash": "1f39c467ee1ea025a86b13558992adde",
+    "mtime": 1789251595.6433263,
+    "ast_hash": "dae4ff1345f4824e683e7cdd62e10393",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/src/domains/proxy/proxy.route.ts": {
@@ -2110,8 +2110,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/settings.ts": {
-    "mtime": 1780773946.1281636,
-    "ast_hash": "351e0b0eae170de0a0e4ab074c331be9",
+    "mtime": 1789251620.8323495,
+    "ast_hash": "7b52f3138fdada1a1c45b2eb0c25f1da",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/types/browser-image-compression.d.ts": {
@@ -3470,8 +3470,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/core/use-settings.ts": {
-    "mtime": 1774482273.093824,
-    "ast_hash": "742a7753aa1d9286ba64149eeb15679d",
+    "mtime": 1789251600.8045263,
+    "ast_hash": "589c8b7aa66c4a15fbed2725b2ed6a59",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/hooks/core/use-debounced-callback.ts": {
@@ -3575,8 +3575,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/AGENTS.md": {
-    "mtime": 1780885388.3697953,
-    "ast_hash": "e8b06fd18b399341beda31f2c8dfd773",
+    "mtime": 1789251758.6418896,
+    "ast_hash": "c709050a598f3cc9d08a9cec03bccb2a",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/README.md": {
@@ -4300,18 +4300,18 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/AGENTS.md": {
-    "mtime": 1789165425.9814157,
-    "ast_hash": "c95ff95bc2b2c22361546f11475ad679",
+    "mtime": 1789248717.8111384,
+    "ast_hash": "953306908b08a802c4b67325250da239",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/README.md": {
-    "mtime": 1774058922.0441911,
-    "ast_hash": "70c45bbb400561b206a1b30527806979",
+    "mtime": 1789248370.0518374,
+    "ast_hash": "8bf4aa11db4ef4a18344c5d2c6cbf854",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/README.md": {
-    "mtime": 1774333170.657257,
-    "ast_hash": "16e9316c4aba74ed2b388451eafc65b0",
+    "mtime": 1789248407.0179331,
+    "ast_hash": "c2f187452b58daa78b4c85cc896c2b41",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/e2e/README.md": {
@@ -4320,13 +4320,13 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/AGENTS.md": {
-    "mtime": 1789186777.2027295,
-    "ast_hash": "f9ddbe96c7153551dd7e0041c161faf0",
+    "mtime": 1789248788.0246003,
+    "ast_hash": "b1135f4015112285dd81e0f4ef671f25",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/README.md": {
-    "mtime": 1773638276.7856338,
-    "ast_hash": "82419e473bbf8181a1437f3fdb217854",
+    "mtime": 1789248390.5095434,
+    "ast_hash": "aed565dc00c3fc46c45348ec15a2cdf8",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-backend.yml": {
@@ -4655,8 +4655,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/AGENTS.md": {
-    "mtime": 1789186806.7826333,
-    "ast_hash": "a267864183c070b558cc635e5a13d7ea",
+    "mtime": 1789248870.9049659,
+    "ast_hash": "0d96902b4e2f3c99941befaea7c2cf83",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/CLAUDE.md": {
@@ -4665,8 +4665,23 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/CHANGELOG.md": {
-    "mtime": 1789186737.8348866,
-    "ast_hash": "07aa0c4c8643ab6dd7324ba264dcd899",
+    "mtime": 1789251608.4385266,
+    "ast_hash": "57e766e4f15995d5e8c33d85ec64bc4e",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/packages/nlp/scripts/check-imports.mjs": {
+    "mtime": 1789251612.1335495,
+    "ast_hash": "b7955c41711fb0904abdc503dbaec323",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/backend/tests/contracts/habits.contract.test.ts": {
+    "mtime": 1789251769.342512,
+    "ast_hash": "0d0155460e796310f4955dbafffc4620",
+    "semantic_hash": ""
+  },
+  "/home/shep/projects/My Portfolio/Cadence/apps/desktop/AGENTS.md": {
+    "mtime": 1789248859.8433657,
+    "ast_hash": "582648e0c93271aa6e8065d79b515700",
     "semantic_hash": ""
   }
 }
