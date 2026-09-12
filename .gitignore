@@ -1,13 +1,5 @@
-# Documentation
-docs
-apps/frontend/docs/
-apps/frontend/docs/**
-apps/desktop/docs/
-apps/desktop/docs/**
-apps/backend/docs/
-apps/backend/docs/**
-apps/mobile/docs/
-apps/mobile/docs/**
+# Local-only docs & planning (rules in AGENTS.md)
+/docs/
 
 # Dependencies
 node_modules

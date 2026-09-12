@@ -123,7 +123,7 @@ pnpm dev
 # Or start individual apps
 pnpm dev:frontend
 pnpm dev:backend
-pnpm dev:mobile
+pnpm dev:desktop
 ```
 
 The local frontend runs at `http://localhost:8788` and the backend at `http://localhost:8787`.
@@ -135,7 +135,6 @@ The local frontend runs at `http://localhost:8788` and the backend at `http://lo
 Cadence is open source and welcomes contributions. A few things to know before diving in:
 
 - Read the [Frontend guide](./apps/frontend/AGENTS.md) and [Backend guide](./apps/backend/AGENTS.md) before touching those apps — they document conventions that are not obvious from the code alone.
-- The [Design Manifesto](./docs/Design%20Manifesto.md) is the visual and UX north star. New UI should feel like it belongs in the same calm, atmospheric world.
 - The six philosophy laws above are non-negotiable. Features that add cognitive load are reverted regardless of how clever they are.
 - Shared cross-app code lives in `packages/`. Do not create filesystem-relative imports across app boundaries.
 
@@ -158,8 +157,7 @@ pnpm db:studio   # Open Drizzle Studio
 | Frontend | React 19, React Router v7, Tailwind CSS v4, Cloudflare Workers |
 | Backend | Hono v4, Drizzle ORM, Neon Postgres, Cloudflare Workers |
 | Auth | Neon Auth (JWT, OAuth) |
-| Mobile | Expo (React Native) |
-| Desktop | Tauri _(planned)_ |
+| Desktop & Mobile | Tauri v2 (desktop; Android in progress) |
 | AI | Vercel AI SDK, OpenRouter, pgvector |
 | Monorepo | pnpm workspaces + Turborepo |
 
@@ -167,12 +165,10 @@ pnpm db:studio   # Open Drizzle Studio
 
 ## Docs
 
+- [Changelog](./CHANGELOG.md)
 - [Frontend](./apps/frontend/README.md)
 - [Backend](./apps/backend/README.md)
-- [Mobile](./apps/mobile/README.md)
 - [Desktop](./apps/desktop/README.md)
-- [Design Manifesto](./docs/Design%20Manifesto.md)
-- [Base Architecture](./docs/Base%20Architecture.md)
 
 ---
 

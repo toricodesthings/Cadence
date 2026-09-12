@@ -232,79 +232,31 @@ All foundational visual tokens live in `app/app.css` under `@theme`, `:root`, `@
 
 Use semantic design tokens instead of raw values.
 
-### 7.2 Core token families
+### 7.2 Token layers
 
-#### Twilight surfaces
+- **Accent (what components use):** `--accent-primary|-soft|-dim`, `--accent-secondary|-soft`, `--accent-tertiary|-soft`, `--accent-glow`, `--accent-surface`, `--accent-on-primary`. These are also Tailwind colors (`bg-accent-primary`, `ring-accent-primary/25`). Don't reference `--color-lantern` directly in new surfaces. `data-palette` on `<html>` re-tints everything: lantern (default, no attribute), ember, rose, violet, sapphire, jade, copper, frost. Each has a daylight variant.
+- **Surfaces/text:** `--color-twilight-{void,deep,base,surface,surface-muted,surface-hover,elevated}`, `--color-twilight-text{,-soft,-muted}`, `--color-twilight-border{,-interactive,-light}`.
+- **Named hues (categorization only):** `lantern`, `moonlit`, `solstice`, `sapphire`, `ember-red`, `forest-green`, `violet`, `personal`.
+- **Wayfinding:** `accent-nav-{capture,schedule,today,upcoming,habits}`, derived from the accent. The fixed `--color-nav-*` set is legacy (it survives only in the daylight block), so don't build on it.
+- **Status:** `--color-priority-{low,medium,high,urgent}`, `--color-feedback-{success,error}`.
 
-- `--color-twilight-void`
-- `--color-twilight-deep`
-- `--color-twilight-base`
-- `--color-twilight-surface`
-- `--color-twilight-surface-muted`
-- `--color-twilight-surface-hover`
-- `--color-twilight-elevated`
+### 7.3 Modes: every surface must work under all of them
 
-#### Text
+`[data-*]` attributes on `<html>` remap the tokens. Never patch per mode inside a component. The modes are `data-theme="daylight"`, `data-accent="soft|vivid"`, `data-theme-preset`, `data-bg-mode="custom"`, `data-density="compact"` (targets stay ≥36px), and `data-motion="reduced|full"`. A surface that only looks right in default twilight is unfinished.
 
-- `--color-twilight-text`
-- `--color-twilight-text-soft`
-- `--color-twilight-text-muted`
+### 7.4 Utilities, layers, and layout
 
-#### Accents
+- Reuse `app.css` utilities before inventing new ones: `.bg-twilight`, `.glass`, `.glass-surface`, `.surface-utility`, `.surface-route-overlay`, `.aurora-accent`, `.glow-{lantern,moonlit,accent}`, `.focus-pulse-soft`, `.focus-ring-static`, `.sync-spin`, `.btn-icon`, `.touch-target`, `.text-truncate-safe`, `.scrollbar-{thin,hidden,hide}`, `.notification-dot`, `.utility-divider`.
+- **Z-index:** use only the `.layer-*` utilities (backed by `--z-*`; the order is defined in `app.css`), never arbitrary `z-[…]`. Floating UI (selects, popovers, tooltips) sits above system dialogs on purpose.
+- **Layout:** compose by `useShellMode()` (`wide` / `laptop` / `tablet` / `phone`), not raw breakpoints. Anything labeled "mobile" must also be checked at `tablet`.
+- **Mobile:** build sheets from `.mobile-sheet-{shell,header,body,footer}`, `.mobile-scroll-region`, and `.safe-*`. Recompose for phone instead of shrinking desktop; compact search and quick-add are their own modules.
+- **Trust feedback:** route it through `.cadence-toast` and `.offline-banner`. Don't create parallel notices.
+- **Tailwind v4 tree-shaking:** colors that are applied conditionally or passed as props must be safelisted with `@source inline(…)` in `app.css`. Runtime-only colors use an inline `style`. Every color must work on a cold dev server.
 
-- `--color-lantern`
-- `--color-lantern-soft`
-- `--color-lantern-dim`
-- `--color-moonlit`
-- `--color-moonlit-soft`
-- `--color-sapphire`
-- `--color-ember-red`
-- `--color-forest-green`
-- `--color-violet`
+### 7.5 Contrast and legacy
 
-#### Priority and nav accents
-
-- `--color-priority-low`
-- `--color-priority-medium`
-- `--color-priority-high`
-- `--color-priority-urgent`
-- `--color-nav-planner`
-- `--color-nav-schedule`
-- `--color-nav-upcoming`
-- `--color-nav-inbox`
-- `--color-nav-completed`
-
-### 7.3 Core utility classes
-
-Prefer existing utilities where possible:
-
-- `.bg-twilight`
-- `.glass`
-- `.glass-surface`
-- `.glow-lantern`
-- `.glow-moonlit`
-- `.scrollbar-hidden`
-- `.scrollbar-thin`
-- `.btn-icon`
-- `.text-truncate-safe`
-
-### 7.4 Contrast floor rule
-
-The stylesheet explicitly sets a **contrast floor** for twilight surfaces.
-
-- Do not introduce muted text below the current contrast guidance.
-- Avoid casual text opacity reductions like `/70` or `/80` on already-muted twilight text unless you are matching an established pattern with acceptable contrast.
-
-### 7.5 Legacy styling note
-
-Some existing components still use legacy classes like `text-warm-white`, `text-lantern-amber`, or literal color values.
-
-When touching those files:
-
-- preserve behavior unless the task is visual cleanup
-- prefer migrating toward semantic `twilight-*`, `lantern`, and `moonlit` tokens rather than copying more legacy token names
-
-Do not spread inconsistent token usage further.
+- Contrast floor (`--alpha-muted-*`): no text opacity below `/90` on already-muted twilight text.
+- Legacy classes (`text-warm-white`, `text-lantern-amber`, literal colors): preserve their behavior, migrate them to semantic tokens when you touch the file, and never copy them forward.
 
 ---
 
@@ -325,8 +277,8 @@ Do not spread inconsistent token usage further.
 
 ### 8.3 Touch and pointer behavior
 
-- Maintain accessible hit targets.
-- Use actual semantic buttons/links.
+- Hit targets are ≥44×44px on touch (≥36px in compact density).
+- Use real `<button>`/`<a>`. Icon-only controls get an `aria-label` and a visible `Tip` (`components/primitives/Tooltip`), never a native `title=""`.
 - `cursor-pointer` should be present on EVERY SINGLE interactive custom surfaces, no exceptions. Better to also introduce it in the base/primitive component.
 
 ### 8.4 Motion rules
@@ -583,6 +535,8 @@ Defined through Wrangler vars:
 
 - `VITE_NEON_AUTH_URL`
 - `VITE_API_BASE_URL`
+
+The app version and in-app changelog are **not** env vars. `vite.config.ts` reads the root `package.json` and `CHANGELOG.md` at build time (`release-info.ts`) and injects them. `lib/constants/changelog.ts` holds no entries.
 
 ### 14.3 Frontend worker role
 

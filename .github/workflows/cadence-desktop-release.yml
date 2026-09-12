@@ -2,10 +2,11 @@
 # Cadence Desktop Release
 #
 # Builds and publishes signed, production desktop installers for all platforms
-# whenever a tag matching `desktop-v*` is pushed, or on manual dispatch.
+# whenever a release tag `v*` is pushed (`pnpm release` creates it), or on
+# manual dispatch. The version comes from the root package.json at that tag.
 #
 # Trigger examples
-#   git tag desktop-v1.0.0 && git push --tags
+#   pnpm release
 #   GitHub Actions → "Run workflow" dispatch (see inputs below)
 #
 # Platform matrix
@@ -33,11 +34,11 @@ name: Cadence Desktop Release
 on:
   push:
     tags:
-      - desktop-v*
+      - v*
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Release tag to create or publish (e.g. desktop-v1.0.0)"
+        description: "Release tag to create or publish (e.g. v1.0.0)"
         required: true
         type: string
       release_draft:

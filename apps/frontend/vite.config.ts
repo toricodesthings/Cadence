@@ -1,12 +1,20 @@
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
+import { readReleaseInfo } from "./release-info.ts";
+
+const release = readReleaseInfo(new URL("../../", import.meta.url));
 
 export default defineConfig(({ mode }) => ({
   plugins: [
     tailwindcss(),
     ...(mode === "test" ? [] : [reactRouter()]),
   ],
+  // Version + in-app changelog come from the root package.json / CHANGELOG.md (see release-info.ts).
+  define: {
+    __CADENCE_PUBLIC_VERSION__: JSON.stringify(release.version),
+    __CADENCE_CHANGELOG__: JSON.stringify(release.changelog),
+  },
   // Dev cold-start stability. Heavy deps below are imported inside lazy route
   // modules, so Vite would otherwise discover them only on first navigation —
   // triggering a mid-session optimize re-bundle that 504s in-flight requests

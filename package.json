@@ -1,5 +1,6 @@
 {
   "name": "cadence",
+  "version": "0.9.1",
   "private": true,
   "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "engines": {
@@ -11,7 +12,6 @@
     "dev:backend": "pnpm --filter @cadence/backend dev",
     "dev:desktop": "pnpm --filter @cadence/desktop dev",
     "dev:desktop:full": "turbo run dev --parallel --filter=@cadence/backend --filter=@cadence/desktop",
-    "dev:mobile": "pnpm --filter @cadence/mobile dev",
     "build": "turbo run build",
     "build:desktop": "pnpm --filter @cadence/desktop build",
     "typecheck": "turbo run typecheck",
@@ -23,9 +23,12 @@
     "db:studio": "pnpm --filter @cadence/backend db:studio",
     "deploy:frontend": "pnpm --filter @cadence/frontend deploy",
     "deploy:frontend:dev": "pnpm --filter @cadence/frontend deploy:dev",
-    "deploy:backend": "pnpm --filter @cadence/backend deploy"
+    "deploy:backend": "pnpm --filter @cadence/backend deploy",
+    "release": "release-it"
   },
   "devDependencies": {
+    "@release-it/keep-a-changelog": "^8.0.0",
+    "release-it": "^21.0.2",
     "turbo": "^2.10.12"
   },
   "pnpm": {

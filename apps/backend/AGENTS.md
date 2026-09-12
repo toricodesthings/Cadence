@@ -490,7 +490,7 @@ The Drizzle schema (`src/db/schema.ts`) is the source of truth.
 > only by the prompt cache loader (outside `withRls`). This is a conscious, recorded
 > deviation from "RLS or it doesn't ship" — mirrors the `types/inbox.ts` exception
 > style. Any block write bumps `aiPromptRevision.revision` in the same transaction
-> (the cache-bust token). See `docs/ai_upgrade/04`.
+> (the cache-bust token).
 
 ### Enums (12 pgEnums)
 
@@ -506,7 +506,7 @@ The Drizzle schema (`src/db/schema.ts`) is the source of truth.
 
 `UserSettingsSchema` (canonical Zod schema) lives in `src/domains/settings/settings.schema.ts` and is re-exported from `src/db/schema.ts`. Notification preferences (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required fields. The PATCH endpoint uses a custom `deepPartial()` utility for partial updates.
 
-**`settings.assistant`** (AI personality, `docs/ai_upgrade/07`) is an optional section:
+**`settings.assistant`** (AI personality) is an optional section:
 `persona`, `tone`, `verbosity`, `emoji`, `nickname`, `assistantName`, `customInstructions`,
 `proactiveSuggestions`, `memoryEnabled`, `adaptiveTone`. Defaults reproduce today's
 assistant behavior. It maps (pure `personaToDirectives`) to the `persona_customization`
