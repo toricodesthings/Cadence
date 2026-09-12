@@ -76,6 +76,10 @@ while `z.input` keeps it **optional**. So:
   RHF form values) use **`z.input`** — clients build request bodies without the
   server-defaulted fields. Mixing these up produces "missing property" errors at
   every call site.
+- **No `.default()` on a create schema whose update schema is `.partial()`**
+  (tag, project, habit). Zod 4 keeps defaults through `.partial()`, so a PATCH
+  would write them over untouched columns. Leave the field `.optional()` and let
+  the DB column default apply on insert.
 
 ### 1.4 Entity may intentionally diverge from Row
 
@@ -84,10 +88,6 @@ fields to match what clients actually consume. Current deliberate overrides:
 
 - `task.priority`/`task.effort` → literal unions (`TaskPriority` = `0|1|2|3|4`,
   `EffortLevel` = `1|2|3|null`) — Row keeps numeric for `$inferSelect` parity.
-- `tag.color` / `project.colorAccent` → non-null in the Entity (DB default
-  guarantees a value; the prior FE interfaces assumed non-null). Row stays
-  nullable. *(This masks a latent "API could return null" bug — the truthful fix
-  is to null-handle at call sites; tracked, not done.)*
 - `task.sectionId/waitingOn/waitingReminder/notBefore`, inbox analysis-lifecycle
   columns, and `subtask.userId` → made `.optional()` in the Entity so optimistic
   caches and partial reads (which omit them) typecheck.
@@ -100,10 +100,11 @@ interface** — the parity guard only covers the Row subset.
 - **settings**: `userSettingsSchema` is the sparse **storage/patch** shape (all
   fields optional — used by the DB jsonb column + PATCH). `SETTINGS_DEFAULTS`
   (`as const`) + `CanonicalSettings` is the **full** shape. The frontend's full
-  `UserSettings` *view* is a widened interface that stays in
+  `UserSettings` *view* is `DeepRequired<UserSettings>` in
   `apps/frontend/app/types/settings.ts` (not `typeof SETTINGS_DEFAULTS`, whose
-  `as const` literals break `=== true/false` comparisons). `deepPartial` lives
-  here.
+  `as const` literals break `=== true/false` comparisons). `deepPartial`,
+  `deepMerge` (defaults ⊕ stored/patch, used by both apps), and
+  `personalEventSchema` live here.
 - **ai**: only the **wire-crossing** shapes belong here (UIMessage, chat request,
   conversation/message Row+Entity, message role/status enums, and the
   `TaskProposalPart`/`DangerConfirmPart` widget payloads). Everything that
@@ -168,6 +169,10 @@ Never import `AppError` here.
   fallback). Filter inputs are typed via the local `ScheduleScopeFilters`
   (structurally compatible with the backend's `NormalizedTaskFilters`, so no
   backend import).
+- `ordering.ts` — fractional `orderIndex` math (`ORDER_INDEX_GAP`,
+  `computeNextOrderIndex`, `computeMidpointIndex`, `computeGappedOrderIndex`).
+- `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
+  `normalizeTitle`) for the frontend's optimistic title and the backend fallback.
 
 Presentation/formatting (human strings, `date-format`-dependent code) stays in
 the **frontend**; it *consumes* these primitives.
@@ -185,16 +190,16 @@ sync. Add to it when you add a `TaskReadShape` branch.
 
 - **Backend**: routes import shapes directly from `@cadence/contracts/<domain>`
   and pure logic from `@cadence/domain/*`. A `domains/*/*.schema.ts` exists only
-  where server-only validation remains — `tasks.schema.ts` (filter/query
-  `superRefine`) and `ai.schema.ts` (admin promptBlock); both re-export their
-  contract. The per-domain schema shims, `settings-defaults.ts`,
+  for server-only validation — `tasks.schema.ts` (filter/query `superRefine`)
+  and `ai.schema.ts` (admin promptBlock) re-export their contract; the
+  `events`/`suggestions`/`proxy`/`prompt-blocks` schemas are server-only. The per-domain schema shims, `settings-defaults.ts`,
   `task-normalization.ts`, and `task-recurrence.ts` were **deleted** in cleanup.
   `types/api.ts` remains a thin re-export of `@cadence/contracts/common` (the
   documented shared-types home).
 - **Frontend**: Phase 3 codemod repointed relative imports to
   `@cadence/contracts/*` sub-paths and deleted the `app/types/*` shims —
-  **except** `types/settings.ts` (full `UserSettings`/`PersonalEvent` view +
-  `SETTINGS_DEFAULTS`/`DeepPartial` re-exports) and `types/api.ts` (the
+  **except** `types/settings.ts` (the derived full `UserSettings` view +
+  `SETTINGS_DEFAULTS`/`DeepPartial`/`PersonalEvent` re-exports) and `types/api.ts` (the
   `ApiErrorResponse` runtime class). `@cadence/backend` is still imported by the
   RPC client (`AppType`) in 3 files — keep that dependency.
 
@@ -202,12 +207,12 @@ sync. Add to it when you add a `TaskReadShape` branch.
 
 ## 4. Versions & instance identity (read before touching deps)
 
-- **One zod.** Root `pnpm.overrides.zod` pins `^4.4.3` so apps and contracts
+- **One zod.** A root `pnpm.overrides.zod` pin makes apps and contracts
   resolve a single zod instance — two instances cause "two different types with
   this name exist" / "types not identical" errors. Verify with
   `pnpm why zod` after dependency changes.
-- **One hono.** Root `pnpm.overrides.hono` pins `^4.12.23` for the same reason
-  (the frontend's RPC client builds against the backend's `AppType`).
+- **One hono.** A root `pnpm.overrides.hono` pin does the same for hono (the
+  frontend's RPC client builds against the backend's `AppType`).
 - These packages are `private` and unversioned-in-practice (`workspace:*`).
 
 ---
@@ -215,7 +220,10 @@ sync. Add to it when you add a `TaskReadShape` branch.
 ## 5. Conventions
 
 - **Naming:** `xRowSchema` / `xSchema` / `insertXSchema` / `updateXSchema`; types
-  `X` / `CreateXInput` / `UpdateXInput`. Constants `SCREAMING_SNAKE`.
+  `X` / `XRow` / `InsertX` / `UpdateX`, plus `CreateXInput` / `UpdateXInput`
+  (`z.input`) where clients build the body. Constants `SCREAMING_SNAKE`.
+- **Shared scalars:** `isoDateTimeSchema` / `flexibleDateTimeSchema` come from
+  `common.ts` (contracts and backend alike) — never redeclare them.
 - **Imports:** sub-path (`@cadence/contracts/task`) preferred over the barrel.
   Extensionless relative imports inside a package.
 - **No catch-all files.** One module per domain; no `utils.ts`/`helpers.ts`.
@@ -240,10 +248,8 @@ sync. Add to it when you add a `TaskReadShape` branch.
 
 - Editing a Drizzle column without updating its `xRowSchema` → parity test fails
   (good — that's the point; fix the schema).
-- Using `z.infer` for a client-facing input type → required-default errors at
-  call sites. Use `z.input`.
 - Aliasing the frontend's full `UserSettings` to `typeof SETTINGS_DEFAULTS` →
-  `as const` literals break boolean comparisons. Keep the widened interface.
+  `as const` literals break boolean comparisons. Keep it derived via `DeepRequired`.
 - Adding `drizzle-orm`/`hono`/`react`/an app import to a package → `lint` fails.
   If you truly need DB/framework behavior, it doesn't belong in `packages/`.
 - Forgetting the barrel export or the `package.json#exports` sub-path → consumers

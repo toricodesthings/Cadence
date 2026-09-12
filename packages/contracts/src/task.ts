@@ -1,8 +1,6 @@
 import { z } from "zod";
+import { flexibleDateTimeSchema, isoDateTimeSchema } from "./common";
 import { SOURCE_SURFACES } from "@cadence/nlp";
-
-const isoDateTime = z.iso.datetime({ offset: true });
-const flexibleDateTimeSchema = z.union([z.iso.date(), z.iso.datetime({ offset: true })]);
 
 // ── Enums / shared scalars ──
 export const taskStateSchema = z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]);
@@ -43,14 +41,14 @@ export const insertTaskSchema = z.object({
     projectId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.default(0),
     isPinned: z.boolean().default(false),
-    reminderAt: z.iso.datetime({ offset: true }).nullable().optional(),
+    reminderAt: isoDateTimeSchema.nullable().optional(),
     reminderSilenced: z.boolean().default(false),
     recurrenceRule: z.string().max(500).nullable().optional(),
     interactionMode: taskInteractionModeSchema.default("task"),
     waitingOn: z.string().max(500).nullable().optional(),
-    waitingReminder: z.iso.datetime({ offset: true }).nullable().optional(),
+    waitingReminder: isoDateTimeSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
-    notBefore: z.iso.datetime({ offset: true }).nullable().optional(),
+    notBefore: isoDateTimeSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     tagIds: z.array(z.uuid()).max(50).optional(),
     nlp: canonicalNlpEnvelopeSchema.optional(),
@@ -71,14 +69,14 @@ export const updateTaskSchema = z.object({
     projectId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.optional(),
     isPinned: z.boolean().optional(),
-    reminderAt: z.iso.datetime({ offset: true }).nullable().optional(),
+    reminderAt: isoDateTimeSchema.nullable().optional(),
     reminderSilenced: z.boolean().optional(),
     recurrenceRule: z.string().max(500).nullable().optional(),
     interactionMode: taskInteractionModeSchema.optional(),
     waitingOn: z.string().max(500).nullable().optional(),
-    waitingReminder: z.iso.datetime({ offset: true }).nullable().optional(),
+    waitingReminder: isoDateTimeSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
-    notBefore: z.iso.datetime({ offset: true }).nullable().optional(),
+    notBefore: isoDateTimeSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     expectedUpdatedAt: z.string().optional(),
 });
@@ -111,23 +109,23 @@ export const taskRowSchema = z.object({
     state: taskStateSchema,
     orderIndex: z.number(),
     isAllDay: z.boolean(),
-    dueDate: isoDateTime.nullable(),
-    scheduledStart: isoDateTime.nullable(),
-    scheduledEnd: isoDateTime.nullable(),
+    dueDate: isoDateTimeSchema.nullable(),
+    scheduledStart: isoDateTimeSchema.nullable(),
+    scheduledEnd: isoDateTimeSchema.nullable(),
     durationEstimate: z.number().int().nullable(),
     timezoneLocked: z.boolean(),
     priority: z.number().int().min(0).max(4),
     isPinned: z.boolean(),
-    reminderAt: isoDateTime.nullable(),
+    reminderAt: isoDateTimeSchema.nullable(),
     reminderSilenced: z.boolean(),
     recurrenceRule: z.string().nullable(),
     interactionMode: taskInteractionModeSchema,
     waitingOn: z.string().nullable(),
-    waitingReminder: isoDateTime.nullable(),
+    waitingReminder: isoDateTimeSchema.nullable(),
     effort: z.number().int().min(1).max(3).nullable(),
-    notBefore: isoDateTime.nullable(),
-    createdAt: isoDateTime,
-    updatedAt: isoDateTime,
+    notBefore: isoDateTimeSchema.nullable(),
+    createdAt: isoDateTimeSchema,
+    updatedAt: isoDateTimeSchema,
 });
 export type TaskRow = z.infer<typeof taskRowSchema>;
 
@@ -140,14 +138,14 @@ export const taskSchema = taskRowSchema.extend({
     // interface — fixtures and partial reads may omit them).
     sectionId: z.uuid().nullable().optional(),
     waitingOn: z.string().nullable().optional(),
-    waitingReminder: isoDateTime.nullable().optional(),
-    notBefore: isoDateTime.nullable().optional(),
+    waitingReminder: isoDateTimeSchema.nullable().optional(),
+    notBefore: isoDateTimeSchema.nullable().optional(),
     tagIds: z.array(z.uuid()).optional(),
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),
     isRecurringInstance: z.boolean().optional(),
-    occurrenceStart: isoDateTime.nullable().optional(),
-    occurrenceEnd: isoDateTime.nullable().optional(),
+    occurrenceStart: isoDateTimeSchema.nullable().optional(),
+    occurrenceEnd: isoDateTimeSchema.nullable().optional(),
 });
 export type Task = z.infer<typeof taskSchema>;
 

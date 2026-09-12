@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and, inArray, gte, lte, sql, desc, isNull, or } from "drizzle-orm";
+import { eq, and, inArray, gte, lte, sql, desc, isNull, or, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
@@ -359,7 +359,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             // Auto-promote targetMode when targetTime is provided
             const targetMode = body.targetTime && (!body.targetMode || body.targetMode === "AMBIENT")
-                ? "ANCHOR" : (body.targetMode ?? "AMBIENT");
+                ? "ANCHOR" : body.targetMode;
 
             await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
 
@@ -392,9 +392,13 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { expectedUpdatedAt, tagIds, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        // Auto-promote targetMode when targetTime is provided
-        if (body.targetTime && (!body.targetMode || body.targetMode === "AMBIENT")) {
-            body.targetMode = "ANCHOR";
+        // Setting a target time promotes an AMBIENT habit to ANCHOR. When the client
+        // doesn't send a mode, decide in SQL so only a habit that is currently
+        // AMBIENT changes — a BLOCK habit keeps its mode.
+        let targetMode: typeof body.targetMode | SQL = body.targetMode;
+        if (body.targetTime && targetMode === "AMBIENT") targetMode = "ANCHOR";
+        if (body.targetTime && targetMode === undefined) {
+            targetMode = sql`CASE WHEN ${habits.targetMode} = 'AMBIENT' THEN 'ANCHOR' ELSE ${habits.targetMode} END`;
         }
 
         const updated = await withRls(db, userId, async (tx) => {
@@ -411,7 +415,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             const [row] = await tx
                 .update(habits)
-                .set({ ...body, updatedAt: sql`NOW()` })
+                .set({ ...body, targetMode, updatedAt: sql`NOW()` })
                 .where(and(eq(habits.id, id), eq(habits.userId, userId)))
                 .returning();
 

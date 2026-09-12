@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const isoDateTime = z.iso.datetime({ offset: true });
+import { isoDateTimeSchema } from "./common";
 
 /** Upper bound on UIMessage parts. Per-part byte caps are enforced server-side. */
 export const MAX_PARTS_PER_MESSAGE = 32;
@@ -125,7 +124,7 @@ export const aiConversationRowSchema = z.object({
     userId: z.uuid(),
     title: z.string().nullable(),
     model: z.string().nullable(),
-    lastMessageAt: isoDateTime.nullable(),
+    lastMessageAt: isoDateTimeSchema.nullable(),
     archived: z.boolean(),
     metadata: z.record(z.string(), z.unknown()),
     // Non-null while a turn is producing — lets the client hydrate `resume` (doc Update 4 §7.10).
@@ -136,8 +135,8 @@ export const aiConversationRowSchema = z.object({
     // the status to drive Retry. Typed as the raw text column (parity with `activeStreamId`).
     lastStreamId: z.string().nullable(),
     lastStreamStatus: z.string().nullable(),
-    createdAt: isoDateTime,
-    updatedAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
+    updatedAt: isoDateTimeSchema,
 });
 export type AiConversationRow = z.infer<typeof aiConversationRowSchema>;
 
@@ -167,7 +166,7 @@ export const aiMessageRowSchema = z.object({
     metadata: z.record(z.string(), z.unknown()),
     status: messageStatusSchema,
     orderIndex: z.number(),
-    createdAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
 });
 export type AiMessageRow = z.infer<typeof aiMessageRowSchema>;
 

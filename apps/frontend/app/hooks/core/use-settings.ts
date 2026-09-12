@@ -5,32 +5,10 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import type { UserSettings, DeepPartial } from "../../types/settings";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { useAuthState } from "../auth/use-auth-state";
+import { deepMerge } from "@cadence/contracts/settings";
 
 const SETTINGS_KEY = (userId: string | undefined) => ["settings", userId ?? "anonymous"] as const;
 const registeredFlushers = new Set<() => Promise<void>>();
-
-/** Deep merges source into target for settings updates */
-function isObject(item: any): item is Record<string, any> {
-    return item && typeof item === "object" && !Array.isArray(item);
-}
-
-function deepMerge(target: any, source: any): any {
-    const output = Object.assign({}, target);
-    if (isObject(target) && isObject(source)) {
-        Object.keys(source).forEach((key) => {
-            if (isObject(source[key])) {
-                if (!(key in target)) {
-                    Object.assign(output, { [key]: source[key] });
-                } else {
-                    output[key] = deepMerge(target[key], source[key]);
-                }
-            } else {
-                Object.assign(output, { [key]: source[key] });
-            }
-        });
-    }
-    return output;
-}
 
 /** Read settings from localStorage (fast cache) */
 function getLocalSettingsKey(userId: string | undefined) {

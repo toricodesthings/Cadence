@@ -113,7 +113,7 @@ describe("tag route contracts", () => {
 
     // ── POST /tags ──
 
-    it("creates a tag with required name and default color", async () => {
+    it("creates a tag with required name, leaving color to the DB default", async () => {
         const capture: { values?: Record<string, unknown> } = {};
         const tx = createInsertTx(TAG_ROW, capture);
         getDbClientMock.mockReturnValue(tx);
@@ -129,9 +129,8 @@ describe("tag route contracts", () => {
         expect(response.status).toBe(201);
         const body = (await response.json()) as any;
         expect(body.data.name).toBe("urgent");
-        expect(capture.values).toMatchObject({
+        expect(capture.values).toEqual({
             name: "urgent",
-            color: "default",
             userId: TEST_USER_ID,
         });
     });
@@ -264,7 +263,8 @@ describe("tag route contracts", () => {
         expect(response.status).toBe(200);
         const body = (await response.json()) as any;
         expect(body.data.name).toBe("renamed");
-        expect(capture.set).toMatchObject({ name: "renamed" });
+        // Exact match: a partial update must not write default values for fields it didn't send.
+        expect(capture.set).toEqual({ name: "renamed" });
     });
 
     it("returns 404 when patching a nonexistent tag", async () => {

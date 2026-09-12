@@ -33,6 +33,18 @@ export const savedFocusViewPatchSchema = savedFocusViewInputSchema.partial().ext
 });
 export type SavedFocusViewPatch = z.infer<typeof savedFocusViewPatchSchema>;
 
+// ── Personal calendar event (element of calendar.personalEvents.items) ──
+
+export const personalEventSchema = z.object({
+    id: z.string().min(1).max(24),
+    label: z.string().min(1).max(80),
+    monthDay: z.string().regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/), // "MM-DD"
+    emoji: z.string().max(4).nullable(),
+    notify: z.boolean(),
+    startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).nullable(), // "YYYY-MM-DD"
+});
+export type PersonalEvent = z.infer<typeof personalEventSchema>;
+
 // ── Canonical settings schema — single source of truth ──
 //
 // Every settings section, field name, and allowed value is defined here once.
@@ -101,14 +113,7 @@ export const userSettingsSchema = z.object({
         }).optional(),
         personalEvents: z.object({
             enabled: z.boolean(),
-            items: z.array(z.object({
-                id: z.string().min(1).max(24),
-                label: z.string().min(1).max(80),
-                monthDay: z.string().regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/),
-                emoji: z.string().max(4).nullable(),
-                notify: z.boolean(),
-                startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).nullable(),
-            })).max(50),
+            items: z.array(personalEventSchema).max(50),
         }).optional(),
     }).optional(),
     tasks: z.object({
@@ -235,6 +240,28 @@ function deepPartial(schema: z.ZodType): z.ZodType {
     return schema;
 }
 
+function isPlainObject(value: unknown): value is Record<string, any> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Deep-merge `source` over `target`: objects merge key by key, arrays and scalars
+ * replace. Lays stored settings or a patch over `SETTINGS_DEFAULTS` in both apps.
+ */
+export function deepMerge(target: any, source: any): any {
+    const output = Object.assign({}, target);
+    if (isPlainObject(target) && isPlainObject(source)) {
+        for (const key of Object.keys(source)) {
+            // Defense in depth: never let merge keys reach the object prototype.
+            if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
+            output[key] = isPlainObject(source[key]) && key in target
+                ? deepMerge(target[key], source[key])
+                : source[key];
+        }
+    }
+    return output;
+}
+
 // Patch schema — recursively partial version of the canonical schema.
 export const settingsPatchSchema = deepPartial(userSettingsSchema) as z.ZodType<DeepPartial<UserSettings>>;
 
@@ -296,7 +323,7 @@ export const SETTINGS_DEFAULTS = {
         },
         personalEvents: {
             enabled: true,
-            items: [] as Array<{ id: string; label: string; monthDay: string; emoji: string | null; notify: boolean; startedOn: string | null }>,
+            items: [] as PersonalEvent[],
         },
     },
     tasks: {
@@ -392,6 +419,3 @@ export const SETTINGS_DEFAULTS = {
 } as const satisfies Record<string, unknown>;
 
 export type CanonicalSettings = typeof SETTINGS_DEFAULTS;
-
-/** Personal calendar event entry (element of calendar.personalEvents.items). */
-export type PersonalEvent = CanonicalSettings["calendar"]["personalEvents"]["items"][number];

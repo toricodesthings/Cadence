@@ -1,7 +1,6 @@
 import { z } from "zod";
+import { flexibleDateTimeSchema, isoDateTimeSchema } from "./common";
 import { canonicalNlpEnvelopeSchema, sourceSurfaceSchema } from "./task";
-
-const isoDateTime = z.iso.datetime({ offset: true });
 
 export const captureKindSchema = z.enum(["task", "thought", "reference", "unknown"]);
 export type CaptureKind = z.infer<typeof captureKindSchema>;
@@ -39,10 +38,10 @@ export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
 /** Schema for the atomic inbox→task processing endpoint */
 export const processInboxItemSchema = z.object({
     title: z.string().min(1).max(2_000),
-    scheduledDate: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).nullish(),
+    scheduledDate: flexibleDateTimeSchema.nullish(),
     dueDate: z.iso.date().nullish(),
-    scheduledStart: z.iso.datetime({ offset: true }).nullish(),
-    scheduledEnd: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).nullish(),
+    scheduledStart: isoDateTimeSchema.nullish(),
+    scheduledEnd: flexibleDateTimeSchema.nullish(),
     isAllDay: z.boolean().nullish(),
     projectId: z.string().uuid().nullish(),
     tagIds: z.array(z.string().uuid()).nullish(),
@@ -85,9 +84,9 @@ export const inboxItemRowSchema = z.object({
     analysisNeedsReview: z.boolean(),
     analysisReviewReason: z.string().nullable(),
     analysisEntityCount: z.number().int(),
-    clarifiedAt: isoDateTime.nullable(),
-    appliedAt: isoDateTime.nullable(),
-    createdAt: isoDateTime,
+    clarifiedAt: isoDateTimeSchema.nullable(),
+    appliedAt: isoDateTimeSchema.nullable(),
+    createdAt: isoDateTimeSchema,
 });
 export type InboxItemRow = z.infer<typeof inboxItemRowSchema>;
 
@@ -98,8 +97,8 @@ export const inboxItemSchema = inboxItemRowSchema.extend({
     analysisNeedsReview: z.boolean().optional(),
     analysisReviewReason: z.string().nullable().optional(),
     analysisEntityCount: z.number().int().optional(),
-    clarifiedAt: isoDateTime.nullable().optional(),
-    appliedAt: isoDateTime.nullable().optional(),
+    clarifiedAt: isoDateTimeSchema.nullable().optional(),
+    appliedAt: isoDateTimeSchema.nullable().optional(),
 });
 export type InboxItem = z.infer<typeof inboxItemSchema>;
 
@@ -108,7 +107,7 @@ export const inboxSectionRowSchema = z.object({
     userId: z.uuid(),
     name: z.string(),
     orderIndex: z.number().int(),
-    createdAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
 });
 export type InboxSectionRow = z.infer<typeof inboxSectionRowSchema>;
 

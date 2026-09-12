@@ -10,37 +10,12 @@ import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import { throwIfNotFound } from "../../platform/errors";
 import {
+    deepMerge,
     savedFocusViewInputSchema,
     savedFocusViewPatchSchema,
     settingsPatchSchema,
+    SETTINGS_DEFAULTS,
 } from "@cadence/contracts/settings";
-import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
-
-function isObject(item: any): item is Record<string, any> {
-    return item && typeof item === "object" && !Array.isArray(item);
-}
-
-function deepMerge(target: any, source: any): any {
-    const output = Object.assign({}, target);
-    if (isObject(target) && isObject(source)) {
-        Object.keys(source).forEach((key) => {
-            // Defense in depth: never let merge keys reach the object prototype.
-            // Zod already strips unknown keys today, but guard here so a future
-            // schema using .passthrough()/z.record() can't enable prototype pollution.
-            if (key === "__proto__" || key === "constructor" || key === "prototype") return;
-            if (isObject(source[key])) {
-                if (!(key in target)) {
-                    Object.assign(output, { [key]: source[key] });
-                } else {
-                    output[key] = deepMerge(target[key], source[key]);
-                }
-            } else {
-                Object.assign(output, { [key]: source[key] });
-            }
-        });
-    }
-    return output;
-}
 
 /**
  * Normalize stored settings against canonical defaults.

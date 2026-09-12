@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/package.json": {
-    "mtime": 1789148156.3311515,
-    "ast_hash": "f357eaff6a43a2f150ad77344db8ff8e",
+    "mtime": 1789186794.6467376,
+    "ast_hash": "b091e961085f35d423b1f4b92b5ac64c",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/turbo.json": {
@@ -1420,8 +1420,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/package.json": {
-    "mtime": 1789148322.8249586,
-    "ast_hash": "91092b2067b447a038545fb6e531fc6f",
+    "mtime": 1789186774.826705,
+    "ast_hash": "261640f015e63d9dca6672ff0d94851a",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/e2e/smoke.test.mjs": {
@@ -1430,8 +1430,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/src-tauri/tauri.conf.json": {
-    "mtime": 1774400821.259045,
-    "ast_hash": "016a0eb2b579cb3373f0fa83e972f40a",
+    "mtime": 1789186839.2786052,
+    "ast_hash": "817da36e92e5503ff8484d55d6629465",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/src-tauri/build.rs": {
@@ -1465,8 +1465,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/src-tauri/src/lib.rs": {
-    "mtime": 1774384152.8611777,
-    "ast_hash": "2553565eeee5ad45930712c569b28307",
+    "mtime": 1789158937.4750454,
+    "ast_hash": "fb5da69358bf68d85d5ff9c5a3b5988e",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/src-tauri/src/main.rs": {
@@ -1475,8 +1475,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/scripts/sync-version.mjs": {
-    "mtime": 1773553340.890621,
-    "ast_hash": "c1195f58550937f57ea98af490a2c317",
+    "mtime": 1789186773.5787992,
+    "ast_hash": "0d2c54aa9886b73d9cc3585715fce8b5",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/desktop/scripts/dev-with-bridge.mjs": {
@@ -1490,8 +1490,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/vite.config.ts": {
-    "mtime": 1789091335.5171993,
-    "ast_hash": "ffb78e69ac9c594bc4089c17e005382a",
+    "mtime": 1789186936.11848,
+    "ast_hash": "a8e1d70474c6828d1764347e1c5270ca",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/worker.ts": {
@@ -1500,8 +1500,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/tsconfig.json": {
-    "mtime": 1789147565.0196953,
-    "ast_hash": "4ccb6c2b6e54ad3cb884eabf86ca269d",
+    "mtime": 1789186934.598496,
+    "ast_hash": "332d0e6e8b791e7c190dcaf129e4f84e",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/react-router.config.ts": {
@@ -1725,8 +1725,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/env.ts": {
-    "mtime": 1774482273.1466238,
-    "ast_hash": "d629dc6f03292e640a56a59a2a6ddba2",
+    "mtime": 1789186752.9667928,
+    "ast_hash": "8f4f13839c013435197293664bc49286",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/auth-client.ts": {
@@ -1970,8 +1970,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/constants/app-info.ts": {
-    "mtime": 1774482273.1422238,
-    "ast_hash": "23215218aaca4e9450f8689f9c90504a",
+    "mtime": 1789186755.330889,
+    "ast_hash": "cc6eaeb5b98f85d6a3c747281975632c",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/constants/greetings.ts": {
@@ -1990,8 +1990,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/constants/changelog.ts": {
-    "mtime": 1774494155.5429974,
-    "ast_hash": "a39371e0869db9e41cb830f1d001533d",
+    "mtime": 1789186758.2467992,
+    "ast_hash": "521ba6c626730cf8853ce7adce62f8a2",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/app/lib/nlp/build-canonical-envelope.ts": {
@@ -3564,144 +3564,14 @@
     "ast_hash": "55238e2331eb698055e0a1730e6aa542",
     "semantic_hash": ""
   },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/expo-env.d.ts": {
-    "mtime": 1772176791.908991,
-    "ast_hash": "0dd9dccdb4b08595bc83df70d6a154d3",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/app.json": {
-    "mtime": 1789147959.3041198,
-    "ast_hash": "eb02407ec780e9342ea8cf968d9c53e3",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/cloudflare.d.ts": {
-    "mtime": 1772424590.3785515,
-    "ast_hash": "44aca0e22a284e74e6e72a3d623c0689",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/eslint.config.js": {
-    "mtime": 499162500.0,
-    "ast_hash": "560a864580ad8107fbbf8d6d452c82fe",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/tsconfig.json": {
-    "mtime": 1772859625.0520384,
-    "ast_hash": "2c557bf964120c7cc1696b2cbb9479d0",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/package.json": {
-    "mtime": 1789148304.9498522,
-    "ast_hash": "85bde03b2790b15fb91112dc3fa436c9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/app/_layout.tsx": {
-    "mtime": 1789147834.3394754,
-    "ast_hash": "0cbc5eafb394285cba4db75ff28bd02f",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/app/modal.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "a3b709a8c79864356fcc5c97ed63400d",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/app/lib/api-client.ts": {
-    "mtime": 1772859772.324887,
-    "ast_hash": "8baa8dcc33e96c0ce05d11ff8ac759b9",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/app/(tabs)/index.tsx": {
-    "mtime": 1771994963.8482342,
-    "ast_hash": "ce33a1de19991260271f16f6f73453ec",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/app/(tabs)/_layout.tsx": {
-    "mtime": 1789147834.3394754,
-    "ast_hash": "cd806b3f890bcb91f4fad8e9e1921e65",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/app/(tabs)/explore.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "316c4f355d1710d47046c2c7c43bc614",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/constants/theme.ts": {
-    "mtime": 1771994875.6602302,
-    "ast_hash": "f5c658f7fe140094abe8c1bb1bae9de8",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/external-link.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "a71bdc8e0bd55812a1e97662ade442d1",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/hello-wave.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "bc241776c5bccac6964c694706e89e0a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/themed-view.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "ffcbffb4831735916a920f2d0305f126",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/parallax-scroll-view.tsx": {
-    "mtime": 1772424505.2748196,
-    "ast_hash": "2749313cc54cf17dd9e5b4059675de78",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/haptic-tab.tsx": {
-    "mtime": 1789147834.3394754,
-    "ast_hash": "ddeef16373225d904a9d05e930c8d98a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/themed-text.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "c1f1947c3b24be35a7097cc46f71073a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/ui/icon-symbol.ios.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "0f318b392e23d311c7094bdbb94d9c58",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/ui/icon-symbol.tsx": {
-    "mtime": 1772859772.324887,
-    "ast_hash": "45d30127b0e3e2e7c417e6d5f3a33085",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/components/ui/collapsible.tsx": {
-    "mtime": 499162500.0,
-    "ast_hash": "10ba95b344ca9a9846405b242153979a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/hooks/use-color-scheme.ts": {
-    "mtime": 499162500.0,
-    "ast_hash": "6f3444fcb9c7013a839a7832be518831",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/hooks/use-theme-color.ts": {
-    "mtime": 1772424503.3080392,
-    "ast_hash": "1cec816650d198bb746baad7cae12db4",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/hooks/use-color-scheme.web.ts": {
-    "mtime": 499162500.0,
-    "ast_hash": "071fbb9a1a05ffb8af4b7d3b1ffa72d6",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/scripts/reset-project.js": {
-    "mtime": 1772859439.4922438,
-    "ast_hash": "5139ec31e99d98b822908ae4298c83c0",
-    "semantic_hash": ""
-  },
   "/home/shep/projects/My Portfolio/Cadence/pnpm-workspace.yaml": {
     "mtime": 1773198072.160475,
     "ast_hash": "2287f2cc67b23daa7d8b82304dbd789e",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/README.md": {
-    "mtime": 1780775440.244966,
-    "ast_hash": "6f8e48f23b60d857d3a1e43cae7b37cb",
+    "mtime": 1789186825.0506291,
+    "ast_hash": "c841c20d049a234a499fc9a471d8129c",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/packages/AGENTS.md": {
@@ -4430,8 +4300,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/AGENTS.md": {
-    "mtime": 1780889057.069581,
-    "ast_hash": "a5e07027b960a802dbca533a0b1bcb3b",
+    "mtime": 1789165425.9814157,
+    "ast_hash": "c95ff95bc2b2c22361546f11475ad679",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/backend/README.md": {
@@ -4450,18 +4320,13 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/AGENTS.md": {
-    "mtime": 1774226521.5946472,
-    "ast_hash": "9282473b8b0b2a987c894091cb537db7",
+    "mtime": 1789186777.2027295,
+    "ast_hash": "f9ddbe96c7153551dd7e0041c161faf0",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/apps/frontend/README.md": {
     "mtime": 1773638276.7856338,
     "ast_hash": "82419e473bbf8181a1437f3fdb217854",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/README.md": {
-    "mtime": 1772859390.9643767,
-    "ast_hash": "d7eb57f3d24f3f731dcd91998dd01e3a",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-backend.yml": {
@@ -4470,8 +4335,8 @@
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-desktop-release.yml": {
-    "mtime": 1774129222.954279,
-    "ast_hash": "dcc7fe9a72f809dfaa7a289e9c313659",
+    "mtime": 1789186835.366661,
+    "ast_hash": "6d356027de05bbf62ee1edca7f6861e3",
     "semantic_hash": ""
   },
   "/home/shep/projects/My Portfolio/Cadence/.github/workflows/cadence-security.yml": {
@@ -4779,54 +4644,29 @@
     "ast_hash": "c8c8e52909cca4b822655e1493fd9d4a",
     "semantic_hash": ""
   },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/splash-icon.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "97dae5a0e62ad8551d8a31897b425e63",
+  "/home/shep/projects/My Portfolio/Cadence/.release-it.json": {
+    "mtime": 1789186725.6829572,
+    "ast_hash": "0250aafa96a2fa02e0ee6cdfaf17f9e9",
     "semantic_hash": ""
   },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/partial-react-logo.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "8f14e478886737f3323a2ac79c833749",
+  "/home/shep/projects/My Portfolio/Cadence/apps/frontend/release-info.ts": {
+    "mtime": 1789186937.7944958,
+    "ast_hash": "66a356246ab3341c22eee4fcdaf22291",
     "semantic_hash": ""
   },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/icon.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "cb975bba2216ce10a60e6c0ffe9941a2",
+  "/home/shep/projects/My Portfolio/Cadence/AGENTS.md": {
+    "mtime": 1789186806.7826333,
+    "ast_hash": "a267864183c070b558cc635e5a13d7ea",
     "semantic_hash": ""
   },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/react-logo.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "695d5a1c6f29a689130f3aaa573aec6e",
+  "/home/shep/projects/My Portfolio/Cadence/CLAUDE.md": {
+    "mtime": 1789165422.8134158,
+    "ast_hash": "5c27369b226fcf2be8a6cfe52224e767",
     "semantic_hash": ""
   },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/react-logo@3x.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "8a4d0e5b845044e56e3b2df627d01cfd",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/favicon.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "d9f444efbdfbe7931aa93beada07318a",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/android-icon-monochrome.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "1e097dab989759fc0b69440092ca22cd",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/android-icon-background.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "2d65569cc0e2afdcea0af9f9902d4173",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/android-icon-foreground.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "72e71a9c846c6aa4ae32476641a00e18",
-    "semantic_hash": ""
-  },
-  "/home/shep/projects/My Portfolio/Cadence/apps/mobile/assets/images/react-logo@2x.png": {
-    "mtime": 499162500.0,
-    "ast_hash": "b507e7f2c91ebc8fe24dee79ccb3b600",
+  "/home/shep/projects/My Portfolio/Cadence/CHANGELOG.md": {
+    "mtime": 1789186737.8348866,
+    "ast_hash": "07aa0c4c8643ab6dd7324ba264dcd899",
     "semantic_hash": ""
   }
 }

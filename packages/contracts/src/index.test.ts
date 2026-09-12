@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { insertTaskSchema, taskPrioritySchema } from "./task";
 import { SETTINGS_DEFAULTS, userSettingsSchema } from "./settings";
 import { TASK_PRIORITY_LABELS, TAG_PALETTE } from "./constants";
+import { updateTagSchema } from "./tag";
+import { updateProjectSchema } from "./project";
+import { updateHabitSchema } from "./habit";
 
 // Lightweight smoke tests — the heavy lifting (Drizzle row parity) is enforced
 // at compile time in apps/backend/tests/unit/contract-parity.test.ts.
@@ -21,6 +24,14 @@ describe("@cadence/contracts", () => {
 
     it("accepts the canonical settings defaults", () => {
         expect(userSettingsSchema.safeParse(SETTINGS_DEFAULTS).success).toBe(true);
+    });
+
+    it("update schemas only carry the fields that were sent", () => {
+        // Regression: defaults inherited through .partial() used to overwrite
+        // untouched columns (e.g. archiving a habit reset its colour and reminder).
+        expect(updateTagSchema.parse({ name: "x" })).toEqual({ name: "x" });
+        expect(updateProjectSchema.parse({ name: "x" })).toEqual({ name: "x" });
+        expect(updateHabitSchema.parse({ archived: true })).toEqual({ archived: true });
     });
 
     it("exposes shared semantic constants", () => {

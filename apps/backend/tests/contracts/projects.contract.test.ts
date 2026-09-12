@@ -130,9 +130,9 @@ describe("project route contracts", () => {
         expect(response.status).toBe(201);
         const body = (await response.json()) as any;
         expect(body.data.name).toBe("Sprint Alpha");
-        expect(capture.values).toMatchObject({
+        // colorAccent is omitted so the DB column default applies.
+        expect(capture.values).toEqual({
             name: "Sprint Alpha",
-            colorAccent: "luminous-amber",
             userId: TEST_USER_ID,
         });
     });
@@ -266,7 +266,8 @@ describe("project route contracts", () => {
         expect(response.status).toBe(200);
         const body = (await response.json()) as any;
         expect(body.data.name).toBe("Renamed");
-        expect(capture.set).toMatchObject({ name: "Renamed" });
+        // Exact match: a partial update must not write default values for fields it didn't send.
+        expect(capture.set).toEqual({ name: "Renamed" });
     });
 
     it("returns 404 when patching a nonexistent project", async () => {

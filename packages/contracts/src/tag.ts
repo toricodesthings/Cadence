@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { isoDateTimeSchema } from "./common";
 
-const isoDateTime = z.iso.datetime({ offset: true });
-
+// No .default()s on create schemas: an omitted field takes its DB column default, and
+// a default here would leak into the .partial() update schema and overwrite data.
 export const insertTagSchema = z.object({
     name: z.string().min(1).max(100),
-    color: z.string().max(50).default("default"),
+    color: z.string().max(50).optional(),
 });
 export type InsertTag = z.infer<typeof insertTagSchema>;
 
@@ -21,7 +22,7 @@ export const tagRowSchema = z.object({
     userId: z.uuid(),
     name: z.string(),
     color: z.string().nullable(),
-    createdAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
 });
 export type TagRow = z.infer<typeof tagRowSchema>;
 

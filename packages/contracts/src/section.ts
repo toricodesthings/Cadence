@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const isoDateTime = z.iso.datetime({ offset: true });
+import { isoDateTimeSchema } from "./common";
 
 export const sectionQuerySchema = z.object({
     projectId: z.string().uuid().optional(),
@@ -26,7 +25,7 @@ export const taskSectionRowSchema = z.object({
     projectId: z.uuid().nullable(),
     name: z.string(),
     orderIndex: z.number(),
-    createdAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
 });
 export type TaskSectionRow = z.infer<typeof taskSectionRowSchema>;
 

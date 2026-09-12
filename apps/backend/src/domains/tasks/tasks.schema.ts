@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { taskStateSchema } from "@cadence/contracts/task";
-import { paginationSchema } from "@cadence/contracts/common";
+import { flexibleDateTimeSchema, isoDateTimeSchema, paginationSchema } from "@cadence/contracts/common";
 import { normalizeEndBoundary, normalizeStartBoundary } from "@cadence/domain/task-temporal";
 
 // Canonical shapes (enums, insert/update/reorder/batch, Row/Entity) live in
@@ -8,7 +8,6 @@ import { normalizeEndBoundary, normalizeStartBoundary } from "@cadence/domain/ta
 // server-only filter/query schemas that depend on route normalizers.
 export * from "@cadence/contracts/task";
 
-const flexibleDateTimeSchema = z.union([z.iso.date(), z.iso.datetime({ offset: true })]);
 const booleanQuerySchema = z
     .enum(["true", "false"])
     .transform((v) => v === "true");
@@ -22,7 +21,7 @@ const taskFiltersSchemaBase = z.object({
     priority: z.coerce.number().int().min(0).max(4).optional(),
     isPinned: booleanQuerySchema.optional(),
     effort: z.coerce.number().int().min(1).max(3).optional(),
-    notBeforeBefore: z.iso.datetime({ offset: true }).optional(), // tasks where not_before <= this date
+    notBeforeBefore: isoDateTimeSchema.optional(), // tasks where not_before <= this date
     hasNoDate: booleanQuerySchema.optional(),
     hasNoProject: booleanQuerySchema.optional(),
     effectiveOnOrBeforeDate: z.iso.date().optional(),

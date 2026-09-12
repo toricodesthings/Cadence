@@ -1,617 +1,107 @@
-# Cadence Frontend - Agent Instructions
+# Cadence Frontend — Agent Instructions
 
-> **Read this before modifying anything in `apps/frontend`.** This file is the current operating manual for the Cadence SPA.
+React Router v7 SPA (`ssr: false`, intentional) deployed as static assets on Cloudflare Workers. Consumes the shared backend ([`@cadence/backend`](../backend)) exclusively through a typed Hono RPC client — never invent client-only API contracts. This is also the source codebase for the [desktop app](../desktop): a `platform/` runtime boundary swaps web-vs-desktop behavior, so most code must stay platform-neutral. It embodies the **Twilight Sanctuary** design language (full philosophy: [`docs/MANIFESTO.md`](../../docs/MANIFESTO.md), §5); functional correctness and aesthetic integrity are equally non-negotiable.
 
-## 0. Mission
+## 1. Non-Negotiables
 
-Cadence frontend is a **React Router v7 SPA** deployed to **Cloudflare Workers** as static assets with a Worker edge entry.
+- Client-rendered SPA. Do not introduce SSR assumptions.
+- All server data flows through **TanStack Query**; all API calls through the typed Hono RPC client (`app/lib/api/client.ts`) — never raw `fetch` for backend calls.
+- Reusable hooks → `app/hooks/`; non-UI logic → `app/lib/`; shared UI → `app/components/` grouped by domain; Radix always through `app/components/primitives/`, never imported raw into domain components.
+- No sterile SaaS styling: no white cards, harsh borders, gray dashboards. Prefer glass, shadow, ambient color, breathing room. Never hardcode a one-off hex when a semantic token belongs in `app/app.css`.
+- Notification settings fields are required in the settings schema — never optional.
+- Mutations are optimistic-first: snapshot → update immediately → rollback on error → reconcile on settle.
 
-Its job is not just to render tasks. It must preserve the product's core promise:
+## 2. Tech Stack
 
-- a calm, atmospheric productivity experience
-- fast, optimistic interaction loops
-- exact parity with the universal backend API
-- a UI that feels handcrafted rather than generic SaaS
-
-This app is the primary embodiment of the **Twilight Sanctuary** design language. Functional correctness and aesthetic integrity are equally important.
-
----
-
-## 1. Core Non-Negotiables
-
-### 1.1 Product and platform rules
-
-- This is a **client-rendered SPA**. `ssr: false` is intentional.
-- The frontend must consume the **shared universal backend**, never invent client-only API contracts.
-- Do not build web-only business logic into the API model.
-- Keep web/mobile conceptual parity whenever possible, even though this package is the web client.
-
-### 1.2 Design rules
-
-- The visual north star remains **Twilight Sanctuary**.
-- Avoid generic SaaS styling: no sterile white cards, harsh borders, default gray dashboards, or shallow utility-only visuals.
-- Layout must feel spacious and breathable, with intentional use of glass, shadow, and ambient color.
-- DO NOT present too much text in a layout, and text hierachy must be preserved to retain a polished premium feel.
-- Prefer atmosphere, depth, breathing room, soft glass, and warm amber / moonlit accents. No harsh elements.
-- **Never hardcode one-off hex colors in component code** when a semantic token belongs in `app/app.css`.
-
-### 1.3 Architecture rules
-
-- All server data flows through **TanStack Query**.
-- All API calls flow through the **typed Hono RPC client**.
-- Reusable hooks belong in `app/hooks/`.
-- Non-UI app logic belongs in `app/lib/`.
-- Major shared UI belongs in `app/components/` organized by domain.
-- Radix primitives must be consumed through `app/components/primitives/`, not directly from `@radix-ui/*` in domain components.
-
----
-
-## 2. Current Tech Stack
-
-- **Framework:** React 19
-- **Router:** React Router v7 in SPA mode
-- **Deployment:** Cloudflare Workers + Wrangler assets
-- **Styling:** Tailwind CSS v4 via `@theme` in `app/app.css`
-- **Animation:** Framer Motion + `tw-animate-css`
-- **Server state:** TanStack React Query
-- **Backend client:** Hono RPC via `hc<AppType>` from `@cadence/backend`
-- **Auth:** Neon Auth + `@neondatabase/auth-ui`
-- **Primitives:** Radix UI wrappers in `app/components/primitives/`
-- **Icons:** Lucide React
-- **DnD:** dnd-kit
-- **Local UI state:** Zustand
-- **Markdown rendering:** `react-markdown` + `remark-gfm`
-- **Recurrence:** `rrule`
-- **Dates:** `date-fns`
-
----
+React 19 · React Router v7 (SPA mode) · Cloudflare Workers + Wrangler assets · Tailwind CSS v4 (`@theme` in `app/app.css`) · Framer Motion + `tw-animate-css` · TanStack Query · Hono RPC (`hc<AppType>`) · Neon Auth (`@neondatabase/auth-ui`) · Radix UI (wrapped) · Lucide icons · dnd-kit · Zustand · `react-markdown` + `remark-gfm` · `rrule` · `date-fns` · Vercel AI SDK (`@ai-sdk/react`, `ai` v7) for the assistant · TypeScript 7.
 
 ## 3. Runtime Shape
 
-### 3.1 Application shell
+- Shell: `app/root.tsx` (HTML shell, fonts, error boundary) · `app/providers.tsx` (`QueryClientProvider` + `NeonAuthUIProvider`) · `worker.ts` (thin Cloudflare Worker fallback entry — SPA static assets via `not_found_handling: "single-page-application"`, not a rendering layer).
+- Env vars (Wrangler vars): `VITE_NEON_AUTH_URL`, `VITE_API_BASE_URL`. App version/changelog are **not** env vars — `vite.config.ts` reads root `package.json` + `CHANGELOG.md` at build time (`release-info.ts`); `lib/constants/changelog.ts` holds no entries.
 
-The app is rooted through:
+## 4. Routes (`app/routes.ts`)
 
-- `app/root.tsx` — HTML shell, font loading, app stylesheet, error boundary
-- `app/providers.tsx` — Query client + Neon auth provider composition
-- `worker.ts` — Cloudflare Worker fallback for static deployment edge behavior
-
-### 3.2 Deployment model
-
-- Static assets are served from `build/client`
-- Wrangler uses SPA fallback through `not_found_handling: "single-page-application"`
-- The Worker is currently a lightweight fallback entry, not a server-rendering layer
-
-Do not introduce SSR assumptions into this package without an explicit architecture change.
-
----
-
-## 4. Route Inventory and Product Domains
-
-Current top-level routes are:
-
-- `/` — Planner
-- `/schedule` — Calendar / scheduling canvas
-- `/upcoming` — Upcoming task horizon
-- `/inbox` — Inbox capture and sorting
-- `/completed` — Completed tasks
-- `/trash` — Archived / removed task surface
-- `/project/:projectId` — Project-scoped task view
-- `/auth/:pathname` — Sign-in / sign-up flow
-- `/habits` — Habit planning and review canvas
-- `/weekly-review` — Weekly reset / reflection surface
-
-All primary routes (`/`, `/upcoming`, `/inbox`, `/habits`, `/project/:projectId`) call `useRouteFocus()` to restore keyboard focus on navigation, enabling seamless keyboard-driven workflows from search, quick add, and notification center.
-
-The current codebase is not “just tasks.” It includes major product domains for:
-
-- planner tasks
-- schedule/calendar
-- kanban
-- inbox capture
-- habits
-- settings
-- auth
-- sidebar navigation / filtering
-- global command palette and universal search
-- quick-add surface (tasks, thoughts, habits)
-- in-app notification center and browser notifications
-- holding planner panel (unmanaged task triage)
-
----
+`/` (home — hosts Planner + Inbox triage), `/today`, `/schedule`, `/events`, `/upcoming`, `/completed`, `/trash`, `/project/:projectId`, `/habits`, `/weekly-review`, `/auth/:pathname`, `/desktop/quick-capture` (desktop-only capture window), plus `/changelog`, `/privacy-policy`, `/terms`, `/help-feedback`. Primary routes call `useRouteFocus()` to restore keyboard focus on navigation.
 
 ## 5. Source Layout
 
 ```text
 app/
-├── app.css                 # Design tokens, utilities, base rules, motion tokens
-├── providers.tsx           # QueryClient + NeonAuth providers
-├── root.tsx                # App shell, fonts, error boundary
-├── routes.ts               # Route config
-├── components/
-│   ├── MainLayout.tsx      # App shell layout
-│   ├── CommandPalette.tsx  # Global command palette + universal search
-│   ├── calendar/
-│   ├── feedback/
-│   ├── habits/
-│   ├── holding/           # HoldingPlannerPanel for unmanaged task triage
-│   ├── inbox/
-│   ├── kanban/
-│   ├── layout/
-│   ├── notifications/     # NotificationCenter popover
-│   ├── primitives/
-│   ├── quick-add/         # QuickAddSurface (tasks, thoughts, habits)
-│   ├── settings/
-│   ├── shared/
-│   ├── sidebar/
-│   └── tasks/
-├── hooks/
-│   ├── habits/
-│   ├── inbox/
-│   ├── projects/
-│   ├── sections/
-│   ├── tags/
-│   ├── tasks/
-│   └── shared app hooks (see §5.1)
-├── lib/
-│   ├── api/
-│   ├── notifications/     # notification-model.ts, reminder-engine.ts
-│   ├── types/             # settings.ts (Zod schemas for user settings)
-│   ├── utils/
-│   ├── validations/
-│   └── auth-client.ts
-├── stores/
-│   ├── right-panel-store.ts    # Holding planner panel visibility
-│   ├── sidebar-store.ts
-│   ├── tag-filter-store.ts
-│   ├── task-completion-store.ts
-│   └── task-selection-store.ts
-└── types/
-   └── frontend-facing domain types
+├── app.css          # Design tokens (@theme/:root), utilities, base rules — the design source of truth
+├── root.tsx, providers.tsx, routes.ts, worker.ts
+├── components/      # assistant, calendar, command-palette, desktop, events, feedback, focus-views,
+│                     # habits, holding, inbox, kanban, layout, notifications, primitives, quick-add,
+│                     # settings, shared, sidebar, support, tasks, weekly-review
+├── hooks/           # ai, auth, calendar, core, environment, habits, inbox, notifications, projects,
+│                     # search, sections, tags, tasks, ui  (+ use-nlp-parse, use-swipe-navigation)
+├── lib/             # actions, ai (chat-transport, usage, input-guard, stop-stream, stream-error),
+│                     # api (client, query-keys), auth-client.ts, constants, holidays, notes,
+│                     # notifications, nlp, themes, utils, validations, env.ts
+├── platform/         # WEB vs DESKTOP runtime boundary — see §11
+├── stores/          # Zustand: assistant, focus-view, note-room, right-panel (holding),
+│                     # sidebar, tag-filter, task-completion, task-selection
+└── types/           # frontend-local types (e.g. settings.ts — the full UserSettings view type)
 ```
 
----
+## 6. Design System (full detail: `docs/MANIFESTO.md` §5)
 
-### 5.1 Shared app hooks
+- Tokens live under `@theme`/`:root`/`@layer base|utilities` in `app.css`. Accent tokens (`--accent-primary|-soft|-dim`, etc.) are also Tailwind colors; `data-palette` on `<html>` re-tints everything (`lantern` default, `ember`/`rose`/`violet`/`sapphire`/`jade`/`copper`/`frost`, each with a daylight variant) — don't reference `--color-lantern` directly in new surfaces.
+- Every surface must work under every mode combo: `data-theme="daylight"`, `data-accent="soft|vivid"`, `data-theme-preset`, `data-bg-mode="custom"`, `data-density="compact"` (targets stay ≥36px), `data-motion="reduced|full"`. Never patch per-mode inside a component.
+- Reuse existing utilities before inventing new ones (`.glass`, `.glass-surface`, `.aurora-accent`, `.glow-*`, `.focus-pulse-soft`, `.cadence-toast`, `.offline-banner`, `.mobile-sheet-*`, `.safe-*`, `.scrollbar-*`). Z-index: only `.layer-*` utilities, never arbitrary `z-[…]`.
+- Layout via `useShellMode()` (`app/hooks/ui/use-shell-mode.ts`: `wide` ≥1440px, `laptop` ≥1120px, `tablet` ≥768px, `phone` <768px) — never raw breakpoints. Anything "mobile" must also be checked at `tablet`. Tailwind v4 tree-shaking: conditional/prop-driven colors need `@source inline(…)` in `app.css`, or an inline `style`.
+- Contrast floor: no text opacity below `/90` on twilight-muted text (enforced comment at top of `app.css`). Fonts: `Sora` (structural/body, `font-sans`), `Outfit` (display/titles, `font-display`). Every interactive element needs a visible focus style — never `outline-none` without a replacement. Hit targets ≥44×44px (≥36px compact); icon-only controls need `aria-label` + `Tip` (`primitives/Tooltip`), never native `title=""`. `cursor-pointer` on every custom interactive surface, no exceptions.
 
-Notable hooks added or expanded in the current codebase:
+## 7. Data & State
 
-- `use-shell-mode.ts` — responsive breakpoint hook returning `wide`, `laptop`, `tablet`, `phone`
-- `use-keyboard-shortcuts.ts` — global keyboard shortcut registration (`Cmd/Ctrl+K`, `N`, `G` chords, etc.)
-- `use-universal-search.ts` — fuzzy search over tasks, projects, and habits with ranked scoring
-- `use-route-focus.ts` — restores keyboard focus to `[data-focus-target]` after navigation
-- `use-notification-center.ts` — derives in-app notifications from tasks/habits, manages read/dismiss state with `useSyncExternalStore`
-- `use-browser-notifications.ts` — fires native browser `Notification` API for new items when permitted
-- `use-workspace-sync.ts` — manual sync hook for TanStack Query invalidation + SyncButton UI
+- `useQuery`/`useMutation` only for server state — no `useEffect`-fetch-into-local-state without a specific non-caching reason.
+- Optimistic pattern (see `app/hooks/tasks/optimistic-helpers.ts`, `habits/optimistic-helpers.ts`): cancel in-flight queries → snapshot cache → update immediately → rollback on error → invalidate on settle.
+- Query keys centralized in `app/lib/api/query-keys.ts` (domains: tasks, projects, inbox, tags, habits, ai) with differentiated `STALE_TIMES` — don't invent arbitrary per-hook caching windows.
+- Global query errors sign the user out on 401-ish failures and redirect to `/auth` — do not break this.
+- Local UI state: Zustand (`app/stores/`, see §5 for current domains). Local device cache: `useSettings()` uses `localStorage` as a fast initial read. Don't move durable preference state into ad hoc component state when it belongs in Query, Zustand, or local cache.
 
----
+## 8. Domain Behavior to Preserve
 
-## 6. Layout and Composition Patterns
+- **Tasks:** main product unit; list + kanban views; "waiting" is a first-class state, not a hack; `notBefore`, `effort`, tag filtering, sections, subtasks all active. Ordering uses fractional indexing — `app/lib/utils/order-index.ts` (`computeNextOrderIndex`, `computeMidpointIndex`); never renumber whole lists unnecessarily.
+- **Schedule:** multi-mode (month/week/day/year), fetches only the active range. Habit logs hydrate into **virtual habit tasks** on some schedule surfaces — intentional hybrid behavior, don't simplify away.
+- **Habits:** first-class surface; weekly hydration + monthly detail; resolution updates optimistically and drives toast nudges.
+- **Inbox:** items + sections; lightweight capture, not a public AI-parsing surface on its own.
+- **Settings:** dialog state driven by `?settings=` query param (`SettingsDialog.tsx`, deep-linkable tabs: About, Account, Appearance, Assistant, AI, DataPrivacy, DateTime, Integrations, Notifications, Shortcuts, Tasks). Merged optimistically, cached locally. Notification fields are required (backend default seeds them; migration `0011` backfilled).
+- **AI Assistant** (`components/assistant/`, `hooks/ai/`, `lib/ai/`, `stores/assistant-store.ts`): side-panel chat over `@ai-sdk/react`, streaming via `chat-transport.ts`. Tool results render as typed widget cards (`components/assistant/widgets/`) dispatched from `tool-registry.tsx` — proposal cards (task create/update, batch reschedule, project/tag create, log habit, inbox cluster/structure) are human-in-the-loop and require explicit confirm; a `write` kind (e.g. capture-to-inbox) is already executed server-side and just shows a quiet confirm chip. `DangerConfirmCard` gates destructive actions. Never let a tool widget silently mutate without the confirm step it's registered for. Conversations persist and resume; usage is surfaced via `use-ai-usage.ts`.
+- **Shortcuts/search:** `Cmd/Ctrl+K` (command palette + universal fuzzy search over tasks/projects/habits), `N` (quick-add), `Cmd/Ctrl+Shift+S` (manual sync), `G` chords for navigation. Don't add conflicting shortcuts casually.
+- **Notification center** (`components/notifications/NotificationCenter.tsx`): derivation is **client-side only** — `reminder-engine.ts` scans cached tasks/habits on a 60s interval (`use-notification-center.ts`). Dismiss/read state is session-scoped (module-level `Set`s via `useSyncExternalStore`, resets on reload — by design). `use-browser-notifications.ts` fires native `Notification` API when permitted.
+- **Quick add:** `QuickAddSurface.tsx`, tabbed (tasks/thoughts/habits), triggered by `N` or UI; navigates + `useRouteFocus()` on submit.
+- **Holding planner:** `HoldingPlannerPanel.tsx`, slide-out panel for unmanaged (no date/no project) tasks; visibility in `right-panel-store.ts` (persisted); available wide/laptop only.
 
-### 6.1 `MainLayout` is the shared shell
+## 9. Component Patterns
 
-`MainLayout` is the primary app frame for authenticated surfaces. It currently handles:
+- `app/components/primitives/`: `AlertDialog`, `Button`, `Collapsible`, `ContextMenu`, `Dialog`, `DropdownMenu`, `Input`, `Popover`, `ScrollArea`, `Select`, `Separator`, `Skeleton`, `Switch`, `TimePicker`, `Tooltip`. Check here before styling a new Radix wrapper.
+- Prefer composition over boolean-prop explosion. Routes stay thin orchestration; domain components own domain rendering (`MainLayout.tsx` is the shared authenticated shell: sidebar, header, panels, command palette, quick-add, notification center, settings dialog, toaster, sync button).
 
-- sidebar composition
-- top header/title region
-- optional side panels (including holding planner panel)
-- auth gating
-- command palette mounting
-- quick-add surface mounting
-- notification center mounting
-- settings dialog mounting
-- global toaster mounting
-- floating action bar mounting
-- sync button mounting
+## 10. Auth
 
-If you are building a new primary route, it will usually compose through `MainLayout`.
+Neon Auth via `authClient` (`app/lib/auth-client.ts`) + `NeonAuthUIProvider` (`providers.tsx`) + `AuthView` (`routes/auth.tsx`). Custom atmospheric branding/layout on the auth route; third-party UI themed via `.neon-auth-wrapper` in `app.css`. Session changes invalidate all queries. Do not introduce a parallel auth stack.
 
-### 6.2 Layout principles
+## 11. Web vs. Desktop Boundary (`app/platform/`)
 
-- Routes should stay thin orchestration layers.
-- Domain components should own domain rendering.
-- Shared shell concerns belong in shared layout components, not duplicated per route.
-- Prefer composition over boolean-prop sprawl.
+`desktop.ts` (feature-detect "are we in Tauri"), `desktop-shell.ts`, `desktop-auth-handoff.ts` + `lib/desktop-auth-session.ts` (native OAuth/deep-link handoff), `desktop-keyring.ts` (OS credential storage vs. browser storage), `patch-desktop-fetch.ts` (native HTTP transport), `desktop-update-state.ts` (updater), `desktop-e2e.ts`, `web.ts` (browser counterpart). `routes/desktop.quick-capture.tsx` + `hooks/ui/use-desktop-layout-scale.ts` / `use-desktop-command-preferences.ts` back the native quick-capture window and OS menu commands (see [`apps/desktop/AGENTS.md`](../desktop/AGENTS.md)). New platform-divergent behavior belongs behind this boundary — never an inline `if (Tauri)` scattered in domain components.
 
-### 6.3 Provider placement
+## 12. Commands
 
-Global providers belong in `providers.tsx`, not ad hoc inside pages.
+```bash
+pnpm dev:frontend
+pnpm --filter @cadence/frontend typecheck | build | preview | test | cf-typegen
+pnpm deploy:frontend | deploy:frontend:dev
+```
 
-Current provider stack includes:
+Run from repo root, or `pnpm <script>` from this directory. Typecheck at minimum after changes when practical.
 
-- `QueryClientProvider`
-- `NeonAuthUIProvider`
+## 13. Anti-Patterns
 
----
+Hardcoded hex in components · raw `@radix-ui/*` in domain components · raw `fetch` for backend calls · spinner-only flows replacing optimistic ones · duplicated query keys · reusable hooks outside `app/hooks/` · giant route components with business logic · generic SaaS panels/tables breaking the atmosphere · unnecessary full-list renumbering · breaking auth/session invalidation · conflicting keyboard shortcuts · inline platform checks outside `app/platform/`.
 
-## 7. Design System Rules
+## 14. Checklist
 
-### 7.1 `app/app.css` is the source of truth
+Identify the owning domain folder → keep routes thin → reuse/extend a primitive before styling a new one → semantic tokens from `app.css` → Hono RPC + TanStack Query for server state → optimistic updates for visible mutations → preserve focus/pointer/a11y semantics and Twilight Sanctuary tone → typecheck.
 
-All foundational visual tokens live in `app/app.css` under `@theme`, `:root`, `@layer base`, and `@layer utilities`.
-
-Use semantic design tokens instead of raw values.
-
-### 7.2 Token layers
-
-- **Accent (what components use):** `--accent-primary|-soft|-dim`, `--accent-secondary|-soft`, `--accent-tertiary|-soft`, `--accent-glow`, `--accent-surface`, `--accent-on-primary`. These are also Tailwind colors (`bg-accent-primary`, `ring-accent-primary/25`). Don't reference `--color-lantern` directly in new surfaces. `data-palette` on `<html>` re-tints everything: lantern (default, no attribute), ember, rose, violet, sapphire, jade, copper, frost. Each has a daylight variant.
-- **Surfaces/text:** `--color-twilight-{void,deep,base,surface,surface-muted,surface-hover,elevated}`, `--color-twilight-text{,-soft,-muted}`, `--color-twilight-border{,-interactive,-light}`.
-- **Named hues (categorization only):** `lantern`, `moonlit`, `solstice`, `sapphire`, `ember-red`, `forest-green`, `violet`, `personal`.
-- **Wayfinding:** `accent-nav-{capture,schedule,today,upcoming,habits}`, derived from the accent. The fixed `--color-nav-*` set is legacy (it survives only in the daylight block), so don't build on it.
-- **Status:** `--color-priority-{low,medium,high,urgent}`, `--color-feedback-{success,error}`.
-
-### 7.3 Modes: every surface must work under all of them
-
-`[data-*]` attributes on `<html>` remap the tokens. Never patch per mode inside a component. The modes are `data-theme="daylight"`, `data-accent="soft|vivid"`, `data-theme-preset`, `data-bg-mode="custom"`, `data-density="compact"` (targets stay ≥36px), and `data-motion="reduced|full"`. A surface that only looks right in default twilight is unfinished.
-
-### 7.4 Utilities, layers, and layout
-
-- Reuse `app.css` utilities before inventing new ones: `.bg-twilight`, `.glass`, `.glass-surface`, `.surface-utility`, `.surface-route-overlay`, `.aurora-accent`, `.glow-{lantern,moonlit,accent}`, `.focus-pulse-soft`, `.focus-ring-static`, `.sync-spin`, `.btn-icon`, `.touch-target`, `.text-truncate-safe`, `.scrollbar-{thin,hidden,hide}`, `.notification-dot`, `.utility-divider`.
-- **Z-index:** use only the `.layer-*` utilities (backed by `--z-*`; the order is defined in `app.css`), never arbitrary `z-[…]`. Floating UI (selects, popovers, tooltips) sits above system dialogs on purpose.
-- **Layout:** compose by `useShellMode()` (`wide` / `laptop` / `tablet` / `phone`), not raw breakpoints. Anything labeled "mobile" must also be checked at `tablet`.
-- **Mobile:** build sheets from `.mobile-sheet-{shell,header,body,footer}`, `.mobile-scroll-region`, and `.safe-*`. Recompose for phone instead of shrinking desktop; compact search and quick-add are their own modules.
-- **Trust feedback:** route it through `.cadence-toast` and `.offline-banner`. Don't create parallel notices.
-- **Tailwind v4 tree-shaking:** colors that are applied conditionally or passed as props must be safelisted with `@source inline(…)` in `app.css`. Runtime-only colors use an inline `style`. Every color must work on a cold dev server.
-
-### 7.5 Contrast and legacy
-
-- Contrast floor (`--alpha-muted-*`): no text opacity below `/90` on already-muted twilight text.
-- Legacy classes (`text-warm-white`, `text-lantern-amber`, literal colors): preserve their behavior, migrate them to semantic tokens when you touch the file, and never copy them forward.
-
----
-
-## 8. Typography and Interaction Rules
-
-### 8.1 Typography
-
-- `Sora` is the primary structural font
-- `Outfit` is the display/task/title font
-- use `font-display` for headings and high-intent UI labels
-- use `font-sans` for body and interface content
-
-### 8.2 Focus states
-
-- Every interactive element must have a visible focus style.
-- Global focus styling is already defined in `app.css`.
-- Do not use `outline-none` without a proper replacement.
-
-### 8.3 Touch and pointer behavior
-
-- Hit targets are ≥44×44px on touch (≥36px in compact density).
-- Use real `<button>`/`<a>`. Icon-only controls get an `aria-label` and a visible `Tip` (`components/primitives/Tooltip`), never a native `title=""`.
-- `cursor-pointer` should be present on EVERY SINGLE interactive custom surfaces, no exceptions. Better to also introduce it in the base/primitive component.
-
-### 8.4 Motion rules
-
-- Use the motion tokens defined in `:root`.
-- Favor `transform`, `opacity`, and carefully selected color/border/shadow transitions.
-- Avoid `transition: all` in new code.
-- Respect reduced-motion expectations.
-
----
-
-## 9. Data Fetching and Mutation Rules
-
-### 9.1 No raw `fetch` for app API calls
-
-Use the typed RPC client from `app/lib/api/client.ts`.
-
-- `createApiClient(token?)`
-- `useApiClient()` for hooks/components
-
-Do not build untyped ad hoc backend calls.
-
-### 9.2 TanStack Query is mandatory for server state
-
-Use:
-
-- `useQuery` for reads
-- `useMutation` for writes
-
-Do not fetch backend state via `useEffect` + local component state unless there is a very specific reason unrelated to server-state caching.
-
-### 9.3 Optimistic UI is a product rule
-
-For mutations affecting visible lists/cards/surfaces:
-
-1. cancel in-flight queries
-2. snapshot cache
-3. optimistically update cache immediately
-4. rollback on error
-5. invalidate on settle
-
-The existing helpers in:
-
-- `app/hooks/tasks/optimistic-helpers.ts`
-- `app/hooks/habits/optimistic-helpers.ts`
-
-represent the preferred pattern.
-
-### 9.4 Query keys are centralized
-
-Use `app/lib/api/query-keys.ts` as the single source of truth.
-
-Current domains include:
-
-- tasks
-- projects
-- inbox
-- tags
-- habits
-
-Also respect the differentiated `STALE_TIMES` rather than inventing arbitrary caching windows per hook.
-
-### 9.5 Error handling
-
-Global query errors currently sign the user out on 401-ish failures and redirect to auth.
-
-Do not break this auth-expiry recovery path.
-
----
-
-## 10. State Management Rules
-
-The codebase intentionally separates state by type:
-
-### 10.1 Server state
-
-- TanStack Query
-
-### 10.2 Local cross-component UI state
-
-- Zustand stores in `app/stores/`
-
-Current Zustand domains include:
-
-- sidebar collapsed state and width persistence
-- active tag filter
-- multi-select task selection
-- right panel visibility (holding planner)
-- task completion animation state
-
-### 10.3 Local device cache
-
-- `useSettings()` also uses `localStorage` as fast initial cache
-
-Do not move durable UI preference behavior into random component state when it belongs in either React Query, Zustand, or local cache.
-
----
-
-## 11. Domain-Specific Behavior to Preserve
-
-### 11.1 Tasks
-
-- Tasks are the main product unit.
-- The planner page supports list and kanban views.
-- Waiting tasks are a first-class state, not a hack.
-- `notBefore`, `effort`, tag filtering, sections, subtasks, and optimistic editing are all active concepts in the UI.
-
-### 11.2 Ordering
-
-Task and subtask order uses **fractional indexing**.
-
-Use helpers from `app/lib/utils/order-index.ts`:
-
-- `computeNextOrderIndex()`
-- `computeMidpointIndex()`
-
-Do not renumber entire lists unless explicitly required.
-
-### 11.3 Calendar / schedule
-
-- Schedule view is multi-mode: month, week, day, year.
-- It fetches only the active range needed for the current view.
-- Habit logs are hydrated into **virtual habit tasks** for some schedule surfaces.
-
-This hybrid task/habit calendar behavior is intentional. Do not simplify it away without understanding the UX implications.
-
-### 11.4 Habits
-
-- Habits are a first-class product surface, not a side experiment.
-- Weekly hydration and monthly detail are both supported.
-- Habit resolution updates UI optimistically and also powers toast-based nudging/resolution flows.
-
-### 11.5 Inbox
-
-- Inbox supports both items and sections.
-- This is lightweight capture, not yet a public AI parsing surface.
-
-### 11.6 Settings
-
-- Settings dialog state is driven by the `?settings=` query parameter.
-- Deep-linkable settings tabs are intentional.
-- User settings are merged optimistically and cached locally.
-- Notification settings fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are **required** (non-optional) in the schema. The backend default seeds all fields, and migration `0011` backfills existing users.
-
-### 11.7 Keyboard shortcuts, command palette, and universal search
-
-Global shortcuts are part of the product experience.
-
-Current notable shortcuts include:
-
-- `Cmd/Ctrl+K` — command palette (doubles as universal search)
-- `Cmd/Ctrl+Shift+S` — manual sync
-- `N` — quick-add surface
-- `G` chords for navigation
-
-The command palette provides universal search across tasks, projects, and habits with fuzzy matching and ranked results.
-
-Do not add conflicting shortcuts casually.
-
-### 11.8 In-app notification center
-
-- Notification center lives in `app/components/notifications/NotificationCenter.tsx`.
-- Notification derivation is **client-side only**: `reminder-engine.ts` scans cached tasks/habits and generates notifications based on reminders, due dates, and overdue state.
-- Session-scoped dismiss/read state uses module-level `Set` objects exposed through `useSyncExternalStore`. State resets on page reload by design.
-- The engine runs on a 60-second interval inside `use-notification-center.ts`.
-- Browser notifications (`use-browser-notifications.ts`) fire native `Notification` API alerts when user settings allow and permission is granted.
-
-### 11.9 Quick-add surface
-
-- `QuickAddSurface.tsx` is a tabbed modal for creating tasks, thoughts (inbox items), and habits.
-- Triggered via `N` shortcut or UI button.
-- On submit, navigates to the relevant route and focuses via `useRouteFocus()`.
-
-### 11.10 Holding planner panel
-
-- `HoldingPlannerPanel.tsx` is a slide-out right panel showing unmanaged tasks (no date, no project).
-- Visibility is controlled by `right-panel-store.ts` (Zustand, persisted to localStorage).
-- Available on wide/laptop shell modes. Collapsed on smaller breakpoints.
-
----
-
-## 12. Component Patterns
-
-### 12.1 Primitives layer first
-
-Use `app/components/primitives/` as the base layer for reusable styled components that wrap Radix primitives.
-
-Examples include:
-
-- `Button`
-- `Input`
-- `Switch`
-- `Select`
-- `Dialog`
-- `DropdownMenu`
-- `Popover`
-- `Tooltip`
-- `ScrollArea`
-- `Collapsible`
-- `AlertDialog`
-
-Domain components should compose these rather than re-skinning raw Radix packages repeatedly.
-
-These primitives are not meant to be 100% universal, but they should cover the majority of use cases and be extended thoughtfully when needed. Do not create new styled primitives without checking for existing ones first.
-
-### 12.2 Composition over boolean explosion
-
-Prefer explicit composition and smaller domain parts over giant components controlled by many booleans.
-
-### 12.3 Thin routes, richer domain components
-
-Routes should orchestrate data and composition.
-Detailed UI behavior belongs in domain component folders.
-
-### 12.4 Reusable helpers belong in shared utilities
-
-If logic repeats across views, extract it into:
-
-- `app/lib/utils/`
-- `app/lib/api/`
-- `app/hooks/`
-
----
-
-## 13. Auth Rules
-
-Auth currently relies on Neon Auth:
-
-- `authClient` from `app/lib/auth-client.ts`
-- `NeonAuthUIProvider` in `providers.tsx`
-- `AuthView` in `routes/auth.tsx`
-
-Important details:
-
-- the auth route has custom atmospheric branding/layout
-- third-party auth UI is themed via `.neon-auth-wrapper` styles in `app/app.css`
-- session changes currently invalidate all queries
-
-Do not introduce a separate auth stack or duplicate session plumbing.
-
----
-
-## 14. Cloudflare and Environment Rules
-
-### 14.1 Worker compatibility
-
-All code must remain compatible with the Cloudflare Workers environment.
-
-Avoid Node-only assumptions or server-only packages.
-
-### 14.2 Current env vars
-
-Defined through Wrangler vars:
-
-- `VITE_NEON_AUTH_URL`
-- `VITE_API_BASE_URL`
-
-The app version and in-app changelog are **not** env vars. `vite.config.ts` reads the root `package.json` and `CHANGELOG.md` at build time (`release-info.ts`) and injects them. `lib/constants/changelog.ts` holds no entries.
-
-### 14.3 Frontend worker role
-
-`worker.ts` is currently a minimal edge entry that exists mainly for asset deployment behavior and future extension.
-
-Do not overcomplicate it unless the task is specifically about edge logic.
-
----
-
-## 15. Commands
-
-Use `pnpm` only.
-
-Common commands:
-
-- `pnpm dev:frontend`
-- `pnpm --filter @cadence/frontend build`
-- `pnpm --filter @cadence/frontend preview`
-- `pnpm --filter @cadence/frontend preview:dev`
-- `pnpm --filter @cadence/frontend deploy`
-- `pnpm --filter @cadence/frontend deploy:dev`
-- `pnpm --filter @cadence/frontend typecheck`
-- `pnpm --filter @cadence/frontend cf-typegen`
-
-Prefer workspace-root execution when possible.
-
-After code changes, at minimum run the frontend typecheck when practical.
-
----
-
-## 16. Anti-Patterns to Avoid
-
-Do not:
-
-- hardcode hex colors in components when a token belongs in `app/app.css`
-- import raw `@radix-ui/*` into domain components
-- use raw `fetch` for backend calls
-- replace optimistic flows with spinner-only flows
-- duplicate query keys across files
-- put reusable hooks outside `app/hooks/`
-- add giant route components full of business logic and UI state
-- break the calm atmospheric design by introducing generic SaaS panels/tables
-- renumber whole ordered lists unnecessarily
-- break auth/session invalidation behavior
-- add keyboard shortcuts that conflict with existing command palette/navigation behavior
-
----
-
-## 17. What to Preserve When Editing
-
-Unless the task explicitly says otherwise, preserve:
-
-- Twilight Sanctuary design intent
-- semantic token usage through `app/app.css`
-- React Query + optimistic mutation patterns
-- Hono RPC typed backend integration
-- `MainLayout` shell conventions
-- settings query-param deep linking
-- habit/task hybrid schedule behavior
-- sidebar persistence and selection/filter stores
-- auth theming and session provider integration
-
----
-
-## 18. Default Checklist for New Frontend Work
-
-1. identify the domain folder that should own the change
-2. keep route files thin
-3. use or extend an existing primitive before inventing a new styled control
-4. use semantic tokens from `app/app.css`
-5. use Hono RPC through the shared API client
-6. use TanStack Query for server state
-7. implement optimistic updates for visible mutations
-8. preserve accessibility, focus states, and pointer semantics
-9. preserve Twilight Sanctuary visual tone
-10. typecheck the frontend when practical
-
-If a proposed implementation conflicts with this document, treat this file as the frontend operating baseline.
+If this document conflicts with a proposed change, this document is the baseline.

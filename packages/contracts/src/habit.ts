@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const isoDateTime = z.iso.datetime({ offset: true });
+import { isoDateTimeSchema } from "./common";
 
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
@@ -8,27 +7,27 @@ export type HabitStatus = z.infer<typeof habitStatusSchema>;
 export const targetModeSchema = z.enum(["AMBIENT", "ANCHOR", "BLOCK"]);
 export type TargetMode = z.infer<typeof targetModeSchema>;
 
+// No .default()s on create schemas: an omitted field takes its DB column default, and
+// a default here would leak into the .partial() update schema and overwrite data.
 export const insertHabitSchema = z.object({
     title: z.string().min(1).max(255),
     description: z.string().max(10_000).nullable().optional(),
     notes: z.string().nullable().optional(),
     recurrenceRule: z.string().max(500),
     targetTime: z.string().max(30).nullable().optional(),
-    targetMode: targetModeSchema.default("AMBIENT").optional(),
-    reminderEnabled: z.boolean().default(false),
-    colorAccent: z.string().default("lantern"),
-    archived: z.boolean().default(false).optional(),
+    targetMode: targetModeSchema.optional(),
+    reminderEnabled: z.boolean().optional(),
+    colorAccent: z.string().optional(),
+    archived: z.boolean().optional(),
     projectId: z.string().uuid().nullable().optional(),
     tagIds: z.array(z.string().uuid()).optional(),
     sortOrder: z.number().optional(),
     pausedUntil: z.string().nullable().optional(),
 });
-// FE-facing input type uses z.input so server-defaulted fields (reminderEnabled,
-// colorAccent, targetMode) stay optional for clients building request bodies.
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
 export const updateHabitSchema = insertHabitSchema.partial().extend({
-    expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
+    expectedUpdatedAt: isoDateTimeSchema.optional(),
 });
 export type UpdateHabit = z.input<typeof updateHabitSchema>;
 
@@ -78,8 +77,8 @@ export const habitRowSchema = z.object({
     colorAccent: z.string(),
     archived: z.boolean(),
     notes: z.string().nullable(),
-    createdAt: isoDateTime,
-    updatedAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
+    updatedAt: isoDateTimeSchema,
 });
 export type HabitRow = z.infer<typeof habitRowSchema>;
 

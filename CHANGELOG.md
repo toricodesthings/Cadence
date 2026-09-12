@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Fixed
 
 - The version shown in Settings now always matches the latest release.
+- Editing, pausing, or archiving a habit no longer resets its reminder, color, or mode, and editing an archived habit no longer brings it back.
 
 ## [0.9.1] - 2026-09-11
 

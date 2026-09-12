@@ -1,6 +1,14 @@
 # Cadence Frontend
 
-The frontend is a React Router v7 SPA deployed to Cloudflare Workers. It consumes typed RPC contracts from [`@cadence/backend`](../backend) through the workspace instead of brittle filesystem-relative imports.
+The frontend is the Cadence web app — the planner, calendar, habits, inbox, and AI assistant that people actually use. It's a single-page app that talks to [`@cadence/backend`](../backend) through a fully typed client, so there's no guessing about what shape the API returns.
+
+## In plain terms
+
+- It's built with **React 19** and **React Router v7** running in **SPA mode** — the browser loads one HTML shell, and React Router swaps pages client-side from there (no server-side rendering).
+- It's deployed as **static files on Cloudflare Workers**, with a tiny Worker handling the fallback routing.
+- Every API call goes through a **typed RPC client** (`hc<AppType>` from Hono) generated directly from the backend's routes — if the backend's shape changes, the frontend fails to type-check instead of failing silently at runtime.
+- Server data (tasks, habits, etc.) is managed by **TanStack Query**, and most edits are **optimistic** — the UI updates instantly, then reconciles with the server, rolling back only if something actually fails.
+- The same codebase, rebuilt in a different mode, becomes the [desktop app](../desktop) — see `app/platform/` for the parts that adapt between "running in a browser" and "running inside Tauri."
 
 ## Stack
 
@@ -10,6 +18,7 @@ The frontend is a React Router v7 SPA deployed to Cloudflare Workers. It consume
 - TanStack Query for reads and optimistic mutations
 - Hono RPC client via `hc<AppType>`
 - Zustand for local UI state (sidebar, tag filter, right panel, task selection)
+- Vercel AI SDK (`@ai-sdk/react`) for the AI assistant's streaming chat
 - Framer Motion + `tw-animate-css` for animation
 - Cloudflare Workers via `wrangler`
 
@@ -20,6 +29,7 @@ Run from the repository root:
 ```bash
 pnpm dev:frontend
 pnpm --filter @cadence/frontend typecheck
+pnpm --filter @cadence/frontend test
 pnpm --filter @cadence/frontend build
 pnpm --filter @cadence/frontend preview
 pnpm deploy:frontend
@@ -40,41 +50,34 @@ Or run them from this directory with `pnpm <script>`.
 ## Features
 
 - **Planner** — task management with list and kanban views, sections, subtasks, drag-and-drop reordering
-- **Schedule** — calendar views (day, week, month, year) with hybrid task/habit rendering
-- **Inbox** — lightweight capture with sections
+- **Schedule** — calendar views (day, week, month, year) with hybrid task/habit/event rendering
+- **Inbox** — lightweight capture with sections, for thoughts you want out of your head before you sort them
 - **Habits** — weekly/monthly tracking, resolution flows, nudge toasts
+- **AI Assistant** — a side-panel chat that can read and act on your real tasks, projects, habits, and calendar (it proposes changes and waits for approval before writing anything); conversations persist and pick up where they left off
 - **Universal search** — `Cmd/Ctrl+K` command palette with fuzzy search across tasks, projects, and habits
-- **Quick add** — `N` shortcut opens tabbed creation surface for tasks, thoughts (inbox), and habits
+- **Quick add** — `N` shortcut opens a tabbed creation surface for tasks, inbox thoughts, and habits
 - **Notification center** — client-side notifications derived from reminders, due dates, and overdue tasks; fires native browser notifications when enabled
 - **Holding planner** — slide-out right panel for triaging unmanaged tasks (no date, no project)
+- **Weekly review** — a dedicated reflection/reset surface
 - **Manual sync** — `Cmd/Ctrl+Shift+S` invalidates all queries for fresh data
 - **Settings** — deep-linkable tabs including notifications, appearance, date/time, shortcuts, AI, and integrations
-
-## Release Notes
-
-- **Auth shell refresh** — the sign-in/sign-up route is now a compact centered shell with tighter editorial spacing, direct logo treatment, corrected submit hover state, and widened form layout.
-- **Shared section model** — Holding and Project list views now use the same section data as Kanban. Before a user creates any section, list mode stays normalized; once sections exist, unassigned tasks render under `Unsectioned`. Kanban always keeps an `Unsectioned` lane.
-- **Settings persistence hardening** — pending settings mutations flush on unmount and can be flushed explicitly before unload/deploy-sensitive flows.
-- **Location and holiday handling** — geolocation state is shared, holiday prompts moved out of toast noise, and external holiday providers are permitted by CSP.
-- **Release CI** — web verification includes frontend tests/typecheck/build, backend verification, Workers dry-run deploys, tracked-secret hygiene, and dependency audit coverage.
 
 ## Production Notes
 
 - `VITE_NEON_AUTH_URL` is environment-specific. Dev and production intentionally use different Neon Auth branches.
 - Web social sign-in uses the current web origin to build `/auth/callback`. If production social auth returns `403` from Neon Auth, check the trusted redirect domains and provider configuration on the production Neon Auth branch for `dashboard.cadenceapp.cloud`.
-- CSP is managed through [`public/_headers`](./public/_headers). Current policy explicitly allows:
-  - Cloudflare Insights
-  - Google Fonts
-  - holiday provider fetches to `openholidaysapi.org` and `date.nager.at`
+- CSP is managed through [`public/_headers`](./public/_headers). Current policy allows Cloudflare Insights, Google Fonts, and self-origin geolocation, and denies everything not explicitly listed.
 - The auth UI comes from `@neondatabase/auth/react/ui`; layout fixes are applied through route-level classNames and `app/app.css` overrides.
 
 ## Structure
 
 ```text
 app/
-├── components/  UI grouped by domain (calendar, habits, holding, inbox, kanban, notifications, quick-add, settings, sidebar, tasks)
-├── hooks/       React Query hooks, app-level hooks (search, notifications, sync, focus, shortcuts)
-├── lib/         API client, auth, notifications engine, types, utilities, validation helpers
+├── components/  UI grouped by domain (assistant, calendar, desktop, events, habits, holding,
+│                inbox, kanban, notifications, quick-add, settings, sidebar, tasks, weekly-review)
+├── hooks/       React Query hooks, app-level hooks (ai, search, notifications, sync, focus, shortcuts)
+├── lib/         API client, auth, AI chat transport, holidays, notifications engine, types, validation
+├── platform/    Web vs. desktop runtime boundary (deep links, keyring, native fetch patching, updater)
 ├── routes/      Route entry points
 ├── stores/      Zustand state (sidebar, tag filter, right panel, task selection, task completion)
 └── types/       Frontend-local types
@@ -84,3 +87,6 @@ app/
 
 - [Workspace root](../../README.md)
 - [Backend app](../backend/README.md)
+- [Desktop app](../desktop/README.md)
+- [Full contributor rules](./AGENTS.md)
+- [Changelog](../../CHANGELOG.md)

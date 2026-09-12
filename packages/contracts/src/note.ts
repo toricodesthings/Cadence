@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const isoDateTime = z.iso.datetime({ offset: true });
+import { isoDateTimeSchema } from "./common";
 
 export const upsertNoteSchema = z.object({
     body: z.string().max(50_000),
@@ -17,8 +16,8 @@ export const taskNoteRowSchema = z.object({
     wordCount: z.number().int(),
     headingCount: z.number().int(),
     version: z.number().int(),
-    createdAt: isoDateTime,
-    updatedAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
+    updatedAt: isoDateTimeSchema,
 });
 export type TaskNoteRow = z.infer<typeof taskNoteRowSchema>;
 

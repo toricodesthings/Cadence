@@ -100,7 +100,7 @@ describe("debug seed helpers", () => {
         expect(getTaskEffectiveAnchor(task)).toBe("2026-03-10");
     });
 
-    it("uses shared insert-contract defaults for non-task seed entities", () => {
+    it("leaves column defaults to the database for non-task seed entities", () => {
         const project = createSeedProject(USER_ID, {
             name: "Ops Sandbox",
         });
@@ -112,10 +112,9 @@ describe("debug seed helpers", () => {
             recurrenceRule: "FREQ=DAILY",
         });
 
-        expect(project).toMatchObject({
+        expect(project).toEqual({
             userId: USER_ID,
             name: "Ops Sandbox",
-            colorAccent: "luminous-amber",
         });
         expect(inboxItem).toMatchObject({
             userId: USER_ID,
@@ -126,9 +125,6 @@ describe("debug seed helpers", () => {
             userId: USER_ID,
             title: "Morning review",
             recurrenceRule: "FREQ=DAILY",
-            reminderEnabled: false,
-            colorAccent: "lantern",
-            archived: false,
             totalCompletions: 0,
             totalSkips: 0,
             currentStreak: 0,

@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const isoDateTime = z.iso.datetime({ offset: true });
+import { isoDateTimeSchema } from "./common";
 
 export const insertSubtaskSchema = z.object({
     title: z.string().min(1).max(500),
@@ -28,7 +27,7 @@ export const subtaskRowSchema = z.object({
     title: z.string(),
     isComplete: z.boolean(),
     orderIndex: z.number(),
-    createdAt: isoDateTime,
+    createdAt: isoDateTimeSchema,
 });
 export type SubtaskRow = z.infer<typeof subtaskRowSchema>;
 

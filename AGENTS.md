@@ -1,6 +1,6 @@
 # Cadence — Repo Rules for Agents
 
-Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `packages/AGENTS.md`.
+Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `packages/AGENTS.md`.
 
 ## AGENTS.md files are the current truth
 
