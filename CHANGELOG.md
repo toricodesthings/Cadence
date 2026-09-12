@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-12
+
 ### Removed
 
 - The early Expo mobile prototype. Mobile will come from the same codebase as the desktop app.
