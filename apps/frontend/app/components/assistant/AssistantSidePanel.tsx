@@ -630,7 +630,7 @@ export function AssistantSidePanel({
             aria-label={`${assistantName} assistant conversation`}
         >
             {/* Header — styled like a conversation thread header */}
-            <header className="flex h-16 shrink-0 items-center justify-between border-b border-twilight-border px-4">
+            <header className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
                 <div className="flex items-center gap-3">
                     <div className="relative">
                         <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">

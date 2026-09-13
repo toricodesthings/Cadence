@@ -1,0 +1,154 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - complementary [aria-hidden]:
+          - navigation:
+            - navigation:
+              - link:
+                - /url: /
+              - link:
+                - /url: /schedule
+              - link:
+                - /url: /habits
+              - link:
+                - /url: /weekly-review
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                    - generic:
+                      - generic: ·
+                      - generic: 13 Sunday
+                      - generic: ·
+                      - generic: 4:58 PM
+                  - generic:
+                    - button
+                    - button: Today
+                    - button
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - generic:
+                    - generic:
+                      - button: Task
+                      - button: Event
+                    - button
+                  - button
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: All day
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 1 AM
+                            - generic: 2 AM
+                            - generic: 3 AM
+                            - generic: 4 AM
+                            - generic: 5 AM
+                            - generic: 6 AM
+                            - generic: 7 AM
+                            - generic: 8 AM
+                            - generic: 9 AM
+                            - generic: 10 AM
+                            - generic: 11 AM
+                            - generic: 12 PM
+                            - generic: 1 PM
+                            - generic: 2 PM
+                            - generic: 3 PM
+                            - generic: 4 PM
+                            - generic: 5 PM
+                            - generic: 6 PM
+                            - generic: 7 PM
+                            - generic: 8 PM
+                            - generic: 9 PM
+                            - generic: 10 PM
+                            - generic: 11 PM
+            - status
+    - region "Cadence notifications alt+T"
+  - dialog [ref=f7e296]:
+    - generic [ref=f7e298]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=f7e299]
+      - paragraph [ref=f7e300]: 5:00 PM – 6:00 PM
+    - tablist "Create type" [ref=f7e302]:
+      - tab "Task" [selected] [ref=f7e303] [cursor=pointer]
+      - tab "Event" [ref=f7e306] [cursor=pointer]
+    - generic [ref=f7e311]:
+      - textbox "Block title…" [active] [ref=f7e313]
+      - generic [ref=f7e314]:
+        - button "Once" [ref=f7e315] [cursor=pointer]
+        - button "Repeats weekly" [ref=f7e316] [cursor=pointer]
+      - generic [ref=f7e317]:
+        - generic [ref=f7e318]:
+          - text: Start
+          - generic [ref=f7e319]:
+            - combobox "Hour" [ref=f7e324] [cursor=pointer]:
+              - generic: "5"
+            - generic [ref=f7e325]: ":"
+            - combobox "Minute" [ref=f7e326] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f7e327] [cursor=pointer]:
+              - generic: PM
+        - generic [ref=f7e328]:
+          - text: End
+          - generic [ref=f7e329]:
+            - combobox "Hour" [ref=f7e334] [cursor=pointer]:
+              - generic: "6"
+            - generic [ref=f7e335]: ":"
+            - combobox "Minute" [ref=f7e336] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f7e337] [cursor=pointer]:
+              - generic: PM
+      - generic [ref=f7e338]:
+        - generic [ref=f7e339]:
+          - generic [ref=f7e340]: From
+          - textbox "From" [ref=f7e342] [cursor=pointer]: 2026-09-13
+        - generic [ref=f7e343]:
+          - generic [ref=f7e344]:
+            - generic [ref=f7e345]: Until
+            - button "Add end date" [ref=f7e346] [cursor=pointer]
+          - textbox [disabled] [ref=f7e348]
+      - group [ref=f7e349]:
+        - generic "More options" [ref=f7e350] [cursor=pointer]
+        - generic [ref=f7e362]:
+          - generic [ref=f7e363]:
+            - generic [ref=f7e364]: Notes
+            - textbox "Notes" [ref=f7e368]:
+              - /placeholder: Room, context, why this block matters…
+          - group "Priority" [ref=f7e369]:
+            - generic [ref=f7e373]:
+              - 'button "Priority: None" [pressed] [ref=f7e374] [cursor=pointer]':
+                - generic [ref=f7e376]: None
+              - 'button "Priority: Low" [ref=f7e377] [cursor=pointer]':
+                - generic [ref=f7e380]: Low
+              - 'button "Priority: Medium" [ref=f7e381] [cursor=pointer]':
+                - generic [ref=f7e384]: Medium
+              - 'button "Priority: High" [ref=f7e385] [cursor=pointer]':
+                - generic [ref=f7e388]: High
+              - 'button "Priority: Urgent" [ref=f7e389] [cursor=pointer]':
+                - generic [ref=f7e392]: Urgent
+          - group "Effort" [ref=f7e393]:
+            - generic [ref=f7e398]:
+              - button "Low" [ref=f7e399] [cursor=pointer]
+              - button "Medium" [ref=f7e402] [cursor=pointer]
+              - button "High" [ref=f7e405] [cursor=pointer]
+    - generic [ref=f7e355]:
+      - button "Cancel" [ref=f7e356] [cursor=pointer]
+      - button "Add to schedule" [disabled]
+    - button "Close" [ref=f7e357] [cursor=pointer]

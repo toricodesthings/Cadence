@@ -8,6 +8,7 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import type { HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
 import { transformListCache } from "./cache-guards";
 import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";
+import { toISODate } from "../utils/date-format";
 
 function matchesTaskList(task: Task, filters: Record<string, unknown>) {
     if (filters.state && task.state !== filters.state) return false;
@@ -23,8 +24,10 @@ function matchesTaskList(task: Task, filters: Record<string, unknown>) {
         const range = filters.scheduledRange as { start?: string; end?: string };
         const compareValue = getTaskEffectiveAnchor(task);
         if (!compareValue) return false;
-        if (range.start && compareValue < range.start) return false;
-        if (range.end && compareValue > range.end) return false;
+        // Anchors are local YYYY-MM-DD; normalise timestamp bounds to the same shape.
+        const toDateOnly = (value: string) => (value.includes("T") ? toISODate(new Date(value)) : value);
+        if (range.start && compareValue < toDateOnly(range.start)) return false;
+        if (range.end && compareValue > toDateOnly(range.end)) return false;
     }
     if (filters.effectiveOnOrBeforeDate) {
         const anchor = getTaskEffectiveAnchor(task);

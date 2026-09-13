@@ -1,0 +1,115 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - complementary [aria-hidden]:
+          - navigation:
+            - navigation:
+              - link:
+                - /url: /
+              - link:
+                - /url: /schedule
+              - link:
+                - /url: /habits
+              - link:
+                - /url: /weekly-review
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                    - generic:
+                      - generic: ·
+                      - generic: 13 Sunday
+                      - generic: ·
+                      - generic: 4:59 PM
+                  - generic:
+                    - button
+                    - button: Today
+                    - button
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - generic:
+                    - generic:
+                      - button: Task
+                      - button: Event
+                    - button
+                  - button
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: All day
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 1 AM
+                            - generic: 2 AM
+                            - generic: 3 AM
+                            - generic: 4 AM
+                            - generic: 5 AM
+                            - generic: 6 AM
+                            - generic: 7 AM
+                            - generic: 8 AM
+                            - generic: 9 AM
+                            - generic: 10 AM
+                            - generic: 11 AM
+                            - generic: 12 PM
+                            - generic: 1 PM
+                            - generic: 2 PM
+                            - generic: 3 PM
+                            - generic: 4 PM
+                            - generic: 5 PM
+                            - generic: 6 PM
+                            - generic: 7 PM
+                            - generic: 8 PM
+                            - generic: 9 PM
+                            - generic: 10 PM
+                            - generic: 11 PM
+            - status
+    - region "Cadence notifications alt+T"
+  - dialog [ref=f7e296]:
+    - generic [ref=f7e298]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=f7e299]
+      - paragraph [ref=f7e300]: Yearly personal event
+    - tablist "Create type" [ref=f7e302]:
+      - tab "Task" [ref=f7e303] [cursor=pointer]
+      - tab "Event" [selected] [ref=f7e306] [cursor=pointer]
+    - generic [ref=f7e311]:
+      - generic [ref=f7e312]:
+        - text: Event
+        - generic [ref=f7e421]:
+          - button "Pick an emoji" [ref=f7e422] [cursor=pointer]
+          - textbox "Birthday, retreat, launch day…" [active] [ref=f7e426]
+      - generic [ref=f7e314]:
+        - text: Date
+        - button "Choose event date" [ref=f7e427] [cursor=pointer]:
+          - generic [ref=f7e428]: Sun, Sep 13, 2026
+      - generic [ref=f7e434]:
+        - generic [ref=f7e438]:
+          - paragraph [ref=f7e439]: Milestone tracking
+          - paragraph [ref=f7e440]: Count the days since it began
+        - switch "Enable milestone tracking for this personal event" [ref=f7e441] [cursor=pointer]
+      - generic [ref=f7e442]:
+        - generic [ref=f7e447]:
+          - paragraph [ref=f7e448]: Notifications
+          - paragraph [ref=f7e449]: Show a reminder dot
+        - switch "Enable notifications for this personal event" [checked] [ref=f7e450] [cursor=pointer]
+    - generic [ref=f7e355]:
+      - button "Cancel" [ref=f7e356] [cursor=pointer]
+      - button "Add event" [disabled]
+    - button "Close" [ref=f7e357] [cursor=pointer]

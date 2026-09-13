@@ -1,0 +1,80 @@
+- generic [ref=f4e145]:
+  - generic [ref=f4e147]:
+    - complementary "Application navigation" [ref=f4e148]:
+      - navigation "Icon navigation rail" [ref=f4e149]:
+        - generic "Cadence" [ref=f4e150]:
+          - img "Cadence" [ref=f4e151]
+        - navigation "Primary navigation" [ref=f4e153]:
+          - link "Capture" [ref=f4e154] [cursor=pointer]:
+            - /url: /
+          - link "Schedule" [ref=f4e160] [cursor=pointer]:
+            - /url: /schedule
+          - link "Habits" [ref=f4e163] [cursor=pointer]:
+            - /url: /habits
+          - link "Weekly Reset" [ref=f4e166] [cursor=pointer]:
+            - /url: /weekly-review
+        - button "Toggle AI Assistant Panel" [ref=f4e171] [cursor=pointer]
+        - button "Search" [ref=f4e175] [cursor=pointer]
+        - button "Quick add task" [ref=f4e179] [cursor=pointer]
+        - button "Sync workspace" [ref=f4e181] [cursor=pointer]
+        - button "Notifications" [ref=f4e187] [cursor=pointer]
+        - button "Settings" [ref=f4e192] [cursor=pointer]
+        - button "Developer tools" [ref=f4e197] [cursor=pointer]
+        - button "Profile menu" [ref=f4e205] [cursor=pointer]
+    - main [ref=f4e207]:
+      - generic [ref=f4e208]:
+        - generic [ref=f4e210]:
+          - generic [ref=f4e211]:
+            - heading "September 2026" [level=2] [ref=f4e216]
+            - generic [ref=f4e217]:
+              - generic [ref=f4e218]: ·
+              - generic [ref=f4e219]: 13 Sunday
+              - generic [ref=f4e220]: ·
+              - generic [ref=f4e221]: 4:53 PM
+          - generic [ref=f4e222]:
+            - button "Previous" [ref=f4e223] [cursor=pointer]
+            - button "Today" [ref=f4e226] [cursor=pointer]
+            - button "Next" [ref=f4e227] [cursor=pointer]
+          - navigation "Calendar view" [ref=f4e230]:
+            - button "Day" [ref=f4e231] [cursor=pointer]
+            - button "Week" [ref=f4e232] [cursor=pointer]
+            - button "Month" [ref=f4e233] [cursor=pointer]
+            - button "Year" [ref=f4e234] [cursor=pointer]
+          - generic [ref=f4e235]:
+            - generic [ref=f4e236]:
+              - button "Task" [ref=f4e237] [cursor=pointer]
+              - button "Event" [ref=f4e238] [cursor=pointer]
+            - button "Add task" [ref=f4e239] [cursor=pointer]
+          - button "Display & calendar options" [ref=f4e241] [cursor=pointer]
+        - generic [ref=f4e249]:
+          - generic [ref=f4e250]: All day
+          - generic [ref=f4e256]:
+            - generic [ref=f4e257]:
+              - generic [ref=f4e259]: 1 AM
+              - generic [ref=f4e261]: 2 AM
+              - generic [ref=f4e263]: 3 AM
+              - generic [ref=f4e265]: 4 AM
+              - generic [ref=f4e267]: 5 AM
+              - generic [ref=f4e269]: 6 AM
+              - generic [ref=f4e271]: 7 AM
+              - generic [ref=f4e273]: 8 AM
+              - generic [ref=f4e275]: 9 AM
+              - generic [ref=f4e277]: 10 AM
+              - generic [ref=f4e279]: 11 AM
+              - generic [ref=f4e281]: 12 PM
+              - generic [ref=f4e283]: 1 PM
+              - generic [ref=f4e285]: 2 PM
+              - generic [ref=f4e287]: 3 PM
+              - generic [ref=f4e289]: 4 PM
+              - generic [ref=f4e291]: 5 PM
+              - generic [ref=f4e293]: 6 PM
+              - generic [ref=f4e295]: 7 PM
+              - generic [ref=f4e297]: 8 PM
+              - generic [ref=f4e299]: 9 PM
+              - generic [ref=f4e301]: 10 PM
+              - generic [ref=f4e303]: 11 PM
+            - button "UI critique test block 5:00 PM – 6:00 PM" [ref=f4e428] [cursor=pointer]:
+              - generic [ref=f4e429]: UI critique test block
+              - generic [ref=f4e430]: 5:00 PM – 6:00 PM
+      - status [ref=f4e433]
+  - region "Cadence notifications alt+T"

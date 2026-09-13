@@ -1,0 +1,98 @@
+- generic [ref=f10e14]:
+  - generic [ref=f10e16]:
+    - complementary "Application navigation" [ref=f10e17]:
+      - navigation "Icon navigation rail" [ref=f10e18]:
+        - generic "Cadence" [ref=f10e19]:
+          - img "Cadence" [ref=f10e20]
+        - navigation "Primary navigation" [ref=f10e22]:
+          - link "Capture" [ref=f10e23] [cursor=pointer]:
+            - /url: /
+          - link "Schedule" [ref=f10e29] [cursor=pointer]:
+            - /url: /schedule
+          - link "Habits" [ref=f10e32] [cursor=pointer]:
+            - /url: /habits
+          - link "Weekly Reset" [ref=f10e35] [cursor=pointer]:
+            - /url: /weekly-review
+        - button "Toggle AI Assistant Panel" [ref=f10e40] [cursor=pointer]
+        - button "Search" [ref=f10e44] [cursor=pointer]
+        - button "Quick add task" [ref=f10e48] [cursor=pointer]
+        - button "Sync workspace" [ref=f10e50] [cursor=pointer]
+        - button "Notifications" [ref=f10e56] [cursor=pointer]
+        - button "Settings" [ref=f10e60] [cursor=pointer]
+        - button "Developer tools" [ref=f10e65] [cursor=pointer]
+        - button "Profile menu" [ref=f10e73] [cursor=pointer]
+    - main [ref=f10e75]:
+      - generic [ref=f10e76]:
+        - generic [ref=f10e78]:
+          - generic [ref=f10e79]:
+            - heading "September 2026" [level=2] [ref=f10e84]
+            - generic [ref=f10e85]:
+              - generic [ref=f10e86]: ·
+              - generic [ref=f10e87]: Week of Sep 13 – 19, 2026
+              - generic [ref=f10e88]: ·
+              - generic [ref=f10e89]: 5:03 PM
+          - generic [ref=f10e90]:
+            - button "Previous" [ref=f10e91] [cursor=pointer]
+            - button "Today" [ref=f10e94] [cursor=pointer]
+            - button "Next" [ref=f10e95] [cursor=pointer]
+          - navigation "Calendar view" [ref=f10e98]:
+            - button "Day" [ref=f10e99] [cursor=pointer]
+            - button "Week" [ref=f10e100] [cursor=pointer]
+            - button "Month" [ref=f10e101] [cursor=pointer]
+            - button "Year" [ref=f10e102] [cursor=pointer]
+          - generic [ref=f10e103]:
+            - generic [ref=f10e104]:
+              - button "Task" [ref=f10e105] [cursor=pointer]
+              - button "Event" [ref=f10e106] [cursor=pointer]
+            - button "Add task" [ref=f10e107] [cursor=pointer]
+          - button "Display & calendar options" [ref=f10e109] [cursor=pointer]
+        - generic [ref=f10e117]:
+          - generic [ref=f10e118]:
+            - generic [ref=f10e119]: All day
+            - generic [ref=f10e122]:
+              - generic [ref=f10e123]: Mon
+              - generic [ref=f10e124]: "7"
+            - generic [ref=f10e128]:
+              - generic [ref=f10e129]: Tue
+              - generic [ref=f10e130]: "8"
+            - generic [ref=f10e134]:
+              - generic [ref=f10e135]: Wed
+              - generic [ref=f10e136]: "9"
+            - generic [ref=f10e140]:
+              - generic [ref=f10e141]: Thu
+              - generic [ref=f10e142]: "10"
+            - generic [ref=f10e146]:
+              - generic [ref=f10e147]: Fri
+              - generic [ref=f10e148]: "11"
+            - generic [ref=f10e152]:
+              - generic [ref=f10e153]: Sat
+              - generic [ref=f10e154]: "12"
+            - generic [ref=f10e158]:
+              - generic [ref=f10e159]: Sun
+              - generic [ref=f10e160]: "13"
+          - generic [ref=f10e165]:
+            - generic [ref=f10e167]: 1 AM
+            - generic [ref=f10e169]: 2 AM
+            - generic [ref=f10e171]: 3 AM
+            - generic [ref=f10e173]: 4 AM
+            - generic [ref=f10e175]: 5 AM
+            - generic [ref=f10e177]: 6 AM
+            - generic [ref=f10e179]: 7 AM
+            - generic [ref=f10e181]: 8 AM
+            - generic [ref=f10e183]: 9 AM
+            - generic [ref=f10e185]: 10 AM
+            - generic [ref=f10e187]: 11 AM
+            - generic [ref=f10e189]: 12 PM
+            - generic [ref=f10e191]: 1 PM
+            - generic [ref=f10e193]: 2 PM
+            - generic [ref=f10e195]: 3 PM
+            - generic [ref=f10e197]: 4 PM
+            - generic [ref=f10e199]: 5 PM
+            - generic [ref=f10e201]: 6 PM
+            - generic [ref=f10e203]: 7 PM
+            - generic [ref=f10e205]: 8 PM
+            - generic [ref=f10e207]: 9 PM
+            - generic [ref=f10e209]: 10 PM
+            - generic [ref=f10e211]: 11 PM
+      - status [ref=f10e1067]
+  - region "Cadence notifications alt+T"

@@ -1,0 +1,144 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - complementary [aria-hidden]:
+          - navigation:
+            - navigation:
+              - link:
+                - /url: /
+              - link:
+                - /url: /schedule
+              - link:
+                - /url: /habits
+              - link:
+                - /url: /weekly-review
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                    - generic:
+                      - generic: ·
+                      - generic: Week of Sep 13 – 19, 2026
+                      - generic: ·
+                      - generic: 4:40 PM
+                  - generic:
+                    - button
+                    - button: Today
+                    - button
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - generic:
+                    - generic:
+                      - button: Task
+                      - button: Event
+                    - button
+                  - button
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: All day
+                        - generic:
+                          - generic:
+                            - generic: Mon
+                            - generic:
+                              - generic: "7"
+                              - button
+                        - generic:
+                          - generic:
+                            - generic: Tue
+                            - generic: "8"
+                        - generic:
+                          - generic:
+                            - generic: Wed
+                            - generic: "9"
+                        - generic:
+                          - generic:
+                            - generic: Thu
+                            - generic: "10"
+                        - generic:
+                          - generic:
+                            - generic: Fri
+                            - generic: "11"
+                        - generic:
+                          - generic:
+                            - generic: Sat
+                            - generic: "12"
+                        - generic:
+                          - generic:
+                            - generic: Sun
+                            - generic: "13"
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 1 AM
+                            - generic: 2 AM
+                            - generic: 3 AM
+                            - generic: 4 AM
+                            - generic: 5 AM
+                            - generic: 6 AM
+                            - generic: 7 AM
+                            - generic: 8 AM
+                            - generic: 9 AM
+                            - generic: 10 AM
+                            - generic: 11 AM
+                            - generic: 12 PM
+                            - generic: 1 PM
+                            - generic: 2 PM
+                            - generic: 3 PM
+                            - generic: 4 PM
+                            - generic: 5 PM
+                            - generic: 6 PM
+                            - generic: 7 PM
+                            - generic: 8 PM
+                            - generic: 9 PM
+                            - generic: 10 PM
+                            - generic: 11 PM
+            - status
+    - region "Cadence notifications alt+T"
+  - dialog [ref=e1071]:
+    - generic [ref=e1073]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=e1074]
+      - paragraph [ref=e1075]: Yearly personal event
+    - tablist "Create type" [ref=e1077]:
+      - tab "Task" [ref=e1078] [cursor=pointer]
+      - tab "Event" [selected] [ref=e1081] [cursor=pointer]
+    - generic [ref=e1086]:
+      - generic [ref=e1201]:
+        - text: Event
+        - generic [ref=e1202]:
+          - button "Pick an emoji" [ref=e1203] [cursor=pointer]
+          - textbox "Mom's birthday, retreat, launch day…" [active] [ref=e1207]
+      - generic [ref=e1088]:
+        - text: Date
+        - button "Choose event date" [ref=e1208] [cursor=pointer]:
+          - generic [ref=e1209]: Sun, Sep 13, 2026
+      - generic [ref=e1215]:
+        - paragraph [ref=e1217]: Milestone tracking
+        - switch "Enable milestone tracking for this personal event" [ref=e1218] [cursor=pointer]
+      - generic [ref=e1219]:
+        - generic [ref=e1220]:
+          - paragraph [ref=e1221]: Notifications
+          - paragraph [ref=e1222]: Show a reminder dot
+        - switch "Enable notifications for this personal event" [checked] [ref=e1223] [cursor=pointer]
+    - generic [ref=e1128]:
+      - button "Cancel" [ref=e1129] [cursor=pointer]
+      - button "Add event" [disabled]
+    - button "Close" [ref=e1130] [cursor=pointer]

@@ -1,0 +1,110 @@
+- generic [ref=f7e14]:
+  - generic [ref=f7e16]:
+    - complementary "Application navigation" [ref=f7e555]:
+      - navigation "Icon navigation rail" [ref=f7e556]:
+        - generic "Cadence" [ref=f7e557]:
+          - img "Cadence" [ref=f7e558]
+        - navigation "Primary navigation" [ref=f7e560]:
+          - link "Capture" [ref=f7e561] [cursor=pointer]:
+            - /url: /
+          - link "Schedule" [ref=f7e567] [cursor=pointer]:
+            - /url: /schedule
+          - link "Habits" [ref=f7e570] [cursor=pointer]:
+            - /url: /habits
+          - link "Weekly Reset" [ref=f7e573] [cursor=pointer]:
+            - /url: /weekly-review
+        - button "Toggle AI Assistant Panel" [ref=f7e578] [cursor=pointer]
+        - button "Search" [ref=f7e582] [cursor=pointer]
+        - button "Quick add task" [ref=f7e586] [cursor=pointer]
+        - button "Sync workspace" [ref=f7e588] [cursor=pointer]
+        - button "Notifications" [ref=f7e594] [cursor=pointer]
+        - button "Settings" [ref=f7e599] [cursor=pointer]
+        - button "Developer tools" [ref=f7e604] [cursor=pointer]
+        - button "Profile menu" [ref=f7e612] [cursor=pointer]
+    - main [ref=f7e75]:
+      - generic [ref=f7e76]:
+        - generic [ref=f7e78]:
+          - generic [ref=f7e613]:
+            - heading "September 2026" [level=2] [ref=f7e618]
+            - generic [ref=f7e619]:
+              - generic [ref=f7e620]: ·
+              - generic [ref=f7e621]: 13 Sunday
+              - generic [ref=f7e622]: ·
+              - generic [ref=f7e623]: 5:00 PM
+          - generic [ref=f7e90]:
+            - button "Previous" [ref=f7e624] [cursor=pointer]
+            - button "Today" [ref=f7e627] [cursor=pointer]
+            - button "Next" [ref=f7e628] [cursor=pointer]
+          - navigation "Calendar view" [ref=f7e631]:
+            - button "Day" [ref=f7e632] [cursor=pointer]
+            - button "Week" [ref=f7e633] [cursor=pointer]
+            - button "Month" [ref=f7e634] [cursor=pointer]
+            - button "Year" [ref=f7e635] [cursor=pointer]
+          - generic [ref=f7e636]:
+            - generic [ref=f7e637]:
+              - button "Task" [ref=f7e638] [cursor=pointer]
+              - button "Event" [ref=f7e639] [cursor=pointer]
+            - button "Add task" [ref=f7e640] [cursor=pointer]
+          - button "Display & calendar options" [ref=f7e109] [cursor=pointer]
+        - generic [ref=f7e646]:
+          - generic [ref=f7e647]: All day
+          - generic [ref=f7e653]:
+            - generic [ref=f7e654]:
+              - generic [ref=f7e656]: 1 AM
+              - generic [ref=f7e658]: 2 AM
+              - generic [ref=f7e660]: 3 AM
+              - generic [ref=f7e662]: 4 AM
+              - generic [ref=f7e664]: 5 AM
+              - generic [ref=f7e666]: 6 AM
+              - generic [ref=f7e668]: 7 AM
+              - generic [ref=f7e670]: 8 AM
+              - generic [ref=f7e672]: 9 AM
+              - generic [ref=f7e674]: 10 AM
+              - generic [ref=f7e676]: 11 AM
+              - generic [ref=f7e678]: 12 PM
+              - generic [ref=f7e680]: 1 PM
+              - generic [ref=f7e682]: 2 PM
+              - generic [ref=f7e684]: 3 PM
+              - generic [ref=f7e686]: 4 PM
+              - generic [ref=f7e688]: 5 PM
+              - generic [ref=f7e690]: 6 PM
+              - generic [ref=f7e692]: 7 PM
+              - generic [ref=f7e694]: 8 PM
+              - generic [ref=f7e696]: 9 PM
+              - generic [ref=f7e698]: 10 PM
+              - generic [ref=f7e700]: 11 PM
+            - button "Critic probe 2 5:00 PM – 6:00 PM" [active] [ref=f7e825] [cursor=pointer]:
+              - generic [ref=f7e826]: Critic probe 2
+              - generic [ref=f7e827]: 5:00 PM – 6:00 PM
+      - status [ref=f7e294]
+    - generic [ref=f7e830]:
+      - tablist "Right panel view" [ref=f7e831]:
+        - tab "Task" [selected] [ref=f7e832] [cursor=pointer]
+        - tab "Cadence" [ref=f7e836] [cursor=pointer]
+      - generic [ref=f7e842]:
+        - slider "Resize schedule detail panel" [ref=f7e843]
+        - complementary "Task details" [ref=f7e846]:
+          - generic [ref=f7e847]:
+            - generic [ref=f7e849]:
+              - button "Mark complete" [ref=f7e850] [cursor=pointer]
+              - button "Task actions" [ref=f7e852] [cursor=pointer]
+              - button "Close task details" [ref=f7e857] [cursor=pointer]
+            - generic [ref=f7e862]:
+              - generic [ref=f7e863]:
+                - paragraph [ref=f7e864]: Title
+                - textbox "Task title" [ref=f7e865]: Critic probe 2
+              - generic [ref=f7e866]:
+                - button "Task notes preview" [ref=f7e868] [cursor=pointer]: Add notes...
+                - button "Open writing room" [ref=f7e869] [cursor=pointer]
+                - generic [ref=f7e874]:
+                  - paragraph [ref=f7e876]: Created Sep 13
+                  - generic "0 of 50000 characters used" [ref=f7e878]: 0 / 50,000
+              - button [ref=f7e879] [cursor=pointer]:
+                - generic [ref=f7e880]:
+                  - paragraph [ref=f7e881]: Details
+                  - paragraph [ref=f7e882]: Priority, schedule, tags, state
+              - button [ref=f7e884] [cursor=pointer]:
+                - generic [ref=f7e885]:
+                  - paragraph [ref=f7e886]: Subtasks
+                  - paragraph [ref=f7e887]: No subtasks yet
+  - region "Cadence notifications alt+T"

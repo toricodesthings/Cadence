@@ -183,12 +183,9 @@ export default function Schedule() {
         enabled: viewMode === "week",
     });
 
-    const dayRange = useMemo(() => {
-        const { y, m, d } = parseYMD(currentDate);
-        const start = new Date(y, m, d, 0, 0, 0, 0);
-        const end = new Date(y, m, d, 23, 59, 59, 999);
-        return { start: start.toISOString(), end: end.toISOString() };
-    }, [currentDate]);
+    // Date-only bounds, same shape as week/month/year ranges, so the optimistic
+    // cache matcher (cache-sync.ts) compares like with like.
+    const dayRange = useMemo(() => ({ start: currentDate, end: currentDate }), [currentDate]);
     const { data: dayTasks = [] } = useTasks({
         state: "ACTIVE",
         scheduledRange: dayRange,

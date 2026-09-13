@@ -1,0 +1,102 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - button
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                  - generic:
+                    - button
+                    - button
+                  - button
+                  - button
+                - generic:
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - button: Today
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: Sep 7-13
+                        - generic:
+                          - button:
+                            - generic: Mon
+                            - generic: "7"
+                            - generic: "-"
+                          - button:
+                            - generic: Tue
+                            - generic: "8"
+                            - generic: "-"
+                          - button:
+                            - generic: Wed
+                            - generic: "9"
+                            - generic: "-"
+                          - button:
+                            - generic: Thu
+                            - generic: "10"
+                            - generic: "-"
+                          - button:
+                            - generic: Fri
+                            - generic: "11"
+                            - generic: "-"
+                          - button:
+                            - generic: Sat
+                            - generic: "12"
+                            - generic: "-"
+                          - button [pressed]:
+                            - generic: Sun
+                            - generic: "13"
+                            - generic: "-"
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: Now 5:04 PM
+                              - generic: No more timed blocks
+                          - generic: No tasks scheduled
+            - button "Add Task" [ref=f10e1224] [cursor=pointer]
+            - status
+    - button "Ask Janny" [ref=f10e1225] [cursor=pointer]
+    - region "Cadence notifications alt+T"
+  - dialog [ref=f10e1069]:
+    - generic [ref=f10e1071]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=f10e1072]
+      - paragraph [ref=f10e1073]: Yearly personal event
+    - tablist "Create type" [ref=f10e1075]:
+      - tab "Task" [ref=f10e1076] [cursor=pointer]
+      - tab "Event" [selected] [ref=f10e1079] [cursor=pointer]
+    - generic [ref=f10e1084]:
+      - generic [ref=f10e1085]:
+        - text: Event
+        - generic [ref=f10e1328]:
+          - button "Pick an emoji" [ref=f10e1329] [cursor=pointer]
+          - textbox "Birthday, retreat, launch day…" [active] [ref=f10e1333]
+      - generic [ref=f10e1087]:
+        - text: Date
+        - button "Choose event date" [ref=f10e1334] [cursor=pointer]:
+          - generic [ref=f10e1335]: Sun, Sep 13, 2026
+      - generic [ref=f10e1341]:
+        - generic [ref=f10e1345]:
+          - paragraph [ref=f10e1346]: Milestone tracking
+          - paragraph [ref=f10e1347]: Count the days since it began
+        - switch "Enable milestone tracking for this personal event" [ref=f10e1348] [cursor=pointer]
+      - generic [ref=f10e1349]:
+        - generic [ref=f10e1354]:
+          - paragraph [ref=f10e1355]: Notifications
+          - paragraph [ref=f10e1356]: Show a reminder dot
+        - switch "Enable notifications for this personal event" [checked] [ref=f10e1357] [cursor=pointer]
+    - generic [ref=f10e1128]:
+      - button "Cancel" [ref=f10e1129] [cursor=pointer]
+      - button "Add event" [disabled]
+    - button "Close" [ref=f10e1130] [cursor=pointer]

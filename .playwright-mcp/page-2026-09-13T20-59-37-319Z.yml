@@ -1,0 +1,116 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - button
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                  - generic:
+                    - button
+                    - button
+                  - button
+                  - button
+                - generic:
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - button: Today
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic: Now 4:59 PM
+                          - generic: No more timed blocks
+                      - generic: No tasks scheduled
+            - button "Add Task" [ref=f7e451] [cursor=pointer]
+            - status
+    - button "Ask Janny" [ref=f7e452] [cursor=pointer]
+    - region "Cadence notifications alt+T"
+  - dialog [ref=f7e296]:
+    - generic [ref=f7e298]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=f7e299]
+      - paragraph [ref=f7e300]: Repeats Sun, 5:00 PM - 6:00 PM
+    - tablist "Create type" [ref=f7e302]:
+      - tab "Task" [selected] [ref=f7e303] [cursor=pointer]
+      - tab "Event" [ref=f7e306] [cursor=pointer]
+    - generic [ref=f7e311]:
+      - textbox "Block title…" [ref=f7e456]
+      - generic [ref=f7e314]:
+        - button "Once" [ref=f7e457] [cursor=pointer]
+        - button "Repeats weekly" [ref=f7e458] [cursor=pointer]
+      - group "Select days of the week" [ref=f7e459]:
+        - button "Monday" [ref=f7e460] [cursor=pointer]: Mon
+        - button "Tuesday" [ref=f7e461] [cursor=pointer]: Tue
+        - button "Wednesday" [ref=f7e462] [cursor=pointer]: Wed
+        - button "Thursday" [ref=f7e463] [cursor=pointer]: Thu
+        - button "Friday" [ref=f7e464] [cursor=pointer]: Fri
+        - button "Saturday" [ref=f7e465] [cursor=pointer]: Sat
+        - button "Sunday" [pressed] [ref=f7e466] [cursor=pointer]: Sun
+      - generic [ref=f7e467]:
+        - generic [ref=f7e468]:
+          - paragraph [ref=f7e469]: Timetable anchor
+          - paragraph [ref=f7e470]: Fixed block. No check-off.
+        - switch "Treat this recurring block as a timetable anchor" [checked] [ref=f7e471] [cursor=pointer]
+      - generic [ref=f7e317]:
+        - generic [ref=f7e472]:
+          - text: Start
+          - generic [ref=f7e473]:
+            - combobox "Hour" [ref=f7e478] [cursor=pointer]:
+              - generic: "5"
+            - generic [ref=f7e479]: ":"
+            - combobox "Minute" [ref=f7e480] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f7e481] [cursor=pointer]:
+              - generic: PM
+        - generic [ref=f7e482]:
+          - text: End
+          - generic [ref=f7e483]:
+            - combobox "Hour" [ref=f7e488] [cursor=pointer]:
+              - generic: "6"
+            - generic [ref=f7e489]: ":"
+            - combobox "Minute" [ref=f7e490] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f7e491] [cursor=pointer]:
+              - generic: PM
+      - generic [ref=f7e492]:
+        - generic [ref=f7e493]:
+          - generic [ref=f7e494]: From
+          - textbox "From" [ref=f7e496] [cursor=pointer]: 2026-09-13
+        - generic [ref=f7e497]:
+          - generic [ref=f7e498]:
+            - generic [ref=f7e499]: Until
+            - button "Add end date" [ref=f7e500] [cursor=pointer]
+          - textbox [disabled] [ref=f7e502]
+      - group [ref=f7e503]:
+        - generic "More options" [active] [ref=f7e504] [cursor=pointer]
+        - generic [ref=f7e509]:
+          - generic [ref=f7e510]:
+            - generic [ref=f7e511]: Notes
+            - textbox "Notes" [ref=f7e515]:
+              - /placeholder: Room, context, why this block matters…
+          - group "Priority" [ref=f7e516]:
+            - generic [ref=f7e520]:
+              - 'button "Priority: None" [pressed] [ref=f7e521] [cursor=pointer]'
+              - 'button "Priority: Low" [ref=f7e523] [cursor=pointer]'
+              - 'button "Priority: Medium" [ref=f7e526] [cursor=pointer]'
+              - 'button "Priority: High" [ref=f7e529] [cursor=pointer]'
+              - 'button "Priority: Urgent" [ref=f7e532] [cursor=pointer]'
+          - group "Effort" [ref=f7e535]:
+            - generic [ref=f7e540]:
+              - button "Low" [ref=f7e541] [cursor=pointer]
+              - button "Medium" [ref=f7e544] [cursor=pointer]
+              - button "High" [ref=f7e547] [cursor=pointer]
+    - generic [ref=f7e355]:
+      - button "Cancel" [ref=f7e356] [cursor=pointer]
+      - button "Create series" [disabled]
+    - button "Close" [ref=f7e357] [cursor=pointer]

@@ -52,7 +52,7 @@ export function ConversationList({
             aria-label="Saved conversations"
         >
             {/* Header — mirrors the panel header geometry */}
-            <header className="flex h-16 shrink-0 items-center justify-between border-b border-twilight-border px-4">
+            <header className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
                 <div className="flex items-center gap-2">
                     <Tip label="Back to conversation" side="bottom">
                         <button

@@ -244,7 +244,7 @@ export default function Habits() {
                         ) : (
                             /* ── Tablet + Desktop: single compressed row ~56px ── */
                             <div className="px-4 sm:px-6 lg:px-8">
-                                <div className="flex h-16 items-center gap-3">
+                                <div className="flex h-[calc(var(--shell-header-h)-1px)] items-center gap-3">
                                     {/* Left: icon + page identity + heading + week range */}
                                     <div className="flex min-w-0 items-center gap-2.5">
                                         <Flame size={18} className="text-accent-primary/70 shrink-0" />

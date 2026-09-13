@@ -1,0 +1,629 @@
+/*
+ * Loading scene layout, motion and gates (colours live in loading-tokens.css).
+ * Motion is transform/opacity on whole boxes only. Every animation is written as
+ * `animation: var(--ls-still, …)`: reduced motion defines --ls-still: none, and
+ * each element's base transform is its designed still pose.
+ */
+
+.loading-screen {
+    --ls-sw: max(100vw, 177.78vh);
+    --ls-sh: max(100vh, 56.25vw);
+    --su: calc(var(--ls-sw) / 1920);
+    --stage-x: 50%;
+    --stage-y: 50%;
+    /* Oscillations follow a sine; rises decelerate as they recede */
+    --ls-ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
+    --ls-ease-rise: cubic-bezier(0.3, 0.15, 0.45, 1);
+    background: var(--loading-sky-deep);
+}
+
+@media (min-aspect-ratio: 2/1) {
+    .loading-screen { --stage-y: 90%; }
+}
+
+@media (max-aspect-ratio: 3/4) {
+    .loading-screen { --stage-x: 42%; }
+}
+
+/* One 16:9 stage; every layer inside shares the 1920×1080 coordinate system */
+.loading-stage {
+    position: absolute;
+    left: var(--stage-x);
+    top: var(--stage-y);
+    width: var(--ls-sw);
+    height: var(--ls-sh);
+    transform: translate(calc(var(--stage-x) * -1), calc(var(--stage-y) * -1));
+    pointer-events: none;
+}
+
+.ls-layer {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── Season / mode gates ── */
+.ls-autumn { display: var(--ls-autumn); }
+.ls-spring { display: var(--ls-spring); }
+.ls-summer { display: var(--ls-summer); }
+.ls-winter { display: var(--ls-winter); }
+.ls-night { display: var(--ls-night); }
+.ls-key { display: var(--ls-key); }
+.ls-lan-opt { display: var(--ls-lan-opt); }
+.ls-stars-8 { display: var(--ls-stars-8); }
+.ls-stars-18 { display: var(--ls-stars-18); }
+.ls-stars-26 { display: var(--ls-stars-26); }
+.loading-screen .ls-rm-hide { display: var(--ls-rm-display, block); }
+.ls-spring-clouds { opacity: var(--ls-spring-cloud); }
+.ls-cloud-opt { display: var(--ls-cloud-opt, block); }
+.ls-crowns { display: var(--ls-crowns); }
+
+.ls-moon {
+    transform-box: view-box;
+    transform-origin: 560px 300px;
+}
+
+/* ── Sky motion ── */
+.ls-twinkle {
+    position: absolute;
+    opacity: 0.6;
+    animation: var(--ls-still, ls-twinkle var(--dur) var(--ls-ease-sine) var(--delay) infinite both);
+}
+
+.ls-cloud,
+.ls-mist {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.ls-cloud {
+    top: calc(120 * var(--su));
+    height: calc(300 * var(--su));
+}
+
+.ls-mist-far {
+    top: calc(680 * var(--su));
+    height: calc(130 * var(--su));
+    /* Clear column (stage x 740–1180): far mist drops to 0.4 × 0.30 ≈ 0.12 */
+    -webkit-mask-image: linear-gradient(90deg, #000 0 36%, rgb(0 0 0 / 0.4) 38.5% 61.5%, #000 64% 100%);
+    mask-image: linear-gradient(90deg, #000 0 36%, rgb(0 0 0 / 0.4) 38.5% 61.5%, #000 64% 100%);
+}
+
+.ls-mist-valley {
+    top: calc(935 * var(--su));
+    height: calc(90 * var(--su));
+}
+
+/* Seamless one-way tile: 2 × stage wide, content periodic every 1920 units */
+.ls-band {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    transform: translateX(-25%);
+    animation: var(--ls-still, ls-drift var(--dur) linear var(--delay) infinite both);
+}
+
+.ls-band > svg,
+.ls-reflect > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.ls-reflect {
+    position: absolute;
+    left: calc(-8 * var(--su));
+    top: calc(975 * var(--su));
+    width: calc(1936 * var(--su));
+    height: calc(105 * var(--su));
+    /* Stage centre, so its parallax scale lines up with the town it mirrors */
+    transform-origin: calc(968 * var(--su)) calc(-435 * var(--su));
+    animation: var(
+        --ls-still,
+        ls-shimmer 8s var(--ls-ease-sine) -2s infinite both,
+        ls-parallax var(--par-dur) var(--ls-ease-sine) var(--par-delay) infinite alternate both
+    );
+}
+
+/* ── Idle parallax: a slow sine sway, larger for nearer planes (on `translate`, so it composes with each layer's own motion) ── */
+.loading-screen {
+    --par-dur: 18s;
+    --par-delay: -6s;
+}
+
+.ls-par {
+    animation: var(--ls-still, ls-parallax var(--par-dur) var(--ls-ease-sine) var(--par-delay) infinite alternate both);
+}
+
+/* Stage-filling planes overscan slightly so their edges never show while they sway */
+.ls-par-far { --par: calc(10 * var(--su)); scale: 1.02; }
+.ls-par-town { --par: calc(22 * var(--su)); scale: 1.02; }
+.ls-par-near { --par: calc(34 * var(--su)); }
+.ls-par-frame { --par: 22px; }
+
+/* ── Lanterns ── */
+.ls-lanterns {
+    position: absolute;
+    inset: 0;
+    opacity: var(--ls-lantern-opacity);
+    pointer-events: none;
+}
+
+.ls-lan {
+    position: absolute;
+    top: 0;
+    left: var(--x);
+    width: calc(120 * var(--su));
+    height: calc(150 * var(--su));
+    margin-left: calc(-60 * var(--su));
+    transform: translateY(calc(var(--pose) * var(--su))) scale(0.86);
+    animation: var(--ls-still, ls-rise var(--dur) var(--ls-ease-rise) var(--delay) infinite both);
+}
+
+.ls-lan-depth {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform: scale(var(--s));
+    opacity: var(--o);
+}
+
+.ls-lan-depth > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.ls-lan-sway {
+    transform-origin: 50% 25%;
+    animation: var(--ls-still, ls-sway var(--swd) var(--ls-ease-sine) var(--delay) infinite both);
+}
+
+.ls-lan-glow {
+    position: absolute;
+    left: 50%;
+    top: 43%;
+    width: 75%;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    background: radial-gradient(
+        closest-side,
+        color-mix(in srgb, var(--ls-lan-glow) 60%, transparent),
+        color-mix(in srgb, var(--ls-lan-glow) 18%, transparent) 55%,
+        transparent
+    );
+    animation: var(--ls-still, ls-flicker var(--fl) var(--ls-ease-sine) infinite both);
+}
+
+/* ── Particles (viewport-anchored) ── */
+.ls-particles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.ls-set {
+    position: absolute;
+    inset: 0;
+}
+
+.ls-leaf,
+.ls-drop,
+.ls-flake,
+.ls-wisp {
+    position: absolute;
+    top: 0;
+    left: var(--x);
+    opacity: var(--o);
+}
+
+/* Falling leaf: the box falls at a steady rate and swings on a sine; the leaf inside spins and flips in time with the swing. */
+.ls-leaf {
+    width: var(--size);
+    height: var(--size);
+    fill: var(--c);
+    --vein: color-mix(in srgb, var(--c) 50%, #1a0804);
+    translate: var(--px) var(--py);
+    animation: var(
+        --ls-still,
+        ls-fall var(--dur) linear var(--delay) infinite both,
+        ls-swing var(--swp) var(--ls-ease-sine) var(--delay) infinite alternate both
+    );
+}
+
+.ls-leaf-body {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    /* A vein-dark outline keeps the leaf legible when it crosses the lit town */
+    stroke: var(--vein);
+    stroke-width: 0.6;
+    rotate: var(--pr);
+    /* ls-lift: the leaf drops through the middle of each swing and hangs at its ends */
+    animation: var(
+        --ls-still,
+        ls-spin-z var(--dur) linear var(--delay) infinite both,
+        ls-flip var(--swp) var(--ls-ease-sine) var(--delay) infinite alternate both,
+        ls-lift var(--swp) var(--ls-ease-sine) var(--delay) infinite both
+    );
+}
+
+.ls-leaf.is-far {
+    fill: color-mix(in srgb, var(--c) 70%, var(--loading-haze-far));
+}
+
+.ls-drop {
+    width: var(--w);
+    height: var(--len);
+    border-radius: 9999px;
+    background: linear-gradient(to bottom, transparent, var(--ls-rain));
+    transform: translateY(var(--py)) rotate(-8deg);
+    animation: var(--ls-still, ls-rain var(--dur) linear var(--delay) infinite both);
+}
+
+.ls-flake {
+    width: var(--size);
+    height: var(--size);
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--loading-particle-color) var(--core), transparent 72%);
+    translate: 0 var(--py);
+    animation: var(
+        --ls-still,
+        ls-fall var(--dur) linear var(--delay) infinite both,
+        ls-swing calc(var(--dur) / 4) var(--ls-ease-sine) var(--delay) infinite alternate both
+    );
+}
+
+.ls-wisp {
+    width: var(--size);
+    height: var(--size);
+    border-radius: 50%;
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, #fff 30%, var(--loading-particle-color)) 0 20%,
+        color-mix(in srgb, var(--loading-particle-color) 50%, transparent) 45%,
+        transparent 70%
+    );
+    transform: translateY(var(--py));
+    animation: var(--ls-still, ls-wisp var(--dur) var(--ls-ease-sine) var(--delay) infinite both);
+}
+
+/* ── Foreground frame (viewport-anchored, autumn only) ── */
+.ls-frame {
+    position: absolute;
+    display: var(--ls-autumn);
+    pointer-events: none;
+}
+
+.ls-branch {
+    /* Leafy seasons only: autumn maples, summer greens */
+    display: var(--ls-boughs);
+    top: 0;
+    width: clamp(110px, min(14vw, 30vh), 320px);
+    height: auto;
+    aspect-ratio: 300 / 220;
+    overflow: visible;
+    animation: var(
+        --ls-still,
+        ls-bough var(--swd) var(--ls-ease-sine) infinite both,
+        ls-parallax var(--par-dur) var(--ls-ease-sine) var(--par-delay) infinite alternate both
+    );
+}
+
+.ls-branch-tl { left: 0; transform-origin: 0 0; --swd: 7s; }
+.ls-branch-tr { right: 0; transform-origin: 100% 0; --swd: 9s; }
+
+.ls-susuki {
+    bottom: 0;
+    width: clamp(80px, 9vw, 170px);
+    aspect-ratio: 240 / 300;
+    opacity: 0.9;
+}
+
+.ls-susuki-bl { left: 0; }
+.ls-susuki-br { right: 0; }
+
+/* Winter only: a small lit fir where the susuki stands in autumn */
+.ls-xmas {
+    position: absolute;
+    display: var(--ls-winter);
+    left: clamp(14px, 2.2vw, 44px);
+    bottom: 0;
+    width: clamp(60px, 6.2vw, 112px);
+    aspect-ratio: 120 / 170;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.ls-xmas-body {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: var(--ls-still, ls-ruffle 5.4s var(--ls-ease-sine) -1.7s infinite both);
+}
+
+.ls-xmas-lights {
+    animation: var(--ls-still, ls-flicker 3.9s var(--ls-ease-sine) infinite both);
+}
+
+.ls-susuki > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    transform-origin: 40% 100%;
+    animation: var(--ls-still, ls-grass var(--swd) var(--ls-ease-sine) var(--delay) infinite both);
+}
+
+.ls-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(transparent 55%, var(--loading-vignette));
+}
+
+/* ── Logo, wordmark, dots ── */
+/* Lantern glow: a wide soft field that pulses slowly, and an inner flame that breathes with the logo */
+.ls-aura-core {
+    translate: -50% -50%;
+    mix-blend-mode: screen;
+    background: radial-gradient(circle, var(--ls-aura-a) 0%, var(--ls-aura-b) 40%, transparent 70%);
+    animation: var(--ls-still, ls-pulse 4.8s var(--ls-ease-sine) infinite);
+}
+
+.ls-aura-inner {
+    translate: -50% -50%;
+    opacity: var(--ls-aura-inner-o);
+    mix-blend-mode: var(--ls-aura-blend);
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent-primary) 26%, transparent) 0%, transparent 70%);
+    animation: var(--ls-still, ls-glow-breath var(--ls-beat) var(--ls-ease-sine) infinite);
+}
+
+/* Moon-halo rings: thin broken arcs with a spark or two riding them, turning in opposite directions */
+.ls-halo-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    overflow: visible;
+    pointer-events: none;
+    opacity: var(--ls-aura-ring-o);
+    mix-blend-mode: var(--ls-aura-blend);
+}
+
+/* The block reserves the outer ring's height (9.5rem × the 1.2 wide-screen scale), so the rings never overflow into the wordmark */
+.ls-logo-block {
+    min-height: 11.5rem;
+}
+
+.ls-halo-ring-a {
+    width: 7.75rem;
+    height: 7.75rem;
+    animation: var(--ls-still, ls-spin 26s linear infinite);
+}
+
+.ls-halo-ring-b {
+    width: 9.5rem;
+    height: 9.5rem;
+    animation: var(--ls-still, ls-spin-rev 42s linear infinite);
+}
+
+/* The logo breathes: a slow swell and lift, the inner glow brightening with it */
+.ls-logo-block {
+    --ls-beat: 3.2s;
+}
+
+.ls-logo-beat {
+    animation: var(--ls-still, ls-beat var(--ls-beat) var(--ls-ease-sine) infinite);
+}
+
+.ls-logo {
+    filter: var(--ls-logo-filter);
+}
+
+.ls-wordmark {
+    display: flex;
+    align-items: center;
+    gap: 0.9em;
+    font-size: clamp(2.25rem, 3.1vw, 3rem);
+    letter-spacing: 0.28em;
+    /* The tracking adds a trailing space after the last letter; pull the right rule back by it */
+    text-indent: 0.28em;
+    color: var(--loading-text);
+    text-shadow: var(--ls-text-shadow);
+}
+
+/* Thin rules flanking the wordmark, fading away from it */
+.ls-rule {
+    flex: none;
+    width: clamp(2rem, 4vw, 4.5rem);
+    height: 1px;
+    opacity: 0.55;
+}
+
+.ls-rule-l { background: linear-gradient(90deg, transparent, var(--loading-text)); }
+.ls-rule-r { background: linear-gradient(90deg, var(--loading-text), transparent); margin-left: -0.28em; }
+
+@media (max-width: 480px) {
+    .ls-rule { display: none; }
+    .ls-wordmark { text-indent: 0; }
+}
+
+/* The warm valley glow the wordmark sits in; keeps it ≥ 4.5:1 over mid-value daylight ridges. */
+.ls-wordmark-halo {
+    position: absolute;
+    inset: -9rem -14rem;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(closest-side, var(--ls-wordmark-halo) 40%, transparent);
+}
+
+@media (min-width: 1440px) {
+    .ls-logo-block { scale: 1.2; }
+}
+
+.ls-dot {
+    background-color: var(--accent-primary, #FFD166);
+    box-shadow: var(--ls-dot-glow);
+    opacity: var(--ls-dot-o, 1);
+    animation: var(--ls-still, ls-breath 1s cubic-bezier(0.33, 0, 0.2, 1) infinite);
+}
+
+/* ── Crops ── */
+@media (max-aspect-ratio: 3/4) {
+    .loading-screen .ls-p-hide,
+    .loading-screen .ls-branch-tl,
+    .loading-screen .ls-susuki-br { display: none; }
+    .ls-lan { left: var(--xp, var(--x)); }
+    .ls-moon { transform: translate(260px, 0) scale(0.85); }
+    .ls-key-move { transform: translate(260px, 0); }
+    .ls-branch-tr { width: min(38vw, 30vh); }
+    .ls-susuki-bl { width: min(16vw, 11vh); }
+}
+
+/* ── Reduced motion: a designed still (OS setting unless the user chose "full", or the in-app setting) ── */
+[data-motion="reduced"] .loading-screen {
+    --ls-still: none;
+    --ls-rm-display: none;
+    --ls-dot-o: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion="full"]) .loading-screen {
+        --ls-still: none;
+        --ls-rm-display: none;
+        --ls-dot-o: 0.8;
+    }
+}
+
+/* ── Keyframes ── */
+@keyframes ls-drift {
+    from { transform: translateX(-50%); }
+    to { transform: translateX(0); }
+}
+
+@keyframes ls-shimmer {
+    0%, 100% { transform: translateX(calc(-6 * var(--su))); }
+    50% { transform: translateX(calc(6 * var(--su))); }
+}
+
+@keyframes ls-twinkle {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.95; }
+}
+
+@keyframes ls-rise {
+    0% { transform: translate(0, calc(var(--y0) * var(--su))) scale(1); opacity: 0; }
+    12% { opacity: 1; }
+    72% { opacity: 1; }
+    /* Fades out just past the top edge, so the slow end of the rise still happens in frame */
+    100% { transform: translate(calc(var(--dx) * var(--su)), calc(-120 * var(--su))) scale(0.72); opacity: 0; }
+}
+
+@keyframes ls-sway {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+}
+
+@keyframes ls-flicker {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; }
+}
+
+/* Shared by leaves and snow: steady fall on `translate`, sine swing on `transform` (separate properties, so they compose) */
+@keyframes ls-fall {
+    from { translate: 0 -12vh; }
+    to { translate: var(--dx) 112vh; }
+}
+
+@keyframes ls-swing {
+    from { transform: translateX(calc(var(--sway) * -1)); }
+    to { transform: translateX(var(--sway)); }
+}
+
+@keyframes ls-spin-z {
+    from { rotate: 0deg; }
+    to { rotate: var(--spin); }
+}
+
+@keyframes ls-lift {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 calc(var(--size) * 0.6); }
+}
+
+@keyframes ls-parallax {
+    from { translate: calc(var(--par) * -1) 0; }
+    to { translate: var(--par) 0; }
+}
+
+@keyframes ls-flip {
+    from { transform: perspective(600px) rotate3d(var(--ax), var(--ay), 0, -55deg); }
+    to { transform: perspective(600px) rotate3d(var(--ax), var(--ay), 0, 55deg); }
+}
+
+@keyframes ls-rain {
+    from { transform: translate(0, -8vh) rotate(-8deg); }
+    to { transform: translate(var(--dx), 108vh) rotate(-8deg); }
+}
+
+@keyframes ls-wisp {
+    0% { transform: translate(0, 105vh) scale(0.5); opacity: 0; }
+    15% { opacity: var(--o); }
+    50% { transform: translate(var(--dx), 55vh) scale(1); }
+    85% { opacity: calc(var(--o) * 0.5); }
+    100% { transform: translate(calc(var(--dx) * 1.5), -5vh) scale(0.3); opacity: 0; }
+}
+
+@keyframes ls-bough {
+    0%, 100% { transform: rotate(-1.2deg); }
+    50% { transform: rotate(1.2deg); }
+}
+
+@keyframes ls-ruffle {
+    0%, 100% { transform: rotate(-1.4deg) skewX(0.6deg); }
+    50% { transform: rotate(1.4deg) skewX(-0.6deg); }
+}
+
+@keyframes ls-grass {
+    0%, 100% { transform: rotate(calc(var(--amp) * -1)); }
+    45% { transform: rotate(var(--amp)); }
+}
+
+@keyframes ls-pulse {
+    50% { opacity: 0.5; }
+}
+
+@keyframes ls-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes ls-spin-rev {
+    to { transform: rotate(-360deg); }
+}
+
+@keyframes ls-beat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-3px) scale(1.04); }
+}
+
+@keyframes ls-glow-breath {
+    0%, 100% { opacity: calc(var(--ls-aura-inner-o) * 0.55); }
+    50% { opacity: var(--ls-aura-inner-o); }
+}
+
+@keyframes ls-breath {
+    0%, 100% { transform: translateY(0); opacity: 0.45; }
+    40% { transform: translateY(-4px); opacity: 1; }
+}

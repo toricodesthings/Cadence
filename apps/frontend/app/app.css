@@ -153,6 +153,8 @@
   --cadence-planner-gap: 1rem;
   --z-shell-base: 10;
   --z-shell-header: 20;
+  /* Shared by the shell header and every side-panel header so their bottom borders line up. */
+  --shell-header-h: 4.5rem;
   --z-floating-bar: 30;
   --z-nav-backdrop: 40;
   --z-nav-drawer: 50;
@@ -887,6 +889,13 @@
   box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.25);
 }
 
+[data-theme="daylight"] [role="form"] input:focus-visible,
+[data-theme="daylight"] [data-focus-container] input:focus-visible,
+[data-theme="daylight"] [data-focus-container] textarea:focus-visible,
+[data-theme="daylight"] [data-focus-container] select:focus-visible {
+  box-shadow: none;
+}
+
 /* === BASE === */
 @layer base {
   :root {
@@ -958,21 +967,22 @@
     transition: box-shadow var(--duration-smooth) var(--ease-out-expo);
   }
 
-  /* Inputs inside containers that manage their own focus styling should not
-     receive the global lantern ring — the parent container IS the focus indicator.
-     Apply data-focus-container to any composite wrapper that handles focus visually. */
-  [role="form"] input:focus-visible,
-  [data-focus-container] input:focus-visible,
-  [data-focus-container] textarea:focus-visible,
-  [data-focus-container] select:focus-visible {
-    box-shadow: none;
-  }
-
   /* Standalone text inputs get a lighter 1px ring rather than the full 2px button ring */
   input[type="text"]:focus-visible,
   input:not([type]):focus-visible,
   textarea:focus-visible {
     box-shadow: 0 0 0 1px rgba(232, 164, 74, 0.3);
+  }
+
+  /* Inputs inside containers that manage their own focus styling should not
+     receive the global lantern ring — the parent container IS the focus indicator.
+     Apply data-focus-container to any composite wrapper that handles focus visually.
+     Declared after the standalone rule on purpose: equal specificity, later wins. */
+  [role="form"] input:focus-visible,
+  [data-focus-container] input:focus-visible,
+  [data-focus-container] textarea:focus-visible,
+  [data-focus-container] select:focus-visible {
+    box-shadow: none;
   }
 
   ::selection {

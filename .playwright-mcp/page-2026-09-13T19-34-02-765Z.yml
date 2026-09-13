@@ -1,0 +1,71 @@
+- generic [ref=f6e12]:
+  - generic [ref=f6e14]:
+    - complementary "Application navigation" [ref=f6e15]:
+      - navigation "Icon navigation rail" [ref=f6e16]:
+        - generic "Cadence" [ref=f6e17]:
+          - img "Cadence" [ref=f6e18]
+        - navigation "Primary navigation" [ref=f6e20]:
+          - link "Capture" [ref=f6e21] [cursor=pointer]:
+            - /url: /
+          - link "Schedule" [ref=f6e27] [cursor=pointer]:
+            - /url: /schedule
+          - link "Habits" [ref=f6e30] [cursor=pointer]:
+            - /url: /habits
+          - link "Weekly Reset" [ref=f6e33] [cursor=pointer]:
+            - /url: /weekly-review
+        - button "Toggle AI Assistant Panel" [ref=f6e38] [cursor=pointer]
+        - button "Search" [ref=f6e42] [cursor=pointer]
+        - button "Quick add task" [ref=f6e46] [cursor=pointer]
+        - button "Sync workspace" [ref=f6e48] [cursor=pointer]
+        - button "Notifications" [ref=f6e54] [cursor=pointer]
+        - button "Settings" [ref=f6e58] [cursor=pointer]
+        - button "Developer tools" [ref=f6e63] [cursor=pointer]
+        - button "Profile menu" [ref=f6e71] [cursor=pointer]
+      - generic "Navigation panel" [ref=f6e74]:
+        - generic [ref=f6e77]:
+          - button "Search workspace" [ref=f6e78] [cursor=pointer]:
+            - generic [ref=f6e82]: Search…
+          - separator [aria-hidden] [ref=f6e83]
+          - navigation "Main navigation" [ref=f6e84]:
+            - link "Capture" [ref=f6e85] [cursor=pointer]:
+              - /url: /
+            - link "Today" [ref=f6e91] [cursor=pointer]:
+              - /url: /today
+            - link "Upcoming" [ref=f6e99] [cursor=pointer]:
+              - /url: /upcoming
+            - link "Events" [ref=f6e104] [cursor=pointer]:
+              - /url: /events
+          - separator [aria-hidden] [ref=f6e110]
+          - generic [ref=f6e111]:
+            - generic [ref=f6e112]:
+              - button "Projects" [expanded] [ref=f6e113] [cursor=pointer]
+              - button "Create project" [ref=f6e114] [cursor=pointer]
+            - paragraph [ref=f6e117]: No projects yet. Create one to organize your tasks.
+          - separator [aria-hidden] [ref=f6e118]
+          - generic [ref=f6e120]:
+            - button "Tags" [expanded] [ref=f6e121] [cursor=pointer]
+            - button "Create tag" [ref=f6e122] [cursor=pointer]
+          - separator [aria-hidden] [ref=f6e124]
+          - navigation "Secondary navigation" [ref=f6e125]:
+            - link "Completed" [ref=f6e126] [cursor=pointer]:
+              - /url: /completed
+            - link "Trash" [ref=f6e132] [cursor=pointer]:
+              - /url: /trash
+    - generic [ref=f6e139]:
+      - banner [ref=f6e140]:
+        - generic [ref=f6e143]:
+          - generic [ref=f6e144]:
+            - button "Collapse navigation" [expanded] [ref=f6e145] [cursor=pointer]
+            - heading "Capture" [level=1] [ref=f6e156]
+          - button "Show review panel" [ref=f6e158] [cursor=pointer]
+      - main [ref=f6e162]:
+        - generic [ref=f6e166]:
+          - generic [ref=f6e168]:
+            - heading "Sun's still up, Tori." [level=2] [ref=f6e169]
+            - paragraph [ref=f6e170]: Sunday, September 13·3:34 PM
+          - textbox "Capture anything — thoughts, tasks, ideas" [ref=f6e178]:
+            - /placeholder: What's on your mind?
+          - generic [ref=f6e179]:
+            - heading "Your mind is clear." [level=3] [ref=f6e184]
+            - paragraph [ref=f6e185]: Capture anything — tasks, thoughts, reminders — and Cadence will help you place them.
+  - region "Cadence notifications alt+T"

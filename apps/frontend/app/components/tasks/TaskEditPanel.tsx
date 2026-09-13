@@ -268,7 +268,7 @@ export function TaskEditPanel({
         >
             {!task ? (
                 <div className="flex h-full flex-col">
-                    <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
+                    <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-(--shell-header-h) shrink-0">
                         <Skeleton className="h-7 w-7 rounded-lg" />
                         <Skeleton className="h-4 flex-1 rounded-lg" />
                         <Skeleton className="h-7 w-7 rounded-lg" />
@@ -283,7 +283,7 @@ export function TaskEditPanel({
                 <ImmersiveDetailLayout
                     mode={detailMode}
                     header={(
-                        <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
+                        <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-(--shell-header-h) shrink-0">
                         <TaskCheckbox task={task} compact />
                         <div className="flex-1 min-w-0" />
 

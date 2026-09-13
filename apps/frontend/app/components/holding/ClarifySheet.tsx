@@ -194,7 +194,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
             aria-label="Clarify capture"
         >
             {/* ── Header ── */}
-            <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-14 shrink-0">
+            <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-(--shell-header-h) shrink-0">
                 <button
                     type="button"
                     onClick={onClose}

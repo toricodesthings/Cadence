@@ -1,0 +1,392 @@
+[      25ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8788/:0
+[   59654ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:8788/@vite/client:1030
+[   68756ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=83a674ba:15804
+[   69198ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=83a674ba:15804
+[   69282ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <RemixErrorBoundary location={{pathname:"/", ...}}>
+      <RouterProvider$1 router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+        <RouterProvider flushSync={function} router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+          <Router basename="/" location={{pathname:"/", ...}} navigationType="POP" navigator={{...}} ...>
+            <DataRoutes routes={[...]} manifest={{...}} future={{}} state={{...}} isStatic={false} onError={undefined}>
+              <RenderErrorBoundary location={{pathname:"/", ...}} revalidation="idle" component={<Layout>} ...>
+                <RenderedRoute match={{params:{}, ...}} routeContext={{outlet:null, ...}}>
+                  <Layout>
+                    <html
+                      lang="en"
+-                     data-loading-season="autumn"
+-                     data-loading-mode="twilight"
+                    >
+ @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=83a674ba:3239
+[   71460ms] [ERROR] Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template). @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=83a674ba:6614
+[   71638ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71643ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: pending, fetchStatus: idle, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[   71644ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71654ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71655ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: pending, fetchStatus: idle, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[   71656ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71699ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71700ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71795ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71796ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: pending, fetchStatus: idle, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[   71796ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71812ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71813ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71819ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71821ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   71823ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   72166ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth/token:0
+[   72166ms] [WARNING] [cadence:api-auth] /token request failed 401  @ http://localhost:8788/app/lib/api/client.ts:23
+[   72167ms] [WARNING] [cadence:api-auth] authenticated request has no usable JWT {request: http://localhost:8787/api/v1/settings/notification-state, desktopSessionPresent: false, sdkSessionPresent: false} @ http://localhost:8788/app/lib/api/client.ts:70
+[   72168ms] [WARNING] [cadence:query-cache] auth error for query: ["notification-state"] UNAUTHORIZED @ http://localhost:8788/app/providers.tsx:132
+[   72211ms] [WARNING] [cadence:auth-state] auth recovery failed to restore any session @ http://localhost:8788/app/hooks/auth/use-auth-state.tsx:139
+[   80759ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:15804
+[   80838ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <RemixErrorBoundary location={{pathname:"...", ...}}>
+      <RouterProvider$1 router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+        <RouterProvider flushSync={function} router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+          <Router basename="/" location={{pathname:"...", ...}} navigationType="POP" navigator={{...}} ...>
+            <DataRoutes routes={[...]} manifest={{...}} future={{}} state={{...}} isStatic={false} onError={undefined}>
+              <RenderErrorBoundary location={{pathname:"...", ...}} revalidation="idle" component={<Layout>} ...>
+                <RenderedRoute match={{params:{...}, ...}} routeContext={{outlet:null, ...}}>
+                  <Layout>
+                    <html
+                      lang="en"
+-                     data-loading-season="autumn"
+-                     data-loading-mode="twilight"
+                    >
+ @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:3239
+[   80970ms] [ERROR] Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template). @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:6614
+[  130000ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S1681365026%3A1789321126059907&client_id=516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com&code_challenge=eaBacg9wsLNAwzGqN2sraTsESiHhRO7bEgPc5dOOVwE&code_challenge_method=S256&include_granted_scopes=true&o2v=2&redirect_uri=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech%2Fauth%2Foauth%2Fcallback%2Fgoogle&response_type=code&scope=email+profile+openid&service=lso&state=eyJlbmRwb2ludElkIjoiZXAtZ3JlZW4tZm9yZXN0LWFldXNoeXR0IiwiZGF0YWJhc2UiOiJuZW9uZGIiLCJwcm92aWRlck5hbWUiOiJnb29nbGUiLCJ0aW1lc3RhbXAiOjE3ODkzMjExMjU4Mjl9ada09a128a4dbe675fafc0f0f8bff644d6107f14502c33d36c573e5ee587e0cb&flowName=GeneralOAuthFlow&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAOflwt24Y5bsHbieADNNDqYA3kNu8IfSkpJa0NG1775bwc-GCbhJ-2IDPHmZI30DfiDHq6OsDriKy_eivW1Czjgqx3LaQJ6KuKzMkGhz_ly--tOvJ3i7KNISSHhiO4HgOlNbcLP6qUgdL4aHgyODAavDytaW5Faga1SwLfg7SJpWZRreYDcMz1tpJpLqLvtId_XHEv3UgpTCBEHt05T4RHrA0d-P6qVJYkqEsMbcnCk0SLUpphKbe0ErM9cF7hjHZAVP2QkfColfuddtVeEwQrfpDMjPSDvpxdJYsWdrJu18m0Alueofo_gUWsdYOVhzQp6ROnWJrI1ZALHK1GW9JNnKSub__S2zpw5EQzjzuXVMeC723jyjrBI7wjE1CXqxgbQO6zpac6cyp9e7ynd7EprRWQLJOcWG6e95egA8VCIEntJqSAh9SO_ujzyVgFCW7gFovpp_sU6HU0FVLKpbPvFEzNhGF72Ul_4InpWayUKo23l_MOma4PSMpQQzWJbvYi-9YPm%26flowName%3DGeneralOAuthFlow%26as%3DS1681365026%253A1789321126059907%26client_id%3D516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech&rart=ANgoxcdEp0QlfIHcE_v2VHDAx71NJ0cSV5y0M6Gy7SeU8Nf2rQdWeeEdUGi5y9xI-3x8hNLLYbO0EbCJrhA__BQkYcuvW8IBI06Ol0Dzvvu4wO0UzTTRglk:0
+[  130009ms] [LOG] %c%s color: red; background: yellow; font-size: 24px; WARNING! @ https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.kXXuMp9e520.es5.O/am=QQQAAAAc8EYCgPz_3wAAAgi2A76vBdAECBkAAAAAAAAAAMASAAA0BBA/d=1/excm=_b,_tp,identifierview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlGAj37EjRioi8owaqazHB8X0bU1tg/dti=1/m=_b,_tp:562
+[  130010ms] [LOG] %c%s font-size: 18px; Using this console may allow attackers to impersonate you and steal your information using an attack called Self-XSS.
+Do not enter or paste code that you do not understand. @ https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.kXXuMp9e520.es5.O/am=QQQAAAAc8EYCgPz_3wAAAgi2A76vBdAECBkAAAAAAAAAAMASAAA0BBA/d=1/excm=_b,_tp,identifierview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlGAj37EjRioi8owaqazHB8X0bU1tg/dti=1/m=_b,_tp:562
+[  130445ms] [WARNING] No available adapters. @ https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S1681365026%3A1789321126059907&client_id=516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com&code_challenge=eaBacg9wsLNAwzGqN2sraTsESiHhRO7bEgPc5dOOVwE&code_challenge_method=S256&include_granted_scopes=true&o2v=2&redirect_uri=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech%2Fauth%2Foauth%2Fcallback%2Fgoogle&response_type=code&scope=email+profile+openid&service=lso&state=eyJlbmRwb2ludElkIjoiZXAtZ3JlZW4tZm9yZXN0LWFldXNoeXR0IiwiZGF0YWJhc2UiOiJuZW9uZGIiLCJwcm92aWRlck5hbWUiOiJnb29nbGUiLCJ0aW1lc3RhbXAiOjE3ODkzMjExMjU4Mjl9ada09a128a4dbe675fafc0f0f8bff644d6107f14502c33d36c573e5ee587e0cb&flowName=GeneralOAuthFlow&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAOflwt24Y5bsHbieADNNDqYA3kNu8IfSkpJa0NG1775bwc-GCbhJ-2IDPHmZI30DfiDHq6OsDriKy_eivW1Czjgqx3LaQJ6KuKzMkGhz_ly--tOvJ3i7KNISSHhiO4HgOlNbcLP6qUgdL4aHgyODAavDytaW5Faga1SwLfg7SJpWZRreYDcMz1tpJpLqLvtId_XHEv3UgpTCBEHt05T4RHrA0d-P6qVJYkqEsMbcnCk0SLUpphKbe0ErM9cF7hjHZAVP2QkfColfuddtVeEwQrfpDMjPSDvpxdJYsWdrJu18m0Alueofo_gUWsdYOVhzQp6ROnWJrI1ZALHK1GW9JNnKSub__S2zpw5EQzjzuXVMeC723jyjrBI7wjE1CXqxgbQO6zpac6cyp9e7ynd7EprRWQLJOcWG6e95egA8VCIEntJqSAh9SO_ujzyVgFCW7gFovpp_sU6HU0FVLKpbPvFEzNhGF72Ul_4InpWayUKo23l_MOma4PSMpQQzWJbvYi-9YPm%26flowName%3DGeneralOAuthFlow%26as%3DS1681365026%253A1789321126059907%26client_id%3D516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech&rart=ANgoxcdEp0QlfIHcE_v2VHDAx71NJ0cSV5y0M6Gy7SeU8Nf2rQdWeeEdUGi5y9xI-3x8hNLLYbO0EbCJrhA__BQkYcuvW8IBI06Ol0Dzvvu4wO0UzTTRglk:0
+[  130450ms] [WARNING] No available adapters. @ https://accounts.google.com/v3/signin/identifier?opparams=%253F&dsh=S1681365026%3A1789321126059907&client_id=516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com&code_challenge=eaBacg9wsLNAwzGqN2sraTsESiHhRO7bEgPc5dOOVwE&code_challenge_method=S256&include_granted_scopes=true&o2v=2&redirect_uri=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech%2Fauth%2Foauth%2Fcallback%2Fgoogle&response_type=code&scope=email+profile+openid&service=lso&state=eyJlbmRwb2ludElkIjoiZXAtZ3JlZW4tZm9yZXN0LWFldXNoeXR0IiwiZGF0YWJhc2UiOiJuZW9uZGIiLCJwcm92aWRlck5hbWUiOiJnb29nbGUiLCJ0aW1lc3RhbXAiOjE3ODkzMjExMjU4Mjl9ada09a128a4dbe675fafc0f0f8bff644d6107f14502c33d36c573e5ee587e0cb&flowName=GeneralOAuthFlow&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAOflwt24Y5bsHbieADNNDqYA3kNu8IfSkpJa0NG1775bwc-GCbhJ-2IDPHmZI30DfiDHq6OsDriKy_eivW1Czjgqx3LaQJ6KuKzMkGhz_ly--tOvJ3i7KNISSHhiO4HgOlNbcLP6qUgdL4aHgyODAavDytaW5Faga1SwLfg7SJpWZRreYDcMz1tpJpLqLvtId_XHEv3UgpTCBEHt05T4RHrA0d-P6qVJYkqEsMbcnCk0SLUpphKbe0ErM9cF7hjHZAVP2QkfColfuddtVeEwQrfpDMjPSDvpxdJYsWdrJu18m0Alueofo_gUWsdYOVhzQp6ROnWJrI1ZALHK1GW9JNnKSub__S2zpw5EQzjzuXVMeC723jyjrBI7wjE1CXqxgbQO6zpac6cyp9e7ynd7EprRWQLJOcWG6e95egA8VCIEntJqSAh9SO_ujzyVgFCW7gFovpp_sU6HU0FVLKpbPvFEzNhGF72Ul_4InpWayUKo23l_MOma4PSMpQQzWJbvYi-9YPm%26flowName%3DGeneralOAuthFlow%26as%3DS1681365026%253A1789321126059907%26client_id%3D516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&app_domain=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech&rart=ANgoxcdEp0QlfIHcE_v2VHDAx71NJ0cSV5y0M6Gy7SeU8Nf2rQdWeeEdUGi5y9xI-3x8hNLLYbO0EbCJrhA__BQkYcuvW8IBI06Ol0Dzvvu4wO0UzTTRglk:0
+[  156117ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://accounts.google.com/v3/signin/challenge/pwd?TL=ACv9tzG8qfYcZwVxKZx-NwqBumy2xtxJrZAWnc6kafzQI3U1S9bACMWLtGkF5BFi&app_domain=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech&checkConnection=youtube%3A126&checkedDomains=youtube&cid=3&client_id=516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com&code_challenge=eaBacg9wsLNAwzGqN2sraTsESiHhRO7bEgPc5dOOVwE&code_challenge_method=S256&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAOflwt24Y5bsHbieADNNDqYA3kNu8IfSkpJa0NG1775bwc-GCbhJ-2IDPHmZI30DfiDHq6OsDriKy_eivW1Czjgqx3LaQJ6KuKzMkGhz_ly--tOvJ3i7KNISSHhiO4HgOlNbcLP6qUgdL4aHgyODAavDytaW5Faga1SwLfg7SJpWZRreYDcMz1tpJpLqLvtId_XHEv3UgpTCBEHt05T4RHrA0d-P6qVJYkqEsMbcnCk0SLUpphKbe0ErM9cF7hjHZAVP2QkfColfuddtVeEwQrfpDMjPSDvpxdJYsWdrJu18m0Alueofo_gUWsdYOVhzQp6ROnWJrI1ZALHK1GW9JNnKSub__S2zpw5EQzjzuXVMeC723jyjrBI7wjE1CXqxgbQO6zpac6cyp9e7ynd7EprRWQLJOcWG6e95egA8VCIEntJqSAh9SO_ujzyVgFCW7gFovpp_sU6HU0FVLKpbPvFEzNhGF72Ul_4InpWayUKo23l_MOma4PSMpQQzWJbvYi-9YPm%26flowName%3DGeneralOAuthFlow%26as%3DS1681365026%253A1789321126059907%26client_id%3D516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&dsh=S1681365026%3A1789321126059907&flowName=GeneralOAuthFlow&include_granted_scopes=true&o2v=2&opparams=%253F&pstMsg=1&rart=ANgoxcdEp0QlfIHcE_v2VHDAx71NJ0cSV5y0M6Gy7SeU8Nf2rQdWeeEdUGi5y9xI-3x8hNLLYbO0EbCJrhA__BQkYcuvW8IBI06Ol0Dzvvu4wO0UzTTRglk&redirect_uri=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech%2Fauth%2Foauth%2Fcallback%2Fgoogle&response_type=code&scope=email%20profile%20openid&service=lso&state=eyJlbmRwb2ludElkIjoiZXAtZ3JlZW4tZm9yZXN0LWFldXNoeXR0IiwiZGF0YWJhc2UiOiJuZW9uZGIiLCJwcm92aWRlck5hbWUiOiJnb29nbGUiLCJ0aW1lc3RhbXAiOjE3ODkzMjExMjU4Mjl9ada09a128a4dbe675fafc0f0f8bff644d6107f14502c33d36c573e5ee587e0cb:0
+[  156460ms] [WARNING] No available adapters. @ https://accounts.google.com/v3/signin/challenge/pwd?TL=ACv9tzG8qfYcZwVxKZx-NwqBumy2xtxJrZAWnc6kafzQI3U1S9bACMWLtGkF5BFi&app_domain=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech&checkConnection=youtube%3A126&checkedDomains=youtube&cid=3&client_id=516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com&code_challenge=eaBacg9wsLNAwzGqN2sraTsESiHhRO7bEgPc5dOOVwE&code_challenge_method=S256&continue=https%3A%2F%2Faccounts.google.com%2Fsignin%2Foauth%2Fconsent%3Fauthuser%3Dunknown%26part%3DAJi8hAOflwt24Y5bsHbieADNNDqYA3kNu8IfSkpJa0NG1775bwc-GCbhJ-2IDPHmZI30DfiDHq6OsDriKy_eivW1Czjgqx3LaQJ6KuKzMkGhz_ly--tOvJ3i7KNISSHhiO4HgOlNbcLP6qUgdL4aHgyODAavDytaW5Faga1SwLfg7SJpWZRreYDcMz1tpJpLqLvtId_XHEv3UgpTCBEHt05T4RHrA0d-P6qVJYkqEsMbcnCk0SLUpphKbe0ErM9cF7hjHZAVP2QkfColfuddtVeEwQrfpDMjPSDvpxdJYsWdrJu18m0Alueofo_gUWsdYOVhzQp6ROnWJrI1ZALHK1GW9JNnKSub__S2zpw5EQzjzuXVMeC723jyjrBI7wjE1CXqxgbQO6zpac6cyp9e7ynd7EprRWQLJOcWG6e95egA8VCIEntJqSAh9SO_ujzyVgFCW7gFovpp_sU6HU0FVLKpbPvFEzNhGF72Ul_4InpWayUKo23l_MOma4PSMpQQzWJbvYi-9YPm%26flowName%3DGeneralOAuthFlow%26as%3DS1681365026%253A1789321126059907%26client_id%3D516759701042-1j43chkqtgl8hf49j0cql8gf34sun3e9.apps.googleusercontent.com%26requestPath%3D%252Fsignin%252Foauth%252Fconsent%23&dsh=S1681365026%3A1789321126059907&flowName=GeneralOAuthFlow&include_granted_scopes=true&o2v=2&opparams=%253F&pstMsg=1&rart=ANgoxcdEp0QlfIHcE_v2VHDAx71NJ0cSV5y0M6Gy7SeU8Nf2rQdWeeEdUGi5y9xI-3x8hNLLYbO0EbCJrhA__BQkYcuvW8IBI06Ol0Dzvvu4wO0UzTTRglk&redirect_uri=https%3A%2F%2Fneonauth.c-2.us-east-2.aws.neon.tech%2Fauth%2Foauth%2Fcallback%2Fgoogle&response_type=code&scope=email%20profile%20openid&service=lso&state=eyJlbmRwb2ludElkIjoiZXAtZ3JlZW4tZm9yZXN0LWFldXNoeXR0IiwiZGF0YWJhc2UiOiJuZW9uZGIiLCJwcm92aWRlck5hbWUiOiJnb29nbGUiLCJ0aW1lc3RhbXAiOjE3ODkzMjExMjU4Mjl9ada09a128a4dbe675fafc0f0f8bff644d6107f14502c33d36c573e5ee587e0cb:0
+[  198498ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:15804
+[  198600ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <RemixErrorBoundary location={{pathname:"...", ...}}>
+      <RouterProvider$1 router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+        <RouterProvider flushSync={function} router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+          <Router basename="/" location={{pathname:"...", ...}} navigationType="POP" navigator={{...}} ...>
+            <DataRoutes routes={[...]} manifest={{...}} future={{}} state={{...}} isStatic={false} onError={undefined}>
+              <RenderErrorBoundary location={{pathname:"...", ...}} revalidation="idle" component={<Layout>} ...>
+                <RenderedRoute match={{params:{...}, ...}} routeContext={{outlet:null, ...}}>
+                  <Layout>
+                    <html
+                      lang="en"
+-                     data-loading-season="autumn"
+-                     data-loading-mode="twilight"
+                    >
+ @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:3239
+[  198724ms] [ERROR] Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template). @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:6614
+[  198859ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth/get-session?neon_auth_session_verifier=S1Y-XH8PQiZilICg:0
+[  199514ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  199517ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: pending, fetchStatus: idle, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  199518ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  199520ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  199520ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: pending, fetchStatus: idle, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  199520ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  199523ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  199524ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  199656ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth/token:0
+[  199656ms] [WARNING] [cadence:api-auth] /token request failed 401  @ http://localhost:8788/app/lib/api/client.ts:23
+[  199656ms] [WARNING] [cadence:api-auth] authenticated request has no usable JWT {request: http://localhost:8787/api/v1/settings/notification-state, desktopSessionPresent: false, sdkSessionPresent: false} @ http://localhost:8788/app/lib/api/client.ts:70
+[  199657ms] [WARNING] [cadence:query-cache] auth error for query: ["notification-state"] UNAUTHORIZED @ http://localhost:8788/app/providers.tsx:132
+[  199705ms] [WARNING] [cadence:auth-state] auth recovery failed to restore any session @ http://localhost:8788/app/hooks/auth/use-auth-state.tsx:139
+[  203448ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:15804
+[  203521ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <RemixErrorBoundary location={{pathname:"...", ...}}>
+      <RouterProvider$1 router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+        <RouterProvider flushSync={function} router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+          <Router basename="/" location={{pathname:"...", ...}} navigationType="POP" navigator={{...}} ...>
+            <DataRoutes routes={[...]} manifest={{...}} future={{}} state={{...}} isStatic={false} onError={undefined}>
+              <RenderErrorBoundary location={{pathname:"...", ...}} revalidation="idle" component={<Layout>} ...>
+                <RenderedRoute match={{params:{...}, ...}} routeContext={{outlet:null, ...}}>
+                  <Layout>
+                    <html
+                      lang="en"
+-                     data-loading-season="autumn"
+-                     data-loading-mode="twilight"
+                    >
+ @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:3239
+[  203608ms] [ERROR] Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template). @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:6614
+[  204339ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  204340ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204345ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204347ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  204348ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204351ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  204351ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204353ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204353ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  204354ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204397ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204398ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204399ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204622ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204624ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  204625ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204626ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  204627ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204628ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  204630ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  204631ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: pending, fetchStatus: fetching, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  205259ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205261ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205261ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205262ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205262ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205304ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  205305ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205306ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205306ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  205306ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205307ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  205308ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205309ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  205310ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205341ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205347ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205348ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205399ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205400ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205401ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205402ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205406ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205406ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205736ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205776ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205777ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205778ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205779ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205836ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205836ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205837ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205837ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205945ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205946ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205987ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205988ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205989ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  205990ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  206685ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  206685ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  260210ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  260212ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  260212ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  260213ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  318074ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  318074ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  318075ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  318075ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  373113ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  373113ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  373114ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  373114ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  428981ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  428982ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  428983ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  428983ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  484838ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  484839ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  484841ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  484842ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511663ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511665ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  511666ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511667ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511668ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511669ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511669ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511672ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511673ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  511673ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511745ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511746ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511747ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511748ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  511749ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511749ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  511750ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  511750ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  511750ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  512257ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  512659ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  512660ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  512661ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  512661ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  512662ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513122ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513122ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513123ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513124ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513124ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513125ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513180ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513181ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  513181ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513182ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513182ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  513183ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513183ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  513184ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  513184ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  513185ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  515315ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  515316ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  515317ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  515318ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  515320ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  515320ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  515322ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  515322ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519410ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519411ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  519412ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519412ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519413ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519414ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519414ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519417ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  519418ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  519418ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  540757ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  540758ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  540759ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  540759ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  540760ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  575415ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  575416ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  575417ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  575417ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  575418ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  596620ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  596621ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  596621ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  596622ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  596622ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  631225ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  631226ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  631227ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  631227ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  631228ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  654530ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  654531ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  654532ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  654532ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  654533ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657081ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657084ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657085ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657085ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657087ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657159ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657161ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657162ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657163ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657164ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657364ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657365ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657366ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657367ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657367ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  657367ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  658028ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  658029ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  658030ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  658030ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  658031ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659029ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659073ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659188ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659189ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659190ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659191ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659192ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  659192ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  662780ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  687115ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  687116ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  687117ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  687118ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  687121ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699678ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  699679ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699680ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699681ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699682ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699683ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699687ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  699687ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699720ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699721ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699722ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  699723ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699723ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  699724ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  699725ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  699725ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700517ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700518ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700519ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700519ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700519ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700578ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  700579ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700579ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700580ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  700581ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700581ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  700582ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  700582ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[  700583ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28

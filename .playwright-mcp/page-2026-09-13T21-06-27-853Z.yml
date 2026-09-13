@@ -1,0 +1,133 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - complementary [aria-hidden]:
+          - navigation:
+            - navigation:
+              - link:
+                - /url: /
+              - link:
+                - /url: /schedule
+              - link:
+                - /url: /habits
+              - link:
+                - /url: /weekly-review
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                    - generic:
+                      - generic: ·
+                      - generic: 13 Sunday
+                      - generic: ·
+                      - generic: 5:06 PM
+                  - generic:
+                    - button
+                    - button: Today
+                    - button
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - generic:
+                    - generic:
+                      - button: Task
+                      - button: Event
+                    - button
+                  - button
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: All day
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 1 AM
+                            - generic: 2 AM
+                            - generic: 3 AM
+                            - generic: 4 AM
+                            - generic: 5 AM
+                            - generic: 6 AM
+                            - generic: 7 AM
+                            - generic: 8 AM
+                            - generic: 9 AM
+                            - generic: 10 AM
+                            - generic: 11 AM
+                            - generic: 12 PM
+                            - generic: 1 PM
+                            - generic: 2 PM
+                            - generic: 3 PM
+                            - generic: 4 PM
+                            - generic: 5 PM
+                            - generic: 6 PM
+                            - generic: 7 PM
+                            - generic: 8 PM
+                            - generic: 9 PM
+                            - generic: 10 PM
+                            - generic: 11 PM
+            - status
+    - region "Cadence notifications alt+T"
+  - dialog [ref=f11e13]:
+    - generic [ref=f11e14]:
+      - generic [ref=f11e15]:
+        - heading "Create on Sun, Sep 13" [level=2] [ref=f11e16]
+        - paragraph [ref=f11e17]: 6:00 PM – 7:00 PM
+      - button "Close" [ref=f11e18] [cursor=pointer]
+    - tablist "Create type" [ref=f11e23]:
+      - tab "Task" [selected] [ref=f11e24] [cursor=pointer]
+      - tab "Event" [ref=f11e27] [cursor=pointer]
+    - generic [ref=f11e32]:
+      - textbox "Block title…" [active] [ref=f11e34]
+      - generic [ref=f11e35]:
+        - button "Once" [ref=f11e36] [cursor=pointer]
+        - button "Repeats weekly" [ref=f11e37] [cursor=pointer]
+      - generic [ref=f11e38]:
+        - generic [ref=f11e39]:
+          - text: Start
+          - generic [ref=f11e40]:
+            - combobox "Hour" [ref=f11e45] [cursor=pointer]:
+              - generic: "6"
+            - generic [ref=f11e46]: ":"
+            - combobox "Minute" [ref=f11e47] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f11e48] [cursor=pointer]:
+              - generic: PM
+        - generic [ref=f11e49]:
+          - text: End
+          - generic [ref=f11e50]:
+            - combobox "Hour" [ref=f11e55] [cursor=pointer]:
+              - generic: "7"
+            - generic [ref=f11e56]: ":"
+            - combobox "Minute" [ref=f11e57] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f11e58] [cursor=pointer]:
+              - generic: PM
+      - generic [ref=f11e59]:
+        - generic [ref=f11e60]:
+          - generic [ref=f11e61]: From
+          - textbox "From" [ref=f11e63] [cursor=pointer]: 2026-09-13
+        - generic [ref=f11e64]:
+          - generic [ref=f11e65]:
+            - generic [ref=f11e66]: Until
+            - button "Add end date" [ref=f11e67] [cursor=pointer]
+          - textbox [disabled] [ref=f11e69]
+      - group [ref=f11e70]:
+        - generic "More options" [ref=f11e71] [cursor=pointer]
+    - generic [ref=f11e76]:
+      - button "Cancel" [ref=f11e77] [cursor=pointer]
+      - button "Add to schedule" [disabled]

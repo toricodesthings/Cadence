@@ -1,0 +1,104 @@
+- generic [ref=e14]:
+  - generic [ref=e16]:
+    - complementary "Application navigation" [ref=e17]:
+      - navigation "Icon navigation rail" [ref=e18]:
+        - generic "Cadence" [ref=e19]:
+          - img "Cadence" [ref=e20]
+        - navigation "Primary navigation" [ref=e22]:
+          - link "Capture" [ref=e23] [cursor=pointer]:
+            - /url: /
+          - link "Schedule" [ref=e29] [cursor=pointer]:
+            - /url: /schedule
+          - link "Habits" [ref=e32] [cursor=pointer]:
+            - /url: /habits
+          - link "Weekly Reset" [ref=e35] [cursor=pointer]:
+            - /url: /weekly-review
+        - button "Toggle AI Assistant Panel" [ref=e40] [cursor=pointer]
+        - button "Search" [ref=e44] [cursor=pointer]
+        - button "Quick add task" [ref=e48] [cursor=pointer]
+        - button "Sync workspace" [ref=e50] [cursor=pointer]
+        - button "Notifications" [ref=e56] [cursor=pointer]
+        - button "Settings" [ref=e60] [cursor=pointer]
+        - button "Developer tools" [ref=e65] [cursor=pointer]
+        - button "Profile menu" [ref=e73] [cursor=pointer]
+    - main [ref=e75]:
+      - generic [ref=e76]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - heading "September 2026" [level=2] [ref=e84]
+            - generic [ref=e85]:
+              - generic [ref=e86]: ·
+              - generic [ref=e87]: Week of Sep 13 – 19, 2026
+              - generic [ref=e88]: ·
+              - generic [ref=e89]: 4:41 PM
+          - generic [ref=e90]:
+            - button "Previous" [ref=e91] [cursor=pointer]
+            - button "Today" [ref=e94] [cursor=pointer]
+            - button "Next" [ref=e95] [cursor=pointer]
+          - navigation "Calendar view" [ref=e98]:
+            - button "Day" [ref=e99] [cursor=pointer]
+            - button "Week" [ref=e100] [cursor=pointer]
+            - button "Month" [ref=e101] [cursor=pointer]
+            - button "Year" [ref=e102] [cursor=pointer]
+          - generic [ref=e103]:
+            - generic [ref=e104]:
+              - button "Task" [ref=e105] [cursor=pointer]
+              - button "Event" [ref=e106] [cursor=pointer]
+            - button "Add task" [ref=e107] [cursor=pointer]
+          - button "Display & calendar options" [ref=e109] [cursor=pointer]
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - generic [ref=e119]: All day
+            - generic [ref=e122]:
+              - generic [ref=e123]: Mon
+              - generic [ref=e124]:
+                - generic [ref=e125]: "7"
+                - 'button "Holiday: Labour Day" [ref=e126] [cursor=pointer]'
+            - generic [ref=e130]:
+              - generic [ref=e131]: Tue
+              - generic [ref=e132]: "8"
+            - generic [ref=e136]:
+              - generic [ref=e137]: Wed
+              - generic [ref=e138]: "9"
+            - generic [ref=e142]:
+              - generic [ref=e143]: Thu
+              - generic [ref=e144]: "10"
+            - generic [ref=e148]:
+              - generic [ref=e149]: Fri
+              - generic [ref=e150]: "11"
+            - generic [ref=e154]:
+              - generic [ref=e155]: Sat
+              - generic [ref=e156]: "12"
+            - generic [ref=e160]:
+              - generic [ref=e161]: Sun
+              - generic [ref=e162]: "13"
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e169]: 1 AM
+              - generic [ref=e171]: 2 AM
+              - generic [ref=e173]: 3 AM
+              - generic [ref=e175]: 4 AM
+              - generic [ref=e177]: 5 AM
+              - generic [ref=e179]: 6 AM
+              - generic [ref=e181]: 7 AM
+              - generic [ref=e183]: 8 AM
+              - generic [ref=e185]: 9 AM
+              - generic [ref=e187]: 10 AM
+              - generic [ref=e189]: 11 AM
+              - generic [ref=e191]: 12 PM
+              - generic [ref=e193]: 1 PM
+              - generic [ref=e195]: 2 PM
+              - generic [ref=e197]: 3 PM
+              - generic [ref=e199]: 4 PM
+              - generic [ref=e201]: 5 PM
+              - generic [ref=e203]: 6 PM
+              - generic [ref=e205]: 7 PM
+              - generic [ref=e207]: 8 PM
+              - generic [ref=e209]: 9 PM
+              - generic [ref=e211]: 10 PM
+              - generic [ref=e213]: 11 PM
+            - button "UI critique test block 5:00 PM – 6:00 PM" [ref=e1344] [cursor=pointer]:
+              - generic [ref=e1345]: UI critique test block
+              - generic [ref=e1346]: 5:00 PM – 6:00 PM
+      - status [ref=e1069]
+  - region "Cadence notifications alt+T"

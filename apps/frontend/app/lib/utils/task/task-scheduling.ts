@@ -121,7 +121,7 @@ export function getTaskRecurrenceSummary(
     const weekdayLabel = formatWeekdayLabel(parts.get("BYDAY"));
     const endLabel = formatUntilLabel(parts.get("UNTIL"));
     const timeLabel = task.scheduledStart
-        ? `${formatTime(task.scheduledStart)}${task.scheduledEnd ? ` - ${formatTime(task.scheduledEnd)}` : ""}`
+        ? `${formatTime(task.scheduledStart)}${task.scheduledEnd ? ` – ${formatTime(task.scheduledEnd)}` : ""}`
         : null;
 
     let cadenceLabel = "Repeats";
@@ -252,7 +252,7 @@ export function getTaskScheduleSummary(
             return {
                 kind,
                 displayMode: "timed",
-                primaryLabel: end ? `${formatShortDateTime(start)} - ${formatTime(end)}` : formatShortDateTime(start),
+                primaryLabel: end ? `${formatShortDateTime(start)} – ${formatTime(end)}` : formatShortDateTime(start),
                 secondaryLabel: passiveTimetable ? "Timetable anchor" : "Time block",
                 isDeadline: false,
                 isDuration: false,
@@ -267,7 +267,7 @@ export function getTaskScheduleSummary(
             return {
                 kind,
                 displayMode: "timed",
-                primaryLabel: end ? `${formatShortDateTime(start)} - ${formatTime(end)}` : formatShortDateTime(start),
+                primaryLabel: end ? `${formatShortDateTime(start)} – ${formatTime(end)}` : formatShortDateTime(start),
                 secondaryLabel: passiveTimetable ? "Timetable anchor" : "Time block",
                 isDeadline: false,
                 isDuration: false,

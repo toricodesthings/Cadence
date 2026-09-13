@@ -3,8 +3,18 @@ import {
     Calendar, LayoutDashboard, Sprout,
     LogOut, LifeBuoy, ChevronDown, Sparkles, Trash2, RefreshCw,
     BellRing, CheckCircle2, Info, TriangleAlert, CircleAlert, LoaderCircle,
-    ShieldCheck, FileText, History,
+    ShieldCheck, FileText, History, ChevronRight, CalendarClock, Flower2, Sun, Leaf, Snowflake,
 } from "lucide-react";
+import type { Season } from "../../lib/themes/season";
+
+/** Loading-screen previews in the dev tools; no season means the real one (date or theme preset). */
+const LOADING_PREVIEWS: readonly { season?: Season; label: string; icon: typeof Sun; iconClassName: string }[] = [
+    { label: "Current", icon: CalendarClock, iconClassName: "text-twilight-text-soft" },
+    { season: "spring", label: "Spring", icon: Flower2, iconClassName: "text-pink-300" },
+    { season: "summer", label: "Summer", icon: Sun, iconClassName: "text-amber-300" },
+    { season: "autumn", label: "Autumn", icon: Leaf, iconClassName: "text-orange-400" },
+    { season: "winter", label: "Winter", icon: Snowflake, iconClassName: "text-sky-300" },
+];
 import { Link, useLocation, useNavigate } from "react-router";
 
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -233,7 +243,7 @@ export function IconRail({
             iconClassName: "text-blue-400",
             surfaceClassName: "border-blue-500/20 bg-blue-500/10",
             action: () => {
-                window.dispatchEvent(new CustomEvent("debug:loading", { detail: { duration: 10000 } }));
+                window.dispatchEvent(new CustomEvent("debug:loading"));
             },
         },
         {
@@ -457,26 +467,16 @@ export function IconRail({
                                 </div>
 
                                 <div className="grid grid-cols-4 gap-2">
-                                    {devToolTiles.map(({ key, label, meta, icon: Icon, iconClassName, surfaceClassName, action }) => (
-                                        <DropdownMenu.Item
-                                            key={key}
-                                            disabled={isLoading}
-                                            onSelect={(event) => {
-                                                if (isLoading) {
-                                                    event.preventDefault();
-                                                    return;
-                                                }
-                                                action();
-                                            }}
-                                            className={`
-                                                group relative min-h-[88px] rounded-[1.35rem] border p-0 text-left
-                                                backdrop-blur-xl transition-[transform,border-color,background-color,box-shadow]
-                                                data-[disabled]:pointer-events-none data-[disabled]:opacity-50
-                                                data-[highlighted]:-translate-y-0.5 data-[highlighted]:border-white/16
-                                                data-[highlighted]:bg-white/[0.05]
-                                                ${surfaceClassName}
-                                            `}
-                                        >
+                                    {devToolTiles.map(({ key, label, meta, icon: Icon, iconClassName, surfaceClassName, action }) => {
+                                        const tileClassName = `
+                                            group relative min-h-[88px] rounded-[1.35rem] border p-0 text-left
+                                            backdrop-blur-xl transition-[transform,border-color,background-color,box-shadow]
+                                            data-[disabled]:pointer-events-none data-[disabled]:opacity-50
+                                            data-[highlighted]:-translate-y-0.5 data-[highlighted]:border-white/16
+                                            data-[highlighted]:bg-white/[0.05]
+                                            ${surfaceClassName}
+                                        `;
+                                        const body = (
                                             <div className="flex h-full flex-col items-center justify-center gap-2.5 px-2 py-3 text-center">
                                                 <div
                                                     className={`
@@ -500,8 +500,60 @@ export function IconRail({
                                                     </p>
                                                 </div>
                                             </div>
-                                        </DropdownMenu.Item>
-                                    ))}
+                                        );
+
+                                        // Loading screen: opens a season picker instead of firing straight away.
+                                        if (key === "loading_screen") {
+                                            return (
+                                                <DropdownMenu.Sub key={key}>
+                                                    <DropdownMenu.SubTrigger
+                                                        disabled={isLoading}
+                                                        className={`${tileClassName} data-[state=open]:border-white/16 data-[state=open]:bg-white/[0.05]`}
+                                                    >
+                                                        {body}
+                                                        <ChevronRight size={11} aria-hidden="true" className="absolute right-2 top-2 text-twilight-text-muted" />
+                                                    </DropdownMenu.SubTrigger>
+                                                    <DropdownMenu.Portal>
+                                                        <DropdownMenu.SubContent sideOffset={10} className="w-[168px] p-1.5">
+                                                            <p className="px-2 pb-1.5 pt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-twilight-text-muted">
+                                                                Preview season
+                                                            </p>
+                                                            {LOADING_PREVIEWS.map(({ season, label: seasonLabel, icon: SeasonIcon, iconClassName: seasonIconClass }) => (
+                                                                <DropdownMenu.Item
+                                                                    key={seasonLabel}
+                                                                    onSelect={() => {
+                                                                        window.dispatchEvent(new CustomEvent("debug:loading", { detail: season ? { season } : undefined }));
+                                                                    }}
+                                                                    className="flex items-center gap-2.5 px-2 py-2 text-[13px]"
+                                                                >
+                                                                    <SeasonIcon size={14} aria-hidden="true" className={seasonIconClass} />
+                                                                    {seasonLabel}
+                                                                </DropdownMenu.Item>
+                                                            ))}
+                                                            <p className="px-2 pb-1 pt-1.5 text-[10px] text-twilight-text-muted">Esc to close</p>
+                                                        </DropdownMenu.SubContent>
+                                                    </DropdownMenu.Portal>
+                                                </DropdownMenu.Sub>
+                                            );
+                                        }
+
+                                        return (
+                                            <DropdownMenu.Item
+                                                key={key}
+                                                disabled={isLoading}
+                                                onSelect={(event) => {
+                                                    if (isLoading) {
+                                                        event.preventDefault();
+                                                        return;
+                                                    }
+                                                    action();
+                                                }}
+                                                className={tileClassName}
+                                            >
+                                                {body}
+                                            </DropdownMenu.Item>
+                                        );
+                                    })}
                                 </div>
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>

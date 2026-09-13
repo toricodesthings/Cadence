@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Sparkles, Check } from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
-import { AnimatePresence, motion } from "framer-motion";
 
 /**
  * Universal capture composer for the Holding page.
@@ -9,15 +9,13 @@ import { AnimatePresence, motion } from "framer-motion";
  * §9.1 enhancements:
  * - `mod+enter` for forced task capture
  * - `shift+enter` for multiline note capture
- * - Visible "Captured" confirmation state (1.5 s)
+ * - "Captured" confirmation via the app-wide toast
  * - `Esc` clears input but does not blur if non-empty
  */
 export function CaptureInput() {
     const [value, setValue] = useState("");
     const [isFocused, setIsFocused] = useState(false);
-    const [showCaptured, setShowCaptured] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
-    const capturedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const createInboxItem = useCreateInboxItem();
 
     const handleSubmit = useCallback((forceTask?: boolean) => {
@@ -25,10 +23,7 @@ export function CaptureInput() {
         if (!text) return;
         createInboxItem.mutate(text, {
             onSuccess: () => {
-                // Show "Captured" confirmation
-                setShowCaptured(true);
-                clearTimeout(capturedTimerRef.current);
-                capturedTimerRef.current = setTimeout(() => setShowCaptured(false), 1500);
+                toast.success("Captured");
             },
         });
         setValue("");
@@ -72,9 +67,6 @@ export function CaptureInput() {
         el.style.height = `${Math.max(singleLineHeight, Math.min(el.scrollHeight, 160))}px`;
     }, [value]);
 
-    // Cleanup timer
-    useEffect(() => () => clearTimeout(capturedTimerRef.current), []);
-
     return (
         <div
             data-focus-container
@@ -117,24 +109,6 @@ export function CaptureInput() {
                     />
                 </div>
             </div>
-
-            {/* ── "Captured" confirmation state — shows for 1.5 s ── */}
-            <AnimatePresence>
-                {showCaptured && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute inset-x-0 top-0 flex items-center justify-center gap-2 py-3 pointer-events-none"
-                    >
-                        <div className="flex items-center gap-1.5 rounded-full bg-green-500/15 px-3 py-1 text-[12px] font-medium text-green-400">
-                            <Check size={13} aria-hidden="true" />
-                            Captured
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             {/* Subtle hint row — only visible when focused and empty */}
             {isFocused && !value.trim() && (

@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- The loading screen now opens onto a deeper, moonlit autumn valley with layered hills, drifting mist, reflections on the water and falling maple leaves, and it shows the right season, light or dark look, and reduced-motion setting from the very first frame.
+- The "Captured" confirmation on the Capture page now appears as a notification in the bottom-right corner, like the rest of the app's notifications.
+- The Add task / Add event window on the Schedule page breathes more: roomier header, weekday buttons that read Mon–Sun and fill the row, a shorter timetable-anchor note, and icons on the priority and effort choices under More options.
+
+### Fixed
+
+- Closing the side panel on the Capture page now slides it shut smoothly instead of snapping away.
+- The lines under the page header and the side panel headers now line up across every page.
+- A task added from the Schedule page's Day view now shows up on the calendar right away instead of after a refresh.
+
 ## [0.10.0] - 2026-09-12
 
 ### Removed

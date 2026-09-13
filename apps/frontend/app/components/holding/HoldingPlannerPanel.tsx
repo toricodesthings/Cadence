@@ -22,7 +22,7 @@ export function HoldingPlannerPanel() {
         <div className="aurora-accent flex h-full flex-col bg-twilight-deep/95 backdrop-blur-xl">
             {/* Header — mirrors the Cadence panel header so the two rail panes read
                 as siblings (same height, font-display title, lantern-glow icon). */}
-            <header className="flex h-16 shrink-0 items-center gap-3 border-b border-twilight-border px-4">
+            <header className="flex h-(--shell-header-h) shrink-0 items-center gap-3 border-b border-twilight-border px-4">
                 <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-lantern">
                     <CalendarDays size={17} />
                 </div>

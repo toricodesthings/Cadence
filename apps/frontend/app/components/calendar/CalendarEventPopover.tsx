@@ -1,6 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { CalendarHeart, CalendarRange, Clock3, Repeat } from "lucide-react";
+import {
+    AlertTriangle,
+    X,
+    ArrowDown,
+    ArrowRight,
+    ArrowUp,
+    BatteryFull,
+    Bell,
+    BatteryLow,
+    BatteryMedium,
+    CalendarHeart,
+    CalendarRange,
+    ChevronDown,
+    Clock3,
+    Flag,
+    Gauge,
+    Milestone,
+    Minus,
+    SlidersHorizontal,
+    StickyNote,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useCreateTask } from "../../hooks/tasks";
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
@@ -14,7 +34,7 @@ import * as Popover from "../primitives/Popover";
 import { TimePicker } from "../primitives";
 import { Switch } from "../primitives";
 import { Button } from "../primitives/Button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../primitives/Dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { EventDatePicker } from "../events/EventDatePicker";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
@@ -39,15 +59,35 @@ type ScheduleCreateTab = "task" | "event";
 type WeekdayCode = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
 
 const WEEKDAY_ORDER: WeekdayCode[] = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
-const WEEKDAY_LABELS: Record<WeekdayCode, { letter: string; long: string }> = {
-    MO: { letter: "M", long: "Monday" },
-    TU: { letter: "T", long: "Tuesday" },
-    WE: { letter: "W", long: "Wednesday" },
-    TH: { letter: "T", long: "Thursday" },
-    FR: { letter: "F", long: "Friday" },
-    SA: { letter: "S", long: "Saturday" },
-    SU: { letter: "S", long: "Sunday" },
+const WEEKDAY_LABELS: Record<WeekdayCode, { short: string; long: string }> = {
+    MO: { short: "Mon", long: "Monday" },
+    TU: { short: "Tue", long: "Tuesday" },
+    WE: { short: "Wed", long: "Wednesday" },
+    TH: { short: "Thu", long: "Thursday" },
+    FR: { short: "Fri", long: "Friday" },
+    SA: { short: "Sat", long: "Saturday" },
+    SU: { short: "Sun", long: "Sunday" },
 };
+
+const PRIORITY_OPTIONS: { value: TaskPriority; label: string; icon: typeof Flag }[] = [
+    { value: 0, label: "None", icon: Minus },
+    { value: 1, label: "Low", icon: ArrowDown },
+    { value: 2, label: "Medium", icon: ArrowRight },
+    { value: 3, label: "High", icon: ArrowUp },
+    { value: 4, label: "Urgent", icon: AlertTriangle },
+];
+
+const EFFORT_OPTIONS: { value: 1 | 2 | 3; label: string; icon: typeof Flag }[] = [
+    { value: 1, label: "Low", icon: BatteryLow },
+    { value: 2, label: "Medium", icon: BatteryMedium },
+    { value: 3, label: "High", icon: BatteryFull },
+];
+
+const FIELD_LABEL = "text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-soft";
+const BAND = "shrink-0 overflow-y-auto [scrollbar-gutter:stable]";
+const CHIP_BASE = "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+const CHIP_ACTIVE = "border-accent-primary/30 bg-accent-primary/15 text-accent-primary";
+const CHIP_IDLE = "border-white/[0.06] bg-white/[0.02] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text";
 
 function toWeekdayCode(date: string): WeekdayCode {
     const day = new Date(`${date}T00:00:00`).getDay();
@@ -73,6 +113,16 @@ function formatDateLabel(date: string) {
 
 function formatTimeValue(hour: number, minute: number) {
     return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function formatTimeRange(startTime: string, endTime: string) {
+    const fmt = (value: string) => {
+        const [h, m] = value.split(":").map(Number);
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    };
+    return `${fmt(startTime)} – ${fmt(endTime)}`;
 }
 
 function addHour(timeValue: string) {
@@ -104,7 +154,7 @@ function WeekdayPicker({
         <div
             role="group"
             aria-label="Select days of the week"
-            className="flex justify-center gap-2"
+            className="grid grid-cols-7 gap-1 sm:gap-1.5"
         >
             {WEEKDAY_ORDER.map((day) => {
                 const active = value.includes(day);
@@ -118,13 +168,13 @@ function WeekdayPicker({
                                 if (active && value.length === 1) return;
                                 onChange(active ? value.filter((item) => item !== day) : [...value, day]);
                             }}
-                            className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xs font-semibold transition-colors duration-200 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                            className={`flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl border text-xs font-semibold transition-colors duration-200 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
                                 active
-                                    ? "border border-accent-primary/30 bg-accent-primary/15 text-accent-primary shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
-                                    : "border border-white/[0.07] bg-white/[0.04] text-twilight-text-muted hover:bg-white/[0.07] hover:text-twilight-text"
+                                    ? "border-accent-primary/30 bg-accent-primary/15 text-accent-primary shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
+                                    : "border-white/[0.06] bg-white/[0.02] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
                             }`}
                         >
-                            {WEEKDAY_LABELS[day].letter}
+                            {WEEKDAY_LABELS[day].short}
                         </button>
                     </Tip>
                 );
@@ -260,7 +310,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     }, [eventDate, eventEmoji, eventLabel, eventNotify, eventStartedOn, eventTrackMilestone, navigate, onClose, personalEvents]);
 
     const eventDateLabel = useMemo(() => formatDateLabel(eventDate), [eventDate]);
-    const taskSubtitle = summary?.label ?? (mode === "weekly" ? "Weekly recurring schedule block" : `Planned for ${formatDateLabel(startDate)}`);
+    const taskSubtitle = mode === "weekly" ? (summary?.label ?? "Repeats every week") : formatTimeRange(startTime, endTime);
 
     return (
         <>
@@ -270,11 +320,12 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),40rem)] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(18,30,52,0.96),rgba(10,18,34,0.98))] p-0 shadow-[0_32px_120px_rgba(0,0,0,0.52)]",
                         shell.isPhone
                             ? "inset-x-3 bottom-3 max-h-[88dvh]"
-                            : "sm:max-w-2xl sm:max-h-[84dvh]",
+                            : "sm:max-w-2xl sm:max-h-[90dvh]",
                     )}
+                    hideCloseButton
                 >
-                    <DialogHeader className="shrink-0 border-b border-white/[0.06] px-5 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-5">
-                        <div className="space-y-1">
+                    <div className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}>
+                        <div className="min-w-0 space-y-1.5">
                             <DialogTitle className="font-display text-xl tracking-tight text-twilight-text">
                                 Create on {tab === "task" ? formatDateLabel(startDate) : eventDateLabel}
                             </DialogTitle>
@@ -284,9 +335,15 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                     : "Yearly personal event"}
                             </DialogDescription>
                         </div>
-                    </DialogHeader>
+                        <DialogClose
+                            aria-label="Close"
+                            className="btn-icon -mt-2 shrink-0 text-twilight-text-muted opacity-70 transition-[opacity,background-color] duration-150 hover:bg-white/[0.06] hover:text-twilight-text hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            <X className="h-4 w-4" aria-hidden="true" />
+                        </DialogClose>
+                    </div>
 
-                    <div className="shrink-0 border-b border-white/[0.06] px-5 py-3 sm:px-6">
+                    <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>
                         <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-1" role="tablist" aria-label="Create type">
                             {([
                                 { id: "task", label: "Task", icon: CalendarRange },
@@ -317,16 +374,18 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         </div>
                     </div>
 
-                    <div className="min-h-0 flex-auto overflow-y-auto px-5 py-3 sm:px-6 sm:py-4">
+                    <div className="min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable] px-5 py-4 sm:px-6 sm:py-5">
                         {tab === "task" ? (
-                            <div className="space-y-4">
-                                <input
-                                    ref={taskTitleRef}
-                                    value={title}
-                                    onChange={(event) => setTitle(event.target.value)}
-                                    placeholder="Block title…"
-                                    className="w-full border-b border-white/[0.06] bg-transparent pb-3 font-display text-xl text-twilight-text outline-none placeholder:text-twilight-text-muted/60"
-                                />
+                            <div className="space-y-5">
+                                <div data-focus-container className="border-b border-white/[0.06] transition-colors focus-within:border-accent-primary/50">
+                                    <input
+                                        ref={taskTitleRef}
+                                        value={title}
+                                        onChange={(event) => setTitle(event.target.value)}
+                                        placeholder="Block title…"
+                                        className="w-full bg-transparent pb-3 font-display text-xl text-twilight-text outline-none placeholder:text-twilight-text-muted/60"
+                                    />
+                                </div>
 
                                 <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-1">
                                     {([
@@ -351,30 +410,25 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                 {mode === "weekly" ? (
                                     <>
                                         <WeekdayPicker value={weekdays} onChange={setWeekdays} />
-                                        <div className="rounded-2xl border border-moonlit/18 bg-moonlit/[0.05] px-4 py-3">
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-medium text-twilight-text">Treat this as a timetable anchor</p>
-                                                    <p className="text-xs leading-relaxed text-twilight-text-soft">
-                                                        Anchors stay in the schedule without asking for a check-off. Turn this off if the series should behave like a task.
-                                                    </p>
-                                                </div>
-                                                <Switch
-                                                    checked={interactionMode === "timetable"}
-                                                    onCheckedChange={(checked) => setInteractionMode(checked ? "timetable" : "task")}
-                                                    aria-label="Treat this recurring block as a timetable anchor"
-                                                />
+                                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                                            <div className="min-w-0 space-y-0.5">
+                                                <p className="text-sm font-medium text-twilight-text">Timetable anchor</p>
+                                                <p className="text-xs text-twilight-text-soft">
+                                                    {interactionMode === "timetable" ? "Fixed block. No check-off." : "Asks for a check-off each time."}
+                                                </p>
                                             </div>
-                                            <p className="mt-3 text-xs font-medium text-moonlit">
-                                                {interactionMode === "timetable" ? "Default for recurring schedule anchors" : "Needs check-off"}
-                                            </p>
+                                            <Switch
+                                                checked={interactionMode === "timetable"}
+                                                onCheckedChange={(checked) => setInteractionMode(checked ? "timetable" : "task")}
+                                                aria-label="Treat this recurring block as a timetable anchor"
+                                            />
                                         </div>
                                     </>
                                 ) : null}
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <label className="space-y-1.5">
-                                        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Start</span>
+                                        <span className={FIELD_LABEL}>Start</span>
                                         <TimePicker
                                             value={startTime}
                                             onChange={setStartTime}
@@ -383,7 +437,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                     </label>
 
                                     <label className="space-y-1.5">
-                                        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">End</span>
+                                        <span className={FIELD_LABEL}>End</span>
                                         <TimePicker
                                             value={endTime}
                                             onChange={setEndTime}
@@ -394,7 +448,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <label className="space-y-1.5">
-                                        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">From</span>
+                                        <span className={`flex h-6 items-center ${FIELD_LABEL}`}>From</span>
                                         <div className="cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
                                             <input
                                                 type="date"
@@ -411,8 +465,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                     </label>
 
                                     <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Until</span>
+                                        <div className="flex h-6 items-center justify-between">
+                                            <span className={FIELD_LABEL}>Until</span>
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -423,7 +477,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                                         setEndDate(startDate);
                                                     }
                                                 }}
-                                                className={`cursor-pointer text-[11px] font-medium transition-colors ${hasEndDate ? "text-accent-primary" : "text-twilight-text-muted hover:text-twilight-text-soft"}`}
+                                                className={`flex min-h-9 cursor-pointer sm:-mr-2 items-center rounded-lg px-2 text-[11px] font-medium transition-colors ${hasEndDate ? "text-accent-primary" : "text-twilight-text-soft hover:text-twilight-text"}`}
                                             >
                                                 {hasEndDate ? "Remove" : "Add end date"}
                                             </button>
@@ -440,69 +494,73 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                     </div>
                                 </div>
 
-                                <details className="group rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-                                    <summary className="cursor-pointer list-none text-sm text-twilight-text-soft transition-colors group-open:text-twilight-text">
-                                        More options
+                                <details className="group rounded-2xl border border-white/[0.06] bg-white/[0.03]">
+                                    <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-4 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text group-open:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 rounded-2xl [&::-webkit-details-marker]:hidden">
+                                        <SlidersHorizontal size={15} className="shrink-0 text-accent-primary" aria-hidden="true" />
+                                        <span className="flex-1">More options</span>
+                                        <ChevronDown size={15} className="shrink-0 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
                                     </summary>
-                                    <div className="mt-3 space-y-3 border-t border-white/[0.04] pt-3">
+                                    <div className="space-y-4 border-t border-white/[0.05] px-4 pb-4 pt-4">
                                         <label className="block">
-                                            <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Notes</span>
+                                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                                                <StickyNote size={12} aria-hidden="true" />
+                                                Notes
+                                            </span>
                                             <textarea
                                                 value={notes}
                                                 onChange={(event) => setNotes(event.target.value)}
                                                 rows={2}
-                                                className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60"
+                                                className="w-full resize-y rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                                                 placeholder="Room, context, why this block matters…"
                                             />
                                         </label>
 
-                                        <div>
-                                            <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Priority</span>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {([
-                                                    { value: 0, label: "None" },
-                                                    { value: 1, label: "P1" },
-                                                    { value: 2, label: "P2" },
-                                                    { value: 3, label: "P3" },
-                                                    { value: 4, label: "P4" },
-                                                ] as const).map((item) => (
-                                                    <button
-                                                        key={item.value}
-                                                        type="button"
-                                                        onClick={() => setPriority(item.value as TaskPriority)}
-                                                        className={`cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
-                                                            priority === item.value
-                                                                ? "border-accent-primary/30 bg-accent-primary/15 text-accent-primary"
-                                                                : "border-white/[0.06] text-twilight-text-soft hover:bg-white/[0.05]"
-                                                        }`}
-                                                    >
-                                                        {item.label}
-                                                    </button>
-                                                ))}
+                                        <div role="group" aria-label="Priority">
+                                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                                                <Flag size={12} aria-hidden="true" />
+                                                Priority
+                                            </span>
+                                            <div className="grid grid-cols-5 gap-1.5">
+                                                {PRIORITY_OPTIONS.map((item) => {
+                                                    const Icon = item.icon;
+                                                    return (
+                                                        <button
+                                                            key={item.value}
+                                                            type="button"
+                                                            aria-label={`Priority: ${item.label}`}
+                                                            aria-pressed={priority === item.value}
+                                                            onClick={() => setPriority(item.value)}
+                                                            className={`${CHIP_BASE} min-h-12 flex-col gap-0.5 sm:min-h-10 sm:flex-row sm:gap-1.5 ${priority === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
+                                                        >
+                                                            <Icon size={14} aria-hidden="true" />
+                                                            <span className="text-[10px] leading-none sm:text-xs sm:leading-normal">{item.label}</span>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Effort</span>
-                                            <div className="flex gap-1.5">
-                                                {([
-                                                    { value: 1, label: "Low" },
-                                                    { value: 2, label: "Medium" },
-                                                    { value: 3, label: "High" },
-                                                ] as const).map((item) => (
-                                                    <button
-                                                        key={item.value}
-                                                        type="button"
-                                                        onClick={() => setEffort(effort === item.value ? null : item.value)}
-                                                        className={`cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
-                                                            effort === item.value
-                                                                ? "border-accent-primary/30 bg-accent-primary/15 text-accent-primary"
-                                                                : "border-white/[0.06] text-twilight-text-soft hover:bg-white/[0.05]"
-                                                        }`}
-                                                    >
-                                                        {item.label}
-                                                    </button>
-                                                ))}
+                                        <div role="group" aria-label="Effort">
+                                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                                                <Gauge size={12} aria-hidden="true" />
+                                                Effort
+                                            </span>
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                {EFFORT_OPTIONS.map((item) => {
+                                                    const Icon = item.icon;
+                                                    return (
+                                                        <button
+                                                            key={item.value}
+                                                            type="button"
+                                                            aria-pressed={effort === item.value}
+                                                            onClick={() => setEffort(effort === item.value ? null : item.value)}
+                                                            className={`${CHIP_BASE} ${effort === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
+                                                        >
+                                                            <Icon size={13} aria-hidden="true" />
+                                                            {item.label}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     </div>
@@ -511,8 +569,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         ) : (
                             <div className="space-y-5">
                                 <div className="space-y-2">
-                                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Event</span>
-                                    <div className="flex items-center gap-3 rounded-[28px] border border-white/[0.06] bg-white/[0.03] p-3">
+                                    <span className={FIELD_LABEL}>Event</span>
+                                    <div data-focus-container className="flex items-center gap-3 rounded-[28px] border border-white/[0.06] bg-white/[0.03] p-3 transition-colors focus-within:border-accent-nav-schedule/40">
                                         <EmojiPickerPopover
                                             emoji={eventEmoji}
                                             onSelect={setEventEmoji}
@@ -532,7 +590,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                             type="text"
                                             value={eventLabel}
                                             onChange={(event) => setEventLabel(event.target.value)}
-                                            placeholder="Mom's birthday, retreat, launch day…"
+                                            placeholder="Birthday, retreat, launch day…"
                                             maxLength={80}
                                             className="min-w-0 flex-1 bg-transparent text-[1.05rem] font-medium text-twilight-text outline-none placeholder:text-twilight-text-muted/55"
                                         />
@@ -540,14 +598,18 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                 </div>
 
                                 <div className="space-y-2">
-                                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Date</span>
+                                    <span className={FIELD_LABEL}>Date</span>
                                     <EventDatePicker value={eventDate} onChange={setEventDate} />
                                 </div>
 
                                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
                                     <div className="flex items-center justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium text-twilight-text">Milestone tracking</p>
+                                        <div className="flex min-w-0 items-center gap-2.5">
+                                            <Milestone size={15} className="shrink-0 text-accent-nav-schedule" aria-hidden="true" />
+                                            <div className="space-y-0.5">
+                                                <p className="text-sm font-medium text-twilight-text">Milestone tracking</p>
+                                                <p className="text-xs text-twilight-text-soft">Count the days since it began</p>
+                                            </div>
                                         </div>
                                         <Switch
                                             checked={eventTrackMilestone}
@@ -563,7 +625,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
 
                                     {eventTrackMilestone ? (
                                         <div className="mt-3 flex items-center gap-3 border-t border-white/[0.05] pt-3">
-                                            <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">
+                                            <span className={`shrink-0 ${FIELD_LABEL}`}>
                                                 Started on
                                             </span>
                                             <div className="min-w-0 flex-1">
@@ -573,11 +635,14 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                     ) : null}
                                 </div>
 
-                                <div className="rounded-[28px] border border-white/[0.06] bg-white/[0.03] px-4 py-4">
+                                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
                                     <div className="flex items-center justify-between gap-4">
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-medium text-twilight-text">Notifications</p>
-                                            <p className="text-xs text-twilight-text-soft">Show a reminder dot</p>
+                                        <div className="flex min-w-0 items-center gap-2.5">
+                                            <Bell size={15} className="shrink-0 text-accent-nav-schedule" aria-hidden="true" />
+                                            <div className="space-y-0.5">
+                                                <p className="text-sm font-medium text-twilight-text">Notifications</p>
+                                                <p className="text-xs text-twilight-text-soft">Show a reminder dot</p>
+                                            </div>
                                         </div>
                                         <Switch
                                             checked={eventNotify}
@@ -590,16 +655,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         )}
                     </div>
 
-                    <DialogFooter className="shrink-0 border-t border-white/[0.06] px-5 py-3 sm:px-6 sm:py-4">
-                        {tab === "task" && mode === "weekly" && summary?.label ? (
-                            <p className="mr-auto flex items-center gap-2 text-xs text-twilight-text-muted">
-                                <Repeat size={12} className="shrink-0 text-accent-primary" />
-                                <span>{summary.label}</span>
-                            </p>
-                        ) : (
-                            <div className="mr-auto" />
-                        )}
-
+                    <div className={`${BAND} flex items-center justify-end gap-2 border-t border-white/[0.06] px-5 py-4 sm:px-6`}>
                         <Button variant="ghost" size="md" onClick={requestClose}>
                             Cancel
                         </Button>
@@ -627,7 +683,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                 Add event
                             </Button>
                         )}
-                    </DialogFooter>
+                    </div>
                 </DialogContent>
             </Dialog>
 

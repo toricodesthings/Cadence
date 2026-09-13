@@ -1,0 +1,181 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - complementary [aria-hidden]:
+          - navigation:
+            - navigation:
+              - link:
+                - /url: /
+              - link:
+                - /url: /schedule
+              - link:
+                - /url: /habits
+              - link:
+                - /url: /weekly-review
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                    - generic:
+                      - generic: ·
+                      - generic: Week of Sep 13 – 19, 2026
+                      - generic: ·
+                      - generic: 4:41 PM
+                  - generic:
+                    - button
+                    - button: Today
+                    - button
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - generic:
+                    - generic:
+                      - button: Task
+                      - button: Event
+                    - button
+                  - button
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: All day
+                        - generic:
+                          - generic:
+                            - generic: Mon
+                            - generic:
+                              - generic: "7"
+                              - button
+                        - generic:
+                          - generic:
+                            - generic: Tue
+                            - generic: "8"
+                        - generic:
+                          - generic:
+                            - generic: Wed
+                            - generic: "9"
+                        - generic:
+                          - generic:
+                            - generic: Thu
+                            - generic: "10"
+                        - generic:
+                          - generic:
+                            - generic: Fri
+                            - generic: "11"
+                        - generic:
+                          - generic:
+                            - generic: Sat
+                            - generic: "12"
+                        - generic:
+                          - generic:
+                            - generic: Sun
+                            - generic: "13"
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 1 AM
+                            - generic: 2 AM
+                            - generic: 3 AM
+                            - generic: 4 AM
+                            - generic: 5 AM
+                            - generic: 6 AM
+                            - generic: 7 AM
+                            - generic: 8 AM
+                            - generic: 9 AM
+                            - generic: 10 AM
+                            - generic: 11 AM
+                            - generic: 12 PM
+                            - generic: 1 PM
+                            - generic: 2 PM
+                            - generic: 3 PM
+                            - generic: 4 PM
+                            - generic: 5 PM
+                            - generic: 6 PM
+                            - generic: 7 PM
+                            - generic: 8 PM
+                            - generic: 9 PM
+                            - generic: 10 PM
+                            - generic: 11 PM
+            - status
+    - region "Cadence notifications alt+T"
+  - dialog [ref=e1071]:
+    - generic [ref=e1073]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=e1074]
+      - paragraph [ref=e1075]: Planned for Sun, Sep 13
+    - tablist "Create type" [ref=e1077]:
+      - tab "Task" [selected] [ref=e1078] [cursor=pointer]
+      - tab "Event" [ref=e1081] [cursor=pointer]
+    - generic [ref=e1086]:
+      - textbox "Block title…" [ref=e1233]: UI critique test block
+      - generic [ref=e1088]:
+        - button "Once" [ref=e1234] [cursor=pointer]
+        - button "Repeats weekly" [ref=e1235] [cursor=pointer]
+      - generic [ref=e1091]:
+        - generic [ref=e1249]:
+          - text: Start
+          - generic [ref=e1250]:
+            - combobox "Hour" [ref=e1255] [cursor=pointer]:
+              - generic: "5"
+            - generic [ref=e1256]: ":"
+            - combobox "Minute" [ref=e1257] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=e1258] [cursor=pointer]:
+              - generic: PM
+        - generic [ref=e1259]:
+          - text: End
+          - generic [ref=e1260]:
+            - combobox "Hour" [ref=e1265] [cursor=pointer]:
+              - generic: "6"
+            - generic [ref=e1266]: ":"
+            - combobox "Minute" [ref=e1267] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=e1268] [cursor=pointer]:
+              - generic: PM
+      - generic [ref=e1269]:
+        - generic [ref=e1270]:
+          - text: From
+          - textbox "From" [ref=e1272] [cursor=pointer]: 2026-09-13
+        - generic [ref=e1273]:
+          - generic [ref=e1274]:
+            - generic [ref=e1275]: Until
+            - button "Add end date" [ref=e1276] [cursor=pointer]
+          - textbox [disabled] [ref=e1278]
+      - group [ref=e1279]:
+        - generic "More options" [ref=e1280] [cursor=pointer]
+        - generic [ref=e1292]:
+          - generic [ref=e1293]:
+            - generic [ref=e1294]: Notes
+            - textbox "Notes" [ref=e1298]:
+              - /placeholder: Room, context, why this block matters…
+              - text: Note persistence check 20:41
+          - group "Priority" [ref=e1299]:
+            - generic [ref=e1303]:
+              - button "None" [ref=e1304] [cursor=pointer]
+              - button "Low" [ref=e1307] [cursor=pointer]
+              - button "Medium" [ref=e1311] [cursor=pointer]
+              - button "High" [pressed] [ref=e1315] [cursor=pointer]
+              - button "Urgent" [ref=e1319] [cursor=pointer]
+          - group "Effort" [ref=e1323]:
+            - generic [ref=e1328]:
+              - button "Low" [ref=e1329] [cursor=pointer]
+              - button "Medium" [active] [pressed] [ref=e1332] [cursor=pointer]
+              - button "High" [ref=e1335] [cursor=pointer]
+    - generic [ref=e1128]:
+      - button "Cancel" [ref=e1129] [cursor=pointer]
+      - button "Add to schedule" [ref=e1338] [cursor=pointer]
+    - button "Close" [ref=e1130] [cursor=pointer]

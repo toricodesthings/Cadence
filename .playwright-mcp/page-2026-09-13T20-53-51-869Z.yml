@@ -1,0 +1,161 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - complementary "Application navigation":
+          - navigation "Icon navigation rail":
+            - generic "Cadence":
+              - img "Cadence"
+            - navigation "Primary navigation":
+              - link "Capture":
+                - /url: /
+              - link "Schedule":
+                - /url: /schedule
+              - link "Habits":
+                - /url: /habits
+              - link "Weekly Reset":
+                - /url: /weekly-review
+            - button "Toggle AI Assistant Panel"
+            - button "Search"
+            - button "Quick add task"
+            - button "Sync workspace"
+            - button "Notifications"
+            - button "Settings"
+            - button "Developer tools"
+            - button "Profile menu"
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                    - generic:
+                      - generic: ·
+                      - generic: 13 Sunday
+                      - generic: ·
+                      - generic: 4:53 PM
+                  - generic:
+                    - button
+                    - button: Today
+                    - button
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - generic:
+                    - generic:
+                      - button: Task
+                      - button: Event
+                    - button
+                  - button
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: All day
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 1 AM
+                            - generic: 2 AM
+                            - generic: 3 AM
+                            - generic: 4 AM
+                            - generic: 5 AM
+                            - generic: 6 AM
+                            - generic: 7 AM
+                            - generic: 8 AM
+                            - generic: 9 AM
+                            - generic: 10 AM
+                            - generic: 11 AM
+                            - generic: 12 PM
+                            - generic: 1 PM
+                            - generic: 2 PM
+                            - generic: 3 PM
+                            - generic: 4 PM
+                            - generic: 5 PM
+                            - generic: 6 PM
+                            - generic: 7 PM
+                            - generic: 8 PM
+                            - generic: 9 PM
+                            - generic: 10 PM
+                            - generic: 11 PM
+                          - generic:
+                            - generic:
+                              - button:
+                                - generic: UI critique test block
+                                - generic: 5:00 PM – 6:00 PM
+            - status
+    - region "Cadence notifications alt+T"
+  - dialog [ref=f4e15]:
+    - generic [ref=f4e17]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=f4e18]
+      - paragraph [ref=f4e19]: 5:00 PM – 6:00 PM
+    - tablist "Create type" [ref=f4e21]:
+      - tab "Task" [selected] [ref=f4e22] [cursor=pointer]
+      - tab "Event" [ref=f4e25] [cursor=pointer]
+    - generic [ref=f4e30]:
+      - textbox "Block title…" [ref=f4e32]
+      - generic [ref=f4e33]:
+        - button "Once" [active] [ref=f4e34] [cursor=pointer]
+        - button "Repeats weekly" [ref=f4e35] [cursor=pointer]
+      - generic [ref=f4e36]:
+        - generic [ref=f4e37]:
+          - text: Start
+          - generic [ref=f4e38]:
+            - combobox "Hour" [ref=f4e43] [cursor=pointer]:
+              - generic: "5"
+            - generic [ref=f4e44]: ":"
+            - combobox "Minute" [ref=f4e45] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f4e46] [cursor=pointer]:
+              - generic: PM
+        - generic [ref=f4e47]:
+          - text: End
+          - generic [ref=f4e48]:
+            - combobox "Hour" [ref=f4e53] [cursor=pointer]:
+              - generic: "6"
+            - generic [ref=f4e54]: ":"
+            - combobox "Minute" [ref=f4e55] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f4e56] [cursor=pointer]:
+              - generic: PM
+      - generic [ref=f4e57]:
+        - generic [ref=f4e58]:
+          - generic [ref=f4e59]: From
+          - textbox "From" [ref=f4e61] [cursor=pointer]: 2026-09-13
+        - generic [ref=f4e62]:
+          - generic [ref=f4e63]:
+            - generic [ref=f4e64]: Until
+            - button "Add end date" [ref=f4e65] [cursor=pointer]
+          - textbox [disabled] [ref=f4e67]
+      - group [ref=f4e68]:
+        - generic "More options" [ref=f4e69] [cursor=pointer]
+        - generic [ref=f4e81]:
+          - generic [ref=f4e82]:
+            - generic [ref=f4e83]: Notes
+            - textbox "Notes" [ref=f4e87]:
+              - /placeholder: Room, context, why this block matters…
+          - group "Priority" [ref=f4e88]:
+            - generic [ref=f4e92]:
+              - 'button "Priority: None" [pressed] [ref=f4e93] [cursor=pointer]':
+                - generic [ref=f4e95]: None
+              - 'button "Priority: Low" [ref=f4e96] [cursor=pointer]':
+                - generic [ref=f4e99]: Low
+              - 'button "Priority: Medium" [ref=f4e100] [cursor=pointer]':
+                - generic [ref=f4e103]: Medium
+              - 'button "Priority: High" [ref=f4e104] [cursor=pointer]':
+                - generic [ref=f4e107]: High
+              - 'button "Priority: Urgent" [ref=f4e108] [cursor=pointer]':
+                - generic [ref=f4e111]: Urgent
+          - group "Effort" [ref=f4e112]:
+            - generic [ref=f4e117]:
+              - button "Low" [ref=f4e118] [cursor=pointer]
+              - button "Medium" [ref=f4e121] [cursor=pointer]
+              - button "High" [ref=f4e124] [cursor=pointer]
+    - generic [ref=f4e74]:
+      - button "Cancel" [ref=f4e75] [cursor=pointer]
+      - button "Add to schedule" [disabled]
+    - button "Close" [ref=f4e76] [cursor=pointer]

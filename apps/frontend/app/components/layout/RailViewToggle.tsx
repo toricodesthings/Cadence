@@ -27,10 +27,12 @@ export function RailViewToggle({
     ];
 
     return (
+        // Header-height strip so the pill centers on the panel header's title row.
+        <div className="pointer-events-none absolute right-4 top-0 z-40 flex h-(--shell-header-h) items-center">
         <div
             role="tablist"
             aria-label="Right panel view"
-            className="pointer-events-auto absolute right-2.5 top-2.5 z-40 flex items-center gap-0.5 rounded-full border border-twilight-border bg-twilight-deep/85 p-0.5 shadow-lg backdrop-blur-xl"
+            className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-twilight-border bg-twilight-deep/85 p-0.5 shadow-lg backdrop-blur-xl"
         >
             {tabs.map(({ id, label, icon: Icon }) => {
                 const active = view === id;
@@ -42,7 +44,7 @@ export function RailViewToggle({
                             aria-selected={active}
                             aria-label={label}
                             onClick={() => onChange(id)}
-                            className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-colors cursor-pointer ${
+                            className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors cursor-pointer ${
                                 active
                                     ? "text-twilight-text"
                                     : "text-twilight-text-muted hover:text-twilight-text-soft"
@@ -55,11 +57,12 @@ export function RailViewToggle({
                                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                                 />
                             ) : null}
-                            <Icon size={14} className="relative" aria-hidden="true" />
+                            <Icon size={16} className="relative" aria-hidden="true" />
                         </button>
                     </Tip>
                 );
             })}
+        </div>
         </div>
     );
 }

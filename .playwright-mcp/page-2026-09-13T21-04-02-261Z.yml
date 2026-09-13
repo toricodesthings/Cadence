@@ -1,0 +1,163 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - complementary [aria-hidden]:
+          - navigation:
+            - navigation:
+              - link:
+                - /url: /
+              - link:
+                - /url: /schedule
+              - link:
+                - /url: /habits
+              - link:
+                - /url: /weekly-review
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+            - button
+        - generic:
+          - main:
+            - generic [aria-hidden]:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=2]: September 2026
+                    - generic:
+                      - generic: ·
+                      - generic: Week of Sep 13 – 19, 2026
+                      - generic: ·
+                      - generic: 5:04 PM
+                  - generic:
+                    - button
+                    - button: Today
+                    - button
+                  - navigation:
+                    - button: Day
+                    - button: Week
+                    - button: Month
+                    - button: Year
+                  - generic:
+                    - generic:
+                      - button: Task
+                      - button: Event
+                    - button
+                  - button
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: All day
+                        - generic:
+                          - generic:
+                            - generic: Mon
+                            - generic:
+                              - generic: "7"
+                              - button
+                        - generic:
+                          - generic:
+                            - generic: Tue
+                            - generic: "8"
+                        - generic:
+                          - generic:
+                            - generic: Wed
+                            - generic: "9"
+                        - generic:
+                          - generic:
+                            - generic: Thu
+                            - generic: "10"
+                        - generic:
+                          - generic:
+                            - generic: Fri
+                            - generic: "11"
+                        - generic:
+                          - generic:
+                            - generic: Sat
+                            - generic: "12"
+                        - generic:
+                          - generic:
+                            - generic: Sun
+                            - generic: "13"
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic: 1 AM
+                            - generic: 2 AM
+                            - generic: 3 AM
+                            - generic: 4 AM
+                            - generic: 5 AM
+                            - generic: 6 AM
+                            - generic: 7 AM
+                            - generic: 8 AM
+                            - generic: 9 AM
+                            - generic: 10 AM
+                            - generic: 11 AM
+                            - generic: 12 PM
+                            - generic: 1 PM
+                            - generic: 2 PM
+                            - generic: 3 PM
+                            - generic: 4 PM
+                            - generic: 5 PM
+                            - generic: 6 PM
+                            - generic: 7 PM
+                            - generic: 8 PM
+                            - generic: 9 PM
+                            - generic: 10 PM
+                            - generic: 11 PM
+            - status
+    - region "Cadence notifications alt+T"
+  - dialog [ref=f10e1069]:
+    - generic [ref=f10e1071]:
+      - heading "Create on Sun, Sep 13" [level=2] [ref=f10e1072]
+      - paragraph [ref=f10e1073]: 6:00 PM – 7:00 PM
+    - tablist "Create type" [ref=f10e1075]:
+      - tab "Task" [selected] [ref=f10e1076] [cursor=pointer]
+      - tab "Event" [ref=f10e1079] [cursor=pointer]
+    - generic [ref=f10e1084]:
+      - textbox "Block title…" [active] [ref=f10e1086]
+      - generic [ref=f10e1087]:
+        - button "Once" [ref=f10e1088] [cursor=pointer]
+        - button "Repeats weekly" [ref=f10e1089] [cursor=pointer]
+      - generic [ref=f10e1090]:
+        - generic [ref=f10e1091]:
+          - text: Start
+          - generic [ref=f10e1092]:
+            - combobox "Hour" [ref=f10e1097] [cursor=pointer]:
+              - generic: "6"
+            - generic [ref=f10e1098]: ":"
+            - combobox "Minute" [ref=f10e1099] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f10e1100] [cursor=pointer]:
+              - generic: PM
+        - generic [ref=f10e1101]:
+          - text: End
+          - generic [ref=f10e1102]:
+            - combobox "Hour" [ref=f10e1107] [cursor=pointer]:
+              - generic: "7"
+            - generic [ref=f10e1108]: ":"
+            - combobox "Minute" [ref=f10e1109] [cursor=pointer]:
+              - generic: "00"
+            - combobox "AM or PM" [ref=f10e1110] [cursor=pointer]:
+              - generic: PM
+      - generic [ref=f10e1111]:
+        - generic [ref=f10e1112]:
+          - generic [ref=f10e1113]: From
+          - textbox "From" [ref=f10e1115] [cursor=pointer]: 2026-09-13
+        - generic [ref=f10e1116]:
+          - generic [ref=f10e1117]:
+            - generic [ref=f10e1118]: Until
+            - button "Add end date" [ref=f10e1119] [cursor=pointer]
+          - textbox [disabled] [ref=f10e1121]
+      - group [ref=f10e1122]:
+        - generic "More options" [ref=f10e1123] [cursor=pointer]
+    - generic [ref=f10e1128]:
+      - button "Cancel" [ref=f10e1129] [cursor=pointer]
+      - button "Add to schedule" [disabled]
+    - button "Close" [ref=f10e1130] [cursor=pointer]

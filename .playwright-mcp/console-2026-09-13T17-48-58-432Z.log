@@ -1,0 +1,208 @@
+[     915ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:15804
+[     992ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <RemixErrorBoundary location={{pathname:"/", ...}}>
+      <RouterProvider$1 router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+        <RouterProvider flushSync={function} router={{basename:"/", ...}} useTransitions={undefined} onError={undefined}>
+          <Router basename="/" location={{pathname:"/", ...}} navigationType="POP" navigator={{...}} ...>
+            <DataRoutes routes={[...]} manifest={{...}} future={{}} state={{...}} isStatic={false} onError={undefined}>
+              <RenderErrorBoundary location={{pathname:"/", ...}} revalidation="idle" component={<Layout>} ...>
+                <RenderedRoute match={{params:{}, ...}} routeContext={{outlet:null, ...}}>
+                  <Layout>
+                    <html
+                      lang="en"
+-                     data-loading-season="autumn"
+-                     data-loading-mode="twilight"
+                    >
+ @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:3239
+[    1669ms] [ERROR] Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template). @ http://localhost:8788/node_modules/.vite/deps/react-dom_client.js?v=32f5a6e4:6614
+[    1772ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1774ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: pending, fetchStatus: idle, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    1775ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1779ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1780ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: pending, fetchStatus: idle, count: null, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    1780ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1816ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1818ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1911ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1914ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    1915ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    1942ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2190ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2190ms] [INFO] [cadence:inbox-query] state changed {enabled: false, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    2191ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2304ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    2305ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2309ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2310ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    2311ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2313ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    2314ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2361ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2363ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2364ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2575ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2577ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    2578ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2579ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    2580ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2581ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    2581ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    2581ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: fetching, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    3211ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    3213ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3214ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3215ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    3216ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3217ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    3218ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3219ms] [INFO] [cadence:inbox-query] state changed {enabled: true, status: success, fetchStatus: idle, count: 0, error: null} @ http://localhost:8788/app/hooks/inbox/use-inbox.ts:21
+[    3220ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3281ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3284ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3286ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3286ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3287ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3583ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3584ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3585ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[    3586ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   12649ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   27999ms] [ERROR] [vite] SyntaxError: The requested module '/app/components/shared/loading/loading-geometry.ts?t=1789321766345' does not provide an export named 'jaggedPolyline' @ http://localhost:8788/@vite/client:962
+[   27999ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingMountains.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   28005ms] [ERROR] [vite] SyntaxError: The requested module '/app/components/shared/loading/loading-geometry.ts?t=1789321766345' does not provide an export named 'jaggedQuadChain' @ http://localhost:8788/@vite/client:962
+[   28005ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingCityscape.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   28019ms] [ERROR] [vite] SyntaxError: The requested module '/app/components/shared/loading/loading-geometry.ts?t=1789321766345' does not provide an export named 'jaggedQuadChain' @ http://localhost:8788/@vite/client:962
+[   28019ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingCityscape.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   28096ms] [ERROR] [vite] SyntaxError: The requested module '/app/components/shared/loading/loading-geometry.ts?t=1789321766345' does not provide an export named 'jaggedPolyline' @ http://localhost:8788/@vite/client:962
+[   28097ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingMountains.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   28159ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   28160ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   28162ms] [ERROR] [vite] SyntaxError: The requested module '/app/components/shared/loading/loading-geometry.ts?t=1789321766345' does not provide an export named 'jaggedQuadChain' @ http://localhost:8788/@vite/client:962
+[   28162ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingCityscape.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   28163ms] [ERROR] [vite] SyntaxError: The requested module '/app/components/shared/loading/loading-geometry.ts?t=1789321766345' does not provide an export named 'jaggedPolyline' @ http://localhost:8788/@vite/client:962
+[   28163ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingMountains.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   34153ms] [ERROR] [vite] ReferenceError: rng is not defined
+    at http://localhost:8788/app/components/shared/loading/LoadingMountains.tsx?t=1789321772515:14:16
+    at http://localhost:8788/app/components/shared/loading/LoadingMountains.tsx?t=1789321772515:25:3 @ http://localhost:8788/@vite/client:962
+[   34154ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingMountains.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   34163ms] [ERROR] [vite] ReferenceError: rng is not defined
+    at http://localhost:8788/app/components/shared/loading/LoadingMountains.tsx?t=1789321772516:14:16
+    at http://localhost:8788/app/components/shared/loading/LoadingMountains.tsx?t=1789321772516:25:3 @ http://localhost:8788/@vite/client:962
+[   34163ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingMountains.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   34172ms] [ERROR] [vite] ReferenceError: rng is not defined
+    at http://localhost:8788/app/components/shared/loading/LoadingMountains.tsx?t=1789321772514:14:16
+    at http://localhost:8788/app/components/shared/loading/LoadingMountains.tsx?t=1789321772514:25:3 @ http://localhost:8788/@vite/client:962
+[   34172ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingMountains.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[   45280ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   45281ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   48227ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[   57669ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   86350ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   86351ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[   89083ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  113419ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  169306ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  225135ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  280954ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  336803ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  348300ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  361914ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  375472ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  383310ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  394685ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  397119ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  410281ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  410282ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  413220ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  415501ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  415501ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  418681ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  418682ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  421320ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  421321ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  423470ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  423470ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  424372ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  426968ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  426969ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  429764ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  438026ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  438027ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  441055ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  449394ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322187764:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322187764:73:109 @ http://localhost:8788/@vite/client:962
+[  449394ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  449406ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322187765:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322187765:73:109 @ http://localhost:8788/@vite/client:962
+[  449407ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  449414ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322187763:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322187763:73:109 @ http://localhost:8788/@vite/client:962
+[  449414ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  450572ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  452473ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  454231ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322192616:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322192616:73:109 @ http://localhost:8788/@vite/client:962
+[  454231ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  454248ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322192617:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322192617:73:109 @ http://localhost:8788/@vite/client:962
+[  454248ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  454256ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322192615:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322192615:73:109 @ http://localhost:8788/@vite/client:962
+[  454256ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  455237ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  455608ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322193991:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322193991:73:109 @ http://localhost:8788/@vite/client:962
+[  455608ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  455615ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322193992:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322193992:73:109 @ http://localhost:8788/@vite/client:962
+[  455616ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  455627ms] [ERROR] [vite] ReferenceError: cloud is not defined
+    at _c (http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322193990:73:143)
+    at Array.map (<anonymous>)
+    at http://localhost:8788/app/components/shared/loading/LoadingSky.tsx?t=1789322193990:73:109 @ http://localhost:8788/@vite/client:962
+[  455627ms] [ERROR] [vite] Failed to reload /app/components/shared/loading/LoadingSky.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  460711ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  473341ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  477971ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  477972ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  480971ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  483196ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  483196ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  486164ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  491850ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  491851ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  494797ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  498353ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  498354ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  501390ms] [WARNING] The resource http://localhost:8788/app/app.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/:0
+[  506348ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  524254ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 1} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  524255ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28

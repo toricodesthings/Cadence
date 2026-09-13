@@ -91,6 +91,11 @@ export function ResizableSidePanel({
                     }
                 }}
             >
+                {/* Carries the header's bottom border across the handle so it meets the panel's. */}
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-(--shell-header-h) border-b border-twilight-border"
+                />
                 <div
                     className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full bg-accent-primary/25 opacity-0 transition-opacity group-hover:opacity-100"
                 />

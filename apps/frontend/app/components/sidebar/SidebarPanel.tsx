@@ -98,22 +98,22 @@ export function SidebarPanel({
                 which otherwise grows to its widest child and gets sliced by the
                 rail's overflow:hidden. Forcing a block context makes every row
                 reflow/truncate to the current rail width instead of clipping (§4.8). */}
+            {/* Search bar — opens command palette for non-wide shells. Sits in a
+                header-height strip so its border lines up with the page header's. */}
+            {onSearchOpen && (
+                <div className="flex h-(--shell-header-h) shrink-0 items-center border-b border-twilight-border px-3">
+                    <button
+                        onClick={onSearchOpen}
+                        className="flex w-full items-center gap-3 rounded-xl border border-twilight-border/50 bg-white/[0.02] px-3.5 py-2.5 text-sm text-twilight-text-muted/60 hover:bg-white/[0.04] hover:border-twilight-border transition-colors cursor-pointer"
+                        aria-label="Search workspace"
+                    >
+                        <Search size={15} className="shrink-0" aria-hidden="true" />
+                        <span className="text-truncate-safe">Search…</span>
+                    </button>
+                </div>
+            )}
             <ScrollArea.Root className="mobile-scroll-region flex-1">
                 <ScrollArea.Viewport className="h-full px-3 py-5 scrollbar-thin [&>div]:!block [&>div]:!min-w-0">
-                    {/* Search bar — opens command palette for non-wide shells */}
-                    {onSearchOpen && (
-                        <>
-                            <button
-                                onClick={onSearchOpen}
-                                className="flex w-full items-center gap-3 rounded-xl border border-twilight-border/50 bg-white/[0.02] px-3.5 py-2.5 text-sm text-twilight-text-muted/60 hover:bg-white/[0.04] hover:border-twilight-border transition-colors cursor-pointer"
-                                aria-label="Search workspace"
-                            >
-                                <Search size={15} className="shrink-0" aria-hidden="true" />
-                                <span className="text-truncate-safe">Search…</span>
-                            </button>
-                            <Separator.Root className="h-px bg-twilight-border my-4" aria-hidden="true" />
-                        </>
-                    )}
                     {/* Primary nav */}
                     {showWorkspaceNav && (
                         <>

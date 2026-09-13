@@ -38,6 +38,7 @@ import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
 import { BackgroundLayer } from "../settings/appearance/BackgroundLayer";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { setDiagnosticsEnabled } from "../../lib/api/track-event";
+import type { Season } from "../../lib/themes/season";
 import {
     configureGlobalQuickCaptureShortcut,
     listenForDesktopCommands,
@@ -275,13 +276,43 @@ export function MainLayout({
     const { preferences } = useDesktopCommandPreferences();
 
     useEffect(() => {
+        // Dev preview: stays up until Escape, or for `detail.duration` ms when given.
+        // `detail.season` previews that season; the real one is restored on close.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let realSeason: string | null | undefined;
+        const root = document.documentElement;
+        const restoreSeason = () => {
+            if (realSeason === undefined) return;
+            if (realSeason === null) root.removeAttribute("data-loading-season");
+            else root.setAttribute("data-loading-season", realSeason);
+            realSeason = undefined;
+        };
+        const hide = () => {
+            setForceLoading(false);
+            restoreSeason();
+        };
         const handleDebugLoading = (e: Event) => {
-            const detail = (e as CustomEvent).detail;
+            const detail = (e as CustomEvent<{ duration?: number; season?: Season } | undefined>).detail;
+            if (detail?.season) {
+                if (realSeason === undefined) realSeason = root.getAttribute("data-loading-season");
+                root.setAttribute("data-loading-season", detail.season);
+            } else {
+                restoreSeason();
+            }
             setForceLoading(true);
-            setTimeout(() => setForceLoading(false), detail?.duration || 10000);
+            clearTimeout(timer);
+            if (detail?.duration) timer = setTimeout(hide, detail.duration);
+        };
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === "Escape") hide();
         };
         window.addEventListener("debug:loading", handleDebugLoading);
-        return () => window.removeEventListener("debug:loading", handleDebugLoading);
+        window.addEventListener("keydown", handleEscape);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener("debug:loading", handleDebugLoading);
+            window.removeEventListener("keydown", handleEscape);
+        };
     }, []);
 
     // Global assistant shortcut (⌘/Ctrl + I) — invokable from anywhere except the
@@ -579,7 +610,9 @@ export function MainLayout({
     // contextual panel to compete with.
     const assistantInRail =
         shell.isWide && assistantPanelOpen && (railView === "assistant" || !sidePanelPresent);
-    const contextInRail = shell.isWide && sidePanelPresent && !assistantInRail;
+    // Not gated on `sidePanelPresent`: the context pane must stay in-flow while
+    // it closes so its own exit (width → 0) animates instead of snapping shut.
+    const contextInRail = shell.isWide && !assistantInRail;
     // The toggle rides along while the contextual panel holds the rail — so the
     // user can flip to Cadence (opening it if needed). It hides once Cadence
     // claims the rail, since the assistant's own header X hands the rail back and
@@ -628,11 +661,13 @@ export function MainLayout({
                     )}
 
                     <div className="flex min-w-0 flex-1 flex-col min-h-0">
+                    {/* Off phone the header is a single row, so it takes the shared
+                        height and its bottom border lines up with side-panel headers. */}
                     {!hideHeader && (
-                        <header className="layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl">
+                        <header className={`layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl ${shell.isPhone ? "" : "h-(--shell-header-h)"}`}>
                             <div
-                                className="px-4 pb-3 pt-2.5 sm:px-6 sm:pb-3 sm:pt-3 lg:px-8"
-                                style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
+                                className={shell.isPhone ? "px-4 pb-3 pt-2.5" : "flex h-full items-center px-6 lg:px-8"}
+                                style={shell.isPhone ? { paddingTop: "max(0.625rem, env(safe-area-inset-top))" } : undefined}
                             >
                                 <div className="flex w-full flex-col gap-2">
                                     <div className="flex min-h-11 items-center justify-between gap-4 sm:min-h-12">

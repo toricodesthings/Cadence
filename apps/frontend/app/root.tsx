@@ -14,6 +14,7 @@ import {
 import { Loading } from "./components/shared/Loading";
 import { Providers } from "./providers";
 import { RUNTIME_TARGET } from "./lib/env";
+import { LOADING_BOOT_SCRIPT } from "./lib/themes/season";
 // Load the stylesheet as a real <link> (via ?url) rather than a side-effect
 // `import "./app.css"`. A side-effect import makes React Router inline the
 // route CSS as dev "critical CSS" and lets Vite swap it for a JS-injected
@@ -37,7 +38,8 @@ export const links: LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // The head boot scripts stamp theme/season attributes on <html> before hydration.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -56,6 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             __html: `(function(){try{var d=document.documentElement,s=JSON.parse(localStorage.getItem('cadence-appearance')||'{}');if(s.theme==='daylight')d.setAttribute('data-theme','daylight');else if(s.theme==='system'&&window.matchMedia('(prefers-color-scheme:light)').matches)d.setAttribute('data-theme','daylight');if(s.palette&&s.palette!=='lantern')d.setAttribute('data-palette',s.palette);if(s.themePreset&&s.themePreset!=='default'&&s.themePreset!=='daylight-default')d.setAttribute('data-theme-preset',s.themePreset);}catch(e){}})()`
           }}
         />
+        <script dangerouslySetInnerHTML={{ __html: LOADING_BOOT_SCRIPT }} />
         <Meta />
         <Links />
       </head>

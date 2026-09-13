@@ -6,6 +6,7 @@ import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { deriveCustomTokens, gradientMidpointLuminance, buildGradientCSS } from "../../lib/themes/background-tokens";
 import { GRADIENT_PRESETS } from "../../lib/themes/gradient-presets";
 import { THEME_PRESET_MAP, type ThemePresetId } from "../../lib/themes/theme-presets";
+import { resolveLoadingSeason } from "../../lib/themes/season";
 
 /**
  * Syncs appearance settings to data attributes on `<html>`, driving
@@ -19,6 +20,7 @@ import { THEME_PRESET_MAP, type ThemePresetId } from "../../lib/themes/theme-pre
  *   data-palette     — palette id | absent (lantern default)
  *   data-theme-preset — preset id | absent (default)
  *   data-bg-mode     — "custom" | absent (theme default)
+ *   data-loading-season / data-loading-mode — loading scene variant (also set by the head boot script)
  *
  * Also syncs `dateTime` settings to the global date format configuration.
  */
@@ -48,6 +50,7 @@ export function useThemeSync() {
             } else {
                 root.removeAttribute("data-theme");
             }
+            root.setAttribute("data-loading-mode", resolved);
         }
 
         if (theme === "system") {
@@ -114,6 +117,7 @@ export function useThemeSync() {
         } else {
             root.setAttribute("data-theme-preset", themePreset);
         }
+        root.setAttribute("data-loading-season", resolveLoadingSeason(themePreset));
     }, [themePreset]);
 
     // ── Custom background sync ──
@@ -188,10 +192,10 @@ export function useThemeSync() {
     useEffect(() => {
         try {
             localStorage.setItem("cadence-appearance", JSON.stringify({
-                theme, palette, themePreset, backgroundMode,
+                theme, palette, themePreset, backgroundMode, motion,
             }));
         } catch { /* quota exceeded — non-critical */ }
-    }, [theme, palette, themePreset, backgroundMode]);
+    }, [theme, palette, themePreset, backgroundMode, motion]);
 
     // ── Date/time format sync ──
     useEffect(() => {

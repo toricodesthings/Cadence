@@ -5,31 +5,37 @@
  */
 
 export type Season = "spring" | "summer" | "autumn" | "winter";
+export type LoadingMode = "twilight" | "daylight";
 
-export function getCurrentSeason(): Season {
-    const month = new Date().getMonth(); // 0-indexed
-    if (month >= 2 && month <= 4) return "spring";
-    if (month >= 5 && month <= 7) return "summer";
-    if (month >= 8 && month <= 10) return "autumn";
-    return "winter";
+const MONTH_SEASONS: readonly Season[] = [
+    "winter", "winter", "spring", "spring", "spring", "summer",
+    "summer", "summer", "autumn", "autumn", "autumn", "winter",
+];
+
+export const LOADING_SEASON_BY_PRESET: Readonly<Record<string, Season>> = {
+    "spring-bloom": "spring",
+    "summer-coast": "summer",
+    "autumn-hearth": "autumn",
+    "winter-frost": "winter",
+};
+
+export function getCurrentSeason(date: Date = new Date()): Season {
+    return MONTH_SEASONS[date.getMonth()] ?? "autumn";
 }
 
 export function getSeasonFromPreset(preset?: string): Season | null {
-    switch (preset) {
-        case "spring-bloom":
-            return "spring";
-        case "summer-coast":
-            return "summer";
-        case "autumn-hearth":
-            return "autumn";
-        case "winter-frost":
-            return "winter";
-        default:
-            return null;
-    }
+    if (!preset || !Object.prototype.hasOwnProperty.call(LOADING_SEASON_BY_PRESET, preset)) return null;
+    return LOADING_SEASON_BY_PRESET[preset] ?? null;
 }
 
 /** Resolve the effective season: user preset overrides real-world date. */
 export function resolveLoadingSeason(themePreset?: string): Season {
     return getSeasonFromPreset(themePreset) ?? getCurrentSeason();
 }
+
+/**
+ * Head boot script (runs after the theme script, before first paint). Sets the
+ * `<html>` attributes the loading scene's CSS keys off, so the pre-rendered
+ * fallback shows the right season/mode/motion without JS-dependent markup.
+ */
+export const LOADING_BOOT_SCRIPT = `(function(){try{var d=document.documentElement,s={};try{s=JSON.parse(localStorage.getItem('cadence-appearance')||'{}')||{}}catch(e){}if(s.motion==='reduced'||s.motion==='full')d.setAttribute('data-motion',s.motion);var P=${JSON.stringify(LOADING_SEASON_BY_PRESET)},M=${JSON.stringify(MONTH_SEASONS)};d.setAttribute('data-loading-season',Object.prototype.hasOwnProperty.call(P,s.themePreset)?P[s.themePreset]:M[new Date().getMonth()]);d.setAttribute('data-loading-mode',d.getAttribute('data-theme')==='daylight'?'daylight':'twilight')}catch(e){}})()`;

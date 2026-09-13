@@ -1,0 +1,6 @@
+- generic [active] [ref=f6e1]:
+  - generic:
+    - generic [ref=f6e187]:
+      - img "Cadence Logo" [ref=f6e190]
+      - heading "Cadence" [level=2] [ref=f6e191]
+    - region "Cadence notifications alt+T"

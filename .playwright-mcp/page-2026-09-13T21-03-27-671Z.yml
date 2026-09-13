@@ -1,0 +1,28 @@
+- generic [ref=f9e12]:
+  - main [ref=f9e16]:
+    - generic [ref=f9e17]:
+      - generic [ref=f9e18]:
+        - generic [ref=f9e19]:
+          - button "Open navigation" [ref=f9e20] [cursor=pointer]
+          - heading "September 2026" [level=2] [ref=f9e29]
+          - generic [ref=f9e30]:
+            - button "Previous" [ref=f9e31] [cursor=pointer]
+            - button "Next" [ref=f9e34] [cursor=pointer]
+          - button "Display & calendar options" [ref=f9e37] [cursor=pointer]
+          - button "Add to schedule" [ref=f9e42] [cursor=pointer]
+        - generic [ref=f9e44]:
+          - navigation "Calendar view" [ref=f9e45]:
+            - button "Day" [ref=f9e46] [cursor=pointer]
+            - button "Week" [ref=f9e47] [cursor=pointer]
+            - button "Month" [ref=f9e48] [cursor=pointer]
+            - button "Year" [ref=f9e49] [cursor=pointer]
+          - button "Today" [ref=f9e50] [cursor=pointer]
+      - generic [ref=f9e54]:
+        - generic [ref=f9e56]:
+          - generic [ref=f9e57]: Now 5:03 PM
+          - generic [ref=f9e60]: No more timed blocks
+        - generic [ref=f9e61]: No tasks scheduled
+    - button "Add Task" [ref=f9e62] [cursor=pointer]
+    - status [ref=f9e63]
+  - button "Ask Janny" [ref=f9e64] [cursor=pointer]
+  - region "Cadence notifications alt+T"
