@@ -43,7 +43,8 @@ export default function PrivacyPolicyRoute() {
                                 <p className="text-sm leading-6 text-twilight-text-soft">
                                     Cadence stores the workspace content and settings you create, keeps some data locally
                                     for offline recovery, and only reaches for optional permissions like notifications or
-                                    precise location when you enable related features.
+                                    precise location when you enable related features. Weather and holidays use an
+                                    approximate location by default, which you can change or turn off in Settings.
                                 </p>
                             </div>
                         )}
@@ -63,7 +64,7 @@ export default function PrivacyPolicyRoute() {
                                 {
                                     label: "Permissions",
                                     value: "Optional",
-                                    detail: "Notifications and precise geolocation are tied to specific user-facing features and can be turned off.",
+                                    detail: "Notifications and location are tied to specific user-facing features and can be turned off.",
                                 },
                                 {
                                     label: "Commercial model",
@@ -130,10 +131,10 @@ export default function PrivacyPolicyRoute() {
                                     network is unstable.
                                 </li>
                                 <li>
-                                    <strong>Session memory</strong> may temporarily hold resolved location data for
-                                    weather and holiday overlays when you grant precise location. The current frontend
-                                    flow is designed around reuse of a single browser permission rather than constant
-                                    re-prompting.
+                                    <strong>localStorage</strong> keeps a precise position, rounded to about 1 km, for
+                                    up to 7 days when you choose precise location, so weather and holidays load without
+                                    asking again. It is scoped to your account and cleared when you sign out or choose
+                                    &ldquo;Forget saved location&rdquo; in Settings.
                                 </li>
                             </ul>
                         </SupportSection>
@@ -149,8 +150,12 @@ export default function PrivacyPolicyRoute() {
                                     used for reminders and due-date alerts when you enable them.
                                 </li>
                                 <li>
-                                    <strong>Precise location:</strong> used for holiday and weather context when enabled.
-                                    If you deny it, Cadence falls back to broader or manual region selection.
+                                    <strong>Location:</strong> used only for weather and holidays. By default Cadence
+                                    estimates your area from your network connection, which needs no permission. You
+                                    can switch to precise location (your browser asks once, only when you choose it),
+                                    pick a place yourself, or turn location off in Settings &gt; Location &amp; Weather.
+                                    Coordinates are rounded to about 1 km before they are sent for weather (Open-Meteo)
+                                    or region names (OpenStreetMap).
                                 </li>
                                 <li>
                                     <strong>No hidden camera or microphone path:</strong> the current codebase does not
@@ -184,8 +189,8 @@ export default function PrivacyPolicyRoute() {
                         >
                             <ul>
                                 <li>
-                                    You can manage notification behavior, recent search storage, dismissed prompt memory,
-                                    and precise holiday location from settings.
+                                    You can manage notification behavior, recent search storage, and how Cadence finds
+                                    your location (approximate, precise, chosen by you, or off) from settings.
                                 </li>
                                 <li>
                                     The app includes an export request flow and a manual deletion path, but automated

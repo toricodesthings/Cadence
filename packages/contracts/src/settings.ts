@@ -45,6 +45,18 @@ export const personalEventSchema = z.object({
 });
 export type PersonalEvent = z.infer<typeof personalEventSchema>;
 
+// ── Location (element shapes of settings.location) ──
+
+export const locationModeSchema = z.enum(["off", "approximate", "precise", "manual"]);
+export type LocationMode = z.infer<typeof locationModeSchema>;
+
+export const savedCitySchema = z.object({
+    name: z.string().min(1).max(120),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+});
+export type SavedCity = z.infer<typeof savedCitySchema>;
+
 // ── Canonical settings schema — single source of truth ──
 //
 // Every settings section, field name, and allowed value is defined here once.
@@ -105,16 +117,24 @@ export const userSettingsSchema = z.object({
         }).optional(),
         holidays: z.object({
             enabled: z.boolean(),
-            usePreciseLocation: z.boolean(),
-            locationMode: z.enum(["auto", "manual"]),
-            countryCode: z.string().nullable(),
-            subdivisionCode: z.string().nullable(),
-            promptDismissedAt: z.string().nullable(),
         }).optional(),
         personalEvents: z.object({
             enabled: z.boolean(),
             items: z.array(personalEventSchema).max(50),
         }).optional(),
+    }).optional(),
+    // App-wide location used by weather and holidays. `approximate` comes from the
+    // network (Cloudflare edge geo) and never triggers a browser prompt; `precise`
+    // asks the browser only when the user turns it on.
+    location: z.object({
+        mode: locationModeSchema,
+        countryCode: z.string().max(3).nullable(),
+        subdivisionCode: z.string().max(10).nullable(),
+        city: savedCitySchema.nullable(),
+        promptDismissedAt: z.string().nullable(),
+    }).optional(),
+    weather: z.object({
+        enabled: z.boolean(),
     }).optional(),
     tasks: z.object({
         defaultDueDate: z.enum(["None", "Today", "Tomorrow", "Next Week"]).nullable().optional(),
@@ -194,7 +214,6 @@ export const userSettingsSchema = z.object({
         usageDiagnostics: z.boolean().optional(),
         crashReports: z.boolean().optional(),
         storeRecentSearches: z.boolean().optional(),
-        storeDismissedPrompts: z.boolean().optional(),
         exportFormat: z.enum(["json", "csv"]).optional(),
         lastExportRequestedAt: z.string().nullable().optional(),
     }).optional(),
@@ -262,6 +281,34 @@ export function deepMerge(target: any, source: any): any {
     return output;
 }
 
+/**
+ * Lift the location fields that used to live under `calendar.holidays`
+ * (`usePreciseLocation`, `locationMode`, `countryCode`, `subdivisionCode`,
+ * `promptDismissedAt`) into `location`. Runs on stored settings before they are
+ * merged over defaults. The legacy keys are left in place so older clients keep
+ * reading them; the parsers ignore them.
+ */
+export function migrateLegacySettings<T>(stored: T): T {
+    if (!isPlainObject(stored) || stored.location !== undefined) return stored;
+    const holidays = isPlainObject(stored.calendar) ? stored.calendar.holidays : undefined;
+    if (!isPlainObject(holidays)) return stored;
+
+    const mode: LocationMode = holidays.locationMode === "manual"
+        ? "manual"
+        : holidays.usePreciseLocation === true ? "precise" : "approximate";
+
+    return {
+        ...stored,
+        location: {
+            mode,
+            countryCode: typeof holidays.countryCode === "string" ? holidays.countryCode : null,
+            subdivisionCode: typeof holidays.subdivisionCode === "string" ? holidays.subdivisionCode : null,
+            city: null,
+            promptDismissedAt: typeof holidays.promptDismissedAt === "string" ? holidays.promptDismissedAt : null,
+        },
+    };
+}
+
 // Patch schema — recursively partial version of the canonical schema.
 export const settingsPatchSchema = deepPartial(userSettingsSchema) as z.ZodType<DeepPartial<UserSettings>>;
 
@@ -315,16 +362,21 @@ export const SETTINGS_DEFAULTS = {
         },
         holidays: {
             enabled: true,
-            usePreciseLocation: false,
-            locationMode: "auto" as const,
-            countryCode: null as string | null,
-            subdivisionCode: null as string | null,
-            promptDismissedAt: null as string | null,
         },
         personalEvents: {
             enabled: true,
             items: [] as PersonalEvent[],
         },
+    },
+    location: {
+        mode: "approximate" as LocationMode,
+        countryCode: null as string | null,
+        subdivisionCode: null as string | null,
+        city: null as SavedCity | null,
+        promptDismissedAt: null as string | null,
+    },
+    weather: {
+        enabled: true,
     },
     tasks: {
         defaultDueDate: null as "None" | "Today" | "Tomorrow" | "Next Week" | null,
@@ -400,7 +452,6 @@ export const SETTINGS_DEFAULTS = {
         usageDiagnostics: true,
         crashReports: true,
         storeRecentSearches: true,
-        storeDismissedPrompts: true,
         exportFormat: "json" as const,
         lastExportRequestedAt: null as string | null,
     },

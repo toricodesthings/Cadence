@@ -49,7 +49,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/api/query-keys";
 import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { toast } from "sonner";
-import * as Dialog from "../components/primitives/Dialog";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useSidebarStore } from "../stores/sidebar-store";
@@ -62,9 +61,7 @@ import { getTaskSeriesId, isRecurringTask, isRecurringTaskInstance } from "../li
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import {
-    HolidayLocationPrompt,
-} from "../components/calendar/HolidayControls";
+import { LocationNotice } from "../components/location/LocationNotice";
 import { Wrench } from "lucide-react";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
@@ -141,7 +138,6 @@ export default function Schedule() {
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
     const [eventPopoverTab, setEventPopoverTab] = useState<"task" | "event">("task");
     const [draftPlacement, setDraftPlacement] = useState<{ dateStr: string; startMinute: number; endMinute: number } | null>(null);
-    const [holidayPromptOpen, setHolidayPromptOpen] = useState(false);
 
     useEffect(() => {
         const queryDate = searchParams.get("date");
@@ -737,10 +733,6 @@ export default function Schedule() {
         navigate("/events");
     }, [navigate]);
 
-    useEffect(() => {
-        setHolidayPromptOpen(holidayOverlay.shouldShowPrompt);
-    }, [holidayOverlay.shouldShowPrompt]);
-
     // ── Schedule-specific keyboard shortcuts ────────────────────────────────
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -814,60 +806,7 @@ export default function Schedule() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [currentDate, eventPopoverInfo, selectedTaskId, handleToday, handleNavigate]);
 
-    const handleUsePreciseHolidayLocation = useCallback(async () => {
-        const result = await holidayOverlay.requestPreciseLocation();
-
-        if (result.status === "granted" || result.status === "denied" || result.status === "unsupported") {
-            setHolidayPromptOpen(false);
-            return;
-        }
-
-        toast.error("Couldn’t refine holiday location just now.");
-    }, [holidayOverlay]);
-
-    const handleDismissHolidayPrompt = useCallback(() => {
-        holidayOverlay.dismissPrompt();
-        setHolidayPromptOpen(false);
-    }, [holidayOverlay]);
-
-    const handleDismissHolidayPromptPermanently = useCallback(() => {
-        holidayOverlay.dismissPromptPermanently();
-        setHolidayPromptOpen(false);
-    }, [holidayOverlay]);
-
-    const handleChooseHolidayLocationManually = useCallback(() => {
-        holidayOverlay.setLocationMode("manual");
-        holidayOverlay.dismissPrompt();
-        setHolidayPromptOpen(false);
-    }, [holidayOverlay]);
-
-    const holidayPrompts = (
-        <>
-            {!shell.isPhone && holidayPromptOpen ? (
-                <div className="fixed right-6 top-16 z-30 w-[min(25rem,calc(100vw-2rem))]">
-                    <HolidayLocationPrompt
-                        isLocating={holidayOverlay.isLocating}
-                        onUsePreciseLocation={handleUsePreciseHolidayLocation}
-                        onDismiss={handleDismissHolidayPrompt}
-                        onDismissPermanently={handleDismissHolidayPromptPermanently}
-                        onChooseManual={handleChooseHolidayLocationManually}
-                    />
-                </div>
-            ) : null}
-
-            <Dialog.Dialog open={shell.isPhone && holidayPromptOpen} onOpenChange={(open) => !open && handleDismissHolidayPrompt()}>
-                <Dialog.DialogContent className="w-[min(calc(100vw-1.5rem),28rem)] rounded-[2rem] border border-white/[0.08] bg-twilight-deep/96 p-0">
-                    <HolidayLocationPrompt
-                        isLocating={holidayOverlay.isLocating}
-                        onUsePreciseLocation={handleUsePreciseHolidayLocation}
-                        onDismiss={handleDismissHolidayPrompt}
-                        onDismissPermanently={handleDismissHolidayPromptPermanently}
-                        onChooseManual={handleChooseHolidayLocationManually}
-                    />
-                </Dialog.DialogContent>
-            </Dialog.Dialog>
-        </>
-    );
+    const holidayPrompts = <LocationNotice />;
 
     const personalEventControlBlock = (
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
@@ -959,12 +898,12 @@ export default function Schedule() {
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show holidays</span>
                         <div className="flex items-center gap-2">
-                            {holidayOverlay.holidaySettings.enabled && (
+                            {holidayOverlay.enabled && (
                                 <Tip label="Configure holiday location" side="top">
                                     <button
                                         type="button"
                                         className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                        onClick={(e) => { e.preventDefault(); navigate("?settings=datetime"); }}
+                                        onClick={(e) => { e.preventDefault(); navigate("?settings=location"); }}
                                         aria-label="Configure holiday location"
                                     >
                                         <Wrench size={14} />
@@ -972,7 +911,7 @@ export default function Schedule() {
                                 </Tip>
                             )}
                             <Switch
-                                checked={holidayOverlay.holidaySettings.enabled}
+                                checked={holidayOverlay.enabled}
                                 onCheckedChange={(val) => holidayOverlay.setEnabled(val)}
                             />
                         </div>
@@ -1069,18 +1008,18 @@ export default function Schedule() {
                 <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                     <span>Show holidays</span>
                     <div className="flex items-center gap-2">
-                        {holidayOverlay.holidaySettings.enabled ? (
+                        {holidayOverlay.enabled ? (
                             <button
                                 type="button"
                                 className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                onClick={(e) => { e.preventDefault(); navigate("?settings=datetime"); }}
+                                onClick={(e) => { e.preventDefault(); navigate("?settings=location"); }}
                                 aria-label="Configure holiday location"
                             >
                                 <Wrench size={14} />
                             </button>
                         ) : null}
                         <Switch
-                            checked={holidayOverlay.holidaySettings.enabled}
+                            checked={holidayOverlay.enabled}
                             onCheckedChange={(val) => holidayOverlay.setEnabled(val)}
                         />
                     </div>
@@ -1190,7 +1129,7 @@ export default function Schedule() {
                                                 currentDate={currentDate}
                                                 datesWithTasks={datesWithTasks}
                                                 habitDays={habitDays}
-                                                holidayDays={holidayOverlay.holidaySettings.enabled ? holidayDays : undefined}
+                                                holidayDays={holidayOverlay.enabled ? holidayDays : undefined}
                                                 birthdayDay={birthdayDay}
                                                 personalEventDays={personalEvents.enabled ? personalEvents.eventDays : undefined}
                                                 personalEventCountsByDay={personalEventCountsByDay}
@@ -1208,7 +1147,7 @@ export default function Schedule() {
                                                 selectedDate={currentDate}
                                                 datesWithTasks={datesWithTasks}
                                                 habitDays={habitDays}
-                                                holidayDays={holidayOverlay.holidaySettings.enabled ? holidayDays : undefined}
+                                                holidayDays={holidayOverlay.enabled ? holidayDays : undefined}
                                                 birthdayDay={birthdayDay}
                                                 personalEventDays={personalEvents.enabled ? personalEvents.eventDays : undefined}
                                                 personalEventCountsByDay={personalEventCountsByDay}
@@ -1231,7 +1170,7 @@ export default function Schedule() {
                                                 weekDates={weekDates}
                                                 currentDate={currentDate}
                                                 tasksByDate={weekTasksByDate}
-                                                holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
+                                                holidaysByDate={holidayOverlay.enabled ? holidaysByDateRecord : undefined}
                                                 birthdayDate={birthdayDate}
                                                 personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
                                                 onSelectDate={(dateStr) => setCurrentDate(dateStr)}
@@ -1244,7 +1183,7 @@ export default function Schedule() {
                                             <WeekView
                                                 weekDates={weekDates}
                                                 tasksByDate={weekTasksByDate}
-                                                holidaysByDate={holidayOverlay.holidaySettings.enabled ? holidaysByDateRecord : undefined}
+                                                holidaysByDate={holidayOverlay.enabled ? holidaysByDateRecord : undefined}
                                                 birthdayDate={birthdayDate}
                                                 personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
                                                 activeDropPreview={activeDropPreview}
@@ -1265,7 +1204,7 @@ export default function Schedule() {
                                             <DayFocusView
                                                 currentDate={currentDate}
                                                 tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
-                                                holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
+                                                holidays={holidayOverlay.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
                                                 isBirthday={birthdayDate === currentDate}
                                                 personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}
                                                 onSelectTask={handleSelectTask}
@@ -1278,7 +1217,7 @@ export default function Schedule() {
                                             <DayView
                                                 currentDate={currentDate}
                                                 tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
-                                                holidays={holidayOverlay.holidaySettings.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
+                                                holidays={holidayOverlay.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
                                                 isBirthday={birthdayDate === currentDate}
                                                 personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}
                                                 activeDropPreview={activeDropPreview}
@@ -1298,7 +1237,7 @@ export default function Schedule() {
                                             <YearView
                                                 year={year}
                                                 tasks={visibleYearTasks}
-                                                holidayDateSet={holidayOverlay.holidaySettings.enabled ? holidayOverlay.holidayDateSet : undefined}
+                                                holidayDateSet={holidayOverlay.enabled ? holidayOverlay.holidayDateSet : undefined}
                                                 birthdayDate={birthdayDate}
                                                 personalEventDateSet={personalEvents.enabled ? personalEvents.eventDateSet : undefined}
                                                 personalEventDateCounts={personalEventDateCounts}

@@ -10,6 +10,11 @@ export const reverseGeocodeQuerySchema = z.object({
     longitude: z.coerce.number().min(-180).max(180),
 });
 
+export const geocodeSearchQuerySchema = z.object({
+    name: z.string().trim().min(2).max(80),
+    locale: z.string().min(2).max(10).default("en"),
+});
+
 export const holidayCountriesQuerySchema = z.object({
     locale: z.string().min(2).max(10).default("en"),
 });

@@ -6,6 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- A Location & Weather page in Settings shows where Cadence thinks you are and what uses it, and lets you choose an approximate area, your precise location, a place you pick yourself (including a city for weather), or no location at all.
+- A "Forget saved location" button removes any location Cadence has kept on this device.
+
+### Changed
+
+- Weather and holidays now share one location setting. By default they use your approximate area from your network connection, so your browser only asks for your location if you choose precise location.
+- You can turn the weather on Home off without turning off location.
+- Holidays now pick your country from your time zone before your language settings, so fewer people see another country's holidays.
+- Precise location finds you faster and uses less battery.
+
+### Removed
+
+- The "Store dismissed prompts" switch in Data & Export, which didn't do anything.
+
+### Fixed
+
+- Cadence no longer asks for your location again after you've decided, including after signing in again, opening a new tab, or turning precise location off.
+- Signing out now clears the location saved on the device, so the next person who signs in doesn't inherit it.
+- People in Mexico, Brazil, and other countries in the Americas no longer get US holidays when Cadence guesses from the time zone.
+
 ## [0.11.0] - 2026-09-13
 
 ### Changed

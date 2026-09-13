@@ -149,13 +149,11 @@ describe("settings route contracts", () => {
             body: JSON.stringify({
                 tasks: { hideCompleted: true },
                 dateTime: { timezone: "America/Toronto" },
-                calendar: {
-                    holidays: {
-                        locationMode: "manual",
-                        countryCode: "CA",
-                        subdivisionCode: "CA-ON",
-                        promptDismissedAt: "2026-03-11T15:00:00.000Z",
-                    },
+                location: {
+                    mode: "manual",
+                    countryCode: "CA",
+                    subdivisionCode: "CA-ON",
+                    promptDismissedAt: "2026-03-11T15:00:00.000Z",
                 },
                 preferredView: "kanban",
             }),
@@ -167,8 +165,14 @@ describe("settings route contracts", () => {
         expect(body.data.tasks.hideCompleted).toBe(true);
         expect(body.data.tasks.hideTrash).toBe(false);
         expect(body.data.dateTime.timezone).toBe("America/Toronto");
-        expect(body.data.calendar.holidays.locationMode).toBe("manual");
-        expect(body.data.calendar.holidays.countryCode).toBe("CA");
+        expect(body.data.location).toEqual({
+            mode: "manual",
+            countryCode: "CA",
+            subdivisionCode: "CA-ON",
+            city: null,
+            promptDismissedAt: "2026-03-11T15:00:00.000Z",
+        });
+        expect(body.data.calendar.holidays.enabled).toBe(true);
         expect(body.data.preferredView).toBe("kanban");
     });
 

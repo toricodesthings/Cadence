@@ -844,14 +844,16 @@ export async function seed(db: Tx, userId: string) {
             settings: {
                 tasks: { defaultDueDate: null, hideTrash: false, hideCompleted: false },
                 dateTime: { weekStart: "Sunday", timezone: "local", timeDisplay: "12h" },
+                location: {
+                    mode: "approximate",
+                    countryCode: null,
+                    subdivisionCode: null,
+                    city: null,
+                    promptDismissedAt: null,
+                },
                 calendar: {
                     holidays: {
                         enabled: true,
-                        usePreciseLocation: false,
-                        locationMode: "auto",
-                        countryCode: null,
-                        subdivisionCode: null,
-                        promptDismissedAt: null,
                     },
                     personalEvents: {
                         enabled: true,

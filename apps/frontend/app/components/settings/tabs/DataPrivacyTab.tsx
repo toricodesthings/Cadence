@@ -104,17 +104,6 @@ export function DataPrivacyTab() {
                         }
                     />
                 </SettingsRow>
-                <SettingsRow
-                    title="Store dismissed prompts"
-                    description="Remember which hints and prompts you have dismissed so they don't reappear."
-                >
-                    <Switch
-                        checked={privacy.storeDismissedPrompts}
-                        onCheckedChange={(val) =>
-                            updateSettings.mutate({ privacy: { storeDismissedPrompts: val } })
-                        }
-                    />
-                </SettingsRow>
             </SettingsSection>
 
             {/* ── Export and deletion status ── */}

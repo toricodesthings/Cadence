@@ -79,11 +79,6 @@ export const users = pgTable('users', {
             },
             holidays: {
                 enabled: true,
-                usePreciseLocation: false,
-                locationMode: "auto",
-                countryCode: null,
-                subdivisionCode: null,
-                promptDismissedAt: null,
             },
         },
         notifications: { email: true, browser: false, taskReminders: true, habitReminders: true, dueDateAlerts: true },

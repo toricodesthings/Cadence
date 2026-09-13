@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
@@ -64,6 +64,7 @@ const ALL_UTC_OFFSETS: { value: string; label: string }[] = [
 export function DateTimeTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
+    const navigate = useNavigate();
     const autoLabel = useMemo(() => `Automatic (${getLocalUtcOffsetLabel()})`, []);
     const currentYear = new Date().getFullYear();
     const holidayOverlay = useHolidayOverlay({
@@ -93,11 +94,6 @@ export function DateTimeTab() {
         },
         holidays: {
             enabled: true,
-            usePreciseLocation: false,
-            locationMode: "auto" as const,
-            countryCode: null,
-            subdivisionCode: null,
-            promptDismissedAt: null,
         },
     };
 
@@ -291,31 +287,16 @@ export function DateTimeTab() {
             <SettingsSection title="Holiday overlay">
                 <SettingsRow
                     title="Location-aware holidays"
-                    description="Overlay public holidays on the calendar."
+                    description="Overlay public holidays on the calendar. The region follows your location setting."
                     className="items-stretch"
                 >
                     <div className="w-full sm:min-w-[22rem]">
                         <HolidayPreferencesPanel
-                            enabled={holidayOverlay.holidaySettings.enabled}
-                            usePreciseLocation={holidayOverlay.holidaySettings.usePreciseLocation}
-                            locationMode={holidayOverlay.holidaySettings.locationMode}
-                            countryCode={holidayOverlay.holidaySettings.countryCode}
-                            subdivisionCode={holidayOverlay.holidaySettings.subdivisionCode}
-                            countryOptions={holidayOverlay.countryOptions}
-                            subdivisionOptions={holidayOverlay.subdivisionOptions}
-                            effectiveCountryLabel={holidayOverlay.effectiveCountryLabel}
-                            effectiveSubdivisionLabel={holidayOverlay.effectiveSubdivisionLabel}
-                            permissionState={holidayOverlay.permissionState}
-                            locationRefreshedAt={holidayOverlay.refreshedAt}
-                            countriesLoading={holidayOverlay.countriesLoading}
-                            subdivisionsLoading={holidayOverlay.subdivisionsLoading}
-                            isLocating={holidayOverlay.isLocating}
+                            enabled={holidayOverlay.enabled}
+                            regionLabel={holidayOverlay.regionLabel}
+                            source={holidayOverlay.source}
                             onEnabledChange={holidayOverlay.setEnabled}
-                            onLocationModeChange={holidayOverlay.setLocationMode}
-                            onCountryChange={holidayOverlay.setCountryCode}
-                            onSubdivisionChange={holidayOverlay.setSubdivisionCode}
-                            onUsePreciseLocationChange={(value) => { void holidayOverlay.setUsePreciseLocation(value); }}
-                            onRequestPreciseLocation={() => holidayOverlay.requestPreciseLocation()}
+                            onOpenLocationSettings={() => navigate("?settings=location")}
                         />
                     </div>
                 </SettingsRow>

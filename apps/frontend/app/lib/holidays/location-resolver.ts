@@ -3,38 +3,130 @@ export interface HolidaySubdivisionOption {
     label: string;
 }
 
-export interface PreciseHolidayLocation {
-    countryCode: string | null;
-    subdivisionName: string | null;
+/** What a location source knows about the user's region, used to pick holiday subdivisions. */
+export interface RegionHint {
+    subdivisionCode?: string | null;
+    subdivisionName?: string | null;
 }
 
+// IANA zone → country for the zones people actually run. A zone missing here
+// yields null (the caller then tries the locale) rather than a wrong guess.
 const TIMEZONE_COUNTRY_MAP: Record<string, string> = {
+    // North America
     "America/Anchorage": "US",
+    "America/Boise": "US",
     "America/Chicago": "US",
     "America/Denver": "US",
     "America/Detroit": "US",
-    "America/Indiana/Indianapolis": "US",
+    "America/Juneau": "US",
     "America/Los_Angeles": "US",
     "America/New_York": "US",
     "America/Phoenix": "US",
+    "America/Puerto_Rico": "PR",
+    "Pacific/Honolulu": "US",
     "America/Toronto": "CA",
     "America/Vancouver": "CA",
     "America/Edmonton": "CA",
+    "America/Winnipeg": "CA",
+    "America/Regina": "CA",
     "America/Halifax": "CA",
+    "America/Moncton": "CA",
     "America/St_Johns": "CA",
-    "Europe/Berlin": "DE",
+    "America/Whitehorse": "CA",
+    "America/Yellowknife": "CA",
+    "America/Mexico_City": "MX",
+    "America/Monterrey": "MX",
+    "America/Tijuana": "MX",
+    "America/Cancun": "MX",
+    // Central & South America, Caribbean
+    "America/Guatemala": "GT",
+    "America/Costa_Rica": "CR",
+    "America/Panama": "PA",
+    "America/Havana": "CU",
+    "America/Jamaica": "JM",
+    "America/Bogota": "CO",
+    "America/Lima": "PE",
+    "America/Caracas": "VE",
+    "America/Santiago": "CL",
+    "America/Buenos_Aires": "AR",
+    "America/Montevideo": "UY",
+    "America/Sao_Paulo": "BR",
+    "America/Bahia": "BR",
+    "America/Manaus": "BR",
+    // Europe
     "Europe/London": "GB",
-    "Europe/Paris": "FR",
-    "Europe/Rome": "IT",
+    "Europe/Dublin": "IE",
+    "Europe/Lisbon": "PT",
     "Europe/Madrid": "ES",
+    "Europe/Paris": "FR",
+    "Europe/Brussels": "BE",
     "Europe/Amsterdam": "NL",
+    "Europe/Luxembourg": "LU",
+    "Europe/Berlin": "DE",
     "Europe/Zurich": "CH",
-    "Australia/Sydney": "AU",
-    "Australia/Melbourne": "AU",
-    "Australia/Brisbane": "AU",
-    "Australia/Perth": "AU",
+    "Europe/Vienna": "AT",
+    "Europe/Rome": "IT",
+    "Europe/Malta": "MT",
+    "Europe/Copenhagen": "DK",
+    "Europe/Oslo": "NO",
+    "Europe/Stockholm": "SE",
+    "Europe/Helsinki": "FI",
+    "Atlantic/Reykjavik": "IS",
+    "Europe/Warsaw": "PL",
+    "Europe/Prague": "CZ",
+    "Europe/Bratislava": "SK",
+    "Europe/Budapest": "HU",
+    "Europe/Ljubljana": "SI",
+    "Europe/Zagreb": "HR",
+    "Europe/Belgrade": "RS",
+    "Europe/Bucharest": "RO",
+    "Europe/Sofia": "BG",
+    "Europe/Athens": "GR",
+    "Europe/Istanbul": "TR",
+    "Europe/Kyiv": "UA",
+    "Europe/Kiev": "UA",
+    "Europe/Vilnius": "LT",
+    "Europe/Riga": "LV",
+    "Europe/Tallinn": "EE",
+    "Europe/Moscow": "RU",
+    // Africa & Middle East
+    "Africa/Johannesburg": "ZA",
+    "Africa/Lagos": "NG",
+    "Africa/Nairobi": "KE",
+    "Africa/Cairo": "EG",
+    "Africa/Casablanca": "MA",
+    "Asia/Dubai": "AE",
+    "Asia/Riyadh": "SA",
+    "Asia/Jerusalem": "IL",
+    "Asia/Tel_Aviv": "IL",
+    // Asia & Pacific
+    "Asia/Karachi": "PK",
+    "Asia/Kolkata": "IN",
+    "Asia/Calcutta": "IN",
+    "Asia/Dhaka": "BD",
+    "Asia/Bangkok": "TH",
+    "Asia/Ho_Chi_Minh": "VN",
+    "Asia/Jakarta": "ID",
+    "Asia/Kuala_Lumpur": "MY",
+    "Asia/Singapore": "SG",
+    "Asia/Manila": "PH",
+    "Asia/Shanghai": "CN",
+    "Asia/Hong_Kong": "HK",
+    "Asia/Taipei": "TW",
+    "Asia/Seoul": "KR",
+    "Asia/Tokyo": "JP",
     "Pacific/Auckland": "NZ",
 };
+
+const TIMEZONE_PREFIX_COUNTRY: Array<[prefix: string, country: string]> = [
+    ["US/", "US"],
+    ["America/Indiana/", "US"],
+    ["America/Kentucky/", "US"],
+    ["America/North_Dakota/", "US"],
+    ["America/Argentina/", "AR"],
+    ["Canada/", "CA"],
+    ["Australia/", "AU"],
+];
 
 const SUBDIVISION_ALIASES: Record<string, string[]> = {
     "CA-BC": ["british columbia", "bc"],
@@ -143,22 +235,35 @@ export function inferCountryFromTimezone(timezone: string | null | undefined) {
     if (!timezone) return null;
     if (TIMEZONE_COUNTRY_MAP[timezone]) return TIMEZONE_COUNTRY_MAP[timezone];
 
-    if (timezone.startsWith("US/")) return "US";
-    if (timezone.startsWith("Canada/")) return "CA";
-    if (timezone.startsWith("Australia/")) return "AU";
-    if (timezone.startsWith("Europe/")) return null;
-    if (timezone.startsWith("America/")) return "US";
+    for (const [prefix, country] of TIMEZONE_PREFIX_COUNTRY) {
+        if (timezone.startsWith(prefix)) return country;
+    }
 
     return null;
 }
 
+/** Localized country name from the platform, no network needed ("CA" → "Canada"). */
+export function getCountryLabel(countryCode: string | null | undefined, locale: string) {
+    if (!countryCode) return null;
+    try {
+        return new Intl.DisplayNames([locale], { type: "region" }).of(countryCode) ?? countryCode;
+    } catch {
+        return countryCode;
+    }
+}
+
 export function findSubdivisionCode(
     subdivisions: HolidaySubdivisionOption[],
-    preciseLocation: PreciseHolidayLocation | null,
+    hint: RegionHint | null,
 ) {
-    if (!preciseLocation?.subdivisionName) return null;
+    const code = hint?.subdivisionCode?.trim().toUpperCase();
+    if (code && subdivisions.some((subdivision) => subdivision.code.toUpperCase() === code)) {
+        return subdivisions.find((subdivision) => subdivision.code.toUpperCase() === code)!.code;
+    }
 
-    const target = normalizeText(preciseLocation.subdivisionName);
+    if (!hint?.subdivisionName) return null;
+
+    const target = normalizeText(hint.subdivisionName);
     if (!target) return null;
 
     for (const subdivision of subdivisions) {

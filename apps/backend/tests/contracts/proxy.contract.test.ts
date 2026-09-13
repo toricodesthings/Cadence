@@ -44,17 +44,36 @@ describe("proxy route contracts", () => {
     // ── Weather ──
 
     describe("GET /proxy/weather", () => {
-        it("returns weather data from upstream", async () => {
-            const upstream = { current_weather: { temperature: 22, weathercode: 1 } };
+        it("returns only the current conditions from upstream", async () => {
+            const upstream = { current_weather: { temperature: 22, weathercode: 1, windspeed: 9 }, hourly: {} };
             fetchMock.mockResolvedValue(jsonResponse(upstream));
 
             const res = await app.request("/proxy/weather?latitude=40.7&longitude=-74.0");
 
             expect(res.status).toBe(200);
+            expect(res.headers.get("cache-control")).toContain("no-store");
             const body: any = await res.json();
-            expect(body).toEqual({ data: upstream });
+            expect(body).toEqual({ data: { temperature: 22, weatherCode: 1 } });
             expect(fetchMock).toHaveBeenCalledOnce();
             expect(fetchMock.mock.calls[0][0]).toContain("api.open-meteo.com");
+        });
+
+        it("rounds coordinates before calling upstream", async () => {
+            fetchMock.mockResolvedValue(jsonResponse({ current_weather: { temperature: 5, weathercode: 3 } }));
+
+            await app.request("/proxy/weather?latitude=43.653226&longitude=-79.383184");
+
+            const url = String(fetchMock.mock.calls[0][0]);
+            expect(url).toContain("latitude=43.65&");
+            expect(url).toContain("longitude=-79.38&");
+        });
+
+        it("returns 502 when upstream has no current conditions", async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}));
+
+            const res = await app.request("/proxy/weather?latitude=10&longitude=20");
+
+            expect(res.status).toBe(502);
         });
 
         it("returns 502 when upstream fails", async () => {
@@ -88,16 +107,18 @@ describe("proxy route contracts", () => {
     describe("GET /proxy/geocode/reverse", () => {
         it("returns country and subdivision from upstream", async () => {
             const upstream = {
-                address: { country_code: "us", state: "New York", county: "Kings" },
+                address: { country_code: "us", state: "New York", county: "Kings", "ISO3166-2-lvl4": "US-NY" },
             };
             fetchMock.mockResolvedValue(jsonResponse(upstream));
 
-            const res = await app.request("/proxy/geocode/reverse?latitude=40.7&longitude=-74.0");
+            const res = await app.request("/proxy/geocode/reverse?latitude=40.7128&longitude=-74.006");
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
-            expect(body.data).toEqual({ countryCode: "US", subdivisionName: "New York" });
-            expect(fetchMock.mock.calls[0][0]).toContain("nominatim.openstreetmap.org");
+            expect(body.data).toEqual({ countryCode: "US", subdivisionCode: "US-NY", subdivisionName: "New York" });
+            const url = String(fetchMock.mock.calls[0][0]);
+            expect(url).toContain("nominatim.openstreetmap.org");
+            expect(url).toContain("lat=40.71&lon=-74.01&");
         });
 
         it("returns nulls when address is missing", async () => {
@@ -107,7 +128,7 @@ describe("proxy route contracts", () => {
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
-            expect(body.data).toEqual({ countryCode: null, subdivisionName: null });
+            expect(body.data).toEqual({ countryCode: null, subdivisionCode: null, subdivisionName: null });
         });
 
         it("returns 502 when upstream fails", async () => {
@@ -121,6 +142,98 @@ describe("proxy route contracts", () => {
         it("returns 400 for missing params", async () => {
             const res = await app.request("/proxy/geocode/reverse");
             expect(res.status).toBe(400);
+        });
+    });
+
+    describe("GET /proxy/geocode/search", () => {
+        it("maps upstream results to rounded city options", async () => {
+            fetchMock.mockResolvedValue(jsonResponse({
+                results: [
+                    { name: "Toronto", latitude: 43.70011, longitude: -79.4163, country: "Canada", country_code: "CA", admin1: "Ontario" },
+                ],
+            }));
+
+            const res = await app.request("/proxy/geocode/search?name=Toronto&locale=en-CA");
+
+            expect(res.status).toBe(200);
+            const body: any = await res.json();
+            expect(body.data).toEqual([
+                { name: "Toronto", region: "Ontario", country: "Canada", countryCode: "CA", latitude: 43.7, longitude: -79.42 },
+            ]);
+            const url = String(fetchMock.mock.calls[0][0]);
+            expect(url).toContain("geocoding-api.open-meteo.com");
+            expect(url).toContain("language=en");
+        });
+
+        it("returns an empty list when upstream has no results", async () => {
+            fetchMock.mockResolvedValue(jsonResponse({}));
+
+            const res = await app.request("/proxy/geocode/search?name=Nowhere");
+
+            expect(res.status).toBe(200);
+            const body: any = await res.json();
+            expect(body.data).toEqual([]);
+        });
+
+        it("returns 400 for a too-short query", async () => {
+            const res = await app.request("/proxy/geocode/search?name=a");
+            expect(res.status).toBe(400);
+        });
+    });
+
+    // ── Approximate location ──
+
+    describe("GET /proxy/geo/approximate", () => {
+        function requestWithEdgeGeo(cf: Record<string, unknown> | undefined) {
+            const req = new Request("http://localhost/proxy/geo/approximate");
+            if (cf) Object.defineProperty(req, "cf", { value: cf });
+            return app.request(req);
+        }
+
+        it("returns city-level location from the edge without calling upstream", async () => {
+            const res = await requestWithEdgeGeo({
+                country: "CA",
+                regionCode: "ON",
+                region: "Ontario",
+                city: "Toronto",
+                latitude: "43.65323",
+                longitude: "-79.38318",
+            });
+
+            expect(res.status).toBe(200);
+            expect(res.headers.get("cache-control")).toContain("no-store");
+            const body: any = await res.json();
+            expect(body.data).toEqual({
+                countryCode: "CA",
+                subdivisionCode: "CA-ON",
+                subdivisionName: "Ontario",
+                city: "Toronto",
+                coordinates: { latitude: 43.65, longitude: -79.38 },
+            });
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it("returns nulls when the edge has no geo data", async () => {
+            const res = await requestWithEdgeGeo(undefined);
+
+            expect(res.status).toBe(200);
+            const body: any = await res.json();
+            expect(body.data).toEqual({
+                countryCode: null,
+                subdivisionCode: null,
+                subdivisionName: null,
+                city: null,
+                coordinates: null,
+            });
+        });
+
+        it("treats unknown and Tor countries as no country", async () => {
+            for (const country of ["XX", "T1"]) {
+                const res = await requestWithEdgeGeo({ country, regionCode: "ON" });
+                const body: any = await res.json();
+                expect(body.data.countryCode).toBeNull();
+                expect(body.data.subdivisionCode).toBeNull();
+            }
         });
     });
 

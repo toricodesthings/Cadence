@@ -9,7 +9,7 @@ import { CloudOff } from "lucide-react";
 /** The contextual greeting header — warm, cozy, like settling into a lit room */
 export function PlannerHeader({ className = "" }: { className?: string }) {
     const { session } = useAuthState();
-    const { weather, loading, error } = useWeather();
+    const { weather, status } = useWeather();
     const now = new Date();
     const formatted = formatDateLabel(now);
     const greeting = useMemo(() => getTimeBasedGreeting(), []);
@@ -27,13 +27,13 @@ export function PlannerHeader({ className = "" }: { className?: string }) {
                     {greeting}, <span className="text-accent-primary">{firstName}</span>.
                 </h2>
 
-                {/* Date & Weather — quiet, secondary context line */}
+                {/* Date & Weather — quiet, secondary context line. Weather stays silent when it's off or has no location. */}
                 <p className="mt-1.5 text-[14px] tracking-wide text-twilight-text-soft">
                     <span className="first-letter:uppercase">{formatted}</span>
                     <span className="mx-2 text-twilight-text-soft">·</span>
                     <span className="tabular-nums">{clock}</span>
 
-                    {!loading && weather && WeatherIcon && (
+                    {status === "ready" && weather && WeatherIcon && (
                         <span className="animate-in fade-in duration-500">
                             <span className="mx-2 text-twilight-text-soft">·</span>
                             <WeatherIcon size={14} className="inline -mt-0.5 mr-1.5 text-twilight-text-soft" />
@@ -41,14 +41,14 @@ export function PlannerHeader({ className = "" }: { className?: string }) {
                         </span>
                     )}
 
-                    {loading && (
+                    {status === "loading" && (
                         <span className="inline-flex items-center ml-3 gap-1.5 animate-pulse">
                             <span className="w-3 h-3 rounded-full bg-twilight-text-muted/15" />
                             <span className="w-12 h-3 rounded bg-twilight-text-muted/15" />
                         </span>
                     )}
 
-                    {!loading && !weather && error && error !== "denied" && (
+                    {status === "error" && (
                         <span className="animate-in fade-in duration-500">
                             <span className="mx-2 text-twilight-text-soft">·</span>
                             <CloudOff size={13} className="inline -mt-0.5 mr-1 text-twilight-text-muted/70" aria-hidden="true" />

@@ -36,7 +36,7 @@ app/
 ├── hooks/           # ai, auth, calendar, core, environment, habits, inbox, notifications, projects,
 │                     # search, sections, tags, tasks, ui  (+ use-nlp-parse, use-swipe-navigation)
 ├── lib/             # actions, ai (chat-transport, usage, input-guard, stop-stream, stream-error),
-│                     # api (client, query-keys), auth-client.ts, constants, holidays, notes,
+│                     # api (client, query-keys), auth-client.ts, constants, holidays, location, notes,
 │                     # notifications, nlp, themes, utils, validations, env.ts
 ├── platform/         # WEB vs DESKTOP runtime boundary — see §11
 ├── stores/          # Zustand: assistant, focus-view, note-room, right-panel (holding),
@@ -66,7 +66,7 @@ app/
 - **Schedule:** multi-mode (month/week/day/year), fetches only the active range. Habit logs hydrate into **virtual habit tasks** on some schedule surfaces — intentional hybrid behavior, don't simplify away.
 - **Habits:** first-class surface; weekly hydration + monthly detail; resolution updates optimistically and drives toast nudges.
 - **Inbox:** items + sections; lightweight capture, not a public AI-parsing surface on its own.
-- **Settings:** dialog state driven by `?settings=` query param (`SettingsDialog.tsx`, deep-linkable tabs: About, Account, Appearance, Assistant, AI, DataPrivacy, DateTime, Integrations, Notifications, Shortcuts, Tasks). Merged optimistically, cached locally. Notification fields are required (backend default seeds them; migration `0011` backfilled).
+- **Settings:** dialog state driven by `?settings=` query param (`SettingsDialog.tsx`, deep-linkable tabs: About, Account, Appearance, Assistant, AI, DataPrivacy, DateTime, Integrations, Location, Notifications, Shortcuts, Tasks). Merged optimistically, cached locally. Notification fields are required (backend default seeds them; migration `0011` backfilled). `settings.location` is owned by the Location tab and read everywhere through `useUserLocation` (weather, holidays); only an explicit user action may call `navigator.geolocation`, and location/weather queries carry `meta: { persist: false }`.
 - **AI Assistant** (`components/assistant/`, `hooks/ai/`, `lib/ai/`, `stores/assistant-store.ts`): side-panel chat over `@ai-sdk/react`, streaming via `chat-transport.ts`. Tool results render as typed widget cards (`components/assistant/widgets/`) dispatched from `tool-registry.tsx` — proposal cards (task create/update, batch reschedule, project/tag create, log habit, inbox cluster/structure) are human-in-the-loop and require explicit confirm; a `write` kind (e.g. capture-to-inbox) is already executed server-side and just shows a quiet confirm chip. `DangerConfirmCard` gates destructive actions. Never let a tool widget silently mutate without the confirm step it's registered for. Conversations persist and resume; usage is surfaced via `use-ai-usage.ts`.
 - **Shortcuts/search:** `Cmd/Ctrl+K` (command palette + universal fuzzy search over tasks/projects/habits), `N` (quick-add), `Cmd/Ctrl+Shift+S` (manual sync), `G` chords for navigation. Don't add conflicting shortcuts casually.
 - **Notification center** (`components/notifications/NotificationCenter.tsx`): derivation is **client-side only** — `reminder-engine.ts` scans cached tasks/habits on a 60s interval (`use-notification-center.ts`). Dismiss/read state is session-scoped (module-level `Set`s via `useSyncExternalStore`, resets on reload — by design). `use-browser-notifications.ts` fires native `Notification` API when permitted.

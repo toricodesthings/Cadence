@@ -4,6 +4,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PlannerHeader } from "../components/layout/PlannerHeader";
+import { LocationNotice } from "../components/location/LocationNotice";
 import { PageContent } from "../components/layout/PageLayout";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { CaptureInput } from "../components/holding/CaptureInput";
@@ -203,6 +204,7 @@ export default function HomeRoute() {
                 <PageContent width="default">
                     {/* Greeting — demoted per M1: capture leads, warmth follows */}
                     <PlannerHeader className="mb-4 lg:mb-5" />
+                    <LocationNotice />
 
                     {/* ── Universal capture composer — the ONE primary action (Law 1) ── */}
                     <div className="mb-8 lg:mb-10">

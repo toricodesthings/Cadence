@@ -93,7 +93,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | settings | `/settings` | GET + PATCH (deep-merge via `deepPartial`) |
 | events | `/events` | single + batch usage tracking |
 | suggestions | `/suggestions` | list + accept/dismiss |
-| proxy | `/proxy` | proxied external calls (e.g. geolocation/holidays) |
+| proxy | `/proxy` | proxied external calls: weather, reverse/forward geocoding, approximate location (`GET /geo/approximate` from Cloudflare `request.cf`), holidays. Coordinates are rounded to 2 decimals before any upstream call. |
 | debug | `/debug` | clear + seed (non-prod only) + admin prompt-block edit |
 | ai | `/ai` | `POST /chat` (streamed, persisted), conversation CRUD, tool-output endpoints |
 

@@ -23,6 +23,14 @@ export const queryKeys = {
         monthly: (id: string, year: number, month: number) => ["habits", id, "monthly", year, month] as const,
         unresolved: ["habits", "unresolved"] as const,
     },
+    location: {
+        all: ["location"] as const,
+        approximate: (userId: string | null) => ["location", "approximate", userId] as const,
+    },
+    weather: {
+        all: ["weather"] as const,
+        current: (latitude: number | null, longitude: number | null) => ["weather", latitude, longitude] as const,
+    },
     ai: {
         conversations: ["ai", "conversations"] as const,
         conversation: (id: string) => ["ai", "conversation", id] as const,

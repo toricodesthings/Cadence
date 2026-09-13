@@ -1,41 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
-import { toast } from "sonner";
-import {
-    fetchHolidays,
-    fetchHolidayCountries,
-    fetchHolidaySubdivisions,
-    type HolidayCountryOption,
-    type HolidayRecord,
-} from "../../lib/holidays/provider";
+import { fetchHolidays, fetchHolidaySubdivisions, type HolidayRecord } from "../../lib/holidays/provider";
 import {
     findSubdivisionCode,
+    getCountryLabel,
     getLocaleRegion,
     getPreferredLocale,
     inferCountryFromTimezone,
-    type PreciseHolidayLocation,
 } from "../../lib/holidays/location-resolver";
-import { useGeolocation } from "./use-geolocation";
+import { useUserLocation } from "./use-user-location";
 
-type HolidayLocationMode = "auto" | "manual";
+/** Where the holiday region came from, shown next to it in settings. */
+export type HolidayRegionSource = "precise" | "approximate" | "manual" | "timezone" | "locale";
 
-const DEFAULT_HOLIDAY_SETTINGS = {
-    enabled: true,
-    usePreciseLocation: false,
-    locationMode: "auto" as HolidayLocationMode,
-    countryCode: null as string | null,
-    subdivisionCode: null as string | null,
-    promptDismissedAt: null as string | null,
-};
-
-const HOLIDAY_PROMPT_SESSION_KEY = "cadence:schedule-holiday-prompt-dismissed";
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function getBrowserTimeZone(settingsTimeZone: string | undefined) {
     if (settingsTimeZone && settingsTimeZone !== "local") return settingsTimeZone;
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+/**
+ * Public holidays for a date range. The region comes from the app-wide location
+ * (`useUserLocation`); this hook never asks for a location itself.
+ */
 export function useHolidayOverlay({
     start,
     end,
@@ -49,97 +38,62 @@ export function useHolidayOverlay({
 }) {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
+    const location = useUserLocation();
     const locale = getPreferredLocale();
-    const holidaySettings = settings?.calendar?.holidays ?? DEFAULT_HOLIDAY_SETTINGS;
-    const [sessionPromptDismissed, setSessionPromptDismissed] = useState(false);
+    const enabled = settings?.calendar?.holidays?.enabled ?? true;
+    const place = location.place;
+    const year = Number.parseInt(start.slice(0, 4), 10);
 
-    const persistHolidaySettings = useCallback(async (
-        patch: Partial<typeof DEFAULT_HOLIDAY_SETTINGS>,
-        { immediate = false, errorMessage = "Couldn’t save holiday settings." }: { immediate?: boolean; errorMessage?: string } = {},
-    ) => {
-        const payload = {
-            calendar: {
-                holidays: patch,
-            },
-        };
-
-        try {
-            if (immediate) {
-                await updateSettings.mutateAsync(payload);
-            } else {
-                updateSettings.mutate(payload);
-            }
-        } catch (error) {
-            toast.error(errorMessage);
-            throw error;
-        }
-    }, [updateSettings]);
-
-    const {
-        permissionState,
-        preciseLocation,
-        coordinates,
-        isLocating,
-        refreshedAt,
-        resolvePreciseLocation,
-        clearPreciseLocation,
-    } = useGeolocation({
-        onDenied: () => {
-            void persistHolidaySettings(
-                { usePreciseLocation: false },
-                { immediate: true, errorMessage: "Precise location was blocked, so Cadence fell back to broader holiday matching." },
-            );
-        },
-    });
-
-    const localeCountryCode = useMemo(() => getLocaleRegion(locale), [locale]);
     const timeZoneCountryCode = useMemo(
         () => inferCountryFromTimezone(getBrowserTimeZone(settings?.dateTime?.timezone)),
         [settings?.dateTime?.timezone],
     );
+    const localeCountryCode = useMemo(() => getLocaleRegion(locale), [locale]);
 
-    const countryOptionsQuery = useQuery({
-        queryKey: ["holiday-country-options", locale],
-        queryFn: () => fetchHolidayCountries(locale),
-        staleTime: 1000 * 60 * 60 * 24,
-        gcTime: 1000 * 60 * 60 * 24 * 14,
-    });
+    // The resolved location wins. Without one, the device time zone says more
+    // about where someone is than their language setting does.
+    const countryCode = place?.countryCode ?? timeZoneCountryCode ?? localeCountryCode;
+    const source: HolidayRegionSource | null = place?.countryCode
+        ? place.source
+        : timeZoneCountryCode ? "timezone" : localeCountryCode ? "locale" : null;
 
-    const autoCountryCode = preciseLocation?.countryCode ?? localeCountryCode ?? timeZoneCountryCode;
-    const effectiveCountryCode =
-        holidaySettings.locationMode === "manual"
-            ? holidaySettings.countryCode
-            : autoCountryCode;
+    const manualSubdivisionCode = place?.source === "manual" ? place.subdivisionCode : null;
+    const needsSubdivisionMatch = Boolean(
+        place
+        && place.source !== "manual"
+        && place.countryCode
+        && (place.subdivisionCode || place.subdivisionName),
+    );
 
     const subdivisionsQuery = useQuery({
-        queryKey: ["holiday-subdivisions", effectiveCountryCode, start.slice(0, 4), locale],
-        queryFn: () => fetchHolidaySubdivisions(effectiveCountryCode!, Number.parseInt(start.slice(0, 4), 10), locale),
-        enabled: Boolean(effectiveCountryCode),
-        staleTime: 1000 * 60 * 60 * 24,
-        gcTime: 1000 * 60 * 60 * 24 * 14,
+        queryKey: ["holiday-subdivisions", countryCode, year, locale],
+        queryFn: () => fetchHolidaySubdivisions(countryCode!, year, locale),
+        enabled: enabled && Boolean(countryCode) && (needsSubdivisionMatch || Boolean(manualSubdivisionCode)),
+        staleTime: DAY_MS,
+        gcTime: 14 * DAY_MS,
     });
 
-    const autoSubdivisionCode = useMemo(() => {
-        return findSubdivisionCode(subdivisionsQuery.data ?? [], preciseLocation);
-    }, [preciseLocation, subdivisionsQuery.data]);
-
-    const effectiveSubdivisionCode =
-        holidaySettings.locationMode === "manual"
-            ? holidaySettings.subdivisionCode
-            : autoSubdivisionCode;
+    const subdivisionCode = manualSubdivisionCode
+        ?? (needsSubdivisionMatch ? findSubdivisionCode(subdivisionsQuery.data ?? [], place) : null);
 
     const holidaysQuery = useQuery({
-        queryKey: ["holidays", start, end, effectiveCountryCode, effectiveSubdivisionCode, locale, viewMode],
+        queryKey: ["holidays", start, end, countryCode, subdivisionCode, locale, viewMode],
         queryFn: () => fetchHolidays({
             start,
             end,
-            countryCode: effectiveCountryCode!,
-            subdivisionCode: effectiveSubdivisionCode,
+            countryCode: countryCode!,
+            subdivisionCode,
             locale,
         }),
-        enabled: fetchOverlay && holidaySettings.enabled && Boolean(effectiveCountryCode),
-        staleTime: 1000 * 60 * 60 * 12,
-        gcTime: 1000 * 60 * 60 * 24 * 14,
+        // Wait for the location and its region match, so the calendar loads the
+        // right holidays once instead of national first and regional second.
+        enabled: fetchOverlay
+            && enabled
+            && Boolean(countryCode)
+            && !location.isResolving
+            && !(needsSubdivisionMatch && subdivisionsQuery.isLoading),
+        staleTime: 12 * 60 * 60 * 1000,
+        gcTime: 14 * DAY_MS,
     });
 
     const holidaysByDate = useMemo(() => {
@@ -154,157 +108,29 @@ export function useHolidayOverlay({
 
     const holidayDateSet = useMemo(() => new Set(holidaysByDate.keys()), [holidaysByDate]);
 
-    const countryOptions = countryOptionsQuery.data ?? [];
-    const subdivisionOptions = subdivisionsQuery.data ?? [];
+    const countryLabel = useMemo(() => getCountryLabel(countryCode, locale), [countryCode, locale]);
+    const subdivisionLabel = subdivisionCode
+        ? subdivisionsQuery.data?.find((subdivision) => subdivision.code === subdivisionCode)?.label
+            ?? place?.subdivisionName
+            ?? subdivisionCode
+        : null;
+    const regionLabel = [subdivisionLabel, countryLabel].filter(Boolean).join(", ") || null;
 
-    const effectiveCountryLabel = useMemo(() => {
-        return countryOptions.find((country) => country.code === effectiveCountryCode)?.label ?? effectiveCountryCode ?? null;
-    }, [countryOptions, effectiveCountryCode]);
-
-    const effectiveSubdivisionLabel = useMemo(() => {
-        return subdivisionOptions.find((subdivision) => subdivision.code === effectiveSubdivisionCode)?.label ?? preciseLocation?.subdivisionName ?? effectiveSubdivisionCode ?? null;
-    }, [effectiveSubdivisionCode, preciseLocation?.subdivisionName, subdivisionOptions]);
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-        setSessionPromptDismissed(window.sessionStorage.getItem(HOLIDAY_PROMPT_SESSION_KEY) === "1");
-    }, []);
-
-    useEffect(() => {
-        if (
-            holidaySettings.locationMode !== "auto" ||
-            !holidaySettings.usePreciseLocation ||
-            permissionState !== "granted"
-        ) {
-            return;
-        }
-
-        if (preciseLocation) return;
-        void resolvePreciseLocation();
-    }, [
-        holidaySettings.locationMode,
-        holidaySettings.usePreciseLocation,
-        permissionState,
-        preciseLocation,
-        resolvePreciseLocation,
-    ]);
-
-    const requestPreciseLocation = useCallback(async () => {
-        persistHolidaySettings({
-            locationMode: "auto",
-            usePreciseLocation: true,
-            promptDismissedAt: null,
-        }, {
-            immediate: true,
-            errorMessage: "Couldn’t turn on precise holiday location.",
-        });
-
-        return resolvePreciseLocation();
-    }, [persistHolidaySettings, resolvePreciseLocation]);
-
-    const dismissPrompt = useCallback(() => {
-        if (typeof window !== "undefined") {
-            window.sessionStorage.setItem(HOLIDAY_PROMPT_SESSION_KEY, "1");
-        }
-        setSessionPromptDismissed(true);
-    }, []);
-
-    const dismissPromptPermanently = useCallback(() => {
-        if (typeof window !== "undefined") {
-            window.sessionStorage.setItem(HOLIDAY_PROMPT_SESSION_KEY, "1");
-        }
-        setSessionPromptDismissed(true);
-        void persistHolidaySettings(
-            { promptDismissedAt: new Date().toISOString() },
-            { immediate: true, errorMessage: "Couldn’t save your holiday prompt preference." },
-        );
-    }, [persistHolidaySettings]);
-
-    const setEnabled = useCallback((enabled: boolean) => {
-        persistHolidaySettings({ enabled });
-    }, [persistHolidaySettings]);
-
-    const setLocationMode = useCallback((locationMode: HolidayLocationMode) => {
-        void persistHolidaySettings({
-            locationMode,
-            countryCode:
-                locationMode === "manual"
-                    ? holidaySettings.countryCode ?? effectiveCountryCode ?? null
-                    : holidaySettings.countryCode,
-        }, {
-            immediate: true,
-            errorMessage: "Couldn’t switch the holiday location mode.",
-        });
-    }, [effectiveCountryCode, holidaySettings.countryCode, persistHolidaySettings]);
-
-    const setCountryCode = useCallback((countryCode: string | null) => {
-        void persistHolidaySettings({
-            locationMode: "manual",
-            countryCode,
-            subdivisionCode: null,
-            promptDismissedAt: null,
-        });
-    }, [persistHolidaySettings]);
-
-    const setSubdivisionCode = useCallback((subdivisionCode: string | null) => {
-        void persistHolidaySettings({
-            locationMode: "manual",
-            subdivisionCode,
-        });
-    }, [persistHolidaySettings]);
-
-    const setUsePreciseLocation = useCallback(async (enabled: boolean) => {
-        if (!enabled) {
-            await persistHolidaySettings(
-                { usePreciseLocation: false },
-                { immediate: true, errorMessage: "Couldn’t turn off precise holiday location." },
-            );
-            clearPreciseLocation();
-            return null;
-        }
-
-        return requestPreciseLocation();
-    }, [persistHolidaySettings, requestPreciseLocation, clearPreciseLocation]);
-
-    const shouldShowPrompt = Boolean(
-        holidaySettings.enabled &&
-        holidaySettings.locationMode === "auto" &&
-        !holidaySettings.usePreciseLocation &&
-        !holidaySettings.promptDismissedAt &&
-        !sessionPromptDismissed &&
-        permissionState !== "denied" &&
-        permissionState !== "unsupported",
-    );
+    const setEnabled = useCallback((next: boolean) => {
+        updateSettings.mutate({ calendar: { holidays: { enabled: next } } });
+    }, [updateSettings]);
 
     return {
-        holidaySettings,
+        enabled,
         holidays: holidaysQuery.data ?? [],
         holidaysByDate,
         holidayDateSet,
-        countryOptions,
-        subdivisionOptions,
-        countriesLoading: countryOptionsQuery.isLoading,
-        subdivisionsLoading: subdivisionsQuery.isLoading,
         holidaysLoading: holidaysQuery.isLoading,
-        permissionState,
-        isLocating,
-        shouldShowPrompt,
-        effectiveCountryCode,
-        effectiveCountryLabel,
-        effectiveSubdivisionCode,
-        effectiveSubdivisionLabel,
-        preciseLocation,
-        coordinates,
-        refreshedAt,
+        countryCode,
+        subdivisionCode,
+        subdivisionLabel,
+        regionLabel,
+        source,
         setEnabled,
-        setLocationMode,
-        setCountryCode,
-        setSubdivisionCode,
-        setUsePreciseLocation,
-        requestPreciseLocation,
-        dismissPrompt,
-        dismissPromptPermanently,
     };
 }
-
-export type { HolidayCountryOption };

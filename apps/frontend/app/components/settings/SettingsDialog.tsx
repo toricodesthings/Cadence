@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useSearchParams } from "react-router";
-import { User, Bell, Clock, Sparkles, Paintbrush, Keyboard, CheckSquare, Blocks, Shield, Search, X, Info, Bot } from "lucide-react";
+import { User, Bell, Clock, Sparkles, Paintbrush, Keyboard, CheckSquare, Blocks, Shield, Search, X, Info, Bot, MapPin } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import { Input } from "../primitives/Input";
 import { cn } from "../../lib/utils";
@@ -16,6 +16,7 @@ import { ShortcutsTab } from "./tabs/ShortcutsTab";
 import { TasksTab } from "./tabs/TasksTab";
 import { IntegrationsTab } from "./tabs/IntegrationsTab";
 import { DataPrivacyTab } from "./tabs/DataPrivacyTab";
+import { LocationTab } from "./tabs/LocationTab";
 import { AboutTab } from "./tabs/AboutTab";
 import { AssistantTab } from "./tabs/AssistantTab";
 
@@ -30,6 +31,7 @@ type TabId =
     | "shortcuts"
     | "tasks"
     | "integrations"
+    | "location"
     | "privacy";
 
 const SETTINGS_CATEGORIES = [
@@ -50,6 +52,7 @@ const SETTINGS_CATEGORIES = [
 
     { label: "Privacy & Control", isHeader: true },
     { id: "ai", label: "Intelligence & Privacy", icon: Sparkles },
+    { id: "location", label: "Location & Weather", icon: MapPin },
     { id: "privacy", label: "Data & Export", icon: Shield },
 ];
 
@@ -100,6 +103,7 @@ export function SettingsDialog() {
             case "shortcuts": return <ShortcutsTab />;
             case "tasks": return <TasksTab />;
             case "integrations": return <IntegrationsTab />;
+            case "location": return <LocationTab />;
             case "privacy": return <DataPrivacyTab />;
             default: return <AccountTab />;
         }

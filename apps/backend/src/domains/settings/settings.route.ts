@@ -11,6 +11,7 @@ import { apiValidator } from "../../platform/validation";
 import { throwIfNotFound } from "../../platform/errors";
 import {
     deepMerge,
+    migrateLegacySettings,
     savedFocusViewInputSchema,
     savedFocusViewPatchSchema,
     settingsPatchSchema,
@@ -21,9 +22,10 @@ import {
  * Normalize stored settings against canonical defaults.
  * - Merges in missing sections/keys from defaults
  * - Migrates legacy `preferredView` into `tasks.defaultView`
+ * - Migrates legacy `calendar.holidays` location fields into `location`
  */
 export function normalizeSettings(stored: Record<string, any>): Record<string, any> {
-    const merged = deepMerge(SETTINGS_DEFAULTS, stored);
+    const merged = deepMerge(SETTINGS_DEFAULTS, migrateLegacySettings(stored));
 
     // Migrate legacy preferredView → tasks.defaultView
     if (stored.preferredView && !stored.tasks?.defaultView) {

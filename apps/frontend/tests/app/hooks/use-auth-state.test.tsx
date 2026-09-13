@@ -93,8 +93,11 @@ describe("use-auth-state", () => {
             expect(result.current.status).toBe("authenticated");
         });
 
+        localStorage.setItem("cadence:device-location:user-1", JSON.stringify({ place: {}, refreshedAt: "" }));
+
         await result.current.completeSignOut();
 
         expect(authMocks.signOutMock).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem("cadence:device-location:user-1")).toBeNull();
     });
 });

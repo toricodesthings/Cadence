@@ -1,14 +1,20 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, type LucideIcon } from "lucide-react";
-import { useGeolocation } from "./use-geolocation";
-import { authenticatedFetch } from "../../lib/api/client";
-import { API_BASE_URL } from "../../lib/env";
+import { useSettings } from "../core/use-settings";
+import { useApiClient } from "../auth/use-api-client";
+import { unwrapResponse } from "../../lib/api/helpers";
+import { queryKeys } from "../../lib/api/query-keys";
+import { useUserLocation } from "./use-user-location";
 
 export interface WeatherData {
     temp: number;
     condition: string;
     icon: LucideIcon;
 }
+
+/** off: turned off in settings · unavailable: no location to look up · error: the lookup failed */
+export type WeatherStatus = "off" | "unavailable" | "loading" | "ready" | "error";
 
 // WMO Weather interpretation codes (WW)
 // https://open-meteo.com/en/docs
@@ -43,78 +49,48 @@ const weatherMapping: Record<number, { label: string; icon: LucideIcon }> = {
     99: { label: "Thunderstorm", icon: CloudLightning },
 };
 
-interface OpenMeteoResponse {
-    current_weather: {
-        temperature: number;
-        weathercode: number;
-    };
-}
+const WEATHER_STALE_MS = 20 * 60 * 1000;
+const WEATHER_GC_MS = 60 * 60 * 1000;
 
 /**
- * Fetches real-time weather using the browser's geolocation and Open-Meteo.
- * Returns temperature in Celsius.
- * If geolocation is denied, weather will remain null (no fallback).
+ * Current weather (Celsius) for the location `useUserLocation` resolved. It never
+ * asks the browser for a position: without coordinates it reports "unavailable".
  */
 export function useWeather() {
-    const [weather, setWeather] = useState<WeatherData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<"fetch_failed" | "denied" | null>(null);
-    const { coordinates, permissionState, resolvePreciseLocation } = useGeolocation();
+    const { data: settings } = useSettings();
+    const client = useApiClient();
+    const location = useUserLocation();
+    const enabled = (settings?.weather?.enabled ?? true) && location.mode !== "off";
+    const coordinates = location.place?.coordinates ?? null;
 
-    useEffect(() => {
-        let cancelled = false;
+    const query = useQuery({
+        queryKey: queryKeys.weather.current(coordinates?.latitude ?? null, coordinates?.longitude ?? null),
+        queryFn: async () => {
+            const response = await client.api.proxy.weather.$get({
+                query: { latitude: String(coordinates!.latitude), longitude: String(coordinates!.longitude) },
+            });
+            return unwrapResponse<{ temperature: number; weatherCode: number }>(response);
+        },
+        enabled: enabled && location.ready && coordinates !== null,
+        staleTime: WEATHER_STALE_MS,
+        gcTime: WEATHER_GC_MS,
+        retry: 1,
+        // The key carries coordinates; keep them out of the offline cache.
+        meta: { persist: false },
+    });
 
-        const fetchWeather = async (lat: number, lon: number) => {
-            try {
-                const res = await authenticatedFetch(
-                    `${API_BASE_URL}/api/v1/proxy/weather?latitude=${lat}&longitude=${lon}`,
-                    { authenticated: true },
-                );
-                const body = (await res.json()) as { data: OpenMeteoResponse };
+    const weather = useMemo<WeatherData | null>(() => {
+        if (!query.data) return null;
+        const mapped = weatherMapping[query.data.weatherCode] ?? { label: "Cloudy", icon: Cloud };
+        return { temp: Math.round(query.data.temperature), condition: mapped.label, icon: mapped.icon };
+    }, [query.data]);
 
-                if (!cancelled && body.data?.current_weather) {
-                    const code = body.data.current_weather.weathercode;
-                    const mapped = weatherMapping[code] ?? { label: "Cloudy", icon: Cloud };
+    let status: WeatherStatus;
+    if (!enabled) status = "off";
+    else if (weather) status = "ready";
+    else if (query.isError) status = "error";
+    else if (location.isResolving || (coordinates !== null && query.isPending)) status = "loading";
+    else status = "unavailable";
 
-                    setWeather({
-                        temp: Math.round(body.data.current_weather.temperature),
-                        condition: mapped.label,
-                        icon: mapped.icon,
-                    });
-                }
-            } catch (err) {
-                console.error("Weather fetch failed:", err);
-                if (!cancelled) setError("fetch_failed");
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        };
-
-        const loadWeather = async () => {
-            if (coordinates) {
-                await fetchWeather(coordinates.latitude, coordinates.longitude);
-                return;
-            }
-
-            if (permissionState === "denied" || permissionState === "unsupported") {
-                if (!cancelled) {
-                    setError("denied");
-                    setLoading(false);
-                }
-                return;
-            }
-
-            const result = await resolvePreciseLocation();
-            if (result.status !== "granted") {
-                if (!cancelled) setLoading(false);
-                return;
-            }
-        };
-
-        void loadWeather();
-
-        return () => { cancelled = true; };
-    }, [coordinates, permissionState, resolvePreciseLocation]);
-
-    return { weather, loading, error };
+    return { weather, status };
 }

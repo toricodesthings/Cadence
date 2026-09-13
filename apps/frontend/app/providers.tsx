@@ -1,4 +1,4 @@
-import { QueryClient, QueryCache, MutationCache } from "@tanstack/react-query";
+import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { AuthUIProvider } from "@neondatabase/auth/react/ui";
 import { ThemeProvider } from "next-themes";
@@ -269,6 +269,11 @@ function ProvidersInner({ children }: { children: ReactNode }) {
             persister: createIDBPersister(),
             maxAge: 1000 * 60 * 60 * 24, // 24 hours
             buster: session?.user.id ?? "",
+            // Queries marked `meta: { persist: false }` (location, weather) stay in memory only.
+            dehydrateOptions: {
+                shouldDehydrateQuery: (query: Parameters<typeof defaultShouldDehydrateQuery>[0]) =>
+                    defaultShouldDehydrateQuery(query) && query.meta?.persist !== false,
+            },
         }),
         [session?.user.id],
     );

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { clearAllDeviceLocationData } from "../../lib/location/device-location";
 import { authClient } from "../../lib/auth-client";
 import {
     clearDesktopAuthSession,
@@ -187,6 +188,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
 
     const completeSignOut = useCallback(async () => {
         clearAuthJwtCache();
+        clearAllDeviceLocationData();
         await clearDesktopAuthSession().catch(() => {
             // Ignore desktop fallback cleanup failures during sign out.
         });

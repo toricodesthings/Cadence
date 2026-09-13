@@ -389,3 +389,310 @@
 [  250377ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
 [  250377ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
 [  250378ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  250811ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  250812ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  250812ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  250813ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305479ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305479ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305480ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305480ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305930ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305930ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305931ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  305931ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360514ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360515ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360515ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360516ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360966ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360967ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360968ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  360968ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  418168ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  418169ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  418169ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  418170ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  416219ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  416220ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  416221ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  416221ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473310ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473310ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473311ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473311ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473776ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473777ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473777ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  473778ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528477ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528479ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528479ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528480ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528934ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528935ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528936ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  528936ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  583587ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  583587ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  583588ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  583588ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  584049ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  584050ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  584050ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  584050ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  638670ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  638671ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  638671ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  638672ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  639114ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  639114ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  639115ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  639116ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  693856ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  693856ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  693857ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  693858ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  694313ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  694314ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  694314ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  694315ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  748860ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  748861ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  748862ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  748863ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  749318ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  749320ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  749320ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  749321ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804005ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804005ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804006ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804007ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804474ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804475ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804475ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  804476ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861523ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861524ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861525ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861525ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861982ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861983ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861983ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  861984ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871166ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871168ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871168ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871169ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871170ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871171ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871171ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871172ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871311ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871313ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871313ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871314ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871315ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871316ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871316ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871317ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871459ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871462ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871463ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871464ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: fetching, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871464ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871465ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: pending, fetchStatus: fetching, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871466ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  871467ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874025ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874026ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874026ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874027ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874608ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874611ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874612ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874613ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874613ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874614ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874614ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874614ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874699ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874702ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874702ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874703ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874703ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874703ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874704ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874704ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874761ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874766ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874766ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874767ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 7} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874767ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874768ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: true, status: success, fetchStatus: idle, count: 0} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874768ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  874769ms] [INFO] [cadence:tasks-query] state changed {filters: Object, enabled: false, status: pending, fetchStatus: idle, count: null} @ http://localhost:8788/app/hooks/tasks/use-tasks.ts:28
+[  890943ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890944ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/InboxStructureCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890944ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890944ms] [ERROR] [vite] Failed to reload /app/components/sidebar/SidebarPanel.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890944ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890944ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/NotificationsTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AccountTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AssistantTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] Failed to reload /app/components/settings/appearance/BackgroundLayer.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] Failed to reload /app/components/tasks/TaskCheckbox.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890945ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/InboxClusterCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/ShortcutsTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/DateTimeTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/TasksTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/TaskProposalCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890946ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890947ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/DataPrivacyTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890947ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890947ms] [ERROR] [vite] Failed to reload /app/components/settings/SettingsDialog.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/CompleteTasksCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/IntegrationsTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AITab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890948ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/BatchRescheduleCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/DangerConfirmCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] Failed to reload /app/components/sidebar/IconRail.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AppearanceTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890949ms] [ERROR] [vite] Failed to reload /app/components/assistant/AssistantLauncher.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890950ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890950ms] [ERROR] [vite] Failed to reload /app/components/quick-add/QuickAddSurface.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890950ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890950ms] [ERROR] [vite] Failed to reload /app/components/calendar/CalendarEventPopover.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890963ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890963ms] [ERROR] [vite] Failed to reload /app/routes/schedule.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890963ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890963ms] [ERROR] [vite] Failed to reload /app/components/assistant/AssistantSidePanel.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890963ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890963ms] [ERROR] [vite] Failed to reload /app/components/layout/MainLayout.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890989ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890989ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AccountTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890990ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890990ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/ShortcutsTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890990ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890991ms] [ERROR] [vite] Failed to reload /app/components/layout/MainLayout.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890991ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890991ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/DateTimeTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890991ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890991ms] [ERROR] [vite] Failed to reload /app/components/tasks/TaskCheckbox.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890992ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890992ms] [ERROR] [vite] Failed to reload /app/components/assistant/AssistantSidePanel.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890992ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890992ms] [ERROR] [vite] Failed to reload /app/components/assistant/AssistantLauncher.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890992ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890992ms] [ERROR] [vite] Failed to reload /app/components/sidebar/IconRail.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890993ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890993ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/NotificationsTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890993ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890993ms] [ERROR] [vite] Failed to reload /app/components/settings/appearance/BackgroundLayer.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890993ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890993ms] [ERROR] [vite] Failed to reload /app/components/sidebar/SidebarPanel.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890994ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890994ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AITab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890994ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890994ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AppearanceTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890995ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890995ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/TasksTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890995ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890995ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/IntegrationsTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890996ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890996ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/DataPrivacyTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  890996ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  890996ms] [ERROR] [vite] Failed to reload /app/components/settings/tabs/AssistantTab.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891001ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891002ms] [ERROR] [vite] Failed to reload /app/components/calendar/CalendarEventPopover.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/TaskProposalCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/DangerConfirmCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/BatchRescheduleCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/CompleteTasksCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891004ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891005ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/InboxStructureCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891005ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891005ms] [ERROR] [vite] Failed to reload /app/components/assistant/widgets/InboxClusterCard.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891009ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891010ms] [ERROR] [vite] Failed to reload /app/components/settings/SettingsDialog.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891011ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891011ms] [ERROR] [vite] Failed to reload /app/routes/schedule.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891011ms] [ERROR] [vite] ReferenceError: locationModeSchema is not defined
+    at http://localhost:8788/@fs/home/shep/projects/My%20Portfolio/Cadence/packages/contracts/src/settings.ts?t=1789334473951:162:9 @ http://localhost:8788/@vite/client:962
+[  891011ms] [ERROR] [vite] Failed to reload /app/components/quick-add/QuickAddSurface.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:8788/@vite/client:962
+[  891851ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:8788/@vite/client:1030
