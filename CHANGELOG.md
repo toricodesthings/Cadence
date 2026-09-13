@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-13
+
 ### Changed
 
 - The loading screen now opens onto a deeper, moonlit autumn valley with layered hills, drifting mist, reflections on the water and falling maple leaves, and it shows the right season, light or dark look, and reduced-motion setting from the very first frame.
