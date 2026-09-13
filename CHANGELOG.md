@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-13
+
 ### Added
 
 - A Location & Weather page in Settings shows where Cadence thinks you are and what uses it, and lets you choose an approximate area, your precise location, a place you pick yourself (including a city for weather), or no location at all.
