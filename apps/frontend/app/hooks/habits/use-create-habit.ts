@@ -63,7 +63,7 @@ export function useCreateHabit() {
             };
 
             queryClient.setQueriesData<Habit[]>(
-                { queryKey: queryKeys.habits.all },
+                { queryKey: queryKeys.habits.all, exact: true },
                 (old) => transformListCache(old, (items) => [...items, optimisticHabit], { initialize: true }),
             );
 

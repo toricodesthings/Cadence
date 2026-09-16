@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect, useMemo, Suspense, lazy } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
+import { useState, useCallback, useMemo, Suspense, lazy } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { FolderKanban, Pencil, Trash2, Repeat, Check, X, Plus, LayoutList } from "lucide-react";
@@ -14,7 +14,8 @@ import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
 import { KanbanBoard } from "../components/kanban/KanbanBoard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
-import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
@@ -44,9 +45,6 @@ import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { toISODate } from "../lib/utils/date-format";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
 
-const MIN_PANEL_WIDTH = 300;
-const MAX_PANEL_WIDTH = 500;
-const DEFAULT_PANEL_WIDTH = 320;
 
 /* ── Actionable linked-habit row ── */
 function LinkedHabitRow({
@@ -104,16 +102,19 @@ export default function ProjectView() {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
-    const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+
+    useTaskDetailsRequest((taskId) => {
+        setSelectedTaskId(taskId);
+        setMobileDetailMode("peek");
+        setMobilePanelOpen(true);
+    });
+
     const [renameOpen, setRenameOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [renameValue, setRenameValue] = useState("");
     const [colorValue, setColorValue] = useState("luminous-amber");
     const [emojiValue, setEmojiValue] = useState("");
     const [isCustomColor, setIsCustomColor] = useState(false);
-    const isDragging = useRef(false);
-    const startX = useRef(0);
-    const startWidth = useRef(0);
 
     const project = projects?.find(p => p.id === projectId);
     const projectAccent = project ? resolveAccentColor(project.colorAccent) : "var(--accent-primary)";
@@ -231,38 +232,6 @@ export default function ProjectView() {
         }
     }, []);
 
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        e.preventDefault();
-        isDragging.current = true;
-        startX.current = e.clientX;
-        startWidth.current = panelWidth;
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-    }, [panelWidth]);
-
-    useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!isDragging.current) return;
-            const delta = startX.current - e.clientX;
-            const newWidth = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, startWidth.current + delta));
-            setPanelWidth(newWidth);
-        };
-
-        const handleMouseUp = () => {
-            if (!isDragging.current) return;
-            isDragging.current = false;
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        };
-
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-            window.removeEventListener("mouseup", handleMouseUp);
-        };
-    }, []);
-
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => {
             const next = current === taskId ? null : taskId;
@@ -274,67 +243,13 @@ export default function ProjectView() {
         });
     };
 
-    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
-    const sidePanel = shell.isWide && selectedTaskId ? (
-        <AnimatePresence initial={false}>
-            <motion.div
-                key="project-side-panel"
-                initial={{ width: 0 }}
-                animate={{ width: panelWidth + 4 }}
-                exit={{ width: 0 }}
-                transition={panelMotion}
-                style={{ willChange: "width", overflow: "hidden" }}
-                className="flex h-full self-stretch shrink-0 items-stretch"
-            >
-                <motion.div
-                    initial={{ x: 24, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: 24, opacity: 0 }}
-                    transition={panelMotion}
-                    style={{ willChange: "transform, opacity" }}
-                    className="flex h-full min-w-0 flex-1 items-stretch"
-                >
-                    {/* Resize handle */}
-                    <div
-                        onMouseDown={handleMouseDown}
-                        className="w-1 shrink-0 cursor-col-resize hover:bg-accent-primary/20 active:bg-accent-primary/30 transition-colors relative z-10 group"
-                        role="separator"
-                        aria-orientation="vertical"
-                        aria-label="Resize task panel"
-                        aria-valuenow={panelWidth}
-                        aria-valuemin={MIN_PANEL_WIDTH}
-                        aria-valuemax={MAX_PANEL_WIDTH}
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                            if (e.key === "ArrowLeft") {
-                                e.preventDefault();
-                                setPanelWidth((w) => Math.min(MAX_PANEL_WIDTH, w + 20));
-                            } else if (e.key === "ArrowRight") {
-                                e.preventDefault();
-                                setPanelWidth((w) => Math.max(MIN_PANEL_WIDTH, w - 20));
-                            }
-                        }}
-                    >
-                        <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full opacity-0 group-hover:opacity-100 bg-accent-primary/25 transition-opacity" />
-                    </div>
-
-                    {/* Task edit panel — spans full height */}
-                    <div
-                        className="shrink-0 border-l border-twilight-border overflow-hidden"
-                        style={{ width: panelWidth }}
-                    >
-                        <AnimatePresence mode="wait">
-                            <TaskEditPanel
-                                key={`edit-${selectedTaskId}`}
-                                taskId={selectedTaskId}
-                                onClose={() => setSelectedTaskId(null)}
-                            />
-                        </AnimatePresence>
-                    </div>
-                </motion.div>
-            </motion.div>
-        </AnimatePresence>
-    ) : undefined;
+    const sidePanel = (
+        <EditSidePanelRail ariaLabel="Resize task panel" minWidth={300} maxWidth={500}>
+            {shell.isWide && selectedTaskId ? (
+                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
+            ) : null}
+        </EditSidePanelRail>
+    );
 
     /* ── Project not-found state ── */
     if (projects && !project) {
@@ -475,6 +390,7 @@ export default function ProjectView() {
                 requireAuth
                 sidePanel={sidePanel}
                 sidePanelActive={Boolean(selectedTaskId)}
+                onCloseSidePanel={() => setSelectedTaskId(null)}
                 sidePanelLabel="Task"
                 headerRight={project ? (shell.isPhone ? (
                     <div className="flex items-center gap-2">
@@ -692,7 +608,7 @@ export default function ProjectView() {
                     onClose={() => setMobilePanelOpen(false)}
                     mode={mobileDetailMode}
                 >
-                    <TaskEditPanel
+                    <EditSidePanel kind="task"
                         key={`project-mobile-edit-${selectedTaskId}`}
                         taskId={selectedTaskId}
                         detailMode={mobileDetailMode}

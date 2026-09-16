@@ -38,3 +38,5 @@ npm-debug.log*
 /graphify-out/
 
 /.playwright-mcp/
+/.playwright-cli/
+/output/playwright/

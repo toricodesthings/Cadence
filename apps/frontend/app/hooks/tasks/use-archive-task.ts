@@ -18,7 +18,7 @@ import { useRestoreTask } from "./use-restore-task";
 export function useArchiveTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
-    const restoreTask = useRestoreTask({ showSuccessToast: false });
+    const restoreTask = useRestoreTask({ showSuccessToast: false, openDetailsOnSuccess: true });
 
     return useMutation({
         mutationFn: async (id: string) => {
@@ -35,7 +35,7 @@ export function useArchiveTask() {
 
             queryClient.setQueriesData<Task[]>(
                 { queryKey: queryKeys.tasks.all },
-                (old) => transformListCache(old, (items) => items.filter((t) => t.id !== id)),
+                (old) => transformListCache(old, (items) => items.filter((t) => t.id !== id && t.seriesId !== id)),
             );
 
             return { snapshot };

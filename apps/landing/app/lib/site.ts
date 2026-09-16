@@ -94,14 +94,14 @@ export const CONSTELLATION = {
   title: "And the small things, done with care.",
   stars: [
     { name: "Search", gloss: "⌘K finds anything" },
-    { name: "Quick Add", gloss: "Q, from anywhere" },
+    { name: "Quick Add", gloss: "⇧Q, from anywhere" },
     { name: "Holding", gloss: "For the unplaced" },
-    { name: "Today", gloss: "Only what matters now" },
-    { name: "Undo", gloss: "It waits in the corner" },
+    { name: "Today", gloss: "Just this day" },
+    { name: "Undo", gloss: "One tap back" },
     { name: "Reminders", gloss: "Quiet hours, kept" },
     { name: "Palettes", gloss: "Eight, and daylight" },
-    { name: "Seasons", gloss: "The year, in the app too" },
-    { name: "Desktop", gloss: "Cadence, as an app" },
+    { name: "Seasons", gloss: "Four, as themes" },
+    { name: "Desktop", gloss: "Its own window" },
   ],
 };
 

@@ -1,5 +1,5 @@
+import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useEffect, useMemo, useState, Suspense, lazy } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3 } from "lucide-react";
@@ -8,9 +8,9 @@ import { Tip } from "../components/primitives";
 import { AgendaHabitDivider, AgendaRow } from "../components/shared/AgendaRow";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
-import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
@@ -152,6 +152,13 @@ export default function TodayRoute() {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+
+    useTaskDetailsRequest((taskId) => {
+        setSelectedTaskId(taskId);
+        setMobileDetailMode("peek");
+        setMobilePanelOpen(true);
+    });
+
     const [hideRhythms, setHideRhythms] = useState(false);
     const todayISO = toISODate(new Date());
     const habitsRangeStart = toISODate(addDays(new Date(), -30));
@@ -311,29 +318,12 @@ export default function TodayRoute() {
 
     const rhythmsTotalCount = grouped.rhythmTasks.length + grouped.rhythmHabits.length;
 
-    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
     const sidePanel = (
-        <AnimatePresence initial={false}>
+        <EditSidePanelRail ariaLabel="Resize today sidebar">
             {shell.isWide && selectedTaskId ? (
-                <motion.div
-                    key="today-side-panel"
-                    initial={{ opacity: 0, x: 24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 24 }}
-                    transition={panelMotion}
-                    style={{ willChange: "transform, opacity", width: 324 }}
-                    className="flex h-full self-stretch shrink-0 items-stretch"
-                >
-                    <ResizableSidePanel ariaLabel="Resize today sidebar">
-                        <TaskEditPanel
-                            key={`today-edit-${selectedTaskId}`}
-                            taskId={selectedTaskId}
-                            onClose={() => setSelectedTaskId(null)}
-                        />
-                    </ResizableSidePanel>
-                </motion.div>
+                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
             ) : null}
-        </AnimatePresence>
+        </EditSidePanelRail>
     );
 
     const sortOptions = [
@@ -617,6 +607,7 @@ export default function TodayRoute() {
             requireAuth
             sidePanel={sidePanel}
             sidePanelActive={Boolean(selectedTaskId)}
+            onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
             headerRight={headerRight}
             contentWidth="default"
@@ -701,7 +692,7 @@ export default function TodayRoute() {
                     onClose={() => setMobilePanelOpen(false)}
                     mode={mobileDetailMode}
                 >
-                    <TaskEditPanel
+                    <EditSidePanel kind="task"
                         key={`today-mobile-edit-${selectedTaskId}`}
                         taskId={selectedTaskId}
                         detailMode={mobileDetailMode}

@@ -115,7 +115,7 @@ describe("task scheduling helpers", () => {
             scheduledEnd: "2026-03-10T14:45:00.000Z",
             recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
         });
-        const timeLabel = `${formatTime(task.scheduledStart!)} - ${formatTime(task.scheduledEnd!)}`;
+        const timeLabel = `${formatTime(task.scheduledStart!)} – ${formatTime(task.scheduledEnd!)}`;
 
         expect(getTaskRecurrenceSummary(task)).toEqual({
             label: `Repeats Tue & Thu, ${timeLabel}, until May 2`,

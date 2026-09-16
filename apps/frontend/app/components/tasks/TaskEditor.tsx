@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import {
-    X, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Flag,
+    Calendar, Bell, Tag, FolderOpen, Flag,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
-    CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil, Maximize2, Minimize2,
-    ExternalLink, Check, ChevronDown, ListChecks, StickyNote
+    CircleDot, Gauge, CalendarOff, Clock, Plus,
+    ExternalLink, Check, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks, useUpdateTask, useArchiveTask, useCreateSubtask } from "../../hooks/tasks";
@@ -33,12 +33,14 @@ import {
     isRecurringTask,
 } from "../../lib/utils/task/task-scheduling";
 import type { EffortLevel, Task, TaskPriority, TaskState } from "@cadence/contracts/task";
-import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
+import { DetailTitle } from "../shared/DetailTitle";
+import { DetailPanelLayout } from "../shared/DetailPanelLayout";
+import { CARD, PANEL_TRIGGER, PanelTrigger, PanelHeader } from "../shared/DetailPanelSections";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 
 const MarkdownEditor = lazy(() => import("./MarkdownEditor").then((m) => ({ default: m.MarkdownEditor })));
 
-interface TaskEditPanelProps {
+interface TaskEditorProps {
     taskId: string;
     onClose: () => void;
     detailMode?: "peek" | "focus";
@@ -49,51 +51,7 @@ function formatDateTime(iso: string) {
     return formatShortDate(iso);
 }
 
-const CARD = "rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02]";
-const PANEL_TRIGGER = `${CARD} flex min-h-16 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:border-twilight-border/50 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50`;
-const HEADER_ICON_BTN = "btn-icon shrink-0 text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 const VALUE_BTN = "flex min-h-10 max-w-full cursor-pointer items-center rounded-lg px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
-
-/** Collapsed pane: icon, name, one-line summary, chevron. */
-function PanelTrigger({ icon: Icon, title, summary, onOpen }: {
-    icon: React.ElementType;
-    title: string;
-    summary: string;
-    onOpen: () => void;
-}) {
-    return (
-        <button type="button" onClick={onOpen} aria-expanded={false} className={PANEL_TRIGGER}>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-twilight-text-muted">
-                <Icon size={16} aria-hidden="true" />
-            </span>
-            <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-twilight-text">{title}</span>
-                <span className="block truncate text-xs text-twilight-text-muted">{summary}</span>
-            </span>
-            <ChevronDown size={16} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
-        </button>
-    );
-}
-
-/** Open pane header: name + a plain "Done" that folds back to notes. */
-function PanelHeader({ title, summary, onDone }: { title: string; summary?: string; onDone: () => void }) {
-    return (
-        <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-                <p className="text-sm font-medium text-twilight-text">{title}</p>
-                {summary ? <p className="truncate text-xs text-twilight-text-muted">{summary}</p> : null}
-            </div>
-            <button
-                type="button"
-                onClick={onDone}
-                aria-expanded={true}
-                className="flex min-h-9 shrink-0 cursor-pointer items-center rounded-lg px-3 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-            >
-                Done
-            </button>
-        </div>
-    );
-}
 
 /** Titled cluster of related fields inside Details. */
 function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
@@ -132,13 +90,12 @@ function FieldRow({ icon: Icon, label, children }: { icon: React.ElementType; la
 }
 
 /** Full task editing panel — notes-first design; metadata revealed on demand */
-export function TaskEditPanel({
+export function TaskEditor({
     taskId,
     onClose,
     detailMode = "peek",
     onDetailModeChange,
-}: TaskEditPanelProps) {
-    const insideResponsiveOverlay = Boolean(onDetailModeChange);
+}: TaskEditorProps) {
     const { data: activeTasks } = useTasks({ state: "ACTIVE" });
     const { data: waitingTasks } = useTasks({ state: "WAITING" });
     const { data: archiveTasks } = useTasks({ state: "ARCHIVED" });
@@ -160,7 +117,6 @@ export function TaskEditPanel({
         [activeTasks, waitingTasks, archiveTasks, doneTasks, taskId],
     );
 
-    const [title, setTitle] = useState(task?.title ?? "");
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");
@@ -171,10 +127,9 @@ export function TaskEditPanel({
     // Unified note state — shared between inline editor and Writing Room
     const { draft: notes, onChange: onNotesChange, saveStatus } = useTaskNote(taskId);
 
-    // Sync title & waitingOn when task loads
+    // Sync waitingOn when task loads
     useEffect(() => {
         if (task) {
-            setTitle(task.title);
             setWaitingOn(task.waitingOn ?? "");
         }
     }, [task]);
@@ -182,27 +137,6 @@ export function TaskEditPanel({
     useEffect(() => {
         setActivePanel("notes");
     }, [taskId]);
-
-    // Fit the title to its text. Re-fit when the panel width changes (sheets settle after
-    // mount) and once web fonts land — the display face wraps differently from the fallback.
-    useEffect(() => {
-        const el = titleTextareaRef.current;
-        if (!el) return;
-        let active = true;
-        const fit = () => {
-            if (!active) return;
-            el.style.height = "0px";
-            el.style.height = `${el.scrollHeight}px`;
-        };
-        fit();
-        const observer = new ResizeObserver(fit);
-        observer.observe(el);
-        void document.fonts?.ready.then(fit);
-        return () => {
-            active = false;
-            observer.disconnect();
-        };
-    }, [title, taskId, Boolean(task)]);
 
     // Listen for the custom rename event dispatched by context menus
     useEffect(() => {
@@ -237,26 +171,6 @@ export function TaskEditPanel({
                 .filter((line) => !existingSubtaskTitles.has(line.toLowerCase())),
         [notes, existingSubtaskTitles],
     );
-
-    const handleTitleBlur = () => {
-        if (!task || title.trim() === task.title) return;
-        if (!title.trim()) {
-            setTitle(task.title);
-            return;
-        }
-        updateTask.mutate({ id: task.id, title: title.trim() });
-    };
-
-    const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            (e.target as HTMLTextAreaElement).blur();
-        }
-        if (e.key === "Escape") {
-            setTitle(task?.title ?? "");
-            (e.target as HTMLTextAreaElement).blur();
-        }
-    };
 
     const handleWaitingOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setWaitingOn(e.target.value);
@@ -337,12 +251,8 @@ export function TaskEditPanel({
     ].filter(Boolean).join(" · ");
 
     return (
-        <motion.div
-            className="h-full overflow-hidden"
-            initial={insideResponsiveOverlay ? { opacity: 0 } : { x: 40, opacity: 0 }}
-            animate={insideResponsiveOverlay ? { opacity: 1 } : { x: 0, opacity: 1 }}
-            exit={insideResponsiveOverlay ? { opacity: 0 } : { x: 40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 35 }}
+        <div
+            className="h-full min-w-0 overflow-hidden"
             role="complementary"
             aria-label="Task details"
         >
@@ -360,84 +270,16 @@ export function TaskEditPanel({
                     </div>
                 </div>
             ) : (
-                <ImmersiveDetailLayout
+                <DetailPanelLayout
                     mode={detailMode}
-                    header={(
-                        <div className="flex h-(--shell-header-h) shrink-0 items-center gap-1 border-b border-twilight-border pl-5 pr-[calc(1rem+var(--rail-toggle-reserve,0px))]">
-                        <TaskCheckbox task={task} compact />
-                        <div className="flex-1 min-w-0" />
-
-                        {onDetailModeChange ? (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    onDetailModeChange(detailMode === "focus" ? "peek" : "focus");
-                                }}
-                                aria-label={detailMode === "focus" ? "Back to split view" : "Expand editor"}
-                                className={`${HEADER_ICON_BTN} ${detailMode === "focus" ? "bg-accent-primary/10 text-accent-primary" : ""}`}
-                            >
-                                {detailMode === "focus" ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
-                            </button>
-                        ) : null}
-
-                        <DropdownMenu.Root>
-                            <DropdownMenu.Trigger asChild>
-                                <button
-                                    type="button"
-                                    aria-label="Task actions"
-                                    aria-haspopup="menu"
-                                    className={HEADER_ICON_BTN}
-                                >
-                                    <MoreHorizontal size={16} aria-hidden="true" />
-                                </button>
-                            </DropdownMenu.Trigger>
-                            <DropdownMenu.Content align="end">
-                                {task.recurrenceRule && (
-                                    <DropdownMenu.Item onSelect={() => handleStateChange("ARCHIVED")} className="flex items-center gap-2">
-                                        <Calendar size={14} aria-hidden="true" />
-                                        Archive series
-                                    </DropdownMenu.Item>
-                                )}
-                                <DropdownMenu.Item
-                                    className="flex items-center gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                                    onSelect={handleDelete}
-                                >
-                                    <Trash2 size={14} aria-hidden="true" />
-                                    {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
-                                </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                        </DropdownMenu.Root>
-
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            aria-label="Close task details"
-                            className={HEADER_ICON_BTN}
-                        >
-                            <X size={16} aria-hidden="true" />
-                        </button>
-                        </div>
-                    )}
+                    onModeChange={onDetailModeChange}
+                    onClose={onClose}
+                    closeLabel="Close task details"
+                    title={isRecurringTask(task) ? "Rhythm" : "Task"}
+                    leading={<TaskCheckbox task={task} compact />}
                 >
-
-                    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto scrollbar-thin px-5 pb-6 pt-5">
-                        <section className="group relative shrink-0 rounded-[1.35rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4">
-                            <p className={`${FIELD_LABEL} mb-2`}>Title</p>
-                            <div className="pointer-events-none absolute right-5 top-4 opacity-0 transition-opacity group-hover:opacity-100">
-                                <Pencil size={14} className="text-twilight-text-muted" aria-hidden="true" />
-                            </div>
-                            <textarea
-                                ref={titleTextareaRef}
-                                rows={1}
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                onBlur={handleTitleBlur}
-                                onKeyDown={handleTitleKeyDown}
-                                aria-label="Task title"
-                                className="min-h-0 w-full resize-none overflow-hidden bg-transparent pr-8 font-display text-[1.3rem] font-semibold leading-[1.25] tracking-[-0.025em] text-twilight-text outline-none placeholder:text-twilight-text-muted/70"
-                                placeholder="Task title"
-                            />
-                        </section>
+                        <DetailTitle value={task.title} label="Task title" textareaRef={titleTextareaRef}
+                            onSave={(title) => updateTask.mutate({ id: task.id, title })} />
 
                         {/* ── Notes pane ── */}
                         {activePanel !== "notes" ? (
@@ -832,9 +674,27 @@ export function TaskEditPanel({
                                 </motion.div>
                             ) : null}
                         </AnimatePresence>
-                    </div>
-                </ImmersiveDetailLayout>
+
+                        <Button variant="ghost" size="none"
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={archiveTask.isPending}
+                            className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error disabled:cursor-not-allowed disabled:opacity-50`}
+                        >
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
+                                <Trash2 size={16} aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-medium">
+                                    {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
+                                </span>
+                                <span className="block text-xs text-twilight-text-muted">
+                                    {task.recurrenceRule ? "Removes every occurrence. Restore from Trash." : "You can restore this task from Trash."}
+                                </span>
+                            </span>
+                        </Button>
+                </DetailPanelLayout>
             )}
-        </motion.div>
+        </div>
     );
 }

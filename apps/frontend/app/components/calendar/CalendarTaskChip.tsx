@@ -1,9 +1,12 @@
-import { useState, useCallback, useRef, type CSSProperties } from "react";
-import { Check, Archive, GripVertical, Repeat, CalendarClock } from "lucide-react";
+import { useState, useCallback, useRef, type CSSProperties, type ReactElement } from "react";
+import { Check, Archive, GripVertical, Repeat, CalendarClock, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskPriority } from "@cadence/contracts/task";
+import * as ContextMenu from "../primitives/ContextMenu";
+import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
+import { getTaskSeriesId } from "../../lib/utils/task/task-scheduling";
 import { formatTime } from "../../lib/utils/date-format";
 import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
@@ -51,6 +54,31 @@ export interface CalendarTaskChipProps {
     sourceId?: string;
 }
 
+function CalendarTaskMenu({ task, children }: { task: Task; children: ReactElement }) {
+    const archiveTask = useArchiveTask();
+    if (task.isHabit) return children;
+
+    const isSeries = isRecurringTask(task) || isRecurringTaskInstance(task);
+    return (
+        <ContextMenu.Root>
+            <ContextMenu.Trigger asChild onContextMenu={(event) => event.stopPropagation()}>
+                {children}
+            </ContextMenu.Trigger>
+            <ContextMenu.Content onClick={(event) => event.stopPropagation()}>
+                <ContextMenu.Item
+                    variant="danger"
+                    disabled={archiveTask.isPending}
+                    onSelect={() => archiveTask.mutate(getTaskSeriesId(task))}
+                    className="gap-2"
+                >
+                    <Trash2 size={16} aria-hidden="true" />
+                    {isSeries ? "Move series to Trash" : "Move to Trash"}
+                </ContextMenu.Item>
+            </ContextMenu.Content>
+        </ContextMenu.Root>
+    );
+}
+
 export function CalendarTaskChip({
     task,
     variant,
@@ -85,75 +113,77 @@ export function CalendarTaskChip({
     // ── PILL variant (Month view, All-Day row) ──────────────────────────────
     if (variant === "pill") {
         return (
-            <motion.div
-                ref={setNodeRef}
-                style={dragStyle}
-                {...listeners}
-                data-task-chip
-                className={`
-                    group relative flex items-center gap-2 w-full
-                    rounded-full px-3 py-1.5 text-[13px] font-medium
-                    border backdrop-blur-md cursor-pointer select-none
-                    transition-[background-color,border-color,box-shadow,transform,opacity] duration-150
-                    ${isDragging ? "z-50 scale-[1.03] shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
-                    ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                    ${task.isHabit ? `border-l-2 border-accent-primary bg-accent-primary/5 pl-2 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
-                    ${isRecurring ? "bg-[rgba(126,184,212,0.08)] border-[rgba(126,184,212,0.18)]" : PRIORITY_PILL_BG[priority]}
-                `}
-                onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-                whileHover={{ scale: 1.01 }}
-            >
-                {/* Priority dot */}
-                <span className={`shrink-0 w-2 h-2 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
-
-                {/* Title */}
-                <button
-                    type="button"
+            <CalendarTaskMenu task={task}>
+                <motion.div
+                    ref={setNodeRef}
+                    style={dragStyle}
+                    {...listeners}
+                    data-task-chip
+                    className={`
+                        group relative flex items-center gap-2 w-full
+                        rounded-full px-3 py-1.5 text-[13px] font-medium
+                        border backdrop-blur-md cursor-pointer select-none
+                        transition-[background-color,border-color,box-shadow,transform,opacity] duration-150
+                        ${isDragging ? "z-50 scale-[1.03] shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
+                        ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
+                        ${task.isHabit ? `border-l-2 border-accent-primary bg-accent-primary/5 pl-2 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
+                        ${isRecurring ? "bg-[rgba(126,184,212,0.08)] border-[rgba(126,184,212,0.18)]" : PRIORITY_PILL_BG[priority]}
+                    `}
                     onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                    className={`flex-1 truncate text-left ${PRIORITY_TEXT[priority]} cursor-pointer flex items-center gap-1`}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                    whileHover={{ scale: 1.01 }}
                 >
-                    {task.title}
-                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
-                    {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
-                </button>
+                    {/* Priority dot */}
+                    <span className={`shrink-0 w-2 h-2 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
 
-                {/* Hover quick actions */}
-                <AnimatePresence>
-                    {isHovered && allowQuickActions && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0.1 }}
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 shrink-0 bg-twilight-surface/90 backdrop-blur-md rounded-full px-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {onComplete && (
-                                <button
-                                    type="button"
-                                    onClick={() => onComplete(task.id)}
-                                    data-no-dnd="true"
-                                    className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                                >
-                                    <Check size={9} className="text-twilight-text-muted" />
-                                </button>
-                            )}
-                            {onArchive && (
-                                <button
-                                    type="button"
-                                    onClick={() => onArchive(task.id)}
-                                    data-no-dnd="true"
-                                    className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                                >
-                                    <Archive size={9} className="text-twilight-text-muted" />
-                                </button>
-                            )}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </motion.div>
+                    {/* Title */}
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                        className={`flex-1 truncate text-left ${PRIORITY_TEXT[priority]} cursor-pointer flex items-center gap-1`}
+                    >
+                        {task.title}
+                        {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
+                        {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
+                    </button>
+
+                    {/* Hover quick actions */}
+                    <AnimatePresence>
+                        {isHovered && allowQuickActions && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                transition={{ duration: 0.1 }}
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 shrink-0 bg-twilight-surface/90 backdrop-blur-md rounded-full px-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {onComplete && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onComplete(task.id)}
+                                        data-no-dnd="true"
+                                        className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+                                    >
+                                        <Check size={9} className="text-twilight-text-muted" />
+                                    </button>
+                                )}
+                                {onArchive && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onArchive(task.id)}
+                                        data-no-dnd="true"
+                                        className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+                                    >
+                                        <Archive size={9} className="text-twilight-text-muted" />
+                                    </button>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
+            </CalendarTaskMenu>
         );
     }
 
@@ -217,101 +247,103 @@ export function CalendarTaskChip({
     };
 
     return (
-        <motion.div
-            ref={setNodeRef}
-            style={blockStyle}
-            {...listeners}
-            data-task-chip
-            className={`
-                group absolute flex ${isCompactBlock ? "flex-row items-center" : "flex-col justify-center"} gap-1
-                rounded-xl ${isCompactBlock ? "px-2.5 py-1" : "px-3 py-2"} border backdrop-blur-xl cursor-pointer select-none
-                transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 overflow-hidden
-                shadow-[0_4px_16px_rgba(0,0,0,0.08)]
-                ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
-                ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
-                ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                ${habitRibbon ? `border-l-2 border-accent-primary/45 border-twilight-border/25 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent-primary)_12%,transparent),color-mix(in_srgb,var(--accent-primary)_4%,transparent))] ${isCompletedHabit ? "opacity-55" : "opacity-100"} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]` : ""}
-            `}
-            onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            whileHover={{ zIndex: 20 }}
-        >
-            {/* Left accent bar */}
-            <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
-
-            {/* Hover quick actions */}
-            <AnimatePresence>
-                {isHovered && allowQuickActions && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.12 }}
-                        className="absolute top-1.5 right-1.5 flex items-center gap-0.5"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <GripVertical size={11} className="text-twilight-text-muted/90" />
-                        {onComplete && (
-                            <button
-                                type="button"
-                                onClick={() => onComplete(task.id)}
-                                data-no-dnd="true"
-                                className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                            >
-                                <Check size={10} className="text-twilight-text-muted" />
-                            </button>
-                        )}
-                        {onArchive && (
-                            <button
-                                type="button"
-                                onClick={() => onArchive(task.id)}
-                                data-no-dnd="true"
-                                className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
-                            >
-                                <Archive size={10} className="text-twilight-text-muted" />
-                            </button>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Main click target */}
-            <button
-                type="button"
+        <CalendarTaskMenu task={task}>
+            <motion.div
+                ref={setNodeRef}
+                style={blockStyle}
+                {...listeners}
+                data-task-chip
+                className={`
+                    group absolute flex ${isCompactBlock ? "flex-row items-center" : "flex-col justify-center"} gap-1
+                    rounded-xl ${isCompactBlock ? "px-2.5 py-1" : "px-3 py-2"} border backdrop-blur-xl cursor-pointer select-none
+                    transition-[background-color,border-color,box-shadow,transform,opacity] duration-150 overflow-hidden
+                    shadow-[0_4px_16px_rgba(0,0,0,0.08)]
+                    ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
+                    ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
+                    ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
+                    ${habitRibbon ? `border-l-2 border-accent-primary/45 border-twilight-border/25 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent-primary)_12%,transparent),color-mix(in_srgb,var(--accent-primary)_4%,transparent))] ${isCompletedHabit ? "opacity-55" : "opacity-100"} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]` : ""}
+                `}
                 onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                className={`w-full min-w-0 cursor-pointer text-left pl-2 ${isCompactBlock ? "flex items-center gap-2 overflow-hidden" : "flex flex-col gap-0.5"}`}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                whileHover={{ zIndex: 20 }}
             >
-                <span className={`${isCompactBlock ? (habitRibbon ? "text-[12px]" : "text-[11px]") : "text-[13px]"} min-w-0 truncate font-medium leading-tight flex items-center gap-1 ${!isCompactBlock ? "flex-wrap" : ""} ${PRIORITY_TEXT[priority]}`}>
-                    {task.title}
-                    {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
-                    {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
-                </span>
-                {timeLabel && !isCompactBlock && (
-                    <span className="text-[12px] text-twilight-text-muted/90 leading-tight">
-                        {timeLabel}{endLabel ? ` – ${endLabel}` : ""}
-                    </span>
-                )}
-                {timeLabel && isCompactBlock && (
-                    <span className={`shrink-0 ${habitRibbon ? "text-[10.5px] font-medium text-accent-primary/80" : "text-[10px] text-twilight-text-muted/70"}`}>
-                        {timeLabel}
-                    </span>
-                )}
-            </button>
+                {/* Left accent bar */}
+                <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
 
-            {/* Bottom-edge resize handle */}
-            {canResize && (
-                <div
-                    className="absolute bottom-0 left-2 right-2 h-2 cursor-s-resize group/resize flex items-center justify-center"
-                    onPointerDown={handleResizePointerDown}
-                    onPointerMove={handleResizePointerMove}
-                    onPointerUp={handleResizePointerUp}
-                    data-no-dnd="true"
+                {/* Hover quick actions */}
+                <AnimatePresence>
+                    {isHovered && allowQuickActions && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.12 }}
+                            className="absolute top-1.5 right-1.5 flex items-center gap-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <GripVertical size={11} className="text-twilight-text-muted/90" />
+                            {onComplete && (
+                                <button
+                                    type="button"
+                                    onClick={() => onComplete(task.id)}
+                                    data-no-dnd="true"
+                                    className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+                                >
+                                    <Check size={10} className="text-twilight-text-muted" />
+                                </button>
+                            )}
+                            {onArchive && (
+                                <button
+                                    type="button"
+                                    onClick={() => onArchive(task.id)}
+                                    data-no-dnd="true"
+                                    className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer"
+                                >
+                                    <Archive size={10} className="text-twilight-text-muted" />
+                                </button>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Main click target */}
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                    className={`w-full min-w-0 cursor-pointer text-left pl-2 ${isCompactBlock ? "flex items-center gap-2 overflow-hidden" : "flex flex-col gap-0.5"}`}
                 >
-                    <div className="w-8 h-0.5 rounded-full bg-white/0 group-hover/resize:bg-white/30 transition-colors" />
-                </div>
-            )}
-        </motion.div>
+                    <span className={`${isCompactBlock ? (habitRibbon ? "text-[12px]" : "text-[11px]") : "text-[13px]"} min-w-0 truncate font-medium leading-tight flex items-center gap-1 ${!isCompactBlock ? "flex-wrap" : ""} ${PRIORITY_TEXT[priority]}`}>
+                        {task.title}
+                        {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
+                        {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
+                    </span>
+                    {timeLabel && !isCompactBlock && (
+                        <span className="text-[12px] text-twilight-text-muted/90 leading-tight">
+                            {timeLabel}{endLabel ? ` – ${endLabel}` : ""}
+                        </span>
+                    )}
+                    {timeLabel && isCompactBlock && (
+                        <span className={`shrink-0 ${habitRibbon ? "text-[10.5px] font-medium text-accent-primary/80" : "text-[10px] text-twilight-text-muted/70"}`}>
+                            {timeLabel}
+                        </span>
+                    )}
+                </button>
+
+                {/* Bottom-edge resize handle */}
+                {canResize && (
+                    <div
+                        className="absolute bottom-0 left-2 right-2 h-2 cursor-s-resize group/resize flex items-center justify-center"
+                        onPointerDown={handleResizePointerDown}
+                        onPointerMove={handleResizePointerMove}
+                        onPointerUp={handleResizePointerUp}
+                        data-no-dnd="true"
+                    >
+                        <div className="w-8 h-0.5 rounded-full bg-white/0 group-hover/resize:bg-white/30 transition-colors" />
+                    </div>
+                )}
+            </motion.div>
+        </CalendarTaskMenu>
     );
 }
 

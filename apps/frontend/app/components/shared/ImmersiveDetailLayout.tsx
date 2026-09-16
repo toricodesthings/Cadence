@@ -9,7 +9,7 @@ interface ImmersiveDetailLayoutProps {
 }
 
 /**
- * Shared detail shell for task and habit inspection/editing.
+ * Shared detail shell for task, event and habit inspection/editing.
  * The inner panel owns the header contents; this layout owns the rhythm.
  */
 export function ImmersiveDetailLayout({

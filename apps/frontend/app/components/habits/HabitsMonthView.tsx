@@ -240,7 +240,7 @@ export function HabitsMonthView({
                             : Math.round((completedCount / scheduledDays.length) * 100);
 
                         return (
-                            <HabitContextMenuWrapper key={habit.id} habit={habit}>
+                            <HabitContextMenuWrapper key={habit.id} habit={habit} onEdit={() => onSelectHabit?.(habit.id)}>
                             <section
                                 className={[
                                     "rounded-[1.65rem] border px-5 py-6 transition-colors",
@@ -291,7 +291,7 @@ export function HabitsMonthView({
                                         </div>
                                     </button>
 
-                                    <HabitMenu habit={habit} />
+                                    <HabitMenu habit={habit} onEdit={() => onSelectHabit?.(habit.id)} />
                                 </div>
 
                                 <div className="mt-3 flex items-center gap-1.5 text-xs text-twilight-text-muted">

@@ -1,7 +1,7 @@
+import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useState, useMemo, useCallback } from "react";
 import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { AnimatePresence, motion } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PlannerHeader } from "../components/layout/PlannerHeader";
 import { LocationNotice } from "../components/location/LocationNotice";
@@ -9,12 +9,12 @@ import { PageContent } from "../components/layout/PageLayout";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { CaptureInput } from "../components/holding/CaptureInput";
 import { HoldingFeed } from "../components/holding/HoldingFeed";
-import { ClarifySheet } from "../components/holding/ClarifySheet";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
+import { Button } from "../components/primitives/Button";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
-import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { useAssistantStore } from "../stores/assistant-store";
 import { useInbox } from "../hooks/inbox";
@@ -29,6 +29,14 @@ export default function HomeRoute() {
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+
+    useTaskDetailsRequest((taskId) => {
+        setSelectedTaskId(taskId);
+        setMobileDetailMode("peek");
+        setMobilePanelOpen(true);
+        setSelectedInboxItemId(null);
+    });
+
     const { data: inboxItems = [], isLoading: inboxLoading } = useInbox();
     const { data: holdingTasks = [], isLoading: tasksLoading } = useTasks({
         state: "ACTIVE",
@@ -53,65 +61,24 @@ export default function HomeRoute() {
     // Determine which panel content to show
     const hasPanelContent = selectedTaskId || selectedInboxItem || holdingPanelOpen;
 
-    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
 
     const clearSelection = useCallback(() => {
         setSelectedTaskId(null);
         setSelectedInboxItemId(null);
     }, []);
 
-    /* ── Side panel — ClarifySheet for captures, TaskEditPanel for tasks, Overview fallback ── */
+    /* ── Side panel — ClarifySheet for captures, EditSidePanel for tasks, Overview fallback ── */
     const sidePanel = (
-        <AnimatePresence initial={false}>
-            {hasPanelContent && (
-                <motion.div
-                    key="holding-side-panel"
-                    initial={{ width: 0 }}
-                    animate={{ width: holdingPanelWidth + 4 }}
-                    exit={{ width: 0 }}
-                    transition={panelMotion}
-                    style={{ willChange: "width", overflow: "hidden" }}
-                    className="flex h-full self-stretch shrink-0 items-stretch"
-                >
-                    <motion.div
-                        initial={{ x: 24, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 24, opacity: 0 }}
-                        transition={panelMotion}
-                        style={{ willChange: "transform, opacity" }}
-                        className="flex h-full min-w-0 flex-1 items-stretch"
-                    >
-                        <ResizableSidePanel
-                            ariaLabel="Resize holding panel"
-                            width={holdingPanelWidth}
-                            onWidthChange={setHoldingPanelWidth}
-                        >
-                            <AnimatePresence mode="wait">
-                                {selectedInboxItem ? (
-                                    <ClarifySheet
-                                        key={`clarify-${selectedInboxItem.id}`}
-                                        item={selectedInboxItem}
-                                        onClose={clearSelection}
-                                        onOpenFullEditor={(taskId) => {
-                                            setSelectedInboxItemId(null);
-                                            setSelectedTaskId(taskId);
-                                        }}
-                                    />
-                                ) : selectedTaskId ? (
-                                    <TaskEditPanel
-                                        key={`holding-edit-${selectedTaskId}`}
-                                        taskId={selectedTaskId}
-                                        onClose={() => setSelectedTaskId(null)}
-                                    />
-                                ) : (
-                                    <HoldingPlannerPanel key="holding-planner" />
-                                )}
-                            </AnimatePresence>
-                        </ResizableSidePanel>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
+        <EditSidePanelRail ariaLabel="Resize holding panel" width={holdingPanelWidth} onWidthChange={setHoldingPanelWidth}>
+            {hasPanelContent ? (
+                selectedInboxItem ? (
+                    <EditSidePanel kind="capture" item={selectedInboxItem} onClose={clearSelection}
+                        onOpenFullEditor={(taskId) => { setSelectedInboxItemId(null); setSelectedTaskId(taskId); }} />
+                ) : selectedTaskId ? (
+                    <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
+                ) : <HoldingPlannerPanel />
+            ) : null}
+        </EditSidePanelRail>
     );
 
     const handleSelectTask = (taskId: string) => {
@@ -153,35 +120,41 @@ export default function HomeRoute() {
     // back into an empty rail (railView still "context") — toggling the calendar
     // instead of closing Cadence.
     const railShowsAssistant = assistantPanelOpen && (railView === "assistant" || !hasPanelContent);
-    const railOpen = railShowsAssistant ? assistantPanelOpen : holdingPanelOpen;
-    const toggleRail = railShowsAssistant ? toggleAssistantPanel : toggleHoldingPanel;
+    const railOpen = Boolean(railShowsAssistant || hasPanelContent);
+    const toggleRail = () => {
+        if (railShowsAssistant) toggleAssistantPanel();
+        else if (hasPanelContent) {
+            clearSelection();
+            if (holdingPanelOpen) toggleHoldingPanel();
+        } else toggleHoldingPanel();
+    };
     const headerRight = shell.isWide ? (
-        <button
+        <Button variant="ghost" size="icon"
             type="button"
             onClick={toggleRail}
-            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+            className="btn-icon rounded-2xl"
             aria-label={
                 railShowsAssistant
                     ? "Hide Cadence"
-                    : holdingPanelOpen
+                    : railOpen
                         ? "Hide review panel"
                         : "Show review panel"
             }
         >
-            {railOpen ? <PanelRightClose size={16} aria-hidden="true" /> : <PanelRightOpen size={16} aria-hidden="true" />}
-        </button>
+            {railOpen ? <PanelRightClose size={18} aria-hidden="true" /> : <PanelRightOpen size={18} aria-hidden="true" />}
+        </Button>
     ) : (
-        <button
+        <Button variant="ghost" size="icon"
             type="button"
             onClick={() => {
                 clearSelection();
                 setMobilePanelOpen(true);
             }}
-            className="btn-icon rounded-2xl border border-twilight-border text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
+            className="btn-icon rounded-2xl"
             aria-label="Open planner"
         >
             <CalendarDays size={16} aria-hidden="true" />
-        </button>
+        </Button>
     );
 
     return (
@@ -228,7 +201,7 @@ export default function HomeRoute() {
                 </PageContent>
             </ScrollAreaWrapper>
 
-            {/* ── Mobile overlay — ClarifySheet / TaskEditPanel / Overview (C4 fix) ── */}
+            {/* ── Mobile overlay — ClarifySheet / EditSidePanel / Overview (C4 fix) ── */}
             {!shell.isWide && (
                 <ResponsiveOverlayPanel
                     ariaLabel={
@@ -241,19 +214,22 @@ export default function HomeRoute() {
                         setMobilePanelOpen(false);
                         clearSelection();
                     }}
-                    mode={selectedTaskId ? mobileDetailMode : "peek"}
+                    mode={selectedTaskId || selectedInboxItem ? mobileDetailMode : "peek"}
+                    fill={Boolean(selectedTaskId || selectedInboxItem)}
                     title={
                         selectedInboxItem ? "Clarify"
                             : selectedTaskId ? "Task details"
                             : "Review"
                     }
-                    showHeader={Boolean(selectedInboxItem) || !selectedTaskId}
+                    showHeader={!selectedInboxItem && !selectedTaskId}
                 >
-                    <AnimatePresence mode="wait">
+                    <>
                         {selectedInboxItem ? (
-                            <ClarifySheet
+                            <EditSidePanel kind="capture"
                                 key={`clarify-mobile-${selectedInboxItem.id}`}
                                 item={selectedInboxItem}
+                                detailMode={mobileDetailMode}
+                                onDetailModeChange={setMobileDetailMode}
                                 onClose={() => {
                                     setSelectedInboxItemId(null);
                                     setMobilePanelOpen(false);
@@ -265,7 +241,7 @@ export default function HomeRoute() {
                                 }}
                             />
                         ) : selectedTaskId ? (
-                            <TaskEditPanel
+                            <EditSidePanel kind="task"
                                 key={`holding-mobile-edit-${selectedTaskId}`}
                                 taskId={selectedTaskId}
                                 detailMode={mobileDetailMode}
@@ -278,7 +254,7 @@ export default function HomeRoute() {
                         ) : (
                             <HoldingPlannerPanel key="holding-mobile-planner" />
                         )}
-                    </AnimatePresence>
+                    </>
                 </ResponsiveOverlayPanel>
             )}
         </MainLayout>

@@ -85,6 +85,13 @@ const BULBS: Pt[] = Array.from({ length: 7 }, (_, i) => {
   ];
 });
 
+/** The bulbs as the lamps layer can't hold them: each glimmers on its own clock, so each is an HTML box. */
+const BULB_AT = BULBS.map(([x, y], k) => ({
+  dx: n1(((x - W / 2) / W) * 100),
+  b: n1(((H - y) / H) * 100),
+  k,
+}));
+
 /** Shore lanterns, each just above the water on its own bank. */
 const SHORE: readonly Pt[] = [
   [720, yAt(MID_W, 720) - 4],
@@ -199,15 +206,13 @@ export function FinaleLand() {
         )}
       </svg>
 
-      {/* The string's bulbs glimmer on their own clocks, in a layer of their own so the lane never repaints */}
-      <svg {...BAND} className="fl-string">
-        {BULBS.map(([x, y], k) => (
-          <g key={x} className="fl-bulb" style={cssVars({ "--k": k })}>
-            <circle cx={x} cy={y} r="5" fill="url(#fl-lamp)" />
-            <circle cx={x} cy={y} r="1.5" fill="var(--hero-lamp)" />
-          </g>
+      {/* The string's bulbs glimmer on their own clocks. HTML boxes, not SVG children: an animated SVG child
+          repaints its whole <svg> every frame, a box's opacity is composited */}
+      <div className="fl-bulbs">
+        {BULB_AT.map(({ dx, b, k }) => (
+          <span key={k} style={cssVars({ "--dx": `${dx}%`, "--b": `${b}%`, "--k": k })} />
         ))}
-      </svg>
+      </div>
 
       {/* Each boat drifts in its own box, carrying its lamp and the streak it lays on the water */}
       {BOATS.map(({ x, y, s, cls }) => (

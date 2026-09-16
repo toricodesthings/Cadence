@@ -574,13 +574,13 @@
   animation: var(--hero-still, hero-cta-twinkle 5.6s var(--ease-sine) var(--d) infinite both var(--hero-loop, running));
 }
 
-/* ── Constellation: the chart is the list. Nine stars on the night field, joined by one line that is drawn as
-   the section is read; each name hangs off its own star (to its left where the star sits far right, so no
-   label leaves the field). Narrow screens get the same list, plainly stacked, and no drawing ── */
+/* ── Constellation: the chart is the list. Each item is a zero-size anchor at its star: the glyph is centred on
+   the point, the name set off to its side (away from the figure's lines). Narrow screens stack the same list,
+   with no drawing ── */
 .constellation-chart {
   position: relative;
   align-self: center;
-  aspect-ratio: 1 / 1.1;
+  aspect-ratio: 100 / 110;
 }
 
 .constellation-chart > svg {
@@ -591,15 +591,20 @@
   overflow: visible;
 }
 
+/* The drawing is in the chart's own units (100 wide), so a quarter unit is a hairline at any width */
 .constellation-line {
   fill: none;
   stroke: var(--hero-crest-line);
-  stroke-width: 1;
+  stroke-width: 0.26;
   stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.5;
+  opacity: 0.75;
   stroke-dasharray: 1 2;
   stroke-dashoffset: 0;
+}
+
+.constellation-dust {
+  fill: var(--hero-star-cool);
+  opacity: 0.4;
 }
 
 .constellation-stars {
@@ -608,42 +613,49 @@
 }
 
 .constellation-stars li {
+  --gap: 0.9rem;
   position: absolute;
   left: var(--x);
   top: var(--y);
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  translate: 0 -50%;
-}
-
-/* Stars in the right of the field wear their names on the other side */
-.constellation-stars li[data-flip] {
-  flex-direction: row-reverse;
-  translate: -100% -50%;
-  text-align: right;
+  width: 0;
+  height: 0;
 }
 
 .constellation-stars .glint-star {
-  width: 0.95rem;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent-primary) 55%, transparent));
+  position: absolute;
+  width: 0.7rem;
+  translate: -50% -50%;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent-primary) 50%, transparent));
   animation: var(--hero-still, hero-twinkle calc(5s + var(--i) * 0.7s) var(--ease-sine) calc(var(--i) * -1.3s) infinite both var(--hero-loop, running));
 }
 
+/* The figure's bright stars are a magnitude up */
+.constellation-stars li[data-bright] .glint-star { width: 1rem; }
+
 .star-text {
+  position: absolute;
+  top: 0;
   display: grid;
   gap: 0.1rem;
   white-space: nowrap;
+  translate: 0 -50%;
+}
+
+.constellation-stars li[data-side="r"] .star-text { left: var(--gap); }
+
+.constellation-stars li[data-side="l"] .star-text {
+  right: var(--gap);
+  text-align: right;
 }
 
 .star-name {
-  font-size: 1.125rem;
+  font-size: 1rem;
   line-height: 1.2;
   color: var(--color-twilight-text);
 }
 
 .star-gloss {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   line-height: 1.3;
   color: var(--color-twilight-text-soft);
 }
@@ -664,16 +676,18 @@
   width: 100%;
   height: 100%;
   fill: none;
-  stroke: var(--hero-crest);
+  stroke: var(--sigil-ink, var(--hero-crest));
   stroke-width: 0.8;
   pointer-events: none;
 }
 
+/* The ink's soft light: a glow painted with the ring's drawing into its own layer, which then only turns */
 .sigil-ring > svg {
   display: block;
   width: 100%;
   height: 100%;
   overflow: visible;
+  filter: drop-shadow(0 0 3px var(--hero-sigil-glow));
 }
 
 .sigil-ring-outer {
@@ -696,14 +710,14 @@
 }
 
 .sigil-star {
-  fill: var(--hero-crest);
+  fill: var(--sigil-ink, var(--hero-crest));
   stroke: none;
 }
 
 .sigil-dot {
-  fill: var(--hero-crest);
+  fill: var(--sigil-ink, var(--hero-crest));
   stroke: none;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .sigil-glow {
@@ -935,7 +949,8 @@
  * two comets run its circles, arcs of light circle the disc, sparkles flare on its rim.
  */
 .finale-seal {
-  --sigil: clamp(18rem, 30vw, 26rem);
+  /* In proportion with the title above it: the crest's petals reach the box's edge, so the box is the seal */
+  --sigil: clamp(15rem, 21vw, 19rem);
   --disc: calc(var(--sigil) * 0.5);
   --reveal-at: 0.48;
   display: grid;
@@ -943,7 +958,7 @@
   width: var(--sigil);
   max-width: 100%;
   aspect-ratio: 1;
-  margin-top: 0.5rem;
+  margin-top: 2.25rem;
 }
 
 .seal {
@@ -984,14 +999,12 @@
 /* The crest's five petals: the page's own flower, drawn a touch heavier than a ring and warmed toward the
    blossoms, so the last mark on the page is not a second copy of Emilie's */
 .sigil-petals {
-  stroke: color-mix(in srgb, var(--hero-crest) 72%, var(--hero-petal));
   stroke-width: 1.1;
   stroke-linejoin: round;
 }
 
 /* Stamens reaching out from behind the disc, each tipped with its anther (.sigil-dot) */
 .sigil-stamen {
-  stroke: var(--hero-crest);
   stroke-width: 0.7;
   stroke-linecap: round;
   opacity: 0.85;
@@ -1063,8 +1076,10 @@
 .seal-glass {
   inset: 0;
   border: 1px solid color-mix(in srgb, var(--accent-primary) 55%, transparent);
+  /* Lit amber from above, the logo's berry pooling low in the glass, so the disc has depth rather than one tone */
   background:
     radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--accent-primary) 34%, transparent), transparent 62%),
+    radial-gradient(120% 70% at 50% 108%, color-mix(in srgb, var(--hero-sigil-berry) 30%, transparent), transparent 70%),
     radial-gradient(
       circle at 50% 42%,
       color-mix(in srgb, var(--accent-primary) 22%, var(--color-twilight-deep)),
@@ -1167,7 +1182,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
-  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  font-size: clamp(0.875rem, 1.15vw, 1.0625rem);
   font-weight: 500;
   letter-spacing: 0.16em;
   text-indent: 0.16em;
@@ -1246,10 +1261,11 @@
   .seal-comet { display: none; }
 }
 
-/* One quiet line under the seal: the smallest possible first step, so the press feels easy */
+/* One quiet line under the seal: the smallest possible first step, so the press feels easy. The petals reach
+   the seal's lower edge, so the line keeps a full gap below it */
 .seal-nudge {
   --reveal-at: 0.54;
-  margin-top: -0.5rem;
+  margin-top: 2rem;
   font-size: 1rem;
   color: var(--color-twilight-text-soft);
 }
@@ -1323,6 +1339,7 @@
 .finale-land > svg,
 .fl-reflect,
 .fl-boat,
+.fl-bulbs,
 .fl-smoke,
 .fl-reflect > svg,
 .fl-boat > svg {
@@ -1337,8 +1354,22 @@
   animation: var(--hero-still, fl-shimmer calc(2.6s + var(--k) * 0.9s) var(--ease-sine) infinite alternate both var(--hero-loop, running));
 }
 
-/* The lane's bulbs, each on its own clock, so the string breathes rather than blinks together */
-.fl-bulb {
+/* The lane's bulbs, each on its own clock, so the string breathes rather than blinks together. Placed like the
+   smoke (from the band's anchors) and centred on their point */
+.fl-bulbs > span {
+  position: absolute;
+  left: calc(50% + var(--dx));
+  bottom: var(--b);
+  width: 0.55%;
+  aspect-ratio: 1;
+  translate: -50% 50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--hero-lamp) 60%, white) 0 14%,
+    color-mix(in srgb, var(--hero-lamp) 45%, transparent) 30%,
+    transparent 70%
+  );
   animation: var(--hero-still, fl-bulb calc(3.4s + var(--k) * 0.7s) var(--ease-sine) calc(var(--k) * -0.9s) infinite alternate both var(--hero-loop, running));
 }
 
@@ -1392,15 +1423,30 @@
     gap: 1.1rem;
   }
 
-  .constellation-stars li,
-  .constellation-stars li[data-flip] {
+  .constellation-stars li {
     position: static;
-    flex-direction: row;
-    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    width: auto;
+    height: auto;
+  }
+
+  .constellation-stars .glint-star,
+  .constellation-stars li[data-bright] .glint-star {
+    position: static;
+    flex: none;
+    width: 0.85rem;
     translate: none;
   }
 
-  .star-text { white-space: normal; }
+  .constellation-stars li .star-text,
+  .constellation-stars li[data-side="l"] .star-text {
+    position: static;
+    translate: none;
+    text-align: left;
+    white-space: normal;
+  }
   .bough-seg { display: none; }
   .bough-strand { display: block; }
   .prelude-words { padding-top: 0; }
@@ -1541,13 +1587,13 @@
       cover calc(12vh + (var(--reveal-at) + 0.26) * (100% - 100vh));
   }
 
-  /* The figure is drawn star to star as the section is read */
+  /* The figure is drawn line by line as the section is read, each line in its own slice of the scroll */
   .constellation-line {
     animation: var(--hero-still, hero-grow linear both);
     animation-timeline: --seg;
     animation-range:
-      cover calc(12vh + 0.16 * (100% - 100vh))
-      cover calc(12vh + 0.62 * (100% - 100vh));
+      cover calc(12vh + var(--d0) * (100% - 100vh))
+      cover calc(12vh + var(--d1) * (100% - 100vh));
   }
 
   /* A sigil is inked in as it arrives, the inner diamond last */

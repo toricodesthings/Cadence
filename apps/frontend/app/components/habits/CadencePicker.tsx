@@ -137,7 +137,7 @@ export function CadencePicker({ value, onChange }: CadencePickerProps) {
                 <div
                     role="group"
                     aria-label="Select days of the week"
-                    className="flex gap-1.5"
+                    className="flex flex-wrap gap-1.5"
                 >
                     {BYDAY_ORDER.map((day) => {
                         const selected = customDays.includes(day);

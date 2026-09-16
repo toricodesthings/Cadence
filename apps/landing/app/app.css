@@ -179,6 +179,13 @@
   /* Divider crest under the name: warm gold filigree, hairlines that fade into the sky */
   --hero-crest: color-mix(in srgb, var(--accent-primary) 70%, var(--hero-lamp));
   --hero-crest-line: color-mix(in srgb, var(--accent-primary) 60%, transparent);
+  /* Sigils: the logo's ribbon, mostly orange and lit amber with berry only in its shadowed end, each softened
+     toward the text so the rings glow rather than shout */
+  --hero-sigil-berry: color-mix(in srgb, color-mix(in srgb, var(--color-personal) 74%, var(--color-violet)) 88%, var(--color-twilight-text));
+  --hero-sigil-coral: color-mix(in srgb, color-mix(in srgb, var(--color-personal) 42%, var(--accent-primary)) 82%, var(--color-twilight-text));
+  --hero-sigil-orange: color-mix(in srgb, var(--accent-primary) 84%, var(--color-twilight-text));
+  --hero-sigil-amber: color-mix(in srgb, var(--hero-crest) 78%, var(--color-twilight-text));
+  --hero-sigil-glow: color-mix(in srgb, color-mix(in srgb, var(--color-personal) 35%, var(--accent-primary)) 45%, transparent);
 
   /* Moon: warm-white disk, cool halo */
   --hero-moon: color-mix(in srgb, var(--color-twilight-text) 88%, var(--accent-tertiary));
@@ -799,13 +806,18 @@
     overflow: clip;
   }
 
+  /* The valley's last light, pooled on the ground: an ellipse wholly inside the footer that fades to nothing on
+     every side (a gradient brightest at its box's edge, or a box the footer clips, leaves a hard band) */
   .footer-glow {
     position: absolute;
-    inset: -12rem 0 auto;
-    height: 20rem;
+    top: 1rem;
+    left: 50%;
+    width: min(64rem, 120%);
+    height: 22rem;
+    translate: -50% 0;
     pointer-events: none;
-    background: radial-gradient(60% 100% at 50% 100%, var(--accent-glow), transparent 72%);
-    opacity: 0.5;
+    background: radial-gradient(closest-side, var(--accent-glow), transparent);
+    opacity: 0.35;
   }
 
   .footer-heading {

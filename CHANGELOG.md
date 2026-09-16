@@ -6,6 +6,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Capture clarification now uses the shared editor while keeping its suggestions and placement tools. Editor headers identify Capture, Task, Rhythm, Habit or Event, and panel controls share the same borderless style.
+
+- On cadenceapp.cloud, Emilie's sigil and the "Start now" seal are drawn in the logo's colours, orange and amber with a touch of berry, with a soft glow.
+- Tasks, events and habits now share one editor layout with simpler sections and changes saved in place. Event cards open the editor when clicked outside their buttons, event and habit panels animate open and closed, and habit menus use the same editor. Creation keeps its popup.
+
+### Fixed
+
+- Closing an edit panel now smoothly returns its space to the page instead of snapping at the end of the slide. All edit panels share the same resize and animation behavior.
+
+- Creating or editing a habit after viewing its history no longer corrupts other habit data, and quick successive edits save in order.
+
+- Resizing the Today and Upcoming task panels no longer clips their contents or close button. Task details retain their X close button, and page headers include a rightmost button to close the right panel, including the assistant on Events.
+
+- Recurring timetables can now be moved to Trash by right-clicking a calendar block. The shared task editor has a full-width Trash button below Subtasks instead of a header menu, with clear wording when it removes the whole series. Undo reopens the restored task’s details.
+
+- Photo backgrounds no longer flash when switching pages. Toasts, offline banners and shared account controls now follow the active background palette.
+
+- On cadenceapp.cloud, the constellation near the end of the page is now one connected figure, drawn line by line as you scroll, and its lines no longer run through the names.
+
+- The "Start now" seal at the end of cadenceapp.cloud is smaller and has more room around it, and the line beneath it no longer overlaps its petals.
+
+- The footer of cadenceapp.cloud no longer shows a light band with hard edges; its glow is now a soft pool of light.
+
 ## [0.12.0] - 2026-09-15
 
 ### Added

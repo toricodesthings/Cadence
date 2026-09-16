@@ -1419,7 +1419,7 @@ a:active {
 
 /* === OFFLINE BANNER — sanctuary-native degraded-state bar === */
 .offline-banner {
-  --offline-accent: var(--color-moonlit);
+  --offline-accent: var(--accent-secondary);
   position: fixed;
   top: 0;
   left: 0;
@@ -1440,7 +1440,7 @@ a:active {
       transparent 60%),
     linear-gradient(180deg,
       color-mix(in srgb, var(--color-twilight-elevated) 90%, rgba(255, 255, 255, 0.01)) 0%,
-      rgba(9, 18, 33, 0.94) 100%);
+      color-mix(in srgb, var(--color-twilight-deep) 96%, transparent) 100%);
   backdrop-filter: blur(20px) saturate(1.05);
   -webkit-backdrop-filter: blur(20px) saturate(1.05);
   box-shadow:
@@ -1449,7 +1449,7 @@ a:active {
 }
 
 .offline-banner--syncing {
-  --offline-accent: var(--color-moonlit);
+  --offline-accent: var(--accent-secondary);
 }
 
 .offline-banner--failed {

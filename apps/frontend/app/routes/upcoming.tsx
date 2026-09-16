@@ -1,5 +1,5 @@
+import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useMemo, useState, Suspense, lazy } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router";
 import {
     AlertTriangle,
@@ -17,9 +17,9 @@ import { MainLayout } from "../components/layout/MainLayout";
 import { AgendaHabitDivider, AgendaRow } from "../components/shared/AgendaRow";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { TaskCheckbox } from "../components/tasks/TaskCheckbox";
@@ -308,6 +308,13 @@ export default function Upcoming() {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+
+    useTaskDetailsRequest((taskId) => {
+        setSelectedTaskId(taskId);
+        setMobileDetailMode("peek");
+        setMobilePanelOpen(true);
+    });
+
     const queryClient = useQueryClient();
     const client = useApiClient();
     const shell = useShellMode();
@@ -504,29 +511,12 @@ export default function Upcoming() {
         await invalidateEverywhere(queryClient, queryKeys.habits.all);
     };
 
-    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
     const sidePanel = (
-        <AnimatePresence initial={false}>
+        <EditSidePanelRail ariaLabel="Resize upcoming sidebar">
             {shell.isWide && selectedTaskId ? (
-                <motion.div
-                    key="upcoming-side-panel"
-                    initial={{ opacity: 0, x: 24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 24 }}
-                    transition={panelMotion}
-                    style={{ willChange: "transform, opacity", width: 324 }}
-                    className="flex h-full self-stretch shrink-0 items-stretch"
-                >
-                    <ResizableSidePanel ariaLabel="Resize upcoming sidebar">
-                        <TaskEditPanel
-                            key={`edit-${selectedTaskId}`}
-                            taskId={selectedTaskId}
-                            onClose={() => setSelectedTaskId(null)}
-                        />
-                    </ResizableSidePanel>
-                </motion.div>
+                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
             ) : null}
-        </AnimatePresence>
+        </EditSidePanelRail>
     );
 
     const openHabits = () => navigate("/habits");
@@ -595,6 +585,7 @@ export default function Upcoming() {
             requireAuth
             sidePanel={sidePanel}
             sidePanelActive={Boolean(selectedTaskId)}
+            onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
             headerRight={shell.isPhone ? (
                 <div className="flex items-center gap-2">
@@ -733,7 +724,7 @@ export default function Upcoming() {
                     onClose={() => setMobilePanelOpen(false)}
                     mode={mobileDetailMode}
                 >
-                    <TaskEditPanel
+                    <EditSidePanel kind="task"
                         key={`upcoming-mobile-edit-${selectedTaskId}`}
                         taskId={selectedTaskId}
                         detailMode={mobileDetailMode}

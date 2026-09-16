@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useId, type CSSProperties, type ReactNode } from "react";
+
+import { cssVars } from "~/lib/geometry";
 
 /** A four-point star centred on (x, y): the crest's star, drawn as four concave arms. */
 const star = (x: number, y: number, r: number) =>
@@ -35,12 +37,29 @@ export function Sigil({
   blossom?: boolean;
   children?: ReactNode;
 }) {
+  // One ink per sigil (two are on the page), with an id safe inside url(#…)
+  const ink = `sigil-ink-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   return (
-    <div className={["sigil", blossom && "sigil-blossom", className].filter(Boolean).join(" ")} style={style}>
+    <div
+      className={["sigil", blossom && "sigil-blossom", className].filter(Boolean).join(" ")}
+      style={{ ...style, ...cssVars({ "--sigil-ink": `url(#${ink})` }) }}
+    >
       <span className="sigil-glow" aria-hidden="true" />
       {/* Each ring turns on a box around its <svg>: Chrome composites no transform on an <svg> element itself */}
       <span className="sigil-ring sigil-ring-outer" aria-hidden="true">
         <svg viewBox="-100 -100 200 200" focusable="false">
+          <defs>
+            {/* The logo's ribbon: mostly orange with a lit amber stretch, berry only in its shadowed end (the
+                upper-left corner here), coral where the two meet. In each ring's own units, so the colour turns
+                with the ring and never sits flat */}
+            <linearGradient id={ink} gradientUnits="userSpaceOnUse" x1="-100" y1="-100" x2="100" y2="100">
+              <stop offset=".08" stopColor="var(--hero-sigil-berry)" />
+              <stop offset=".3" stopColor="var(--hero-sigil-coral)" />
+              <stop offset=".48" stopColor="var(--hero-sigil-orange)" />
+              <stop offset=".68" stopColor="var(--hero-sigil-amber)" />
+              <stop offset=".9" stopColor="var(--hero-sigil-orange)" />
+            </linearGradient>
+          </defs>
           {blossom ? (
             <>
               <circle className="sigil-faint" r="99" />

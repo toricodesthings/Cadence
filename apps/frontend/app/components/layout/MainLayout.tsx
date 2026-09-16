@@ -1,8 +1,9 @@
+import { Button } from "../primitives/Button";
 import { Sidebar } from "../sidebar/Sidebar";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router";
 import * as Tooltip from "../primitives/Tooltip";
-import { Download, Minus, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, WifiOff } from "lucide-react";
+import { Download, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus, RefreshCw, WifiOff } from "lucide-react";
 import { useSidebarStore } from "../../stores/sidebar-store";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useRightPanelStore, type RailView } from "../../stores/right-panel-store";
@@ -211,6 +212,7 @@ export function MainLayout({
     requireAuth = false,
     sidePanel,
     sidePanelActive,
+    onCloseSidePanel,
     sidePanelLabel = "Panel",
     headerCenter,
     headerRight,
@@ -230,6 +232,7 @@ export function MainLayout({
      * the rail's "Context" tab is suppressed and the assistant gets the rail
      * outright. Defaults to `Boolean(sidePanel)`. */
     sidePanelActive?: boolean,
+    onCloseSidePanel?: () => void,
     /** Label for the contextual tab in the rail toggle (e.g. "Calendar", "Review"). */
     sidePanelLabel?: string,
     headerCenter?: React.ReactNode,
@@ -633,7 +636,7 @@ export function MainLayout({
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
     const showsRichHeader = Boolean(shellHeader);
     const renderInlinePhoneHeaderRight = shell.isPhone && phoneHeaderRightInline && Boolean(headerRight) && !headerCenter;
-    const desktopHeaderRight = IS_DESKTOP_RUNTIME && shell.isDesktop
+    const desktopStatus = IS_DESKTOP_RUNTIME && shell.isDesktop
         ? (
             <DesktopHeaderStatus
                 onOpenPrivacySettings={() => navigate("?settings=privacy")}
@@ -641,6 +644,24 @@ export function MainLayout({
             />
         )
         : null;
+
+    const canCloseRail = shell.isWide && location.pathname !== "/" &&
+        (assistantInRail || (sidePanelPresent && Boolean(onCloseSidePanel)));
+    const closeRailControl = canCloseRail ? (
+        <Tooltip.Tip label="Close side panel" side="bottom">
+            <Button variant="ghost" size="icon"
+                type="button"
+                aria-label="Close side panel"
+                className="btn-icon rounded-2xl"
+                onClick={() => {
+                    onCloseSidePanel?.();
+                    if (assistantPanelOpen) toggleAssistantPanel();
+                }}
+            >
+                <PanelRightClose size={18} aria-hidden="true" />
+            </Button>
+        </Tooltip.Tip>
+    ) : null;
 
     return (
         <Tooltip.Provider delayDuration={300}>
@@ -672,7 +693,7 @@ export function MainLayout({
                                     <div className="flex min-h-11 items-center justify-between gap-4 sm:min-h-12">
                                         <div className="flex min-w-0 items-center gap-3">
                                             {customSidebar === undefined && (controlsSidebarPanel || !shell.isDesktop) && (
-                                                <button
+                                                <Button variant="ghost" size="icon"
                                                     onClick={shell.isDesktop ? toggleCollapse : () => setNavOpen(true)}
                                                     aria-label={
                                                         shell.isDesktop
@@ -683,13 +704,13 @@ export function MainLayout({
                                                     }
                                                     aria-expanded={controlsSidebarPanel ? (shell.isDesktop ? !isCollapsed : navOpen) : undefined}
                                                     aria-controls={controlsSidebarPanel ? "sidebar-panel" : undefined}
-                                                    className="btn-icon rounded-2xl text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
+                                                    className="btn-icon rounded-2xl"
                                                 >
                                                     {shell.isDesktop && !isCollapsed
                                                         ? <PanelLeftClose size={18} aria-hidden="true" />
                                                         : <PanelLeftOpen size={18} aria-hidden="true" />
                                                     }
-                                                </button>
+                                                </Button>
                                             )}
 
                                             {showsRichHeader ? (
@@ -726,18 +747,20 @@ export function MainLayout({
                                             <div className="flex shrink-0 items-center gap-2">
                                                 {renderInlinePhoneHeaderRight ? headerRight : (
                                                     <>
-                                                        {desktopHeaderRight}
-                                                        {desktopHeaderRight && (headerCenter || headerRight) ? (
+                                                        {desktopStatus}
+                                                        {desktopStatus && (headerCenter || headerRight) ? (
                                                             <div className="h-4 w-px bg-white/[0.08]" aria-hidden="true" />
                                                         ) : null}
                                                         {headerCenter}
                                                         {headerRight}
+                                                        {closeRailControl}
                                                     </>
                                                 )}
                                             </div>
-                                        ) : desktopHeaderRight ? (
+                                        ) : desktopStatus || closeRailControl ? (
                                             <div className="flex shrink-0 items-center gap-2">
-                                                {desktopHeaderRight}
+                                                {desktopStatus}
+                                                {closeRailControl}
                                             </div>
                                         ) : null}
                                     </div>

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Sun, Sunrise, CalendarDays, Trash2, ChevronRight, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import { Inbox, Sun, Sunrise, CalendarDays, Trash2, ChevronRight, Sparkles } from "lucide-react";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
-import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
+import { DetailPanelLayout } from "../shared/DetailPanelLayout";
+import { DetailTitle } from "../shared/DetailTitle";
+import { CARD, PANEL_TRIGGER, PanelHeader, PanelTrigger } from "../shared/DetailPanelSections";
+import { Button } from "../primitives/Button";
 import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
 import { QuickScheduleSurface } from "../tasks/QuickScheduleSurface";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
@@ -18,6 +20,8 @@ interface ClarifySheetProps {
     item: InboxItem;
     onClose: () => void;
     onOpenFullEditor?: (taskId: string) => void;
+    detailMode?: "peek" | "focus";
+    onDetailModeChange?: (mode: "peek" | "focus") => void;
 }
 
 /**
@@ -30,7 +34,7 @@ interface ClarifySheetProps {
  *   but lighter than a boxed admin card
  * - The stack should feel like one crafted object with layered surfaces
  */
-export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetProps) {
+export function ClarifySheet({ item, onClose, onOpenFullEditor, detailMode = "peek", onDetailModeChange }: ClarifySheetProps) {
     const processToTask = useProcessInboxToTask();
     const updateItem = useUpdateInboxItem();
     const { data: userSettings } = useSettings();
@@ -43,6 +47,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
     const lowStimulationMode = taskDefaults?.intelligence?.lowStimulationMode ?? false;
     const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
     const [dismissedEntityIds, setDismissedEntityIds] = useState<string[]>([]);
+    const [timingOpen, setTimingOpen] = useState(true);
     const [timingMode, setTimingMode] = useState<"main" | "custom">("main");
     const [customSchedule, setCustomSchedule] = useState<{
         dueDate: string | null;
@@ -183,51 +188,18 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
     };
 
     return (
-        <motion.div
-            className="flex h-full flex-col overflow-hidden"
-            initial={{ x: 40, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 35 }}
-            style={{ willChange: "transform, opacity" }}
-            role="complementary"
-            aria-label="Clarify capture"
-        >
-            {/* ── Header ── */}
-            <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-(--shell-header-h) shrink-0">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Close clarify sheet"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0 cursor-pointer"
-                >
-                    <ArrowLeft size={15} aria-hidden="true" />
-                </button>
-                <h2 className="font-display text-sm font-medium text-twilight-text truncate">
-                    Clarify capture
-                </h2>
-            </div>
-
-            {/* ── Stacked pane body ── */}
-            <ScrollAreaWrapper>
-                <div className="flex flex-col gap-4 px-5 py-5">
-
-                    {/* ─── Slice 1: Title + structured understanding ─── */}
-                    <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Sparkles size={14} className="text-accent-primary/70" aria-hidden="true" />
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
-                                {nlp.summary ? "Cadence understood" : item.aiSuggestion ? "Cadence suggests" : "Title"}
-                            </p>
-                            <time
-                                dateTime={item.createdAt}
-                                className="ml-auto text-[11px] text-twilight-text-muted/70 tabular-nums"
-                            >
-                                {relativeTime(item.createdAt)}
-                            </time>
+        <div className="h-full min-w-0 overflow-hidden" role="complementary" aria-label="Clarify capture">
+            <DetailPanelLayout title="Capture" leading={<Inbox size={20} className="text-accent-primary" aria-hidden="true" />}
+                onClose={onClose} closeLabel="Close clarify sheet" mode={detailMode} onModeChange={onDetailModeChange}>
+                <DetailTitle value={editedTitle} label="Edit task title" onSave={setEditedTitle}
+                    onDraftChange={(title) => { titleDirtyRef.current = true; setEditedTitle(title); }}>
+                        <div className="mt-3 flex min-w-0 items-center gap-2 text-xs text-twilight-text-muted">
+                            <Sparkles size={14} className="shrink-0 text-accent-primary" aria-hidden="true" />
+                            <span>{item.aiSuggestion && !nlp.summary ? "Cadence suggests" : "Captured"}</span>
+                            <time dateTime={item.createdAt} className="ml-auto shrink-0 tabular-nums">{relativeTime(item.createdAt)}</time>
                         </div>
                         {item.aiSuggestion && !nlp.summary && (
-                            <p className="text-[13px] text-twilight-text-soft/80 mb-3 italic leading-relaxed">
+                            <p className="text-[13px] text-twilight-text-soft mb-3 italic leading-relaxed">
                                 {item.aiSuggestion}
                             </p>
                         )}
@@ -240,35 +212,22 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                 maxVisibleChips={lowStimulationMode ? 1 : 3}
                             />
                         )}
-                        <input
-                            type="text"
-                            value={editedTitle}
-                            onChange={(e) => {
-                                titleDirtyRef.current = true;
-                                setEditedTitle(e.target.value);
-                            }}
-                            aria-label="Edit task title"
-                            className="w-full rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-twilight-text outline-none transition-colors focus:border-accent-primary/25 focus:bg-white/[0.04] placeholder:text-twilight-text-muted/60 mt-3"
-                            placeholder="Edit the title before placing..."
-                        />
                         {editedTitle.trim() !== item.rawText.trim() ? (
-                            <p className="mt-2 text-[12px] leading-relaxed text-twilight-text-muted/80">
+                            <p className="mt-2 text-[12px] leading-relaxed text-twilight-text-muted">
                                 From: <span className="text-twilight-text-soft">{item.rawText}</span>
                             </p>
                         ) : null}
-                    </div>
+                </DetailTitle>
 
-                    {/* ─── Slice 2: Timing — when should this happen? ─── */}
-                    <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
-                            When?
-                        </p>
+                {timingOpen ? (
+                    <section className={`${CARD} shrink-0 space-y-3 px-4 py-3`}>
+                        <PanelHeader title="When" onDone={() => setTimingOpen(false)} />
 
                         {timingMode === "main" ? (
                             <>
                                 {/* If NLP detected a date, show it as a prominent suggestion */}
                                 {nlp.dueDate && (
-                                    <button
+                                    <Button variant="ghost" size="none"
                                         type="button"
                                         onClick={() => place({ scheduledDate: nlp.dueDate! })}
                                         disabled={isPending}
@@ -281,10 +240,10 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                                 {nlp.dueHumanLabel ?? nlp.dueDate}
                                             </p>
                                         </div>
-                                    </button>
+                                    </Button>
                                 )}
 
-                                <button
+                                <Button variant="ghost" size="none"
                                     type="button"
                                     onClick={() => place({ scheduledDate: todayISO() })}
                                     disabled={isPending}
@@ -295,23 +254,15 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                         <p className="text-[14px] font-medium text-accent-primary">Today</p>
                                         <p className="text-[12px] text-accent-primary/60">Schedule for today</p>
                                     </div>
-                                </button>
+                                </Button>
 
-                                <div className="mt-3 grid grid-cols-2 gap-2.5">
-                                    <PlacementButton
-                                        icon={<Sunrise size={15} aria-hidden="true" />}
-                                        label="Tomorrow"
-                                        onClick={() => place({ scheduledDate: tomorrowISO() })}
-                                        disabled={isPending}
-                                        className="text-moonlit border-moonlit/20 bg-moonlit/[0.06] hover:bg-moonlit/[0.12]"
-                                    />
-                                    <PlacementButton
-                                        icon={<CalendarDays size={15} aria-hidden="true" />}
-                                        label="Custom"
-                                        onClick={openCustomSchedule}
-                                        disabled={isPending}
-                                        className="text-twilight-text-soft border-twilight-border/30 bg-white/[0.03] hover:bg-white/[0.06]"
-                                    />
+                                <div className="mt-3 flex flex-wrap gap-2.5">
+                                    <Button variant="secondary" size="md" onClick={() => place({ scheduledDate: tomorrowISO() })} disabled={isPending} className="min-w-0 flex-1 basis-24 px-2">
+                                        <Sunrise size={15} className="shrink-0" aria-hidden="true" />Tomorrow
+                                    </Button>
+                                    <Button variant="secondary" size="md" onClick={openCustomSchedule} disabled={isPending} className="min-w-0 flex-1 basis-24 px-2">
+                                        <CalendarDays size={15} className="shrink-0" aria-hidden="true" />Custom
+                                    </Button>
                                 </div>
                             </>
                         ) : (
@@ -329,15 +280,15 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                     }}
                                     onRequestClose={() => setTimingMode("main")}
                                 />
-                                <div className="mt-3 flex items-center justify-between gap-2 px-1">
-                                    <button
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1">
+                                    <Button variant="ghost" size="none"
                                         type="button"
                                         onClick={() => setTimingMode("main")}
                                         className="rounded-xl px-3 py-2 text-[12px] font-medium text-twilight-text-muted transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
                                     >
                                         Back
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button variant="ghost" size="none"
                                         type="button"
                                         onClick={() => place({
                                             dueDate: customSchedule.dueDate,
@@ -350,78 +301,24 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor }: ClarifySheetPr
                                         className="rounded-xl border border-accent-primary/25 bg-accent-primary/[0.10] px-3.5 py-2 text-[12px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/[0.16] disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         Place with this schedule
-                                    </button>
+                                    </Button>
                                 </div>
                             </>
                         )}
-                    </div>
-
-                    {/* ─── Slice 3: Alternative path ─── */}
-                    {onOpenFullEditor && (
-                        <div className="rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4 backdrop-blur-sm">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted mb-3">
-                                Or instead…
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => place(undefined, { openEditor: true })}
-                                disabled={isPending}
-                                className="flex w-full items-center justify-between rounded-[1.1rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04] disabled:opacity-50 cursor-pointer"
-                            >
-                                <div>
-                                    <p className="text-[13px] font-medium text-twilight-text">Open full task editor</p>
-                                    <p className="text-[12px] text-twilight-text-muted">
-                                        Place it first, then refine timing, notes, and details
-                                    </p>
-                                </div>
-                                <ChevronRight size={16} className="text-twilight-text-muted shrink-0" aria-hidden="true" />
-                            </button>
-                        </div>
-                    )}
-
-                    {/* ─── Discard — visually calmer, farther from primary (§9.1) ─── */}
-                    <div className="px-1 pt-2">
-                        <button
-                            type="button"
-                            onClick={discard}
-                            disabled={isPending}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[12px] font-medium text-twilight-text-muted/50 transition-colors hover:text-red-400 hover:bg-red-500/[0.06] disabled:opacity-50 cursor-pointer"
-                        >
-                            <Trash2 size={13} aria-hidden="true" />
-                            Discard capture
-                        </button>
-                    </div>
-
-                </div>
-            </ScrollAreaWrapper>
-        </motion.div>
-    );
-}
-
-/** Secondary placement button — consistent grid item */
-function PlacementButton({
-    icon,
-    label,
-    onClick,
-    disabled,
-    className,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    onClick: () => void;
-    disabled: boolean;
-    className: string;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className={`flex items-center gap-2.5 rounded-2xl border px-3.5 py-3 text-left transition-colors disabled:opacity-50 cursor-pointer ${className}`}
-        >
-            {icon}
-            <span className="text-[13px] font-medium">{label}</span>
-        </button>
+                    </section>
+                ) : <PanelTrigger icon={CalendarDays} title="When" summary={nlp.dueHumanLabel ?? "Choose when to place this capture"} onOpen={() => setTimingOpen(true)} />}
+                {onOpenFullEditor ? (
+                    <Button variant="ghost" size="none" onClick={() => place(undefined, { openEditor: true })} disabled={isPending} className={PANEL_TRIGGER}>
+                        <span className="min-w-0 flex-1 text-left"><span className="block text-sm font-medium text-twilight-text">Open full task editor</span><span className="block text-xs font-normal text-twilight-text-muted">Place it first, then refine timing, notes, and details.</span></span>
+                        <ChevronRight size={16} className="shrink-0" aria-hidden="true" />
+                    </Button>
+                ) : null}
+                <Button variant="ghost" size="none" onClick={discard} disabled={isPending} className={`${PANEL_TRIGGER} shrink-0 text-feedback-error`}>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10"><Trash2 size={16} aria-hidden="true" /></span>
+                    <span className="min-w-0 flex-1 text-left"><span className="block text-sm font-medium">Discard capture</span><span className="block text-xs font-normal text-twilight-text-muted">Remove this capture from your inbox.</span></span>
+                </Button>
+            </DetailPanelLayout>
+        </div>
     );
 }
 

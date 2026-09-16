@@ -5,9 +5,10 @@ import { MainLayout } from "../components/layout/MainLayout";
 import { toISODate, getWeekDates } from "../lib/utils/date-format";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
 import { HabitsMonthView } from "../components/habits/HabitsMonthView";
-import { HabitDetailPanel } from "../components/habits/HabitDetailPanel";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { CreateHabitDialog } from "../components/habits/CreateHabitDialog";
-import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
+import { useRightPanelStore } from "../stores/right-panel-store";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { HabitToastResolver } from "../components/habits/HabitToastResolver";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
@@ -30,6 +31,7 @@ const slideVariants = {
 
 export default function Habits() {
     const shell = useShellMode();
+    const setRailView = useRightPanelStore((s) => s.setRailView);
     const { setMobileNavOpen } = useSidebarStore();
     const today = new Date();
     const [currentDate, setCurrentDate] = useState<string>(toISODate(today));
@@ -77,10 +79,11 @@ export default function Habits() {
     }, [currentDate]);
 
     const handleSelectHabit = (id: string) => {
-        if (shell.isPhone) {
+        if (!shell.isWide) {
             setMobileDetailMode("peek");
         }
-        setSelectedHabitId((prev) => (prev === id ? null : id));
+        setSelectedHabitId(id);
+        setRailView("context");
     };
 
     const todayIso = toISODate(new Date());
@@ -137,7 +140,16 @@ export default function Habits() {
     });
 
     return (
-        <MainLayout requireAuth hideHeader hideContextualOrb>
+        <MainLayout requireAuth hideHeader hideContextualOrb
+            sidePanel={(
+                <EditSidePanelRail ariaLabel="Resize habit detail panel">
+                    {shell.isWide && selectedHabit ? <EditSidePanel kind="habit" habit={selectedHabit} onClose={() => setSelectedHabitId(null)} /> : null}
+                </EditSidePanelRail>
+            )}
+            sidePanelActive={Boolean(selectedHabit)}
+            sidePanelLabel="Habit"
+            onCloseSidePanel={() => setSelectedHabitId(null)}
+        >
             <HabitToastResolver />
 
             <div className="flex h-full overflow-hidden">
@@ -390,52 +402,17 @@ export default function Habits() {
                     </div>
                 </div>
 
-                <AnimatePresence>
-                    {selectedHabit && !shell.isPhone && (
-                        <motion.div
-                            key="habit-side-panel"
-                            initial={{ width: 0 }}
-                            animate={{ width: "auto" }}
-                            exit={{ width: 0 }}
-                            transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                            style={{ willChange: "width", overflow: "hidden" }}
-                            className="flex h-full self-stretch shrink-0 items-stretch"
-                        >
-                            <motion.div
-                                initial={{ x: 24, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                exit={{ x: 24, opacity: 0 }}
-                                transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                                style={{ willChange: "transform, opacity" }}
-                                className="flex h-full min-w-0 flex-1 items-stretch"
-                            >
-                                <ResizableSidePanel
-                                    defaultWidth={340}
-                                    minWidth={280}
-                                    maxWidth={480}
-                                    ariaLabel="Resize habit detail panel"
-                                >
-                                    <HabitDetailPanel
-                                        key={selectedHabit.id}
-                                        habit={selectedHabit}
-                                        onClose={() => setSelectedHabitId(null)}
-                                    />
-                                </ResizableSidePanel>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
                 <CreateHabitDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
-                {shell.isPhone && selectedHabit && (
+                {!shell.isWide && selectedHabit && (
                     <ResponsiveOverlayPanel
                         ariaLabel={`Habit details for ${selectedHabit.title}`}
                         open={!!selectedHabit}
                         onClose={() => setSelectedHabitId(null)}
                         mode={mobileDetailMode}
+                        fill
                     >
-                        <HabitDetailPanel
+                        <EditSidePanel kind="habit"
                             habit={selectedHabit}
                             detailMode={mobileDetailMode}
                             onDetailModeChange={setMobileDetailMode}

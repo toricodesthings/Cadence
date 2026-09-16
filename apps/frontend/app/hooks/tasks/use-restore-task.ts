@@ -11,10 +11,11 @@ import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { queryKeys } from "../../lib/api/query-keys";
+import { openTaskDetails } from "../../lib/actions/task-details";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 
 /** Restore a task from trash (ARCHIVED → ACTIVE) */
-export function useRestoreTask(options?: { showSuccessToast?: boolean }) {
+export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetailsOnSuccess?: boolean }) {
     const client = useApiClient();
     const queryClient = useQueryClient();
     const showSuccessToast = options?.showSuccessToast ?? true;
@@ -44,6 +45,7 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean }) {
         onSuccess: (task) => {
             if (task) {
                 reconcileTaskInCaches(queryClient, task);
+                if (options?.openDetailsOnSuccess) openTaskDetails(task.id);
             }
             if (showSuccessToast) {
                 toast.success("Task restored");

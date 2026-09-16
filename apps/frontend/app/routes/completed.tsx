@@ -1,10 +1,10 @@
+import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useState } from "react";
-import { AnimatePresence } from "framer-motion";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { CheckCircle2 } from "lucide-react";
-import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { useTasks } from "../hooks/tasks";
 import { TaskCard } from "../components/tasks/TaskCard";
@@ -20,6 +20,13 @@ export default function CompletedView() {
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
 
+    useTaskDetailsRequest((taskId) => {
+        setSelectedTaskId(taskId);
+        setMobileDetailMode("peek");
+        setMobilePanelOpen(true);
+    });
+
+
     const handleSelectTask = (id: string) => {
         const nextId = id === selectedTaskId ? null : id;
         setSelectedTaskId(nextId);
@@ -30,23 +37,20 @@ export default function CompletedView() {
         }
     };
 
-    const sidePanel = selectedTaskId ? (
-        <ResizableSidePanel ariaLabel="Resize completed sidebar">
-            <AnimatePresence mode="wait">
-                <TaskEditPanel
-                    key={`edit-${selectedTaskId}`}
-                    taskId={selectedTaskId}
-                    onClose={() => setSelectedTaskId(null)}
-                />
-            </AnimatePresence>
-        </ResizableSidePanel>
-    ) : undefined;
+    const sidePanel = (
+        <EditSidePanelRail ariaLabel="Resize completed sidebar">
+            {shell.isWide && selectedTaskId ? (
+                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
+            ) : null}
+        </EditSidePanelRail>
+    );
 
     return (
         <MainLayout
             requireAuth
             sidePanel={sidePanel}
             sidePanelActive={Boolean(selectedTaskId)}
+            onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
             contentWidth="default"
             shellHeader={{
@@ -87,7 +91,7 @@ export default function CompletedView() {
                     }}
                     mode={mobileDetailMode}
                 >
-                    <TaskEditPanel
+                    <EditSidePanel kind="task"
                         key={`completed-mobile-edit-${selectedTaskId}`}
                         taskId={selectedTaskId}
                         detailMode={mobileDetailMode}

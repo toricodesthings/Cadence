@@ -5,26 +5,50 @@ import { BoughSegment, segmentHeight } from "./BoughSegment";
 
 /*
  * The small things, done with care: a constellation chart (the game's, and the page's own vocabulary). Nine
- * stars on the night field, joined by one faint line that is drawn as the section is read, and each named
- * where it sits. The chart is the list: a real <ul>, so it is read in order, absolutely placed over the
- * drawing on wide screens and stacked plainly when there is no room. The lines and glows are aria-hidden.
+ * named stars joined into one figure (a head that closes, a neck, a body that closes, a tail: the year comes
+ * round twice), drawn line by line as the section is read, among a few faint stars with no names.
  *
- * The ring is deliberate: it closes, the way the year does. The spur off it is the one star outside the ring.
+ * The chart is the list: a real <ul>, read in order. On wide screens each item is a zero-size anchor at its
+ * star, the glyph centred on it and the name set off to one side. Stars left of the figure's spine wear their
+ * names on the left and right-hand stars on the right, and every line leaves its star inward, so no line
+ * ever crosses a name. Narrow screens get the same list stacked, with no drawing.
+ *
+ * Units: the drawing is 100 × 110, the chart's own aspect, so it scales evenly and a line's dash can be
+ * measured along it (a non-scaling stroke would break `pathLength`, and the lines would draw in pieces).
  */
 
-/**
- * [x, y] in percent of the chart, in the copy's order. Stars sit in six rows, at most two to a row and far
- * apart in it, so no name ever runs into its neighbour: a name reaches about a third of the field, and a star
- * past the middle wears its name on the other side (`flip`).
- */
-const AT: readonly (readonly [number, number])[] = [
-  [10, 5], [88, 5], [30, 21], [8, 37], [90, 37], [36, 53], [10, 69], [88, 69], [40, 85],
+type Side = "l" | "r";
+
+/** [x, y, side, bright], in the copy's order. Stars keep to x 36–64, so a name has room on its side at 1024. */
+const STARS: readonly (readonly [number, number, Side, boolean])[] = [
+  [38, 8, "l", true],
+  [60, 15, "r", false],
+  [58, 34, "r", false],
+  [40, 40, "l", true],
+  [42, 59, "l", false],
+  [64, 62, "r", true],
+  [60, 82, "r", true],
+  [36, 86, "l", false],
+  [56, 103, "r", false],
 ];
 
-/** The figure: one closed ring through all nine, because the year closes. */
-const RING = [0, 1, 4, 5, 7, 8, 6, 3, 2, 0];
+/** The figure, one line at a time, in the order it is drawn: the head, the neck, the body, the tail. */
+const EDGES: readonly (readonly [number, number])[] = [
+  [0, 1], [1, 2], [2, 3], [3, 0],
+  [3, 4],
+  [4, 5], [5, 6], [6, 7], [7, 4],
+  [6, 8],
+];
 
-const LINES = RING.map((i, k) => `${k ? "L" : "M"}${n1(AT[i][0])},${n1(AT[i][1])}`).join("");
+/** Faint stars with no names, in the gaps between the names. */
+const DUST: readonly (readonly [number, number])[] = [
+  [50, 26], [52, 48], [47, 72], [46, 95], [74, 47], [26, 24],
+  [22, 70], [82, 91], [84, 24], [18, 100], [92, 72], [10, 49],
+];
+
+/** Where the drawing runs in the section's scroll, and each line's share of it. */
+const DRAW_FROM = 0.14;
+const DRAW_SPAN = 0.46;
 
 export function Constellation() {
   return (
@@ -46,25 +70,42 @@ export function Constellation() {
       </div>
 
       <div className="chapter-panel constellation-chart">
-        {/* The figure: one line, drawn on the section's scroll, and a soft glow under every star */}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-          <path className="constellation-line" d={LINES} pathLength={1} vectorEffect="non-scaling-stroke" />
+        <svg viewBox="0 0 100 110" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          {DUST.map(([x, y]) => (
+            <circle key={`${x},${y}`} className="constellation-dust" cx={x} cy={y} r=".26" />
+          ))}
+          {EDGES.map(([a, b], k) => (
+            <path
+              key={k}
+              className="constellation-line"
+              d={`M${STARS[a][0]},${STARS[a][1]}L${STARS[b][0]},${STARS[b][1]}`}
+              pathLength={1}
+              style={cssVars({
+                "--d0": n1((DRAW_FROM + (k * DRAW_SPAN) / EDGES.length) * 100) / 100,
+                "--d1": n1((DRAW_FROM + ((k + 1) * DRAW_SPAN) / EDGES.length) * 100) / 100,
+              })}
+            />
+          ))}
         </svg>
         <ul className="constellation-stars">
-          {CONSTELLATION.stars.map((star, k) => (
-            <li
-              key={star.name}
-              className="reveal"
-              data-flip={AT[k][0] > 50 || undefined}
-              style={cssVars({ "--x": `${AT[k][0]}%`, "--y": `${AT[k][1]}%`, "--i": 2 + k * 0.4 })}
-            >
-              <span className="glint-star" aria-hidden="true" />
-              <span className="star-text">
-                <span className="star-name font-display">{star.name}</span>
-                <span className="star-gloss">{star.gloss}</span>
-              </span>
-            </li>
-          ))}
+          {CONSTELLATION.stars.map((star, k) => {
+            const [x, y, side, bright] = STARS[k];
+            return (
+              <li
+                key={star.name}
+                className="reveal"
+                data-side={side}
+                data-bright={bright || undefined}
+                style={cssVars({ "--x": `${x}%`, "--y": `${n1(y / 1.1)}%`, "--i": 2 + k * 0.4 })}
+              >
+                <span className="glint-star" aria-hidden="true" />
+                <span className="star-text">
+                  <span className="star-name font-display">{star.name}</span>
+                  <span className="star-gloss">{star.gloss}</span>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>

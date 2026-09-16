@@ -114,7 +114,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                     const project = habit.projectId ? projectMap.get(habit.projectId) : null;
 
                                     return (
-                                        <HabitContextMenuWrapper key={habit.id} habit={habit}>
+                                        <HabitContextMenuWrapper key={habit.id} habit={habit} onEdit={() => onSelectHabit?.(habit.id)}>
                                         <section
                                             className={`rounded-[1.5rem] border px-4 py-4 transition-colors ${
                                                 isPaused ? "opacity-50" :
@@ -164,7 +164,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                         )}
                                                     </div>
                                                 </button>
-                                                <HabitMenu habit={habit} />
+                                                <HabitMenu habit={habit} onEdit={() => onSelectHabit?.(habit.id)} />
                                             </div>
 
                                             <div className="grid grid-cols-7 gap-2">
@@ -241,7 +241,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                         const isPaused = habit.pausedUntil && new Date(habit.pausedUntil) > now;
                                         const project = habit.projectId ? projectMap.get(habit.projectId) : null;
                                         return (
-                                            <HabitContextMenuWrapper key={habit.id} habit={habit}>
+                                            <HabitContextMenuWrapper key={habit.id} habit={habit} onEdit={() => onSelectHabit?.(habit.id)}>
                                             <div
                                                 className={`group -mx-1 flex items-center rounded-xl px-1 py-3 transition-colors ${
                                                     isPaused ? "opacity-50" :
@@ -298,7 +298,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                             </div>
                                                         </div>
                                                     </button>
-                                                    <HabitMenu habit={habit} />
+                                                    <HabitMenu habit={habit} onEdit={() => onSelectHabit?.(habit.id)} />
                                                 </div>
 
                                                 <div className="ml-1 grid flex-1 grid-cols-7">

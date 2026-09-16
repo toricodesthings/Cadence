@@ -1,3 +1,4 @@
+import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import * as Popover from "../components/primitives/Popover";
@@ -28,7 +29,7 @@ import { YearView } from "../components/calendar/YearView";
 import { ScheduleHeader, type CalendarViewMode } from "../components/calendar/ScheduleHeader";
 import { CalendarTaskChipOverlay } from "../components/calendar/CalendarTaskChip";
 import { CalendarEventPopover, type CalendarEventInfo } from "../components/calendar/CalendarEventPopover";
-import { TaskEditPanel } from "../components/tasks/TaskEditPanel";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { useTasks, useUpdateTask } from "../hooks/tasks";
 import {
     toISODate,
@@ -59,7 +60,7 @@ import {
 } from "../lib/utils/calendar/calendar-dnd";
 import { getTaskSeriesId, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task/task-scheduling";
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
-import { ResizableSidePanel } from "../components/shared/ResizableSidePanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { LocationNotice } from "../components/location/LocationNotice";
 import { Wrench } from "lucide-react";
@@ -133,6 +134,12 @@ export default function Schedule() {
     const [direction, setDirection] = useState(0);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+
+    useTaskDetailsRequest((taskId) => {
+        setSelectedTaskId(taskId);
+        setMobileDetailMode("peek");
+    });
+
     const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
@@ -1037,39 +1044,12 @@ export default function Schedule() {
                 ? `day-${currentDate}`
                 : `year-${year}`;
 
-    const panelMotion = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
     const sidePanel = (
-        <AnimatePresence initial={false}>
+        <EditSidePanelRail ariaLabel="Resize schedule detail panel" defaultWidth={360} minWidth={300} maxWidth={520}>
             {shell.isWide && selectedTaskId ? (
-                <motion.div
-                    key="schedule-side-panel"
-                    initial={{ width: 0 }}
-                    animate={{ width: "auto" }}
-                    exit={{ width: 0 }}
-                    transition={panelMotion}
-                    style={{ willChange: "width", overflow: "hidden" }}
-                    className="flex h-full self-stretch shrink-0 items-stretch"
-                >
-                    <motion.div
-                        initial={{ x: 24, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 24, opacity: 0 }}
-                        transition={panelMotion}
-                        style={{ willChange: "transform, opacity" }}
-                        className="flex h-full min-w-0 flex-1 items-stretch"
-                    >
-                        <ResizableSidePanel
-                            defaultWidth={360}
-                            minWidth={300}
-                            maxWidth={520}
-                            ariaLabel="Resize schedule detail panel"
-                        >
-                            <TaskEditPanel taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-                        </ResizableSidePanel>
-                    </motion.div>
-                </motion.div>
+                <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
             ) : null}
-        </AnimatePresence>
+        </EditSidePanelRail>
     );
 
     return (
@@ -1292,7 +1272,7 @@ export default function Schedule() {
                     onClose={() => setSelectedTaskId(null)}
                     mode={mobileDetailMode}
                 >
-                    <TaskEditPanel
+                    <EditSidePanel kind="task"
                         taskId={selectedTaskId}
                         detailMode={mobileDetailMode}
                         onDetailModeChange={setMobileDetailMode}

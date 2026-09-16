@@ -1,164 +1,44 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { CalendarHeart, Bell, BellOff, Trash2, ArrowDownUp, PencilLine, Calendar } from "lucide-react";
+import { CalendarHeart, ArrowDownUp } from "lucide-react";
 import { toast } from "sonner";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import * as ContextMenu from "../components/primitives/ContextMenu";
+import { EventCard } from "../components/events/EventCard";
 import * as AlertDialog from "../components/primitives/AlertDialog";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
 import { Button } from "../components/primitives/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/primitives/Select";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
+import { EditSidePanel } from "../components/shared/EditSidePanel";
+import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
+import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { useRightPanelStore } from "../stores/right-panel-store";
 import { PersonalEventEditorDialog } from "../components/events/PersonalEventEditorDialog";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { trackUsageEvent } from "../lib/api/track-event";
 import type { PersonalEvent } from "../types/settings";
 import {
     getNextPersonalEventDate,
     sortPersonalEventViewModels,
     toPersonalEventViewModel,
     type PersonalEventSortMode,
-    type PersonalEventViewModel,
 } from "../lib/utils/personal-events";
-
-function EventCard({
-    item,
-    onEdit,
-    onDelete,
-    onToggleReminder,
-    onOpenInSchedule,
-}: {
-    item: PersonalEventViewModel;
-    onEdit: (event: PersonalEvent) => void;
-    onDelete: (event: PersonalEvent) => void;
-    onToggleReminder: (event: PersonalEvent) => void;
-    onOpenInSchedule: (event: PersonalEvent) => void;
-}) {
-    return (
-        <ContextMenu.Root onOpenChange={(isOpen) => {
-            if (isOpen) trackUsageEvent("event.context_menu_opened", { object_type: "event", input_method: "context_menu" });
-        }}>
-            <ContextMenu.Trigger asChild>
-        <div className="group rounded-[1.7rem] border border-white/[0.08] bg-white/[0.03] p-4 transition-[border-color,background-color,box-shadow] duration-200 hover:border-accent-nav-schedule/18 hover:bg-white/[0.045] hover:shadow-[0_18px_44px_color-mix(in_srgb,var(--accent-nav-schedule)_12%,transparent)]">
-            <div className="flex items-start justify-between gap-3">
-                <button
-                    type="button"
-                    onClick={() => onEdit(item.event)}
-                    className="flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl -m-2 p-2 text-left transition-colors hover:bg-white/[0.03]"
-                >
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-xl text-accent-nav-schedule">
-                        {item.event.emoji ?? "🎉"}
-                    </span>
-                    <span className="min-w-0">
-                        <span className="block line-clamp-2 text-[17px] font-bold tracking-[-0.01em] text-twilight-text">
-                            {item.event.label}
-                        </span>
-                    </span>
-                </button>
-
-                <div className="flex items-center gap-1 shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => onToggleReminder(item.event)}
-                        aria-label={item.event.notify ? `Disable reminder for ${item.event.label}` : `Enable reminder for ${item.event.label}`}
-                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-transparent text-twilight-text-muted transition-colors hover:border-accent-nav-schedule/20 hover:bg-accent-nav-schedule/10 hover:text-accent-nav-schedule"
-                    >
-                        {item.event.notify ? <Bell size={16} aria-hidden="true" /> : <BellOff size={16} aria-hidden="true" />}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onDelete(item.event)}
-                        aria-label={`Delete ${item.event.label}`}
-                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-transparent text-twilight-text-muted transition-colors hover:border-red-400/20 hover:bg-red-500/10 hover:text-red-400"
-                    >
-                        <Trash2 size={16} aria-hidden="true" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Date</p>
-                    <p className="mt-1 text-sm font-medium text-twilight-text">{item.monthDayLabel}</p>
-                </div>
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">Reminder</p>
-                    <p className="mt-1 flex items-center gap-2 text-sm font-medium text-twilight-text">
-                        {item.event.notify ? <Bell size={14} className="text-accent-nav-schedule" aria-hidden="true" /> : <BellOff size={14} className="text-twilight-text-muted" aria-hidden="true" />}
-                        <span>{item.event.notify ? "On" : "Off"}</span>
-                    </p>
-                </div>
-            </div>
-
-            <div className="mt-3 rounded-[1.35rem] border border-accent-nav-schedule/16 bg-accent-nav-schedule/10 px-3 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/75">Countdown</p>
-                <p className="mt-1 text-base font-semibold text-accent-nav-schedule">{item.countdownLabel}</p>
-                {item.milestoneLabel ? (
-                    <p className="mt-1 text-xs font-medium text-accent-nav-schedule/75">{item.milestoneLabel}</p>
-                ) : null}
-            </div>
-
-            <div className="mt-3 flex items-center justify-end gap-2">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="md"
-                    onClick={() => onOpenInSchedule(item.event)}
-                    className="px-4 text-sm font-semibold"
-                >
-                    <Calendar size={16} aria-hidden="true" />
-                    Schedule
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="md"
-                    onClick={() => onEdit(item.event)}
-                    className="px-4 text-sm font-semibold"
-                >
-                    <PencilLine size={16} aria-hidden="true" />
-                    Edit
-                </Button>
-            </div>
-        </div>
-            </ContextMenu.Trigger>
-            <ContextMenu.Content>
-                <ContextMenu.Item onSelect={() => onEdit(item.event)}>
-                    <PencilLine size={14} aria-hidden="true" />
-                    Edit event
-                </ContextMenu.Item>
-                <ContextMenu.Item onSelect={() => onOpenInSchedule(item.event)}>
-                    <Calendar size={14} aria-hidden="true" />
-                    Open in schedule
-                </ContextMenu.Item>
-                <ContextMenu.Item onSelect={() => onToggleReminder(item.event)}>
-                    {item.event.notify ? <BellOff size={14} aria-hidden="true" /> : <Bell size={14} aria-hidden="true" />}
-                    {item.event.notify ? "Disable reminder" : "Enable reminder"}
-                </ContextMenu.Item>
-                <ContextMenu.Separator />
-                <ContextMenu.Item
-                    className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                    onSelect={() => onDelete(item.event)}
-                >
-                    <Trash2 size={14} aria-hidden="true" />
-                    Delete event
-                </ContextMenu.Item>
-            </ContextMenu.Content>
-        </ContextMenu.Root>
-    );
-}
 
 export default function EventsRoute() {
     const navigate = useNavigate();
+    const shell = useShellMode();
+    const setRailView = useRightPanelStore((s) => s.setRailView);
     const today = new Date();
     const currentYear = today.getFullYear();
     const personalEvents = usePersonalEvents(currentYear);
 
     const [editorOpen, setEditorOpen] = useState(false);
-    const [editingEvent, setEditingEvent] = useState<PersonalEvent | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+    const [detailMode, setDetailMode] = useState<"peek" | "focus">("peek");
+    const editingEvent = personalEvents.items.find((event) => event.id === selectedEventId);
     const [deletingEvent, setDeletingEvent] = useState<PersonalEvent | null>(null);
     const [sortMode, setSortMode] = useState<PersonalEventSortMode>("next");
 
@@ -176,13 +56,14 @@ export default function EventsRoute() {
     const nextScheduleDate = events[0]?.nextDate;
 
     const openCreate = () => {
-        setEditingEvent(null);
+        setSelectedEventId(null);
         setEditorOpen(true);
     };
 
     const openEdit = (event: PersonalEvent) => {
-        setEditingEvent(event);
-        setEditorOpen(true);
+        setSelectedEventId(event.id);
+        setDetailMode("peek");
+        setRailView("context");
     };
 
     const handleOpenSchedule = (date?: string) => {
@@ -195,27 +76,36 @@ export default function EventsRoute() {
     };
 
     const handleSubmit = (value: Omit<PersonalEvent, "id">) => {
-        if (editingEvent) {
-            personalEvents.updateEvent(editingEvent.id, value);
-            toast.success("Event updated");
-        } else {
-            personalEvents.addEvent(value);
-            toast.success("Event added", {
-                action: {
-                    label: "Open Schedule",
-                    onClick: () => handleOpenSchedule(getNextPersonalEventDate(value)),
-                },
-            });
-        }
+        personalEvents.addEvent(value);
+        toast.success("Event added", {
+            action: { label: "Open Schedule", onClick: () => handleOpenSchedule(getNextPersonalEventDate(value)) },
+        });
 
         setEditorOpen(false);
-        setEditingEvent(null);
+        setSelectedEventId(null);
     };
+
+    const closeDetails = () => setSelectedEventId(null);
+    const detailPanel = editingEvent ? (
+        <EditSidePanel kind="event"
+            key={editingEvent.id}
+            event={editingEvent}
+            onChange={(patch) => personalEvents.updateEvent(editingEvent.id, patch)}
+            onClose={closeDetails}
+            onDelete={() => setDeletingEvent(editingEvent)}
+            detailMode={detailMode}
+            onDetailModeChange={shell.isWide ? undefined : setDetailMode}
+        />
+    ) : null;
 
     return (
         <MainLayout
             requireAuth
             contentWidth="full"
+            sidePanel={<EditSidePanelRail ariaLabel="Resize event details">{shell.isWide ? detailPanel : null}</EditSidePanelRail>}
+            sidePanelActive={Boolean(editingEvent)}
+            sidePanelLabel="Event"
+            onCloseSidePanel={closeDetails}
             shellHeader={{
                 title: "Events",
                 eyebrow: "Calendar",
@@ -310,22 +200,18 @@ export default function EventsRoute() {
                 </PageContent>
             </ScrollAreaWrapper>
 
+            {!shell.isWide && detailPanel ? (
+                <ResponsiveOverlayPanel ariaLabel="Event details" open onClose={closeDetails} mode={detailMode} fill>
+                    {detailPanel}
+                </ResponsiveOverlayPanel>
+            ) : null}
+
             <PersonalEventEditorDialog
                 open={editorOpen}
-                initialEvent={editingEvent}
-                title={editingEvent ? "Edit personal event" : "Add personal event"}
-                submitLabel={editingEvent ? "Save changes" : "Add event"}
-                onClose={() => {
-                    setEditorOpen(false);
-                    setEditingEvent(null);
-                }}
+                title="Add personal event"
+                submitLabel="Add event"
+                onClose={() => setEditorOpen(false)}
                 onSubmit={handleSubmit}
-                onDelete={editingEvent ? () => {
-                    personalEvents.removeEvent(editingEvent.id);
-                    toast.success("Event deleted");
-                    setEditorOpen(false);
-                    setEditingEvent(null);
-                } : undefined}
             />
 
             <AlertDialog.Root open={Boolean(deletingEvent)} onOpenChange={(open) => { if (!open) setDeletingEvent(null); }}>
@@ -349,6 +235,7 @@ export default function EventsRoute() {
                                 onClick={() => {
                                     if (!deletingEvent) return;
                                     personalEvents.removeEvent(deletingEvent.id);
+                                    if (selectedEventId === deletingEvent.id) closeDetails();
                                     toast.success("Event deleted");
                                     setDeletingEvent(null);
                                 }}

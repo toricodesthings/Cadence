@@ -250,7 +250,7 @@ export function QuickScheduleSurface({
 
     return (
         <div className="overflow-hidden">
-            <div className="flex items-center gap-1 border-b border-twilight-border/40 px-3 py-2" role="tablist" aria-label="Picker mode">
+            <div className="flex flex-wrap items-center gap-1 border-b border-twilight-border/40 px-3 py-2" role="tablist" aria-label="Picker mode">
                 <button
                     type="button"
                     role="tab"

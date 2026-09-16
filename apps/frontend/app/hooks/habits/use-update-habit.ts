@@ -19,6 +19,8 @@ export function useUpdateHabit() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        // Inline fields can save together; preserve their order across editor/menu hooks.
+        scope: { id: "habit-updates" },
         mutationFn: withOfflineSupport<
             UpdateHabit & { id: string },
             Habit
@@ -38,7 +40,7 @@ export function useUpdateHabit() {
             const snapshot = snapshotHabitCache(queryClient);
 
             let fullHabit: Habit | undefined;
-            queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }).forEach(([_, data]) => {
+            queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }).forEach(([_, data]) => {
                 const found = data?.find(h => h.id === id);
                 if (found) fullHabit = found;
             });
@@ -60,7 +62,7 @@ export function useUpdateHabit() {
                 });
             };
 
-            queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }, apply);
+            queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }, apply);
 
             queryClient
                 .getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll })
