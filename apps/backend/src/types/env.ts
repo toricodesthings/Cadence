@@ -29,6 +29,10 @@ export interface Env {
     ADMIN_USER_IDS?: string;
     ADMIN_EMAILS?: string;
 
+    // ── User file storage ──
+    /** Private R2 bucket for user photo backgrounds. When absent, background routes answer 503. */
+    USER_ASSETS?: R2Bucket;
+
     // ── Rate limiting ──
     RATE_LIMITER: RateLimit;
     RATE_LIMITER_READ: RateLimit;

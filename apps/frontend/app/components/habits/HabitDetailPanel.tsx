@@ -298,7 +298,7 @@ export function HabitDetailPanel({
             <ImmersiveDetailLayout
                 mode={detailMode}
                 header={(
-                    <div className="flex items-center gap-2 px-5 h-(--shell-header-h) border-b border-twilight-border shrink-0">
+                    <div className="flex items-center gap-2 pl-5 pr-[calc(1.25rem+var(--rail-toggle-reserve,0px))] h-(--shell-header-h) border-b border-twilight-border shrink-0">
                         <Button
                             variant="ghost"
                             size="icon"

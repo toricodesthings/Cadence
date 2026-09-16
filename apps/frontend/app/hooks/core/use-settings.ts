@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo } from "react";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { UserSettings, DeepPartial } from "../../types/settings";
@@ -60,6 +60,31 @@ export function useSettings() {
         initialDataUpdatedAt: 0,
         staleTime: 60_000, // re-fetch at most once per minute
     });
+}
+
+/**
+ * Read and write the settings cache directly (query cache + device cache).
+ *
+ * For flows that receive a complete settings payload from an endpoint other
+ * than the debounced PATCH — the photo background upload and delete routes —
+ * so their result lands everywhere `useSettings()` reads from.
+ */
+export function useSettingsCache() {
+    const queryClient = useQueryClient();
+    const { session } = useAuthState();
+    const userId = session?.user.id;
+
+    return useMemo(() => {
+        const queryKey = SETTINGS_KEY(userId);
+        const storageKey = getLocalSettingsKey(userId);
+        return {
+            read: () => queryClient.getQueryData<UserSettings>(queryKey),
+            write: (settings: UserSettings) => {
+                queryClient.setQueryData(queryKey, settings);
+                writeLocalCache(storageKey, settings);
+            },
+        };
+    }, [queryClient, userId]);
 }
 
 /**

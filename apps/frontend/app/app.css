@@ -1022,14 +1022,14 @@
 
   /* ── Glass surfaces ── */
   .glass {
-    background: rgba(15, 29, 50, 0.7);
+    background: color-mix(in srgb, var(--color-twilight-base) 70%, transparent);
     backdrop-filter: blur(32px) saturate(1.2);
     -webkit-backdrop-filter: blur(32px) saturate(1.2);
     border: 1px solid var(--color-twilight-border);
   }
 
   .glass-surface {
-    background: rgba(21, 37, 64, 0.85);
+    background: color-mix(in srgb, var(--color-twilight-surface) 85%, transparent);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--color-twilight-border-light);
@@ -1053,17 +1053,10 @@
   }
 
   [data-theme="daylight"] .glass {
-    background: rgba(236, 232, 226, 0.85);
+    background: color-mix(in srgb, var(--color-twilight-base) 85%, transparent);
     backdrop-filter: blur(32px) saturate(1.1);
     -webkit-backdrop-filter: blur(32px) saturate(1.1);
     border: 1px solid var(--color-twilight-border);
-  }
-
-  [data-theme="daylight"] .glass-surface {
-    background: rgba(228, 223, 216, 0.85);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid var(--color-twilight-border-light);
   }
 
   /* ── Ambient glows ── */
@@ -1311,7 +1304,7 @@ a:active {
 }
 
 .neon-auth-wrapper input {
-  background: rgba(15, 29, 50, 0.45) !important;
+  background: color-mix(in srgb, var(--color-twilight-base) 45%, transparent) !important;
   border: 1px solid var(--color-twilight-border-light) !important;
   border-radius: 18px !important;
   color: var(--color-twilight-text) !important;
@@ -1343,7 +1336,7 @@ a:active {
 
 /* OAuth Buttons & Other Buttons */
 .neon-auth-wrapper button {
-  background: rgba(15, 29, 50, 0.3) !important;
+  background: color-mix(in srgb, var(--color-twilight-base) 30%, transparent) !important;
   border: 1px solid var(--color-twilight-border-light) !important;
   min-height: 44px !important;
   border-radius: 18px !important;
@@ -1386,7 +1379,7 @@ a:active {
 }
 
 .neon-auth-wrapper button:hover {
-  background: rgba(21, 37, 64, 0.5) !important;
+  background: color-mix(in srgb, var(--color-twilight-surface) 50%, transparent) !important;
   border-color: var(--accent-primary-soft) !important;
   box-shadow: 0 0 20px rgba(232, 164, 74, 0.08) !important;
 }
@@ -1505,7 +1498,7 @@ a:active {
 }
 
 .cadence-toast {
-  --cadence-toast-accent: var(--color-moonlit);
+  --cadence-toast-accent: var(--accent-secondary);
   position: relative;
   display: grid;
   width: min(26.5rem, calc(100vw - 3.75rem));
@@ -1523,7 +1516,7 @@ a:active {
       transparent 48%),
     linear-gradient(180deg,
       color-mix(in srgb, var(--color-twilight-elevated) 92%, rgba(255, 255, 255, 0.01)) 0%,
-      rgba(9, 18, 33, 0.92) 100%);
+      color-mix(in srgb, var(--color-twilight-deep) 96%, transparent) 100%);
   padding: 0.82rem 0.9rem;
   color: var(--color-twilight-text);
   box-shadow:
@@ -1605,7 +1598,7 @@ a:active {
 
 .cadence-toast--info,
 .cadence-toast--loading {
-  --cadence-toast-accent: var(--color-moonlit);
+  --cadence-toast-accent: var(--accent-secondary);
 }
 
 .cadence-toast--warning {
@@ -1776,7 +1769,7 @@ a:active {
 .cadence-toast__cancel:focus-visible,
 .cadence-toast__secondaryAction:focus-visible,
 .cadence-toast__tertiaryAction:focus-visible {
-  box-shadow: 0 0 0 2px rgba(232, 164, 74, 0.28);
+  box-shadow: 0 0 0 2px var(--accent-primary);
 }
 
 @media (max-width: 640px) {
@@ -1884,14 +1877,14 @@ a:active {
 
 /* ── Surface utility — frosted utility chrome for search, quick add, notifications ── */
 @utility surface-utility {
-  background: rgba(15, 29, 50, 0.55);
+  background: color-mix(in srgb, var(--color-twilight-base) 85%, transparent);
   backdrop-filter: blur(32px) saturate(1.2);
   -webkit-backdrop-filter: blur(32px) saturate(1.2);
   border: 1px solid var(--color-twilight-border-light);
 }
 
 @utility surface-route-overlay {
-  background: rgba(10, 22, 40, 0.96);
+  background: color-mix(in srgb, var(--color-twilight-deep) 96%, transparent);
   backdrop-filter: blur(28px) saturate(1.12);
   -webkit-backdrop-filter: blur(28px) saturate(1.12);
   border: 1px solid var(--color-twilight-border-light);
@@ -2028,7 +2021,7 @@ a:active {
 
 /* Auth UI overrides for daylight */
 [data-theme="daylight"] .neon-auth-wrapper input {
-  background: rgba(236, 232, 226, 0.6) !important;
+  background: color-mix(in srgb, var(--color-twilight-base) 60%, transparent) !important;
   border: 1px solid var(--color-twilight-border-light) !important;
   color: var(--color-twilight-text) !important;
 }
@@ -2044,13 +2037,13 @@ a:active {
 }
 
 [data-theme="daylight"] .neon-auth-wrapper button {
-  background: rgba(236, 232, 226, 0.4) !important;
+  background: color-mix(in srgb, var(--color-twilight-base) 40%, transparent) !important;
   border: 1px solid var(--color-twilight-border-light) !important;
   color: var(--color-twilight-text) !important;
 }
 
 [data-theme="daylight"] .neon-auth-wrapper button:hover {
-  background: rgba(228, 223, 216, 0.6) !important;
+  background: color-mix(in srgb, var(--color-twilight-surface) 60%, transparent) !important;
   border-color: var(--accent-primary-soft) !important;
 }
 
@@ -2070,39 +2063,45 @@ a:active {
 
 /* Surface utility for daylight */
 [data-theme="daylight"] .surface-utility {
-  background: rgba(236, 232, 226, 0.7);
+  background: color-mix(in srgb, var(--color-twilight-base) 85%, transparent);
   backdrop-filter: blur(32px) saturate(1.1);
   -webkit-backdrop-filter: blur(32px) saturate(1.1);
   border: 1px solid var(--color-twilight-border-light);
 }
 
-/* Settings dialog content background — theme-aware */
+/* Settings use the same adaptive surface hierarchy as the workspace. */
 .settings-content-bg {
   background:
-    radial-gradient(circle at top right, rgba(232, 164, 74, 0.06), transparent 25%),
-    linear-gradient(180deg, rgba(10, 22, 40, 0.92), rgba(7, 14, 26, 0.96));
-}
-
-[data-theme="daylight"] .settings-content-bg {
-  background:
-    radial-gradient(circle at top right, rgba(180, 83, 9, 0.04), transparent 25%),
+    radial-gradient(circle at top right, var(--accent-primary-dim), transparent 45%),
     linear-gradient(180deg, var(--color-twilight-deep), var(--color-twilight-void));
 }
 
-/* Profile card — themed surface for the account settings card */
 .profile-card-bg {
-  background-color: #132035;
-}
-[data-theme="daylight"] .profile-card-bg {
   background-color: var(--color-twilight-surface);
 }
 
-/* Profile banner — decorative gradient behind the avatar area */
 .profile-banner-bg {
-  background: linear-gradient(to bottom right, #1a2b45, #0a1628);
-}
-[data-theme="daylight"] .profile-banner-bg {
   background: linear-gradient(to bottom right, var(--color-twilight-elevated), var(--color-twilight-surface));
+}
+
+/* The photo is filtered once, across the viewport. Persistent chrome shares a
+   light tint without separate blur planes that cut the picture into rectangles.
+   Floating surfaces keep their denser glass for readable content over any image. */
+[data-bg-image="on"] {
+  --color-twilight-text-soft: color-mix(in srgb, var(--color-bg-text) 90%, var(--color-bg-custom));
+  --color-twilight-text-muted: color-mix(in srgb, var(--color-bg-text) 78%, var(--color-bg-custom));
+}
+
+[data-bg-image="on"] .photo-shell-surface {
+  background: color-mix(in srgb, var(--color-twilight-base) 12%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-bg-image="on"] .glass {
+  background: color-mix(in srgb, var(--color-twilight-surface) 82%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Glow utilities for daylight — subtle on light backgrounds */
@@ -2166,4 +2165,78 @@ a:active {
   /* fill-white → fill-current in daylight so SVGs follow text color */
   [data-theme="daylight"] .fill-white { fill: var(--color-twilight-text); }
   [data-theme="daylight"] .hover\:border-white\/5:hover { border-color: rgba(0, 0, 0, 0.05); }
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * RANGE SLIDER — appearance adjustments (photo background blur / brightness)
+ * Native input[type=range] so keyboard and AT behaviour are free; the track and
+ * thumb are painted from accent tokens, so every palette and photo re-tints it.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+@layer utilities {
+  .cadence-range {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    height: 1.75rem;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .cadence-range::-webkit-slider-runnable-track {
+    height: 0.375rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-twilight-text) 12%, transparent);
+    border: 1px solid var(--color-twilight-border-light);
+  }
+
+  .cadence-range::-moz-range-track {
+    height: 0.375rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-twilight-text) 12%, transparent);
+    border: 1px solid var(--color-twilight-border-light);
+  }
+
+  .cadence-range::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: -0.4375rem;
+    border-radius: 999px;
+    background: var(--accent-primary);
+    border: 2px solid var(--color-twilight-deep);
+    box-shadow: 0 0 12px var(--accent-glow);
+    transition: transform 150ms ease;
+  }
+
+  .cadence-range::-moz-range-thumb {
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 999px;
+    background: var(--accent-primary);
+    border: 2px solid var(--color-twilight-deep);
+    box-shadow: 0 0 12px var(--accent-glow);
+    transition: transform 150ms ease;
+  }
+
+  .cadence-range:hover::-webkit-slider-thumb,
+  .cadence-range:active::-webkit-slider-thumb { transform: scale(1.12); }
+  .cadence-range:hover::-moz-range-thumb,
+  .cadence-range:active::-moz-range-thumb { transform: scale(1.12); }
+
+  .cadence-range:focus-visible {
+    outline: none;
+  }
+
+  .cadence-range:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  .cadence-range:focus-visible::-moz-range-thumb {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
 }

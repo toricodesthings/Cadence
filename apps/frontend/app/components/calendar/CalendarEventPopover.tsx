@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
-    AlertTriangle,
     X,
-    ArrowDown,
-    ArrowRight,
-    ArrowUp,
-    BatteryFull,
     Bell,
-    BatteryLow,
-    BatteryMedium,
     CalendarHeart,
     CalendarRange,
     ChevronDown,
@@ -17,20 +10,19 @@ import {
     Flag,
     Gauge,
     Milestone,
-    Minus,
     SlidersHorizontal,
     StickyNote,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateTask } from "../../hooks/tasks";
+import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
-import { parseLocalDate, toISODate, getDateFormatConfig } from "../../lib/utils/date-format";
+import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { Tip } from "../primitives";
-import * as Popover from "../primitives/Popover";
 import { TimePicker } from "../primitives";
 import { Switch } from "../primitives";
 import { Button } from "../primitives/Button";
@@ -69,25 +61,7 @@ const WEEKDAY_LABELS: Record<WeekdayCode, { short: string; long: string }> = {
     SU: { short: "Sun", long: "Sunday" },
 };
 
-const PRIORITY_OPTIONS: { value: TaskPriority; label: string; icon: typeof Flag }[] = [
-    { value: 0, label: "None", icon: Minus },
-    { value: 1, label: "Low", icon: ArrowDown },
-    { value: 2, label: "Medium", icon: ArrowRight },
-    { value: 3, label: "High", icon: ArrowUp },
-    { value: 4, label: "Urgent", icon: AlertTriangle },
-];
-
-const EFFORT_OPTIONS: { value: 1 | 2 | 3; label: string; icon: typeof Flag }[] = [
-    { value: 1, label: "Low", icon: BatteryLow },
-    { value: 2, label: "Medium", icon: BatteryMedium },
-    { value: 3, label: "High", icon: BatteryFull },
-];
-
-const FIELD_LABEL = "text-[11px] font-medium uppercase tracking-[0.14em] text-twilight-text-soft";
 const BAND = "shrink-0 overflow-y-auto [scrollbar-gutter:stable]";
-const CHIP_BASE = "flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
-const CHIP_ACTIVE = "border-accent-primary/30 bg-accent-primary/15 text-accent-primary";
-const CHIP_IDLE = "border-white/[0.06] bg-white/[0.02] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text";
 
 function toWeekdayCode(date: string): WeekdayCode {
     const day = new Date(`${date}T00:00:00`).getDay();

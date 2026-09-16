@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { clearAllDeviceLocationData } from "../../lib/location/device-location";
+import { clearCachedBackgroundImages, setBackgroundCacheSessionActive } from "../../lib/themes/background-image-cache";
 import { authClient } from "../../lib/auth-client";
 import {
     clearDesktopAuthSession,
@@ -51,6 +52,10 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     const [desktopSessionLoaded, setDesktopSessionLoaded] = useState(!IS_DESKTOP_RUNTIME);
     const recoveryPromise = useRef<Promise<boolean> | null>(null);
     const resolvedSession = session ?? recoveredSession ?? desktopSession?.data ?? null;
+
+    useEffect(() => {
+        setBackgroundCacheSessionActive(Boolean(resolvedSession?.user.id));
+    }, [resolvedSession?.user.id]);
 
     useEffect(() => {
         if (!IS_DESKTOP_RUNTIME) {
@@ -187,8 +192,10 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const completeSignOut = useCallback(async () => {
+        setBackgroundCacheSessionActive(false);
         clearAuthJwtCache();
         clearAllDeviceLocationData();
+        await clearCachedBackgroundImages();
         await clearDesktopAuthSession().catch(() => {
             // Ignore desktop fallback cleanup failures during sign out.
         });

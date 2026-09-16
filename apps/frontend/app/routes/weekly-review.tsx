@@ -43,8 +43,8 @@ function ReviewListItem({
     onRunAction: (key: string, fn: () => Promise<void>) => void;
 }) {
     return (
-        <div className="flex items-center gap-3 rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-4 py-3 transition-colors hover:bg-white/[0.03]">
-            <span className="flex-1 min-w-0 truncate text-sm font-medium text-twilight-text">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-4 py-3 transition-colors hover:bg-white/[0.03]">
+            <span className="w-full sm:w-auto sm:flex-1 min-w-0 truncate text-sm font-medium text-twilight-text">
                 {title}
             </span>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -67,7 +67,7 @@ function ReviewListItem({
                                 isPrimary ? "px-3.5" : "px-2.5"
                             } ${
                                 isDanger
-                                    ? "text-red-400 hover:bg-red-500/10"
+                                    ? "text-feedback-error hover:bg-feedback-error/10"
                                     : isPrimary
                                         ? "bg-accent-primary/14 text-accent-primary hover:bg-accent-primary/20"
                                         : "text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text"
@@ -89,7 +89,7 @@ function ReviewListItem({
                 })}
             </div>
             {actionError && (
-                <span className="text-xs text-red-400">{actionError}</span>
+                <span className="text-xs text-feedback-error">{actionError}</span>
             )}
         </div>
     );
@@ -111,7 +111,7 @@ function HabitReviewRow({
     return (
         <div className="rounded-2xl border border-twilight-border/40 bg-twilight-surface/30 px-5 py-4">
             <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-moonlit/10 text-moonlit">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-secondary/10 text-accent-secondary">
                     <Repeat size={14} />
                 </div>
                 <h4 className="text-sm font-medium text-twilight-text flex-1 truncate">{habit.title}</h4>
@@ -119,7 +119,7 @@ function HabitReviewRow({
             <div className="flex items-center gap-4 mb-3 text-xs text-twilight-text-muted">
                 <span><span className="text-accent-primary font-semibold">{habit.completedThisWeek}</span> done</span>
                 <span><span className="font-semibold">{habit.skippedThisWeek}</span> skipped</span>
-                <span><span className="text-moonlit font-semibold">{habit.pendingThisWeek}</span> pending</span>
+                <span><span className="text-accent-secondary font-semibold">{habit.pendingThisWeek}</span> pending</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
                 <button
@@ -242,9 +242,9 @@ export default function WeeklyReview() {
             customSidebar={showSidebar ? <WeeklyResetSidebar currentStep={currentStep} compact={shell.isLaptop} onExit={handleExit} /> : undefined}
             hideHeader
         >
-            <div className="relative flex h-full flex-col bg-twilight">
+            <div className="relative flex h-full min-h-0 flex-col">
                 {!showSidebar && (
-                    <div className="safe-top sticky top-0 z-20 border-b border-twilight-border bg-twilight-deep/75 px-4 py-3 backdrop-blur-xl">
+                    <div className="photo-shell-surface safe-top sticky top-0 z-20 border-b border-twilight-border bg-twilight-deep/75 px-4 py-3 backdrop-blur-xl">
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex-1 min-w-0">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-twilight-text-soft">
@@ -288,7 +288,7 @@ export default function WeeklyReview() {
                                 initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -12 }}
-                                className="flex flex-1 flex-col items-center justify-center text-center max-w-md mx-auto"
+                                className="glass flex w-full shrink-0 flex-col items-center justify-center rounded-3xl px-6 py-8 text-center max-w-md mx-auto my-auto"
                             >
                                 <WeeklyResetHero className="mb-6 aspect-[2/1] w-full max-w-[300px]" />
                                 <h1 className="text-2xl lg:text-3xl font-display font-semibold text-twilight-text mb-3 leading-tight">
@@ -316,7 +316,7 @@ export default function WeeklyReview() {
                                 initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -12 }}
-                                className="max-w-xl mx-auto w-full"
+                                className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
                             >
                                 <div className="mb-6">
                                     <h2 className="text-lg font-display font-semibold text-twilight-text">Captured thoughts</h2>
@@ -365,7 +365,7 @@ export default function WeeklyReview() {
                                 initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -12 }}
-                                className="max-w-xl mx-auto w-full"
+                                className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
                             >
                                 <div className="mb-6">
                                     <h2 className="text-lg font-display font-semibold text-twilight-text">Work to stabilize</h2>
@@ -441,7 +441,7 @@ export default function WeeklyReview() {
                                 initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -12 }}
-                                className="max-w-xl mx-auto w-full"
+                                className="glass max-w-xl mx-auto w-full rounded-3xl p-4 sm:p-6"
                             >
                                 <div className="mb-6">
                                     <h2 className="text-lg font-display font-semibold text-twilight-text">Routine check-in</h2>
@@ -493,7 +493,7 @@ export default function WeeklyReview() {
                                 key="ready"
                                 initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="flex flex-1 flex-col items-center justify-center text-center max-w-md mx-auto"
+                                className="glass flex w-full shrink-0 flex-col items-center justify-center rounded-3xl px-6 py-8 text-center max-w-md mx-auto my-auto"
                             >
                                 <WeeklyResetHero className="mb-5 aspect-[2/1] w-full max-w-[300px]" />
                                 <div className="w-14 h-14 rounded-2xl bg-accent-primary/15 flex items-center justify-center mb-5">

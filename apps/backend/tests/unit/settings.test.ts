@@ -151,3 +151,34 @@ describe("settings patch schema (validation)", () => {
         });
     });
 });
+
+describe("photo background settings", () => {
+    const image = {
+        id: "22222222-2222-4222-8222-222222222222",
+        dominant: "#1a2233",
+        swatches: ["#e8a44a"],
+        accent: null,
+        blur: 20,
+        brightness: 70,
+    };
+
+    it("keeps a stored photo when normalizing over the defaults", () => {
+        // `backgroundImage` defaults to null, so merging an object over it must
+        // replace rather than try to merge key by key.
+        const normalized = normalizeSettings({ appearance: { backgroundMode: "image", backgroundImage: image } });
+        expect(normalized.appearance.backgroundImage).toEqual(image);
+        expect(normalized.appearance.backgroundMode).toBe("image");
+    });
+
+    it("defaults to no photo and the theme background", () => {
+        const normalized = normalizeSettings({});
+        expect(normalized.appearance.backgroundImage).toBeNull();
+        expect(normalized.appearance.backgroundMode).toBe("theme");
+    });
+
+    it("accepts photo adjustments in a patch", () => {
+        expect(settingsPatchSchema.parse({ appearance: { backgroundImage: { accent: "#e8a44a", blur: 40 } } })).toEqual({
+            appearance: { backgroundImage: { accent: "#e8a44a", blur: 40 } },
+        });
+    });
+});

@@ -16,6 +16,7 @@ import { habitRoutes } from "./domains/habits/habits.route";
 import { subtaskRoutes } from "./domains/subtasks/subtasks.route";
 import { sectionRoutes } from "./domains/sections/sections.route";
 import { settingsRoutes } from "./domains/settings/settings.route";
+import { backgroundRoutes } from "./domains/settings/background.route";
 import { eventRoutes } from "./domains/events/events.route";
 import { suggestionRoutes } from "./domains/suggestions/suggestions.route";
 import { proxyRoutes } from "./domains/proxy/proxy.route";
@@ -62,7 +63,10 @@ app.use("*", createRequestContext());
 app.use("*", secureHeaders());
 
 // ── Request Body Size Limit (100KB) ──
+// Photo uploads are exempt here and enforce their own limit on the route.
+const BODY_LIMIT_EXEMPT_POSTS = new Set(["/api/v1/settings/background"]);
 app.use("/api/v1/*", async (c, next) => {
+  if (c.req.method === "POST" && BODY_LIMIT_EXEMPT_POSTS.has(c.req.path.replace(/\/$/, ""))) return next();
   const contentLength = c.req.header("content-length");
   if (contentLength && parseInt(contentLength, 10) > 102400) {
     return c.json(
@@ -188,6 +192,7 @@ const apiApp = app
   .route("/api/v1", subtaskRoutes)
   .route("/api/v1", noteRoutes)
   .route("/api/v1/sections", sectionRoutes)
+  .route("/api/v1/settings/background", backgroundRoutes)
   .route("/api/v1/settings", settingsRoutes)
   .route("/api/v1/events", eventRoutes)
   .route("/api/v1/suggestions", suggestionRoutes)

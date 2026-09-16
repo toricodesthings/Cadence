@@ -1,0 +1,95 @@
+/*
+ * The cloud pass (CloudPass.tsx): three banks roll in from the left, back to front, each a touch later, and a veil
+ * fills whatever sky is left behind them. The banks are painted ahead, hidden, and roll only once `.is-on` is set
+ * by the press. Their tones are in the canvases; composite-only from there: every bank moves by transform.
+ */
+
+.cloud-pass {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cloud-pass.is-on {
+  visibility: visible;
+  pointer-events: auto;
+  cursor: progress;
+}
+
+/* Sized in pixels by CloudPass (body, rim and wisps), 1.2 screens tall */
+.cloud-bank {
+  position: absolute;
+  top: -10vh;
+  left: 0;
+  max-width: none;
+  will-change: transform;
+  transform: translate3d(-100%, 0, 0);
+}
+
+.is-on .cloud-bank {
+  animation: cloud-roll var(--dur) cubic-bezier(0.3, 0.55, 0.25, 1) var(--delay) both;
+}
+
+/* The farther the bank, the sooner it arrives. Each is translucent: mist over the page, never a panel on it */
+.cloud-bank-back {
+  --dur: 1150ms;
+  --delay: 0ms;
+  --lift: 3vh;
+  opacity: 0.5;
+}
+
+.cloud-bank-mid {
+  --dur: 1080ms;
+  --delay: 90ms;
+  --lift: -2vh;
+  opacity: 0.7;
+}
+
+.cloud-bank-front {
+  --dur: 1000ms;
+  --delay: 180ms;
+  --lift: 4vh;
+  opacity: 0.82;
+}
+
+@keyframes cloud-roll {
+  from {
+    transform: translate3d(-100%, var(--lift), 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* The last of the sky, filled behind the banks as they arrive (its gradient is set from the palette) */
+.cloud-veil {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.is-on .cloud-veil {
+  animation: cloud-veil 420ms var(--ease-out-quart) 620ms both;
+}
+
+/* A haze, not a cover: the page stays in view under the cloud */
+@keyframes cloud-veil {
+  to {
+    opacity: 0.8;
+  }
+}
+
+/* No sliding: the sky simply turns to cloud */
+@media (prefers-reduced-motion: reduce) {
+  .cloud-bank {
+    display: none;
+  }
+
+  .is-on .cloud-veil {
+    animation-duration: 220ms;
+    animation-delay: 0ms;
+  }
+}

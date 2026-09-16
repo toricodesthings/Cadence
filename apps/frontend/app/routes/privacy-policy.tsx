@@ -67,6 +67,11 @@ export default function PrivacyPolicyRoute() {
                                     detail: "Notifications and location are tied to specific user-facing features and can be turned off.",
                                 },
                                 {
+                                    label: "Uploads",
+                                    value: "Private",
+                                    detail: "A background photo is the only file you can upload. It is stripped of camera metadata, stored privately, and deleted when you say so.",
+                                },
+                                {
                                     label: "Commercial model",
                                     value: "Free",
                                     detail: "There is no paid plan or ad network in the current pre-release product surface.",
@@ -107,6 +112,11 @@ export default function PrivacyPolicyRoute() {
                                     preferences, calendar settings, privacy toggles, and integration settings.
                                 </li>
                                 <li>
+                                    <strong>A background photo, only if you upload one:</strong> the image file itself,
+                                    plus the colours read from it and your blur and brightness choices. See
+                                    &ldquo;Your background photo&rdquo; below for how it is stored and removed.
+                                </li>
+                                <li>
                                     <strong>Product-side capability data:</strong> the backend schema includes adaptive
                                     planning metrics and an AI memory layer for future intelligence features. Those areas
                                     are product capabilities, not advertising profiles, and should remain documented as
@@ -131,10 +141,50 @@ export default function PrivacyPolicyRoute() {
                                     network is unstable.
                                 </li>
                                 <li>
+                                    <strong>IndexedDB</strong> also holds a copy of your background photo, if you set
+                                    one, so it appears instantly instead of being downloaded on every launch. It is
+                                    scoped to your account and removed when you sign out or delete the photo.
+                                </li>
+                                <li>
                                     <strong>localStorage</strong> keeps a precise position, rounded to about 1 km, for
                                     up to 7 days when you choose precise location, so weather and holidays load without
                                     asking again. It is scoped to your account and cleared when you sign out or choose
                                     &ldquo;Forget saved location&rdquo; in Settings.
+                                </li>
+                            </ul>
+                        </SupportSection>
+
+                        <SupportSection
+                            eyebrow="Uploads"
+                            title="Your background photo."
+                            description="The only file Cadence stores for you, and it stays yours."
+                        >
+                            <ul>
+                                <li>
+                                    <strong>Nothing is uploaded unless you choose a photo</strong> in Settings &gt;
+                                    Appearance &gt; Background. Cadence has no other upload path.
+                                </li>
+                                <li>
+                                    <strong>Camera metadata is removed before it leaves your device.</strong> The photo
+                                    is resized and re-encoded in your browser, which drops EXIF data such as GPS
+                                    coordinates, camera model, and timestamps. The server checks the file again and
+                                    strips any remaining metadata before storing it.
+                                </li>
+                                <li>
+                                    <strong>It is stored privately, not published.</strong> The file goes to private
+                                    object storage that has no public address, and it is encrypted at rest by the
+                                    storage provider. It can only be read back through a signed-in request from your own
+                                    account, so a link to it cannot be shared, guessed, or indexed.
+                                </li>
+                                <li>
+                                    <strong>One photo at a time.</strong> Uploading a new one replaces and deletes the
+                                    previous file. Switching to a theme background keeps your photo stored so you can
+                                    switch back; the trash button deletes it from storage permanently.
+                                </li>
+                                <li>
+                                    <strong>It is used only to draw your background</strong> and to read accent colours
+                                    for your interface. It is not analysed for any other purpose, not used to train
+                                    anything, and not shared with other users.
                                 </li>
                             </ul>
                         </SupportSection>

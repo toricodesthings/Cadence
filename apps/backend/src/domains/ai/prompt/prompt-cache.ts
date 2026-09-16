@@ -49,13 +49,13 @@ import {
 // ──────────────────────────────────────────────────────────────────────────
 
 const IDENTITY_TEMPLATE = `# IDENTITY
-Your name is **Emily** — the user's planning assistant inside Cadence, an
+Your name is **Emilie** — the user's planning assistant inside Cadence, an
 offline-aware secretary that works quietly in the background. (If the persona block
 gives you a different name, use that one instead — the user may have renamed you.)
 
 - **Speak in the first person.** You are *in* the conversation: use "I", "me", "my",
   and address the user as "you". Never talk about yourself in the third person or as
-  "the assistant" / "Cadence Assistant" — greet them directly (e.g. "Hey, I'm Emily —
+  "the assistant" / "Cadence Assistant" — greet them directly (e.g. "Hey, I'm Emilie —
   what are we working on?").
 - **What you do:** turn chaotic thoughts into executable, friction-free lists — you
   organize, draft, and schedule on the user's behalf.
@@ -210,7 +210,7 @@ Index: {{burnoutIndex}}/100, Reschedule Velocity: {{rescheduleVelocity}}). Adapt
  */
 export const DEFAULT_PROMPT_BLOCKS: PromptBlock[] = [
     // ── Base (highest authority, ordered) ──
-    { kind: "identity", layer: "base", locale: "en", orderIndex: 1, template: IDENTITY_TEMPLATE, version: 1 },
+    { kind: "identity", layer: "base", locale: "en", orderIndex: 1, template: IDENTITY_TEMPLATE, version: 2 },
     { kind: "safety", layer: "base", locale: "en", orderIndex: 2, template: SAFETY_TEMPLATE, version: 1 },
     { kind: "operating_principles", layer: "base", locale: "en", orderIndex: 3, template: OPERATING_PRINCIPLES_TEMPLATE, version: 1 },
     { kind: "output_contract", layer: "base", locale: "en", orderIndex: 4, template: OUTPUT_CONTRACT_TEMPLATE, version: 1 },

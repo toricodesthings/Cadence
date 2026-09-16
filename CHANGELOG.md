@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- On cadenceapp.cloud, pressing Get started, "Start where you are" or the seal at the end of the page rolls a bank of clouds across the screen on the way to sign-up.
+- Appearance settings now offer Cadence backgrounds or your own photo in one panel. Curated themes set the background and palette; photo mode puts automatic, sampled and custom accents below your image. Preview, zoom and crop before uploading, then adjust blur and brightness. Photos are stored privately without camera or location metadata and remain saved when you switch back to Cadence.
+
+### Changed
+
+- The task details panel is calmer: Details is split into Status, When, Weight and Organize groups, choices fill the width with icons, and each section shows a short summary before you open it.
+- The welcome page at cadenceapp.cloud has new words: "Built for the real you, not the perfect one."
+- The assistant is now called Emilie by default. If you gave her another name in Settings, she keeps it.
+
+### Fixed
+
+- Weekly Reset, calendar cards, notifications and Settings now adapt to your background colors, with clearer secondary text and softer transitions between panels when using a photo.
+- The task details panel's buttons are no longer hidden behind the panel switcher, long task titles no longer get cut off on phones, and the phone sheet shows one close button instead of two.
+
 ## [0.11.1] - 2026-09-13
 
 ### Added

@@ -60,7 +60,7 @@ src/
 
 ## 4. Request Lifecycle
 
-`createRequestContext` (request ID) → `secureHeaders()` → body size limit (100KB, `/api/v1/*`) → CORS allowlist → debug-route guard (404 unless dev + `ENABLE_DEBUG_ROUTES=true`) → Tier-1 IP rate limit (pre-auth) → JWT auth (`userId` attached) → Tier-2 user rate limit (read/write) → Tier-3 admin rate limit (`/api/v1/debug/*`) → `apiValidator()` → handler: `getDbClient(c.env)` → `withRls(db, userId, fn)` → `{ data: ... }`.
+`createRequestContext` (request ID) → `secureHeaders()` → body size limit (100KB, `/api/v1/*`; the photo upload is exempt and capped on its own route) → CORS allowlist → debug-route guard (404 unless dev + `ENABLE_DEBUG_ROUTES=true`) → Tier-1 IP rate limit (pre-auth) → JWT auth (`userId` attached) → Tier-2 user rate limit (read/write) → Tier-3 admin rate limit (`/api/v1/debug/*`) → `apiValidator()` → handler: `getDbClient(c.env)` → `withRls(db, userId, fn)` → `{ data: ... }`.
 
 Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, attaches request ID, never leaks stack traces/SQL.
 
@@ -90,7 +90,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | inbox | `/inbox` | items + sections CRUD |
 | subtasks, notes | nested under `/tasks/:taskId/*` + standalone PATCH/DELETE |
 | habits | `/habits` | CRUD, resolve, weekly/monthly views |
-| settings | `/settings` | GET + PATCH (deep-merge via `deepPartial`) |
+| settings | `/settings`, `/settings/background` | GET + PATCH (deep-merge via `deepPartial`); background = one photo per user in R2 (`USER_ASSETS`): POST upload (WebP-only, metadata stripped), GET own image, DELETE |
 | events | `/events` | single + batch usage tracking |
 | suggestions | `/suggestions` | list + accept/dismiss |
 | proxy | `/proxy` | proxied external calls: weather, reverse/forward geocoding, approximate location (`GET /geo/approximate` from Cloudflare `request.cf`), holidays. Coordinates are rounded to 2 decimals before any upstream call. |
@@ -105,7 +105,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 **Deliberate RLS exception:** `aiPromptBlocks`/`aiPromptRevision` have **no RLS** — global app config, identical for every user, written only by migrations/admin route, read only by the prompt cache loader outside `withRls`. Any block write bumps `aiPromptRevision.revision` (cache-bust token) in the same transaction.
 
-**Settings:** `UserSettingsSchema` lives in `settings.schema.ts`, re-exported from `db/schema.ts`. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant` (persona, tone, verbosity, emoji, nickname, customInstructions, proactiveSuggestions, memoryEnabled, adaptiveTone) maps via pure `personaToDirectives` into the `persona_customization` prompt block; free-text fields are sanitized + fenced before composition — never trust them raw in a prompt.
+**Settings:** `UserSettingsSchema` lives in `settings.schema.ts`, re-exported from `db/schema.ts`. `settings.appearance.backgroundImage` is server-owned: `sanitizeBackgroundPatch` (`domains/settings/background-image.ts`) lets a PATCH change only accent/blur/brightness, never the photo's identity or existence. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant` (persona, tone, verbosity, emoji, nickname, customInstructions, proactiveSuggestions, memoryEnabled, adaptiveTone) maps via pure `personaToDirectives` into the `persona_customization` prompt block; free-text fields are sanitized + fenced before composition — never trust them raw in a prompt.
 
 ## 9. AI Domain (`src/domains/ai`)
 
@@ -138,6 +138,7 @@ Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` 
 | `HYPERDRIVE` | → Neon Postgres |
 | `NEON_AUTH_JWKS_URL` | JWT verification |
 | `RATE_LIMITER` / `_READ` / `_WRITE` / `_ADMIN` | Tier 1/2/2/3 limiters |
+| `USER_ASSETS` | Private R2 bucket for photo backgrounds (optional — absence answers 503) |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | AI stream resumption (optional — absence disables gracefully) |
 | `DEPLOYMENT_STAGE` | `"production"` / `"staging"` / `"development"` |
 | `ENABLE_DEBUG_ROUTES` | must be `"true"` to enable debug endpoints |

@@ -4,6 +4,7 @@ import { setDateFormatConfig } from "../../lib/utils/date-format";
 import { useDesktopLayoutScale } from "./use-desktop-layout-scale";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { deriveCustomTokens, gradientMidpointLuminance, buildGradientCSS } from "../../lib/themes/background-tokens";
+import { autoAccent, derivePhotoAccentTokens, derivePhotoTone } from "../../lib/themes/image-palette";
 import { GRADIENT_PRESETS } from "../../lib/themes/gradient-presets";
 import { THEME_PRESET_MAP, type ThemePresetId } from "../../lib/themes/theme-presets";
 import { resolveLoadingSeason } from "../../lib/themes/season";
@@ -19,7 +20,8 @@ import { resolveLoadingSeason } from "../../lib/themes/season";
  *   data-density     — "compact" | absent (comfortable)
  *   data-palette     — palette id | absent (lantern default)
  *   data-theme-preset — preset id | absent (default)
- *   data-bg-mode     — "custom" | absent (theme default)
+ *   data-bg-mode     — "custom" | absent (theme default); a photo uses "custom" too
+ *   data-bg-image    — "on" while a photo background is applied
  *   data-loading-season / data-loading-mode — loading scene variant (also set by the head boot script)
  *
  * Also syncs `dateTime` settings to the global date format configuration.
@@ -36,9 +38,22 @@ export function useThemeSync() {
     const backgroundMode = settings?.appearance?.backgroundMode ?? "theme";
     const backgroundColor = settings?.appearance?.backgroundColor ?? null;
     const backgroundGradient = settings?.appearance?.backgroundGradient ?? null;
+    const backgroundImage = settings?.appearance?.backgroundImage ?? null;
     const timeDisplay = settings?.dateTime?.timeDisplay ?? "12h";
     const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
     const weekStart = settings?.dateTime?.weekStart ?? "Monday";
+
+    // ── Photo background ──
+    // A photo decides its own light/dark and accents: the interface has to read
+    // against the picture the user actually sees, not the theme they last picked.
+    const photo = useMemo(() => {
+        if (backgroundMode !== "image" || !backgroundImage) return null;
+        const tone = derivePhotoTone(backgroundImage.dominant, backgroundImage.brightness);
+        const accent = backgroundImage.accent ?? autoAccent(backgroundImage.swatches, tone.base);
+        return { tone, accentTokens: derivePhotoAccentTokens(accent, backgroundImage.swatches, tone) };
+    }, [backgroundMode, backgroundImage]);
+
+    const effectiveTheme = photo ? (photo.tone.isDark ? "twilight" : "daylight") : theme;
 
     // ── Theme sync ──
     useEffect(() => {
@@ -53,7 +68,7 @@ export function useThemeSync() {
             root.setAttribute("data-loading-mode", resolved);
         }
 
-        if (theme === "system") {
+        if (effectiveTheme === "system") {
             const mql = window.matchMedia("(prefers-color-scheme: light)");
             const handler = (e: MediaQueryListEvent | MediaQueryList) =>
                 apply(e.matches ? "daylight" : "twilight");
@@ -63,8 +78,8 @@ export function useThemeSync() {
                 mql.removeEventListener("change", handler as (e: MediaQueryListEvent) => void);
         }
 
-        apply(theme as "twilight" | "daylight");
-    }, [theme]);
+        apply(effectiveTheme as "twilight" | "daylight");
+    }, [effectiveTheme]);
 
     // ── Motion sync ──
     useEffect(() => {
@@ -122,6 +137,8 @@ export function useThemeSync() {
 
     // ── Custom background sync ──
     const customBgTokens = useMemo(() => {
+        if (photo) return deriveCustomTokens(photo.tone.base);
+
         if (backgroundMode === "theme") {
             // For theme mode, derive tokens from the preset's suggested gradient
             const preset = THEME_PRESET_MAP[themePreset as ThemePresetId];
@@ -147,7 +164,7 @@ export function useThemeSync() {
             }
         }
         return null;
-    }, [backgroundMode, backgroundColor, backgroundGradient, themePreset]);
+    }, [photo, backgroundMode, backgroundColor, backgroundGradient, themePreset]);
 
     useEffect(() => {
         const root = document.documentElement;
@@ -166,6 +183,7 @@ export function useThemeSync() {
         }
 
         root.setAttribute("data-bg-mode", "custom");
+        root.style.removeProperty("--bg-gradient");
         for (const [key, value] of Object.entries(customBgTokens)) {
             if (key === "__gradient") {
                 root.style.setProperty("--bg-gradient", value);
@@ -174,6 +192,28 @@ export function useThemeSync() {
             }
         }
     }, [customBgTokens]);
+
+    // ── Photo accent sync ──
+    // Inline properties beat the [data-palette] rules, so the photo's accents
+    // win while it is applied and hand back cleanly when it isn't.
+    useEffect(() => {
+        const root = document.documentElement;
+        const style = root.style;
+
+        if (!photo) {
+            root.removeAttribute("data-bg-image");
+            for (let i = style.length - 1; i >= 0; i -= 1) {
+                const prop = style[i];
+                if (prop.startsWith("--accent-")) style.removeProperty(prop);
+            }
+            style.removeProperty("--bg-photo-scrim");
+            return;
+        }
+
+        root.setAttribute("data-bg-image", "on");
+        for (const [key, value] of Object.entries(photo.accentTokens)) style.setProperty(key, value);
+        style.setProperty("--bg-photo-scrim", photo.tone.scrim);
+    }, [photo]);
 
     useEffect(() => {
         const root = document.documentElement;
@@ -192,10 +232,10 @@ export function useThemeSync() {
     useEffect(() => {
         try {
             localStorage.setItem("cadence-appearance", JSON.stringify({
-                theme, palette, themePreset, backgroundMode, motion,
+                theme: effectiveTheme, palette, themePreset, backgroundMode, motion,
             }));
         } catch { /* quota exceeded — non-critical */ }
-    }, [theme, palette, themePreset, backgroundMode, motion]);
+    }, [effectiveTheme, palette, themePreset, backgroundMode, motion]);
 
     // ── Date/time format sync ──
     useEffect(() => {

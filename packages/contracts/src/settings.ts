@@ -57,6 +57,50 @@ export const savedCitySchema = z.object({
 });
 export type SavedCity = z.infer<typeof savedCitySchema>;
 
+// ── Photo background (settings.appearance.backgroundImage) ──
+//
+// The image itself lives in private object storage. Settings keep its opaque id
+// (owned by the upload/delete routes, never writable through PATCH), the colours
+// the client read from it at upload, and the user's display adjustments.
+
+const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const BACKGROUND_IMAGE_LIMITS = {
+    /** Largest compressed file the API stores, in bytes. */
+    maxBytes: 2.5 * 1024 * 1024,
+    /** Longest edge the client resizes to before upload. */
+    maxDimension: 2560,
+    maxSwatches: 6,
+} as const;
+
+export const backgroundImageSchema = z.object({
+    id: z.string().uuid(),
+    /** Average tone of the photo; drives surface and text tokens. */
+    dominant: hexColorSchema,
+    /** Accent candidates read from the photo, most useful first. */
+    swatches: z.array(hexColorSchema).min(1).max(BACKGROUND_IMAGE_LIMITS.maxSwatches),
+    /** The swatch the user picked as accent; null = pick automatically. */
+    accent: hexColorSchema.nullable(),
+    /** 0–100 % of the maximum blur. */
+    blur: z.number().int().min(0).max(100),
+    /** 20–120 % brightness. */
+    brightness: z.number().int().min(20).max(120),
+});
+export type BackgroundImage = z.infer<typeof backgroundImageSchema>;
+
+export const BACKGROUND_IMAGE_DEFAULTS = { blur: 0, brightness: 80 } as const;
+
+/** Form fields sent with the file on `POST /settings/background`. */
+export const backgroundUploadMetaSchema = z.object({
+    dominant: hexColorSchema,
+    /** Comma-separated hex colours, most useful first. */
+    swatches: z
+        .string()
+        .max(BACKGROUND_IMAGE_LIMITS.maxSwatches * 8)
+        .transform((value) => value.split(","))
+        .pipe(z.array(hexColorSchema).min(1).max(BACKGROUND_IMAGE_LIMITS.maxSwatches)),
+});
+
 // ── Canonical settings schema — single source of truth ──
 //
 // Every settings section, field name, and allowed value is defined here once.
@@ -83,9 +127,11 @@ export const userSettingsSchema = z.object({
             "summer-coast", "autumn-hearth", "winter-frost",
             "midnight-garden", "golden-hour", "custom"
         ]).optional(),
-        backgroundMode: z.enum(["theme", "custom"]).optional(),
+        backgroundMode: z.enum(["theme", "custom", "image"]).optional(),
         backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
         backgroundGradient: z.string().nullable().optional(),
+        // Kept while the user switches to a theme, so they can switch back; only the delete route clears it.
+        backgroundImage: backgroundImageSchema.nullable().optional(),
     }).optional(),
     notifications: z.object({
         email: z.boolean(),
@@ -273,7 +319,9 @@ export function deepMerge(target: any, source: any): any {
         for (const key of Object.keys(source)) {
             // Defense in depth: never let merge keys reach the object prototype.
             if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
-            output[key] = isPlainObject(source[key]) && key in target
+            // Merge object over object; otherwise replace. A target of null or a
+            // scalar has no keys to merge into, so the source wins outright.
+            output[key] = isPlainObject(source[key]) && isPlainObject(target[key])
                 ? deepMerge(target[key], source[key])
                 : source[key];
         }
@@ -331,6 +379,7 @@ export const SETTINGS_DEFAULTS = {
         backgroundMode: "theme" as const,
         backgroundColor: null as string | null,
         backgroundGradient: null as string | null,
+        backgroundImage: null as BackgroundImage | null,
     },
     notifications: {
         email: true,
@@ -461,7 +510,7 @@ export const SETTINGS_DEFAULTS = {
         verbosity: "balanced" as const,
         emoji: true,
         nickname: null as string | null,
-        assistantName: "Janny",
+        assistantName: "Emilie",
         customInstructions: null as string | null,
         proactiveSuggestions: true,
         memoryEnabled: false,

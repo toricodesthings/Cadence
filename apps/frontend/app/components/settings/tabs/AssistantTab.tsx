@@ -75,7 +75,7 @@ export function AssistantTab() {
                         value={assistant.assistantName ?? SETTINGS_DEFAULTS.assistant.assistantName}
                         maxLength={40}
                         onChange={(event) => updateAssistant({ assistantName: event.target.value })}
-                        placeholder="Janny"
+                        placeholder="Emilie"
                     />
                 </SettingsRow>
 

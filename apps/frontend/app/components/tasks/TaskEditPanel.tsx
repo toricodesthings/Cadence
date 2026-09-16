@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import {
-    X, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Zap,
+    X, MoreHorizontal, Calendar, Bell, Tag, FolderOpen, Flag,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
     CircleDot, Gauge, CalendarOff, Clock, Plus, Pencil, Maximize2, Minimize2,
-    ExternalLink, Check
+    ExternalLink, Check, ChevronDown, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks, useUpdateTask, useArchiveTask, useCreateSubtask } from "../../hooks/tasks";
@@ -12,7 +12,6 @@ import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
-import { PriorityPicker } from "./PriorityPicker";
 import { TagPickerList } from "./TagPickerSubmenu";
 import { TagBubble } from "../sidebar/TagBubble";
 import { useTags, useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
@@ -20,13 +19,13 @@ import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
-import * as Separator from "../primitives/Separator";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
 import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
+import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "./task-choice-options";
 import {
     getTaskRecurrenceSummary,
     getTaskScheduleSummary,
@@ -50,26 +49,87 @@ function formatDateTime(iso: string) {
     return formatShortDate(iso);
 }
 
-const segmentedControlClass = "flex gap-0.5 rounded-xl bg-white/[0.04] p-0.5";
-const stackedPanelTriggerClass = "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-3 text-left transition-colors hover:bg-white/[0.06] hover:border-twilight-border/50 focus-visible:ring-1 focus-visible:ring-accent-primary/30";
+const CARD = "rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02]";
+const PANEL_TRIGGER = `${CARD} flex min-h-16 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:border-twilight-border/50 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50`;
+const HEADER_ICON_BTN = "btn-icon shrink-0 text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+const VALUE_BTN = "flex min-h-10 max-w-full cursor-pointer items-center rounded-lg px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-const MetaRow = React.memo(function MetaRow({
-    icon: Icon,
-    label,
-    children,
-}: {
+/** Collapsed pane: icon, name, one-line summary, chevron. */
+function PanelTrigger({ icon: Icon, title, summary, onOpen }: {
     icon: React.ElementType;
-    label: string;
-    children: React.ReactNode;
+    title: string;
+    summary: string;
+    onOpen: () => void;
 }) {
     return (
-        <div className="flex items-center gap-3 px-4 py-2" role="group" aria-label={label}>
-            <Icon size={14} className="shrink-0 text-twilight-text-muted/70" aria-hidden="true" />
-            <span className="w-20 shrink-0 text-[13px] text-twilight-text-muted">{label}</span>
-            <div className="min-w-0 flex-1">{children}</div>
+        <button type="button" onClick={onOpen} aria-expanded={false} className={PANEL_TRIGGER}>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-twilight-text-muted">
+                <Icon size={16} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-twilight-text">{title}</span>
+                <span className="block truncate text-xs text-twilight-text-muted">{summary}</span>
+            </span>
+            <ChevronDown size={16} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
+        </button>
+    );
+}
+
+/** Open pane header: name + a plain "Done" that folds back to notes. */
+function PanelHeader({ title, summary, onDone }: { title: string; summary?: string; onDone: () => void }) {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+                <p className="text-sm font-medium text-twilight-text">{title}</p>
+                {summary ? <p className="truncate text-xs text-twilight-text-muted">{summary}</p> : null}
+            </div>
+            <button
+                type="button"
+                onClick={onDone}
+                aria-expanded={true}
+                className="flex min-h-9 shrink-0 cursor-pointer items-center rounded-lg px-3 text-xs font-medium text-accent-primary transition-colors hover:bg-accent-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            >
+                Done
+            </button>
         </div>
     );
-});
+}
+
+/** Titled cluster of related fields inside Details. */
+function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <section className="flex flex-col gap-1 border-t border-twilight-border/25 px-4 py-4" aria-label={title}>
+            <p className={`${FIELD_LABEL} mb-1`}>{title}</p>
+            {children}
+        </section>
+    );
+}
+
+/** Label above a full-width control — for choice rows that need the width. */
+function FieldBlock({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
+    return (
+        <div className="flex flex-col gap-2 py-1.5" role="group" aria-label={label}>
+            <span className="flex items-center gap-2 text-[13px] text-twilight-text-muted">
+                <Icon size={14} className="shrink-0 opacity-80" aria-hidden="true" />
+                {label}
+            </span>
+            {children}
+        </div>
+    );
+}
+
+/** Label left, value right — for single-value rows. */
+function FieldRow({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
+    return (
+        <div className="flex min-h-11 items-center justify-between gap-3" role="group" aria-label={label}>
+            <span className="flex shrink-0 items-center gap-2 text-[13px] text-twilight-text-muted">
+                <Icon size={14} className="shrink-0 opacity-80" aria-hidden="true" />
+                {label}
+            </span>
+            <div className="flex min-w-0 flex-1 justify-end">{children}</div>
+        </div>
+    );
+}
 
 /** Full task editing panel — notes-first design; metadata revealed on demand */
 export function TaskEditPanel({
@@ -123,11 +183,26 @@ export function TaskEditPanel({
         setActivePanel("notes");
     }, [taskId]);
 
+    // Fit the title to its text. Re-fit when the panel width changes (sheets settle after
+    // mount) and once web fonts land — the display face wraps differently from the fallback.
     useEffect(() => {
-        if (!titleTextareaRef.current) return;
-        titleTextareaRef.current.style.height = "0px";
-        titleTextareaRef.current.style.height = `${titleTextareaRef.current.scrollHeight}px`;
-    }, [title, taskId]);
+        const el = titleTextareaRef.current;
+        if (!el) return;
+        let active = true;
+        const fit = () => {
+            if (!active) return;
+            el.style.height = "0px";
+            el.style.height = `${el.scrollHeight}px`;
+        };
+        fit();
+        const observer = new ResizeObserver(fit);
+        observer.observe(el);
+        void document.fonts?.ready.then(fit);
+        return () => {
+            active = false;
+            observer.disconnect();
+        };
+    }, [title, taskId, Boolean(task)]);
 
     // Listen for the custom rename event dispatched by context menus
     useEffect(() => {
@@ -254,7 +329,12 @@ export function TaskEditPanel({
         ? `${completedSubtasks}/${subtasks.length} complete`
         : "No subtasks yet";
     const noteSummary = notes.trim() ? `${charCount.toLocaleString()} chars` : "Tap to write notes";
-    const detailsSummary = "Priority, schedule, tags, state";
+    const stateLabel = task?.state === "WAITING" ? "Waiting" : task?.state === "COMPLETE" ? "Complete" : isPassiveTimetable ? "Anchor" : "Active";
+    const detailsSummary = [
+        stateLabel,
+        scheduleSummary ? scheduleLabel : null,
+        task && task.priority > 0 ? `${PRIORITY_CONFIG[task.priority].label} priority` : null,
+    ].filter(Boolean).join(" · ");
 
     return (
         <motion.div
@@ -283,7 +363,7 @@ export function TaskEditPanel({
                 <ImmersiveDetailLayout
                     mode={detailMode}
                     header={(
-                        <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-(--shell-header-h) shrink-0">
+                        <div className="flex h-(--shell-header-h) shrink-0 items-center gap-1 border-b border-twilight-border pl-5 pr-[calc(1rem+var(--rail-toggle-reserve,0px))]">
                         <TaskCheckbox task={task} compact />
                         <div className="flex-1 min-w-0" />
 
@@ -294,13 +374,9 @@ export function TaskEditPanel({
                                     onDetailModeChange(detailMode === "focus" ? "peek" : "focus");
                                 }}
                                 aria-label={detailMode === "focus" ? "Back to split view" : "Expand editor"}
-                                className={`w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center transition-colors shrink-0 ${
-                                    detailMode === "focus"
-                                        ? "text-accent-primary bg-accent-primary/10"
-                                        : "text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                }`}
+                                className={`${HEADER_ICON_BTN} ${detailMode === "focus" ? "bg-accent-primary/10 text-accent-primary" : ""}`}
                             >
-                                {detailMode === "focus" ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
+                                {detailMode === "focus" ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
                             </button>
                         ) : null}
 
@@ -310,9 +386,9 @@ export function TaskEditPanel({
                                     type="button"
                                     aria-label="Task actions"
                                     aria-haspopup="menu"
-                                    className="w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
+                                    className={HEADER_ICON_BTN}
                                 >
-                                    <MoreHorizontal size={15} aria-hidden="true" />
+                                    <MoreHorizontal size={16} aria-hidden="true" />
                                 </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end">
@@ -336,20 +412,18 @@ export function TaskEditPanel({
                             type="button"
                             onClick={onClose}
                             aria-label="Close task details"
-                            className="w-7 h-7 cursor-pointer rounded-lg flex items-center justify-center text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors shrink-0"
+                            className={HEADER_ICON_BTN}
                         >
-                            <X size={15} aria-hidden="true" />
+                            <X size={16} aria-hidden="true" />
                         </button>
                         </div>
                     )}
                 >
 
-                    <div className="flex h-full min-h-0 flex-col overflow-y-auto scrollbar-thin px-5 pb-5 pt-5 gap-3">
-                        <section className="group relative rounded-[1.35rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-4">
-                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
-                                Title
-                            </p>
-                            <div className="pointer-events-none absolute right-4 top-4 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto scrollbar-thin px-5 pb-6 pt-5">
+                        <section className="group relative shrink-0 rounded-[1.35rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4">
+                            <p className={`${FIELD_LABEL} mb-2`}>Title</p>
+                            <div className="pointer-events-none absolute right-5 top-4 opacity-0 transition-opacity group-hover:opacity-100">
                                 <Pencil size={14} className="text-twilight-text-muted" aria-hidden="true" />
                             </div>
                             <textarea
@@ -360,24 +434,14 @@ export function TaskEditPanel({
                                 onBlur={handleTitleBlur}
                                 onKeyDown={handleTitleKeyDown}
                                 aria-label="Task title"
-                                className="min-h-0 w-full resize-none overflow-hidden bg-transparent pr-8 font-display text-[1.3rem] font-semibold leading-[1.22] tracking-[-0.025em] text-twilight-text outline-none placeholder:text-twilight-text-muted/70"
+                                className="min-h-0 w-full resize-none overflow-hidden bg-transparent pr-8 font-display text-[1.3rem] font-semibold leading-[1.25] tracking-[-0.025em] text-twilight-text outline-none placeholder:text-twilight-text-muted/70"
                                 placeholder="Task title"
                             />
                         </section>
 
                         {/* ── Notes pane ── */}
                         {activePanel !== "notes" ? (
-                            <button
-                                type="button"
-                                onClick={() => setActivePanel("notes")}
-                                className={stackedPanelTriggerClass}
-                            >
-                                <div>
-                                    <p className="text-sm font-medium text-twilight-text">Notes</p>
-                                    <p className="text-xs text-twilight-text-muted">{noteSummary}</p>
-                                </div>
-                                <Pencil size={14} className="text-twilight-text-muted" aria-hidden="true" />
-                            </button>
+                            <PanelTrigger icon={StickyNote} title="Notes" summary={noteSummary} onOpen={() => setActivePanel("notes")} />
                         ) : null}
 
                         <AnimatePresence initial={false}>
@@ -400,18 +464,51 @@ export function TaskEditPanel({
                                         />
                                     </Suspense>
 
+                                    {(convertibleNoteLines.length > 0 || showConvertedCheck) && (
+                                        <button
+                                            type="button"
+                                            disabled={showConvertedCheck}
+                                            onClick={() => {
+                                                if (convertibleNoteLines.length === 0) return;
+                                                const baseOrder = Date.now();
+                                                convertibleNoteLines.forEach((line, index) => {
+                                                    createSubtask.mutate({ title: line, orderIndex: baseOrder + index });
+                                                });
+                                                setShowConvertedCheck(true);
+                                                setTimeout(() => setShowConvertedCheck(false), 2000);
+                                            }}
+                                            className={`flex min-h-10 items-center justify-center gap-2 rounded-[1.15rem] px-4 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                                showConvertedCheck
+                                                    ? "bg-feedback-success/15 text-feedback-success"
+                                                    : "cursor-pointer bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15"
+                                            }`}
+                                        >
+                                            {showConvertedCheck ? (
+                                                <>
+                                                    <Check size={14} aria-hidden="true" />
+                                                    Added to subtasks
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ListChecks size={14} aria-hidden="true" />
+                                                    Turn {convertibleNoteLines.length} bullet{convertibleNoteLines.length === 1 ? "" : "s"} into subtasks
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+
                                     <button
                                         type="button"
                                         onClick={() => openNoteRoom(task.id, task.title)}
-                                        className="flex cursor-pointer items-center justify-center gap-2 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 py-2.5 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
+                                        className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[1.15rem] border border-twilight-border/35 bg-white/[0.025] px-4 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                                     >
-                                        <ExternalLink size={13} aria-hidden="true" />
+                                        <ExternalLink size={14} aria-hidden="true" />
                                         Open writing room
                                     </button>
 
-                                    <div className="flex items-center justify-between shrink-0">
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-[10px] text-twilight-text-muted/90 leading-relaxed" aria-label="Task metadata">
+                                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+                                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                            <p className="text-[11px] leading-relaxed text-twilight-text-muted/90" aria-label="Task metadata">
                                                 Created {formatDateTime(task.createdAt)}
                                                 {task.updatedAt !== task.createdAt && (
                                                     <> · Updated {formatDateTime(task.updatedAt)}</>
@@ -424,49 +521,17 @@ export function TaskEditPanel({
                                             )}
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            {(convertibleNoteLines.length > 0 || showConvertedCheck) && (
-                                                <button
-                                                    type="button"
-                                                    disabled={showConvertedCheck}
-                                                    onClick={() => {
-                                                        if (convertibleNoteLines.length === 0) return;
-                                                        const baseOrder = Date.now();
-                                                        convertibleNoteLines.forEach((line, index) => {
-                                                            createSubtask.mutate({ title: line, orderIndex: baseOrder + index });
-                                                        });
-                                                        setShowConvertedCheck(true);
-                                                        setTimeout(() => setShowConvertedCheck(false), 2000);
-                                                    }}
-                                                    className={`flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                                        showConvertedCheck
-                                                            ? "bg-feedback-success/15 text-feedback-success"
-                                                            : "cursor-pointer text-accent-primary/80 hover:bg-accent-primary/10 hover:text-accent-primary"
-                                                    }`}
-                                                >
-                                                    {showConvertedCheck ? (
-                                                        <>
-                                                            <Check size={10} aria-hidden="true" />
-                                                            Done
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Plus size={10} aria-hidden="true" />
-                                                            {convertibleNoteLines.length} bullet{convertibleNoteLines.length === 1 ? "" : "s"} → subtasks
-                                                        </>
-                                                    )}
-                                                </button>
-                                            )}
                                             <TaskNoteSaveStatus status={saveStatus} />
-                                            <span
-                                                className={`text-[10px] tabular-nums ${charCount > maxChars * 0.9
-                                                    ? "text-accent-primary"
-                                                    : "text-twilight-text-muted/90"
-                                                    }`}
-                                                aria-live="polite"
-                                                aria-label={`${charCount} of ${maxChars} characters used`}
-                                            >
-                                                {charCount.toLocaleString()} / {maxChars.toLocaleString()}
-                                            </span>
+                                            {/* Counter only surfaces near the limit — no running tally to watch. */}
+                                            {charCount > maxChars * 0.8 && (
+                                                <span
+                                                    className="text-[11px] tabular-nums text-accent-primary"
+                                                    aria-live="polite"
+                                                    aria-label={`${charCount} of ${maxChars} characters used`}
+                                                >
+                                                    {charCount.toLocaleString()} / {maxChars.toLocaleString()}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </motion.div>
@@ -475,17 +540,7 @@ export function TaskEditPanel({
 
                         {/* ── Details pane ── */}
                         {activePanel !== "details" ? (
-                            <button
-                                type="button"
-                                onClick={() => setActivePanel("details")}
-                                className={stackedPanelTriggerClass}
-                            >
-                                <div>
-                                    <p className="text-sm font-medium text-twilight-text">Details</p>
-                                    <p className="text-xs text-twilight-text-muted">{detailsSummary}</p>
-                                </div>
-                                <SlidersHorizontal size={14} className="text-twilight-text-muted" aria-hidden="true" />
-                            </button>
+                            <PanelTrigger icon={SlidersHorizontal} title="Details" summary={detailsSummary} onOpen={() => setActivePanel("details")} />
                         ) : null}
 
                         <AnimatePresence initial={false}>
@@ -499,277 +554,263 @@ export function TaskEditPanel({
                                         height: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] },
                                         opacity: { duration: 0.2 },
                                     }}
-                                    className="flex flex-col overflow-hidden rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02]"
+                                    className={`${CARD} flex shrink-0 flex-col overflow-hidden`}
                                 >
-                                    <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                                        <p className="text-sm font-medium text-twilight-text">Details</p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setActivePanel("notes")}
-                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-accent-primary transition-colors hover:text-accent-primary/80"
-                                        >
-                                            Back to notes
-                                        </button>
+                                    <div className="px-4 pb-1 pt-3">
+                                        <PanelHeader title="Details" onDone={() => setActivePanel("notes")} />
                                     </div>
-                                    <div className="flex flex-col divide-y divide-twilight-border/25 overflow-y-auto scrollbar-thin">
-                                    {/* State */}
-                                    <MetaRow icon={CircleDot} label="State">
-                                        <div className={segmentedControlClass}>
-                                            <button
-                                                onClick={() => handleStateChange("ACTIVE")}
-                                                className={`flex-1 cursor-pointer px-2 py-1.5 text-center rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "ACTIVE" ? "bg-accent-primary/15 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
-                                            >
-                                                Active
-                                            </button>
-                                            <button
-                                                onClick={() => handleStateChange("WAITING")}
-                                                className={`flex-1 cursor-pointer px-2 py-1.5 text-center rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "WAITING" ? "bg-moonlit/15 text-moonlit shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
-                                            >
-                                                Waiting
-                                            </button>
-                                            {!isPassiveTimetable ? (
-                                                <button
-                                                    onClick={() => handleStateChange("COMPLETE")}
-                                                    className={`flex-1 cursor-pointer px-2 py-1.5 text-center rounded-[10px] text-[12px] font-medium transition-colors ${task.state === "COMPLETE" ? "bg-feedback-success/15 text-feedback-success shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
-                                                >
-                                                    Complete
-                                                </button>
-                                            ) : (
-                                                <span className="flex-1 px-2 py-1.5 text-center rounded-[10px] text-[12px] font-medium text-moonlit">
-                                                    Anchor
-                                                </span>
-                                            )}
-                                        </div>
-                                    </MetaRow>
 
-                                    {canToggleInteractionMode && (
-                                        <MetaRow icon={Repeat} label="Mode">
-                                            <div className={segmentedControlClass}>
+                                    <DetailGroup title="Status">
+                                        <FieldBlock icon={CircleDot} label="State">
+                                            <div className="grid grid-cols-3 gap-1.5">
                                                 <button
-                                                    onClick={() => updateTask.mutate({
-                                                        id: task.id,
-                                                        interactionMode: "timetable",
-                                                        ...(task.state === "COMPLETE" ? { state: "ACTIVE" } : {}),
-                                                    })}
-                                                    className={`flex-1 cursor-pointer px-2 py-1.5 text-center truncate rounded-[10px] text-[12px] font-medium transition-colors ${
-                                                        task.interactionMode === "timetable"
-                                                            ? "bg-moonlit/15 text-moonlit shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                                                            : "text-twilight-text-muted hover:text-twilight-text"
-                                                    }`}
+                                                    type="button"
+                                                    aria-pressed={task.state === "ACTIVE"}
+                                                    onClick={() => handleStateChange("ACTIVE")}
+                                                    className={`${CHIP_BASE} ${task.state === "ACTIVE" ? CHIP_ACTIVE : CHIP_IDLE}`}
                                                 >
-                                                    Timetable anchor
+                                                    Active
                                                 </button>
                                                 <button
-                                                    onClick={() => updateTask.mutate({ id: task.id, interactionMode: "task" })}
-                                                    className={`flex-1 cursor-pointer px-2 py-1.5 text-center truncate rounded-[10px] text-[12px] font-medium transition-colors ${
-                                                        task.interactionMode === "task"
-                                                            ? "bg-accent-primary/15 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                                                            : "text-twilight-text-muted hover:text-twilight-text"
-                                                    }`}
+                                                    type="button"
+                                                    aria-pressed={task.state === "WAITING"}
+                                                    onClick={() => handleStateChange("WAITING")}
+                                                    className={`${CHIP_BASE} ${task.state === "WAITING" ? "border-moonlit/30 bg-moonlit/15 text-moonlit" : CHIP_IDLE}`}
                                                 >
-                                                    Needs check-off
+                                                    Waiting
                                                 </button>
-                                            </div>
-                                        </MetaRow>
-                                    )}
-
-                                    <AnimatePresence>
-                                        {task.state === "WAITING" && (
-                                            <motion.div
-                                                initial={{ opacity: 0, scaleY: 0.95 }}
-                                                animate={{ opacity: 1, scaleY: 1 }}
-                                                exit={{ opacity: 0, scaleY: 0.95 }}
-                                                style={{ transformOrigin: "top" }}
-                                                className="bg-white/[0.02]"
-                                            >
-                                                <div className="flex flex-col gap-2 pl-[42px] pr-5 py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <Clock size={13} className="text-twilight-text-muted opacity-60 shrink-0" />
-                                                        <input
-                                                            type="text"
-                                                            value={waitingOn}
-                                                            onChange={handleWaitingOnChange}
-                                                            placeholder="Who or what are you waiting for?"
-                                                            className="flex-1 min-w-0 bg-transparent text-[13px] text-twilight-text-soft outline-none placeholder:text-twilight-text-muted/60"
-                                                        />
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Bell size={13} className="text-twilight-text-muted opacity-60 shrink-0" />
-                                                        <DeadlinePickerPopover
-                                                            dueDate={null}
-                                                            scheduledStart={task.waitingReminder ?? null}
-                                                            recurrenceRule={null}
-                                                            onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart ?? null })}
-                                                        >
-                                                            <Button variant="ghost" size="sm" asChild className="text-[13px] text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.06] p-0">
-                                                                <span className="cursor-pointer rounded-lg px-2 py-1">
-                                                                    {task.waitingReminder ? `Check again: ${formatDateTime(task.waitingReminder)}` : "Set reminder..."}
-                                                                </span>
-                                                            </Button>
-                                                        </DeadlinePickerPopover>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    {/* Not before */}
-                                    <MetaRow icon={CalendarOff} label="Not before">
-                                        <DeadlinePickerPopover
-                                            dueDate={null}
-                                            scheduledStart={task.notBefore ?? null}
-                                            recurrenceRule={null}
-                                            onChange={(updates) => {
-                                                if (!task) return;
-                                                updateTask.mutate({ id: task.id, notBefore: updates.scheduledStart ?? null });
-                                            }}
-                                        >
-                                            <button type="button" className="cursor-pointer rounded-lg px-2 py-1 text-[13px] text-twilight-text-soft transition-colors hover:text-twilight-text hover:bg-white/[0.06]">
-                                                {task.notBefore ? formatDateTime(task.notBefore) : "Not set"}
-                                            </button>
-                                        </DeadlinePickerPopover>
-                                    </MetaRow>
-
-                                    {/* Effort */}
-                                    <MetaRow icon={Gauge} label="Effort">
-                                        <div className={`${segmentedControlClass} w-full`}>
-                                            <button
-                                                onClick={() => handleEffortChange(1)}
-                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 1 ? "bg-white/[0.08] text-twilight-text shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
-                                            >
-                                                Low
-                                            </button>
-                                            <button
-                                                onClick={() => handleEffortChange(2)}
-                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 2 ? "bg-accent-primary/15 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
-                                            >
-                                                Medium
-                                            </button>
-                                            <button
-                                                onClick={() => handleEffortChange(3)}
-                                                className={`flex-1 cursor-pointer rounded-[10px] px-3 py-1.5 text-center text-[12px] font-medium transition-colors ${task.effort === 3 ? "bg-accent-primary/30 text-accent-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)]" : "text-twilight-text-muted hover:text-twilight-text"}`}
-                                            >
-                                                High
-                                            </button>
-                                        </div>
-                                    </MetaRow>
-
-                                    {/* Schedule */}
-                                    <MetaRow icon={scheduleSummary?.isDuration ? CalendarRange : Calendar} label={scheduleFieldLabel}>
-                                        <DeadlinePickerPopover
-                                            dueDate={task.dueDate}
-                                            scheduledStart={task.scheduledStart}
-                                            scheduledEnd={task.scheduledEnd}
-                                            recurrenceRule={task.recurrenceRule}
-                                            onChange={handleDeadlineChange}
-                                        >
-                                            <button type="button" className="cursor-pointer rounded-lg px-2 py-1 text-[13px] text-twilight-text-soft transition-colors hover:text-twilight-text hover:bg-white/[0.06]">
-                                                {scheduleLabel}
-                                            </button>
-                                        </DeadlinePickerPopover>
-                                    </MetaRow>
-
-                                    {/* Reminder */}
-                                    <MetaRow icon={Bell} label="Reminder">
-                                        <span className="text-[13px] text-twilight-text-muted/90">
-                                            {task.reminderAt
-                                                ? formatShortDateTime(task.reminderAt)
-                                                : "None"}
-                                        </span>
-                                    </MetaRow>
-
-                                    {/* Priority */}
-                                    <MetaRow icon={Zap} label="Priority">
-                                        <PriorityPicker
-                                            currentPriority={task.priority}
-                                            onSelect={handlePriorityChange}
-                                            compact
-                                        />
-                                    </MetaRow>
-
-                                    {/* Project */}
-                                    <MetaRow icon={FolderOpen} label="Project">
-                                        <span className="text-[13px] text-twilight-text-soft">
-                                            {project?.name ?? "No project"}
-                                        </span>
-                                    </MetaRow>
-
-                                    {/* Tags */}
-                                    <MetaRow icon={Tag} label="Tags">
-                                        <div className="flex flex-wrap items-center gap-1.5 flex-1 justify-end">
-                                            {task.tagIds?.map(tagId => {
-                                                const tag = tags?.find(t => t.id === tagId);
-                                                if (!tag) return null;
-                                                return (
-                                                    <TagBubble
-                                                        key={tag.id}
-                                                        tag={tag}
-                                                        isActive={false}
-                                                        onClick={() => { }}
-                                                    />
-                                                );
-                                            })}
-                                            <DropdownMenu.Root>
-                                                <DropdownMenu.Trigger asChild>
-                                                    <Button variant="ghost" size="sm" className="cursor-pointer rounded-full px-2.5 py-1 text-[12px] border border-twilight-border border-dashed">
-                                                        <Plus size={12} />
-                                                        Add tag
-                                                    </Button>
-                                                </DropdownMenu.Trigger>
-                                                <DropdownMenu.Content align="end" className="w-56 p-2">
-                                                    <TagPickerList
-                                                        activeTagIds={task.tagIds ?? []}
-                                                        onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                                                        onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                                                        MenuComponents={DropdownMenu}
-                                                    />
-                                                </DropdownMenu.Content>
-                                            </DropdownMenu.Root>
-                                        </div>
-                                    </MetaRow>
-
-                                    {/* Pinned */}
-                                    <MetaRow icon={Pin} label="Pinned">
-                                        <Switch
-                                            checked={task.isPinned}
-                                            onCheckedChange={() => handlePinToggle()}
-                                            aria-label={task.isPinned ? "Unpin task" : "Pin task"}
-                                        />
-                                    </MetaRow>
-
-                                    {/* Recurrence */}
-                                    {task.recurrenceRule && recurrenceSummary && (
-                                        <MetaRow icon={Repeat} label="Recurrence">
-                                            <div className="flex flex-col items-end gap-1">
-                                                <span className="rounded-xl bg-moonlit/10 px-2.5 py-1 text-xs text-moonlit">
-                                                    {recurrenceSummary.cadenceLabel}
-                                                </span>
-                                                {recurrenceSummary.detailLabel && (
-                                                    <span className="text-xs text-twilight-text-muted">
-                                                        {recurrenceSummary.detailLabel}
+                                                {!isPassiveTimetable ? (
+                                                    <button
+                                                        type="button"
+                                                        aria-pressed={task.state === "COMPLETE"}
+                                                        onClick={() => handleStateChange("COMPLETE")}
+                                                        className={`${CHIP_BASE} ${task.state === "COMPLETE" ? "border-feedback-success/30 bg-feedback-success/15 text-feedback-success" : CHIP_IDLE}`}
+                                                    >
+                                                        Complete
+                                                    </button>
+                                                ) : (
+                                                    <span className={`${CHIP_BASE} cursor-default border-moonlit/20 text-moonlit`}>
+                                                        Anchor
                                                     </span>
                                                 )}
                                             </div>
-                                        </MetaRow>
-                                    )}
-                                </div>
+                                        </FieldBlock>
+
+                                        <AnimatePresence>
+                                            {task.state === "WAITING" && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: "auto" }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <div className="mt-1 flex flex-col gap-1 rounded-xl bg-white/[0.03] px-3 py-2">
+                                                        <div data-focus-container className="flex min-h-10 items-center gap-2">
+                                                            <Clock size={14} className="shrink-0 text-twilight-text-muted opacity-70" aria-hidden="true" />
+                                                            <input
+                                                                type="text"
+                                                                value={waitingOn}
+                                                                onChange={handleWaitingOnChange}
+                                                                aria-label="Waiting on"
+                                                                placeholder="Waiting on who or what?"
+                                                                className="min-w-0 flex-1 bg-transparent text-[13px] text-twilight-text-soft outline-none placeholder:text-twilight-text-muted/60"
+                                                            />
+                                                        </div>
+                                                        <div className="flex min-h-10 items-center gap-2">
+                                                            <Bell size={14} className="shrink-0 text-twilight-text-muted opacity-70" aria-hidden="true" />
+                                                            <DeadlinePickerPopover
+                                                                dueDate={null}
+                                                                scheduledStart={task.waitingReminder ?? null}
+                                                                recurrenceRule={null}
+                                                                onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart ?? null })}
+                                                            >
+                                                                <button type="button" className={`${VALUE_BTN} -ml-2.5`}>
+                                                                    {task.waitingReminder ? `Check again ${formatDateTime(task.waitingReminder)}` : "Set a check-in reminder"}
+                                                                </button>
+                                                            </DeadlinePickerPopover>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+
+                                        {canToggleInteractionMode && (
+                                            <FieldBlock icon={Repeat} label="Each time">
+                                                <div className="grid grid-cols-2 gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        aria-pressed={task.interactionMode === "timetable"}
+                                                        onClick={() => updateTask.mutate({
+                                                            id: task.id,
+                                                            interactionMode: "timetable",
+                                                            ...(task.state === "COMPLETE" ? { state: "ACTIVE" } : {}),
+                                                        })}
+                                                        className={`${CHIP_BASE} ${task.interactionMode === "timetable" ? "border-moonlit/30 bg-moonlit/15 text-moonlit" : CHIP_IDLE}`}
+                                                    >
+                                                        Fixed block
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        aria-pressed={task.interactionMode === "task"}
+                                                        onClick={() => updateTask.mutate({ id: task.id, interactionMode: "task" })}
+                                                        className={`${CHIP_BASE} ${task.interactionMode === "task" ? CHIP_ACTIVE : CHIP_IDLE}`}
+                                                    >
+                                                        Check off
+                                                    </button>
+                                                </div>
+                                            </FieldBlock>
+                                        )}
+                                    </DetailGroup>
+
+                                    <DetailGroup title="When">
+                                        <FieldRow icon={scheduleSummary?.isDuration ? CalendarRange : Calendar} label={scheduleFieldLabel}>
+                                            <DeadlinePickerPopover
+                                                dueDate={task.dueDate}
+                                                scheduledStart={task.scheduledStart}
+                                                scheduledEnd={task.scheduledEnd}
+                                                recurrenceRule={task.recurrenceRule}
+                                                onChange={handleDeadlineChange}
+                                            >
+                                                <button type="button" className={VALUE_BTN}>
+                                                    <span className="truncate">{scheduleLabel}</span>
+                                                </button>
+                                            </DeadlinePickerPopover>
+                                        </FieldRow>
+
+                                        {task.recurrenceRule && recurrenceSummary?.detailLabel && (
+                                            <FieldRow icon={Repeat} label="Repeats">
+                                                <span className="truncate px-2.5 text-right text-[13px] text-moonlit">
+                                                    {recurrenceSummary.detailLabel}
+                                                </span>
+                                            </FieldRow>
+                                        )}
+
+                                        <FieldRow icon={CalendarOff} label="Not before">
+                                            <DeadlinePickerPopover
+                                                dueDate={null}
+                                                scheduledStart={task.notBefore ?? null}
+                                                recurrenceRule={null}
+                                                onChange={(updates) => {
+                                                    if (!task) return;
+                                                    updateTask.mutate({ id: task.id, notBefore: updates.scheduledStart ?? null });
+                                                }}
+                                            >
+                                                <button type="button" className={`${VALUE_BTN}${task.notBefore ? "" : "text-twilight-text-muted"}`}>
+                                                    {task.notBefore ? formatDateTime(task.notBefore) : "Anytime"}
+                                                </button>
+                                            </DeadlinePickerPopover>
+                                        </FieldRow>
+
+                                        {task.reminderAt && (
+                                            <FieldRow icon={Bell} label="Reminder">
+                                                <span className="px-2.5 text-[13px] text-twilight-text-soft">
+                                                    {formatShortDateTime(task.reminderAt)}
+                                                </span>
+                                            </FieldRow>
+                                        )}
+                                    </DetailGroup>
+
+                                    <DetailGroup title="Weight">
+                                        <FieldBlock icon={Flag} label="Priority">
+                                            <div className="grid grid-cols-5 gap-1.5">
+                                                {PRIORITY_OPTIONS.map((item) => {
+                                                    const Icon = item.icon;
+                                                    const active = task.priority === item.value;
+                                                    return (
+                                                        <button
+                                                            key={item.value}
+                                                            type="button"
+                                                            aria-label={`Priority: ${item.label}`}
+                                                            aria-pressed={active}
+                                                            onClick={() => handlePriorityChange(item.value)}
+                                                            className={`${CHIP_BASE} min-h-12 flex-col gap-0.5 px-1 ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+                                                        >
+                                                            <Icon size={14} aria-hidden="true" />
+                                                            <span className="text-[10px] leading-none">{item.label}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </FieldBlock>
+
+                                        <FieldBlock icon={Gauge} label="Effort">
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                {EFFORT_OPTIONS.map((item) => {
+                                                    const Icon = item.icon;
+                                                    const active = task.effort === item.value;
+                                                    return (
+                                                        <button
+                                                            key={item.value}
+                                                            type="button"
+                                                            aria-label={`Effort: ${item.label}`}
+                                                            aria-pressed={active}
+                                                            onClick={() => handleEffortChange(item.value)}
+                                                            className={`${CHIP_BASE} ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+                                                        >
+                                                            <Icon size={14} aria-hidden="true" />
+                                                            {item.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </FieldBlock>
+                                    </DetailGroup>
+
+                                    <DetailGroup title="Organize">
+                                        <FieldRow icon={FolderOpen} label="Project">
+                                            <span className={`truncate px-2.5 text-[13px] ${project ? "text-twilight-text-soft" : "text-twilight-text-muted"}`}>
+                                                {project?.name ?? "None"}
+                                            </span>
+                                        </FieldRow>
+
+                                        <FieldBlock icon={Tag} label="Tags">
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {task.tagIds?.map(tagId => {
+                                                    const tag = tags?.find(t => t.id === tagId);
+                                                    if (!tag) return null;
+                                                    return (
+                                                        <TagBubble
+                                                            key={tag.id}
+                                                            tag={tag}
+                                                            isActive={false}
+                                                            onClick={() => { }}
+                                                        />
+                                                    );
+                                                })}
+                                                <DropdownMenu.Root>
+                                                    <DropdownMenu.Trigger asChild>
+                                                        <Button variant="ghost" size="sm" className="min-h-9 cursor-pointer rounded-full border border-dashed border-twilight-border px-3 text-[12px]">
+                                                            <Plus size={12} aria-hidden="true" />
+                                                            Add tag
+                                                        </Button>
+                                                    </DropdownMenu.Trigger>
+                                                    <DropdownMenu.Content align="start" className="w-56 p-2">
+                                                        <TagPickerList
+                                                            activeTagIds={task.tagIds ?? []}
+                                                            onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                                                            onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                                                            MenuComponents={DropdownMenu}
+                                                        />
+                                                    </DropdownMenu.Content>
+                                                </DropdownMenu.Root>
+                                            </div>
+                                        </FieldBlock>
+
+                                        <FieldRow icon={Pin} label="Pin to top">
+                                            <Switch
+                                                checked={task.isPinned}
+                                                onCheckedChange={() => handlePinToggle()}
+                                                aria-label={task.isPinned ? "Unpin task" : "Pin task"}
+                                            />
+                                        </FieldRow>
+                                    </DetailGroup>
                                 </motion.div>
                             ) : null}
                         </AnimatePresence>
 
                         {/* ── Subtasks pane ── */}
                         {activePanel !== "subtasks" ? (
-                            <button
-                                type="button"
-                                onClick={() => setActivePanel("subtasks")}
-                                className={stackedPanelTriggerClass}
-                            >
-                                <div>
-                                    <p className="text-sm font-medium text-twilight-text">Subtasks</p>
-                                    <p className="text-xs text-twilight-text-muted">{subtaskSummary}</p>
-                                </div>
-                                <Plus size={14} className="text-twilight-text-muted" aria-hidden="true" />
-                            </button>
+                            <PanelTrigger icon={ListChecks} title="Subtasks" summary={subtaskSummary} onOpen={() => setActivePanel("subtasks")} />
                         ) : null}
 
                         <AnimatePresence initial={false}>
@@ -780,20 +821,10 @@ export function TaskEditPanel({
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -4 }}
                                     transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-                                    className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02] px-4 py-3"
+                                    className={`${CARD} flex min-h-64 flex-1 flex-col overflow-hidden px-4 py-3`}
                                 >
-                                    <div className="mb-2 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-twilight-text">Subtasks</p>
-                                            <p className="text-xs text-twilight-text-muted">{subtaskSummary}</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setActivePanel("notes")}
-                                            className="cursor-pointer text-[10px] uppercase tracking-[0.16em] text-accent-primary transition-colors hover:text-accent-primary/80"
-                                        >
-                                            Back to notes
-                                        </button>
+                                    <div className="mb-2">
+                                        <PanelHeader title="Subtasks" summary={subtaskSummary} onDone={() => setActivePanel("notes")} />
                                     </div>
                                     <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
                                         <SubtaskList taskId={task.id} />

@@ -12,6 +12,7 @@ import { ResponsiveOverlayPanel } from "../shared/ResponsiveOverlayPanel";
 import { RailViewToggle } from "./RailViewToggle";
 import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
+import type { CSSProperties } from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -35,7 +36,6 @@ import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
 import { useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
 import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
-import { BackgroundLayer } from "../settings/appearance/BackgroundLayer";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { setDiagnosticsEnabled } from "../../lib/api/track-event";
 import type { Season } from "../../lib/themes/season";
@@ -644,8 +644,7 @@ export function MainLayout({
 
     return (
         <Tooltip.Provider delayDuration={300}>
-            <div className="h-dvh bg-twilight overflow-hidden relative">
-                <BackgroundLayer />
+            <div className="h-dvh overflow-hidden relative">
                 <div className="flex h-full relative">
                     {customSidebar !== undefined ? customSidebar : (
                         <Sidebar
@@ -664,7 +663,7 @@ export function MainLayout({
                     {/* Off phone the header is a single row, so it takes the shared
                         height and its bottom border lines up with side-panel headers. */}
                     {!hideHeader && (
-                        <header className={`layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl ${shell.isPhone ? "" : "h-(--shell-header-h)"}`}>
+                        <header className={`photo-shell-surface layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl ${shell.isPhone ? "" : "h-(--shell-header-h)"}`}>
                             <div
                                 className={shell.isPhone ? "px-4 pb-3 pt-2.5" : "flex h-full items-center px-6 lg:px-8"}
                                 style={shell.isPhone ? { paddingTop: "max(0.625rem, env(safe-area-inset-top))" } : undefined}
@@ -765,7 +764,12 @@ export function MainLayout({
                         assistant, never both. A segmented toggle (rendered only when
                         both are available) flips between them without closing either. ── */}
                     {shell.isWide ? (
-                        <div className="relative flex h-full self-stretch shrink-0 items-stretch overflow-hidden">
+                        <div
+                            className="relative flex h-full self-stretch shrink-0 items-stretch overflow-hidden"
+                            // Panel headers pad their right edge by this so the floating
+                            // view toggle never covers their own actions.
+                            style={{ "--rail-toggle-reserve": railToggleVisible ? "5.5rem" : "0px" } as CSSProperties}
+                        >
                             {railToggleVisible ? (
                                 <RailViewToggle
                                     view={railView}

@@ -69,7 +69,7 @@ Cadence is actively developed. Here is where things stand:
 | Notification center | ✅ Live |
 | Universal search + quick add | ✅ Live |
 | Settings (appearance, notifications, AI) | ✅ Live |
-| Mobile app (Expo) | 🔄 In Progress — behind the web app |
+| Mobile app | 🔄 In Progress — behind the web app |
 | AI natural language input parsing | 🔄 In Progress |
 | AI inbox processing (background queue) | 🧭 Planned |
 | Morning readout (overnight schedule generation) | 🧭 Planned |
@@ -124,9 +124,10 @@ pnpm dev
 pnpm dev:frontend
 pnpm dev:backend
 pnpm dev:desktop
+pnpm dev:landing
 ```
 
-The local frontend runs at `http://localhost:8788` and the backend at `http://localhost:8787`.
+The local frontend runs at `http://localhost:8788`, the backend at `http://localhost:8787`, and the landing site at `http://localhost:8791`.
 
 ---
 
@@ -155,6 +156,7 @@ pnpm db:studio   # Open Drizzle Studio
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 19, React Router v7, Tailwind CSS v4, Cloudflare Workers |
+| Landing site | React Router v8 (server-rendered), Tailwind CSS v4, Cloudflare Workers |
 | Backend | Hono v4, Drizzle ORM, Neon Postgres, Cloudflare Workers |
 | Auth | Neon Auth (JWT, OAuth) |
 | Desktop & Mobile | Tauri v2 (desktop; Android in progress) |

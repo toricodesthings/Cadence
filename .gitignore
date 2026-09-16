@@ -36,3 +36,5 @@ npm-debug.log*
 *Zone.Identifier
 
 /graphify-out/
+
+/.playwright-mcp/

@@ -12,6 +12,7 @@
     "dev:backend": "pnpm --filter @cadence/backend dev",
     "dev:desktop": "pnpm --filter @cadence/desktop dev",
     "dev:desktop:full": "turbo run dev --parallel --filter=@cadence/backend --filter=@cadence/desktop",
+    "dev:landing": "pnpm --filter @cadence/landing dev",
     "build": "turbo run build",
     "build:desktop": "pnpm --filter @cadence/desktop build",
     "typecheck": "turbo run typecheck",
@@ -24,6 +25,7 @@
     "deploy:frontend": "pnpm --filter @cadence/frontend deploy",
     "deploy:frontend:dev": "pnpm --filter @cadence/frontend deploy:dev",
     "deploy:backend": "pnpm --filter @cadence/backend deploy",
+    "deploy:landing": "pnpm --filter @cadence/landing deploy",
     "release": "release-it"
   },
   "devDependencies": {

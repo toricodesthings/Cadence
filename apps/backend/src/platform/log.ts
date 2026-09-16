@@ -30,7 +30,7 @@
 export type LogLevel = "error" | "warn" | "info";
 
 /** Subsystem that emitted the event — a low-cardinality dimension to filter on. */
-export type LogSource = "http" | "auth" | "cron" | "proxy" | "ai";
+export type LogSource = "http" | "auth" | "cron" | "proxy" | "ai" | "storage";
 
 export type LogFields = Record<string, unknown>;
 

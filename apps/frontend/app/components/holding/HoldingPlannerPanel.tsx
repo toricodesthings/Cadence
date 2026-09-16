@@ -19,7 +19,7 @@ export function HoldingPlannerPanel() {
     );
 
     return (
-        <div className="aurora-accent flex h-full flex-col bg-twilight-deep/95 backdrop-blur-xl">
+        <div className="photo-shell-surface aurora-accent flex h-full flex-col bg-twilight-deep/95 backdrop-blur-xl">
             {/* Header — mirrors the Cadence panel header so the two rail panes read
                 as siblings (same height, font-display title, lantern-glow icon). */}
             <header className="flex h-(--shell-header-h) shrink-0 items-center gap-3 border-b border-twilight-border px-4">

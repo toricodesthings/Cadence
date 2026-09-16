@@ -31,6 +31,12 @@ export const queryKeys = {
         all: ["weather"] as const,
         current: (latitude: number | null, longitude: number | null) => ["weather", latitude, longitude] as const,
     },
+    appearance: {
+        all: ["appearance"] as const,
+        /** The user's background photo, cached as a blob (never persisted to IndexedDB by the query cache). */
+        backgroundImage: (userId: string | null, imageId: string | null) =>
+            ["appearance", "background", userId, imageId] as const,
+    },
     ai: {
         conversations: ["ai", "conversations"] as const,
         conversation: (id: string) => ["ai", "conversation", id] as const,

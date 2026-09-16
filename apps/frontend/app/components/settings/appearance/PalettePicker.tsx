@@ -66,7 +66,8 @@ function PaletteCard({ palette, selected, onSelect, isDaylight }: PaletteCardPro
 }
 
 interface PalettePickerProps {
-    value: PaletteId;
+    /** null while something else (a photo background) owns the accent. */
+    value: PaletteId | null;
     onChange: (palette: PaletteId) => void;
     theme: string;
 }

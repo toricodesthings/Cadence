@@ -10,6 +10,7 @@ import { createIDBPersister } from "./lib/api/persister";
 import { type ReactNode, Component, useEffect, useMemo, useRef, useState } from "react";
 import { ApiErrorResponse } from "./types/api";
 import { AuthStateProvider, useAuthState } from "./hooks/auth/use-auth-state";
+import { BackgroundLayer } from "./components/settings/appearance/BackgroundLayer";
 import { Toaster } from "./components/feedback/Toaster";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { initWal } from "./lib/api/offline-wal";
@@ -356,7 +357,8 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                             }
                         }}
                     >
-                        {children}
+                        {authReady && session?.user.id && <BackgroundLayer key={session.user.id} />}
+                        <div className="relative">{children}</div>
                         <Toaster />
                         <OfflineBanner />
                     </AuthUIProvider>

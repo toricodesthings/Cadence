@@ -11,6 +11,7 @@ import { BackgroundSettings } from "../appearance/BackgroundSettings";
 import { SegmentedControl } from "../appearance/SegmentedControl";
 import { THEME_PRESETS, type ThemePresetId } from "../../../lib/themes/theme-presets";
 import type { PaletteId } from "../../../lib/themes/accent-palettes";
+import type { BackgroundImage } from "@cadence/contracts/settings";
 
 export function AppearanceTab() {
     const { data: settings } = useSettings();
@@ -27,7 +28,17 @@ export function AppearanceTab() {
         backgroundMode: "theme" as const,
         backgroundColor: null as string | null,
         backgroundGradient: null as string | null,
+        backgroundImage: null as BackgroundImage | null,
     };
+
+    // A photo owns the accent and the light/dark of the whole interface, so
+    // choosing a theme or a preset means leaving it — the photo stays
+    // stored, and picking it again in Background brings it back.
+    const photoActive = appearance.backgroundMode === "image";
+    const leavePhoto = photoActive ? { backgroundMode: "theme" as const } : {};
+    const photoNote = photoActive
+        ? "Your photo is setting this right now. Choosing here returns to a theme background."
+        : undefined;
 
     const handleThemePreset = useCallback(
         (presetId: ThemePresetId) => {
@@ -39,8 +50,17 @@ export function AppearanceTab() {
                     theme: preset.baseMode,
                     palette: preset.palette,
                     backgroundMode: "theme",
+                    backgroundColor: null,
+                    backgroundGradient: null,
                 },
             });
+        },
+        [updateSettings],
+    );
+
+    const handleImageAdjust = useCallback(
+        (adjustments: Partial<Pick<BackgroundImage, "accent" | "blur" | "brightness">>) => {
+            updateSettings.mutate({ appearance: { backgroundImage: adjustments } });
         },
         [updateSettings],
     );
@@ -77,69 +97,88 @@ export function AppearanceTab() {
 
             {/* ── Theme Mode ── */}
             <SettingsSection title="Theme">
+                {photoNote && (
+                    <p className="text-[12px] leading-relaxed text-twilight-text-muted">{photoNote}</p>
+                )}
                 <div className="grid grid-cols-3 gap-3">
                     {(["twilight", "daylight", "system"] as const).map((mode) => (
                         <ThemeModeCard
                             key={mode}
                             mode={mode}
-                            selected={appearance.theme === mode}
+                            selected={!photoActive && appearance.theme === mode}
                             onSelect={() =>
-                                updateSettings.mutate({ appearance: { theme: mode } })
+                                updateSettings.mutate({ appearance: { theme: mode, ...leavePhoto } })
                             }
                         />
                     ))}
                 </div>
             </SettingsSection>
 
-            {/* ── Color Palette ── */}
-            <SettingsSection title="Accent Palette">
-                <PalettePicker
-                    value={(appearance.palette ?? "lantern") as PaletteId}
-                    onChange={(palette) =>
-                        updateSettings.mutate({ appearance: { palette } })
-                    }
-                    theme={appearance.theme}
-                />
-                <SettingsRow
-                    title="Accent intensity"
-                    description="Controls how brightly accent colors glow across the interface."
-                >
-                    <SegmentedControl
-                        value={appearance.accentIntensity}
-                        onChange={(val) =>
-                            updateSettings.mutate({ appearance: { accentIntensity: val as any } })
-                        }
-                        options={[
-                            { value: "soft", label: "Soft" },
-                            { value: "balanced", label: "Balanced" },
-                            { value: "vivid", label: "Vivid" },
-                        ]}
-                    />
-                </SettingsRow>
-            </SettingsSection>
-
-            {/* ── Curated Themes ── */}
             <SettingsSection title="Curated Themes">
+                <p className="text-sm text-twilight-text-muted">
+                    A starting point for your background and accents. Choose a preset to use Cadence’s look.
+                </p>
                 <ThemeCarousel
-                    value={(appearance.themePreset ?? "default") as ThemePresetId}
+                    value={photoActive ? null : ((appearance.themePreset ?? "default") as ThemePresetId)}
                     onChange={handleThemePreset}
                 />
+            </SettingsSection>
+
+            <SettingsSection title="Accent Palette">
+                {photoActive && (
+                    <p id="photo-accent-note" className="text-sm text-twilight-text-muted">
+                        Photo selected. Choose an accent below your photo in Background.
+                    </p>
+                )}
+                <fieldset
+                    disabled={photoActive}
+                    aria-label="Cadence accent palettes"
+                    aria-describedby={photoActive ? "photo-accent-note" : undefined}
+                    className="min-w-0 disabled:opacity-40 disabled:grayscale"
+                >
+                    <PalettePicker
+                        value={photoActive ? null : ((appearance.palette ?? "lantern") as PaletteId)}
+                        onChange={(palette) => updateSettings.mutate({ appearance: { palette } })}
+                        theme={appearance.theme}
+                    />
+                </fieldset>
             </SettingsSection>
 
             {/* ── Background ── */}
             <SettingsSection title="Background">
                 <BackgroundSettings
                     backgroundMode={
-                        (appearance.backgroundMode ?? "theme") as "theme" | "custom"
+                        (appearance.backgroundMode ?? "theme") as "theme" | "custom" | "image"
                     }
+                    themePreset={(appearance.themePreset ?? "default") as ThemePresetId}
                     backgroundColor={appearance.backgroundColor ?? null}
                     backgroundGradient={appearance.backgroundGradient ?? null}
+                    backgroundImage={appearance.backgroundImage ?? null}
                     onModeChange={(mode) =>
-                        updateSettings.mutate({ appearance: { backgroundMode: mode } })
+                        updateSettings.mutate({ appearance: {
+                            backgroundMode: mode,
+                            ...(mode === "theme" ? { backgroundColor: null, backgroundGradient: null } : {}),
+                        } })
                     }
                     onColorChange={handleBackgroundColor}
                     onGradientChange={handleBackgroundGradient}
+                    onImageAdjust={handleImageAdjust}
                 />
+            </SettingsSection>
+
+            <SettingsSection title="Accent intensity">
+                <p className="text-sm text-twilight-text-muted">Controls how brightly accent colors glow across the interface.</p>
+                <div>
+                    <SegmentedControl
+                        value={appearance.accentIntensity}
+                        onChange={(accentIntensity) => updateSettings.mutate({ appearance: { accentIntensity } })}
+                        options={[
+                            { value: "soft", label: "Soft" },
+                            { value: "balanced", label: "Balanced" },
+                            { value: "vivid", label: "Vivid" },
+                        ]}
+                    />
+                </div>
             </SettingsSection>
 
             {/* ── Motion ── */}

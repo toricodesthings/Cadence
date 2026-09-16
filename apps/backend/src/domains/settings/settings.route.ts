@@ -9,6 +9,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import { throwIfNotFound } from "../../platform/errors";
+import { sanitizeBackgroundPatch } from "./background-image";
 import {
     deepMerge,
     migrateLegacySettings,
@@ -186,7 +187,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
 
             // Normalize stored settings first, then merge in patch
             const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);
-            const merged = deepMerge(normalized, body);
+            const merged = deepMerge(normalized, sanitizeBackgroundPatch(normalized, body));
 
             return tx
                 .update(users)

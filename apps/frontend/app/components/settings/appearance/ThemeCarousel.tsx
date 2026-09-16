@@ -87,7 +87,8 @@ function ThemePresetCard({ preset, selected, onSelect }: ThemePresetCardProps) {
 }
 
 interface ThemeCarouselProps {
-    value: ThemePresetId;
+    /** null while something else (a photo background) owns the look. */
+    value: ThemePresetId | null;
     onChange: (preset: ThemePresetId) => void;
 }
 
@@ -125,7 +126,7 @@ export function ThemeCarousel({ value, onChange }: ThemeCarouselProps) {
             <div
                 ref={scrollRef}
                 className="flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 py-1 scrollbar-hide"
-                role="listbox"
+                role="group"
                 aria-label="Theme presets"
             >
                 {THEME_PRESETS.map((preset) => (

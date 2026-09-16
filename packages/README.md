@@ -1,7 +1,7 @@
 # Shared Packages
 
 Dependency-light workspace packages reused across every Cadence client
-(`apps/backend`, `apps/frontend`, downstream `desktop`/`mobile`). Dependencies
+(`apps/backend`, `apps/frontend`, downstream `desktop`). Dependencies
 flow strictly downhill: `app → domain → contracts → nlp`. No package imports an
 app, `drizzle-orm`, `hono`, `react`, or `@cloudflare/workers-types`.
 

@@ -247,7 +247,7 @@ export default function HomeRoute() {
                             : selectedTaskId ? "Task details"
                             : "Review"
                     }
-                    showHeader
+                    showHeader={Boolean(selectedInboxItem) || !selectedTaskId}
                 >
                     <AnimatePresence mode="wait">
                         {selectedInboxItem ? (

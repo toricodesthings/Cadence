@@ -99,7 +99,7 @@ describe("composePrompt", () => {
                 verbosity: "balanced",
                 emoji: false,
                 nickname: "Sam",
-                assistantName: "Janny",
+                assistantName: "Emilie",
                 proactiveSuggestions: true,
                 memoryEnabled: false,
                 adaptiveTone: true,

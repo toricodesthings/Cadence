@@ -28,6 +28,15 @@
     }
   ],
 
+  // Private bucket for user photo backgrounds. No public access or r2.dev URL:
+  // objects are read only through the authenticated /settings/background route.
+  "r2_buckets": [
+    {
+      "binding": "USER_ASSETS",
+      "bucket_name": "cadence-users"
+    }
+  ],
+
   "ratelimits": [
     {
       "name": "RATE_LIMITER",
@@ -70,6 +79,12 @@
         {
           "binding": "HYPERDRIVE",
           "id": "c25e56a5b7894baa95da5e7f44216d4a"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "USER_ASSETS",
+          "bucket_name": "cadence-users-dev"
         }
       ],
       "ratelimits": [

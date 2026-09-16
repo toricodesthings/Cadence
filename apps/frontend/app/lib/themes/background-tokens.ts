@@ -6,13 +6,20 @@
  */
 
 /** Parse hex (#RRGGBB) to [r, g, b] in 0-255 range */
-function hexToRgb(hex: string): [number, number, number] {
+export function hexToRgb(hex: string): [number, number, number] {
     const h = hex.replace("#", "");
     return [
         parseInt(h.slice(0, 2), 16),
         parseInt(h.slice(2, 4), 16),
         parseInt(h.slice(4, 6), 16),
     ];
+}
+
+/** Format [r, g, b] channels (0-255, unrounded) as a #RRGGBB hex string */
+export function rgbToHex(channels: [number, number, number] | number[]): string {
+    return `#${channels
+        .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, "0"))
+        .join("")}`;
 }
 
 /** Linearize a single sRGB channel (0-255 → 0-1 linear) */

@@ -4,7 +4,7 @@
  * Scale, §7.5 The Background Is a System).
  *
  * Every fill is token-driven (`--accent-primary`, `--accent-secondary`,
- * `--color-moonlit`) so the art follows the active palette. The lighting is
+ * `--accent-secondary`) so the art follows the active palette. The lighting is
  * deliberately *seamless*: there are no discrete orbs or hard edges — every
  * glow is a radial that fades fully to transparent before it reaches the
  * viewBox bounds, and the viewBox matches the rendered aspect (`aspect-[2/1]`),
@@ -24,9 +24,9 @@ export function WeeklyResetHero({ className = "" }: { className?: string }) {
                 <defs>
                     {/* Soft atmospheric moonlit wash - contained to avoid clipping */}
                     <radialGradient id="wr-cool" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stopColor="var(--color-moonlit)" stopOpacity="0.08" />
-                        <stop offset="70%" stopColor="var(--color-moonlit)" stopOpacity="0.02" />
-                        <stop offset="100%" stopColor="var(--color-moonlit)" stopOpacity="0" />
+                        <stop offset="0%" stopColor="var(--accent-secondary)" stopOpacity="0.08" />
+                        <stop offset="70%" stopColor="var(--accent-secondary)" stopOpacity="0.02" />
+                        <stop offset="100%" stopColor="var(--accent-secondary)" stopOpacity="0" />
                     </radialGradient>
 
                     {/* Ultra-smooth premium bloom aura */}
@@ -53,7 +53,7 @@ export function WeeklyResetHero({ className = "" }: { className?: string }) {
                     <linearGradient id="wr-petal" x1="0" y1="0" x2="0" y2="1">
                         <stop
                             offset="0%"
-                            stopColor="color-mix(in srgb, var(--accent-primary) 65%, white)"
+                            stopColor="color-mix(in srgb, var(--accent-primary) 65%, var(--color-twilight-text))"
                         />
                         <stop
                             offset="100%"
@@ -65,7 +65,7 @@ export function WeeklyResetHero({ className = "" }: { className?: string }) {
                     <linearGradient id="wr-petal-inner" x1="0" y1="0" x2="0" y2="1">
                         <stop
                             offset="0%"
-                            stopColor="white"
+                            stopColor="var(--color-twilight-text)"
                             stopOpacity="0.75"
                         />
                         <stop
@@ -112,7 +112,7 @@ export function WeeklyResetHero({ className = "" }: { className?: string }) {
                     cy="137"
                     rx="24"
                     ry="3.5"
-                    fill="var(--color-moonlit)"
+                    fill="var(--accent-secondary)"
                     opacity="0.05"
                 />
 
@@ -131,7 +131,7 @@ export function WeeklyResetHero({ className = "" }: { className?: string }) {
                         cx="132"
                         cy="82"
                         r="1.2"
-                        fill="var(--color-moonlit)"
+                        fill="var(--accent-secondary)"
                         style={{ animationDelay: "1.8s" }}
                     />
                     <circle
@@ -147,7 +147,7 @@ export function WeeklyResetHero({ className = "" }: { className?: string }) {
                         cx="186"
                         cy="68"
                         r="1.3"
-                        fill="var(--color-moonlit)"
+                        fill="var(--accent-secondary)"
                         style={{ animationDelay: "4.4s" }}
                     />
                 </g>

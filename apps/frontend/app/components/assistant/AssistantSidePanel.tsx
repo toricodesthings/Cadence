@@ -625,7 +625,7 @@ export function AssistantSidePanel({
 
     const panelContent = (
         <div
-            className="aurora-accent flex h-full flex-col bg-twilight-deep/95 backdrop-blur-xl"
+            className={`aurora-accent flex h-full flex-col bg-twilight-deep/95 backdrop-blur-xl ${isMobile ? "" : "photo-shell-surface"}`}
             role="dialog"
             aria-label={`${assistantName} assistant conversation`}
         >
