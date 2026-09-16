@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-09-16
+
 ### Added
 
 - Expand the compact desktop notification preview into a full panel with search, unread filters, sorting, read/unread controls, quick actions, and bulk clearing; mobile opens the full panel directly.
