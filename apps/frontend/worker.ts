@@ -41,14 +41,19 @@ function neonCookies(request: Request): string[] {
 		.filter((part) => part.startsWith(NEON_COOKIE_PREFIX));
 }
 
-/** Rewrites an upstream Set-Cookie for this origin without touching its value. */
+/**
+ * Rewrites an upstream Set-Cookie for this origin without touching its value.
+ * Keeps SameSite=None (as Neon issues it): after the Google → Neon → Cadence
+ * round trip, iOS WebKit withholds SameSite=Lax cookies from the SPA's own
+ * requests until the page is reloaded. The cookies are first-party here, so ITP
+ * does not block them; Neon Auth validates Origin on state-changing requests.
+ */
 function firstPartyCookie(setCookie: string): string {
-	return setCookie
+	const parts = setCookie
 		.split(";")
 		.map((part) => part.trim())
-		.filter((part) => !/^(partitioned|domain=)/i.test(part))
-		.map((part) => (/^samesite=/i.test(part) ? "SameSite=Lax" : part))
-		.join("; ");
+		.filter((part) => !/^(partitioned|domain=|samesite=|secure$)/i.test(part));
+	return [...parts, "Secure", "SameSite=None"].join("; ");
 }
 
 async function fetchNeonAuth(env: Env, request: Request, path: string, search: string, origin: string): Promise<Response> {
@@ -82,7 +87,15 @@ function appendCookies(target: Headers, upstream: Response) {
 
 async function proxyAuth(request: Request, env: Env, url: URL): Promise<Response> {
 	const origin = request.headers.get("origin") ?? url.origin;
-	const upstream = await fetchNeonAuth(env, request, url.pathname.slice(AUTH_PROXY_PREFIX.length), url.search, origin);
+	const path = url.pathname.slice(AUTH_PROXY_PREFIX.length);
+	const upstream = await fetchNeonAuth(env, request, path, url.search, origin);
+	if (path === "get-session") {
+		const body = await upstream.clone().text();
+		console.log("[cadence:auth-proxy] get-session", upstream.status, body.trim() === "null" ? "no session" : "session", {
+			cookies: neonCookies(request).map((cookie) => cookie.split("=")[0]),
+			secFetchSite: request.headers.get("sec-fetch-site"),
+		});
+	}
 	const headers = new Headers({ "cache-control": "no-store" });
 	for (const name of RESPONSE_HEADERS) {
 		const value = upstream.headers.get(name);
@@ -94,10 +107,8 @@ async function proxyAuth(request: Request, env: Env, url: URL): Promise<Response
 
 /**
  * Leaves the callback with a same-origin, script-initiated navigation instead
- * of a 302. WebKit (every iOS browser) keeps treating a document reached
- * through a cross-site redirect chain (Google → Neon → here) as cross-site, so
- * the SPA's first same-origin fetches go out without the SameSite=Lax session
- * cookie until the user reloads.
+ * of a 302, so the SPA document is not the end of the cross-site redirect
+ * chain (Google → Neon → here).
  */
 function continueTo(target: string, headers: Headers): Response {
 	const href = JSON.stringify(target).replace(/</g, "\\u003c");
