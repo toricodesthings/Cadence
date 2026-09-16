@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-16
+
 ### Changed
 
 - Capture clarification now uses the shared editor while keeping its suggestions and placement tools. Editor headers identify Capture, Task, Rhythm, Habit or Event, and panel controls share the same borderless style.
