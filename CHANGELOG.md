@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-15
+
 ### Added
 
 - On cadenceapp.cloud, pressing Get started, "Start where you are" or the seal at the end of the page rolls a bank of clouds across the screen on the way to sign-up.
