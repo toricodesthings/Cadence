@@ -12,7 +12,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Fixed
 
-- Signing in on phones (Google, GitHub, or email) no longer gets stuck on “Completing sign in”. If sign-in can't finish, Cadence now says so and offers a way back.
+- Phone sign-in keeps OAuth callbacks out of the offline cache and retries session restoration before entering the app. If sign-in can't finish, Cadence shows a recovery message instead of spinning indefinitely.
 - Restore background blur on notification previews, menus and other glass surfaces in production. Capture's three-dot menu now uses the shared dropdown, and old preview caches no longer keep development styles stale.
 
 ## [0.14.0] - 2026-09-16

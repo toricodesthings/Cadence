@@ -1,4 +1,5 @@
-import { AuthCallback, AuthView } from "@neondatabase/auth/react/ui";
+import { AuthView } from "@neondatabase/auth/react/ui";
+import { Loader2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useEffect, useRef, useState } from "react";
@@ -394,18 +395,43 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
 }
 
 const WEB_CALLBACK_TIMEOUT_MS = 15_000;
+const WEB_CALLBACK_RETRY_MS = 1_000;
 
-function WebAuthCallbackScreen({ redirectTo, authError }: { redirectTo: string; authError: string | null }) {
+function WebAuthCallbackScreen({ authError }: { authError: string | null }) {
     const navigate = useNavigate();
+    const { beginAuthRecovery } = useAuthState();
     const [timedOut, setTimedOut] = useState(Boolean(authError));
 
-    // Neon's AuthCallback has no failure state; if the session never lands, stop spinning.
-    // worker.ts reports a failed verifier exchange through `auth_error`, so show that at once.
+    // The Worker owns the verifier exchange. Restore through the same auth state
+    // that guards the workspace; an empty first session read must not redirect
+    // back to sign-in. AuthPage navigates only after that state is authenticated.
     useEffect(() => {
         if (authError) return;
-        const timer = window.setTimeout(() => setTimedOut(true), WEB_CALLBACK_TIMEOUT_MS);
-        return () => window.clearTimeout(timer);
-    }, [authError]);
+        let stopped = false;
+        let retryTimer: number | undefined;
+        const timer = window.setTimeout(() => {
+            stopped = true;
+            window.clearTimeout(retryTimer);
+            setTimedOut(true);
+        }, WEB_CALLBACK_TIMEOUT_MS);
+
+        const restore = async () => {
+            const recovered = await beginAuthRecovery();
+            if (stopped) return;
+            if (recovered) {
+                window.clearTimeout(timer);
+                return;
+            }
+            retryTimer = window.setTimeout(() => void restore(), WEB_CALLBACK_RETRY_MS);
+        };
+        void restore();
+
+        return () => {
+            stopped = true;
+            window.clearTimeout(timer);
+            window.clearTimeout(retryTimer);
+        };
+    }, [authError, beginAuthRecovery]);
 
     return (
         <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
@@ -430,7 +456,7 @@ function WebAuthCallbackScreen({ redirectTo, authError }: { redirectTo: string; 
                             Back to sign in
                         </Button>
                     ) : (
-                        <AuthCallback redirectTo={redirectTo} />
+                        <Loader2 className="animate-spin" aria-label="Restoring session" />
                     )}
                 </div>
             </div>
@@ -508,7 +534,7 @@ export default function AuthPage() {
             return <DesktopAuthCallbackScreen redirectTo={redirectTo} location={location} />;
         }
 
-        return <WebAuthCallbackScreen redirectTo={redirectTo} authError={searchParams.get("auth_error")} />;
+        return <WebAuthCallbackScreen authError={searchParams.get("auth_error")} />;
     }
 
     return (

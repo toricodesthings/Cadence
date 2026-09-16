@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthStateProvider, useAuthState } from "../../../app/hooks/auth/use-auth-state";
@@ -76,6 +76,21 @@ describe("use-auth-state", () => {
         await waitFor(() => {
             expect(result.current.status).toBe("recoverable_error");
         });
+    });
+
+    it("accepts a recovered session while the SDK subscriber is still pending", async () => {
+        authMocks.useSessionMock.mockReturnValue({ data: null, isPending: true });
+        const session = { user: { id: "user-1" }, session: { token: "jwt" } };
+        authMocks.getSessionMock.mockResolvedValue({ data: session });
+        const { result } = renderHook(() => useAuthState(), { wrapper });
+
+        await act(async () => {
+            expect(await result.current.beginAuthRecovery()).toBe(true);
+        });
+
+        expect(result.current.session).toEqual(session);
+        expect(result.current.status).toBe("authenticated");
+        expect(result.current.authReady).toBe(true);
     });
 
     it("signs out through the shared auth-state helper", async () => {

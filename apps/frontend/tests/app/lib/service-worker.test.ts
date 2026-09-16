@@ -12,7 +12,7 @@ function worker(cached?: Response) {
     const cache = { match: vi.fn().mockResolvedValue(cached), put: vi.fn().mockResolvedValue(undefined) };
     const caches = {
         open: vi.fn().mockResolvedValue(cache),
-        keys: vi.fn().mockResolvedValue(["cadence-shell-2026-03-26", "cadence-shell-v2", "other-app"]),
+        keys: vi.fn().mockResolvedValue(["cadence-shell-2026-03-26", "cadence-shell-v2", "cadence-shell-v3", "other-app"]),
         delete: vi.fn().mockResolvedValue(true),
     };
     const fetch = vi.fn().mockResolvedValue(new Response("body{}", { headers: { "content-type": "text/css" } }));
@@ -49,6 +49,22 @@ describe("shell caching", () => {
         expect(await warm.request("/assets/app-abcdefgh.css")).toBe(cached);
         expect(warm.fetch).not.toHaveBeenCalled();
     });
+    it("leaves auth navigations to the network even when an offline shell exists", async () => {
+        const w = worker(new Response("<html>offline shell</html>"));
+        for (const path of ["/auth", "/auth/sign-in", "/auth/callback", "/auth/callback?neon_auth_session_verifier=one-time"]) {
+            expect(await w.request(path, "navigate")).toBeUndefined();
+        }
+        expect(w.fetch).not.toHaveBeenCalled();
+        expect(w.caches.open).not.toHaveBeenCalled();
+    });
+    it("does not replace the offline shell with no-store navigation responses", async () => {
+        const w = worker();
+        w.fetch.mockResolvedValue(new Response("<html>private response</html>", {
+            headers: { "content-type": "text/html", "cache-control": "private, no-store" },
+        }));
+        expect((await w.request("/today", "navigate"))?.status).toBe(200);
+        expect(w.cache.put).not.toHaveBeenCalled();
+    });
     it.each([200, 404, 500])("never caches HTML or error responses as CSS (status %s)", async (status) => {
         const w = worker(new Response("<html>stale fallback</html>", { headers: { "content-type": "text/html" } }));
         w.fetch.mockResolvedValue(new Response("<html>fallback</html>", { status, headers: { "content-type": "text/html" } }));
@@ -70,7 +86,7 @@ describe("shell caching", () => {
         let activation: Promise<unknown> | undefined;
         w.handlers.activate({ waitUntil: (p: Promise<unknown>) => { activation = p; } });
         await activation;
-        expect(w.caches.delete.mock.calls).toEqual([["cadence-shell-2026-03-26"]]);
+        expect(w.caches.delete.mock.calls).toEqual([["cadence-shell-2026-03-26"], ["cadence-shell-v2"]]);
         expect(w.self.clients.claim).toHaveBeenCalledOnce();
     });
 });

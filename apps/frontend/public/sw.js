@@ -2,12 +2,13 @@
 /** @type {ServiceWorkerGlobalScope} */
 
 // Cache schema, not an app version. Build assets carry content hashes in their
-// URLs; v2 retires the old cache that also stored mutable dev CSS and scripts.
-const CACHE_NAME = "cadence-shell-v2";
+// URLs; v3 retires shells that could contain a one-time OAuth callback response.
+const CACHE_NAME = "cadence-shell-v3";
 const CACHE_PREFIX = "cadence-shell-";
 
 function isHtml(response) {
     return response.ok && !response.redirected &&
+        !/\bno-store\b/i.test(response.headers.get("cache-control") ?? "") &&
         response.headers.get("content-type")?.includes("text/html");
 }
 
@@ -38,6 +39,9 @@ self.addEventListener("fetch", (event) => {
     const url = new URL(request.url);
     if (request.method !== "GET" || url.origin !== self.location.origin) return;
     if (url.pathname.startsWith("/api")) return;
+    // Auth navigations must reach the browser's network stack directly. Never
+    // cache a callback as the offline shell or substitute a shell for it.
+    if (url.pathname === "/auth" || url.pathname.startsWith("/auth/")) return;
 
     if (request.mode === "navigate") {
         event.respondWith((async () => {

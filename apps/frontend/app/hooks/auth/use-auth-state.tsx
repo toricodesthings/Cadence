@@ -110,15 +110,15 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        if (resolvedSession) {
+            setStatus("authenticated");
+            return;
+        }
+
         if (isPending) {
             setStatus((current) =>
                 current === "recoverable_error" ? "refreshing" : "bootstrapping",
             );
-            return;
-        }
-
-        if (resolvedSession) {
-            setStatus("authenticated");
             return;
         }
 

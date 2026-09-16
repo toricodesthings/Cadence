@@ -191,7 +191,12 @@ function AccountProviders({ children }: { children: ReactNode }) {
         return () => window.removeEventListener("online", handleOnline);
     }, [queryClient]);
 
+    // Desktop deep-link callbacks only. On the web the browser is already on
+    // /auth/callback, and re-navigating there after the account remount cancels
+    // the in-flight redirect into the workspace (seen on slower mobile loads).
     useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME) return;
+
         let unlisten: (() => void) | undefined;
         let active = true;
 
