@@ -30,6 +30,7 @@ const AUTH_CALLBACK_PATH = "/auth/callback";
 const NEON_COOKIE_PREFIX = "__Secure-neon-auth.";
 const CHALLENGE_COOKIE_NAMES = [`${NEON_COOKIE_PREFIX}session_challenge`, `${NEON_COOKIE_PREFIX}session_challange`];
 const VERIFIER_PARAM = "neon_auth_session_verifier";
+const AUTH_ERROR_PARAM = "auth_error";
 const REQUEST_HEADERS = ["authorization", "content-type", "referer", "user-agent"];
 const RESPONSE_HEADERS = ["content-type", "location", "set-auth-jwt", "set-auth-token", "x-neon-ret-request-id"];
 
@@ -102,7 +103,11 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
 		appendCookies(headers, upstream);
 		console.log("[cadence:auth-callback] verifier exchange succeeded", upstream.headers.getSetCookie().length, "cookies");
 	} else {
-		console.warn("[cadence:auth-callback] verifier exchange failed", upstream.status, await upstream.text());
+		const body = await upstream.text();
+		console.warn("[cadence:auth-callback] verifier exchange failed", upstream.status, body);
+		const code = /"code"\s*:\s*"([A-Z_]+)"/.exec(body)?.[1] ?? `HTTP_${upstream.status}`;
+		cleanUrl.searchParams.set(AUTH_ERROR_PARAM, code);
+		headers.set("location", `${cleanUrl.pathname}${cleanUrl.search}`);
 	}
 
 	return new Response(null, { status: 302, headers });
@@ -119,8 +124,16 @@ export default {
 		const hasChallenge = neonCookies(request).some((cookie) =>
 			CHALLENGE_COOKIE_NAMES.some((name) => cookie.startsWith(`${name}=`)),
 		);
-		if (url.pathname === AUTH_CALLBACK_PATH && url.searchParams.has(VERIFIER_PARAM) && hasChallenge) {
-			return exchangeVerifier(request, env, url);
+		if (url.pathname === AUTH_CALLBACK_PATH && url.searchParams.has(VERIFIER_PARAM)) {
+			if (hasChallenge) {
+				return exchangeVerifier(request, env, url);
+			}
+			console.warn(
+				"[cadence:auth-callback] no challenge cookie on callback; neon cookies present:",
+				neonCookies(request).map((cookie) => cookie.split("=")[0]),
+				"user-agent:",
+				request.headers.get("user-agent"),
+			);
 		}
 
 		return env.ASSETS.fetch(request);

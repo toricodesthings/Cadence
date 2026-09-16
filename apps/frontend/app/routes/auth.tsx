@@ -395,15 +395,17 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
 
 const WEB_CALLBACK_TIMEOUT_MS = 15_000;
 
-function WebAuthCallbackScreen({ redirectTo }: { redirectTo: string }) {
+function WebAuthCallbackScreen({ redirectTo, authError }: { redirectTo: string; authError: string | null }) {
     const navigate = useNavigate();
-    const [timedOut, setTimedOut] = useState(false);
+    const [timedOut, setTimedOut] = useState(Boolean(authError));
 
     // Neon's AuthCallback has no failure state; if the session never lands, stop spinning.
+    // worker.ts reports a failed verifier exchange through `auth_error`, so show that at once.
     useEffect(() => {
+        if (authError) return;
         const timer = window.setTimeout(() => setTimedOut(true), WEB_CALLBACK_TIMEOUT_MS);
         return () => window.clearTimeout(timer);
-    }, []);
+    }, [authError]);
 
     return (
         <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
@@ -418,6 +420,9 @@ function WebAuthCallbackScreen({ redirectTo }: { redirectTo: string }) {
                     {timedOut
                         ? "Cadence couldn't restore your session. Please try signing in again."
                         : "Cadence is restoring your session and returning you to the app."}
+                    {authError && (
+                        <span className="mt-2 block font-mono text-xs opacity-70">{authError}</span>
+                    )}
                 </p>
                 <div className="mt-6 flex justify-center">
                     {timedOut ? (
@@ -503,7 +508,7 @@ export default function AuthPage() {
             return <DesktopAuthCallbackScreen redirectTo={redirectTo} location={location} />;
         }
 
-        return <WebAuthCallbackScreen redirectTo={redirectTo} />;
+        return <WebAuthCallbackScreen redirectTo={redirectTo} authError={searchParams.get("auth_error")} />;
     }
 
     return (
