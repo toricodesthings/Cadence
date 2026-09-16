@@ -1,5 +1,8 @@
+import { StartupSuspense as Suspense } from "../shared/StartupSuspense";
 import { Button } from "../primitives/Button";
 import { Sidebar } from "../sidebar/Sidebar";
+import { NotificationPreview } from "../notifications/NotificationPreview";
+import { MobileHeaderActions, MobileTabBar } from "./MobileNavigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router";
 import * as Tooltip from "../primitives/Tooltip";
@@ -7,14 +10,14 @@ import { Download, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus, 
 import { useSidebarStore } from "../../stores/sidebar-store";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useRightPanelStore, type RailView } from "../../stores/right-panel-store";
-import { AssistantSidePanel } from "../assistant/AssistantSidePanel";
 import { AssistantLauncher } from "../assistant/AssistantLauncher";
 import { ResponsiveOverlayPanel } from "../shared/ResponsiveOverlayPanel";
 import { RailViewToggle } from "./RailViewToggle";
 import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
+import { DeferredMount } from "../shared/DeferredMount";
 import type { CSSProperties } from "react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { lazy, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDocumentMeta } from "../../hooks/core/use-document-meta";
@@ -26,6 +29,7 @@ import { useThemeSync } from "../../hooks/ui/use-theme-sync";
 import { useViewMode } from "../../hooks/ui/use-view-mode";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
+import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
 import type { PageWidth } from "./PageLayout";
@@ -51,8 +55,10 @@ import {
 import { useDesktopCommandPreferences } from "../../hooks/ui/use-desktop-command-preferences";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette").then((m) => ({ default: m.CommandPalette })));
+const AssistantSidePanel = lazy(() => import("../assistant/AssistantSidePanel").then((m) => ({ default: m.AssistantSidePanel })));
 const MobileSearchSheet = lazy(() => import("../command-palette/MobileSearchSheet").then((m) => ({ default: m.MobileSearchSheet })));
 const ShortcutReference = lazy(() => import("../shared/ShortcutReference").then((m) => ({ default: m.ShortcutReference })));
+const NotificationsSheet = lazy(() => import("../notifications/NotificationsSheet").then((m) => ({ default: m.NotificationsSheet })));
 const SettingsDialog = lazy(() => import("../settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 const QuickAddSurface = lazy(() => import("../quick-add/QuickAddSurface").then((m) => ({ default: m.QuickAddSurface })));
 const FloatingActionBar = lazy(() => import("../tasks/FloatingActionBar").then((m) => ({ default: m.FloatingActionBar })));
@@ -216,7 +222,7 @@ export function MainLayout({
     sidePanelLabel = "Panel",
     headerCenter,
     headerRight,
-    phoneHeaderRightInline = false,
+    compactHeaderRightInline = false,
     customSidebar,
     hideHeader = false,
     hideContextualOrb = false,
@@ -237,7 +243,7 @@ export function MainLayout({
     sidePanelLabel?: string,
     headerCenter?: React.ReactNode,
     headerRight?: React.ReactNode,
-    phoneHeaderRightInline?: boolean,
+    compactHeaderRightInline?: boolean,
     customSidebar?: React.ReactNode,
     hideHeader?: boolean,
     hideContextualOrb?: boolean,
@@ -248,7 +254,7 @@ export function MainLayout({
 }) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isCollapsed, toggleCollapse, mobileNavOpen: navOpen, setMobileNavOpen: setNavOpen } = useSidebarStore();
+    const { isCollapsed, toggleCollapse } = useSidebarStore();
     const [commandOpen, setCommandOpen] = useState(false);
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const [shortcutsRefOpen, setShortcutsRefOpen] = useState(false);
@@ -258,6 +264,7 @@ export function MainLayout({
     const [forceLoading, setForceLoading] = useState(false);
     const { status, isAuthenticated, beginAuthRecovery } = useAuthState();
     const shell = useShellMode();
+    const isUtilityPage = location.pathname === "/browse";
     const { assistantPanelOpen, assistantPanelWidth, setAssistantPanelWidth, toggleAssistantPanel } = useAssistantStore();
     const { railView, setRailView } = useRightPanelStore();
 
@@ -273,6 +280,7 @@ export function MainLayout({
     const { view, setView } = useViewMode();
     const clearActiveFocusView = useFocusViewStore((state) => state.clearActiveDefinition);
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
+    const noteRoomOpen = useNoteRoomStore((state) => state.taskId !== null);
     const batchState = useBatchStateTransition();
     const { stepLayoutScale, setLayoutScale } = useDesktopLayoutScale();
     const { sync } = useWorkspaceSync();
@@ -411,10 +419,6 @@ export function MainLayout({
             clearActiveFocusView();
         }
     }, [clearActiveFocusView, settings?.tasks?.intelligence?.focusViewsEnabled, settings?.tasks?.intelligence?.nlpEnabled]);
-
-    useEffect(() => {
-        setNavOpen(false);
-    }, [location.pathname, setNavOpen]);
 
     // Keep search surfaces coherent across a shell-mode flip (e.g. a window
     // crossing the wide breakpoint): the command palette never lingers below
@@ -635,7 +639,6 @@ export function MainLayout({
 
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
     const showsRichHeader = Boolean(shellHeader);
-    const renderInlinePhoneHeaderRight = shell.isPhone && phoneHeaderRightInline && Boolean(headerRight) && !headerCenter;
     const desktopStatus = IS_DESKTOP_RUNTIME && shell.isDesktop
         ? (
             <DesktopHeaderStatus
@@ -665,13 +668,11 @@ export function MainLayout({
 
     return (
         <Tooltip.Provider delayDuration={300}>
-            <div className="h-dvh overflow-hidden relative">
+            <div className={`h-dvh overflow-hidden relative ${shell.isCompact ? "compact-navigation-shell" : ""}`}>
                 <div className="flex h-full relative">
-                    {customSidebar !== undefined ? customSidebar : (
+                    {shell.isCompact ? null : customSidebar !== undefined ? customSidebar : (
                         <Sidebar
                             mode={shell.mode}
-                            navOpen={navOpen}
-                            onClose={() => setNavOpen(false)}
                             onSearchOpen={openSearch}
                             onQuickAddOpen={() => {
                                 setQuickAddInitialTab("task");
@@ -684,26 +685,20 @@ export function MainLayout({
                     {/* Off phone the header is a single row, so it takes the shared
                         height and its bottom border lines up with side-panel headers. */}
                     {!hideHeader && (
-                        <header className={`photo-shell-surface layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl ${shell.isPhone ? "" : "h-(--shell-header-h)"}`}>
+                        <header className={`photo-shell-surface layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl ${shell.isCompact ? "" : "h-(--shell-header-h)"}`}>
                             <div
-                                className={shell.isPhone ? "px-4 pb-3 pt-2.5" : "flex h-full items-center px-6 lg:px-8"}
-                                style={shell.isPhone ? { paddingTop: "max(0.625rem, env(safe-area-inset-top))" } : undefined}
+                                className={shell.isCompact ? "px-4 pb-3 pt-2.5" : "flex h-full items-center px-6 lg:px-8"}
+                                style={shell.isCompact ? { paddingTop: "max(0.625rem, env(safe-area-inset-top))" } : undefined}
                             >
                                 <div className="flex w-full flex-col gap-2">
                                     <div className="flex min-h-11 items-center justify-between gap-4 sm:min-h-12">
                                         <div className="flex min-w-0 items-center gap-3">
-                                            {customSidebar === undefined && (controlsSidebarPanel || !shell.isDesktop) && (
+                                            {customSidebar === undefined && shell.isDesktop && controlsSidebarPanel && (
                                                 <Button variant="ghost" size="icon"
-                                                    onClick={shell.isDesktop ? toggleCollapse : () => setNavOpen(true)}
-                                                    aria-label={
-                                                        shell.isDesktop
-                                                            ? isCollapsed
-                                                                ? "Expand navigation"
-                                                                : "Collapse navigation"
-                                                            : "Open navigation"
-                                                    }
-                                                    aria-expanded={controlsSidebarPanel ? (shell.isDesktop ? !isCollapsed : navOpen) : undefined}
-                                                    aria-controls={controlsSidebarPanel ? "sidebar-panel" : undefined}
+                                                    onClick={toggleCollapse}
+                                                    aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+                                                    aria-expanded={!isCollapsed}
+                                                    aria-controls="sidebar-panel"
                                                     className="btn-icon rounded-2xl"
                                                 >
                                                     {shell.isDesktop && !isCollapsed
@@ -743,19 +738,17 @@ export function MainLayout({
                                             )}
                                         </div>
 
-                                        {((headerCenter || headerRight) && !shell.isPhone) || renderInlinePhoneHeaderRight ? (
+                                        {shell.isCompact && <MobileHeaderActions onSearch={openSearch}>{compactHeaderRightInline ? headerRight : null}</MobileHeaderActions>}
+                                        {(headerCenter || headerRight || shell.isLaptop) && !shell.isCompact ? (
                                             <div className="flex shrink-0 items-center gap-2">
-                                                {renderInlinePhoneHeaderRight ? headerRight : (
-                                                    <>
-                                                        {desktopStatus}
-                                                        {desktopStatus && (headerCenter || headerRight) ? (
-                                                            <div className="h-4 w-px bg-white/[0.08]" aria-hidden="true" />
-                                                        ) : null}
-                                                        {headerCenter}
-                                                        {headerRight}
-                                                        {closeRailControl}
-                                                    </>
-                                                )}
+                                                {desktopStatus}
+                                                {desktopStatus && (headerCenter || headerRight) ? (
+                                                    <div className="h-4 w-px bg-white/[0.08]" aria-hidden="true" />
+                                                ) : null}
+                                                {headerCenter}
+                                                {headerRight}
+                                                {shell.isLaptop && <NotificationPreview side="bottom" />}
+                                                {closeRailControl}
                                             </div>
                                         ) : desktopStatus || closeRailControl ? (
                                             <div className="flex shrink-0 items-center gap-2">
@@ -765,10 +758,10 @@ export function MainLayout({
                                         ) : null}
                                     </div>
 
-                                    {(headerCenter || headerRight) && shell.isPhone && !renderInlinePhoneHeaderRight && (
+                                    {(headerCenter || (headerRight && !compactHeaderRightInline)) && shell.isCompact && (
                                         <CompactPageControls
                                             primaryControl={headerCenter}
-                                            secondaryControl={headerRight}
+                                            secondaryControl={compactHeaderRightInline ? undefined : headerRight}
                                             sticky
                                             compressedOnScroll
                                         />
@@ -781,6 +774,7 @@ export function MainLayout({
                         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                             {children}
                         </main>
+                        {shell.isCompact && <MobileTabBar />}
                     </div>
 
                     {/* ── Shared right rail — shows the contextual panel OR the Cadence
@@ -850,10 +844,12 @@ export function MainLayout({
                                             style={{ willChange: "transform, opacity" }}
                                             className="flex h-full min-w-0 flex-1 items-stretch"
                                         >
-                                            <AssistantSidePanel
-                                                width={assistantPanelWidth}
-                                                onWidthChange={setAssistantPanelWidth}
-                                            />
+                                            <Suspense fallback={null}>
+                                                <AssistantSidePanel
+                                                    width={assistantPanelWidth}
+                                                    onWidthChange={setAssistantPanelWidth}
+                                                />
+                                            </Suspense>
                                         </motion.div>
                                     </motion.div>
                                 ) : null}
@@ -872,37 +868,42 @@ export function MainLayout({
                             onClose={toggleAssistantPanel}
                             fill
                         >
-                            <AssistantSidePanel width={400} isMobile />
+                            <Suspense fallback={null}>
+                                <AssistantSidePanel width={400} isMobile />
+                            </Suspense>
                         </ResponsiveOverlayPanel>
                     ) : null}
                 </div>
             </div>
 
             <Suspense fallback={null}>
-                <FloatingActionBar />
+                <DeferredMount active={selectedTaskIds.size > 0}><FloatingActionBar /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
-                <TaskNoteRoom />
+                <DeferredMount active={noteRoomOpen}><TaskNoteRoom /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
-                <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
+                <DeferredMount active={commandOpen}><CommandPalette open={commandOpen} onOpenChange={setCommandOpen} /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
-                <MobileSearchSheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen} />
+                <DeferredMount active={mobileSearchOpen}><MobileSearchSheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen} /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
-                <ShortcutReference open={shortcutsRefOpen} onOpenChange={setShortcutsRefOpen} />
+                <DeferredMount active={shortcutsRefOpen}><ShortcutReference open={shortcutsRefOpen} onOpenChange={setShortcutsRefOpen} /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
-                <QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} initialTab={quickAddInitialTab} />
+                <DeferredMount active={quickAddOpen}><QuickAddSurface open={quickAddOpen} onOpenChange={setQuickAddOpen} initialTab={quickAddInitialTab} /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
-                <SettingsDialog />
+                <DeferredMount active={new URLSearchParams(location.search).has("settings")}><SettingsDialog /></DeferredMount>
+            </Suspense>
+            <Suspense fallback={null}>
+                <DeferredMount active={new URLSearchParams(location.search).has("notifications")}><NotificationsSheet /></DeferredMount>
             </Suspense>
             {IS_DESKTOP_RUNTIME ? (
                 <SyncInspectorDialog open={syncInspectorOpen} onOpenChange={setSyncInspectorOpen} />
             ) : null}
-            {shell.isPhone && !hideContextualOrb ? (
+            {shell.isPhone && !hideContextualOrb && !isUtilityPage ? (
                 <ContextualAddOrb
                     onOpen={(tab) => {
                         setQuickAddInitialTab(tab);
@@ -910,10 +911,9 @@ export function MainLayout({
                     }}
                 />
             ) : null}
-            {/* Mobile/non-wide entry point for Cadence — the icon rail's assistant
-                button only mounts on wide shells, so smaller layouts get a FAB.
+            {/* Laptop uses a launcher; compact shells use the centered taskbar action.
                 Suppressed on the weekly ritual, mirroring the ⌘I hotkey guard. */}
-            {!shell.isWide && location.pathname !== "/weekly-review" ? (
+            {shell.isLaptop && !isUtilityPage && location.pathname !== "/weekly-review" ? (
                 <AssistantLauncher besideOrb={shell.isPhone && !hideContextualOrb} />
             ) : null}
         </Tooltip.Provider>

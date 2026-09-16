@@ -16,7 +16,7 @@ import { ChevronLeft, ChevronRight, Plus, PanelLeftOpen, Flame } from "lucide-re
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { useSidebarStore } from "../stores/sidebar-store";
+import { useNavigate } from "react-router";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -32,7 +32,7 @@ const slideVariants = {
 export default function Habits() {
     const shell = useShellMode();
     const setRailView = useRightPanelStore((s) => s.setRailView);
-    const { setMobileNavOpen } = useSidebarStore();
+    const navigate = useNavigate();
     const today = new Date();
     const [currentDate, setCurrentDate] = useState<string>(toISODate(today));
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -162,7 +162,7 @@ export default function Habits() {
                                 <div className="flex items-center gap-2 min-h-[44px]">
                                     <button
                                         type="button"
-                                        onClick={() => setMobileNavOpen(true)}
+                                        onClick={() => navigate("/browse", { state: { pageBack: true, backLabel: "Back" } })}
                                         className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.05]"
                                         aria-label="Open navigation"
                                     >

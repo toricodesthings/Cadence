@@ -1,7 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getSessionMock = vi.fn();
 const platformFetchMock = vi.fn();
+const tokenFetchMock = vi.fn();
+
+vi.mock("../../../../app/lib/env", () => ({
+    API_BASE_URL: "https://api.example.test",
+    NEON_AUTH_URL: "https://auth.example.test",
+}));
 
 vi.mock("../../../../app/lib/auth-client", () => ({
     authClient: {
@@ -15,15 +21,45 @@ vi.mock("../../../../app/platform/runtime", () => ({
 }));
 
 describe("api/client", () => {
+    afterEach(() => vi.unstubAllGlobals());
     beforeEach(() => {
         vi.resetModules();
         getSessionMock.mockReset();
         platformFetchMock.mockReset();
+        tokenFetchMock.mockReset().mockResolvedValue(new Response(JSON.stringify({ token: null })));
+        vi.stubGlobal("fetch", tokenFetchMock);
         platformFetchMock.mockImplementation(async (_input, init) => new Response(JSON.stringify({
             headers: Object.fromEntries(new Headers(init?.headers).entries()),
             cache: init?.cache ?? null,
             method: init?.method ?? "GET",
         })));
+    });
+
+    it("shares token acquisition across concurrent requests and skips session reads on cache hits", async () => {
+        tokenFetchMock.mockImplementation(async () => new Response(JSON.stringify({ token: "cached.jwt.signature" })));
+        const { authenticatedFetch } = await import("../../../../app/lib/api/client");
+        await Promise.all(["tasks", "projects", "settings"].map((path) =>
+            authenticatedFetch(`/api/${path}`, { authenticated: true }),
+        ));
+        await authenticatedFetch("/api/tags", { authenticated: true });
+        expect(tokenFetchMock).toHaveBeenCalledTimes(1);
+        expect(getSessionMock).not.toHaveBeenCalled();
+        expect(platformFetchMock).toHaveBeenCalledTimes(4);
+    });
+
+    it("does not reuse a token that arrives after sign-out or account invalidation", async () => {
+        let resolve!: (value: Response) => void;
+        tokenFetchMock.mockReturnValueOnce(new Promise<Response>((done) => { resolve = done; }));
+        getSessionMock.mockResolvedValue({ data: null });
+        const { authenticatedFetch, clearAuthJwtCache } = await import("../../../../app/lib/api/client");
+        const oldRequest = authenticatedFetch("/api/tasks", { authenticated: true });
+        clearAuthJwtCache();
+        resolve(new Response(JSON.stringify({ token: "old.jwt.signature" })));
+        await expect(oldRequest).rejects.toMatchObject({ status: 401 });
+        expect(platformFetchMock).not.toHaveBeenCalled();
+        tokenFetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ token: "new.jwt.signature" })));
+        await authenticatedFetch("/api/tasks", { authenticated: true });
+        expect(new Headers(platformFetchMock.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer new.jwt.signature");
     });
 
     it("injects bearer tokens and disables GET caching for authenticated requests", async () => {

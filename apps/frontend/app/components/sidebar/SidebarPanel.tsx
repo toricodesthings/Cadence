@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, CalendarHeart, Flame, Sprout, Search, Plus } from "lucide-react";
 import * as ScrollArea from "../primitives/ScrollArea";
 import * as Separator from "../primitives/Separator";
@@ -25,11 +25,14 @@ export function SidebarPanel({
     showWorkspaceNav = false,
     onSearchOpen,
     onQuickAddOpen,
+    embedded = false,
 }: {
     showWorkspaceNav?: boolean;
     onSearchOpen?: () => void;
     onQuickAddOpen?: () => void;
+    embedded?: boolean;
 }) {
+    const navigate = useNavigate();
     const [listsOpen, setListsOpen] = useState(true);
     const { data: projects, isLoading: projectsLoading } = useProjects();
     const { data: inboxItems, isLoading: inboxLoading } = useInbox();
@@ -71,7 +74,8 @@ export function SidebarPanel({
         } else {
             newParams.delete("tag");
         }
-        setSearchParams(newParams);
+        if (embedded) navigate(`/?${newParams}`);
+        else setSearchParams(newParams);
     };
 
     const [tagsOpen, setTagsOpen] = useState(true);
@@ -90,8 +94,8 @@ export function SidebarPanel({
 
     return (
         <div
-            id="sidebar-panel"
-            className="flex h-full w-full min-w-0 shrink-0 flex-col pb-4"
+            id={embedded ? undefined : "sidebar-panel"}
+            className={`flex ${embedded ? "mobile-browse-panel" : "h-full"} w-full min-w-0 shrink-0 flex-col pb-4`}
             aria-label="Navigation panel"
         >
             {/* `[&>div]:!block` defeats Radix's `display:table` viewport wrapper,
@@ -118,6 +122,7 @@ export function SidebarPanel({
                     {showWorkspaceNav && (
                         <>
                             <nav aria-label="Workspace destinations" className="mb-5 flex flex-col gap-0.5">
+                                {!embedded && <>
                                 <NavLink
                                     icon={Calendar}
                                     label="Schedule"
@@ -135,6 +140,7 @@ export function SidebarPanel({
                                     activeBg="bg-accent-nav-habits/15"
                                     hoverColor="group-hover:text-accent-nav-habits"
                                 />
+                                </>}
                                 <NavLink
                                     icon={Sprout}
                                     label="Weekly Reset"
@@ -151,6 +157,7 @@ export function SidebarPanel({
 
                     {/* Primary nav */}
                     <nav aria-label="Main navigation" className="flex flex-col gap-0.5">
+                        {!embedded && <>
                         <NavLink
                             icon={Inbox}
                             label="Capture"
@@ -168,6 +175,7 @@ export function SidebarPanel({
                             activeBg="bg-accent-nav-today/15"
                             hoverColor="group-hover:text-accent-nav-today/70"
                         />
+                        </>}
                         <NavLink
                             icon={CalendarRange}
                             label="Upcoming"

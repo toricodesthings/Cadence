@@ -1,5 +1,6 @@
+import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useMemo, useState, Suspense, lazy } from "react";
+import { useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 import {
     AlertTriangle,
@@ -587,7 +588,8 @@ export default function Upcoming() {
             sidePanelActive={Boolean(selectedTaskId)}
             onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
-            headerRight={shell.isPhone ? (
+            compactHeaderRightInline
+            headerRight={shell.isCompact ? (
                 <div className="flex items-center gap-2">
                 <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                 <ControlsSheet
@@ -614,6 +616,7 @@ export default function Upcoming() {
                                             key={option.value}
                                             type="button"
                                             onClick={() => setSortMode(option.value)}
+                                    aria-pressed={sortMode === option.value}
                                             className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
                                                 sortMode === option.value
                                                     ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"

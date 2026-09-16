@@ -9,6 +9,7 @@ import { LoadingFrame } from "./loading/LoadingFrame";
 import { LoadingForeground } from "./loading/LoadingForeground";
 import "./loading/loading-tokens.css";
 import "./loading/loading-scene.css";
+import type { ReactNode } from "react";
 
 /**
  * Loading scene — a lantern-lit autumn valley on a moon-viewing night.
@@ -18,7 +19,7 @@ import "./loading/loading-scene.css";
  * the tokens and visibility gates in `loading-tokens.css` do the rest. This keeps
  * the pre-rendered `HydrateFallback` correct before JS and hydration-safe.
  */
-export function Loading() {
+export function Loading({ title, children }: { title?: string; children?: ReactNode }) {
     return (
         <div className="loading-screen fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden">
             <div className="loading-stage" aria-hidden="true">
@@ -36,7 +37,7 @@ export function Loading() {
             <LoadingParticles />
             <LoadingFrame />
             <div className="ls-vignette" aria-hidden="true" />
-            <LoadingForeground />
+            <LoadingForeground title={title}>{children}</LoadingForeground>
         </div>
     );
 }

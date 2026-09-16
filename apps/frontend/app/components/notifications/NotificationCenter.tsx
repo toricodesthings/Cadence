@@ -1,223 +1,155 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import {
-    Bell, BellRing, Clock, CalendarClock, Flame, X, CheckCheck, Timer,
-} from "lucide-react";
-import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
-import type { AppNotification, NotificationGroup } from "../../lib/notifications/notification-model";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { BellRing, CheckCheck, Search, Settings, ChevronDown } from "lucide-react";
+import { useOpenNotification } from "../../hooks/notifications/use-open-notification";
+import { NotificationRow, NOTIFICATION_STYLES, actionClass } from "./NotificationRow";
 import type { GroupedNotifications } from "../../hooks/notifications/use-notification-center";
 import { DEFER_LABELS, type DeferChoice } from "../../lib/notifications/reminder-engine";
+import { Tip } from "../primitives/Tooltip";
+import * as AlertDialog from "../primitives/AlertDialog";
+import * as DropdownMenu from "../primitives/DropdownMenu";
 
-// ── Icon + accent mapping ──
-const NOTIFICATION_STYLES: Record<
-    AppNotification["kind"],
-    { icon: typeof Bell; accent: string }
-> = {
-    "task-reminder": { icon: Clock, accent: "text-accent-primary" },
-    "task-due": { icon: CalendarClock, accent: "text-accent-primary" },
-    "habit-reminder": { icon: Flame, accent: "text-accent-primary" },
-    system: { icon: BellRing, accent: "text-moonlit" },
-};
+const PAGE_SIZE = 30;
 
-function RelativeTime({ iso }: { iso: string }) {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60_000);
-    if (mins < 1) return <span>Just now</span>;
-    if (mins < 60) return <span>{mins}m ago</span>;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return <span>{hrs}h ago</span>;
-    const days = Math.floor(hrs / 24);
-    return <span>{days}d ago</span>;
-}
+const SORT_LABELS = { newest: "Newest first", oldest: "Oldest first", priority: "Priority first" } as const;
+type SortOrder = keyof typeof SORT_LABELS;
 
 export function NotificationCenter({
-    grouped,
-    hasUnread,
-    markRead,
-    markAllRead,
-    dismiss,
-    defer,
-    onClose,
+    grouped, hasUnread, markRead, markUnread, markAllRead, dismiss, dismissMany, defer, onClose, onOpenSettings, fullPage = false,
 }: {
     grouped: GroupedNotifications[];
     hasUnread: boolean;
     markRead: (id: string) => void;
+    markUnread: (id: string) => void;
     markAllRead: () => void;
     dismiss: (id: string) => void;
+    dismissMany?: (ids: string[]) => void;
     defer?: (id: string, choice: DeferChoice) => void;
     onClose: () => void;
+    fullPage?: boolean;
+    onOpenSettings?: () => void;
 }) {
-    const navigate = useNavigate();
-    const isEmpty = grouped.length === 0;
+    const handleOpen = useOpenNotification(markRead, onClose);
+    const [unreadOnly, setUnreadOnly] = useState(false);
+    const [search, setSearch] = useState("");
+    const [sort, setSort] = useState<SortOrder>("newest");
+    const [limit, setLimit] = useState(PAGE_SIZE);
+    const [clearIds, setClearIds] = useState<string[] | null>(null);
+    const [announcement, setAnnouncement] = useState("");
+    const listRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLInputElement>(null);
+    const nextPageFocus = useRef<number | null>(null);
+    const didClear = useRef(false);
+    useLayoutEffect(() => {
+        if (nextPageFocus.current === null) return;
+        listRef.current?.querySelectorAll<HTMLButtonElement>("[data-notification-open]")[nextPageFocus.current]?.focus();
+        nextPageFocus.current = null;
+    }, [limit]);
+    const all = useMemo(() => grouped.flatMap(({ items }) => items), [grouped]);
+    const unreadCount = all.filter((n) => !n.read).length;
+    const query = search.trim().toLocaleLowerCase();
+    const visible = useMemo(() => all.filter((n) => (!unreadOnly || !n.read) &&
+        (!query || `${n.title} ${n.body} ${NOTIFICATION_STYLES[n.kind].label}`.toLocaleLowerCase().includes(query)))
+        .sort((a, b) => {
+            if (sort === "priority" && a.priority !== b.priority) return a.priority === "high" ? -1 : 1;
+            const time = new Date(b.triggerAt).getTime() - new Date(a.triggerAt).getTime();
+            return (sort === "oldest" ? -time : time) || a.id.localeCompare(b.id);
+        }), [all, query, unreadOnly, sort]);
+    const displayed = visible.slice(0, limit);
 
-    const handleOpen = (n: AppNotification) => {
-        markRead(n.id);
-        if (n.route && n.entityId) {
-            const params = buildFocusSearchParams({
-                focusKind: n.kind === "habit-reminder" ? "habit" : "task",
-                focusId: n.entityId,
-                focusSource: "notification",
-            });
-            navigate(`${n.route}?${params.toString()}`);
-            onClose();
-        }
-    };
+    function resetList() {
+        setLimit(PAGE_SIZE);
+        listRef.current?.scrollTo?.({ top: 0 });
+    }
 
-    return (
-        <div className="flex flex-col w-full max-h-[28rem]">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-twilight-border px-5 py-4">
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-twilight-text-soft">
-                        Notifications
-                    </p>
-                    <h2 className="mt-1 font-display text-lg font-semibold text-twilight-text">
-                        Recent activity
-                    </h2>
+    // Keep keyboard focus in the list when its current row disappears.
+    function actOnRow(id: string, action: () => void, removesRow = true) {
+        const rows = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-notification-open]") ?? []);
+        const index = displayed.findIndex((n) => n.id === id);
+        (removesRow ? rows[index + 1] ?? rows[index - 1] ?? listRef.current : rows[index])?.focus({ preventScroll: true });
+        action();
+    }
+
+    return <div className="notification-center flex min-h-0 w-full flex-1 flex-col">
+        {!fullPage && <h2 className="px-5 pt-5 font-display text-xl font-semibold text-twilight-text">Notifications</h2>}
+        <div className="shrink-0 space-y-3 border-b border-twilight-border px-1 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div role="group" aria-label="Filter notifications" className="inline-flex rounded-2xl bg-twilight-surface-muted p-1">
+                    {([false, true] as const).map((unread) => <button key={String(unread)} type="button" aria-pressed={unreadOnly === unread}
+                        onClick={() => { setUnreadOnly(unread); resetList(); }}
+                        className={`${actionClass} !px-2 gap-2 ${unreadOnly === unread ? "bg-twilight-surface text-twilight-text shadow-sm" : ""}`}>
+                        {unread ? "Unread" : "All"}<span className="text-xs tabular-nums text-twilight-text-muted">{unread ? unreadCount : all.length}</span>
+                    </button>)}
                 </div>
-                {hasUnread && (
-                    <button
-                        onClick={markAllRead}
-                            className="flex items-center gap-1.5 text-sm text-twilight-text-muted hover:text-twilight-text transition-colors"
-                        aria-label="Mark all as read"
-                    >
-                        <CheckCheck size={14} aria-hidden="true" />
-                        Read all
-                    </button>
-                )}
+                <button type="button" disabled={!hasUnread} onClick={() => { markAllRead(); setAnnouncement("All notifications marked as read."); }}
+                    className={actionClass} aria-label="Mark all as read"><CheckCheck size={16} aria-hidden="true" />Read all</button>
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <label className="relative flex min-w-0 flex-[1_1_7rem] items-center">
+                    <Search size={17} className="pointer-events-none absolute left-3 text-twilight-text-muted" aria-hidden="true" />
+                    <span className="sr-only">Search notifications</span>
+                    <input ref={searchRef} type="search" value={search} placeholder="Search"
+                        onChange={(event) => { setSearch(event.target.value); resetList(); }}
+                        className="min-h-11 w-full rounded-xl border border-twilight-border bg-twilight-surface py-2 pl-10 pr-3 text-sm text-twilight-text placeholder:text-twilight-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary" />
+                </label>
+                <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                        <button type="button" aria-label={`Sort notifications: ${SORT_LABELS[sort]}`} className={`${actionClass} border border-twilight-border bg-twilight-surface`}>
+                            {SORT_LABELS[sort]}<ChevronDown size={16} aria-hidden="true" />
+                        </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end" aria-label="Sort notifications">
+                        <DropdownMenu.RadioGroup value={sort} onValueChange={(value) => { setSort(value as SortOrder); resetList(); }}>
+                            {(Object.keys(SORT_LABELS) as SortOrder[]).map((value) => <DropdownMenu.RadioItem key={value} value={value}>{SORT_LABELS[value]}</DropdownMenu.RadioItem>)}
+                        </DropdownMenu.RadioGroup>
+                    </DropdownMenu.Content>
+                </DropdownMenu.Root>
+            </div>
+        </div>
 
-            {/* Body */}
-            {isEmpty ? (
-                <EmptyState />
-            ) : (
-                <div className="overflow-y-auto flex-1 py-1">
-                    {grouped.map(({ group, label, items }) => (
-                        <div key={group}>
-                            <p className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-[0.15em] text-twilight-text-soft">
-                                {label}
-                            </p>
-                            {items.map((n) => (
-                                <NotificationRow
-                                    key={n.id}
-                                    notification={n}
-                                    onOpen={() => handleOpen(n)}
-                                    onDismiss={() => dismiss(n.id)}
-                                    onDefer={defer ? (choice) => defer(n.id, choice) : undefined}
-                                />
-                            ))}
-                        </div>
-                    ))}
+        <div ref={listRef} tabIndex={-1} aria-label="Notification list" className="notification-center-list min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary">
+            {visible.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center gap-4 px-5 py-10 text-center">
+                <div className="flex size-14 items-center justify-center rounded-2xl bg-accent-primary-dim text-accent-primary"><BellRing size={24} aria-hidden="true" /></div>
+                <div><p className="font-display text-lg font-semibold text-twilight-text">{query ? "No matching notifications" : unreadOnly && all.length > 0 ? "You’re all caught up" : "Nothing to catch up on"}</p>
+                    <p className="mt-2 max-w-xs text-sm leading-relaxed text-twilight-text-muted">{query ? "Try another word or clear your search." : unreadOnly && all.length > 0 ? "Your read notifications are still in All." : "Your task and habit reminders will appear here."}</p></div>
+                {(query || unreadOnly && all.length > 0) && <button type="button" className={actionClass} onClick={() => { setSearch(""); setUnreadOnly(false); resetList(); searchRef.current?.focus(); }}>Show all notifications</button>}
+            </div> : <>
+                <ul className="space-y-3">
+                    {displayed.map((n) => <NotificationRow key={n.id} notification={n}
+                        onOpen={() => actOnRow(n.id, () => handleOpen(n), unreadOnly && !n.route)}
+                        onToggleRead={() => actOnRow(n.id, () => {
+                            if (n.read) markUnread(n.id); else markRead(n.id);
+                            setAnnouncement(n.read ? "Notification marked as unread." : "Notification marked as read.");
+                        }, unreadOnly && !n.read)}
+                        onDismiss={() => actOnRow(n.id, () => { dismiss(n.id); setAnnouncement("Notification dismissed."); })}
+                        onDefer={defer ? (choice) => actOnRow(n.id, () => { defer(n.id, choice); setAnnouncement(`Reminder deferred: ${DEFER_LABELS[choice]}.`); }) : undefined} />)}
+                </ul>
+                {visible.length > limit && <button type="button" className={`${actionClass} mt-3 w-full`} onClick={() => { nextPageFocus.current = limit; setLimit((value) => value + PAGE_SIZE); }}>Show more · {visible.length - limit} remaining</button>}
+            </>}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-twilight-border px-1 pt-2">
+            <p className="mr-auto px-3 text-xs text-twilight-text-muted">{unreadCount ? `${unreadCount} unread` : "All caught up"}</p>
+            {dismissMany && <button type="button" className={actionClass} disabled={all.length === 0} onClick={() => setClearIds(all.map((n) => n.id))}>Clear all…</button>}
+            {onOpenSettings && <Tip label="Notification settings"><button type="button" onClick={onOpenSettings} className="mobile-icon-button" aria-label="Notification settings"><Settings size={18} aria-hidden="true" /></button></Tip>}
+        </div>
+        <span className="sr-only" role="status">{announcement}</span>
+        <AlertDialog.Root open={clearIds !== null} onOpenChange={(open) => { if (!open) setClearIds(null); }}>
+            <AlertDialog.Content className="w-[calc(100%-2rem)] border-twilight-border bg-twilight-deep" onCloseAutoFocus={(event) => {
+                if (!didClear.current) return;
+                event.preventDefault();
+                searchRef.current?.focus();
+                didClear.current = false;
+            }}>
+                <AlertDialog.Title className="font-display text-lg font-semibold text-twilight-text">Clear {clearIds?.length} notifications?</AlertDialog.Title>
+                <AlertDialog.Description className="mt-2 text-sm leading-relaxed text-twilight-text-muted">This clears all notifications, including ones hidden by your filters. Your tasks and habits won’t change.</AlertDialog.Description>
+                <div className="mt-5 flex flex-wrap justify-end gap-2">
+                    <AlertDialog.Cancel className={actionClass}>Keep notifications</AlertDialog.Cancel>
+                    <AlertDialog.Action className={`${actionClass} bg-accent-primary-dim text-accent-primary`} onClick={() => {
+                        didClear.current = true;
+                        if (clearIds) dismissMany?.(clearIds);
+                        setAnnouncement("All notifications cleared.");
+                    }}>Clear notifications</AlertDialog.Action>
                 </div>
-            )}
-        </div>
-    );
-}
-
-function NotificationRow({
-    notification: n,
-    onOpen,
-    onDismiss,
-    onDefer,
-}: {
-    notification: AppNotification;
-    onOpen: () => void;
-    onDismiss: () => void;
-    onDefer?: (choice: DeferChoice) => void;
-}) {
-    const { icon: Icon, accent } = NOTIFICATION_STYLES[n.kind];
-    const [showDefer, setShowDefer] = useState(false);
-
-    return (
-        <div
-            role="button"
-            tabIndex={0}
-            onClick={onOpen}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-            className={`
-                group relative flex items-start gap-3 px-5 py-3 cursor-pointer transition-colors
-                hover:bg-white/[0.03]
-                ${n.read ? "opacity-60" : ""}
-            `}
-        >
-            {/* Icon */}
-            <div className={`mt-0.5 shrink-0 ${accent}`}>
-                <Icon size={16} aria-hidden="true" />
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-twilight-text truncate">
-                    {n.title}
-                </p>
-                <p className="text-sm text-twilight-text-muted mt-0.5 truncate">
-                    {n.body}
-                </p>
-                {/* §11.7: Defer choices row */}
-                {showDefer && onDefer && (
-                    <div
-                        className="flex items-center gap-1.5 mt-2"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                    >
-                        {(Object.keys(DEFER_LABELS) as DeferChoice[]).map((choice) => (
-                            <button
-                                key={choice}
-                                onClick={() => { onDefer(choice); setShowDefer(false); }}
-                                className="rounded-lg bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-twilight-text-soft hover:bg-white/[0.10] hover:text-twilight-text transition-colors cursor-pointer"
-                            >
-                                {DEFER_LABELS[choice]}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Right side: timestamp + defer + dismiss */}
-            <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs text-twilight-text-muted tabular-nums">
-                    <RelativeTime iso={n.triggerAt} />
-                </span>
-                {onDefer && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setShowDefer(!showDefer); }}
-                        className="opacity-100 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 p-1 -m-0.5 rounded hover:bg-white/10 text-twilight-text-muted hover:text-twilight-text transition-all cursor-pointer"
-                        aria-label={`Defer notification: ${n.title}`}
-                    >
-                        <Timer size={14} aria-hidden="true" />
-                    </button>
-                )}
-                <button
-                    onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-                    className="opacity-100 pointer-coarse:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 p-1 -m-0.5 rounded hover:bg-white/10 text-twilight-text-muted hover:text-twilight-text transition-all cursor-pointer"
-                    aria-label={`Dismiss notification: ${n.title}`}
-                >
-                    <X size={14} aria-hidden="true" />
-                </button>
-            </div>
-
-            {/* Unread dot */}
-            {!n.read && (
-                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent-primary" />
-            )}
-        </div>
-    );
-}
-
-function EmptyState() {
-    return (
-        <div className="flex flex-col items-center justify-center gap-3 px-6 py-8 text-center text-twilight-text-soft">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-twilight-surface">
-                <BellRing size={20} className="text-moonlit" aria-hidden="true" />
-            </div>
-            <div>
-                <p className="text-sm font-medium text-twilight-text">
-                    Nothing new yet
-                </p>
-                <p className="mt-1.5 text-sm leading-relaxed">
-                    Task reminders and workspace updates will appear here without interrupting your flow.
-                </p>
-            </div>
-        </div>
-    );
+            </AlertDialog.Content>
+        </AlertDialog.Root>
+    </div>;
 }

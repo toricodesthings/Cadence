@@ -1,5 +1,6 @@
+import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useState, useCallback, useMemo, Suspense, lazy } from "react";
+import { useState, useCallback, useMemo, lazy } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { FolderKanban, Pencil, Trash2, Repeat, Check, X, Plus, LayoutList } from "lucide-react";
@@ -392,7 +393,8 @@ export default function ProjectView() {
                 sidePanelActive={Boolean(selectedTaskId)}
                 onCloseSidePanel={() => setSelectedTaskId(null)}
                 sidePanelLabel="Task"
-                headerRight={project ? (shell.isPhone ? (
+                compactHeaderRightInline
+                headerRight={project ? (shell.isCompact ? (
                     <div className="flex items-center gap-2">
                     <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                     <ControlsSheet

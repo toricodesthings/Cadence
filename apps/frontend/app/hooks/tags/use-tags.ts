@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { queryKeys } from "../../lib/api/query-keys";
+import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { Tag } from "@cadence/contracts/tag";
 import { useAuthState } from "../auth/use-auth-state";
 
@@ -12,6 +12,7 @@ export function useTags() {
 
     return useQuery({
         queryKey: queryKeys.tags.all,
+        staleTime: STALE_TIMES.TAGS,
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.tags.$get();

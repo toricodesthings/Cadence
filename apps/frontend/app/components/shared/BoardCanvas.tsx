@@ -116,6 +116,7 @@ export function BoardCanvas({
                             key={column.id}
                             type="button"
                             onClick={() => setActiveColumnId(column.id)}
+                            aria-pressed={activeColumn.id === column.id}
                             className={`touch-target inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-4 text-sm font-medium transition-colors ${
                                 activeColumn.id === column.id
                                     ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"

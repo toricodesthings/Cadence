@@ -15,16 +15,16 @@ function getLocalSettingsKey(userId: string | undefined) {
     return userId ? `cadence_user_settings:${userId}` : null;
 }
 
-function readLocalCache(storageKey: string | null): Partial<UserSettings> {
-    if (!storageKey) return {};
+function readLocalCache(storageKey: string | null): Partial<UserSettings> | undefined {
+    if (!storageKey) return undefined;
     try {
         const raw = localStorage.getItem(storageKey);
-        if (!raw) return {};
+        if (!raw) return undefined;
         const parsed = JSON.parse(raw);
         // Merge with canonical defaults to ensure all keys exist
         return deepMerge(SETTINGS_DEFAULTS, parsed);
     } catch {
-        return {};
+        return undefined;
     }
 }
 
@@ -56,7 +56,7 @@ export function useSettings() {
             writeLocalCache(storageKey, data); // sync to localStorage
             return data;
         },
-        initialData: () => readLocalCache(storageKey) as UserSettings,
+        initialData: () => readLocalCache(storageKey) as UserSettings | undefined,
         initialDataUpdatedAt: 0,
         staleTime: 60_000, // re-fetch at most once per minute
     });

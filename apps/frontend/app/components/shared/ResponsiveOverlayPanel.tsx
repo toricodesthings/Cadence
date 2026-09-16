@@ -1,8 +1,9 @@
-import { AnimatePresence, motion, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useSettings } from "../../hooks/core/use-settings";
 
 interface ResponsiveOverlayPanelProps {
     ariaLabel: string;
@@ -53,6 +54,11 @@ export function ResponsiveOverlayPanel({
     const isMobile = shell.isCompact;
     const isFocus = mode === "focus";
     const isPeekMobile = isMobile && !isFocus;
+    const dragControls = useDragControls();
+    const prefersReducedMotion = useReducedMotion();
+    const { data: settings } = useSettings();
+    const motionPreference = settings?.appearance?.motion;
+    const reducedMotion = motionPreference === "reduced" || (motionPreference !== "full" && prefersReducedMotion);
     const labelId = useId();
     const panelRef = useRef<HTMLElement | null>(null);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -101,7 +107,8 @@ export function ResponsiveOverlayPanel({
 
         const frame = window.requestAnimationFrame(() => {
             const focusables = getFocusableElements(panelRef.current);
-            focusables[0]?.focus();
+            const heading = panelRef.current?.querySelector<HTMLElement>("[data-sheet-heading]");
+            (heading ?? focusables[0] ?? panelRef.current)?.focus();
         });
 
         return () => {
@@ -138,6 +145,8 @@ export function ResponsiveOverlayPanel({
 
     const handleKeyDown = useCallback(
         (event: React.KeyboardEvent<HTMLElement>) => {
+            // Nested portalled editors own their keyboard and dismissal behavior.
+            if (event.defaultPrevented || !panelRef.current?.contains(event.target as Node)) return;
             if (event.key === "Escape") {
                 event.preventDefault();
                 onClose();
@@ -185,10 +194,10 @@ export function ResponsiveOverlayPanel({
                         <motion.aside
                             key="panel"
                             ref={panelRef}
-                            initial={isMobile ? { opacity: 0, y: isFocus ? 16 : 32 } : { opacity: 0, x: 28 }}
+                            initial={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
                             animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0 }}
-                            exit={isMobile ? { opacity: 0, y: isFocus ? 16 : 32 } : { opacity: 0, x: 28 }}
-                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            exit={reducedMotion ? { opacity: 0 } : isMobile ? { opacity: 0, y: isFocus ? 16 : "100%" } : { opacity: 0, x: 28 }}
+                            transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.32, 0.72, 0, 1] }}
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby={showHeader && title ? labelId : undefined}
@@ -196,9 +205,13 @@ export function ResponsiveOverlayPanel({
                             tabIndex={-1}
                             onKeyDown={handleKeyDown}
                             drag={isPeekMobile ? "y" : false}
+                            dragControls={dragControls}
+                            dragListener={false}
+                            dragSnapToOrigin
                             dragConstraints={{ top: 0 }}
                             dragElastic={0.15}
                             onDragEnd={isPeekMobile ? handleDragEnd : undefined}
+                            style={isPeekMobile ? { height: "min(92dvh, 52rem)", width: "100%", maxWidth: shell.isTablet ? "48rem" : undefined, marginInline: "auto" } : undefined}
                             className={[
                                 "mobile-sheet-shell layer-route-overlay surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40",
                                 isMobile
@@ -209,8 +222,8 @@ export function ResponsiveOverlayPanel({
                             ].join(" ")}
                         >
                             {isPeekMobile && (
-                                <div className="flex justify-center py-2.5" aria-hidden="true">
-                                    <div className="h-1 w-10 rounded-full bg-twilight-text-muted/25" />
+                                <div data-sheet-handle onPointerDown={(event) => dragControls.start(event)} style={{ touchAction: "none" }} className="flex h-8 shrink-0 cursor-grab items-center justify-center active:cursor-grabbing" aria-hidden="true">
+                                    <div className="h-1 w-10 rounded-full bg-twilight-text-soft/40" />
                                 </div>
                             )}
 
@@ -220,7 +233,7 @@ export function ResponsiveOverlayPanel({
                                         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft">
                                             Workspace details
                                         </p>
-                                        <h2 id={labelId} className="mt-1 font-display text-xl font-semibold text-twilight-text">
+                                        <h2 id={labelId} data-sheet-heading tabIndex={-1} className="mt-1 font-display text-xl font-semibold text-twilight-text">
                                             {title}
                                         </h2>
                                     </div>
@@ -251,7 +264,7 @@ export function ResponsiveOverlayPanel({
             </AnimatePresence>,
             portalNode,
         );
-    }, [ariaLabel, children, fill, handleDragEnd, handleKeyDown, isFocus, isMobile, isPeekMobile, labelId, onClose, open, portalNode, showHeader, title]);
+    }, [ariaLabel, children, dragControls, fill, handleDragEnd, handleKeyDown, isFocus, isMobile, isPeekMobile, labelId, onClose, open, portalNode, reducedMotion, shell.isTablet, showHeader, title]);
 
     return overlay;
 }

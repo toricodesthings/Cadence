@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Inbox, ChevronDown, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { BoardCanvas } from "../shared/BoardCanvas";
 import { InboxList } from "../inbox/InboxList";
 import { TaskCard } from "../tasks/TaskCard";
 import { isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
@@ -28,6 +30,7 @@ interface HoldingFeedProps {
  * Per H5: the page must foreground inbox items, not unscheduled tasks.
  */
 export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selectedInboxItemId, onSelectTask, onSelectInboxItem, onClarifyInboxItem }: HoldingFeedProps) {
+    const shell = useShellMode();
     const [readyExpanded, setReadyExpanded] = useState(true);
 
     // Only show captures still in clarifying state (C5 — placed/discarded are resolved)
@@ -47,6 +50,13 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
     const hasReadyItems = readyToPlace.length > 0;
     const totalBurden = activeCaptures.length + readyToPlace.length;
     const isEmpty = totalBurden === 0;
+
+    const capturesContent = <InboxList items={activeCaptures} selectedItemId={selectedInboxItemId} onSelectItem={onSelectInboxItem} onClarify={onClarifyInboxItem} />;
+    const tasksContent = <div className="flex flex-col gap-0.5">{readyToPlace.map((task) => <TaskCard key={task.id} task={task} isSelected={selectedTaskId === task.id} onSelect={onSelectTask} holdingContext />)}</div>;
+    if (shell.isCompact) return <BoardCanvas className="mobile-capture-board" columns={[
+        { id: "captures", title: "New captures", count: activeCaptures.length, content: hasClarifyItems ? <div className="px-1">{capturesContent}</div> : <p className="px-3 py-8 text-sm text-twilight-text-soft">No new captures. Tap Add to get something out of your head.</p> },
+        { id: "ready", title: "Ready to place", count: readyToPlace.length, content: hasReadyItems ? tasksContent : <p className="px-3 py-8 text-sm text-twilight-text-soft">Nothing waiting to be placed. Clarify a capture when you’re ready.</p> },
+    ]} />;
 
     if (isEmpty) {
         return (
@@ -75,12 +85,7 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
                         accentClassName="text-accent-nav-capture"
                     />
                     <div className="mt-3">
-                        <InboxList
-                            items={activeCaptures}
-                            selectedItemId={selectedInboxItemId}
-                            onSelectItem={onSelectInboxItem}
-                            onClarify={onClarifyInboxItem}
-                        />
+                        {capturesContent}
                     </div>
                 </section>
             )}
@@ -117,17 +122,7 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
                                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                                 style={{ transformOrigin: "top", willChange: "transform, opacity" }}
                             >
-                                <div className="mt-3 flex flex-col gap-0.5">
-                                    {readyToPlace.map((task) => (
-                                        <TaskCard
-                                            key={task.id}
-                                            task={task}
-                                            isSelected={selectedTaskId === task.id}
-                                            onSelect={onSelectTask}
-                                            holdingContext
-                                        />
-                                    ))}
-                                </div>
+                                <div className="mt-3">{tasksContent}</div>
                             </motion.div>
                         )}
                     </AnimatePresence>

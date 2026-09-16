@@ -7,6 +7,8 @@ import { useProjects } from "../../hooks/projects";
 import { Zap, Clock, CalendarX2, UserCheck, Brain, CloudFog, Search, X, BookmarkPlus, Pin, Trash2, Pencil } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import * as ContextMenu from "../primitives/ContextMenu";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { UtilitySheet } from "../shared/UtilitySheet";
 import { Tip } from "../primitives";
 
 const PRESET_ICONS: Record<string, React.ReactNode> = {
@@ -27,6 +29,7 @@ const PRESET_ICONS: Record<string, React.ReactNode> = {
  * Auto-collapses after applying a filter.
  */
 export function FocusViewBar() {
+    const shell = useShellMode();
     const { data: userSettings } = useSettings();
     useFocusViews();
     const { data: projects = [] } = useProjects();
@@ -136,45 +139,19 @@ export function FocusViewBar() {
 
     if (!intelligenceEnabled || !focusViewsEnabled) return null;
 
-    return (
-        <Popover.Root open={open} onOpenChange={setOpen}>
-            <Popover.Trigger
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors ${
-                    activeDefinition
-                        ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
-                        : "bg-white/[0.03] text-twilight-text-muted border border-twilight-border/30 hover:bg-white/[0.06]"
-                }`}
-            >
-                <Zap size={14} aria-hidden="true" />
-                {activeLabel ?? "Focus"}
-                {activeLabel && (
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); clear(); }}
-                        className="rounded-full p-0.5 hover:bg-accent-primary/20 transition-colors cursor-pointer"
-                        aria-label="Clear focus view"
-                    >
-                        <X size={11} />
-                    </button>
-                )}
-            </Popover.Trigger>
-
-                <Popover.Content
-                    align="start"
-                    sideOffset={6}
-                    className="w-80 max-h-[28rem] overflow-y-auto"
-                >
+    const content = <div className={shell.isCompact ? "mobile-focus-options" : undefined}>
                     {/* Section: Presets */}
                     <div className="mb-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted/60 mb-2">
                             Presets
                         </p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className={shell.isCompact ? "flex flex-col gap-2" : "flex flex-wrap gap-1.5"}>
                             {FOCUS_VIEW_PRESETS.map((preset) => (
                                 <Tip key={preset.id} label={preset.description ?? preset.name} side="top">
                                     <button
                                         type="button"
                                         onClick={() => handleSelectPreset(preset)}
+                                        aria-pressed={activePresetId === preset.id}
                                         className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
                                             activePresetId === preset.id
                                                 ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
@@ -182,7 +159,7 @@ export function FocusViewBar() {
                                         }`}
                                     >
                                         {PRESET_ICONS[preset.icon] ?? null}
-                                        {preset.name}
+                                        <span className={shell.isCompact ? "flex flex-col gap-1 text-left" : undefined}>{preset.name}{shell.isCompact && <span className="text-xs font-normal text-twilight-text-soft">{preset.description}</span>}</span>
                                     </button>
                                 </Tip>
                             ))}
@@ -270,6 +247,7 @@ export function FocusViewBar() {
                                         <button
                                             type="button"
                                             onClick={() => setComposerInput("")}
+                                            aria-label="Clear filter description"
                                             className="absolute right-2 top-1/2 -translate-y-1/2 text-twilight-text-muted hover:text-twilight-text cursor-pointer"
                                         >
                                             <X size={12} />
@@ -330,6 +308,50 @@ export function FocusViewBar() {
                             </button>
                         </div>
                     )}
+
+    </div>;
+
+    if (shell.isCompact) return <>
+        <Tip label={activeLabel ? `Focus: ${activeLabel}` : "Focus"}><button type="button" aria-label={activeLabel ? `Focus: ${activeLabel}` : "Focus"} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} className={`mobile-icon-button relative ${activeDefinition ? "bg-accent-primary/15 text-accent-primary" : ""}`}>
+            <Zap size={20} aria-hidden="true" />
+            {activeDefinition && <span className="absolute right-2 top-2 size-1.5 rounded-full bg-accent-primary" />}
+        </button></Tip>
+        <UtilitySheet title="Focus" open={open} onClose={() => setOpen(false)}>
+            <p className="text-sm text-twilight-text-soft">Choose what you want to see right now.</p>
+            {activeLabel && <p className="text-sm text-accent-primary">Showing: {activeLabel}</p>}
+            {content}
+        </UtilitySheet>
+    </>;
+
+    return (
+        <Popover.Root open={open} onOpenChange={setOpen}>
+            <Popover.Trigger
+                className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors ${
+                    activeDefinition
+                        ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
+                        : "bg-white/[0.03] text-twilight-text-muted border border-twilight-border/30 hover:bg-white/[0.06]"
+                }`}
+            >
+                <Zap size={14} aria-hidden="true" />
+                {activeLabel ?? "Focus"}
+                {activeLabel && (
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); clear(); }}
+                        className="rounded-full p-0.5 hover:bg-accent-primary/20 transition-colors cursor-pointer"
+                        aria-label="Clear focus view"
+                    >
+                        <X size={11} />
+                    </button>
+                )}
+            </Popover.Trigger>
+
+                <Popover.Content
+                    align="start"
+                    sideOffset={6}
+                    className="w-80 max-h-[28rem] overflow-y-auto"
+                >
+                    {content}
                 </Popover.Content>
             </Popover.Root>
     );

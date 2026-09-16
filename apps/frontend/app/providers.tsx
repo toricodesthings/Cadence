@@ -12,6 +12,7 @@ import { ApiErrorResponse } from "./types/api";
 import { AuthStateProvider, useAuthState } from "./hooks/auth/use-auth-state";
 import { BackgroundLayer } from "./components/settings/appearance/BackgroundLayer";
 import { Toaster } from "./components/feedback/Toaster";
+import { WorkspaceStartup } from "./components/layout/WorkspaceStartup";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { initWal } from "./lib/api/offline-wal";
 import { replayWal } from "./lib/api/mutation-executor";
@@ -67,9 +68,15 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 
 function ProvidersInner({ children }: { children: ReactNode }) {
+    const { session } = useAuthState();
+    // A new account must never construct observers over the previous account's
+    // cache, even for one render while an effect is clearing it.
+    return <AccountProviders key={session?.user.id ?? "anonymous"}>{children}</AccountProviders>;
+}
+
+function AccountProviders({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
     const { beginAuthRecovery, completeSignOut, session, authReady } = useAuthState();
-    const lastUserId = useRef<string | null>(null);
     const hasCheckedForUpdates = useRef(false);
 
     // Keep fresh references for the QueryClient closure (created once in useState).
@@ -162,14 +169,6 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                 },
             })
     );
-
-    useEffect(() => {
-        const currentUserId = session?.user.id ?? null;
-        if (lastUserId.current && lastUserId.current !== currentUserId) {
-            queryClient.clear();
-        }
-        lastUserId.current = currentUserId;
-    }, [queryClient, session?.user.id]);
 
     useEffect(() => {
         if (session) return;
@@ -267,7 +266,12 @@ function ProvidersInner({ children }: { children: ReactNode }) {
 
     const persistOptions = useMemo(
         () => ({
-            persister: createIDBPersister(),
+            // Do not discard the saved account cache while auth is unresolved.
+            persister: session?.user.id ? createIDBPersister() : {
+                persistClient: async () => {},
+                restoreClient: async () => undefined,
+                removeClient: async () => {},
+            },
             maxAge: 1000 * 60 * 60 * 24, // 24 hours
             buster: session?.user.id ?? "",
             // Queries marked `meta: { persist: false }` (location, weather) stay in memory only.
@@ -358,7 +362,9 @@ function ProvidersInner({ children }: { children: ReactNode }) {
                         }}
                     >
                         {authReady && session?.user.id && <BackgroundLayer key={session.user.id} />}
-                        <div className="relative">{children}</div>
+                        <div className="relative">
+                            <WorkspaceStartup>{children}</WorkspaceStartup>
+                        </div>
                         <Toaster />
                         <OfflineBanner />
                     </AuthUIProvider>

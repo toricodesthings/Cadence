@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { queryKeys } from "../../lib/api/query-keys";
+import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { Project } from "@cadence/contracts/project";
 import { useAuthState } from "../auth/use-auth-state";
 
@@ -11,6 +11,7 @@ export function useProjects() {
 
     return useQuery({
         queryKey: queryKeys.projects.all,
+        staleTime: STALE_TIMES.PROJECTS,
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.projects.$get();

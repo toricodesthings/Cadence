@@ -22,7 +22,7 @@ export function AssistantLauncher({ besideOrb = false }: { besideOrb?: boolean }
 
     return (
         <div
-            className={`layer-floating-bar pointer-events-none fixed bottom-5 flex justify-end ${
+            className={`layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 flex justify-end ${
                 besideOrb ? "right-[5.5rem] sm:right-[6rem]" : "right-4 sm:right-5"
             }`}
         >

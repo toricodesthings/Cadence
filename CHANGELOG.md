@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Expand the compact desktop notification preview into a full panel with search, unread filters, sorting, read/unread controls, quick actions, and bulk clearing; mobile opens the full panel directly.
+
+### Changed
+
+- Mobile Capture now has separate tabs and an Add sheet, the assistant sits in the center of the taskbar, and Focus and Controls open draggable sheets from the header. Browse holds search, Habits and Settings, and mobile Rhythms stay visible.
+- Mobile and tablet navigation now has bottom tabs, swipe-down Settings and Notifications panels, Profile & Security and sign-out inside Settings, and compact page controls.
+
+### Fixed
+
+- The loading screen now prepares the first page's data before revealing it, reuses saved data, and shows recovery options if loading fails. Its slightly smaller wordmark rolls briskly like a rotating cube into “Preparing your workspace,” with tighter letter spacing on the preparation message. Startup also avoids unnecessary session checks and loading unopened tools.
+
 ## [0.13.0] - 2026-09-16
 
 ### Changed

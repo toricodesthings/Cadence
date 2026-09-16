@@ -52,7 +52,6 @@ import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { toast } from "sonner";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
-import { useSidebarStore } from "../stores/sidebar-store";
 import {
     getDateFromTimedDropId,
     parseCalendarTimedDropId,
@@ -106,7 +105,6 @@ export default function Schedule() {
     const shell = useShellMode();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { setMobileNavOpen } = useSidebarStore();
     const today = new Date();
 
     // ── Persisted view mode per device class ────────────────────────────────
@@ -1078,7 +1076,7 @@ export default function Schedule() {
                         onAddTask={handleAddTaskToolbar}
                         onAddEvent={handleAddEventToolbar}
                         overflowContent={shell.isPhone ? mobileOverflowContent : overflowContent}
-                        onToggleSidebar={shell.isCompact ? () => setMobileNavOpen(true) : undefined}
+                        onToggleSidebar={shell.isCompact ? () => navigate("/browse", { state: { pageBack: true, backLabel: "Back" } }) : undefined}
                         compact={shell.isCompact}
                     />
 

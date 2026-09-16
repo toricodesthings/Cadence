@@ -6,6 +6,8 @@
  */
 
 /** Circumference of the r=46 ring is ~289; each dash pattern sums to that so the arcs tile once. */
+import { useLayoutEffect, useRef, type ReactNode } from "react";
+
 const RING_A = "78 16 5 16 46 128";
 const RING_B = "120 40 4 125";
 
@@ -20,7 +22,20 @@ function HaloRing({ variant, dash, sparks }: { variant: "a" | "b"; dash: string;
     );
 }
 
-export function LoadingForeground() {
+export function LoadingForeground({ title, children }: { title?: string; children?: ReactNode }) {
+    const cubeRef = useRef<HTMLSpanElement>(null);
+
+    useLayoutEffect(() => {
+        const cube = cubeRef.current;
+        if (!cube) return;
+        // Adjacent faces share an edge, including when the message wraps on phones.
+        const measure = () => cube.style.setProperty("--ls-wordmark-depth", `${cube.offsetHeight / 2}px`);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(cube);
+        return () => observer.disconnect();
+    }, [title]);
+
     return (
         <div className="relative z-10 flex flex-col items-center text-center mt-20">
             <div className="ls-logo-block mb-10 relative flex items-center justify-center">
@@ -33,10 +48,16 @@ export function LoadingForeground() {
                 </div>
             </div>
 
-            <h2 className="ls-wordmark uppercase font-display font-medium relative">
+            <h2 className="ls-wordmark font-display font-medium relative" data-loading-title={title ? "" : undefined}>
+                <span className="sr-only" role="status">{title ?? "Cadence"}</span>
                 <span className="ls-wordmark-halo" aria-hidden="true" />
                 <span className="ls-rule ls-rule-l" aria-hidden="true" />
-                Cadence
+                <span className="ls-wordmark-flip" aria-hidden="true">
+                    <span className="ls-wordmark-cube" ref={cubeRef}>
+                        <span className="ls-wordmark-brand uppercase">Cadence</span>
+                        {title && <span className="ls-wordmark-title">{title}</span>}
+                    </span>
+                </span>
                 <span className="ls-rule ls-rule-r" aria-hidden="true" />
             </h2>
 
@@ -45,6 +66,7 @@ export function LoadingForeground() {
                     <span key={delay} className="ls-dot w-1.5 h-1.5 rounded-full" style={{ animationDelay: `${delay}ms` }} />
                 ))}
             </div>
+            {children}
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Camera, UserRound } from "lucide-react";
 import { Button, Input } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { authClient } from "../../../lib/auth-client";
@@ -31,7 +32,7 @@ function FieldEditorModal({
     return (
         <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue); }}>
             <Dialog.DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="sm" className="min-h-11 min-w-11 opacity-100 transition-opacity">
                     {triggerText}
                 </Button>
             </Dialog.DialogTrigger>
@@ -85,7 +86,7 @@ function BirthdayEditorModal({
     return (
         <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) setVal(initialValue || ""); }}>
             <Dialog.DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="sm" className="min-h-11 min-w-11 opacity-100 transition-opacity">
                     {initialValue ? "Edit" : "Set"}
                 </Button>
             </Dialog.DialogTrigger>
@@ -386,7 +387,7 @@ function OAuthConnectionsBlock() {
             ) : accounts && accounts.length > 0 ? (
                 <div className="flex flex-col gap-1">
                     {accounts.map((acc: any) => (
-                        <div key={acc.id} className="flex justify-between items-center group/acc px-3 py-3 rounded-xl hover:bg-white/[0.03] transition-all border border-transparent hover:border-twilight-border">
+                        <div key={acc.id} className="flex justify-between items-center gap-3 group/acc [&>div:first-child]:min-w-0 [&>div:first-child]:break-words px-3 py-3 rounded-xl hover:bg-white/[0.03] transition-all border border-transparent hover:border-twilight-border">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center border border-twilight-border group-hover/acc:bg-white/[0.06] transition-colors">
                                     <ProviderLogo provider={acc.providerId} />
@@ -493,7 +494,7 @@ function SessionsBlock() {
                     sessions.map((sess: any) => {
                         const isCurrent = sess.id === currentSession?.session.id;
                         return (
-                            <div key={sess.id} className={`flex justify-between items-center group/session ${isCurrent ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-twilight-border'} border rounded-lg p-3 transition-colors`}>
+                            <div key={sess.id} className={`flex justify-between items-center gap-3 group/session [&>div:first-child]:min-w-0 [&>div:first-child]:break-words ${isCurrent ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-twilight-border'} border rounded-lg p-3 transition-colors`}>
                                 <div className="flex flex-col gap-0.5">
                                     <span className="text-sm text-warm-white font-medium flex items-center gap-2">
                                         {isCurrent ? "Current Device" : "Other Device"}
@@ -581,10 +582,10 @@ function AvatarEditModal({ userImage, onProfileUpdated }: { userImage?: string |
 
     return (
         <>
-            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
-                <span className="text-xl">📷</span>
+            <label className="absolute inset-0 bg-black/60 opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer focus-within:ring-2 focus-within:ring-inset focus-within:ring-accent-primary">
+                <Camera size={22} aria-hidden="true" />
                 <span className="text-[10px] font-semibold text-white uppercase tracking-wider mt-1">Change</span>
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileUpload} />
+                <input type="file" aria-label="Change profile picture" accept="image/jpeg,image/png,image/webp" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={handleFileUpload} />
             </label>
 
             <Dialog.Dialog open={open} onOpenChange={(isOpen) => {
@@ -600,7 +601,7 @@ function AvatarEditModal({ userImage, onProfileUpdated }: { userImage?: string |
                             {previewImage ? (
                                 <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-4xl text-warm-white/20">👤</span>
+                                <UserRound size={40} className="text-twilight-text-muted" aria-hidden="true" />
                             )}
                             {loading && (
                                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
@@ -705,7 +706,7 @@ export function AccountTab() {
                             {user?.image ? (
                                 <img src={user.image} alt={user.name || "User"} className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-3xl">👤</span>
+                                <UserRound size={32} className="text-twilight-text-muted" aria-hidden="true" />
                             )}
                                 <AvatarEditModal userImage={user?.image} onProfileUpdated={refetchSession} />
                         </div>
@@ -713,14 +714,14 @@ export function AccountTab() {
                 </div>
                 <div className="pt-14 pb-6 px-6 relative">
                     <div className="flex flex-col gap-1">
-                        <h3 className="text-xl font-bold text-warm-white flex items-center gap-2">
+                        <h3 className="text-xl font-bold text-warm-white flex flex-wrap items-center gap-2 break-words">
                             {!authReady ? "Loading..." : user ? (user.name || "Cadence User") : "Guest User"}
                             {user?.id && <span className="text-warm-white/40 font-normal text-sm">#{user.id.slice(0, 4)}</span>}
                         </h3>
                     </div>
 
                     <div className="mt-8 bg-black/20 rounded-xl p-4 flex flex-col gap-4 border border-twilight-border">
-                        <div className="flex justify-between items-center group">
+                        <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Display Name</p>
                                 <p className="text-sm text-warm-white">{!authReady ? "..." : (user?.name || "None")}</p>
@@ -732,7 +733,7 @@ export function AccountTab() {
                                 placeholder="Your full name"
                             />
                         </div>
-                        <div className="flex justify-between items-center group">
+                        <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Pronouns</p>
                                 <p className="text-sm text-warm-white">{profileSettings.pronouns || "Not set"}</p>
@@ -744,7 +745,7 @@ export function AccountTab() {
                                 placeholder="they/them"
                             />
                         </div>
-                        <div className="flex justify-between items-center group">
+                        <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Email</p>
                                 <p className="text-sm text-warm-white flex items-center gap-2">
@@ -759,7 +760,7 @@ export function AccountTab() {
                                 type="email"
                             />
                         </div>
-                        <div className="flex justify-between items-center group">
+                        <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Birthday</p>
                                 <p className="text-sm text-warm-white">

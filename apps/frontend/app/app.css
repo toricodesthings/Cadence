@@ -2240,3 +2240,58 @@ a:active {
     outline-offset: 2px;
   }
 }
+
+/* Compact navigation and shared utility sheets. */
+.mobile-icon-button {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--color-twilight-text-soft);
+  cursor: pointer;
+}
+.mobile-icon-button:hover,
+.mobile-icon-button:active { background: var(--color-twilight-surface); }
+.utility-sheet-content button, .utility-sheet-content a, .mobile-tab-bar a { cursor: pointer; }
+.mobile-page-scroll { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+.mobile-tab-bar.safe-bottom { padding-bottom: max(0.25rem, env(safe-area-inset-bottom)); }
+.mobile-browse-panel [data-radix-scroll-area-viewport] { height: auto; }
+.mobile-browse-panel a, .mobile-browse-panel button { min-height: 44px; }
+.mobile-browse-panel button { min-width: 44px; }
+body:has(.compact-navigation-shell) .mobile-floating-action {
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+}
+.mobile-settings-content > div > h2:first-child { display: none; }
+.utility-sheet-header h2:focus, [data-sheet-heading]:focus { box-shadow: none; }
+.utility-sheet-content input,
+.utility-sheet-content select { font-size: max(1rem, 16px); }
+.utility-sheet-content { -webkit-overflow-scrolling: touch; }
+.utility-sheet-content, .utility-sheet-header {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+.mobile-tab-bar {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+[data-radix-popper-content-wrapper]:has([role="tooltip"]) { pointer-events: none; }
+
+.mobile-focus-options button { min-height: 44px; }
+.mobile-focus-options > div { margin-bottom: 1.25rem; }
+.mobile-focus-options > div > p { color: var(--color-twilight-text-soft); }
+.mobile-focus-options button:has(> span) { padding: 0.875rem 1rem; gap: 0.75rem; font-size: 0.875rem; border-radius: 1rem; }
+.mobile-focus-options input { padding-right: 3rem; }
+.mobile-focus-options input + button { min-width: 44px; }
+.mobile-controls-section button { min-height: 44px; }
+
+/* Short landscape windows need one scroll region so the controls cannot crowd out the list. */
+@media (max-height: 500px) {
+  .notification-center { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .notification-center-list { overflow: visible; }
+}
+
+.mobile-capture-board > div:last-child > section > div:last-child { padding-bottom: 5rem; }
+
+.mobile-capture-board button { min-width: 44px; min-height: 44px; }

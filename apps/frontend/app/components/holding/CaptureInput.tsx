@@ -12,26 +12,32 @@ import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
  * - "Captured" confirmation via the app-wide toast
  * - `Esc` clears input but does not blur if non-empty
  */
-export function CaptureInput() {
-    const [value, setValue] = useState("");
+export function CaptureInput({ mobile = false, draft, onDraftChange, onCaptured }: {
+    mobile?: boolean; draft?: string; onDraftChange?: (value: string) => void; onCaptured?: () => void;
+}) {
+    const [localValue, setLocalValue] = useState("");
+    const value = draft ?? localValue;
+    const setValue = onDraftChange ?? setLocalValue;
     const [isFocused, setIsFocused] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const createInboxItem = useCreateInboxItem();
 
     const handleSubmit = useCallback((forceTask?: boolean) => {
         const text = value.trim();
-        if (!text) return;
+        if (!text || (mobile && createInboxItem.isPending)) return;
         createInboxItem.mutate(text, {
             onSuccess: () => {
                 toast.success("Captured");
+                if (mobile) { setValue(""); onCaptured?.(); }
             },
         });
-        setValue("");
+        if (!mobile) setValue("");
         // Re-focus for rapid capture flow
         inputRef.current?.focus();
-    }, [value, createInboxItem]);
+    }, [value, createInboxItem, mobile, setValue, onCaptured]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (mobile && !(e.key === "Enter" && (e.metaKey || e.ctrlKey))) return;
         // mod+enter → forced task capture
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -66,6 +72,21 @@ export function CaptureInput() {
         el.style.height = "auto";
         el.style.height = `${Math.max(singleLineHeight, Math.min(el.scrollHeight, 160))}px`;
     }, [value]);
+
+    if (mobile) return (
+        <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); handleSubmit(); }}>
+            <p className="text-sm text-twilight-text-soft">A thought, a task, a reminder. Get it out of your head; place it later.</p>
+            <textarea value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={handleKeyDown}
+                aria-label="What's on your mind?" placeholder="What's on your mind?" rows={5}
+                disabled={createInboxItem.isPending}
+                className="w-full resize-none rounded-2xl border border-twilight-border bg-twilight-surface/40 p-4 text-base text-twilight-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary" />
+            {createInboxItem.isError && <p role="alert" className="text-sm text-twilight-text-soft">Couldn’t save your capture. Your draft is still here. Try again.</p>}
+            <button type="submit" disabled={!value.trim() || createInboxItem.isPending}
+                className="min-h-12 rounded-2xl bg-accent-primary px-5 font-medium text-midnight disabled:opacity-50 active:opacity-80">
+                {createInboxItem.isPending ? "Capturing…" : "Capture"}
+            </button>
+        </form>
+    );
 
     return (
         <div

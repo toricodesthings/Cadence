@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { UtilitySheet } from "./UtilitySheet";
+import { Tip } from "../primitives/Tooltip";
 import * as Dialog from "../primitives/Dialog";
 
 export interface ControlsSheetSection {
@@ -25,6 +28,7 @@ export function ControlsSheet({
     triggerLabel = "Controls",
     triggerClassName = "",
 }: ControlsSheetProps) {
+    const shell = useShellMode();
     const storageKey = useMemo(() => `cadence-controls-sheet:${routeKey}`, [routeKey]);
     const [open, setOpen] = useState(false);
     const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? "");
@@ -45,6 +49,17 @@ export function ControlsSheet({
     }, [activeSectionId, storageKey]);
 
     const activeSection = sections.find((section) => section.id === activeSectionId) ?? sections[0];
+
+    if (shell.isCompact) return <>
+        <Tip label={triggerLabel}><button type="button" className="mobile-icon-button" aria-label={triggerLabel} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><SlidersHorizontal size={20} aria-hidden="true" /></button></Tip>
+        <UtilitySheet title={title} open={open} onClose={() => setOpen(false)}>
+            {description && <p className="text-sm text-twilight-text-soft">{description}</p>}
+            {sections.map((section) => <section key={section.id} aria-label={section.label} className="mobile-controls-section space-y-3">
+                <h3 className="text-sm font-semibold text-twilight-text">{section.label}</h3>
+                {section.content}
+            </section>)}
+        </UtilitySheet>
+    </>;
 
     return (
         <Dialog.Dialog open={open} onOpenChange={setOpen}>

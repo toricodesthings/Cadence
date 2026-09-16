@@ -4,6 +4,7 @@ import { useTasks } from "../tasks";
 import { useAllHabits } from "../habits/use-habits";
 import { useSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";
+import { useAuthState } from "../auth/use-auth-state";
 import {
     deriveCandidates,
     filterByBehavior,
@@ -131,8 +132,10 @@ export function useNotificationCenter() {
     const { data: habits = [] } = useAllHabits();
     const presentedRef = useRef<Set<string>>(new Set());
 
+    const { authReady, isAuthenticated } = useAuthState();
     const { data: persistedRows = [] } = useQuery({
         queryKey: ["notification-state"],
+        enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.settings["notification-state"].$get();
             return unwrapResponse<NotificationStateRow[]>(res);
@@ -166,6 +169,7 @@ export function useNotificationCenter() {
                 readIds.add(row.triggerId);
                 changed = true;
             }
+            if (row.actionTaken === "unread" && readIds.delete(row.triggerId)) changed = true;
             if (row.deferredUntil && deferredUntil.get(row.triggerId) !== row.deferredUntil) {
                 deferredUntil.set(row.triggerId, row.deferredUntil);
                 changed = true;
@@ -271,8 +275,8 @@ export function useNotificationCenter() {
         }
     }, [notifications, syncNotificationState]);
 
-    const markRead = useCallback((id: string) => {
-        readIds.add(id);
+    const setRead = useCallback((id: string, read: boolean) => {
+        if (read) readIds.add(id); else readIds.delete(id);
         emitChange();
         const notification = notifications.find((item) => item.id === id);
         if (notification) {
@@ -281,10 +285,13 @@ export function useNotificationCenter() {
                 lastPresentedAt: new Date().toISOString(),
                 dismissedAt: null,
                 deferredUntil: null,
-                actionTaken: "read",
+                actionTaken: read ? "read" : "unread",
             });
         }
     }, [notifications, syncNotificationState]);
+
+    const markRead = useCallback((id: string) => setRead(id, true), [setRead]);
+    const markUnread = useCallback((id: string) => setRead(id, false), [setRead]);
 
     const markAllRead = useCallback(() => {
         for (const n of notifications) {
@@ -300,21 +307,25 @@ export function useNotificationCenter() {
         emitChange();
     }, [notifications, syncNotificationState]);
 
-    const dismiss = useCallback((id: string) => {
-        trackUsageEvent("reminder.dismissed");
-        dismissedIds.add(id);
-        emitChange();
-        const notification = notifications.find((item) => item.id === id);
-        if (notification) {
+    const dismissMany = useCallback((ids: string[]) => {
+        const selected = new Set(ids);
+        const nowIso = new Date().toISOString();
+        for (const notification of notifications) {
+            if (!selected.has(notification.id)) continue;
+            trackUsageEvent("reminder.dismissed");
+            dismissedIds.add(notification.id);
             void syncNotificationState(notification, {
                 firstPresentedAt: null,
-                lastPresentedAt: new Date().toISOString(),
-                dismissedAt: new Date().toISOString(),
+                lastPresentedAt: nowIso,
+                dismissedAt: nowIso,
                 deferredUntil: null,
                 actionTaken: "dismissed",
             });
         }
+        emitChange();
     }, [notifications, syncNotificationState]);
+
+    const dismiss = useCallback((id: string) => dismissMany([id]), [dismissMany]);
 
     /** §11.7: Defer a notification — it will resurface after the chosen delay */
     const defer = useCallback((id: string, choice: DeferChoice) => {
@@ -340,8 +351,10 @@ export function useNotificationCenter() {
         unreadCount,
         hasUnread,
         markRead,
+        markUnread,
         markAllRead,
         dismiss,
+        dismissMany,
         /** §11.7: Defer a notification */
         defer,
         /** Raw unfiltered notifications for browser notification hook */

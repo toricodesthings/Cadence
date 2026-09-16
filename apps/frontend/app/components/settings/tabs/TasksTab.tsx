@@ -4,40 +4,17 @@ import { Switch } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { ChevronDown } from "lucide-react";
+import { SETTINGS_DEFAULTS } from "../../../types/settings";
 
 export function TasksTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
 
-    const taskSettings = settings?.tasks ?? {
-        defaultDueDate: null,
-        defaultView: "list" as const,
-        defaultPriority: "none" as const,
-        defaultDurationMinutes: null,
-        newTaskPlacement: "bottom" as const,
-        openDetailOnCreate: false,
-        hideTrash: false,
-        hideCompleted: false,
-        showDoneCelebration: true,
-        quickAdd: {
-            preset: "planner" as const,
-            style: "label" as const,
-            actions: ["date", "priority", "project"] as Array<"date" | "priority" | "project" | "tag">,
-        },
-    };
+    const taskSettings = settings?.tasks ?? SETTINGS_DEFAULTS.tasks;
 
     const quickAddActions = taskSettings.quickAdd?.actions ?? ["date", "priority", "project"];
 
-    const intelligence = taskSettings.intelligence ?? {
-        nlpEnabled: true,
-        autoParseOnCapture: true,
-        confidenceThreshold: "medium" as const,
-        showExplanations: true,
-        lowStimulationMode: false,
-        smartSortEnabled: true,
-        focusViewsEnabled: true,
-        dismissedEntities: [],
-    };
+    const intelligence = taskSettings.intelligence ?? SETTINGS_DEFAULTS.tasks.intelligence;
 
     const [showAdvanced, setShowAdvanced] = useState(false);
 

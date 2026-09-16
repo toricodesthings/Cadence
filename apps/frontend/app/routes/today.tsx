@@ -1,5 +1,6 @@
+import { StartupSuspense as Suspense } from "../components/shared/StartupSuspense";
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useEffect, useMemo, useState, Suspense, lazy } from "react";
+import { useEffect, useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3 } from "lucide-react";
@@ -332,7 +333,7 @@ export default function TodayRoute() {
         { value: "manual", label: "Manual" },
     ] as const;
 
-    const headerRight = shell.isPhone ? (
+    const headerRight = shell.isCompact ? (
         <div className="flex items-center gap-2">
             <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
             <ControlsSheet
@@ -359,6 +360,7 @@ export default function TodayRoute() {
                                     key={option.value}
                                     type="button"
                                     onClick={() => setSortMode(option.value)}
+                                    aria-pressed={sortMode === option.value}
                                     className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
                                         sortMode === option.value
                                             ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
@@ -406,8 +408,9 @@ export default function TodayRoute() {
         </div>
     );
 
-    const visibleRhythmTasks = hideRhythms ? [] : grouped.rhythmTasks;
-    const visibleRhythmHabits = hideRhythms ? [] : grouped.rhythmHabits;
+    const rhythmsHidden = !shell.isCompact && hideRhythms;
+    const visibleRhythmTasks = rhythmsHidden ? [] : grouped.rhythmTasks;
+    const visibleRhythmHabits = rhythmsHidden ? [] : grouped.rhythmHabits;
     const totalVisible =
         grouped.urgent.length +
         grouped.overdueHabits.length +
@@ -509,7 +512,7 @@ export default function TodayRoute() {
             );
         }
 
-        if (hideRhythms) {
+        if (rhythmsHidden) {
             return (
                 <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
                     Rhythms hidden ({rhythmsTotalCount}).
@@ -571,7 +574,7 @@ export default function TodayRoute() {
             icon: Repeat,
             accentClass: "text-moonlit",
             count: hideRhythms ? rhythmsTotalCount : (visibleRhythmTasks.length + visibleRhythmHabits.length),
-            headerAction: (
+            headerAction: !shell.isCompact && (
                 <button
                     type="button"
                     onClick={toggleRhythms}
@@ -582,7 +585,7 @@ export default function TodayRoute() {
                     {rhythmsHideShowLabel}
                 </button>
             ),
-            boardHeaderAction: (
+            boardHeaderAction: !shell.isCompact && (
                 <Tip label={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"} side="bottom">
                     <button
                         type="button"
@@ -596,7 +599,7 @@ export default function TodayRoute() {
             ),
             listSectionClassName: "rounded-[28px] border border-moonlit/20 bg-moonlit/[0.08] px-4 py-4 shadow-[0_18px_60px_rgba(7,14,26,0.18)]",
             boardSectionClassName: "border-moonlit/25 bg-moonlit/[0.08]",
-            boardCollapsed: hideRhythms,
+            boardCollapsed: rhythmsHidden,
             listContent: renderRhythmsBucket(),
             boardContent: renderRhythmsBucket("board"),
         }] : []),
@@ -610,6 +613,7 @@ export default function TodayRoute() {
             onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
             headerRight={headerRight}
+            compactHeaderRightInline
             contentWidth="default"
             shellHeader={{
                 title: "Today",

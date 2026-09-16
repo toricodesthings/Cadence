@@ -7,7 +7,7 @@ interface MoveToSectionSubmenuProps {
     currentProjectId: string | null;
     currentSectionId?: string | null;
     onSelect: (sectionId: string | null) => void;
-    MenuComponents?: typeof DropdownMenu;
+    MenuComponents?: Pick<typeof DropdownMenu, "Sub" | "SubTrigger" | "Portal" | "SubContent" | "Item" | "Separator">;
 }
 
 export const MoveToSectionSubmenu: React.FC<MoveToSectionSubmenuProps> = ({

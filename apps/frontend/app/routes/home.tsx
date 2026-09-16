@@ -7,6 +7,8 @@ import { PlannerHeader } from "../components/layout/PlannerHeader";
 import { LocationNotice } from "../components/location/LocationNotice";
 import { PageContent } from "../components/layout/PageLayout";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
+import { UtilitySheet } from "../components/shared/UtilitySheet";
+import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { CaptureInput } from "../components/holding/CaptureInput";
 import { HoldingFeed } from "../components/holding/HoldingFeed";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
@@ -25,6 +27,8 @@ import { useRouteFocus } from "../hooks/search/use-route-focus";
 
 export default function HomeRoute() {
     const shell = useShellMode();
+    const [captureOpen, setCaptureOpen] = useState(false);
+    const [captureDraft, setCaptureDraft] = useState("");
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
@@ -157,6 +161,20 @@ export default function HomeRoute() {
         </Button>
     );
 
+    const feed = tasksLoading || inboxLoading ? (
+        <TaskListSkeleton />
+    ) : (
+        <HoldingFeed
+            inboxItems={inboxItems}
+            holdingTasks={holdingTasks}
+            selectedTaskId={selectedTaskId}
+            selectedInboxItemId={selectedInboxItemId}
+            onSelectTask={handleSelectTask}
+            onSelectInboxItem={handleSelectInboxItem}
+            onClarifyInboxItem={handleClarifyInboxItem}
+        />
+    );
+
     return (
         <MainLayout
             requireAuth
@@ -165,7 +183,7 @@ export default function HomeRoute() {
             sidePanelActive={Boolean(hasPanelContent)}
             sidePanelLabel="Review"
             headerRight={headerRight}
-            phoneHeaderRightInline
+            compactHeaderRightInline
             contentWidth="default"
             shellHeader={{
                 title: "Capture",
@@ -173,33 +191,26 @@ export default function HomeRoute() {
                 accentColor: "var(--accent-nav-capture, var(--accent-primary))",
             }}
         >
-            <ScrollAreaWrapper>
+            {shell.isCompact ? <PageContent className="flex min-h-0 flex-1 flex-col pb-4">{feed}</PageContent> : <ScrollAreaWrapper>
                 <PageContent width="default">
                     {/* Greeting — demoted per M1: capture leads, warmth follows */}
                     <PlannerHeader className="mb-4 lg:mb-5" />
                     <LocationNotice />
 
                     {/* ── Universal capture composer — the ONE primary action (Law 1) ── */}
-                    <div className="mb-8 lg:mb-10">
-                        <CaptureInput />
-                    </div>
+                    <div className="mb-8 lg:mb-10"><CaptureInput /></div>
 
                     {/* ── Unified Holding feed: To clarify → Ready to place ── */}
-                    {tasksLoading || inboxLoading ? (
-                        <TaskListSkeleton />
-                    ) : (
-                        <HoldingFeed
-                            inboxItems={inboxItems}
-                            holdingTasks={holdingTasks}
-                            selectedTaskId={selectedTaskId}
-                            selectedInboxItemId={selectedInboxItemId}
-                            onSelectTask={handleSelectTask}
-                            onSelectInboxItem={handleSelectInboxItem}
-                            onClarifyInboxItem={handleClarifyInboxItem}
-                        />
-                    )}
+                    {feed}
                 </PageContent>
-            </ScrollAreaWrapper>
+            </ScrollAreaWrapper>}
+
+            {shell.isCompact && <>
+                <ContextualAddOrb directCapture onOpen={() => setCaptureOpen(true)} />
+                <UtilitySheet title="What's on your mind?" open={captureOpen} onClose={() => setCaptureOpen(false)}>
+                    <CaptureInput mobile draft={captureDraft} onDraftChange={setCaptureDraft} onCaptured={() => setCaptureOpen(false)} />
+                </UtilitySheet>
+            </>}
 
             {/* ── Mobile overlay — ClarifySheet / EditSidePanel / Overview (C4 fix) ── */}
             {!shell.isWide && (

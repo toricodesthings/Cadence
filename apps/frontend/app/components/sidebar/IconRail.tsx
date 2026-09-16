@@ -1,5 +1,5 @@
 import {
-    Search, Plus, Bell, Settings, Database, Flame,
+    Search, Plus, Settings, Database, Flame,
     Calendar, LayoutDashboard, Sprout,
     LogOut, LifeBuoy, ChevronDown, Sparkles, Trash2, RefreshCw,
     BellRing, CheckCircle2, Info, TriangleAlert, CircleAlert, LoaderCircle,
@@ -18,7 +18,6 @@ const LOADING_PREVIEWS: readonly { season?: Season; label: string; icon: typeof 
 import { Link, useLocation, useNavigate } from "react-router";
 
 import * as DropdownMenu from "../primitives/DropdownMenu";
-import * as Popover from "../primitives/Popover";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Tip } from "../primitives";
 import { useApiClient } from "../../hooks/auth/use-api-client";
@@ -28,10 +27,9 @@ import { useState } from "react";
 import { Button } from "../primitives/Button";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
-import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
 import { useSettings } from "../../hooks/core/use-settings";
-import { NotificationCenter } from "../notifications/NotificationCenter";
+import { NotificationPreview } from "../notifications/NotificationPreview";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
@@ -114,13 +112,9 @@ export function IconRail({
     const [isLoading, setIsLoading] = useState(false);
 
     // Dialog states
-    const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
 
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
-
-    // Notification center
-    const { grouped, hasUnread, markRead, markAllRead, dismiss, defer } = useNotificationCenter();
 
     // Habit due indicator
     const { data: unresolvedHabits } = useHabitUnresolvedSummary();
@@ -389,33 +383,7 @@ export function IconRail({
 
             <div className="flex-1" />
 
-            <Popover.Root modal={false} open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-                <Tip label="Notifications">
-                    <Popover.Trigger asChild>
-                        <button
-                            aria-label="Notifications"
-                            className="btn-icon relative rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] outline-none"
-                        >
-                            <Bell size={18} aria-hidden="true" />
-                            {hasUnread && (
-                                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent-primary" />
-                            )}
-                        </button>
-                    </Popover.Trigger>
-                </Tip>
-                <Popover.Content side="right" align="start" className="w-[20rem] p-0 overflow-hidden">
-                    <NotificationCenter
-                        grouped={grouped}
-                        hasUnread={hasUnread}
-                        markRead={markRead}
-                        markAllRead={markAllRead}
-                        dismiss={dismiss}
-                        defer={defer}
-                        onClose={() => setNotificationsOpen(false)}
-                    />
-                    <Popover.Arrow className="fill-twilight-surface" />
-                </Popover.Content>
-            </Popover.Root>
+            <NotificationPreview />
 
             <Tip label="Settings" side="right">
                 <button

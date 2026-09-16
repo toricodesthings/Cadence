@@ -12,6 +12,7 @@ import {
 } from "../../lib/desktop-auth-session";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { clearAuthJwtCache } from "../../lib/api/client";
+import { isWorkspacePath } from "../../lib/auth/workspace-path";
 
 type AuthStatus =
     | "bootstrapping"
@@ -33,14 +34,6 @@ interface AuthStateContextValue {
 }
 
 const AuthStateContext = createContext<AuthStateContextValue | null>(null);
-
-const PROTECTED_PREFIXES = ["/", "/today", "/schedule", "/upcoming", "/completed", "/trash", "/project", "/habits", "/weekly-review"];
-
-function isProtectedPath(pathname: string) {
-    return PROTECTED_PREFIXES.some((prefix) =>
-        prefix === "/" ? pathname === "/" : pathname === prefix || pathname.startsWith(`${prefix}/`),
-    );
-}
 
 export function AuthStateProvider({ children }: { children: ReactNode }) {
     const navigate = useNavigate();
@@ -138,7 +131,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (status !== "anonymous") return;
-        if (!isProtectedPath(location.pathname)) return;
+        if (!isWorkspacePath(location.pathname)) return;
         navigate("/auth/sign-in", { replace: true, state: { from: location.pathname } });
     }, [location.pathname, navigate, status]);
 

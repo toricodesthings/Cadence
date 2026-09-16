@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { IconRail } from "./IconRail";
 import { SidebarPanel } from "./SidebarPanel";
 import { useSidebarStore } from "../../stores/sidebar-store";
-import { X } from "lucide-react";
 import type { ShellMode } from "../../hooks/ui/use-shell-mode";
 
 /** Resize bounds — one honest minimum (`--sidebar-min-width`) shared by the
@@ -17,14 +16,10 @@ const SIDEBAR_MAX_WIDTH = 480;
 /** Main sidebar — root layout composing IconRail + SidebarPanel */
 export function Sidebar({
     mode,
-    navOpen = false,
-    onClose,
     onSearchOpen,
     onQuickAddOpen,
 }: {
     mode: ShellMode;
-    navOpen?: boolean;
-    onClose?: () => void;
     onSearchOpen?: () => void;
     onQuickAddOpen?: () => void;
 }) {
@@ -173,59 +168,5 @@ export function Sidebar({
         );
     }
 
-    return (
-        <AnimatePresence>
-            {navOpen && (
-                <>
-                    <motion.button
-                        key="nav-backdrop"
-                        type="button"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="layer-nav-backdrop fixed inset-0 bg-twilight-void/70 backdrop-blur-md"
-                        aria-label="Close navigation"
-                        onClick={onClose}
-                    />
-
-                    <motion.aside
-                        id="sidebar-panel"
-                        key="nav-drawer"
-                        initial={{ x: -28, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: -28, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="mobile-sheet-shell layer-nav-drawer safe-top safe-bottom fixed inset-y-0 left-0 flex w-[min(92vw,24rem)] flex-col border-r border-twilight-border bg-twilight-deep/96 shadow-2xl shadow-black/40 backdrop-blur-2xl"
-                        aria-label="Application navigation"
-                    >
-                        <div className="mobile-sheet-header flex items-center justify-between border-b border-twilight-border px-4 py-4">
-                            <div className="flex items-center gap-3">
-                                <img src="/logo.png" alt="Cadence" className="h-10 w-10 rounded-2xl object-cover" />
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-soft">
-                                        Navigation
-                                    </p>
-                                    <h2 className="mt-1 font-display text-lg font-semibold text-twilight-text">
-                                        Cadence
-                                    </h2>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                aria-label="Close navigation"
-                                className="btn-icon text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
-                            >
-                                <X size={18} aria-hidden="true" />
-                            </button>
-                        </div>
-
-                        <div className="mobile-sheet-body">
-                            <SidebarPanel showWorkspaceNav onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
-                        </div>
-                    </motion.aside>
-                </>
-            )}
-        </AnimatePresence>
-    );
+    return null;
 }

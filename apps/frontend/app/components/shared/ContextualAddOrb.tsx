@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckSquare, Flame, MessageSquare, Plus, X } from "lucide-react";
+import { Tip } from "../primitives/Tooltip";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 
 interface ContextualAddOrbProps {
     onOpen: (tab: QuickAddTab) => void;
+    directCapture?: boolean;
 }
 
 const OPTIONS: Array<{ tab: QuickAddTab; label: string; icon: typeof CheckSquare }> = [
@@ -13,11 +15,11 @@ const OPTIONS: Array<{ tab: QuickAddTab; label: string; icon: typeof CheckSquare
     { tab: "habit", label: "Habit", icon: Flame },
 ];
 
-export function ContextualAddOrb({ onOpen }: ContextualAddOrbProps) {
+export function ContextualAddOrb({ onOpen, directCapture = false }: ContextualAddOrbProps) {
     const [open, setOpen] = useState(false);
 
     return (
-        <div className="layer-floating-bar pointer-events-none fixed bottom-5 right-4 flex flex-col items-end gap-3 sm:right-5">
+        <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end gap-3 sm:right-5">
             <AnimatePresence>
                 {open ? (
                     <motion.div
@@ -50,14 +52,14 @@ export function ContextualAddOrb({ onOpen }: ContextualAddOrbProps) {
                 ) : null}
             </AnimatePresence>
 
-            <button
+            <Tip label={directCapture ? "Add capture" : "Add"}><button
                 type="button"
-                onClick={() => setOpen((value) => !value)}
-                aria-label={open ? "Close quick add menu" : "Open quick add menu"}
+                onClick={() => directCapture ? onOpen("capture") : setOpen((value) => !value)}
+                aria-label={directCapture ? "Add capture" : open ? "Close quick add menu" : "Open quick add menu"}
                 className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-midnight shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
             >
                 {open ? <X size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-            </button>
+            </button></Tip>
         </div>
     );
 }
