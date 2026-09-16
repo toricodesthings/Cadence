@@ -13,11 +13,10 @@
  * cookie and sign-in never completes.
  *
  * - `/api/auth/*` is a transparent proxy to Neon Auth. Cookie values are
- *   forwarded byte-for-byte: the signed challenge cookie stops matching if it
- *   is decoded and re-encoded on the way through.
+ *   forwarded byte-for-byte; only Set-Cookie flags are rewritten for this origin.
  * - `/auth/callback?neon_auth_session_verifier=…` exchanges the single-use
- *   verifier once, on the navigation, then redirects to the same URL without
- *   it, so the SPA never races duplicate exchanges.
+ *   verifier once, on the navigation, then navigates (same-origin, via script)
+ *   to the same URL without it, so the SPA never races duplicate exchanges.
  */
 
 export interface Env {
@@ -93,11 +92,30 @@ async function proxyAuth(request: Request, env: Env, url: URL): Promise<Response
 	return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers });
 }
 
+/**
+ * Leaves the callback with a same-origin, script-initiated navigation instead
+ * of a 302. WebKit (every iOS browser) keeps treating a document reached
+ * through a cross-site redirect chain (Google → Neon → here) as cross-site, so
+ * the SPA's first same-origin fetches go out without the SameSite=Lax session
+ * cookie until the user reloads.
+ */
+function continueTo(target: string, headers: Headers): Response {
+	const href = JSON.stringify(target).replace(/</g, "\\u003c");
+	headers.set("content-type", "text/html; charset=utf-8");
+	headers.set("referrer-policy", "no-referrer");
+	return new Response(
+		`<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Signing in…</title>` +
+			`<script>location.replace(${href})</script>` +
+			`<noscript><a href=${href}>Continue to Cadence</a></noscript>`,
+		{ status: 200, headers },
+	);
+}
+
 async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<Response> {
 	const upstream = await fetchNeonAuth(env, request, "get-session", url.search, url.origin);
 	const cleanUrl = new URL(url);
 	cleanUrl.searchParams.delete(VERIFIER_PARAM);
-	const headers = new Headers({ location: `${cleanUrl.pathname}${cleanUrl.search}`, "cache-control": "no-store" });
+	const headers = new Headers({ "cache-control": "no-store" });
 
 	if (upstream.ok) {
 		appendCookies(headers, upstream);
@@ -107,10 +125,9 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
 		console.warn("[cadence:auth-callback] verifier exchange failed", upstream.status, body);
 		const code = /"code"\s*:\s*"([A-Z_]+)"/.exec(body)?.[1] ?? `HTTP_${upstream.status}`;
 		cleanUrl.searchParams.set(AUTH_ERROR_PARAM, code);
-		headers.set("location", `${cleanUrl.pathname}${cleanUrl.search}`);
 	}
 
-	return new Response(null, { status: 302, headers });
+	return continueTo(`${cleanUrl.pathname}${cleanUrl.search}`, headers);
 }
 
 export default {
