@@ -5,11 +5,11 @@
   "compatibility_date": "2026-03-22",
   "assets": {
     "directory": "./build/client",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/auth/*"]
+    "run_worker_first": ["/api/auth/*", "/auth/callback"]
   },
 
-  // Secret (wrangler secret put NEON_AUTH_COOKIE_SECRET, 32+ chars) signs the auth proxy's session cache cookie.
   "vars": {
     "NEON_AUTH_BASE_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth"
   },
