@@ -5,3 +5,9 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), payment=(), usb=(), geolocation=(self)
+
+/sw.js
+  Cache-Control: no-cache
+
+/register-sw.js
+  Cache-Control: no-cache

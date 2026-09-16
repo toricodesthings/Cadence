@@ -65,6 +65,7 @@ Or run them from this directory with `pnpm <script>`.
 ## Production Notes
 
 - `VITE_NEON_AUTH_URL` is environment-specific. Dev and production intentionally use different Neon Auth branches.
+- Deployed web builds call Neon Auth through the worker proxy at `/api/auth/*` (first-party cookies, required for mobile Safari/iOS). The worker needs `NEON_AUTH_COOKIE_SECRET`: `wrangler secret put NEON_AUTH_COOKIE_SECRET` (and `--env dev`), 32+ random chars.
 - Web social sign-in uses the current web origin to build `/auth/callback`. If production social auth returns `403` from Neon Auth, check the trusted redirect domains and provider configuration on the production Neon Auth branch for `dashboard.cadenceapp.cloud`.
 - CSP is managed through [`public/_headers`](./public/_headers). Current policy allows Cloudflare Insights, Google Fonts, and self-origin geolocation, and denies everything not explicitly listed.
 - The auth UI comes from `@neondatabase/auth/react/ui`; layout fixes are applied through route-level classNames and `app/app.css` overrides.

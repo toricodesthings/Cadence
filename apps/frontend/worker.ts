@@ -4,30 +4,42 @@
  * Cadence Frontend — Cloudflare Worker Entry Point
  *
  * Static assets (the SPA build) are served automatically by the
- * `assets` configuration in wrangler.jsonc. This worker handles
- * any requests that fall through the static asset layer.
+ * `assets` configuration in wrangler.jsonc. Only paths listed in
+ * `assets.run_worker_first` reach this worker before the asset layer.
  *
- * Extend this file for server-side logic such as:
- *  - API proxying / edge middleware
- *  - Custom response headers (CSP, CORS, etc.)
- *  - A/B testing or feature flags at the edge
- *  - Server-side redirects
+ * `/api/auth/*` proxies Neon Auth on the app's own origin so auth cookies
+ * are first-party. Browsers that block third-party cookies (every iOS
+ * browser, Safari, Firefox strict mode) otherwise drop the OAuth session
+ * challenge cookie and sign-in never completes.
  */
 
+import { handleAuthProxyRequest } from "@neondatabase/auth/server";
+
 export interface Env {
-	VITE_NEON_AUTH_URL: string;
-	VITE_API_BASE_URL: string;
+	NEON_AUTH_BASE_URL: string;
+	NEON_AUTH_COOKIE_SECRET: string;
 }
 
+const AUTH_PROXY_PREFIX = "/api/auth/";
+
 export default {
-	async fetch(
-		request: Request,
-		env: Env,
-		ctx: ExecutionContext,
-	): Promise<Response> {
-		// The assets layer handles all static files and SPA fallback.
-		// If a request reaches here, it wasn't matched by any static asset.
-		// Add custom server-side logic above this fallback as needed.
+	async fetch(request: Request, env: Env): Promise<Response> {
+		const url = new URL(request.url);
+
+		if (url.pathname.startsWith(AUTH_PROXY_PREFIX)) {
+			if (!env.NEON_AUTH_BASE_URL || !env.NEON_AUTH_COOKIE_SECRET) {
+				console.error("[cadence:auth-proxy] NEON_AUTH_BASE_URL or NEON_AUTH_COOKIE_SECRET is not configured");
+				return Response.json({ error: "Auth proxy is not configured" }, { status: 500 });
+			}
+
+			return handleAuthProxyRequest({
+				request,
+				path: url.pathname.slice(AUTH_PROXY_PREFIX.length),
+				baseUrl: env.NEON_AUTH_BASE_URL.replace(/\/$/, ""),
+				cookieSecret: env.NEON_AUTH_COOKIE_SECRET,
+			});
+		}
+
 		return new Response("Not Found", { status: 404 });
 	},
 } satisfies ExportedHandler<Env>;

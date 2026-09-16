@@ -20,15 +20,21 @@ function requirePublicEnv(name: "VITE_API_BASE_URL" | "VITE_NEON_AUTH_URL", devF
     );
 }
 
-export const API_BASE_URL = requirePublicEnv("VITE_API_BASE_URL", DEV_API_BASE_URL);
-export const NEON_AUTH_URL = requirePublicEnv("VITE_NEON_AUTH_URL", DEV_NEON_AUTH_URL);
-export const WEB_APP_BASE_URL =
-    (import.meta.env.VITE_WEB_APP_BASE_URL as string | undefined)
-    ?? (import.meta.env.DEV ? DEV_WEB_APP_BASE_URL : PROD_WEB_APP_BASE_URL);
 export const RUNTIME_TARGET =
     (import.meta.env.VITE_RUNTIME_TARGET as string | undefined) === "desktop"
         ? "desktop"
         : DEFAULT_RUNTIME_TARGET;
+export const API_BASE_URL = requirePublicEnv("VITE_API_BASE_URL", DEV_API_BASE_URL);
+// Deployed web builds reach Neon Auth through the same-origin proxy in worker.ts so auth
+// cookies stay first-party; browsers that block third-party cookies (all of iOS) otherwise
+// never complete OAuth. Dev servers and desktop talk to Neon Auth directly.
+export const NEON_AUTH_URL =
+    RUNTIME_TARGET === "web" && !import.meta.env.DEV && typeof window !== "undefined"
+        ? `${window.location.origin}/api/auth`
+        : requirePublicEnv("VITE_NEON_AUTH_URL", DEV_NEON_AUTH_URL);
+export const WEB_APP_BASE_URL =
+    (import.meta.env.VITE_WEB_APP_BASE_URL as string | undefined)
+    ?? (import.meta.env.DEV ? DEV_WEB_APP_BASE_URL : PROD_WEB_APP_BASE_URL);
 
 // Dev-time health check: warn loudly if the API root is unreachable
 if (import.meta.env.DEV && typeof window !== "undefined") {

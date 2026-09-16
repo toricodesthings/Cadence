@@ -2,6 +2,6 @@
 // Run `npm run cf-typegen` to regenerate after changing wrangler.jsonc bindings.
 
 interface Env {
-	VITE_NEON_AUTH_URL: string;
-	VITE_API_BASE_URL: string;
+	NEON_AUTH_BASE_URL: string;
+	NEON_AUTH_COOKIE_SECRET: string;
 }

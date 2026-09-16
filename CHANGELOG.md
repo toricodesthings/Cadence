@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- The desktop notification preview has softer glass and a spacious, centered empty state that stays the same height as a three-notification preview.
+
+### Fixed
+
+- Signing in on phones (Google, GitHub, or email) no longer gets stuck on “Completing sign in”. If sign-in can't finish, Cadence now says so and offers a way back.
+- Restore background blur on notification previews, menus and other glass surfaces in production. Capture's three-dot menu now uses the shared dropdown, and old preview caches no longer keep development styles stale.
+
 ## [0.14.0] - 2026-09-16
 
 ### Added

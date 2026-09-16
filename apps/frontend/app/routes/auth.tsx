@@ -393,7 +393,45 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
     );
 }
 
-// Removed DesktopAuthCallbackScreen to utilize generic AuthCallback
+const WEB_CALLBACK_TIMEOUT_MS = 15_000;
+
+function WebAuthCallbackScreen({ redirectTo }: { redirectTo: string }) {
+    const navigate = useNavigate();
+    const [timedOut, setTimedOut] = useState(false);
+
+    // Neon's AuthCallback has no failure state; if the session never lands, stop spinning.
+    useEffect(() => {
+        const timer = window.setTimeout(() => setTimedOut(true), WEB_CALLBACK_TIMEOUT_MS);
+        return () => window.clearTimeout(timer);
+    }, []);
+
+    return (
+        <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
+            <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
+                <div className="mb-5 flex items-center justify-center">
+                    <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
+                </div>
+                <h1 className="font-display text-2xl font-semibold text-twilight-text">
+                    {timedOut ? "Sign-in didn't finish" : "Completing sign in"}
+                </h1>
+                <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
+                    {timedOut
+                        ? "Cadence couldn't restore your session. Please try signing in again."
+                        : "Cadence is restoring your session and returning you to the app."}
+                </p>
+                <div className="mt-6 flex justify-center">
+                    {timedOut ? (
+                        <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
+                            Back to sign in
+                        </Button>
+                    ) : (
+                        <AuthCallback redirectTo={redirectTo} />
+                    )}
+                </div>
+            </div>
+        </main>
+    );
+}
 
 export default function AuthPage() {
     const location = useLocation();
@@ -465,24 +503,7 @@ export default function AuthPage() {
             return <DesktopAuthCallbackScreen redirectTo={redirectTo} location={location} />;
         }
 
-        return (
-            <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
-                <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
-                    <div className="mb-5 flex items-center justify-center">
-                        <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
-                    </div>
-                    <h1 className="font-display text-2xl font-semibold text-twilight-text">
-                        Completing sign in
-                    </h1>
-                    <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
-                        Cadence is restoring your session and returning you to the app.
-                    </p>
-                    <div className="mt-6 flex justify-center">
-                        <AuthCallback redirectTo={redirectTo} />
-                    </div>
-                </div>
-            </main>
-        );
+        return <WebAuthCallbackScreen redirectTo={redirectTo} />;
     }
 
     return (

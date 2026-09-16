@@ -4,5 +4,5 @@ import { cleanup } from "@testing-library/react";
 afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
-    localStorage.clear();
+    if (typeof localStorage !== "undefined") localStorage.clear();
 });

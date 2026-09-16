@@ -5,12 +5,13 @@
   "compatibility_date": "2026-03-22",
   "assets": {
     "directory": "./build/client",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/auth/*"]
   },
 
+  // Secret (wrangler secret put NEON_AUTH_COOKIE_SECRET, 32+ chars) signs the auth proxy's session cache cookie.
   "vars": {
-    "VITE_NEON_AUTH_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth",
-    "VITE_API_BASE_URL": "https://api.cadenceapp.cloud"
+    "NEON_AUTH_BASE_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth"
   },
   "preview_urls": false,
   "workers_dev": false,
@@ -25,8 +26,7 @@
     "dev": {
       "name": "cadence-frontend-dev",
       "vars": {
-        "VITE_NEON_AUTH_URL": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth",
-        "VITE_API_BASE_URL": "http://localhost:8787"
+        "NEON_AUTH_BASE_URL": "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth"
       }
     }
   }

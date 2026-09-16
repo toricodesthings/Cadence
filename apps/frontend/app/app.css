@@ -1020,19 +1020,26 @@
         var(--color-twilight-void) 100%);
   }
 
-  /* ── Glass surfaces ── */
+  /* ── Glass surfaces ──
+     Keep the standard backdrop-filter last: the production CSS optimizer
+     otherwise retains only the WebKit spelling, which Chromium ignores. */
   .glass {
     background: color-mix(in srgb, var(--color-twilight-base) 70%, transparent);
-    backdrop-filter: blur(32px) saturate(1.2);
     -webkit-backdrop-filter: blur(32px) saturate(1.2);
+    backdrop-filter: blur(32px) saturate(1.2);
     border: 1px solid var(--color-twilight-border);
   }
 
   .glass-surface {
-    background: color-mix(in srgb, var(--color-twilight-surface) 85%, transparent);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: color-mix(in srgb, var(--color-twilight-surface) var(--glass-surface-tint, 85%), transparent);
+    -webkit-backdrop-filter: blur(var(--glass-surface-blur, 24px));
+    backdrop-filter: blur(var(--glass-surface-blur, 24px));
     border: 1px solid var(--color-twilight-border-light);
+  }
+
+  .notification-preview {
+    --glass-surface-tint: 75%;
+    --glass-surface-blur: 16px;
   }
 
   /* ── Daylight theme atmospheric overrides ── */
@@ -1054,8 +1061,8 @@
 
   [data-theme="daylight"] .glass {
     background: color-mix(in srgb, var(--color-twilight-base) 85%, transparent);
-    backdrop-filter: blur(32px) saturate(1.1);
     -webkit-backdrop-filter: blur(32px) saturate(1.1);
+    backdrop-filter: blur(32px) saturate(1.1);
     border: 1px solid var(--color-twilight-border);
   }
 
@@ -1441,8 +1448,8 @@ a:active {
     linear-gradient(180deg,
       color-mix(in srgb, var(--color-twilight-elevated) 90%, rgba(255, 255, 255, 0.01)) 0%,
       color-mix(in srgb, var(--color-twilight-deep) 96%, transparent) 100%);
-  backdrop-filter: blur(20px) saturate(1.05);
   -webkit-backdrop-filter: blur(20px) saturate(1.05);
+  backdrop-filter: blur(20px) saturate(1.05);
   box-shadow:
     0 4px 16px rgba(3, 9, 20, 0.25),
     inset 0 -1px 0 rgba(255, 255, 255, 0.03);
@@ -1522,8 +1529,8 @@ a:active {
   box-shadow:
     0 12px 26px rgba(3, 9, 20, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(18px) saturate(1.04);
   -webkit-backdrop-filter: blur(18px) saturate(1.04);
+  backdrop-filter: blur(18px) saturate(1.04);
 }
 
 .cadence-toast::before {
@@ -1878,15 +1885,15 @@ a:active {
 /* ── Surface utility — frosted utility chrome for search, quick add, notifications ── */
 @utility surface-utility {
   background: color-mix(in srgb, var(--color-twilight-base) 85%, transparent);
-  backdrop-filter: blur(32px) saturate(1.2);
   -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  backdrop-filter: blur(32px) saturate(1.2);
   border: 1px solid var(--color-twilight-border-light);
 }
 
 @utility surface-route-overlay {
   background: color-mix(in srgb, var(--color-twilight-deep) 96%, transparent);
-  backdrop-filter: blur(28px) saturate(1.12);
   -webkit-backdrop-filter: blur(28px) saturate(1.12);
+  backdrop-filter: blur(28px) saturate(1.12);
   border: 1px solid var(--color-twilight-border-light);
 }
 
@@ -2064,8 +2071,8 @@ a:active {
 /* Surface utility for daylight */
 [data-theme="daylight"] .surface-utility {
   background: color-mix(in srgb, var(--color-twilight-base) 85%, transparent);
-  backdrop-filter: blur(32px) saturate(1.1);
   -webkit-backdrop-filter: blur(32px) saturate(1.1);
+  backdrop-filter: blur(32px) saturate(1.1);
   border: 1px solid var(--color-twilight-border-light);
 }
 
@@ -2094,14 +2101,14 @@ a:active {
 
 [data-bg-image="on"] .photo-shell-surface {
   background: color-mix(in srgb, var(--color-twilight-base) 12%, transparent);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 [data-bg-image="on"] .glass {
   background: color-mix(in srgb, var(--color-twilight-surface) 82%, transparent);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* Glow utilities for daylight — subtle on light backgrounds */

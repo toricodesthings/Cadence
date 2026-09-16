@@ -15,14 +15,9 @@ import { Loading } from "./components/shared/Loading";
 import { Providers } from "./providers";
 import { RUNTIME_TARGET } from "./lib/env";
 import { LOADING_BOOT_SCRIPT } from "./lib/themes/season";
-// Load the stylesheet as a real <link> (via ?url) rather than a side-effect
-// `import "./app.css"`. A side-effect import makes React Router inline the
-// route CSS as dev "critical CSS" and lets Vite swap it for a JS-injected
-// <style> after hydration. On a contended cold start (backend + frontend boot
-// in parallel) that hand-off can strand a partially-scanned stylesheet in the
-// tab — some Tailwind utilities silently missing until an unrelated HMR event
-// repaints them. A render-blocking <link> always loads the complete, warm
-// server-generated CSS and is re-fetched deterministically on reload. (§7.3)
+import { DEV_SERVICE_WORKER_CLEANUP_SCRIPT } from "./lib/dev-service-worker-cleanup";
+// One render-blocking stylesheet link; Vite updates its URL during HMR.
+// Do not also side-effect-import app.css, which would load a second copy.
 import appStylesHref from "./app.css?url";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/sora";
@@ -53,6 +48,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="Cadence is a calm, atmospheric planning workspace for tasks, habits, and weekly resets."
         />
         <script src="/redirect-localhost.js" />
+        {import.meta.env.DEV && (
+          <script dangerouslySetInnerHTML={{ __html: DEV_SERVICE_WORKER_CLEANUP_SCRIPT }} />
+        )}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var d=document.documentElement,s=JSON.parse(localStorage.getItem('cadence-appearance')||'{}');if(s.theme==='daylight')d.setAttribute('data-theme','daylight');else if(s.theme==='system'&&window.matchMedia('(prefers-color-scheme:light)').matches)d.setAttribute('data-theme','daylight');if(s.palette&&s.palette!=='lantern')d.setAttribute('data-palette',s.palette);if(s.themePreset&&s.themePreset!=='default'&&s.themePreset!=='daylight-default')d.setAttribute('data-theme-preset',s.themePreset);}catch(e){}})()`

@@ -7,7 +7,8 @@ import { trackUsageEvent } from "../../lib/api/track-event";
 import { isPersistedId } from "../../lib/api/optimistic-id";
 import { Sun, Sparkles, Search, MoreHorizontal, Sunrise, Clock, Trash2, Loader2 } from "lucide-react";
 import * as ContextMenu from "../primitives/ContextMenu";
-import { useState, useCallback, useRef, useEffect } from "react";
+import * as DropdownMenu from "../primitives/DropdownMenu";
+import { useCallback, useRef, useEffect } from "react";
 
 interface InboxItemCardProps {
     item: InboxItem;
@@ -40,8 +41,6 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
     const isPersisted = isPersistedId(item.id);
     const isPending = processToTask.isPending || updateItem.isPending;
     const actionsDisabled = isPending || !isPersisted;
-    const [overflowOpen, setOverflowOpen] = useState(false);
-    const overflowRef = useRef<HTMLDivElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
     const analysis = item.analysis as {
         rawInput?: string;
@@ -114,24 +113,13 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
         onClarify?.(item.id);
     }, [item.id, onClarify, isPersisted]);
 
-    // Close overflow on outside click
-    useEffect(() => {
-        if (!overflowOpen) return;
-        const handleClick = (e: MouseEvent) => {
-            if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
-                setOverflowOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClick);
-        return () => document.removeEventListener("mousedown", handleClick);
-    }, [overflowOpen]);
-
     // §10.3 keyboard actions on focused card
     useEffect(() => {
         if (!isFocused) return;
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.defaultPrevented) return;
             const target = e.target as HTMLElement;
-            if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable) return;
+            if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable || target.closest('[role="menu"]')) return;
             if (e.metaKey || e.ctrlKey || e.altKey) return;
 
             switch (e.key) {
@@ -234,49 +222,43 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                 )}
 
                 {/* Overflow trigger */}
-                <div className="relative" ref={overflowRef}>
-                    <button
-                        type="button"
-                        onClick={() => setOverflowOpen((prev) => !prev)}
-                        disabled={actionsDisabled}
-                        aria-label="More actions"
-                        aria-expanded={overflowOpen}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-twilight-text-muted/60 hover:text-twilight-text-soft hover:bg-white/[0.06] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        <MoreHorizontal size={15} aria-hidden="true" />
-                    </button>
-
-                    {overflowOpen && (
-                        <div
-                            role="menu"
-                            className="absolute right-0 top-full mt-1 z-50 min-w-[180px] py-1.5 rounded-xl border border-twilight-border bg-twilight-surface-2 shadow-lg"
+                <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                        <button
+                            type="button"
+                            disabled={actionsDisabled}
+                            aria-label="More actions"
+                            className="inline-flex size-11 items-center justify-center rounded-lg text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.06] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            <OverflowItem
-                                icon={<Sunrise size={14} />}
-                                label="Tomorrow"
-                                hint="2"
-                                onClick={() => { place(tomorrowISO()); setOverflowOpen(false); }}
-                                disabled={actionsDisabled}
-                            />
-                            <OverflowItem
-                                icon={<Clock size={14} />}
-                                label="Later"
-                                hint="3"
-                                onClick={() => { place(); setOverflowOpen(false); }}
-                                disabled={actionsDisabled}
-                            />
-                            <div className="my-1 border-t border-twilight-border/40" />
-                            <OverflowItem
-                                icon={<Trash2 size={14} />}
-                                label="Discard"
-                                hint="⌫"
-                                onClick={() => { discard(); setOverflowOpen(false); }}
-                                disabled={actionsDisabled}
-                                destructive
-                            />
-                        </div>
-                    )}
-                </div>
+                            <MoreHorizontal size={15} aria-hidden="true" />
+                        </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end" className="min-w-[180px]">
+                        <OverflowItem
+                            icon={<Sunrise size={14} />}
+                            label="Tomorrow"
+                            hint="2"
+                            onSelect={() => place(tomorrowISO())}
+                            disabled={actionsDisabled}
+                        />
+                        <OverflowItem
+                            icon={<Clock size={14} />}
+                            label="Later"
+                            hint="3"
+                            onSelect={() => place()}
+                            disabled={actionsDisabled}
+                        />
+                        <DropdownMenu.Separator />
+                        <OverflowItem
+                            icon={<Trash2 size={14} />}
+                            label="Discard"
+                            hint="⌫"
+                            onSelect={discard}
+                            disabled={actionsDisabled}
+                            destructive
+                        />
+                    </DropdownMenu.Content>
+                </DropdownMenu.Root>
             </div>
         </div>
         </ContextMenu.Trigger>
@@ -360,33 +342,28 @@ function OverflowItem({
     icon,
     label,
     hint,
-    onClick,
+    onSelect,
     disabled,
     destructive,
 }: {
     icon: React.ReactNode;
     label: string;
     hint?: string;
-    onClick: () => void;
+    onSelect: () => void;
     disabled?: boolean;
     destructive?: boolean;
 }) {
     return (
-        <button
-            type="button"
-            role="menuitem"
-            onClick={onClick}
+        <DropdownMenu.Item
+            onSelect={onSelect}
             disabled={disabled}
-            className={`flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors cursor-pointer disabled:opacity-50
-                ${destructive
-                    ? "text-twilight-text-muted/60 hover:text-red-400 hover:bg-red-500/10"
-                    : "text-twilight-text-soft hover:bg-white/[0.06]"
-                }`}
+            variant={destructive ? "danger" : "default"}
+            className="min-h-11 gap-2.5 text-[13px] data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
         >
-            <span className="shrink-0 opacity-70">{icon}</span>
-            <span className="flex-1 text-left">{label}</span>
+            <span className="shrink-0 opacity-70" aria-hidden="true">{icon}</span>
+            <span className="flex-1">{label}</span>
             {hint && <kbd className="text-[10px] opacity-40 font-mono">{hint}</kbd>}
-        </button>
+        </DropdownMenu.Item>
     );
 }
 
