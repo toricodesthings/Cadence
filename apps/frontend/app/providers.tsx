@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { authClient } from "./lib/auth-client";
 import { STALE_TIMES } from "./lib/api/query-keys";
 import { createIDBPersister } from "./lib/api/persister";
-import { type ReactNode, Component, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ApiErrorResponse } from "./types/api";
 import { AuthStateProvider, useAuthState } from "./hooks/auth/use-auth-state";
 import { BackgroundLayer } from "./components/settings/appearance/BackgroundLayer";
@@ -35,35 +35,11 @@ function Link({
     return <RouterLink to={href} {...props} />;
 }
 
-/**
- * Catches errors thrown during AuthStateProvider initialisation (e.g. if
- * useSession() fails in the browser bridge context) so children can still
- * render. The fallback re-renders children WITHOUT auth context, which is safe
- * for routes that don't depend on it (like DesktopBrowserCallbackBridgeScreen).
- */
-class AuthErrorBoundary extends Component<
-    { children: ReactNode; fallback: ReactNode },
-    { hasError: boolean }
-> {
-    state = { hasError: false };
-    static getDerivedStateFromError() {
-        return { hasError: true };
-    }
-    componentDidCatch(error: unknown) {
-        console.error("[cadence:auth-boundary] AuthStateProvider crashed:", error);
-    }
-    render() {
-        return this.state.hasError ? this.props.fallback : this.props.children;
-    }
-}
-
 export function Providers({ children }: { children: ReactNode }) {
     return (
-        <AuthErrorBoundary fallback={children}>
-            <AuthStateProvider>
-                <ProvidersInner>{children}</ProvidersInner>
-            </AuthStateProvider>
-        </AuthErrorBoundary>
+        <AuthStateProvider>
+            <ProvidersInner>{children}</ProvidersInner>
+        </AuthStateProvider>
     );
 }
 

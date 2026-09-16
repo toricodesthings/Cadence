@@ -19,11 +19,6 @@
  *   to the same URL without it, so the SPA never races duplicate exchanges.
  */
 
-export interface Env {
-	ASSETS: Fetcher;
-	NEON_AUTH_BASE_URL: string;
-}
-
 const AUTH_PROXY_PREFIX = "/api/auth/";
 const AUTH_CALLBACK_PATH = "/auth/callback";
 const NEON_COOKIE_PREFIX = "__Secure-neon-auth.";
@@ -43,10 +38,8 @@ function neonCookies(request: Request): string[] {
 
 /**
  * Rewrites an upstream Set-Cookie for this origin without touching its value.
- * Keeps SameSite=None (as Neon issues it): after the Google → Neon → Cadence
- * round trip, iOS WebKit withholds SameSite=Lax cookies from the SPA's own
- * requests until the page is reloaded. The cookies are first-party here, so ITP
- * does not block them; Neon Auth validates Origin on state-changing requests.
+ * Keeps Neon's SameSite=None; Secure policy on these first-party cookies.
+ * Neon Auth validates Origin on state-changing requests.
  */
 function firstPartyCookie(setCookie: string): string {
 	const parts = setCookie
@@ -89,13 +82,6 @@ async function proxyAuth(request: Request, env: Env, url: URL): Promise<Response
 	const origin = request.headers.get("origin") ?? url.origin;
 	const path = url.pathname.slice(AUTH_PROXY_PREFIX.length);
 	const upstream = await fetchNeonAuth(env, request, path, url.search, origin);
-	if (path === "get-session") {
-		const body = await upstream.clone().text();
-		console.log("[cadence:auth-proxy] get-session", upstream.status, body.trim() === "null" ? "no session" : "session", {
-			cookies: neonCookies(request).map((cookie) => cookie.split("=")[0]),
-			secFetchSite: request.headers.get("sec-fetch-site"),
-		});
-	}
 	const headers = new Headers({ "cache-control": "no-store" });
 	for (const name of RESPONSE_HEADERS) {
 		const value = upstream.headers.get(name);
@@ -130,11 +116,10 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
 
 	if (upstream.ok) {
 		appendCookies(headers, upstream);
-		console.log("[cadence:auth-callback] verifier exchange succeeded", upstream.headers.getSetCookie().length, "cookies");
 	} else {
 		const body = await upstream.text();
-		console.warn("[cadence:auth-callback] verifier exchange failed", upstream.status, body);
 		const code = /"code"\s*:\s*"([A-Z_]+)"/.exec(body)?.[1] ?? `HTTP_${upstream.status}`;
+		console.warn("[cadence:auth-callback] verifier exchange failed", { status: upstream.status, code });
 		cleanUrl.searchParams.set(AUTH_ERROR_PARAM, code);
 	}
 
@@ -149,19 +134,14 @@ export default {
 			return proxyAuth(request, env, url);
 		}
 
-		const hasChallenge = neonCookies(request).some((cookie) =>
-			CHALLENGE_COOKIE_NAMES.some((name) => cookie.startsWith(`${name}=`)),
-		);
 		if (url.pathname === AUTH_CALLBACK_PATH && url.searchParams.has(VERIFIER_PARAM)) {
+			const hasChallenge = neonCookies(request).some((cookie) =>
+				CHALLENGE_COOKIE_NAMES.some((name) => cookie.startsWith(`${name}=`)),
+			);
 			if (hasChallenge) {
 				return exchangeVerifier(request, env, url);
 			}
-			console.warn(
-				"[cadence:auth-callback] no challenge cookie on callback; neon cookies present:",
-				neonCookies(request).map((cookie) => cookie.split("=")[0]),
-				"user-agent:",
-				request.headers.get("user-agent"),
-			);
+			console.warn("[cadence:auth-callback] no challenge cookie on callback");
 		}
 
 		return env.ASSETS.fetch(request);

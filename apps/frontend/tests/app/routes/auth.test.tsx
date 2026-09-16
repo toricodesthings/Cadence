@@ -28,7 +28,6 @@ const authViewMock = vi.fn(
 
 vi.mock("@neondatabase/auth/react/ui", () => ({
     AuthView: (props: { view: "SIGN_IN" | "SIGN_UP" }) => authViewMock(props),
-    AuthCallback: () => <div>Auth callback</div>,
 }));
 
 vi.mock("../../../app/hooks/core/use-document-meta", () => ({
@@ -49,11 +48,7 @@ vi.mock("../../../app/lib/auth-client", () => ({
 }));
 
 vi.mock("../../../app/platform/runtime", () => ({
-    DESKTOP_AUTH_BRIDGE_PARAM: "desktop",
-    DESKTOP_AUTH_PROVIDER_PARAM: "provider",
     getAuthCallbackUrl: (redirectTo: string) => `/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
-    getDesktopAuthBrowserCallbackPath: (redirectTo: string) => `/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
-    getDesktopDeepLinkCallbackUrl: () => "cadence://auth/callback",
     IS_DESKTOP_RUNTIME: false,
     normalizeRedirectTo: (value: string | null | undefined) => value ?? "/",
 }));
@@ -65,7 +60,6 @@ function renderAuthPage(initialEntry: string) {
                 <Route path="/auth/sign-in" element={<AuthPage />} />
                 <Route path="/auth/sign-up" element={<AuthPage />} />
                 <Route path="/auth/callback" element={<AuthPage />} />
-                <Route path="/auth/desktop-start" element={<AuthPage />} />
                 <Route path="/today" element={<div>Workspace</div>} />
             </Routes>
         </MemoryRouter>

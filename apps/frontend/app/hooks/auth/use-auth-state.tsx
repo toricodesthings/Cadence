@@ -162,10 +162,8 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
 
                 const result = await authClient.getSession();
                 if (result?.data) {
-                    // NOTE: Do NOT call refetch() here. getSession() already updates
-                    // the SDK's internal session cache, and useSession() picks it up.
-                    // Calling refetch() triggers onSessionChange → invalidateQueries()
-                    // which can cascade into a recovery loop.
+                    // Keep the returned session while the SDK subscriber catches up;
+                    // no second session request is needed.
                     setRecoveredSession(result.data);
                     setStatus("authenticated");
                     return true;
@@ -176,7 +174,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
                 recoveryPromise.current = null;
             }
 
-            console.warn("[cadence:auth-state] auth recovery failed to restore any session");
             setStatus("recoverable_error");
             return false;
         })();
