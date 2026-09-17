@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-09-16
+
 ### Changed
 
 - Habit names and their streak, status and time details are larger in the weekly grid, with a wider name column so fewer titles get cut off.
