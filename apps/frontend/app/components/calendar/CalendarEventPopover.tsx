@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
-    X,
     Bell,
     CalendarHeart,
     CalendarRange,
@@ -26,7 +25,7 @@ import { Tip } from "../primitives";
 import { TimePicker } from "../primitives";
 import { Switch } from "../primitives";
 import { Button } from "../primitives/Button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
+import { Dialog, DialogCloseButton, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { EventDatePicker } from "../events/EventDatePicker";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
@@ -291,7 +290,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             <Dialog open={true} onOpenChange={(open) => { if (!open) requestClose(); }}>
                 <DialogContent
                     className={cn(
-                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),40rem)] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(18,30,52,0.96),rgba(10,18,34,0.98))] p-0 shadow-[0_32px_120px_rgba(0,0,0,0.52)]",
+                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),40rem)] overflow-hidden rounded-[30px] p-0",
                         shell.isPhone
                             ? "inset-x-3 bottom-3 max-h-[88dvh]"
                             : "sm:max-w-2xl sm:max-h-[90dvh]",
@@ -309,12 +308,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                     : "Yearly personal event"}
                             </DialogDescription>
                         </div>
-                        <DialogClose
-                            aria-label="Close"
-                            className="btn-icon -mt-2 shrink-0 text-twilight-text-muted opacity-70 transition-[opacity,background-color] duration-150 hover:bg-white/[0.06] hover:text-twilight-text hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                        >
-                            <X className="h-4 w-4" aria-hidden="true" />
-                        </DialogClose>
+                        <DialogCloseButton className="-mt-2" />
                     </div>
 
                     <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>

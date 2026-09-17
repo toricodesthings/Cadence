@@ -255,7 +255,7 @@ export default function ProjectView() {
     /* ── Project not-found state ── */
     if (projects && !project) {
         return (
-            <MainLayout requireAuth contentWidth="default" pageTitle="Project not found">
+            <MainLayout requireAuth pageTitle="Project not found">
                 <PageContent width="default">
                     <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
                         <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
@@ -282,7 +282,7 @@ export default function ProjectView() {
         <>
             {/* Rename dialog */}
             <Dialog.Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-                <Dialog.DialogContent className="max-w-sm" hideCloseButton>
+                <Dialog.DialogContent className="sm:max-w-sm" hideCloseButton>
                     <Dialog.DialogHeader>
                         <Dialog.DialogTitle>Rename project</Dialog.DialogTitle>
                         <Dialog.DialogDescription>
@@ -339,22 +339,14 @@ export default function ProjectView() {
                             </div>
                             </Tip>
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setRenameOpen(false)}
-                                className="px-4 py-2 rounded-xl text-sm text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors"
-                            >
+                        <Dialog.DialogFooter>
+                            <Button type="button" variant="ghost" size="md" onClick={() => setRenameOpen(false)}>
                                 Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={!renameValue.trim()}
-                                className="px-4 py-2 rounded-xl text-sm bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                            >
+                            </Button>
+                            <Button type="submit" variant="cardPrimary" size="md" disabled={!renameValue.trim()}>
                                 Save changes
-                            </button>
-                        </div>
+                            </Button>
+                        </Dialog.DialogFooter>
                     </form>
                 </Dialog.DialogContent>
             </Dialog.Dialog>
@@ -514,7 +506,6 @@ export default function ProjectView() {
                     </div>
                 )
                 ) : undefined}
-                contentWidth="default"
                 pageTitle={project?.name ?? "Project"}
                 pageDescription="Work through a focused project view without leaving the Cadence shell."
                 shellHeader={{

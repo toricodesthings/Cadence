@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SIDE_PANEL_SURFACE } from "./side-panel-surface";
 
 interface ImmersiveDetailLayoutProps {
     header: ReactNode;
@@ -23,8 +24,7 @@ export function ImmersiveDetailLayout({
         <div
             data-detail-mode={mode}
             className={[
-                "flex h-full min-h-0 flex-col overflow-hidden bg-twilight-deep",
-                mode === "focus" ? "bg-twilight-void/98" : "",
+                `photo-shell-surface ${SIDE_PANEL_SURFACE} flex h-full min-h-0 flex-col overflow-hidden`,
                 className,
             ].join(" ").trim()}
         >
@@ -35,7 +35,7 @@ export function ImmersiveDetailLayout({
                 {children}
             </div>
             {footer ? (
-                <div className="mobile-sheet-footer shrink-0 border-t border-twilight-border/40 bg-twilight-deep/88 backdrop-blur-xl">
+                <div className="mobile-sheet-footer shrink-0 border-t border-twilight-border/40 bg-panel/88 backdrop-blur-xl">
                     {footer}
                 </div>
             ) : null}

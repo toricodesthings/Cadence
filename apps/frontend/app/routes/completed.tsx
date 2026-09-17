@@ -52,7 +52,6 @@ export default function CompletedView() {
             sidePanelActive={Boolean(selectedTaskId)}
             onCloseSidePanel={() => setSelectedTaskId(null)}
             sidePanelLabel="Task"
-            contentWidth="default"
             shellHeader={{
                 title: "Completed",
                 eyebrow: "Archive",

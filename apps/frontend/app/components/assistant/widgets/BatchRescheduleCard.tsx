@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { CalendarClock, Check } from "lucide-react";
 import { ProposalCard, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";

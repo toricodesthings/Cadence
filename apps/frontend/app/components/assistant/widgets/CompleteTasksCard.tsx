@@ -1,4 +1,3 @@
-import React from "react";
 import { CheckCircle2, Check } from "lucide-react";
 import { ProposalCard, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";

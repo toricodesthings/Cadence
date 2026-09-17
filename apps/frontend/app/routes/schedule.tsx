@@ -1,7 +1,6 @@
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import * as Popover from "../components/primitives/Popover";
 import { Switch } from "../components/primitives/Switch";
 import { Tip } from "../components/primitives";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
@@ -67,7 +66,6 @@ import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
-import { sortPersonalEventViewModels, toPersonalEventViewModel } from "../lib/utils/personal-events";
 import { trackUsageEvent } from "../lib/api/track-event";
 
 const slideVariants = {
@@ -285,16 +283,6 @@ export default function Schedule() {
             Array.from(personalEvents.eventsByDate.entries()).map(([dateStr, events]) => [dateStr, events.length]),
         );
     }, [personalEvents.eventsByDate]);
-
-    const personalEventHighlights = useMemo(
-        () => sortPersonalEventViewModels(personalEvents.items.map((event) => toPersonalEventViewModel(event, today)), "next"),
-        [personalEvents.items, today],
-    );
-
-    const personalEventNextThirtyCount = useMemo(
-        () => personalEventHighlights.filter((item) => item.daysUntil <= 30).length,
-        [personalEventHighlights],
-    );
 
     // ── Habits injection ───────────────────────────────────────────────────
     const habitRange = useMemo(() => {
@@ -813,62 +801,6 @@ export default function Schedule() {
 
     const holidayPrompts = <LocationNotice />;
 
-    const personalEventControlBlock = (
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
-            <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                    <p className="text-sm font-medium text-twilight-text-soft">Show personal events</p>
-                    <p className="text-xs leading-relaxed text-twilight-text-muted">
-                        Keep yearly milestones visible in the calendar, then move into Events when you want the full library.
-                    </p>
-                </div>
-                <Switch
-                    checked={personalEvents.enabled}
-                    onCheckedChange={(value) => personalEvents.setEnabled(value)}
-                />
-            </div>
-
-            {personalEventHighlights[0] ? (
-                <div className="mt-3 rounded-xl border border-accent-nav-schedule/16 bg-accent-nav-schedule/10 px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/75">Next milestone</p>
-                    <p className="mt-1 text-sm font-medium text-twilight-text">
-                        {personalEventHighlights[0].event.emoji ?? "🎉"} {personalEventHighlights[0].event.label}
-                    </p>
-                    <p className="mt-1 text-xs text-twilight-text-soft">
-                        {personalEventHighlights[0].nextDateLabel} · {personalEventHighlights[0].countdownLabel}
-                    </p>
-                    <p className="mt-2 text-[11px] text-accent-nav-schedule">
-                        {personalEvents.items.length} in library · {personalEventNextThirtyCount} in the next 30 days
-                    </p>
-                </div>
-            ) : (
-                <p className="mt-3 text-sm text-twilight-text-soft">No yearly events yet. Add one here, then manage the full library from Events.</p>
-            )}
-
-            <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    className="rounded-xl border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-2 text-sm font-medium text-accent-nav-schedule transition-colors hover:bg-accent-nav-schedule/18"
-                    onClick={() => {
-                        if (!personalEvents.enabled) {
-                            personalEvents.setEnabled(true);
-                        }
-                        handleAddEventToolbar();
-                    }}
-                >
-                    Add event
-                </button>
-                <button
-                    type="button"
-                    className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
-                    onClick={handleManageEvents}
-                >
-                    Manage events
-                </button>
-            </div>
-        </div>
-    );
-
     const overflowContent = (
         <div className="space-y-4">
             <div>
@@ -1115,7 +1047,6 @@ export default function Schedule() {
                                                 onSelectDate={handleSelectDate}
                                                 onSelectTask={handleSelectTask}
                                                 onCompleteTask={handleCompleteTask}
-                                                onArchiveTask={handleArchiveTask}
                                             />
                                         ) : (
                                         <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4">

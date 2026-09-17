@@ -67,7 +67,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
         <>
             {/* Rename dialog */}
             <Dialog.Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-                <Dialog.DialogContent className="max-w-sm" hideCloseButton>
+                <Dialog.DialogContent className="sm:max-w-sm" hideCloseButton>
                     <Dialog.DialogHeader>
                         <Dialog.DialogTitle>Rename / Edit project</Dialog.DialogTitle>
                         <Dialog.DialogDescription>
@@ -75,7 +75,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                         </Dialog.DialogDescription>
                     </Dialog.DialogHeader>
                     <form onSubmit={handleRenameSubmit} className="flex flex-col gap-4">
-                        <div className="flex gap-2 mb-3">
+                        <div className="flex gap-2">
                             <EmojiPickerPopover emoji={emojiValue} onSelect={setEmojiValue} />
                             <input
                                 autoFocus
@@ -120,22 +120,14 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                             </div>
                             </Tip>
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setRenameOpen(false)}
-                                className="px-4 py-2 rounded-xl text-sm text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                            >
+                        <Dialog.DialogFooter>
+                            <Button type="button" variant="ghost" size="md" onClick={() => setRenameOpen(false)}>
                                 Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={!renameValue.trim()}
-                                className="px-4 py-2 rounded-xl text-sm bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 transition-colors disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                            >
+                            </Button>
+                            <Button type="submit" variant="cardPrimary" size="md" disabled={!renameValue.trim()}>
                                 Save changes
-                            </button>
-                        </div>
+                            </Button>
+                        </Dialog.DialogFooter>
                     </form>
                 </Dialog.DialogContent>
             </Dialog.Dialog>

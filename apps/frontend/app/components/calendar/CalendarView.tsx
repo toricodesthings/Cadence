@@ -31,10 +31,6 @@ export function CalendarView() {
     });
 
     // Fetch next 7 days of tasks for upcoming preview
-    const next7Range = {
-        start: toISODate(today),
-        end: toISODate(addDays(today, 7)),
-    };
     const { data: upcomingTasks } = useTasks({
         state: "ACTIVE",
         scheduledRange: { start: toISODate(today), end: toISODate(addDays(today, 7)) },

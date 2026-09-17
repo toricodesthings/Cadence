@@ -10,7 +10,6 @@ import { describe, it, expect } from "vitest";
 import {
     rankTasks,
     type RankableTask,
-    type RankedTask,
 } from "@cadence/nlp/ranking";
 
 const NOW = new Date("2026-03-26T10:00:00");
@@ -23,7 +22,6 @@ function localDateStr(d: Date): string {
 const TODAY = localDateStr(NOW);
 const YESTERDAY = localDateStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - 1));
 const TOMORROW = localDateStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 1));
-const IN_2_DAYS = localDateStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 2));
 
 function makeTask(overrides: Partial<RankableTask> = {}): RankableTask {
     return {

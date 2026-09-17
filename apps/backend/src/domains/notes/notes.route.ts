@@ -7,7 +7,7 @@ import { upsertNoteSchema } from "@cadence/contracts/note";
 import { taskIdParamSchema } from "../../types/api";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { AppError, throwIfNotFound, assertNoConflict } from "../../platform/errors";
+import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { generateExcerpt, countWords, countHeadings } from "./note-analysis";
 

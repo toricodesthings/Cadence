@@ -3,10 +3,10 @@ import { useUpdateSubtask } from "../../hooks/tasks/use-subtasks";
 import { useTaskCompletionStore } from "../../stores/task-completion-store";
 import { useSettings } from "../../hooks/core/use-settings";
 import type { Subtask } from "@cadence/contracts/subtask";
-import type { Task, TaskState } from "@cadence/contracts/task";
+import type { Task } from "@cadence/contracts/task";
 import { CalendarClock, Pause } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
 import { trackUsageEvent } from "../../lib/api/track-event";
 
@@ -67,23 +67,6 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
             route: window.location.pathname,
             surface: "task_checkbox",
         });
-    };
-
-    const handleContextMenu = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (subtask) return; // Only main tasks have WAITING state
-        if (!task || !allowsManualCompletion) return;
-
-        if (isPendingComplete) {
-            cancelCompletion(id);
-        }
-
-        // Toggle between WAITING and ACTIVE
-        const targetState = isWaiting ? "ACTIVE" : "WAITING";
-        trackQuickAction(isWaiting ? "resume_from_waiting" : "mark_waiting", "context_menu");
-        updateTask.mutate({ id, state: targetState });
     };
 
     const handleToggle = (e: React.MouseEvent) => {

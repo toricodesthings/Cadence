@@ -88,6 +88,15 @@ export function getContrastSafety(hex: string): "safe-dark" | "safe-light" | "ca
     return "caution";
 }
 
+/** Base color for a gradient background: its midpoint keeps the hue; light gradients are pulled toward a neutral light base. */
+export function gradientBaseHex(hex1: string, hex2: string): string {
+    const a = hexToRgb(hex1);
+    const b = hexToRgb(hex2);
+    const mid = a.map((channel, i) => (channel + b[i]) / 2);
+    if (gradientMidpointLuminance(hex1, hex2) <= 0.18) return rgbToHex(mid);
+    return rgbToHex(mid.map((channel) => channel * 0.3 + 245 * 0.7));
+}
+
 /** Build a CSS linear-gradient value from two colors and an angle */
 export function buildGradientCSS(
     color1: string,

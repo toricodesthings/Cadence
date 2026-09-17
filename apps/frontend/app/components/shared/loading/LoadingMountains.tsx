@@ -1,4 +1,4 @@
-import { cssVars, n1, polyline, quadChain, risingEdges, sinR, smoothThrough, yAt, type Pt } from "./loading-geometry";
+import { cssVars, polyline, quadChain, risingEdges, sinR, smoothThrough, yAt, type Pt } from "./loading-geometry";
 
 const ridge = (points: Pt[]) => `M0,1080L${polyline(points).slice(1)}L1920,1080Z`;
 

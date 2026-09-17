@@ -32,7 +32,7 @@ import {
     isPassiveTimetableTask,
     isRecurringTask,
 } from "../../lib/utils/task/task-scheduling";
-import type { EffortLevel, Task, TaskPriority, TaskState } from "@cadence/contracts/task";
+import type { EffortLevel, TaskPriority, TaskState } from "@cadence/contracts/task";
 import { DetailTitle } from "../shared/DetailTitle";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { CARD, PANEL_TRIGGER, PanelTrigger, PanelHeader } from "../shared/DetailPanelSections";

@@ -8,7 +8,7 @@ import { insertTagSchema, updateTagSchema } from "@cadence/contracts/tag";
 import { uuidParamSchema } from "../../types/api";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { AppError, throwIfNotFound } from "../../platform/errors";
+import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 
 export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()

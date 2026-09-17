@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Dialog, DialogContent } from "../primitives/Dialog";
+import { Dialog, DialogCloseButton, DialogContent } from "../primitives/Dialog";
 import { useNavigate } from "react-router";
 import {
     Search, CheckSquare, Flame, Inbox, FolderOpen, Navigation, FileText, Telescope,
@@ -16,12 +16,12 @@ interface CommandPaletteProps {
 }
 
 const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
-    task: <CheckSquare size={14} aria-hidden="true" />,
-    habit: <Flame size={14} aria-hidden="true" />,
-    inbox: <Inbox size={14} aria-hidden="true" />,
-    project: <FolderOpen size={14} aria-hidden="true" />,
-    "focus-view": <Telescope size={14} aria-hidden="true" />,
-    page: <Navigation size={14} aria-hidden="true" />,
+    task: <CheckSquare size={16} aria-hidden="true" />,
+    habit: <Flame size={16} aria-hidden="true" />,
+    inbox: <Inbox size={16} aria-hidden="true" />,
+    project: <FolderOpen size={16} aria-hidden="true" />,
+    "focus-view": <Telescope size={16} aria-hidden="true" />,
+    page: <Navigation size={16} aria-hidden="true" />,
 };
 
 const GROUP_LABELS: Record<string, string> = {
@@ -151,39 +151,37 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 hideCloseButton
-                className="fixed inset-x-auto bottom-auto left-1/2 top-[18%] -translate-x-1/2 translate-y-0 w-full max-w-xl rounded-2xl border border-twilight-border surface-utility shadow-2xl p-0 overflow-hidden"
+                className="flex flex-col gap-0 overflow-hidden p-0 sm:top-[14%] sm:max-w-2xl sm:translate-y-0"
                 onKeyDown={handleKeyDown}
             >
                 {/* Search input */}
-                <div className="flex items-center border-b border-twilight-border px-5 py-4">
-                    <Search size={18} className="text-twilight-text-muted mr-3 shrink-0" aria-hidden="true" />
+                <div className="flex min-h-18 items-center gap-3 border-b border-twilight-border px-6 py-4">
+                    <Search size={20} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
                     <input
                         ref={inputRef}
                         autoFocus
                         value={rawQuery}
                         onChange={(e) => setRawQuery(e.target.value)}
                         placeholder="Search tasks, habits, captures, pages…"
-                        className="bg-transparent text-base font-display w-full outline-none text-twilight-text placeholder:text-twilight-text-muted/60"
+                        className="w-full bg-transparent text-lg text-twilight-text outline-none placeholder:text-twilight-text-muted"
                         aria-label="Search workspace"
                     />
-                    <div className="text-[11px] text-twilight-text-muted/60 bg-white/[0.06] px-2 py-1 rounded border border-twilight-border font-mono shrink-0">
-                        ESC
-                    </div>
+                    <DialogCloseButton className="-mr-2" aria-label="Close search" />
                 </div>
 
                 {/* Results */}
-                <div ref={listRef} className="max-h-[380px] overflow-y-auto p-3" role="listbox" aria-label="Search results">
+                <div ref={listRef} className="max-h-[min(60vh,32rem)] overflow-y-auto px-3 pb-3 pt-1 scrollbar-thin" role="listbox" aria-label="Search results">
                     {!hasResults ? (
-                        <div className="py-10 text-center">
+                        <div className="py-14 text-center">
                             {hasQuery ? (
-                                <div className="text-sm text-twilight-text-muted italic">
+                                <div className="text-sm text-twilight-text-muted">
                                     No results for &ldquo;{query}&rdquo;
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-2 text-twilight-text-muted">
-                                    <Search size={28} className="opacity-40" aria-hidden="true" />
+                                    <Search size={28} className="mb-1 text-accent-primary" aria-hidden="true" />
                                     <p className="text-sm">Start typing to search your workspace</p>
-                                    <p className="text-xs text-twilight-text-muted/60">
+                                    <p className="text-xs text-twilight-text-muted">
                                         Tasks, habits, captures, projects, and pages
                                     </p>
                                 </div>
@@ -192,7 +190,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     ) : (
                         groupedForRender.map(({ key, label, items }) => (
                             <div key={key} role="group" aria-label={label}>
-                                <div className="text-xs font-display font-medium text-twilight-text-muted/60 uppercase tracking-wider px-3 pt-3 pb-2">
+                                <div className="px-3 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted">
                                     {label}
                                 </div>
                                 {items.map(({ item, flatIndex }) => (
@@ -202,17 +200,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                                         role="option"
                                         aria-selected={flatIndex === selectedIndex}
                                         onClick={() => navigateToResult(item)}
-                                        className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-4 py-3 text-sm text-twilight-text transition-colors
-                                            ${flatIndex === selectedIndex ? "bg-white/[0.06]" : "hover:bg-white/[0.04]"}
+                                        className={`flex min-h-14 w-full cursor-pointer items-center gap-3.5 rounded-2xl px-3 py-2.5 text-[15px] text-twilight-text transition-colors
+                                            ${flatIndex === selectedIndex ? "bg-accent-primary/10" : "hover:bg-white/[0.04]"}
                                         `}
                                     >
-                                        <div className="text-twilight-text-muted shrink-0">
-                                            {item.noteAction ? <FileText size={14} aria-hidden="true" /> : KIND_ICON[item.kind]}
+                                        <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] ${flatIndex === selectedIndex ? "text-accent-primary" : "text-twilight-text-muted"}`}>
+                                            {item.noteAction ? <FileText size={16} aria-hidden="true" /> : KIND_ICON[item.kind]}
                                         </div>
                                         <div className="flex-1 min-w-0 text-left">
                                             <span className="truncate block">{item.title}</span>
                                             {item.context && (
-                                                <span className="text-xs text-twilight-text-muted/70 truncate block">
+                                                <span className="mt-0.5 block truncate text-[13px] text-twilight-text-muted">
                                                     {item.context}
                                                 </span>
                                             )}
@@ -225,10 +223,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 </div>
 
                 {/* Footer hint */}
-                <div className="border-t border-twilight-border px-5 py-3 flex items-center gap-4 text-xs text-twilight-text-muted/50">
-                    <span>↑↓ Navigate</span>
-                    <span>↵ Open</span>
-                    <span>Esc Close</span>
+                <div className="flex items-center gap-5 border-t border-twilight-border px-6 py-3.5 text-xs text-twilight-text-muted">
+                    {([["↑↓", "Navigate"], ["↵", "Open"], ["Esc", "Close"]] as const).map(([key, label]) => (
+                        <span key={label} className="flex items-center gap-1.5">
+                            <kbd className="rounded-md border border-twilight-border bg-white/[0.04] px-1.5 py-0.5 font-sans text-[11px]">{key}</kbd>
+                            {label}
+                        </span>
+                    ))}
                 </div>
             </DialogContent>
         </Dialog>

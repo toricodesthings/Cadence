@@ -2,10 +2,10 @@ import { Hono } from "hono";
 import { and, between, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
-import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope, type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
-import { tasks, tags, taskTags, taskNlpMetadata, taskNlpMetadataHistory, projects, users } from "../../db/schema";
+import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
+import { tasks, tags, taskTags, taskNlpMetadata, taskNlpMetadataHistory } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
-import { AppError, throwIfNotFound, assertNoConflict } from "../../platform/errors";
+import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
 import { assertOwnership } from "../../platform/ownership";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { trackCompletion, trackReschedule, trackEvent, trackBatchCompletion, trackBatchEvents } from "../../platform/metrics";
@@ -25,18 +25,9 @@ import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "../../types/api";
 import { taskTagSchema } from "@cadence/contracts/tag";
-import {
-    sourceSurfaceSchema,
-    batchRescheduleSchema,
-    batchStateSchema,
-    insertTaskSchema,
-    reorderTaskSchema,
-    taskFiltersSchema,
-    taskListQuerySchema,
-    updateTaskSchema,
-} from "./tasks.schema";
+import { sourceSurfaceSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "./tasks.schema";
 import type { Env } from "../../types/env";
-import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot, isDateOnlyValue } from "./task-nlp";
+import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 
 const taskTagParamSchema = z.object({
     id: z.string().uuid(),

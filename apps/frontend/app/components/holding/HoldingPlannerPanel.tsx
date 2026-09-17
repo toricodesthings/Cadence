@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { CalendarDays, CheckSquare, Inbox as InboxIcon } from "lucide-react";
 import { CalendarView } from "../calendar/CalendarView";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
+import { SIDE_PANEL_SURFACE } from "../shared/side-panel-surface";
 import { useInbox } from "../../hooks/inbox";
 import { useTasks } from "../../hooks/tasks";
 
@@ -19,7 +20,7 @@ export function HoldingPlannerPanel() {
     );
 
     return (
-        <div className="photo-shell-surface aurora-accent flex h-full flex-col bg-twilight-deep/95 backdrop-blur-xl">
+        <div className={`photo-shell-surface ${SIDE_PANEL_SURFACE} flex h-full flex-col`}>
             {/* Header — mirrors the Cadence panel header so the two rail panes read
                 as siblings (same height, font-display title, lantern-glow icon). */}
             <header className="flex h-(--shell-header-h) shrink-0 items-center gap-3 border-b border-twilight-border px-4">

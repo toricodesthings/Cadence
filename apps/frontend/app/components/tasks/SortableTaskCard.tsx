@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
@@ -51,11 +50,6 @@ export function SortableTaskCard({
     } = useSortable({ id: task.id });
 
     const isComplete = task.state === "COMPLETE";
-    const prevCompleteRef = useRef(isComplete);
-
-    // Detect if task just became complete (transition from incomplete → complete)
-    const justCompleted = isComplete && !prevCompleteRef.current;
-    prevCompleteRef.current = isComplete;
 
     const style: React.CSSProperties = {
         transform: CSS.Transform.toString(transform),

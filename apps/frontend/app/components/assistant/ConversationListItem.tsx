@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Trash2, Check, X } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as AlertDialog from "../primitives/AlertDialog";

@@ -22,7 +22,7 @@ export function CaptureInput({ mobile = false, draft, onDraftChange, onCaptured 
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const createInboxItem = useCreateInboxItem();
 
-    const handleSubmit = useCallback((forceTask?: boolean) => {
+    const handleSubmit = useCallback(() => {
         const text = value.trim();
         if (!text || (mobile && createInboxItem.isPending)) return;
         createInboxItem.mutate(text, {
@@ -38,10 +38,9 @@ export function CaptureInput({ mobile = false, draft, onDraftChange, onCaptured 
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (mobile && !(e.key === "Enter" && (e.metaKey || e.ctrlKey))) return;
-        // mod+enter → forced task capture
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            handleSubmit(true);
+            handleSubmit();
             return;
         }
         // shift+enter → newline (default textarea behavior)

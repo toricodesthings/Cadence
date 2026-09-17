@@ -30,7 +30,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl border border-twilight-border bg-twilight-deep/95 p-0 shadow-[0_24px_72px_rgba(0,0,0,0.45)]">
+            <DialogContent className="p-0 sm:max-w-2xl">
                 <div className="border-b border-twilight-border px-6 py-5">
                     <DialogTitle className="font-display text-2xl text-twilight-text">Sync Inspector</DialogTitle>
                     <DialogDescription className="mt-2 text-sm text-twilight-text-muted">

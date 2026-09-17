@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { X, FileText, List } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNoteRoomStore } from "../../stores/note-room-store";
@@ -13,7 +13,6 @@ import { applyMarkdownAction, type MarkdownAction } from "../../lib/notes/markdo
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import { getTemplate } from "../../lib/notes/note-templates";
 import { extractNoteOutline, countWords } from "../../lib/notes/note-outline";
-import { Skeleton } from "../primitives/Skeleton";
 import type { NotesToolbarAction } from "./NotesToolbar";
 
 const MAX_CHARS = 50000;

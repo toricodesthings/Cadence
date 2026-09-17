@@ -1,4 +1,3 @@
-import React from "react";
 import { Check, Loader2, Inbox, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Tip } from "../primitives";

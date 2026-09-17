@@ -197,7 +197,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                     <div className="mt-2 overflow-x-auto pb-2 scrollbar-thin">
                         <div className="min-w-[38rem]">
                             <div className="flex border-b border-twilight-border/40 pb-3">
-                                <div className="w-36 shrink-0 sm:w-44" />
+                                <div className="w-48 shrink-0 sm:w-60" />
                                 <div className="grid flex-1 grid-cols-7">
                                     {days.map((day, i) => {
                                         const isToday = today === day.iso;
@@ -248,50 +248,50 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                     isSelected ? "bg-accent-primary/[0.05]" : "hover:bg-white/[0.02]"
                                                 }`}
                                             >
-                                                <div className="flex w-36 shrink-0 items-center gap-1 pr-1 sm:w-44">
+                                                <div className="flex w-48 shrink-0 items-center gap-1 pr-2 sm:w-60">
                                                     <button
                                                         type="button"
                                                         onClick={() => onSelectHabit?.(habit.id)}
-                                                        className="flex min-w-0 flex-1 items-start gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40"
+                                                        className="flex min-w-0 flex-1 items-start gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40"
                                                         aria-label={`View details for ${habit.title}`}
                                                         aria-pressed={isSelected}
                                                     >
-                                                        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_50%,transparent)] transition-colors ${isSelected ? "bg-accent-primary" : "bg-accent-primary/60 group-hover:bg-accent-primary"}`} />
+                                                        <span className={`mt-[7px] h-2 w-2 shrink-0 rounded-full shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_50%,transparent)] transition-colors ${isSelected ? "bg-accent-primary" : "bg-accent-primary/60 group-hover:bg-accent-primary"}`} />
                                                         <div className="min-w-0 flex-1">
-                                                            <h3 className={`truncate text-[13px] font-medium leading-tight transition-colors ${
+                                                            <h3 className={`truncate text-[15px] font-medium leading-snug transition-colors ${
                                                                 isSelected
                                                                     ? "text-twilight-text"
                                                                     : "text-twilight-text-soft group-hover:text-twilight-text"
                                                             }`}>
                                                                 {habit.title}
                                                             </h3>
-                                                            <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                                                <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2 py-0.5 text-[9px] font-medium text-accent-primary">
-                                                                    <Flame size={9} />
+                                                            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                                                <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary">
+                                                                    <Flame size={11} />
                                                                     {habit.currentStreak}
                                                                 </span>
                                                                 {habit.isOverdue ? (
-                                                                    <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/16 bg-accent-primary/10 px-2 py-0.5 text-[9px] font-medium text-accent-primary">
+                                                                    <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/16 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary">
                                                                         Catch up
                                                                     </span>
                                                                 ) : habit.isDueToday ? (
-                                                                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[9px] font-medium text-twilight-text-soft">
-                                                                        <CheckCircle2 size={9} /> Today
+                                                                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-medium text-twilight-text-soft">
+                                                                        <CheckCircle2 size={11} /> Today
                                                                     </span>
                                                                 ) : null}
                                                                 {isPaused && (
-                                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-twilight-text-muted">
-                                                                        <Pause size={8} /> Paused
+                                                                    <span className="inline-flex items-center gap-1 text-xs text-twilight-text-muted">
+                                                                        <Pause size={11} /> Paused
                                                                     </span>
                                                                 )}
                                                                 {habit.targetTime && !isPaused && (
-                                                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-twilight-text-muted">
-                                                                        <Clock size={8} className="shrink-0" />
+                                                                    <span className="inline-flex items-center gap-1 text-xs text-twilight-text-muted">
+                                                                        <Clock size={11} className="shrink-0" />
                                                                         {habit.targetTime}
                                                                     </span>
                                                                 )}
                                                                 {project && (
-                                                                    <span className="inline-flex items-center rounded-full bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-twilight-text-muted truncate max-w-[7rem]">
+                                                                    <span className="inline-flex items-center rounded-full bg-white/[0.04] px-2 py-0.5 text-[11px] text-twilight-text-muted truncate max-w-[9rem]">
                                                                         {project.name}
                                                                     </span>
                                                                 )}

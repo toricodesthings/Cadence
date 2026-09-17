@@ -10,10 +10,9 @@ import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyH
 import { uuidParamSchema } from "../../types/api";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { AppError, throwIfNotFound, assertNoConflict } from "../../platform/errors";
+import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
 import { logger, shorten, issuesFromError } from "../../platform/log";
 import { rrulestr } from "rrule";
-import { parseISO } from "date-fns";
 import { apiValidator } from "../../platform/validation";
 import type { Tx } from "../../types/db";
 

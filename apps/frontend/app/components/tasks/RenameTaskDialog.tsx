@@ -55,13 +55,7 @@ export function RenameTaskDialog({ taskId, currentName, onClose }: RenameTaskDia
                     <Button variant="ghost" size="md" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button
-                        variant="primary"
-                        size="md"
-                        onClick={handleSubmit}
-                        disabled={!name.trim()}
-                        className="bg-accent-primary/20 hover:bg-accent-primary/30 text-accent-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
+                    <Button variant="cardPrimary" size="md" onClick={handleSubmit} disabled={!name.trim()}>
                         Rename
                     </Button>
                 </DialogFooter>

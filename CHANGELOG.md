@@ -8,10 +8,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Changed
 
+- Habit names and their streak, status and time details are larger in the weekly grid, with a wider name column so fewer titles get cut off.
+- Schedule and Habits header controls (Today, view toggles, Add Routine) are no longer squished, matching the height of buttons elsewhere. Schedule's Day/Week/Month/Year switcher is now a dropdown instead of a row of buttons.
+- Page headers share one design: the same height, a darker blurred bar, and a small label above each title. Schedule now shows its name in the header.
+- Events now has its own icon in the navigation rail alongside Schedule and Habits, instead of being tucked under Capture. Its page is simpler: Add event sits in the header, sorting is a small pill beside the title, and the Open Schedule button is gone.
 - The desktop notification preview has softer glass and a spacious, centered empty state that stays the same height as a three-notification preview.
 
 ### Fixed
 
+- Panels, cards, dialogs, page headers and dropdown lists now take their color from your background: green, purple or warm themes get matching dark surfaces instead of grey or navy, and the default theme stays a consistent navy.
+- The task, habit, event and capture side panel no longer shows a flat navy background or box under warm accents — it's a darker glass that follows your theme's color throughout, and its "Task"/"Habit"/"Event"/"Capture" header label is bigger and back to matching the size of other panel titles.
+- Rename and delete dialogs now look the same: matching corners, title style, spacing and full-height buttons. Project rename buttons are no longer squished, and dialog widths now apply on desktop.
+- Dialogs now use a soft, blurred glass that matches your background. This includes Add event, the Schedule create dialog, Quick Add, search, Settings, Notifications and Sync Inspector.
 - Phone sign-in keeps OAuth callbacks out of the offline cache and retries session restoration before entering the app. If sign-in can't finish, Cadence shows a recovery message instead of spinning indefinitely.
 - Restore background blur on notification previews, menus and other glass surfaces in production. Capture's three-dot menu now uses the shared dropdown, and old preview caches no longer keep development styles stale.
 

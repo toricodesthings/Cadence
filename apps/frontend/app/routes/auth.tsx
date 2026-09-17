@@ -2,7 +2,7 @@ import { AuthView } from "@neondatabase/auth/react/ui";
 import { Loader2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import {
     DESKTOP_OAUTH_PAYLOAD_PARAM,
@@ -254,7 +254,7 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
                     return;
                 }
             } else {
-                const result = await authClient.signIn.email({
+                await authClient.signIn.email({
                     email: email.trim(),
                     password,
                     callbackURL: redirectTo,

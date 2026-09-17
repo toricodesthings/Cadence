@@ -1,4 +1,3 @@
-import React from "react";
 import { Inbox, Check } from "lucide-react";
 import { ProposalCard, IdentityBlock, MetaPill, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";

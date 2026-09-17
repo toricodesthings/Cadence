@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { ChevronLeft, Plus, Sparkles, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import * as ScrollArea from "../primitives/ScrollArea";
@@ -47,7 +47,7 @@ export function ConversationList({
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
             transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-            className="absolute inset-0 z-10 flex flex-col bg-twilight-deep/95 backdrop-blur-xl"
+            className="absolute inset-0 z-10 flex flex-col bg-panel/95 backdrop-blur-xl"
             role="dialog"
             aria-label="Saved conversations"
         >

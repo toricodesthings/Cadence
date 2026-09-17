@@ -1,4 +1,4 @@
-import { useRef, useCallback, type RefObject } from "react";
+import { useRef, useCallback } from "react";
 
 interface UseSwipeNavigationOptions {
     onSwipeLeft: () => void;

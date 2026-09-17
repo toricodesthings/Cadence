@@ -1,4 +1,3 @@
-import React from "react";
 import { Check, CheckCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Tip } from "../primitives";

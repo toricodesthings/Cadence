@@ -32,8 +32,8 @@ import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
-import type { PageWidth } from "./PageLayout";
 import { CompactPageControls } from "../shared/CompactPageControls";
+import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "./PageHeader";
 import { ContextualAddOrb } from "../shared/ContextualAddOrb";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 import { useMutationOutbox } from "../../lib/api/mutation-outbox";
@@ -226,7 +226,6 @@ export function MainLayout({
     customSidebar,
     hideHeader = false,
     hideContextualOrb = false,
-    contentWidth = "default",
     pageTitle,
     pageDescription,
     shellHeader,
@@ -247,7 +246,6 @@ export function MainLayout({
     customSidebar?: React.ReactNode,
     hideHeader?: boolean,
     hideContextualOrb?: boolean,
-    contentWidth?: PageWidth,
     pageTitle?: string,
     pageDescription?: string,
     shellHeader?: ShellHeaderConfig,
@@ -562,7 +560,7 @@ export function MainLayout({
             description: "Cadence is a calm planning workspace for tasks, habits, and weekly resets.",
         };
     }, [location.pathname]);
-    const controlsSidebarPanel = shell.isPhone || !["/schedule", "/habits"].includes(location.pathname);
+    const controlsSidebarPanel = shell.isPhone || !["/schedule", "/habits", "/events"].includes(location.pathname);
 
     const resolvedPageTitle = pageTitle ?? pageMeta.title;
     const resolvedPageDescription = pageDescription ?? pageMeta.description;
@@ -638,7 +636,6 @@ export function MainLayout({
     };
 
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
-    const showsRichHeader = Boolean(shellHeader);
     const desktopStatus = IS_DESKTOP_RUNTIME && shell.isDesktop
         ? (
             <DesktopHeaderStatus
@@ -647,6 +644,14 @@ export function MainLayout({
             />
         )
         : null;
+
+    const headerIdentityProps = {
+        title: headerTitle,
+        eyebrow: shellHeader?.eyebrow,
+        icon: shellHeader?.icon,
+        accentColor: shellHeader?.accentColor,
+    };
+    const headerIdentity = <PageHeaderIdentity {...headerIdentityProps} compact={shell.isPhone} />;
 
     const canCloseRail = shell.isWide && location.pathname !== "/" &&
         (assistantInRail || (sidePanelPresent && Boolean(onCloseSidePanel)));
@@ -664,6 +669,20 @@ export function MainLayout({
                 <PanelRightClose size={18} aria-hidden="true" />
             </Button>
         </Tooltip.Tip>
+    ) : null;
+
+    const hasHeaderActions = Boolean(desktopStatus || headerCenter || headerRight || shell.isLaptop || closeRailControl);
+    const headerActions = hasHeaderActions ? (
+        <>
+            {desktopStatus}
+            {desktopStatus && (headerCenter || headerRight) ? (
+                <div className="h-4 w-px bg-white/[0.08]" aria-hidden="true" />
+            ) : null}
+            {headerCenter}
+            {headerRight}
+            {shell.isLaptop && <NotificationPreview side="bottom" />}
+            {closeRailControl}
+        </>
     ) : null;
 
     return (
@@ -684,81 +703,15 @@ export function MainLayout({
                     <div className="flex min-w-0 flex-1 flex-col min-h-0">
                     {/* Off phone the header is a single row, so it takes the shared
                         height and its bottom border lines up with side-panel headers. */}
-                    {!hideHeader && (
-                        <header className={`photo-shell-surface layer-shell-header shrink-0 border-b border-twilight-border bg-twilight-deep/70 backdrop-blur-xl ${shell.isCompact ? "" : "h-(--shell-header-h)"}`}>
-                            <div
-                                className={shell.isCompact ? "px-4 pb-3 pt-2.5" : "flex h-full items-center px-6 lg:px-8"}
-                                style={shell.isCompact ? { paddingTop: "max(0.625rem, env(safe-area-inset-top))" } : undefined}
-                            >
+                    {!hideHeader && (shell.isCompact ? (
+                        <header className={PAGE_HEADER_SURFACE}>
+                            <div className="px-4 pb-3 pt-2.5" style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}>
                                 <div className="flex w-full flex-col gap-2">
                                     <div className="flex min-h-11 items-center justify-between gap-4 sm:min-h-12">
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            {customSidebar === undefined && shell.isDesktop && controlsSidebarPanel && (
-                                                <Button variant="ghost" size="icon"
-                                                    onClick={toggleCollapse}
-                                                    aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-                                                    aria-expanded={!isCollapsed}
-                                                    aria-controls="sidebar-panel"
-                                                    className="btn-icon rounded-2xl"
-                                                >
-                                                    {shell.isDesktop && !isCollapsed
-                                                        ? <PanelLeftClose size={18} aria-hidden="true" />
-                                                        : <PanelLeftOpen size={18} aria-hidden="true" />
-                                                    }
-                                                </Button>
-                                            )}
-
-                                            {showsRichHeader ? (
-                                                <div className="relative min-w-0">
-                                                    <div className="relative flex min-w-0 items-center gap-3 py-1">
-                                                        {shellHeader?.icon ? (
-                                                            <div
-                                                                className="flex shrink-0 items-center justify-center text-twilight-text"
-                                                                style={shellHeader.accentColor ? { color: shellHeader.accentColor } : undefined}
-                                                            >
-                                                                {shellHeader.icon}
-                                                            </div>
-                                                        ) : null}
-                                                        <div className="flex min-w-0 flex-col gap-px">
-                                                            {shellHeader?.eyebrow ? (
-                                                                <div className="text-[11px] font-medium uppercase leading-none tracking-[0.16em] text-twilight-text-muted">
-                                                                    {shellHeader.eyebrow}
-                                                                </div>
-                                                            ) : null}
-                                                            <h1 className="truncate pb-[0.04em] font-display text-lg font-semibold leading-[1.05] tracking-tight text-twilight-text sm:text-[1.45rem]">
-                                                                {headerTitle}
-                                                            </h1>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <h1 className="truncate font-display text-lg font-semibold tracking-tight text-twilight-text sm:text-[1.7rem]">
-                                                    {resolvedPageTitle}
-                                                </h1>
-                                            )}
-                                        </div>
-
-                                        {shell.isCompact && <MobileHeaderActions onSearch={openSearch}>{compactHeaderRightInline ? headerRight : null}</MobileHeaderActions>}
-                                        {(headerCenter || headerRight || shell.isLaptop) && !shell.isCompact ? (
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                {desktopStatus}
-                                                {desktopStatus && (headerCenter || headerRight) ? (
-                                                    <div className="h-4 w-px bg-white/[0.08]" aria-hidden="true" />
-                                                ) : null}
-                                                {headerCenter}
-                                                {headerRight}
-                                                {shell.isLaptop && <NotificationPreview side="bottom" />}
-                                                {closeRailControl}
-                                            </div>
-                                        ) : desktopStatus || closeRailControl ? (
-                                            <div className="flex shrink-0 items-center gap-2">
-                                                {desktopStatus}
-                                                {closeRailControl}
-                                            </div>
-                                        ) : null}
+                                        {headerIdentity}
+                                        <MobileHeaderActions onSearch={openSearch}>{compactHeaderRightInline ? headerRight : null}</MobileHeaderActions>
                                     </div>
-
-                                    {(headerCenter || (headerRight && !compactHeaderRightInline)) && shell.isCompact && (
+                                    {(headerCenter || (headerRight && !compactHeaderRightInline)) && (
                                         <CompactPageControls
                                             primaryControl={headerCenter}
                                             secondaryControl={compactHeaderRightInline ? undefined : headerRight}
@@ -769,7 +722,26 @@ export function MainLayout({
                                 </div>
                             </div>
                         </header>
-                    )}
+                    ) : (
+                        <PageHeader
+                            {...headerIdentityProps}
+                            leading={customSidebar === undefined && shell.isDesktop && controlsSidebarPanel ? (
+                                <Button variant="ghost" size="icon"
+                                    onClick={toggleCollapse}
+                                    aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+                                    aria-expanded={!isCollapsed}
+                                    aria-controls="sidebar-panel"
+                                    className="btn-icon -ml-2 rounded-2xl"
+                                >
+                                    {isCollapsed
+                                        ? <PanelLeftOpen size={18} aria-hidden="true" />
+                                        : <PanelLeftClose size={18} aria-hidden="true" />
+                                    }
+                                </Button>
+                            ) : undefined}
+                            actions={headerActions}
+                        />
+                    ))}
 
                         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                             {children}

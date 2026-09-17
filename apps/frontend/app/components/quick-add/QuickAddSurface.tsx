@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Dialog, DialogContent } from "../primitives/Dialog";
-import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useTags } from "../../hooks/tags";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
@@ -57,12 +56,13 @@ export function QuickAddSurface({
         if (open) setTab(initialTab);
     }, [initialTab, open]);
 
+    const TitleTag = mode === "standalone" ? "h2" : DialogTitle;
     const shell = (
-        <div className="overflow-hidden rounded-[1.75rem] border border-twilight-border bg-twilight-deep/96 p-0 shadow-[0_24px_72px_rgba(0,0,0,0.42)]">
+        <div className={mode === "standalone" ? "surface-dialog overflow-hidden rounded-[1.75rem]" : undefined}>
             <div className="border-b border-twilight-border px-5 pb-4 pt-5">
-                <h2 className="font-display text-base font-semibold tracking-tight text-twilight-text">
+                <TitleTag className="font-display text-base font-semibold tracking-tight text-twilight-text">
                     Quick Add
-                </h2>
+                </TitleTag>
                 <p className="mt-1 text-sm text-twilight-text-muted/60">
                     Capture without leaving your flow
                 </p>
@@ -102,7 +102,7 @@ export function QuickAddSurface({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 hideCloseButton
-                className="layer-utility-surface max-w-md overflow-hidden rounded-2xl border border-twilight-border p-0 shadow-2xl surface-utility"
+                className="layer-utility-surface max-w-md overflow-hidden rounded-[1.75rem] p-0"
             >
                 {shell}
             </DialogContent>

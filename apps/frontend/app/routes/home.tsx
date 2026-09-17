@@ -184,9 +184,9 @@ export default function HomeRoute() {
             sidePanelLabel="Review"
             headerRight={headerRight}
             compactHeaderRightInline
-            contentWidth="default"
             shellHeader={{
                 title: "Capture",
+                eyebrow: "Inbox",
                 icon: <Inbox size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-nav-capture, var(--accent-primary))",
             }}

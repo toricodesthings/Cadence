@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { projects, tags, taskSections } from "../db/schema";
 import { AppError } from "./errors";
 import type { Tx } from "../types/db";

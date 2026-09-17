@@ -207,7 +207,7 @@ import { handleOverdueCheck, pruneStaleMutations, pruneAiMemories } from "./cron
 
 export default {
   fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleOverdueCheck(env));
     ctx.waitUntil(pruneStaleMutations(env));
     ctx.waitUntil(pruneAiMemories(env));

@@ -107,7 +107,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
 
     return (
         <Dialog.Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
-            <Dialog.DialogContent className="max-w-xl">
+            <Dialog.DialogContent className="sm:max-w-xl">
                 <Dialog.DialogHeader>
                     <Dialog.DialogTitle>New routine</Dialog.DialogTitle>
                     <Dialog.DialogDescription>

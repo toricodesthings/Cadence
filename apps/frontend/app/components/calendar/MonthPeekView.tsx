@@ -28,7 +28,6 @@ export interface MonthPeekViewProps {
     onSelectDate: (day: number) => void;
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
-    onArchiveTask: (id: string) => void;
 }
 
 export function MonthPeekView({
@@ -45,7 +44,6 @@ export function MonthPeekView({
     onSelectDate,
     onSelectTask,
     onCompleteTask,
-    onArchiveTask,
 }: MonthPeekViewProps) {
     const selectedDay = parseInt(currentDate.split("-")[2], 10);
     const todayStr = new Date().toISOString().split("T")[0];
@@ -161,7 +159,7 @@ export function MonthPeekView({
 
             {/* Selected day agenda */}
             <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-24">
-                <div className="sticky top-0 z-10 -mx-1 border-b border-twilight-border/15 bg-twilight-deep/88 px-1 py-3 backdrop-blur-xl">
+                <div className="sticky top-0 z-10 -mx-1 border-b border-twilight-border/15 bg-panel/88 px-1 py-3 backdrop-blur-xl">
                     <span className="text-[13px] font-semibold text-twilight-text-soft">
                         {new Date(year, month, selectedDay).toLocaleDateString("en-US", {
                             weekday: "long",

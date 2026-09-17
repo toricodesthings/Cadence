@@ -1,4 +1,3 @@
-import React from "react";
 import { FolderPlus, Check } from "lucide-react";
 import { ProposalCard, IdentityBlock, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";

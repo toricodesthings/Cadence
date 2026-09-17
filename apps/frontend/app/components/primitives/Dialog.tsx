@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { clsx, type ClassValue } from "clsx";
+import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_TITLE } from "./dialog-styles";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -24,11 +25,27 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <DialogPrimitive.Overlay
         ref={ref}
-        className={cn("layer-system-dialog fixed inset-0 bg-black/50 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0", className)}
+        className={cn(DIALOG_OVERLAY, className)}
         {...props}
     />
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+
+/** The dialog's X button; use it directly when a layout places close inside its own header. */
+const DialogCloseButton = React.forwardRef<
+    React.ElementRef<typeof DialogPrimitive.Close>,
+    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Close>
+>(({ className, ...props }, ref) => (
+    <DialogPrimitive.Close
+        ref={ref}
+        className={cn("btn-icon shrink-0 cursor-pointer text-twilight-text-muted opacity-70 transition-[opacity,background-color] duration-150 hover:bg-white/[0.06] hover:text-twilight-text hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none", className)}
+        {...props}
+    >
+        <X className="h-4 w-4" aria-hidden="true" />
+        <span className="sr-only">Close</span>
+    </DialogPrimitive.Close>
+));
+DialogCloseButton.displayName = "DialogCloseButton";
 
 const DialogContent = React.forwardRef<
     React.ElementRef<typeof DialogPrimitive.Content>,
@@ -41,19 +58,13 @@ const DialogContent = React.forwardRef<
             data-cadence-dialog-content="true"
             aria-describedby={undefined}
             className={cn(
-                "fixed inset-x-4 bottom-4 z-50 grid max-h-[calc(100dvh-2rem)] w-auto gap-4 overflow-y-auto rounded-[28px] border border-white/[0.10] bg-twilight-deep/92 p-6 shadow-[0_32px_64px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl backdrop-saturate-150 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.96] data-[state=open]:zoom-in-[0.96] sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:w-full sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%]",
-                "layer-system-dialog fixed inset-x-4 bottom-4 grid max-h-[calc(100dvh-2rem)] w-auto gap-4 overflow-y-auto rounded-[28px] border border-white/[0.10] bg-twilight-deep/92 p-6 shadow-[0_32px_64px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl backdrop-saturate-150 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.96] data-[state=open]:zoom-in-[0.96] sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:w-full sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%]",
+                DIALOG_CONTENT,
                 className
             )}
             {...props}
         >
             {children}
-            {!hideCloseButton && (
-                <DialogPrimitive.Close className="btn-icon absolute right-4 top-4 opacity-70 sm:right-6 sm:top-5 hover:bg-white/[0.06] hover:opacity-100 transition-[opacity,background-color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:pointer-events-none text-twilight-text-muted hover:text-twilight-text cursor-pointer">
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Close</span>
-                </DialogPrimitive.Close>
-            )}
+            {!hideCloseButton && <DialogCloseButton className="absolute right-4 top-4 sm:right-6 sm:top-5" />}
         </DialogPrimitive.Content>
     </DialogPortal>
 ));
@@ -64,7 +75,7 @@ const DialogHeader = ({
     ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
     <div
-        className={"flex flex-col space-y-1.5 text-center sm:text-left " + (className || "")}
+        className={cn(DIALOG_HEADER, className)}
         {...props}
     />
 );
@@ -75,7 +86,7 @@ const DialogFooter = ({
     ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
     <div
-        className={"flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 " + (className || "")}
+        className={cn(DIALOG_FOOTER, className)}
         {...props}
     />
 );
@@ -87,7 +98,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <DialogPrimitive.Title
         ref={ref}
-        className={"text-lg font-semibold leading-none tracking-tight text-twilight-text " + (className || "")}
+        className={cn(DIALOG_TITLE, className)}
         {...props}
     />
 ));
@@ -99,7 +110,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <DialogPrimitive.Description
         ref={ref}
-        className={"text-sm text-twilight-text-muted " + (className || "")}
+        className={cn(DIALOG_DESCRIPTION, className)}
         {...props}
     />
 ));
@@ -110,6 +121,7 @@ export {
     DialogPortal,
     DialogOverlay,
     DialogClose,
+    DialogCloseButton,
     DialogTrigger,
     DialogContent,
     DialogHeader,

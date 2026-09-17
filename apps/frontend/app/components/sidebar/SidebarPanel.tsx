@@ -24,12 +24,10 @@ import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolv
 export function SidebarPanel({
     showWorkspaceNav = false,
     onSearchOpen,
-    onQuickAddOpen,
     embedded = false,
 }: {
     showWorkspaceNav?: boolean;
     onSearchOpen?: () => void;
-    onQuickAddOpen?: () => void;
     embedded?: boolean;
 }) {
     const navigate = useNavigate();
@@ -132,6 +130,14 @@ export function SidebarPanel({
                                     hoverColor="group-hover:text-accent-nav-schedule/70"
                                 />
                                 <NavLink
+                                    icon={CalendarHeart}
+                                    label="Events"
+                                    href="/events"
+                                    activeColor="text-accent-nav-schedule"
+                                    activeBg="bg-accent-nav-schedule/12"
+                                    hoverColor="group-hover:text-accent-nav-schedule/80"
+                                />
+                                <NavLink
                                     icon={Flame}
                                     label="Habits"
                                     href="/habits"
@@ -183,14 +189,6 @@ export function SidebarPanel({
                             activeColor="text-accent-nav-upcoming"
                             activeBg="bg-accent-nav-upcoming/15"
                             hoverColor="group-hover:text-accent-nav-upcoming/70"
-                        />
-                        <NavLink
-                            icon={CalendarHeart}
-                            label="Events"
-                            href="/events"
-                            activeColor="text-accent-nav-schedule"
-                            activeBg="bg-accent-nav-schedule/12"
-                            hoverColor="group-hover:text-accent-nav-schedule/80"
                         />
                     </nav>
 

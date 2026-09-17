@@ -1,4 +1,4 @@
-import { X, Calendar, CheckSquare, Trash2, CalendarDays, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
+import { X, Calendar, CheckSquare, Trash2, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks } from "../../hooks/tasks/use-batch-state";
 import { useUpdateTask } from "../../hooks/tasks";

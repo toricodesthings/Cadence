@@ -194,7 +194,7 @@ export default function TodayRoute() {
         state: "ACTIVE",
         effectiveOnOrBeforeDate: todayISO,
     });
-    const { data: habits = [], isLoading: habitsLoading } = useHabitsWeekly({
+    const { data: habits = [] } = useHabitsWeekly({
         start: habitsRangeStart,
         end: todayISO,
         enabled: !activeTagId,
@@ -438,24 +438,6 @@ export default function TodayRoute() {
         );
     };
 
-    const renderHabitBucket = (items: TodayHabitItem[], emptyLabel?: string) => {
-        if (items.length === 0) {
-            return (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    {emptyLabel}
-                </div>
-            );
-        }
-
-        return (
-            <div className="flex flex-col divide-y divide-white/[0.05]">
-                {items.map((item) => (
-                    <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />
-                ))}
-            </div>
-        );
-    };
-
     const MAX_OVERDUE_HABITS = 3;
 
     const renderUrgentBucket = (cardVariant?: "list" | "board") => {
@@ -614,7 +596,6 @@ export default function TodayRoute() {
             sidePanelLabel="Task"
             headerRight={headerRight}
             compactHeaderRightInline
-            contentWidth="default"
             shellHeader={{
                 title: "Today",
                 eyebrow: "Focus",

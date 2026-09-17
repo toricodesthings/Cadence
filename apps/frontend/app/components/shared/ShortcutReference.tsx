@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "../primitives/Dialog";
+import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 import { Keyboard } from "lucide-react";
 
 interface ShortcutReferenceProps {
@@ -81,13 +81,13 @@ function Kbd({ children }: { children: string }) {
 export function ShortcutReference({ open, onOpenChange }: ShortcutReferenceProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg">
+            <DialogContent>
                 <div className="px-6 py-5">
                     <div className="mb-4 flex items-center gap-2">
                         <Keyboard size={16} className="text-twilight-text-soft" aria-hidden="true" />
-                        <h2 className="font-display text-base font-semibold text-twilight-text">
+                        <DialogTitle className="font-display text-base leading-normal">
                             Keyboard shortcuts
-                        </h2>
+                        </DialogTitle>
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-8 gap-y-4 max-h-[60vh] overflow-y-auto">

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Lightbulb, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { deriveNoteSuggestions, type NoteSuggestion } from "../../lib/notes/note-suggestions";

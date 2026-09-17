@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { CalendarHeart, ArrowDownUp } from "lucide-react";
+import { CalendarHeart, CalendarPlus, ArrowDownUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { EventCard } from "../components/events/EventCard";
@@ -8,7 +8,7 @@ import * as AlertDialog from "../components/primitives/AlertDialog";
 import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
 import { Button } from "../components/primitives/Button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/primitives/Select";
+import * as DropdownMenu from "../components/primitives/DropdownMenu";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -26,6 +26,15 @@ import {
     toPersonalEventViewModel,
     type PersonalEventSortMode,
 } from "../lib/utils/personal-events";
+
+const ADD_EVENT_CLASS = "border-accent-nav-schedule/30 bg-accent-nav-schedule/14 text-accent-nav-schedule hover:bg-accent-nav-schedule/20 font-sans font-medium";
+
+const SORT_LABELS: Record<PersonalEventSortMode, string> = {
+    next: "Next occurrence",
+    "month-day": "Month and day",
+    alphabetical: "Alphabetical",
+    reminders: "Reminders first",
+};
 
 export default function EventsRoute() {
     const navigate = useNavigate();
@@ -53,7 +62,6 @@ export default function EventsRoute() {
         () => sortPersonalEventViewModels(personalEvents.items.map((event) => toPersonalEventViewModel(event, today)), sortMode),
         [personalEvents.items, sortMode, today],
     );
-    const nextScheduleDate = events[0]?.nextDate;
 
     const openCreate = () => {
         setSelectedEventId(null);
@@ -101,11 +109,17 @@ export default function EventsRoute() {
     return (
         <MainLayout
             requireAuth
-            contentWidth="full"
             sidePanel={<EditSidePanelRail ariaLabel="Resize event details">{shell.isWide ? detailPanel : null}</EditSidePanelRail>}
             sidePanelActive={Boolean(editingEvent)}
             sidePanelLabel="Event"
             onCloseSidePanel={closeDetails}
+            compactHeaderRightInline
+            headerRight={
+                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} aria-label="Add event" className={ADD_EVENT_CLASS}>
+                    <CalendarPlus size={16} aria-hidden="true" />
+                    <span className="hidden sm:inline">Add event</span>
+                </Button>
+            }
             shellHeader={{
                 title: "Events",
                 eyebrow: "Calendar",
@@ -115,7 +129,7 @@ export default function EventsRoute() {
         >
             <ScrollAreaWrapper>
                 <PageContent width="full" className="space-y-6">
-                    <section className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-start sm:justify-between">
+                    <section className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-end sm:justify-between">
                         <div className="space-y-1">
                             <h1 className="font-display text-2xl font-semibold tracking-tight text-twilight-text">
                                 Your Personal Events
@@ -125,39 +139,28 @@ export default function EventsRoute() {
                             </p>
                         </div>
 
-                        <div className="flex flex-col gap-3 sm:min-w-[20rem] sm:items-end">
-                            <div className="flex flex-wrap gap-2 sm:justify-end">
-                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className="border-accent-nav-schedule/30 bg-accent-nav-schedule/14 text-accent-nav-schedule hover:bg-accent-nav-schedule/20">
-                                    <CalendarHeart size={16} aria-hidden="true" />
-                                    Add event
-                                </Button>
-                                <Button type="button" variant="ghost" size="md" onClick={() => handleOpenSchedule(nextScheduleDate)}>
-                                    Open Schedule
-                                </Button>
-                            </div>
-                            {events.length > 0 ? (
-                                <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
-                                    <span className="flex items-center gap-2 text-sm text-twilight-text-soft">
-                                        <ArrowDownUp size={14} aria-hidden="true" />
-                                        Sort
-                                    </span>
-                                    <Select
-                                        value={sortMode}
-                                        onValueChange={(value) => setSortMode(value as PersonalEventSortMode)}
+                        {events.length > 0 ? (
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger asChild>
+                                    <button
+                                        type="button"
+                                        aria-label={`Sort events: ${SORT_LABELS[sortMode]}`}
+                                        className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 text-[13px] text-twilight-text-soft transition-colors hover:bg-accent-nav-schedule/8 hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/40 data-[state=open]:text-twilight-text sm:self-auto"
                                     >
-                                        <SelectTrigger className="min-h-10 min-w-[12rem] border-white/[0.08] bg-white/[0.04] focus:ring-accent-nav-schedule/45">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="next">Next occurrence</SelectItem>
-                                            <SelectItem value="month-day">Month and day</SelectItem>
-                                            <SelectItem value="alphabetical">Alphabetical</SelectItem>
-                                            <SelectItem value="reminders">Reminders first</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            ) : null}
-                        </div>
+                                        <ArrowDownUp size={13} aria-hidden="true" className="text-accent-nav-schedule" />
+                                        {SORT_LABELS[sortMode]}
+                                        <ChevronDown size={14} aria-hidden="true" className="text-twilight-text-muted" />
+                                    </button>
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Content align="end" aria-label="Sort events">
+                                    <DropdownMenu.RadioGroup value={sortMode} onValueChange={(value) => setSortMode(value as PersonalEventSortMode)}>
+                                        {(Object.keys(SORT_LABELS) as PersonalEventSortMode[]).map((value) => (
+                                            <DropdownMenu.RadioItem key={value} value={value}>{SORT_LABELS[value]}</DropdownMenu.RadioItem>
+                                        ))}
+                                    </DropdownMenu.RadioGroup>
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Root>
+                        ) : null}
                     </section>
 
                     {events.length === 0 ? (
@@ -172,8 +175,8 @@ export default function EventsRoute() {
                                 <p className="mt-2 text-sm leading-relaxed text-twilight-text-soft">
                                     Add birthdays, anniversaries, and other yearly dates you want to keep in view.
                                 </p>
-                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className="mt-6 border-accent-nav-schedule/30 bg-accent-nav-schedule/14 text-accent-nav-schedule hover:bg-accent-nav-schedule/20">
-                                    <CalendarHeart size={16} aria-hidden="true" />
+                                <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} className={`mt-6 ${ADD_EVENT_CLASS}`}>
+                                    <CalendarPlus size={16} aria-hidden="true" />
                                     Add event
                                 </Button>
                             </div>

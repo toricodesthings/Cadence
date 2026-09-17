@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
-import { parseCanonicalNlpEnvelope, type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
+import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
-import { inboxItems, inboxSections, tasks, taskTags, taskNlpMetadata, taskNlpMetadataHistory, projects, tags, users } from "../../db/schema";
+import { inboxItems, inboxSections, tasks, taskTags } from "../../db/schema";
 import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
 import { uuidParamSchema } from "../../types/api";
 import type { Env } from "../../types/env";

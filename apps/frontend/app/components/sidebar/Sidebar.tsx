@@ -26,9 +26,10 @@ export function Sidebar({
     const location = useLocation();
     const isSchedule = location.pathname === "/schedule";
     const isHabits = location.pathname === "/habits";
+    const isEvents = location.pathname === "/events";
     const { isCollapsed, toggleCollapse, width, setWidth } = useSidebarStore();
     const [isResizing, setIsResizing] = useState(false);
-    const showPersistentPanel = !isSchedule && !isHabits;
+    const showPersistentPanel = !isSchedule && !isHabits && !isEvents;
     const showWorkspaceNav = mode !== "wide";
     const sidebarMotionTransition = isResizing
         ? { duration: 0 }
@@ -109,7 +110,7 @@ export function Sidebar({
                                 className="relative h-full w-full"
                                 style={{ willChange: "transform, opacity" }}
                             >
-                                <SidebarPanel onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
+                                <SidebarPanel onSearchOpen={onSearchOpen} />
 
                                 <div
                                     onMouseDown={startResizing}
@@ -151,7 +152,7 @@ export function Sidebar({
                             className="relative h-full w-full"
                             style={{ willChange: "transform, opacity" }}
                         >
-                            <SidebarPanel showWorkspaceNav={showWorkspaceNav} onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
+                            <SidebarPanel showWorkspaceNav={showWorkspaceNav} onSearchOpen={onSearchOpen} />
 
                             <div
                                 onMouseDown={startResizing}

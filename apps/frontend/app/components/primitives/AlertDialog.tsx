@@ -4,6 +4,7 @@ import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { twMerge } from "tailwind-merge";
 import { clsx, type ClassValue } from "clsx";
+import { DIALOG_CONTENT, DIALOG_DESCRIPTION, DIALOG_FOOTER, DIALOG_HEADER, DIALOG_OVERLAY, DIALOG_TITLE } from "./dialog-styles";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -43,12 +44,7 @@ const Overlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <AlertDialogPrimitive.Overlay
         ref={ref}
-        className={cn(
-            "layer-system-dialog fixed inset-0 bg-black/60 backdrop-blur-sm",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            className,
-        )}
+        className={cn(DIALOG_OVERLAY, className)}
         {...props}
     />
 ));
@@ -62,17 +58,7 @@ const Content = React.forwardRef<
         <Overlay />
         <AlertDialogPrimitive.Content
             ref={ref}
-            className={cn(
-                "layer-system-dialog fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2",
-                "rounded-2xl border border-white/[0.10] bg-twilight-deep/85 backdrop-blur-2xl backdrop-saturate-150 p-6 shadow-[0_32px_64px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.07)]",
-                "data-[state=open]:animate-in data-[state=closed]:animate-out",
-                "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-                "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-                "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
-                "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
-                "duration-200",
-                className,
-            )}
+            className={cn(DIALOG_CONTENT, "sm:max-w-md", className)}
             {...props}
         />
     </Portal>
@@ -80,12 +66,12 @@ const Content = React.forwardRef<
 Content.displayName = AlertDialogPrimitive.Content.displayName;
 
 const Header = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn("flex flex-col gap-2 mb-5", className)} {...props} />
+    <div className={cn(DIALOG_HEADER, className)} {...props} />
 );
 Header.displayName = "AlertDialogHeader";
 
 const Footer = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn("flex justify-end gap-2 mt-2", className)} {...props} />
+    <div className={cn(DIALOG_FOOTER, className)} {...props} />
 );
 Footer.displayName = "AlertDialogFooter";
 
@@ -95,7 +81,7 @@ const Title = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <AlertDialogPrimitive.Title
         ref={ref}
-        className={cn("font-display text-base font-semibold text-twilight-text", className)}
+        className={cn(DIALOG_TITLE, className)}
         {...props}
     />
 ));
@@ -107,7 +93,7 @@ const Description = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <AlertDialogPrimitive.Description
         ref={ref}
-        className={cn("text-sm text-twilight-text-muted leading-relaxed", className)}
+        className={cn(DIALOG_DESCRIPTION, className)}
         {...props}
     />
 ));

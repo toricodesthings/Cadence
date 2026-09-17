@@ -85,7 +85,7 @@ export function useResolveHabit(habitId: string) {
 
             return { snapshot, requestKey };
         },
-        onSuccess: (result, action, context) => {
+        onSuccess: (result, action) => {
             if (!result) return; // Queued offline
             if (latestResolveByCell.get(result.requestKey) !== result.requestId) {
                 return;

@@ -69,7 +69,7 @@ function isHighConfidenceDate(text: string): boolean {
   return HIGH_CONFIDENCE_PATTERNS.some((p) => p.test(text));
 }
 
-function isFalsePositive(text: string, fullInput: string): boolean {
+function isFalsePositive(fullInput: string): boolean {
   return FALSE_POSITIVE_GUARDS.some((p) => p.test(fullInput));
 }
 
@@ -157,7 +157,7 @@ export function parseDates(
     const end = start + sourceText.length;
 
     // Skip false positives
-    if (isFalsePositive(sourceText, input)) continue;
+    if (isFalsePositive(input)) continue;
 
     const parsedDate = result.start.date();
     const hasTime =

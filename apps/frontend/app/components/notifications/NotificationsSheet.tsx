@@ -23,7 +23,7 @@ export function NotificationsSheet() {
     if (isCompact) return <UtilitySheet title="Notifications" open={notificationsOpen} onClose={close} scrollable={false}>{content}</UtilitySheet>;
 
     return <Dialog open={notificationsOpen} onOpenChange={(open) => { if (!open) close(); }}>
-        <DialogContent hideCloseButton aria-label="Notifications" className="flex flex-col gap-0 overflow-hidden border-twilight-border bg-twilight-deep p-5"
+        <DialogContent hideCloseButton aria-label="Notifications" className="flex flex-col gap-0 overflow-hidden p-5"
             style={{ width: "min(44rem, calc(100vw - 3rem))", maxWidth: "none", height: "min(48rem, calc(100dvh - 4rem))" }}
             onOpenAutoFocus={(event) => {
                 event.preventDefault();

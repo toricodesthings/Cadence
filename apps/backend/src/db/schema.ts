@@ -85,7 +85,7 @@ export const users = pgTable('users', {
         shortcuts: {}
     }).notNull(), // User preferences (view mode, theme, etc.)
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-}, (table) => ({
+}, () => ({
     rlsPolicy: pgPolicy("users_owner_access", {
         as: "permissive",
         for: "all",

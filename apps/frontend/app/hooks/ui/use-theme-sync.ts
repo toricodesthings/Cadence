@@ -3,7 +3,7 @@ import { useSettings } from "../core/use-settings";
 import { setDateFormatConfig } from "../../lib/utils/date-format";
 import { useDesktopLayoutScale } from "./use-desktop-layout-scale";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
-import { deriveCustomTokens, gradientMidpointLuminance, buildGradientCSS } from "../../lib/themes/background-tokens";
+import { deriveCustomTokens, buildGradientCSS, gradientBaseHex } from "../../lib/themes/background-tokens";
 import { autoAccent, derivePhotoAccentTokens, derivePhotoTone } from "../../lib/themes/image-palette";
 import { GRADIENT_PRESETS } from "../../lib/themes/gradient-presets";
 import { THEME_PRESET_MAP, type ThemePresetId } from "../../lib/themes/theme-presets";
@@ -144,9 +144,7 @@ export function useThemeSync() {
             const preset = THEME_PRESET_MAP[themePreset as ThemePresetId];
             if (preset?.suggestedGradient) {
                 const { color1, color2, direction } = preset.suggestedGradient;
-                const midLum = gradientMidpointLuminance(color1, color2);
-                const baseHex = midLum > 0.18 ? "#f5f5f5" : "#1a1a2e";
-                return { ...deriveCustomTokens(baseHex), __gradient: buildGradientCSS(color1, color2, direction) };
+                return { ...deriveCustomTokens(gradientBaseHex(color1, color2)), __gradient: buildGradientCSS(color1, color2, direction) };
             }
             return null;
         }
@@ -158,9 +156,7 @@ export function useThemeSync() {
         if (backgroundGradient) {
             const preset = GRADIENT_PRESETS.find((g) => g.id === backgroundGradient);
             if (preset) {
-                const midLum = gradientMidpointLuminance(preset.color1, preset.color2);
-                const baseHex = midLum > 0.18 ? "#f5f5f5" : "#1a1a2e";
-                return { ...deriveCustomTokens(baseHex), __gradient: buildGradientCSS(preset.color1, preset.color2, preset.direction) };
+                return { ...deriveCustomTokens(gradientBaseHex(preset.color1, preset.color2)), __gradient: buildGradientCSS(preset.color1, preset.color2, preset.direction) };
             }
         }
         return null;

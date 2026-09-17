@@ -6,6 +6,7 @@ import type { GroupedNotifications } from "../../hooks/notifications/use-notific
 import { DEFER_LABELS, type DeferChoice } from "../../lib/notifications/reminder-engine";
 import { Tip } from "../primitives/Tooltip";
 import * as AlertDialog from "../primitives/AlertDialog";
+import { Button } from "../primitives/Button";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 
 const PAGE_SIZE = 30;
@@ -133,22 +134,24 @@ export function NotificationCenter({
         </div>
         <span className="sr-only" role="status">{announcement}</span>
         <AlertDialog.Root open={clearIds !== null} onOpenChange={(open) => { if (!open) setClearIds(null); }}>
-            <AlertDialog.Content className="w-[calc(100%-2rem)] border-twilight-border bg-twilight-deep" onCloseAutoFocus={(event) => {
+            <AlertDialog.Content onCloseAutoFocus={(event) => {
                 if (!didClear.current) return;
                 event.preventDefault();
                 searchRef.current?.focus();
                 didClear.current = false;
             }}>
-                <AlertDialog.Title className="font-display text-lg font-semibold text-twilight-text">Clear {clearIds?.length} notifications?</AlertDialog.Title>
-                <AlertDialog.Description className="mt-2 text-sm leading-relaxed text-twilight-text-muted">This clears all notifications, including ones hidden by your filters. Your tasks and habits won’t change.</AlertDialog.Description>
-                <div className="mt-5 flex flex-wrap justify-end gap-2">
-                    <AlertDialog.Cancel className={actionClass}>Keep notifications</AlertDialog.Cancel>
-                    <AlertDialog.Action className={`${actionClass} bg-accent-primary-dim text-accent-primary`} onClick={() => {
+                <AlertDialog.Header>
+                    <AlertDialog.Title>Clear {clearIds?.length} notifications?</AlertDialog.Title>
+                    <AlertDialog.Description>This clears all notifications, including ones hidden by your filters. Your tasks and habits won’t change.</AlertDialog.Description>
+                </AlertDialog.Header>
+                <AlertDialog.Footer>
+                    <AlertDialog.Cancel asChild><Button variant="ghost" size="md">Keep notifications</Button></AlertDialog.Cancel>
+                    <AlertDialog.Action asChild><Button variant="cardPrimary" size="md" onClick={() => {
                         didClear.current = true;
                         if (clearIds) dismissMany?.(clearIds);
                         setAnnouncement("All notifications cleared.");
-                    }}>Clear notifications</AlertDialog.Action>
-                </div>
+                    }}>Clear notifications</Button></AlertDialog.Action>
+                </AlertDialog.Footer>
             </AlertDialog.Content>
         </AlertDialog.Root>
     </div>;

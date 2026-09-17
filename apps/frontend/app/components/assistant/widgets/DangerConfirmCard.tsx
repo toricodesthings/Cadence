@@ -1,4 +1,3 @@
-import React from "react";
 import { AlertCircle, Trash2 } from "lucide-react";
 import { ProposalCard, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";

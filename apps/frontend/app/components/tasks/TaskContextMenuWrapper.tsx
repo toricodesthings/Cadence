@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { TaskMenuItems } from "./TaskContextMenu";
 import { trackUsageEvent } from "../../lib/api/track-event";
@@ -16,11 +16,8 @@ export interface TaskContextMenuWrapperProps {
 /** Right-click context menu for task cards — uses the same TaskMenuItems
  *  as the three-dot dropdown, so both menus expose identical actions. */
 export function TaskContextMenuWrapper({ task, children, onAddSubtask, onRename, holdingContext }: TaskContextMenuWrapperProps) {
-    const [open, setOpen] = useState(false);
-
     return (
         <ContextMenu.Root onOpenChange={(isOpen) => {
-            setOpen(isOpen);
             if (isOpen) trackUsageEvent("task.context_menu_opened", { object_type: "task", input_method: "context_menu" });
         }}>
             <ContextMenu.Trigger className="block w-full">
@@ -32,7 +29,6 @@ export function TaskContextMenuWrapper({ task, children, onAddSubtask, onRename,
                     onAddSubtask={onAddSubtask}
                     onRename={onRename}
                     MenuComponents={ContextMenu}
-                    onCloseMenu={() => setOpen(false)}
                     holdingContext={holdingContext}
                 />
             </ContextMenu.Content>

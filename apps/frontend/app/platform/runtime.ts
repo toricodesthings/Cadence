@@ -1,4 +1,4 @@
-import { RUNTIME_TARGET, WEB_APP_BASE_URL } from "../lib/env";
+import { RUNTIME_TARGET } from "../lib/env";
 
 export type RuntimeTarget = "web" | "desktop";
 export type NotificationPermissionState = "default" | "granted" | "denied";

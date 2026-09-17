@@ -652,7 +652,6 @@ export default function Upcoming() {
                     <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
                 </div>
             )}
-            contentWidth="default"
             shellHeader={{
                 title: "Upcoming",
                 eyebrow: "Horizon",

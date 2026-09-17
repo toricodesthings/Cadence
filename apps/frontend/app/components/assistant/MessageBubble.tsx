@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Markdown } from "./Markdown";

@@ -8,7 +8,7 @@ import { insertProjectSchema, updateProjectSchema } from "@cadence/contracts/pro
 import { uuidParamSchema } from "../../types/api";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { AppError, throwIfNotFound } from "../../platform/errors";
+import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 
 export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()

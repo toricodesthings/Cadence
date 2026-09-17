@@ -5,7 +5,7 @@ import { withRls } from "../../platform/rls";
 import { suggestions } from "../../db/schema";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { AppError, throwIfNotFound } from "../../platform/errors";
+import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { uuidParamSchema } from "../../types/api";
 import { resolveSuggestionSchema } from "./suggestions.schema";

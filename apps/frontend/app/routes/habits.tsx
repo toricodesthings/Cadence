@@ -17,6 +17,9 @@ import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useNavigate } from "react-router";
+import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "../components/layout/PageHeader";
+
+const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -154,9 +157,8 @@ export default function Habits() {
 
             <div className="flex h-full overflow-hidden">
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                    <header className="shrink-0 border-b border-twilight-border">
-                        {shell.isPhone ? (
-                            /* ── Phone: two tight rows ──────────────────────────── */
+                    {shell.isPhone ? (
+                        <header className={PAGE_HEADER_SURFACE}>
                             <div className="px-4 pt-2.5 pb-3">
                                 {/* Row 1: sidebar toggle + page identity + heading + nav arrows */}
                                 <div className="flex items-center gap-2 min-h-[44px]">
@@ -168,14 +170,8 @@ export default function Habits() {
                                     >
                                         <PanelLeftOpen size={18} />
                                     </button>
-                                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                                        <Flame size={14} className="text-accent-primary/70 shrink-0" />
-                                        <div className="min-w-0">
-                                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Habits</p>
-                                            <h2 className="font-display text-sm font-semibold text-twilight-text tracking-tight truncate leading-tight">
-                                                {currentHeading}
-                                            </h2>
-                                        </div>
+                                    <div className="min-w-0 flex-1">
+                                        <PageHeaderIdentity compact icon={<Flame size={16} aria-hidden="true" />} accentColor={HABITS_ACCENT} eyebrow="Habits" title={currentHeading} />
                                     </div>
                                     <div className="flex items-center gap-0.5 shrink-0">
                                         <button
@@ -253,27 +249,17 @@ export default function Habits() {
                                     </button>
                                 </div>
                             </div>
-                        ) : (
-                            /* ── Tablet + Desktop: single compressed row ~56px ── */
-                            <div className="px-4 sm:px-6 lg:px-8">
-                                <div className="flex h-[calc(var(--shell-header-h)-1px)] items-center gap-3">
-                                    {/* Left: icon + page identity + heading + week range */}
-                                    <div className="flex min-w-0 items-center gap-2.5">
-                                        <Flame size={18} className="text-accent-primary/70 shrink-0" />
-                                        <div className="min-w-0">
-                                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted leading-none">Habits</p>
-                                            <h2 className="font-display text-lg font-semibold text-twilight-text tracking-tight whitespace-nowrap leading-tight">
-                                                {currentHeading}
-                                            </h2>
-                                        </div>
-                                        <span className="hidden sm:flex items-center text-[13px] text-twilight-text-soft whitespace-nowrap">
-                                            <span className="mx-1.5 text-twilight-text-soft/50">&middot;</span>
-                                            <span>{displayMode === "week" ? weekRangeLabel : "Motivational review"}</span>
-                                        </span>
-                                    </div>
-
+                        </header>
+                    ) : (
+                        <PageHeader
+                            icon={<Flame size={18} aria-hidden="true" />}
+                            accentColor={HABITS_ACCENT}
+                            eyebrow="Habits"
+                            title={currentHeading}
+                            meta={displayMode === "week" ? weekRangeLabel : "Motivational review"}
+                            actions={<>
                                     {/* Center: navigation */}
-                                    <div className="flex items-center gap-1 ml-auto">
+                                    <div className="flex items-center gap-1">
                                         <button
                                             type="button"
                                             onClick={() => handleNavigate(-1)}
@@ -286,7 +272,7 @@ export default function Habits() {
                                             type="button"
                                             onClick={handleToday}
                                             disabled={isCurrentPeriod}
-                                            className="rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-30"
+                                            className="inline-flex min-h-11 items-center rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-30"
                                         >
                                             Today
                                         </button>
@@ -301,7 +287,7 @@ export default function Habits() {
                                     </div>
 
                                     <nav
-                                        className="flex items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                                        className="flex min-h-11 items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
                                         role="radiogroup"
                                         aria-label="Habit display mode"
                                     >
@@ -313,7 +299,7 @@ export default function Habits() {
                                                 aria-checked={displayMode === mode}
                                                 onClick={() => setDisplayMode(mode)}
                                                 className={`
-                                                    rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border
+                                                    inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors cursor-pointer border
                                                     ${displayMode === mode
                                                         ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
                                                         : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
@@ -326,7 +312,7 @@ export default function Habits() {
 
                                     {/* Right: view tabs */}
                                     <nav
-                                        className="flex items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                                        className="flex min-h-11 items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
                                         role="radiogroup"
                                         aria-label="Habit view mode"
                                     >
@@ -338,7 +324,7 @@ export default function Habits() {
                                                 aria-checked={viewMode === mode}
                                                 onClick={() => setViewMode(mode)}
                                                 className={`
-                                                    rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer border
+                                                    inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors cursor-pointer border
                                                     ${viewMode === mode
                                                         ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
                                                         : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
@@ -354,15 +340,14 @@ export default function Habits() {
                                     <button
                                         type="button"
                                         onClick={() => setIsCreateOpen(true)}
-                                        className="inline-flex items-center gap-1.5 rounded-xl border border-accent-primary/20 bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30 transition-colors cursor-pointer"
+                                        className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-accent-primary/20 bg-accent-primary/15 px-4 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 hover:border-accent-primary/30 transition-colors cursor-pointer"
                                     >
                                         <Plus size={14} />
                                         <span className="hidden lg:inline">Add Routine</span>
                                     </button>
-                                </div>
-                            </div>
-                        )}
-                    </header>
+                            </>}
+                        />
+                    )}
 
                     <div className="flex-1 overflow-hidden flex flex-col pt-4 min-w-0">
                         <AnimatePresence initial={false} custom={direction} mode="wait">

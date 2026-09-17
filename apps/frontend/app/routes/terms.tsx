@@ -12,7 +12,6 @@ export default function TermsRoute() {
 
     return (
         <MainLayout
-            contentWidth="wide"
             pageTitle="Terms & Conditions"
             pageDescription="Review the pre-release terms for using Cadence, including beta status, acceptable use, ownership, and service limits."
             shellHeader={{

@@ -407,7 +407,7 @@ export function WeekView({
                     <TimeGutter hourHeight={HOUR_HEIGHT} />
 
                     {/* Day columns */}
-                    {weekDates.map((d, i) => {
+                    {weekDates.map((d) => {
                         const ds = toISODate(d);
                         return (
                             <div key={ds} className="relative flex-1 min-w-0">

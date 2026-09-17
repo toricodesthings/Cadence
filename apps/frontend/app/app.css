@@ -93,6 +93,10 @@
   --color-accent-nav-upcoming: var(--accent-nav-upcoming);
   --color-accent-nav-habits: var(--accent-nav-habits);
 
+  /* === PANEL SURFACES — the background's own dark bases (theme presets and photos re-derive them from their colors) === */
+  --color-panel: var(--color-twilight-void);
+  --color-panel-raised: var(--color-twilight-base);
+
   /* === DAYLIGHT THEME (Light) === */
   --color-day-base: #f5f3f0;
   --color-day-surface: #eae6e1;
@@ -156,8 +160,6 @@
   /* Shared by the shell header and every side-panel header so their bottom borders line up. */
   --shell-header-h: 4.5rem;
   --z-floating-bar: 30;
-  --z-nav-backdrop: 40;
-  --z-nav-drawer: 50;
   --z-route-backdrop: 60;
   --z-route-overlay: 70;
   --z-utility-surface: 80;
@@ -1023,10 +1025,11 @@
   /* ── Glass surfaces ──
      Keep the standard backdrop-filter last: the production CSS optimizer
      otherwise retains only the WebKit spelling, which Chromium ignores. */
+  /* A darker, translucent layer: cards read as a deeper shade of the page's own color. */
   .glass {
-    background: color-mix(in srgb, var(--color-twilight-base) 70%, transparent);
-    -webkit-backdrop-filter: blur(32px) saturate(1.2);
-    backdrop-filter: blur(32px) saturate(1.2);
+    background: color-mix(in srgb, var(--color-panel) 45%, transparent);
+    -webkit-backdrop-filter: blur(32px) saturate(1.3);
+    backdrop-filter: blur(32px) saturate(1.3);
     border: 1px solid var(--color-twilight-border);
   }
 
@@ -1060,7 +1063,7 @@
   }
 
   [data-theme="daylight"] .glass {
-    background: color-mix(in srgb, var(--color-twilight-base) 85%, transparent);
+    background: color-mix(in srgb, var(--color-panel-raised) 85%, transparent);
     -webkit-backdrop-filter: blur(32px) saturate(1.1);
     backdrop-filter: blur(32px) saturate(1.1);
     border: 1px solid var(--color-twilight-border);
@@ -1153,14 +1156,6 @@
 
   .layer-floating-bar {
     z-index: var(--z-floating-bar);
-  }
-
-  .layer-nav-backdrop {
-    z-index: var(--z-nav-backdrop);
-  }
-
-  .layer-nav-drawer {
-    z-index: var(--z-nav-drawer);
   }
 
   .layer-route-backdrop {
@@ -1589,12 +1584,6 @@ a:active {
   row-gap: 0.45rem;
 }
 
-.cadence-toast--wide {
-  width: min(38rem, calc(100vw - 1.5rem));
-  max-width: calc(100vw - 1.5rem);
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
 .cadence-toast--success {
   --cadence-toast-accent: var(--color-feedback-success);
 }
@@ -1810,10 +1799,6 @@ a:active {
               0 0 80px color-mix(in srgb, var(--accent-primary) 3%, transparent);
 }
 
-@utility glow-moonlit {
-  box-shadow: 0 0 24px rgba(126, 184, 212, 0.06), 0 0 80px rgba(126, 184, 212, 0.03);
-}
-
 /* ── Accent aurora surface ──
    A whisper of the user's accent colour pooled into a couple of soft, round
    lights — mood lighting, not a gradient stripe. Painted on a -1 layer (behind
@@ -1890,6 +1875,36 @@ a:active {
   border: 1px solid var(--color-twilight-border-light);
 }
 
+/* Dialogs: glass on the background's own raised base, translucent so the page reads through the blur. */
+@utility surface-dialog {
+  background: color-mix(in srgb, var(--color-panel-raised) 80%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid var(--color-twilight-border-light);
+  box-shadow: 0 32px 72px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Select dropdowns: darker than the .glass-surface menus, still translucent and blurred. */
+@utility surface-select {
+  background: color-mix(in srgb, var(--color-panel) 82%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--color-twilight-border-light);
+}
+
+/* Shell chrome — page headers and right-rail panels: a darker, lightly blurred plane of the
+   accent-tinted base over the page background (lighter in daylight, where the base is light). */
+@utility surface-shell {
+  background: color-mix(in srgb, var(--color-panel) 38%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  backdrop-filter: blur(10px) saturate(115%);
+}
+
+/* Full-screen editor overlays sit over page content, so they need an opaque fill. */
+[data-detail-mode="focus"].surface-shell {
+  background: color-mix(in srgb, var(--color-panel) 99%, transparent);
+}
+
 @utility surface-route-overlay {
   background: color-mix(in srgb, var(--color-twilight-deep) 96%, transparent);
   -webkit-backdrop-filter: blur(28px) saturate(1.12);
@@ -1916,11 +1931,6 @@ a:active {
     box-shadow: 0 0 0 2px var(--color-focus-aura-soft);
     transition: box-shadow 0.3s ease;
   }
-}
-
-/* ── Focus ring static — reduced motion fallback ring ── */
-@utility focus-ring-static {
-  box-shadow: 0 0 0 2px var(--color-focus-aura-soft);
 }
 
 /* ── Sync spin — rotation for sync icon ── */
@@ -2005,21 +2015,6 @@ a:active {
   }
 }
 
-/* ── Notification dot — unread indicator ── */
-@utility notification-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  background: var(--color-notification-unread);
-}
-
-/* ── Utility divider — subtle separator for shell utility rows ── */
-@utility utility-divider {
-  height: 1px;
-  background: var(--color-twilight-border);
-  opacity: 0.6;
-}
-
 /*
  * ═══════════════════════════════════════════════════════════════════════════════
  * DAYLIGHT COMPONENT OVERRIDES
@@ -2078,9 +2073,7 @@ a:active {
 
 /* Settings use the same adaptive surface hierarchy as the workspace. */
 .settings-content-bg {
-  background:
-    radial-gradient(circle at top right, var(--accent-primary-dim), transparent 45%),
-    linear-gradient(180deg, var(--color-twilight-deep), var(--color-twilight-void));
+  background: radial-gradient(circle at top right, var(--accent-primary-dim), transparent 45%);
 }
 
 .profile-card-bg {
@@ -2105,6 +2098,14 @@ a:active {
   backdrop-filter: none;
 }
 
+[data-bg-image="on"] .surface-dialog {
+  background: color-mix(in srgb, var(--color-twilight-surface) 86%, transparent);
+}
+
+[data-bg-image="on"] .surface-select {
+  background: color-mix(in srgb, var(--color-twilight-surface) 88%, transparent);
+}
+
 [data-bg-image="on"] .glass {
   background: color-mix(in srgb, var(--color-twilight-surface) 82%, transparent);
   -webkit-backdrop-filter: none;
@@ -2114,10 +2115,6 @@ a:active {
 /* Glow utilities for daylight — subtle on light backgrounds */
 [data-theme="daylight"] .glow-lantern {
   box-shadow: 0 0 24px rgba(180, 83, 9, 0.06), 0 0 80px rgba(180, 83, 9, 0.03);
-}
-
-[data-theme="daylight"] .glow-moonlit {
-  box-shadow: 0 0 24px rgba(14, 116, 144, 0.06), 0 0 80px rgba(14, 116, 144, 0.03);
 }
 
 /*

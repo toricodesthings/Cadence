@@ -538,7 +538,7 @@ function SessionsBlock() {
     );
 }
 
-function AvatarEditModal({ userImage, onProfileUpdated }: { userImage?: string | null; onProfileUpdated: () => Promise<void> }) {
+function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise<void> }) {
     const [open, setOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState<string>("");
     const [loading, setLoading] = useState(false);
@@ -592,7 +592,7 @@ function AvatarEditModal({ userImage, onProfileUpdated }: { userImage?: string |
                 setOpen(isOpen);
                 if (!isOpen) setPreviewImage("");
             }}>
-                <Dialog.DialogContent className="max-w-sm">
+                <Dialog.DialogContent className="sm:max-w-sm">
                     <Dialog.DialogHeader>
                         <Dialog.DialogTitle>Preview Profile Picture</Dialog.DialogTitle>
                     </Dialog.DialogHeader>
@@ -708,7 +708,7 @@ export function AccountTab() {
                             ) : (
                                 <UserRound size={32} className="text-twilight-text-muted" aria-hidden="true" />
                             )}
-                                <AvatarEditModal userImage={user?.image} onProfileUpdated={refetchSession} />
+                                <AvatarEditModal onProfileUpdated={refetchSession} />
                         </div>
                     </div>
                 </div>

@@ -75,7 +75,6 @@ export default function TrashView() {
     return (
         <MainLayout
             requireAuth
-            contentWidth="default"
             shellHeader={{
                 title: "Trash",
                 eyebrow: "Recovery",

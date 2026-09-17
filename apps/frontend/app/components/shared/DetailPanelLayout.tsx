@@ -20,7 +20,7 @@ export function DetailPanelLayout({ children, leading, title, onClose, closeLabe
         <ImmersiveDetailLayout mode={mode} header={(
             <div className="flex h-(--shell-header-h) shrink-0 items-center gap-1 border-b border-twilight-border pl-5 pr-[calc(1rem+var(--rail-toggle-reserve,0px))]">
                 {leading}
-                <h2 className="ml-2 truncate font-display text-sm font-medium text-twilight-text">{title}</h2>
+                <h2 className="ml-2 truncate font-sans text-lg font-semibold tracking-tight text-twilight-text">{title}</h2>
                 <div className="min-w-0 flex-1" />
                 {onModeChange ? (
                     <Tip label={mode === "focus" ? "Back to split view" : "Expand editor"} side="bottom">

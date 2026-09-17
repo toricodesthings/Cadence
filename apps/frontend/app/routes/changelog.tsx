@@ -31,7 +31,6 @@ export default function ChangelogRoute() {
 
     return (
         <MainLayout
-            contentWidth="wide"
             pageTitle="Changelog"
             pageDescription="Review concise Cadence release notes in a sparse, version-by-version history."
             shellHeader={{

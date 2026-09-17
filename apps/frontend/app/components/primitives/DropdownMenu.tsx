@@ -125,7 +125,7 @@ Separator.displayName = "DropdownMenu.Separator";
 /** A selected menu choice, with the same focus and touch targets as other items. */
 export const RadioItem = forwardRef<HTMLDivElement, RadixDropdownMenu.DropdownMenuRadioItemProps>(
     ({ className = "", children, ...props }, ref) => (
-        <RadixDropdownMenu.RadioItem ref={ref} className={`relative flex min-h-11 cursor-pointer items-center rounded-lg py-2 pl-9 pr-3 text-sm text-twilight-text-soft outline-none transition-colors focus:bg-twilight-surface-muted focus:text-twilight-text ${className}`} {...props}>
+        <RadixDropdownMenu.RadioItem ref={ref} className={`relative flex min-h-11 cursor-pointer items-center rounded-lg py-2 pl-9 pr-3 text-sm text-twilight-text-soft outline-none transition-colors focus:bg-accent-primary/10 focus:text-accent-primary data-[state=checked]:font-medium data-[state=checked]:text-accent-primary ${className}`} {...props}>
             <span className="absolute left-3 flex size-4 items-center justify-center">
                 <RadixDropdownMenu.ItemIndicator><Check size={15} aria-hidden="true" /></RadixDropdownMenu.ItemIndicator>
             </span>
