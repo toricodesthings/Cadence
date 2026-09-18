@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-09-17
+
 ### Added
 
 - Recurring time blocks (Fixed block rhythms) now get a dedicated editor in the task's Details panel: start and end time pickers with a live duration hint, repeat weekday chips, and "Starts on" / "Ends on" date controls for the series. A wrong time — like 3:55 AM instead of PM — is fixed in one tap, and the "Not before" row no longer appears where it doesn't apply.
