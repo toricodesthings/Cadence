@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- The phone and tablet navigation bar is now a floating glass dock that hovers above the bottom edge instead of an attached bar, with softer blur, a gentle shadow, and the assistant orb glowing in the middle.
+
 ## [0.14.2] - 2026-09-17
 
 ### Added

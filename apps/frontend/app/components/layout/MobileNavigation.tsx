@@ -18,16 +18,16 @@ export function MobileTabBar() {
     const { pathname } = useLocation();
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
     const primary = TABS.slice(0, -1).some((tab) => tab.to === pathname);
-    return <nav aria-label="Primary navigation" className="mobile-tab-bar safe-bottom layer-shell-header shrink-0 border-t border-twilight-border bg-twilight-deep/95 px-2 pt-1 backdrop-blur-xl">
-        <div className="mx-auto grid max-w-3xl grid-cols-5 gap-1">
+    return <nav aria-label="Primary navigation" className="mobile-tab-bar safe-bottom layer-shell-header shrink-0 pt-2">
+        <div className="mobile-dock glass mx-auto flex w-full max-w-sm items-stretch gap-1 rounded-full p-1.5">
             {[...TABS.slice(0, 2), null, ...TABS.slice(2)].map((tab) => {
-                if (!tab) return <div key="assistant" className="flex items-center justify-center"><Tip label="Ask assistant"><button type="button" aria-label="Ask assistant" aria-haspopup="dialog" aria-expanded={assistantPanelOpen} onClick={toggleAssistantPanel} className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full border border-accent-primary/30 bg-accent-primary text-midnight shadow-lg transition-transform active:scale-95"><Sparkles size={23} aria-hidden="true" /></button></Tip></div>;
+                if (!tab) return <div key="assistant" className="flex flex-1 items-center justify-center"><Tip label="Ask assistant" side="top"><button type="button" aria-label="Ask assistant" aria-haspopup="dialog" aria-expanded={assistantPanelOpen} onClick={toggleAssistantPanel} className="mobile-dock-assistant flex size-13 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent-primary text-midnight transition-transform active:scale-95"><Sparkles size={24} aria-hidden="true" /></button></Tip></div>;
                 const { to, label, icon: Icon } = tab;
                 const active = pathname === to || (to === "/browse" && !primary);
-                return <Link key={to} to={to} aria-current={active ? "page" : undefined}
-                    className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-xs font-medium transition-colors active:bg-twilight-surface ${active ? "bg-accent-primary/10 text-accent-primary" : "text-twilight-text-soft hover:bg-twilight-surface"}`}>
-                    <Icon size={22} strokeWidth={active ? 2.5 : 1.75} className="shrink-0" aria-hidden="true" /><span className="max-w-full text-center leading-tight [overflow-wrap:anywhere]">{label}</span>
-                </Link>;
+                return <Tip key={to} label={label} side="top"><Link to={to} aria-current={active ? "page" : undefined} aria-label={label}
+                    className={`flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-full transition-colors active:bg-twilight-surface ${active ? "bg-accent-primary/12 text-accent-primary" : "text-twilight-text-soft hover:bg-twilight-surface"}`}>
+                    <Icon size={22} strokeWidth={active ? 2.5 : 1.75} className="shrink-0" aria-hidden="true" />
+                </Link></Tip>;
             })}
         </div>
     </nav>;

@@ -2260,12 +2260,13 @@ a:active {
 .mobile-icon-button:active { background: var(--color-twilight-surface); }
 .utility-sheet-content button, .utility-sheet-content a, .mobile-tab-bar a { cursor: pointer; }
 .mobile-page-scroll { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
-.mobile-tab-bar.safe-bottom { padding-bottom: max(0.25rem, env(safe-area-inset-bottom)); }
+/* The floating dock leaves a visible gap to the screen's bottom edge. */
+.mobile-tab-bar.safe-bottom { padding-bottom: max(0.875rem, env(safe-area-inset-bottom)); }
 .mobile-browse-panel [data-radix-scroll-area-viewport] { height: auto; }
 .mobile-browse-panel a, .mobile-browse-panel button { min-height: 44px; }
 .mobile-browse-panel button { min-width: 44px; }
 body:has(.compact-navigation-shell) .mobile-floating-action {
-  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  bottom: calc(6.5rem + env(safe-area-inset-bottom));
 }
 .mobile-settings-content > div > h2:first-child { display: none; }
 .utility-sheet-header h2:focus, [data-sheet-heading]:focus { box-shadow: none; }
@@ -2277,8 +2278,27 @@ body:has(.compact-navigation-shell) .mobile-floating-action {
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 .mobile-tab-bar {
-  padding-left: max(0.5rem, env(safe-area-inset-left));
-  padding-right: max(0.5rem, env(safe-area-inset-right));
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+/* Floating dock — a soft glass pill lifted off the page by a deep, diffuse
+   shadow; the accent orb glows with the active palette. */
+.mobile-dock {
+  box-shadow:
+    0 16px 40px -12px rgba(2, 6, 14, 0.55),
+    0 4px 12px -4px rgba(2, 6, 14, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+[data-theme="daylight"] .mobile-dock {
+  box-shadow:
+    0 16px 36px -14px rgba(94, 72, 41, 0.28),
+    0 3px 10px -4px rgba(94, 72, 41, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+.mobile-dock-assistant {
+  box-shadow:
+    0 6px 18px -4px color-mix(in srgb, var(--accent-primary) 40%, transparent),
+    0 2px 6px -1px rgba(2, 6, 14, 0.40);
 }
 [data-radix-popper-content-wrapper]:has([role="tooltip"]) { pointer-events: none; }
 
@@ -2296,6 +2316,6 @@ body:has(.compact-navigation-shell) .mobile-floating-action {
   .notification-center-list { overflow: visible; }
 }
 
-.mobile-capture-board > div:last-child > section > div:last-child { padding-bottom: 5rem; }
+.mobile-capture-board > div:last-child > section > div:last-child { padding-bottom: 6.5rem; }
 
 .mobile-capture-board button { min-width: 44px; min-height: 44px; }
