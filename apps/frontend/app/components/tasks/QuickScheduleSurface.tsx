@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Sun,
     Sunset,
@@ -10,9 +10,8 @@ import {
     Calendar as CalendarIcon,
     CalendarRange,
 } from "lucide-react";
-import { Tip } from "../primitives";
+import { Tip, TimePicker } from "../primitives";
 import { CalendarGrid } from "../calendar/CalendarGrid";
-import { TimePickerInput } from "./TimePickerInput";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { addDays, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 
@@ -47,6 +46,37 @@ const QUICK_ACTIONS = [
     { id: "next_week", icon: CalendarClock, label: "Next Monday" },
 ] as const;
 
+const DEFAULT_TIME = "09:00";
+
+/** ISO → local "HH:mm" for the TimePicker primitive. */
+function toTimeValue(iso: string): string {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** "HH:mm" from the primitive → ISO, anchored on the given date. */
+function toTimeOnDate(dateOnly: string, time: string): string {
+    const [h, m] = time.split(":").map(Number);
+    const d = parseLocalDate(dateOnly);
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+}
+
+/** "HH:mm" → ISO on the start date, rolling to the next day when the block crosses midnight. */
+function toEndOnDate(startIso: string, time: string): string {
+    const [h, m] = time.split(":").map(Number);
+    const d = new Date(startIso);
+    d.setHours(h, m, 0, 0);
+    if (d <= new Date(startIso)) d.setDate(d.getDate() + 1);
+    return d.toISOString();
+}
+
+/** "HH:mm" + 1 hour (wraps past midnight). */
+function plusOneHour(time: string): string {
+    const [h, m] = time.split(":").map(Number);
+    return `${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 export function QuickScheduleSurface({
     dueDate,
     scheduledStart,
@@ -61,45 +91,26 @@ export function QuickScheduleSurface({
     const [selectedDate, setSelectedDate] = useState(dueDate ?? toISODate(initialDate));
     const [rangeEndDate, setRangeEndDate] = useState<string | null>(scheduledEnd ?? null);
     const [showTime, setShowTime] = useState(Boolean(scheduledStart));
+    const [endTimeValue, setEndTimeValue] = useState<string | null>(
+        scheduledStart && scheduledEnd ? toTimeValue(scheduledEnd) : null,
+    );
     const [mode, setMode] = useState<PickerMode>("deadline");
     const [rangeClickStep, setRangeClickStep] = useState<"start" | "end">("start");
 
-    // Debounce refs — always access the latest flush logic via a ref
-    // so setTimeout never runs a stale closure.
-    const timeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const pendingTimeRef = useRef<string | null>(null);
-    const isDebouncingRef = useRef(false);
-    const flushTimeChangeRef = useRef<() => void>(() => {});
-
-    // Keep the ref up-to-date on every render so it captures the latest state
-    flushTimeChangeRef.current = () => {
-        if (pendingTimeRef.current) {
-            const iso = pendingTimeRef.current;
-            pendingTimeRef.current = null;
-            isDebouncingRef.current = false;
-            onChange({
-                dueDate: selectedDate,
-                scheduledStart: iso,
-                scheduledEnd: rangeEndDate,
-                recurrenceRule,
-                isAllDay: false,
-            });
-        }
-    };
-
     useEffect(() => {
         if (!isOpen) return;
-        // Skip prop sync while the user is actively changing the time — the
-        // optimistic update from a previous mutation should not reset state.
-        if (isDebouncingRef.current) return;
 
         const nextInitialDate = scheduledStart ? parseLocalDate(scheduledStart) : (dueDate ? parseLocalDate(dueDate) : new Date());
         setViewDate(nextInitialDate);
         setSelectedDate(dueDate ?? toISODate(nextInitialDate));
         setRangeEndDate(scheduledEnd ?? null);
         setShowTime(Boolean(scheduledStart));
+        setEndTimeValue(scheduledStart && scheduledEnd ? toTimeValue(scheduledEnd) : null);
         setRangeClickStep("start");
     }, [dueDate, isOpen, scheduledEnd, scheduledStart]);
+
+    const startTimeValue = scheduledStart ? toTimeValue(scheduledStart) : DEFAULT_TIME;
+    const startIsoFor = (dateOnly: string) => toTimeOnDate(dateOnly, startTimeValue);
 
     const handleMonthChange = (offset: number) => {
         setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
@@ -110,16 +121,17 @@ export function QuickScheduleSurface({
         const iso = toISODate(newDate);
 
         if (mode === "duration") {
+            // Duration is always an all-day date span — times live on Deadline.
             if (rangeClickStep === "start") {
                 setSelectedDate(iso);
                 setRangeEndDate(null);
                 setRangeClickStep("end");
                 onChange({
                     dueDate: iso,
-                    scheduledStart: showTime ? new Date(new Date(iso).setHours(9, 0, 0, 0)).toISOString() : null,
+                    scheduledStart: null,
                     scheduledEnd: null,
                     recurrenceRule,
-                    isAllDay: !showTime,
+                    isAllDay: true,
                 });
                 return;
             }
@@ -132,19 +144,19 @@ export function QuickScheduleSurface({
                 setSelectedDate(iso);
                 onChange({
                     dueDate: iso,
-                    scheduledStart: showTime ? new Date(new Date(iso).setHours(9, 0, 0, 0)).toISOString() : null,
+                    scheduledStart: null,
                     scheduledEnd: selectedDate,
                     recurrenceRule,
-                    isAllDay: !showTime,
+                    isAllDay: true,
                 });
             } else {
                 setRangeEndDate(iso);
                 onChange({
                     dueDate: selectedDate,
-                    scheduledStart: showTime ? new Date(new Date(selectedDate).setHours(9, 0, 0, 0)).toISOString() : null,
+                    scheduledStart: null,
                     scheduledEnd: iso,
                     recurrenceRule,
-                    isAllDay: !showTime,
+                    isAllDay: true,
                 });
             }
 
@@ -153,18 +165,11 @@ export function QuickScheduleSurface({
         }
 
         setSelectedDate(iso);
-        const finalDate = new Date(newDate);
-        if (scheduledStart) {
-            const s = new Date(scheduledStart);
-            finalDate.setHours(s.getHours(), s.getMinutes(), 0, 0);
-        } else {
-            finalDate.setHours(9, 0, 0, 0);
-        }
-
+        const startIso = showTime ? startIsoFor(iso) : null;
         onChange({
             dueDate: iso,
-            scheduledStart: showTime ? finalDate.toISOString() : null,
-            scheduledEnd: null,
+            scheduledStart: startIso,
+            scheduledEnd: startIso && endTimeValue ? toEndOnDate(startIso, endTimeValue) : null,
             recurrenceRule,
             isAllDay: !showTime,
         });
@@ -182,10 +187,11 @@ export function QuickScheduleSurface({
         setRangeEndDate(null);
         setRangeClickStep("start");
 
+        const startIso = showTime ? startIsoFor(iso) : null;
         onChange({
             dueDate: iso,
-            scheduledStart: showTime ? new Date(target.setHours(9, 0, 0, 0)).toISOString() : null,
-            scheduledEnd: null,
+            scheduledStart: startIso,
+            scheduledEnd: startIso && endTimeValue ? toEndOnDate(startIso, endTimeValue) : null,
             recurrenceRule,
             isAllDay: !showTime,
         });
@@ -201,20 +207,63 @@ export function QuickScheduleSurface({
         return "";
     };
 
-    // Cleanup on unmount — clear pending timeout
-    useEffect(() => () => {
-        if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
-    }, []);
+    // The TimePicker commits on Enter/blur/pick — no debounce needed.
+    const handleStartTimeChange = (time: string) => {
+        const startIso = toTimeOnDate(selectedDate, time);
+        let endIso: string | null = null;
+        if (endTimeValue) {
+            const sameDayEnd = toTimeOnDate(selectedDate, endTimeValue);
+            // Keep a positive block: when the end would land at or before the
+            // new start, bump it to start + 1 hour.
+            endIso = new Date(sameDayEnd) > new Date(startIso)
+                ? sameDayEnd
+                : new Date(new Date(startIso).getTime() + 60 * 60000).toISOString();
+            setEndTimeValue(toTimeValue(endIso));
+        }
+        onChange({
+            dueDate: selectedDate,
+            scheduledStart: startIso,
+            scheduledEnd: endIso,
+            recurrenceRule,
+            isAllDay: false,
+        });
+    };
 
-    const handleTimeChange = (timeIso: string) => {
-        const t = new Date(timeIso);
-        const d = new Date(selectedDate);
-        d.setHours(t.getHours(), t.getMinutes(), 0, 0);
-        pendingTimeRef.current = d.toISOString();
-        isDebouncingRef.current = true;
+    const handleEndTimeChange = (time: string) => {
+        const startIso = startIsoFor(selectedDate);
+        setEndTimeValue(time);
+        onChange({
+            dueDate: selectedDate,
+            scheduledStart: startIso,
+            // An end at/before the start rolls to the next day (overnight block).
+            scheduledEnd: toEndOnDate(startIso, time),
+            recurrenceRule,
+            isAllDay: false,
+        });
+    };
 
-        if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
-        timeDebounceRef.current = setTimeout(() => flushTimeChangeRef.current(), 400);
+    const handleAddEnd = () => {
+        const end = plusOneHour(startTimeValue);
+        const startIso = startIsoFor(selectedDate);
+        setEndTimeValue(end);
+        onChange({
+            dueDate: selectedDate,
+            scheduledStart: startIso,
+            scheduledEnd: toEndOnDate(startIso, end),
+            recurrenceRule,
+            isAllDay: false,
+        });
+    };
+
+    const handleRemoveEnd = () => {
+        setEndTimeValue(null);
+        onChange({
+            dueDate: selectedDate,
+            scheduledStart,
+            scheduledEnd: null,
+            recurrenceRule,
+            isAllDay: false,
+        });
     };
 
     const clearDeadline = () => {
@@ -230,6 +279,7 @@ export function QuickScheduleSurface({
         setViewDate(resetDate);
         setRangeEndDate(null);
         setShowTime(false);
+        setEndTimeValue(null);
         setRangeClickStep("start");
         onRequestClose?.();
     };
@@ -278,6 +328,18 @@ export function QuickScheduleSurface({
                     onClick={() => {
                         setMode("duration");
                         setRangeClickStep("start");
+                        // Duration is all-day: drop any time the Deadline tab had.
+                        if (showTime || scheduledStart) {
+                            setShowTime(false);
+                            setEndTimeValue(null);
+                            onChange({
+                                dueDate: selectedDate,
+                                scheduledStart: null,
+                                scheduledEnd: rangeEndDate ? toISODate(new Date(rangeEndDate)) : null,
+                                recurrenceRule,
+                                isAllDay: true,
+                            });
+                        }
                     }}
                     className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                         mode === "duration"
@@ -357,42 +419,76 @@ export function QuickScheduleSurface({
             </div>
 
             <div className="space-y-2 border-t border-twilight-border/40 px-3 pb-3 pt-2">
-                <div className="flex items-center justify-between">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            const next = !showTime;
-                            setShowTime(next);
-                            if (!next) {
-                                onChange({
-                                    dueDate: selectedDate,
-                                    scheduledStart: null,
-                                    scheduledEnd: rangeEndDate,
-                                    recurrenceRule,
-                                    isAllDay: true,
-                                });
-                            }
-                        }}
-                        aria-label={showTime ? "Remove time" : "Add time"}
-                        aria-pressed={showTime}
-                        className={`inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${
-                            showTime ? "text-accent-primary" : "text-twilight-text-muted/90 hover:text-twilight-text-muted"
-                        }`}
-                    >
-                        <Clock size={11} aria-hidden="true" />
-                        {showTime ? "Time set" : "Add time"}
-                    </button>
-                    {showTime ? <TimePickerInput value={scheduledStart} onChange={handleTimeChange} /> : null}
-                </div>
+                {mode === "deadline" ? (
+                    <div className="space-y-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const next = !showTime;
+                                setShowTime(next);
+                                if (!next) {
+                                    setEndTimeValue(null);
+                                    onChange({
+                                        dueDate: selectedDate,
+                                        scheduledStart: null,
+                                        scheduledEnd: null,
+                                        recurrenceRule,
+                                        isAllDay: true,
+                                    });
+                                }
+                            }}
+                            aria-label={showTime ? "Remove time" : "Add time"}
+                            aria-pressed={showTime}
+                            className={`inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${
+                                showTime ? "text-accent-primary" : "text-twilight-text-muted/90 hover:text-twilight-text-muted"
+                            }`}
+                        >
+                            <Clock size={11} aria-hidden="true" />
+                            {showTime ? "Time set" : "Add time"}
+                        </button>
+
+                        {showTime ? (
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                    <TimePicker value={startTimeValue} onChange={handleStartTimeChange} label="Start time" />
+                                    <span className="shrink-0 text-xs text-twilight-text-muted">→</span>
+                                    {endTimeValue ? (
+                                        <TimePicker value={endTimeValue} onChange={handleEndTimeChange} label="End time" />
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={handleAddEnd}
+                                            className="inline-flex min-h-9 cursor-pointer items-center rounded-xl border border-dashed border-twilight-border px-2.5 text-xs text-twilight-text-muted transition-colors hover:bg-white/[0.04] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                        >
+                                            Add end
+                                        </button>
+                                    )}
+                                </div>
+                                {endTimeValue ? (
+                                    <Tip label="Remove end time" side="top">
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveEnd}
+                                            aria-label="Remove end time"
+                                            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted transition-colors hover:bg-red-500/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                        >
+                                            <X size={13} aria-hidden="true" />
+                                        </button>
+                                    </Tip>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
+                ) : null}
 
                 <RecurrencePicker
                     value={recurrenceRule}
                     onChange={(value) => onChange({
                         dueDate: selectedDate,
-                        scheduledStart,
-                        scheduledEnd: rangeEndDate,
+                        scheduledStart: mode === "duration" ? null : scheduledStart,
+                        scheduledEnd: mode === "duration" ? rangeEndDate : (scheduledEnd ?? null),
                         recurrenceRule: value,
-                        isAllDay: !showTime,
+                        isAllDay: mode === "duration" || !showTime,
                     })}
                 />
 

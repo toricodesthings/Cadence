@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Recurring time blocks (Fixed block rhythms) now get a dedicated editor in the task's Details panel: start and end time pickers with a live duration hint, repeat weekday chips, and "Starts on" / "Ends on" date controls for the series. A wrong time — like 3:55 AM instead of PM — is fixed in one tap, and the "Not before" row no longer appears where it doesn't apply.
+
+### Changed
+
+- Time pickers accept typed times in any minute (like 2:37 PM or 14:37) with quick-pick suggestions on desktop, and use the phone's built-in time picker on mobile.
+- The schedule popover's time section is now a simple From/To row with the same typeable pickers, so a block's end time can be changed there too. The Duration tab is always all-day — times only live on Deadline.
+- "Not before" is now "Hide until" with a plain date picker: pick a date to keep the task hidden until then, or leave it "Always shown".
+
+### Fixed
+
+- Editing a task's time no longer fails with a server error on seeded or recently-saved tasks. Timestamps are now sent and stored in a consistent ISO format, so adjusting a block's start or end time just works.
+- Repeatedly editing the same task's time no longer triggers a false "modified by another client" conflict — the server's change detection now compares the actual moment, not the text format.
+
 ## [0.14.1] - 2026-09-16
 
 ### Changed

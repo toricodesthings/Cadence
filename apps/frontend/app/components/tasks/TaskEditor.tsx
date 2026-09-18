@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "rea
 import {
     Calendar, Bell, Tag, FolderOpen, Flag,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
-    CircleDot, Gauge, CalendarOff, Clock, Plus,
+    CircleDot, Gauge, EyeOff, Clock, Plus,
     ExternalLink, Check, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,12 +18,14 @@ import { useTags, useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
+import { TimetableBlockEditor } from "./TimetableBlockEditor";
+import { DateOnlyPickerPopover } from "./DateOnlyPickerPopover";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
-import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
+import { formatShortDate, formatShortDateTime, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "./task-choice-options";
 import {
@@ -205,9 +207,19 @@ export function TaskEditor({
         isAllDay: boolean;
     }) => {
         if (!task) return;
+        // Guard the wire payload: dueDate must be a valid date-only or ISO datetime,
+        // or null. Anything else (empty string, whitespace, unparseable) would trip
+        // the backend's date union and 400. Coerce unparseable values to null.
+        const dueDate = (() => {
+            const raw = updates.dueDate;
+            if (!raw || !raw.trim()) return null;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+            const ms = new Date(raw).getTime();
+            return Number.isNaN(ms) ? null : raw;
+        })();
         updateTask.mutate({
             id: task.id,
-            dueDate: updates.dueDate,
+            dueDate,
             scheduledStart: updates.scheduledStart,
             scheduledEnd: updates.scheduledEnd ?? null,
             recurrenceRule: updates.recurrenceRule,
@@ -227,6 +239,8 @@ export function TaskEditor({
     const recurrenceSummary = task ? getTaskRecurrenceSummary(task) : null;
     const isPassiveTimetable = task ? isPassiveTimetableTask(task) : false;
     const canToggleInteractionMode = Boolean(task?.recurrenceRule && task?.scheduledStart && task?.isAllDay === false);
+    // Timetable blocks get direct start/end/day editing instead of the date popover alone.
+    const isTimetableBlock = isPassiveTimetable && canToggleInteractionMode;
     const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
     const scheduleFieldLabel = task && isRecurringTask(task)
         ? "Series"
@@ -505,43 +519,59 @@ export function TaskEditor({
                                     </DetailGroup>
 
                                     <DetailGroup title="When">
-                                        <FieldRow icon={scheduleSummary?.isDuration ? CalendarRange : Calendar} label={scheduleFieldLabel}>
-                                            <DeadlinePickerPopover
-                                                dueDate={task.dueDate}
-                                                scheduledStart={task.scheduledStart}
-                                                scheduledEnd={task.scheduledEnd}
-                                                recurrenceRule={task.recurrenceRule}
-                                                onChange={handleDeadlineChange}
-                                            >
-                                                <button type="button" className={VALUE_BTN}>
-                                                    <span className="truncate">{scheduleLabel}</span>
-                                                </button>
-                                            </DeadlinePickerPopover>
-                                        </FieldRow>
+                                        {isTimetableBlock ? (
+                                            <FieldRow icon={Calendar} label="Series">
+                                                <span className="truncate px-2.5 text-right text-[13px] text-moonlit">
+                                                    {scheduleLabel}
+                                                </span>
+                                            </FieldRow>
+                                        ) : (
+                                            <FieldRow icon={scheduleSummary?.isDuration ? CalendarRange : Calendar} label={scheduleFieldLabel}>
+                                                <DeadlinePickerPopover
+                                                    dueDate={task.dueDate}
+                                                    scheduledStart={task.scheduledStart}
+                                                    scheduledEnd={task.scheduledEnd}
+                                                    recurrenceRule={task.recurrenceRule}
+                                                    onChange={handleDeadlineChange}
+                                                >
+                                                    <button type="button" className={VALUE_BTN}>
+                                                        <span className="truncate">{scheduleLabel}</span>
+                                                    </button>
+                                                </DeadlinePickerPopover>
+                                            </FieldRow>
+                                        )}
 
-                                        {task.recurrenceRule && recurrenceSummary?.detailLabel && (
+                                        {isTimetableBlock ? (
+                                            <FieldBlock icon={Clock} label="Time block">
+                                                <TimetableBlockEditor task={task} />
+                                            </FieldBlock>
+                                        ) : task.recurrenceRule && recurrenceSummary?.detailLabel ? (
                                             <FieldRow icon={Repeat} label="Repeats">
                                                 <span className="truncate px-2.5 text-right text-[13px] text-moonlit">
                                                     {recurrenceSummary.detailLabel}
                                                 </span>
                                             </FieldRow>
-                                        )}
+                                        ) : null}
 
-                                        <FieldRow icon={CalendarOff} label="Not before">
-                                            <DeadlinePickerPopover
-                                                dueDate={null}
-                                                scheduledStart={task.notBefore ?? null}
-                                                recurrenceRule={null}
-                                                onChange={(updates) => {
-                                                    if (!task) return;
-                                                    updateTask.mutate({ id: task.id, notBefore: updates.scheduledStart ?? null });
-                                                }}
-                                            >
-                                                <button type="button" className={`${VALUE_BTN}${task.notBefore ? "" : "text-twilight-text-muted"}`}>
-                                                    {task.notBefore ? formatDateTime(task.notBefore) : "Anytime"}
-                                                </button>
-                                            </DeadlinePickerPopover>
-                                        </FieldRow>
+                                        {!isTimetableBlock ? (
+                                            <FieldRow icon={EyeOff} label="Hide until">
+                                                <DateOnlyPickerPopover
+                                                    value={task.notBefore ? toISODate(new Date(task.notBefore)) : null}
+                                                    onChange={(date) => {
+                                                        if (!task) return;
+                                                        const at = date ? parseLocalDate(date) : null;
+                                                        at?.setHours(0, 0, 0, 0);
+                                                        updateTask.mutate({ id: task.id, notBefore: at ? at.toISOString() : null });
+                                                    }}
+                                                    label="Hide until date"
+                                                    clearLabel="Always show"
+                                                >
+                                                    <button type="button" className={`${VALUE_BTN}${task.notBefore ? "" : "text-twilight-text-muted"}`}>
+                                                        {task.notBefore ? formatShortDate(task.notBefore) : "Always shown"}
+                                                    </button>
+                                                </DateOnlyPickerPopover>
+                                            </FieldRow>
+                                        ) : null}
 
                                         {task.reminderAt && (
                                             <FieldRow icon={Bell} label="Reminder">

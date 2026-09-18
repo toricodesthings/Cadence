@@ -270,7 +270,7 @@ export function TaskCard({
             ? {
                 key: "not-before",
                 icon: Calendar,
-                label: `Not before ${formatShortDate(task.notBefore)}`,
+                label: `Hidden until ${formatShortDate(task.notBefore)}`,
                 className: "text-moonlit",
             }
             : null,
