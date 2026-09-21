@@ -24,7 +24,7 @@ export const n1 = (v: number): number => Math.round(v * 10) / 10;
 export const pt = (x: number, y: number): string => `${n1(x)},${n1(y)}`;
 export const cssVars = (vars: Record<string, string | number>): CSSProperties => vars as CSSProperties;
 
-export const TAU = 6.283185307179586;
+const TAU = 6.283185307179586;
 
 export function sinR(x: number): number {
     const r = x - TAU * Math.round(x / TAU);

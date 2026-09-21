@@ -2,206 +2,222 @@
 
 What changed in Cadence, newest first. The in-app changelog is built from this file.
 
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow [Semantic Versioning](https://semver.org/): MAJOR for big releases, MINOR when a feature is added, changed, or removed, PATCH for fixes and tweaks. Each release starts with a one-line summary (its title in the app), then bullets under `### Added`, `### Changed`, `### Removed`, or `### Fixed`.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow [Semantic Versioning](https://semver.org/): MAJOR for big releases, MINOR when a feature is added, changed, or removed, PATCH for fixes and tweaks. Each release starts with a one-line summary (its title in the app), then bullets under `### Added`, `### Changed`, `### Removed`, or `### Fixed`. One change per bullet, one line each: 120 characters at most, or the build fails.
 
 ## [Unreleased]
 
+Routines replace Habits, and Today gets a day strip
+
 ### Added
 
-- Today now opens with a strip of the things that happen at a set time, like classes and shifts, in order through the day: what's happening now, and what's next and how long until it starts. Tap it to fold it away.
-- Routines can have an emoji, picked the same way as for events. It shows on Today, on the Routines page and in the day strip.
-- A routine can have a different time on some days, such as the gym at 7:00 on Mondays and any time on Saturdays.
-- A repeating task or routine now asks "If you miss one…": still owed (a task that carries over), let it go (a routine), or it just passes (a fixed block with no check-off). Switching moves it over with Undo.
-- Repeating tasks named like a class, lecture, shift or meeting, with a start and end time, now start out as fixed blocks. You can change this with one tap.
+- Today opens with a day strip of timed things, like classes and shifts, showing what's on now and what's next.
+- Routines can have an emoji. Hover any routine or event emoji to change or remove it.
+- A routine can have a different time on some days, like 7:00 on Mondays and any time on Saturdays.
+- Repeats ask "If you miss one…": still owed (a task), let it go (a routine), or it just passes (a fixed block).
+- Repeats named like a class, shift or meeting, with a start and end time, start out as fixed blocks.
 - A Settings switch (Tasks → Routine streaks) hides routine streaks everywhere.
 
 ### Changed
 
-- Habits are now called Routines everywhere, including the page, the dock, search and quick add. Old links to /habits still work.
-- Today shows each routine once. Routines sit in one light list with their time, and finished ones fold into "2 done", which you can reopen and undo.
-- "Needs attention" is now "Still open", in a calm colour, and only appears when a task has carried over.
-- Creating a routine now looks and works like adding to the schedule: name and emoji first, then which days, then "Any time" or a set time with an optional reminder, and everything else folded under More options. Closing with unsaved changes asks first.
-- A missed routine now lets go instead of piling up: it no longer shows on Today or Upcoming as something to catch up on, and the routine reminder only mentions today.
+- Habits are now called Routines everywhere. Old /habits links still work.
+- Today lists each routine once, with its time, and folds finished ones into "2 done".
+- "Needs attention" is now "Still open", in a calmer colour, and only shows when a task carries over.
+- Creating a routine now works like adding to the schedule, with extras folded under More options.
+- Missed routines let go instead of piling up on Today, Upcoming and in reminders.
+- The active tag filter now sits in the page header. Click it to clear.
 
 ### Removed
 
-- The Rhythms column on Today. Its fixed blocks moved to the day strip and its routines to the Routines list.
+- The Rhythms column on Today. Fixed blocks moved to the day strip, and routines to the Routines list.
 
 ### Fixed
 
-- Checking off or skipping a routine from Upcoming or the Schedule now updates straight away, works offline, and says so if it fails.
-- The week and day views and the routine grid now mark the right day as today late at night, instead of jumping ahead to tomorrow, and the week view files tasks under the right day.
+- Checking off or skipping a routine from Upcoming or Schedule updates instantly and works offline.
+- Late at night, the week, day and routine views no longer jump ahead to tomorrow.
 
 ## [0.14.4] - 2026-09-21
 
+A new phone layout, with one-tap placing
+
 ### Changed
 
-- Board columns on Today, Upcoming and projects now sit closer to the top of the page instead of floating below an empty gap.
-- The phone dock is now Capture, Schedule, the assistant, Habits and Browse. Today, Upcoming, your projects and your tags moved into a workspace menu that opens from the left of the Capture header.
-- Browse now opens with a profile card — your picture, a "Hey, Sam" greeting, and one tap through to Profile & Security — above Events, Weekly Reset, Settings, Completed, Trash and support.
-- Adding to the schedule on a phone now uses the same round button in the bottom-right corner as every other page, so it no longer sits on top of the dock, and the header's add button is gone.
-- Search and the schedule's create panel now slide up as draggable sheets you can flick down to dismiss, like the rest of the app's mobile panels.
-- Creating a routine on a phone now opens the same swipe-up panel as everywhere else, with the fields scrolling and Cancel and Create pinned within thumb reach, and the Add Routine button moved to the round button in the bottom-right corner so it no longer sits on top of the dock.
-- The Habits header on a phone now matches Schedule and Capture: the month, the arrows and a small options button on one row, Week and Month plus Today on the next.
-- Toasts are smaller and calmer on phones: they now appear at the top of the screen, away from the dock, and can be flicked away in any direction.
-- Page controls like sort and view no longer take over the whole screen on a phone — they open in a small menu, with sort sliding in as a sub-panel.
-- The workspace menu (Today, Upcoming, projects, tags) now opens from the left of the header on every phone page, not just Capture.
-- Upcoming now shows the same task cards as Today, with routines grouped underneath each day, instead of its own plainer list.
-- Board columns on a phone no longer repeat their name under the column chooser, and long lists scroll again on Today and Upcoming.
-- On a phone, a task's ⋮ menu is now just Pin, Duplicate and Move to Trash; everything else is edited in the task's details.
-- Task details now let you change the project and section and turn a reminder on or off, instead of only showing them.
-- On a phone, the View switch in page controls now spans the whole menu, and the Sort row shows the current order.
-- Adding a project or tag from the phone workspace menu now opens a full-size form in the same panel, with a back button, big colour swatches and a Create button within reach.
-- On a phone, tasks waiting in Capture now have one-tap buttons to place them on Today, Tomorrow or the lightest day of the week, with Undo. "Pick day…" and the header calendar open a swipeable week that shows how busy each day is and what's already on it, replacing the old calendar panel.
-- Tasks that already have a date no longer sit in Capture's "Ready to place" list.
-- On desktop, Capture's side panel is now a Place panel: this week and next as day tiles, with small dots showing how busy each day is. Drag a new capture or a waiting task onto a day to place it, or hover a task for the same one-click Today, Tomorrow and lightest-day buttons as on phones. Click a day to see what's on it. The old month calendar and its count bubbles are gone.
-- On phones and tablets the calendar now follows your finger as you swipe it sideways to move between days, weeks or months, springing back if you change your mind, and an empty day greets you with a calm note instead of a bare line of text.
+- The phone dock is now Capture, Schedule, the assistant, Habits and Browse.
+- A workspace menu with Today, Upcoming, projects and tags opens from the left of every phone header.
+- Browse opens with a profile card and one tap through to Profile & Security.
+- Adding on a phone always uses the round button in the bottom-right, clear of the dock.
+- Search, schedule creation and routine creation open as swipe-up sheets you can flick away.
+- The Habits header on a phone now matches Schedule and Capture.
+- Toasts on phones are smaller, sit at the top of the screen and can be flicked away.
+- Sort and view controls open in a small menu instead of taking over the phone screen.
+- Upcoming uses the same task cards as Today, with routines grouped under each day.
+- A task's ⋮ menu on a phone is now Pin, Duplicate and Trash. Everything else lives in task details.
+- Task details can now change a task's project, section and reminder.
+- Adding a project or tag on a phone opens a full-size form with big colour swatches.
+- Place waiting captures on Today, Tomorrow or the lightest day in one tap, with Undo.
+- On desktop, Capture's side panel is now a Place panel: drag tasks onto a day this week or next.
+- Tasks that already have a date no longer sit in "Ready to place".
+- The phone calendar follows your finger as you swipe between days, weeks or months.
+- Board columns sit closer to the top, and long lists scroll again on phones.
 
 ### Fixed
 
-- A routine you missed on several days now shows once under "Routines to catch up" on Today and Upcoming, instead of once for every missed day.
+- A routine missed on several days now shows once under "Routines to catch up".
 
 ## [0.14.3] - 2026-09-18
 
+A floating glass dock
+
 ### Changed
 
-- The phone and tablet navigation bar is now a floating glass dock that hovers above the bottom edge instead of an attached bar, with softer blur, a gentle shadow, and the assistant orb glowing in the middle.
+- The phone and tablet navigation bar is now a floating glass dock, with the assistant glowing in the middle.
 
 ## [0.14.2] - 2026-09-17
 
+A proper editor for fixed time blocks
+
 ### Added
 
-- Recurring time blocks (Fixed block rhythms) now get a dedicated editor in the task's Details panel: start and end time pickers with a live duration hint, repeat weekday chips, and "Starts on" / "Ends on" date controls for the series. A wrong time — like 3:55 AM instead of PM — is fixed in one tap, and the "Not before" row no longer appears where it doesn't apply.
+- Fixed time blocks get their own editor, with start and end times, weekdays, and start and end dates.
+- A wrong AM or PM time can be fixed in one tap.
 
 ### Changed
 
-- Time pickers accept typed times in any minute (like 2:37 PM or 14:37) with quick-pick suggestions on desktop, and use the phone's built-in time picker on mobile.
-- The schedule popover's time section is now a simple From/To row with the same typeable pickers, so a block's end time can be changed there too. The Duration tab is always all-day — times only live on Deadline.
-- "Not before" is now "Hide until" with a plain date picker: pick a date to keep the task hidden until then, or leave it "Always shown".
+- Time pickers accept any typed minute, like 2:37 PM or 14:37, and use the built-in picker on phones.
+- The schedule popover's time section is a simple From/To row, so end times can change there too.
+- The Duration tab is always all-day. Times only live on Deadline.
+- "Not before" is now "Hide until", with a plain date picker.
 
 ### Fixed
 
-- Editing a task's time no longer fails with a server error on seeded or recently-saved tasks. Timestamps are now sent and stored in a consistent ISO format, so adjusting a block's start or end time just works.
-- Repeatedly editing the same task's time no longer triggers a false "modified by another client" conflict — the server's change detection now compares the actual moment, not the text format.
+- Editing a task's time no longer fails with a server error on some tasks.
+- Editing the same task's time again no longer triggers a false "modified by another client" conflict.
 
 ## [0.14.1] - 2026-09-16
 
+One look for headers, panels and dialogs
+
 ### Changed
 
-- Habit names and their streak, status and time details are larger in the weekly grid, with a wider name column so fewer titles get cut off.
-- Schedule and Habits header controls (Today, view toggles, Add Routine) are no longer squished, matching the height of buttons elsewhere. Schedule's Day/Week/Month/Year switcher is now a dropdown instead of a row of buttons.
-- Page headers share one design: the same height, a darker blurred bar, and a small label above each title. Schedule now shows its name in the header.
-- Events now has its own icon in the navigation rail alongside Schedule and Habits, instead of being tucked under Capture. Its page is simpler: Add event sits in the header, sorting is a small pill beside the title, and the Open Schedule button is gone.
-- The desktop notification preview has softer glass and a spacious, centered empty state that stays the same height as a three-notification preview.
+- Habit names and details are larger in the weekly grid, with a wider name column.
+- Schedule and Habits header buttons are full height, and the view switcher is now a dropdown.
+- Every page header shares one design, with a small label above the title.
+- Events has its own icon in the navigation rail, and its page is simpler.
+- The desktop notification preview has softer glass and a roomier empty state.
 
 ### Fixed
 
-- Panels, cards, dialogs, page headers and dropdown lists now take their color from your background: green, purple or warm themes get matching dark surfaces instead of grey or navy, and the default theme stays a consistent navy.
-- The task, habit, event and capture side panel no longer shows a flat navy background or box under warm accents — it's a darker glass that follows your theme's color throughout, and its "Task"/"Habit"/"Event"/"Capture" header label is bigger and back to matching the size of other panel titles.
-- Rename and delete dialogs now look the same: matching corners, title style, spacing and full-height buttons. Project rename buttons are no longer squished, and dialog widths now apply on desktop.
-- Dialogs now use a soft, blurred glass that matches your background. This includes Add event, the Schedule create dialog, Quick Add, search, Settings, Notifications and Sync Inspector.
-- Phone sign-in keeps OAuth callbacks out of the offline cache and retries session restoration before entering the app. If sign-in can't finish, Cadence shows a recovery message instead of spinning indefinitely.
-- Restore background blur on notification previews, menus and other glass surfaces in production. Capture's three-dot menu now uses the shared dropdown, and old preview caches no longer keep development styles stale.
+- Panels, cards and dialogs take their colour from your background instead of grey or navy.
+- The side panel for tasks, habits, events and captures is a darker glass that follows your theme.
+- Rename and delete dialogs now match, and project rename buttons are no longer squished.
+- Dialogs use a soft, blurred glass that matches your background.
+- Phone sign-in retries before giving up, and shows a recovery message instead of spinning.
+- Glass blur is back on menus, previews and other glass surfaces.
 
 ## [0.14.0] - 2026-09-16
 
+Bottom tabs on phones, and a full notification panel
+
 ### Added
 
-- Expand the compact desktop notification preview into a full panel with search, unread filters, sorting, read/unread controls, quick actions, and bulk clearing; mobile opens the full panel directly.
+- The notification preview expands into a full panel with search, filters, sorting and bulk clearing.
 
 ### Changed
 
-- Mobile Capture now has separate tabs and an Add sheet, the assistant sits in the center of the taskbar, and Focus and Controls open draggable sheets from the header. Browse holds search, Habits and Settings, and mobile Rhythms stay visible.
-- Mobile and tablet navigation now has bottom tabs, swipe-down Settings and Notifications panels, Profile & Security and sign-out inside Settings, and compact page controls.
+- Phones and tablets get bottom tabs, with the assistant in the middle.
+- Capture on a phone has separate tabs and an Add sheet. Focus and Controls open as sheets.
+- Settings and Notifications open as swipe-down panels, with Profile & Security inside Settings.
 
 ### Fixed
 
-- The loading screen now prepares the first page's data before revealing it, reuses saved data, and shows recovery options if loading fails. Its slightly smaller wordmark rolls briskly like a rotating cube into “Preparing your workspace,” with tighter letter spacing on the preparation message. Startup also avoids unnecessary session checks and loading unopened tools.
+- The loading screen prepares your first page before showing it, and offers recovery if loading fails.
 
 ## [0.13.0] - 2026-09-16
 
+One shared editor for tasks, events and habits
+
 ### Changed
 
-- Capture clarification now uses the shared editor while keeping its suggestions and placement tools. Editor headers identify Capture, Task, Rhythm, Habit or Event, and panel controls share the same borderless style.
-
-- On cadenceapp.cloud, Emilie's sigil and the "Start now" seal are drawn in the logo's colours, orange and amber with a touch of berry, with a soft glow.
-- Tasks, events and habits now share one editor layout with simpler sections and changes saved in place. Event cards open the editor when clicked outside their buttons, event and habit panels animate open and closed, and habit menus use the same editor. Creation keeps its popup.
+- Tasks, events and habits share one editor layout that saves changes in place.
+- Capture clarification uses the shared editor, keeping its suggestions and placement tools.
+- On cadenceapp.cloud, Emilie's sigil and the "Start now" seal are drawn in the logo's colours.
 
 ### Fixed
 
-- Closing an edit panel now smoothly returns its space to the page instead of snapping at the end of the slide. All edit panels share the same resize and animation behavior.
-
-- Creating or editing a habit after viewing its history no longer corrupts other habit data, and quick successive edits save in order.
-
-- Resizing the Today and Upcoming task panels no longer clips their contents or close button. Task details retain their X close button, and page headers include a rightmost button to close the right panel, including the assistant on Events.
-
-- Recurring timetables can now be moved to Trash by right-clicking a calendar block. The shared task editor has a full-width Trash button below Subtasks instead of a header menu, with clear wording when it removes the whole series. Undo reopens the restored task’s details.
-
-- Photo backgrounds no longer flash when switching pages. Toasts, offline banners and shared account controls now follow the active background palette.
-
-- On cadenceapp.cloud, the constellation near the end of the page is now one connected figure, drawn line by line as you scroll, and its lines no longer run through the names.
-
-- The "Start now" seal at the end of cadenceapp.cloud is smaller and has more room around it, and the line beneath it no longer overlaps its petals.
-
-- The footer of cadenceapp.cloud no longer shows a light band with hard edges; its glow is now a soft pool of light.
+- Closing an edit panel smoothly hands its space back to the page instead of snapping.
+- Editing a habit after viewing its history no longer corrupts other habit data.
+- Resizing the Today and Upcoming panels no longer clips their contents or close button.
+- Recurring timetables can be moved to Trash by right-clicking a calendar block.
+- Photo backgrounds no longer flash when switching pages.
+- On cadenceapp.cloud, the constellation is one connected figure, drawn line by line as you scroll.
+- On cadenceapp.cloud, the "Start now" seal has more room and the footer glow is softer.
 
 ## [0.12.0] - 2026-09-15
 
+Photo backgrounds, and a calmer task panel
+
 ### Added
 
-- On cadenceapp.cloud, pressing Get started, "Start where you are" or the seal at the end of the page rolls a bank of clouds across the screen on the way to sign-up.
-- Appearance settings now offer Cadence backgrounds or your own photo in one panel. Curated themes set the background and palette; photo mode puts automatic, sampled and custom accents below your image. Preview, zoom and crop before uploading, then adjust blur and brightness. Photos are stored privately without camera or location metadata and remain saved when you switch back to Cadence.
+- Use your own photo as the background, with preview, crop, blur and brightness.
+- Photo mode picks an accent for you, samples one from the image, or lets you choose your own.
+- Photos are stored privately, without camera or location data.
+- On cadenceapp.cloud, Get started rolls a bank of clouds across the screen on the way to sign-up.
 
 ### Changed
 
-- The task details panel is calmer: Details is split into Status, When, Weight and Organize groups, choices fill the width with icons, and each section shows a short summary before you open it.
-- The welcome page at cadenceapp.cloud has new words: "Built for the real you, not the perfect one."
-- The assistant is now called Emilie by default. If you gave her another name in Settings, she keeps it.
+- Task details are grouped into Status, When, Weight and Organize, each with a short summary.
+- The assistant is now called Emilie by default. If you renamed her, she keeps your name.
+- The welcome page has new words: "Built for the real you, not the perfect one."
 
 ### Fixed
 
-- Weekly Reset, calendar cards, notifications and Settings now adapt to your background colors, with clearer secondary text and softer transitions between panels when using a photo.
-- The task details panel's buttons are no longer hidden behind the panel switcher, long task titles no longer get cut off on phones, and the phone sheet shows one close button instead of two.
+- Weekly Reset, calendar cards, notifications and Settings now adapt to your background colours.
+- Task panel buttons are no longer hidden, and long titles no longer get cut off on phones.
 
 ## [0.11.1] - 2026-09-13
 
+One location setting you control
+
 ### Added
 
-- A Location & Weather page in Settings shows where Cadence thinks you are and what uses it, and lets you choose an approximate area, your precise location, a place you pick yourself (including a city for weather), or no location at all.
-- A "Forget saved location" button removes any location Cadence has kept on this device.
+- A Location & Weather page in Settings: choose approximate, precise, a place you pick, or none.
+- "Forget saved location" removes any location kept on this device.
 
 ### Changed
 
-- Weather and holidays now share one location setting. By default they use your approximate area from your network connection, so your browser only asks for your location if you choose precise location.
-- You can turn the weather on Home off without turning off location.
-- Holidays now pick your country from your time zone before your language settings, so fewer people see another country's holidays.
+- Weather and holidays share one location, using your approximate area by default.
+- Weather on Home can be turned off without turning off location.
+- Holidays pick your country from your time zone first.
 - Precise location finds you faster and uses less battery.
 
 ### Removed
 
-- The "Store dismissed prompts" switch in Data & Export, which didn't do anything.
+- The "Store dismissed prompts" switch, which didn't do anything.
 
 ### Fixed
 
-- Cadence no longer asks for your location again after you've decided, including after signing in again, opening a new tab, or turning precise location off.
-- Signing out now clears the location saved on the device, so the next person who signs in doesn't inherit it.
-- People in Mexico, Brazil, and other countries in the Americas no longer get US holidays when Cadence guesses from the time zone.
+- Cadence no longer asks for your location again after you've decided.
+- Signing out clears the location saved on the device.
+- People elsewhere in the Americas no longer get US holidays.
 
 ## [0.11.0] - 2026-09-13
 
+A moonlit loading screen
+
 ### Changed
 
-- The loading screen now opens onto a deeper, moonlit autumn valley with layered hills, drifting mist, reflections on the water and falling maple leaves, and it shows the right season, light or dark look, and reduced-motion setting from the very first frame.
-- The "Captured" confirmation on the Capture page now appears as a notification in the bottom-right corner, like the rest of the app's notifications.
-- The Add task / Add event window on the Schedule page breathes more: roomier header, weekday buttons that read Mon–Sun and fill the row, a shorter timetable-anchor note, and icons on the priority and effort choices under More options.
+- The loading screen is a moonlit autumn valley that follows your season, theme and motion setting.
+- "Captured" confirmations now appear as a regular notification.
+- The Schedule's Add task and Add event window is roomier, with Mon–Sun weekday buttons.
 
 ### Fixed
 
-- Closing the side panel on the Capture page now slides it shut smoothly instead of snapping away.
-- The lines under the page header and the side panel headers now line up across every page.
-- A task added from the Schedule page's Day view now shows up on the calendar right away instead of after a refresh.
+- Closing Capture's side panel slides it shut instead of snapping.
+- Header lines now line up across every page.
+- A task added from the Schedule's Day view appears right away.
 
 ## [0.10.0] - 2026-09-12
+
+Habit fixes and cleanup
 
 ### Removed
 
@@ -209,8 +225,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Fixed
 
-- The version shown in Settings now always matches the latest release.
-- Editing, pausing, or archiving a habit no longer resets its reminder, color, or mode, and editing an archived habit no longer brings it back.
+- The version shown in Settings always matches the latest release.
+- Editing, pausing or archiving a habit no longer resets its reminder, colour or mode.
+- Editing an archived habit no longer brings it back.
 
 ## [0.9.1] - 2026-09-11
 
@@ -248,7 +265,7 @@ Meet the Cadence assistant
 
 ### Added
 
-- A calm assistant in the side panel that works with your real tasks, projects, habits, inbox, and calendar. It proposes changes and waits for your approval.
+- A calm assistant in the side panel that works with your real tasks and waits for your approval.
 - Conversations are saved, and replies pick up where they left off after a reconnect.
 - Choose the assistant's personality in Settings.
 
@@ -266,7 +283,7 @@ Behind-the-scenes cleanup
 
 ## [0.7.0] - 2026-03-26
 
-Better themes, and personalization
+Better themes and personalization
 
 ### Changed
 
@@ -274,35 +291,35 @@ Better themes, and personalization
 
 ## [0.6.0] - 2026-03-24
 
-Events and minor tweaks
+Events and small tweaks
 
 ### Added
 
-- Personal events support in the calendar, and various minor improvements and bug fixes across the app.
+- Personal events in the calendar, plus small improvements and fixes across the app.
 
 ## [0.5.0] - 2026-03-20
 
-The NLP Parser is here!
+Cadence understands natural language
 
 ### Added
 
-- Cadence can now understand natural language input across the app, making it easier than ever to capture and edit tasks on the go.
+- Type tasks the way you'd say them, and Cadence fills in the details.
 
 ## [0.4.0] - 2026-03-19
 
-Holding that actually Holds
+Holding that actually holds
 
 ### Changed
 
-- Big changes to the holding page and task editor, capture is seamless and frictionless, and the task editor is more intuitive and powerful than ever.
+- A reworked holding page and task editor, so capturing is quick and editing is simpler.
 
 ## [0.3.0] - 2026-03-17
 
-Task and Planner improvements
+Task and planner improvements
 
 ### Added
 
-- New features and quality-of-life improvements to task management, including better support for all-day tasks, and revamp to the Upcoming and Today pages.
+- Better all-day tasks, and refreshed Upcoming and Today pages.
 
 ## [0.2.0] - 2026-03-16
 
@@ -310,12 +327,12 @@ Major bug fixes
 
 ### Fixed
 
-- Stability improvements across the pre-release app, with a focus on fixing rough edges and regressions.
+- Stability fixes across the pre-release app, smoothing rough edges and regressions.
 
 ## [0.1.0] - 2026-03-15
 
-Initial Release
+Initial release
 
 ### Added
 
-- The first public Cadence beta, establishing the core planning experience and initial support pages.
+- The first public Cadence beta, with the core planning experience.

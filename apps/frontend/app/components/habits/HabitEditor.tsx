@@ -14,7 +14,9 @@ import { CadencePicker } from "./CadencePicker";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { Switch } from "../primitives/Switch";
-import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { EmojiMarkButton } from "../shared/EmojiMarkButton";
+import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
+import { toISODate } from "../../lib/utils/date-format";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { RoutineMark } from "./RoutineMark";
 import { useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
@@ -92,17 +94,24 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
     const isPaused = Boolean(habit.pausedUntil && new Date(habit.pausedUntil) > new Date());
     const habitTags = tags.filter((tag) => habit.tagIds?.includes(tag.id));
     const status = habit.archived ? "Archived" : isPaused ? "Paused" : "Active";
+    const routineSummary = `${getTaskRecurrenceSummary({
+        recurrenceRule: habit.recurrenceRule,
+        scheduledStart: habit.targetTime ? new Date(`${toISODate(new Date())}T${habit.targetTime}:00`).toISOString() : null,
+        scheduledEnd: null,
+    })?.label ?? "Repeats"}${habit.targetTime ? "" : ", any time"}`;
+    const routineStatus = status !== "Active" ? status : showStreaks && habit.currentStreak > 0 ? `${habit.currentStreak} in a row` : `${habit.totalCompletions} check-ins`;
 
     return (
         <div className="h-full min-w-0 overflow-hidden" role="complementary" aria-label="Routine details">
-            <DetailPanelLayout title="Routine" mode={detailMode} onModeChange={onDetailModeChange} onClose={onClose} closeLabel="Close routine details" leading={(
-                <EmojiPickerPopover emoji={habit.emoji ?? ""} onSelect={(emoji) => updateHabit.mutate({ id: habit.id, emoji: emoji || null })}>
-                    <Button variant="ghost" size="none" type="button" aria-label={habit.emoji ? "Change emoji" : "Pick an emoji"} className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white/[0.04] text-accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
-                        <RoutineMark emoji={habit.emoji} size={18} />
-                    </Button>
-                </EmojiPickerPopover>
-            )}>
+            <DetailPanelLayout title="Routine" mode={detailMode} onModeChange={onDetailModeChange} onClose={onClose} closeLabel="Close routine details" leading={<RoutineMark size={20} className="text-accent-primary" />}>
                 <DetailTitle value={habit.title} label="Routine title" maxLength={255} onSave={(title) => updateHabit.mutate({ id: habit.id, title })} />
+                <div className={`${CARD} flex items-center gap-3 px-4 py-3`}>
+                    <EmojiMarkButton emoji={habit.emoji} onChange={(emoji) => updateHabit.mutate({ id: habit.id, emoji })} fallback={<RoutineMark size={18} className="text-accent-primary" />} />
+                    <div className="min-w-0">
+                        <p className="truncate text-sm text-twilight-text">{routineSummary}</p>
+                        <p className="truncate text-xs text-twilight-text-muted">{routineStatus}</p>
+                    </div>
+                </div>
                 {section === "notes" ? (
                     <section className={`${CARD} space-y-3 px-4 py-3`}>
                         <PanelHeader title="Notes" onDone={() => setSection(null)} />

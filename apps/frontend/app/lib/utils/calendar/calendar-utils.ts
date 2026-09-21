@@ -4,25 +4,25 @@ import type { Task } from "@cadence/contracts/task";
 export const HOUR_HEIGHT = 72;
 
 /** Number of vertical hour blocks in a full day */
-export const HOURS_IN_DAY = 24;
+const HOURS_IN_DAY = 24;
 
 /** Total height of the full-day time grid */
 export const DAY_GRID_HEIGHT = HOUR_HEIGHT * HOURS_IN_DAY;
 
 /** Convert an ISO datetime string to minutes elapsed since midnight (local time) */
-export function minutesFromMidnight(isoDateTime: string): number {
+function minutesFromMidnight(isoDateTime: string): number {
     const d = new Date(isoDateTime);
     return d.getHours() * 60 + d.getMinutes();
 }
 
 /** Calculate the top offset (px) for a task chip based on its scheduledStart */
-export function taskTop(task: Task): number {
+function taskTop(task: Task): number {
     if (!task.scheduledStart) return 0;
     return (minutesFromMidnight(task.scheduledStart) / 60) * HOUR_HEIGHT;
 }
 
 /** Calculate the height (px) for a task chip based on its duration or estimate */
-export function taskHeight(task: Task): number {
+function taskHeight(task: Task): number {
     if (task.scheduledStart && task.scheduledEnd) {
         const start = new Date(task.scheduledStart).getTime();
         const end = new Date(task.scheduledEnd).getTime();

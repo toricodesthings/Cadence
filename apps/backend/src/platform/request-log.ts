@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { logger, hashIdentifier, shorten, issuesFromError, type IssueSummary, type LogLevel } from "./log";
 
-export const REQUEST_ID_HEADER = "x-request-id";
+const REQUEST_ID_HEADER = "x-request-id";
 
 const QUERY_SUMMARY_KEYS = new Set([
     "state",
@@ -75,7 +75,7 @@ export function getRequestId(c: Context<any>) {
     return c.get("requestId");
 }
 
-export function getRouteLabel(c: Context<any>) {
+function getRouteLabel(c: Context<any>) {
     return c.req.routePath || c.req.path;
 }
 

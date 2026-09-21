@@ -1,6 +1,7 @@
 import React, { Suspense } from "react";
 import * as Popover from "../primitives/Popover";
 import { Smile } from "lucide-react";
+import { Tip } from "../primitives/Tooltip";
 import data from "@emoji-mart/data";
 
 const Picker = React.lazy(() => import("@emoji-mart/react"));
@@ -11,24 +12,29 @@ interface EmojiPickerPopoverProps {
     children?: React.ReactNode;
     /** Shows "Remove emoji" above the picker while one is set. */
     onClear?: () => void;
+    /** Tooltip for an icon-only trigger. */
+    tip?: string;
 }
 
-export function EmojiPickerPopover({ emoji, onSelect, children, onClear }: EmojiPickerPopoverProps) {
+export function EmojiPickerPopover({ emoji, onSelect, children, onClear, tip }: EmojiPickerPopoverProps) {
+    const trigger = (
+        <Popover.Trigger asChild>
+            {children ? (
+                children
+            ) : (
+                <button
+                    type="button"
+                    aria-label="Pick an emoji"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-white/[0.04] text-lg text-twilight-text transition-colors hover:border-twilight-border-interactive focus:border-twilight-border-interactive"
+                >
+                    {emoji || <Smile size={16} className="text-twilight-text-muted" />}
+                </button>
+            )}
+        </Popover.Trigger>
+    );
     return (
         <Popover.Root>
-            <Popover.Trigger asChild>
-                {children ? (
-                    children
-                ) : (
-                    <button
-                        type="button"
-                        aria-label="Pick an emoji"
-                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-white/[0.04] text-lg text-twilight-text transition-colors hover:border-twilight-border-interactive focus:border-twilight-border-interactive"
-                    >
-                        {emoji || <Smile size={16} className="text-twilight-text-muted" />}
-                    </button>
-                )}
-            </Popover.Trigger>
+            {tip ? <Tip label={tip} side="bottom">{trigger}</Tip> : trigger}
             <Popover.Content
                 side="bottom"
                 align="start"

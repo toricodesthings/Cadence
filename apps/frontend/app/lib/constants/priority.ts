@@ -46,7 +46,3 @@ export const PRIORITY_CONFIG: Record<
     3: { label: TASK_PRIORITY_LABELS[3], sortWeight: TASK_PRIORITY_SORT_WEIGHT[3], ...PRIORITY_PRESENTATION[3] },
     4: { label: TASK_PRIORITY_LABELS[4], sortWeight: TASK_PRIORITY_SORT_WEIGHT[4], ...PRIORITY_PRESENTATION[4] },
 };
-
-export function getPriorityConfig(priority: TaskPriority) {
-    return PRIORITY_CONFIG[priority];
-}

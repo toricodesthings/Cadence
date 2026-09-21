@@ -38,14 +38,3 @@ export function getNoteScopeLabel(task: Task): string | null {
   if (!isSeriesScopedNote(task)) return null;
   return "Series note";
 }
-
-/**
- * Returns contextual copy shown when editing a note from an occurrence.
- */
-export function getNoteScopeContext(task: Task): string | null {
-  if (!isSeriesScopedNote(task)) return null;
-  if (task.isRecurringInstance || task.seriesId) {
-    return "Editing the note for this recurring series";
-  }
-  return null;
-}

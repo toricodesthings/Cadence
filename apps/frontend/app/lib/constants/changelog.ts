@@ -1,9 +1,16 @@
 export type ChangelogGlyph = "release" | "fix" | "tune";
 
+export interface ChangelogGroup {
+    kind: "added" | "changed" | "removed" | "fixed";
+    items: string[];
+}
+
 export interface ChangelogEntry {
     version: string;
+    /** ISO date (YYYY-MM-DD) from the release heading. */
+    date?: string;
     title: string;
-    description: string;
+    groups: ChangelogGroup[];
     glyph: ChangelogGlyph;
 }
 

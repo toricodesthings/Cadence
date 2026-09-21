@@ -1,26 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toast } from "sonner";
-import type { Tag } from "@cadence/contracts/tag";
-import { useAuthState } from "../auth/use-auth-state";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
-
-export function useTaskTags(taskId: string) {
-    const client = useApiClient();
-    const { authReady, isAuthenticated } = useAuthState();
-    return useQuery({
-        queryKey: ["tasks", taskId, "tags"],
-        queryFn: async () => {
-            const res = await client.api.tasks[":id"].tags.$get({
-                param: { id: taskId },
-            });
-            return unwrapResponse<Tag[]>(res);
-        },
-        enabled: !!taskId && authReady && isAuthenticated,
-    });
-}
 
 /** Add a tag to a task */
 export function useAddTaskTag() {

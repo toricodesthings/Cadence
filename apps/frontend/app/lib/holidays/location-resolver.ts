@@ -211,13 +211,6 @@ export function getPreferredLocale() {
     return navigator.languages?.[0] ?? navigator.language ?? "en-US";
 }
 
-export function getLocaleLanguage(locale: string | null | undefined) {
-    if (!locale) return "EN";
-    const normalized = locale.replace("_", "-");
-    const [language] = normalized.split("-");
-    return (language || "en").toUpperCase();
-}
-
 export function getLocaleRegion(locale: string | null | undefined) {
     if (!locale) return null;
 

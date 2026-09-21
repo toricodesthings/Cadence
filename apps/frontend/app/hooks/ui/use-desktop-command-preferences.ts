@@ -98,7 +98,7 @@ function getServerSnapshot() {
     return DEFAULT_DESKTOP_COMMAND_PREFERENCES;
 }
 
-export async function updateDesktopCommandPreferences(patch: Partial<DesktopCommandPreferences>) {
+async function updateDesktopCommandPreferences(patch: Partial<DesktopCommandPreferences>) {
     await ensureLoaded();
     const next = { ...preferencesStore.get(), ...patch };
     loaded = true;

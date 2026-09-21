@@ -7,7 +7,7 @@
  * before upload, so the server never has to decode the image.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -22,7 +22,7 @@ import {
 } from "../../lib/themes/background-image-cache";
 import { extractPhotoPalette } from "../../lib/themes/image-palette";
 import { compressBackgroundImage, readImagePixels } from "../../lib/utils/image";
-import { useSettings, useSettingsCache } from "../core/use-settings";
+import { useSettingsCache } from "../core/use-settings";
 import type { UserSettings } from "../../types/settings";
 
 async function unwrapImageResponse(response: UnwrappableResponse & { blob(): Promise<Blob> }): Promise<Blob> {
@@ -149,12 +149,4 @@ export function useDeleteBackgroundImage() {
             if (userId) void clearCachedBackgroundImages(userId);
         },
     });
-}
-
-/** The photo the user has stored, whether or not it is currently applied. */
-export function useStoredBackgroundImage() {
-    const { data: settings } = useSettings();
-    const image = settings?.appearance?.backgroundImage ?? null;
-    const url = useBackgroundImageUrl(image?.id);
-    return useMemo(() => ({ image, url }), [image, url]);
 }

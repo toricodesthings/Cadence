@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarHeart } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../primitives/Dialog";
 import { Button } from "../primitives/Button";
-import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
 import type { PersonalEvent } from "../../types/settings";
 import { getNextPersonalEventDate } from "../../lib/utils/personal-events";
@@ -76,18 +76,7 @@ export function PersonalEventEditorDialog({
                     <div className="space-y-2">
                         <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Event</span>
                         <div className="flex items-center gap-3 rounded-[28px] border border-white/[0.06] bg-white/[0.03] p-3">
-                            <EmojiPickerPopover
-                                emoji={emoji}
-                                onSelect={setEmoji}
-                            >
-                                <button
-                                    type="button"
-                                    aria-label="Pick an emoji"
-                                    className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.04] text-[24px] text-twilight-text transition-colors hover:border-white/[0.10] hover:bg-white/[0.06]"
-                                >
-                                    {emoji || <CalendarHeart size={18} className="text-accent-nav-schedule" />}
-                                </button>
-                            </EmojiPickerPopover>
+                            <EmojiMarkButton emoji={emoji || null} onChange={(next) => setEmoji(next ?? "")} fallback={<CalendarHeart size={18} className="text-accent-nav-schedule" aria-hidden="true" />} />
 
                             <div className="min-w-0 flex-1">
                                 <input

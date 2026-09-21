@@ -25,7 +25,7 @@ interface BoardCanvasProps {
     desktopColumnScroll?: boolean;
 }
 
-export function BoardColumnShell({
+function BoardColumnShell({
     title,
     count,
     icon,

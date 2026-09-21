@@ -481,6 +481,7 @@ export default function Upcoming() {
                 </div>
             ) : (
                 <div className="flex items-center gap-2">
+                    <ActiveFilterBar placement="header" />
                     <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                     <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
                 </div>
@@ -493,7 +494,7 @@ export default function Upcoming() {
             }}
         >
             <PageContent width="default" className="shrink-0 empty:hidden">
-                <ActiveFilterBar />
+                <ActiveFilterBar placement="body" />
                 {upcomingEvents.length > 0 && (
                     <div className="pb-2">
                         <div className="mb-2 flex items-center justify-between gap-3">

@@ -10,13 +10,13 @@ import { FLOATING_SURFACE } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
 export const Provider = RadixTooltip.Provider;
-export const Root = RadixTooltip.Root;
-export const Trigger = RadixTooltip.Trigger;
-export const Portal = RadixTooltip.Portal;
-export const Arrow = RadixTooltip.Arrow;
+const Root = RadixTooltip.Root;
+const Trigger = RadixTooltip.Trigger;
+const Portal = RadixTooltip.Portal;
+const Arrow = RadixTooltip.Arrow;
 
 /* ── Content ────────────────────────────────────────────────────── */
-export const Content = forwardRef<
+const Content = forwardRef<
     HTMLDivElement,
     RadixTooltip.TooltipContentProps
 >(({ className = "", sideOffset = 10, ...props }, ref) => (

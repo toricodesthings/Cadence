@@ -13,7 +13,6 @@ import { FLOATING_MOTION, MENU_ITEM, MENU_ITEM_DANGER, MENU_ROW, MENU_SEPARATOR,
 export const Root = RadixDropdownMenu.Root;
 export const Trigger = RadixDropdownMenu.Trigger;
 export const Portal = RadixDropdownMenu.Portal;
-export const Group = RadixDropdownMenu.Group;
 export const Sub = RadixDropdownMenu.Sub;
 export const RadioGroup = RadixDropdownMenu.RadioGroup;
 

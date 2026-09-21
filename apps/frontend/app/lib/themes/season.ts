@@ -12,18 +12,18 @@ const MONTH_SEASONS: readonly Season[] = [
     "summer", "summer", "autumn", "autumn", "autumn", "winter",
 ];
 
-export const LOADING_SEASON_BY_PRESET: Readonly<Record<string, Season>> = {
+const LOADING_SEASON_BY_PRESET: Readonly<Record<string, Season>> = {
     "spring-bloom": "spring",
     "summer-coast": "summer",
     "autumn-hearth": "autumn",
     "winter-frost": "winter",
 };
 
-export function getCurrentSeason(date: Date = new Date()): Season {
+function getCurrentSeason(date: Date = new Date()): Season {
     return MONTH_SEASONS[date.getMonth()] ?? "autumn";
 }
 
-export function getSeasonFromPreset(preset?: string): Season | null {
+function getSeasonFromPreset(preset?: string): Season | null {
     if (!preset || !Object.prototype.hasOwnProperty.call(LOADING_SEASON_BY_PRESET, preset)) return null;
     return LOADING_SEASON_BY_PRESET[preset] ?? null;
 }

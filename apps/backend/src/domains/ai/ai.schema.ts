@@ -8,7 +8,7 @@ export * from "@cadence/contracts/ai";
 // Used only by the admin/debug-gated PATCH path. Any write bumps ai_prompt_revision
 // in the same transaction (cache-bust). Not part of the public API surface.
 
-export const promptBlockKindSchema = z.enum([
+const promptBlockKindSchema = z.enum([
     "identity", "safety", "operating_principles", "output_contract", "tool_policy",
     "runtime_context", "human_metrics", "persona_customization",
     "retrieved_memory", "workspace_snapshot", "tone_neutral", "tone_protective",

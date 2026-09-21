@@ -108,7 +108,7 @@ export interface PromptRuntimeContext {
 }
 
 /** All 12 block kinds, for the row validator. */
-export const PROMPT_BLOCK_KINDS = [
+const PROMPT_BLOCK_KINDS = [
     "identity",
     "safety",
     "operating_principles",

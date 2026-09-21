@@ -6,7 +6,7 @@ import { getNextPersonalEventDate, toPersonalEventViewModel } from "../../lib/ut
 import { DetailTitle } from "../shared/DetailTitle";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { CARD, PANEL_TRIGGER, PanelHeader, PanelTrigger } from "../shared/DetailPanelSections";
-import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
 
 export function PersonalEventEditor({ event, onChange, onClose, onDelete, detailMode = "peek", onDetailModeChange }: {
@@ -26,11 +26,7 @@ export function PersonalEventEditor({ event, onChange, onClose, onDelete, detail
             <DetailPanelLayout title="Event" mode={detailMode} onModeChange={onDetailModeChange} onClose={onClose} closeLabel="Close event details" leading={<CalendarHeart size={20} className="text-accent-nav-schedule" aria-hidden="true" />}>
                 <DetailTitle value={event.label} label="Event title" maxLength={80} onSave={(label) => onChange({ label })} />
                 <div className={`${CARD} flex items-center gap-3 px-4 py-3`}>
-                    <EmojiPickerPopover emoji={event.emoji ?? ""} onSelect={(emoji) => onChange({ emoji: emoji || null })}>
-                        <Button variant="ghost" size="none" type="button" aria-label="Pick an emoji" className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white/[0.04] text-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
-                            {event.emoji || <CalendarHeart size={20} aria-hidden="true" />}
-                        </Button>
-                    </EmojiPickerPopover>
+                    <EmojiMarkButton emoji={event.emoji ?? null} onChange={(emoji) => onChange({ emoji })} fallback={<CalendarHeart size={20} className="text-accent-nav-schedule" aria-hidden="true" />} />
                     <div className="min-w-0">
                         <p className="text-sm text-twilight-text">{summary.countdownLabel}</p>
                         <p className="text-xs text-twilight-text-muted">{summary.milestoneLabel ?? "Repeats every year"}</p>

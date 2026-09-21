@@ -7,7 +7,7 @@ import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORIT
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
 import { formatShortDateLabel } from "../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
-import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { TimePicker } from "../primitives";
 import {
     Composer,
@@ -388,17 +388,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         placeholder="Birthday, retreat, launch day…"
                         maxLength={80}
                         aria-label="Event name"
-                        leading={(
-                            <EmojiPickerPopover emoji={eventEmoji} onSelect={setEventEmoji}>
-                                <button
-                                    type="button"
-                                    aria-label={eventEmoji ? "Change emoji" : "Pick an emoji"}
-                                    className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.04] text-[20px] text-twilight-text transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/50"
-                                >
-                                    {eventEmoji || <CalendarHeart size={18} className="text-accent-nav-schedule" />}
-                                </button>
-                            </EmojiPickerPopover>
-                        )}
+                        leading={<EmojiMarkButton emoji={eventEmoji || null} onChange={(next) => setEventEmoji(next ?? "")} fallback={<CalendarHeart size={18} className="text-accent-nav-schedule" aria-hidden="true" />} />}
                     />
 
                     <div className="space-y-2">

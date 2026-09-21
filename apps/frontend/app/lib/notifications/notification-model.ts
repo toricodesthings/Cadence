@@ -45,10 +45,4 @@ export function groupNotification(n: AppNotification, now: Date): NotificationGr
     return "earlier";
 }
 
-export const GROUP_LABELS: Record<NotificationGroup, string> = {
-    now: "Now",
-    today: "Today",
-    earlier: "Earlier",
-};
-
 export const GROUP_ORDER: NotificationGroup[] = ["now", "today", "earlier"];

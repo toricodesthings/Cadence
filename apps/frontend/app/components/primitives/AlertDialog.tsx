@@ -97,8 +97,6 @@ Description.displayName = AlertDialogPrimitive.Description.displayName;
 export {
     Root,
     Trigger,
-    Portal,
-    Overlay,
     Content,
     Header,
     Footer,

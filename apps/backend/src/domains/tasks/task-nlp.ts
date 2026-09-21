@@ -3,7 +3,7 @@ import { type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
 import { users, projects, tags, taskNlpMetadata, taskNlpMetadataHistory } from "../../db/schema";
 import type { Tx } from "../../types/db";
 
-export function confidenceRank(confidence: "high" | "medium" | "low" | undefined) {
+function confidenceRank(confidence: "high" | "medium" | "low" | undefined) {
     return confidence === "high" ? 2 : confidence === "medium" ? 1 : 0;
 }
 

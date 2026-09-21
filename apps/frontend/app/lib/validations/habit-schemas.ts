@@ -22,6 +22,6 @@ export const createHabitSchema = insertHabitSchema
         colorAccent: z.enum(["lantern", "glacier", "emerald", "amethyst", "rose", "sage"]),
     });
 
-// z.input keeps defaulted fields optional so the react-hook-form values type
+// z.input keeps defaulted fields optional so the form values type
 // matches what the form actually submits.
 export type CreateHabitValues = z.input<typeof createHabitSchema>;

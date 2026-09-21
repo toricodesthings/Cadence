@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 export type PageWidth = "narrow" | "default" | "wide" | "full";
 export type PageVerticalPadding = "default" | "none";
 
-export const PAGE_WIDTH_CLASS: Record<PageWidth, string> = {
+const PAGE_WIDTH_CLASS: Record<PageWidth, string> = {
     narrow: "max-w-2xl",
     default: "max-w-3xl",
     wide: "max-w-5xl",

@@ -280,7 +280,3 @@ export const ACCENT_PALETTES: PaletteDefinition[] = [
         },
     },
 ];
-
-export const PALETTE_MAP = Object.fromEntries(
-    ACCENT_PALETTES.map((p) => [p.id, p])
-) as Record<PaletteId, PaletteDefinition>;

@@ -268,25 +268,3 @@ export function applyPresentationRules(
         return true;
     });
 }
-
-// ── §11.7: Combined pipeline (backward-compatible) ──
-
-/**
- * Full notification pipeline: derive → filter → present → sort.
- * This is the backward-compatible entry point that replaces the old `deriveNotifications`.
- */
-export function deriveNotifications(
-    tasks: Task[],
-    habits: Habit[],
-    now: Date,
-): AppNotification[] {
-    const candidates = deriveCandidates(tasks, habits, now);
-
-    // Sort: high priority first, then by trigger time (most recent first)
-    candidates.sort((a, b) => {
-        if (a.priority !== b.priority) return a.priority === "high" ? -1 : 1;
-        return new Date(b.triggerAt).getTime() - new Date(a.triggerAt).getTime();
-    });
-
-    return candidates;
-}

@@ -73,19 +73,8 @@ export function deriveCustomTokens(hex: string): Record<string, string> {
 /**
  * Compute luminance for a gradient midpoint (average of two colors).
  */
-export function gradientMidpointLuminance(hex1: string, hex2: string): number {
+function gradientMidpointLuminance(hex1: string, hex2: string): number {
     return (relativeLuminance(hex1) + relativeLuminance(hex2)) / 2;
-}
-
-/**
- * Validate a hex color for background use.
- * Returns a contrast safety indicator.
- */
-export function getContrastSafety(hex: string): "safe-dark" | "safe-light" | "caution" {
-    const lum = relativeLuminance(hex);
-    if (lum <= 0.08) return "safe-dark";
-    if (lum >= 0.35) return "safe-light";
-    return "caution";
 }
 
 /** Base color for a gradient background: its midpoint keeps the hue; light gradients are pulled toward a neutral light base. */

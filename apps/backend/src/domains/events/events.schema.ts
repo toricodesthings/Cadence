@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ALLOWED_EVENTS = [
+const ALLOWED_EVENTS = [
     "capture.opened",
     "capture.submitted",
     "capture.clarify_opened",

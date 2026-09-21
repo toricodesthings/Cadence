@@ -92,10 +92,6 @@ export async function sendPlatformNotification(notification: PlatformNotificatio
     return (await loadPlatformRuntime()).sendNotification(notification);
 }
 
-export async function openExternalUrl(url: string): Promise<void> {
-    return (await loadPlatformRuntime()).openExternalUrl(url);
-}
-
 export function getAuthCallbackUrl(redirectTo?: string): string {
     const target = normalizeRedirectTo(redirectTo ?? (typeof window === "undefined" ? "/" : `${window.location.pathname}${window.location.search}`));
 
@@ -154,8 +150,4 @@ export async function getDesktopStore(storeName: string): Promise<NativeStoreAda
 /** `localStorage`, or null outside a browser. */
 export function getWebStorage(): Storage | null {
     return typeof window !== "undefined" && typeof window.localStorage !== "undefined" ? window.localStorage : null;
-}
-
-export async function resizeWindow(width: number, height: number, center?: boolean): Promise<void> {
-    return (await loadPlatformRuntime()).resizeWindow(width, height, center);
 }

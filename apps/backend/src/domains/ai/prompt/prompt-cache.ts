@@ -346,7 +346,7 @@ const REVISION_TTL_MS = 45_000; // ~30–60s window (doc 04 §3 Tier 0).
 
 let cachedRevision: { value: number; expiresAt: number } | null = null;
 
-export async function getCurrentRevision(env: Env): Promise<number> {
+async function getCurrentRevision(env: Env): Promise<number> {
     const now = Date.now();
     if (cachedRevision && cachedRevision.expiresAt > now) {
         return cachedRevision.value;

@@ -13,7 +13,7 @@ React Router v7 SPA (`ssr: false`, intentional) deployed as static assets on Clo
 
 ## 2. Tech Stack
 
-React 19 · React Router v7 (SPA mode) · Cloudflare Workers + Wrangler assets · Tailwind CSS v4 (`@theme` in `app/app.css`) · Framer Motion + `tw-animate-css` · TanStack Query · Hono RPC (`hc<AppType>`) · Neon Auth (`@neondatabase/auth-ui`) · Radix UI (wrapped) · Lucide icons · dnd-kit · Zustand · `react-markdown` + `remark-gfm` · `rrule` · `date-fns` · Vercel AI SDK (`@ai-sdk/react`, `ai` v7) for the assistant · TypeScript 7.
+React 19 · React Router v7 (SPA mode) · Cloudflare Workers + Wrangler assets · Tailwind CSS v4 (`@theme` in `app/app.css`) · Framer Motion + `tw-animate-css` · TanStack Query · Hono RPC (`hc<AppType>`) · Neon Auth (`@neondatabase/auth`) · Radix UI (wrapped) · Lucide icons · dnd-kit · Zustand · `react-markdown` + `remark-gfm` · `date-fns` · Vercel AI SDK (`@ai-sdk/react`, `ai` v7) for the assistant · TypeScript 7.
 
 ## 3. Runtime Shape
 

@@ -27,7 +27,7 @@ export const cssVars = (vars: Record<string, string | number>): CSSProperties =>
 
 export const TAU = 6.283185307179586;
 
-export function sinR(x: number): number {
+function sinR(x: number): number {
   const r = x - TAU * Math.round(x / TAU);
   const r2 = r * r;
   let term = r;
@@ -38,7 +38,7 @@ export function sinR(x: number): number {
   }
   return sum;
 }
-export const cosR = (x: number): number => sinR(x + TAU / 4);
+const cosR = (x: number): number => sinR(x + TAU / 4);
 export const rad = (deg: number): number => (deg * TAU) / 360;
 
 /** Rotates a vector by `a` radians (clockwise on screen, where y points down). */

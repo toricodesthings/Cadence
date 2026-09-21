@@ -11,9 +11,9 @@ by every client (`apps/backend`, `apps/frontend`, and downstream
 
 ```
 packages/
-  nlp/        NLP parse / resolve / rank / focus-views.   deps: chrono-node, fuse.js, rrule
+  nlp/        NLP parse / resolve / rank / focus-views.   deps: chrono-node, fuse.js
   contracts/  Zod schemas → inferred types (wire shapes). deps: zod, @cadence/nlp
-  domain/     Pure domain logic (no I/O, no framework).   deps: rrule, date-fns, @cadence/contracts, @cadence/nlp
+  domain/     Pure domain logic (no I/O, no framework).   deps: rrule
 ```
 
 **Dependency direction is strictly downhill** and enforced (see §6):

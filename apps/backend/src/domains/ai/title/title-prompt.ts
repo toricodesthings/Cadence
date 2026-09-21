@@ -24,7 +24,7 @@ import type { Env } from "../../../types/env";
  * Compiled-in canonical template (en). Seeded/synced into `ai_title_prompts` by
  * version; also the floor when the DB has no active row or is unreachable.
  */
-export const DEFAULT_TITLE_PROMPT = `You generate a short, human title for a conversation from the user's first message.
+const DEFAULT_TITLE_PROMPT = `You generate a short, human title for a conversation from the user's first message.
 
 Rules:
 - 3 to 6 words, in Title Case.
@@ -33,7 +33,7 @@ Rules:
 - Do not answer, greet, or add commentary. Output ONLY the title text.`;
 
 /** Bump together with any edit to DEFAULT_TITLE_PROMPT (the sync trigger). */
-export const DEFAULT_TITLE_PROMPT_VERSION = 1;
+const DEFAULT_TITLE_PROMPT_VERSION = 1;
 
 const TITLE_PROMPT_TTL_MS = 60_000;
 

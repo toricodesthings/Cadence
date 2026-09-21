@@ -3,11 +3,11 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { QuickAddTab } from "../components/quick-add/QuickAddSurface";
 import { getNativeStore, getWebStorage, hasDesktopWindow } from "./runtime";
 
-export const MAIN_DESKTOP_WINDOW_LABEL = "main";
-export const QUICK_CAPTURE_WINDOW_LABEL = "quick-capture";
-export const DESKTOP_COMMAND_EVENT = "cadence://desktop-command";
+const MAIN_DESKTOP_WINDOW_LABEL = "main";
+const QUICK_CAPTURE_WINDOW_LABEL = "quick-capture";
+const DESKTOP_COMMAND_EVENT = "cadence://desktop-command";
 export const QUICK_CAPTURE_TAB_EVENT = "cadence://quick-capture-tab";
-export const QUICK_CAPTURE_COMPLETE_EVENT = "cadence://quick-capture-complete";
+const QUICK_CAPTURE_COMPLETE_EVENT = "cadence://quick-capture-complete";
 export const GLOBAL_QUICK_CAPTURE_SHORTCUT = "CommandOrControl+Shift+C";
 
 const DESKTOP_PREFERENCES_STORE = "cadence_desktop_preferences";
@@ -39,7 +39,7 @@ export interface QuickCaptureCompletionPayload {
     route: string;
 }
 
-export async function getCurrentDesktopWindowLabel() {
+async function getCurrentDesktopWindowLabel() {
     if (!hasDesktopWindow()) {
         return null;
     }

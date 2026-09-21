@@ -7,8 +7,7 @@ import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { CadencePicker } from "./CadencePicker";
-import { RoutineMark } from "./RoutineMark";
-import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { Composer, ComposerSubmit, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
@@ -110,17 +109,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                     placeholder="Name this routine…"
                     maxLength={200}
                     aria-label="Routine name"
-                    leading={(
-                        <EmojiPickerPopover emoji={emoji ?? ""} onSelect={(next) => setEmoji(next || null)}>
-                            <button
-                                type="button"
-                                aria-label={emoji ? "Change emoji" : "Pick an emoji"}
-                                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.04] text-[20px] text-accent-primary transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                            >
-                                <RoutineMark emoji={emoji} size={18} />
-                            </button>
-                        </EmojiPickerPopover>
-                    )}
+                    leading={<EmojiMarkButton emoji={emoji} onChange={setEmoji} />}
                 />
                 {title.trim() ? null : (
                     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ideas">

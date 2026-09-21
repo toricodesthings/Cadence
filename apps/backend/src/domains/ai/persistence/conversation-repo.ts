@@ -122,7 +122,7 @@ export async function loadConversationMessages(
 }
 
 /** Highest `orderIndex` in a thread, or null when empty. */
-export async function getLastOrderIndex(tx: Tx, conversationId: string): Promise<number | null> {
+async function getLastOrderIndex(tx: Tx, conversationId: string): Promise<number | null> {
     const [row] = await tx
         .select({ orderIndex: aiMessages.orderIndex })
         .from(aiMessages)

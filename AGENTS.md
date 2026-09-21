@@ -21,7 +21,7 @@ The graph tracks structure, not behaviour, and lags uncommitted edits. Open the 
 ## Versions and releases
 
 - The version lives **only** in the root `package.json`. The app label, in-app changelog, and desktop/Tauri/Cargo versions are derived at build time. Never type a version anywhere else.
-- `CHANGELOG.md` (root, committed, [Keep a Changelog](https://keepachangelog.com)) is the one changelog, and the in-app changelog is built from it. When a change is user-visible, add one plain-language bullet under `## [Unreleased]` in `### Added`, `### Changed`, `### Removed`, or `### Fixed`. Internal-only work gets no bullet.
+- `CHANGELOG.md` (root, committed, [Keep a Changelog](https://keepachangelog.com)) is the one changelog, and the in-app changelog is built from it. When a change is user-visible, add one plain-language, one-line bullet (≤120 characters; the build enforces it) under `## [Unreleased]` in `### Added`, `### Changed`, `### Removed`, or `### Fixed`. Every release needs a one-line summary under its heading (its title in the app). Internal-only work gets no bullet.
 - Semver: MAJOR = big release or breaking change · MINOR = a feature added, changed, or removed · PATCH = fixes, tweaks, dependency bumps.
 - Never bump versions or create tags by hand. `pnpm release` does both (release-it): it stamps `[Unreleased]` with the version, bumps `package.json`, syncs desktop, commits, tags `vX.Y.Z`, and pushes. The tag triggers the desktop release build. Only run it when the user asks.
 

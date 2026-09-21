@@ -44,7 +44,7 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
     return looksLikeJwt(token) ? token : null;
 }
 
-export async function fetchAuthJwt(): Promise<string | null> {
+async function fetchAuthJwt(): Promise<string | null> {
     // Return cached token if still valid
     if (_cachedJwt && Date.now() < _cachedJwtExpiry) {
         return _cachedJwt;
@@ -128,7 +128,7 @@ export async function authenticatedFetch(
  * `AppType` flows end-to-end: routes return `@cadence/contracts` shapes, so
  * `ApiClient` is fully inferred (no `as any` collapse).
  */
-export function createApiClient(token?: string) {
+function createApiClient(token?: string) {
     const root = hc<AppType>(API_BASE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         fetch: platformFetch,

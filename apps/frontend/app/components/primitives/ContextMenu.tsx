@@ -12,9 +12,7 @@ import { FLOATING_MOTION, MENU_ITEM, MENU_ITEM_DANGER, MENU_ROW, MENU_SEPARATOR,
 export const Root = RadixContextMenu.Root;
 export const Trigger = RadixContextMenu.Trigger;
 export const Portal = RadixContextMenu.Portal;
-export const Group = RadixContextMenu.Group;
 export const Sub = RadixContextMenu.Sub;
-export const RadioGroup = RadixContextMenu.RadioGroup;
 
 /* ── SubTrigger ─────────────────────────────────────────────────── */
 export const SubTrigger = forwardRef<

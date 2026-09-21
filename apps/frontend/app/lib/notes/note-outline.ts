@@ -29,35 +29,6 @@ export function extractNoteOutline(markdown: string): NoteHeading[] {
 }
 
 /**
- * Generates a short excerpt from markdown content.
- * Strips headings, bullets, and formatting for clean preview text.
- */
-export function generateNoteExcerpt(markdown: string, maxLength = 120): string {
-  if (!markdown) return "";
-  const lines = markdown
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) =>
-      line
-        .replace(/^#{1,6}\s+/, "")          // headings
-        .replace(/^[-*+]\s+(\[[ x]\]\s+)?/, "") // bullets/checklists
-        .replace(/^\d+\.\s+/, "")            // numbered lists
-        .replace(/^>\s+/, "")                // quotes
-        .replace(/\*\*(.+?)\*\*/g, "$1")    // bold
-        .replace(/\*(.+?)\*/g, "$1")        // italic
-        .replace(/`(.+?)`/g, "$1")          // inline code
-        .replace(/\[(.+?)\]\(.+?\)/g, "$1") // links
-        .trim()
-    )
-    .filter((line) => line.length > 0 && line !== "---");
-
-  const joined = lines.join(" ");
-  if (joined.length <= maxLength) return joined;
-  return joined.slice(0, maxLength - 1) + "…";
-}
-
-/**
  * Counts words in a markdown string (rough count).
  */
 export function countWords(markdown: string): number {

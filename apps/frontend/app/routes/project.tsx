@@ -455,6 +455,7 @@ export default function ProjectView() {
                     </div>
                 ) : (
                     <div className="flex items-center gap-2">
+                        <ActiveFilterBar placement="header" />
                         <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
                         <SortMenu
                             mode={sortMode}
@@ -502,7 +503,7 @@ export default function ProjectView() {
                 }}
             >
                 <PageContent width="default" className="empty:hidden">
-                    <ActiveFilterBar />
+                    <ActiveFilterBar placement="body" />
                 </PageContent>
                 {view === "kanban" ? (
                     <div className="flex-1 min-h-0 min-w-0 flex flex-col">

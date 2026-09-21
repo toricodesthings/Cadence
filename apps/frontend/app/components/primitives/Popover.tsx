@@ -10,9 +10,7 @@ import { FLOATING_MOTION, FLOATING_SURFACE } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
 export const Root = RadixPopover.Root;
-export const Portal = RadixPopover.Portal;
 export const Anchor = RadixPopover.Anchor;
-export const Arrow = RadixPopover.Arrow;
 
 export const Trigger = forwardRef<
     HTMLButtonElement,

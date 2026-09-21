@@ -80,13 +80,13 @@ function getServerSnapshot(): DesktopLayoutScale {
     return "default";
 }
 
-export async function setDesktopLayoutScale(nextScale: DesktopLayoutScale) {
+async function setDesktopLayoutScale(nextScale: DesktopLayoutScale) {
     loaded = true;
     scaleStore.set(nextScale);
     await persistScale(nextScale);
 }
 
-export async function stepDesktopLayoutScale(direction: 1 | -1) {
+async function stepDesktopLayoutScale(direction: 1 | -1) {
     await ensureLoaded();
 
     const currentIndex = DESKTOP_LAYOUT_SCALE_ORDER.indexOf(scaleStore.get());
@@ -94,7 +94,7 @@ export async function stepDesktopLayoutScale(direction: 1 | -1) {
     await setDesktopLayoutScale(DESKTOP_LAYOUT_SCALE_ORDER[nextIndex]);
 }
 
-export function getDesktopLayoutScaleFactor(scale: DesktopLayoutScale) {
+function getDesktopLayoutScaleFactor(scale: DesktopLayoutScale) {
     return DESKTOP_LAYOUT_SCALE_VALUES[scale];
 }
 

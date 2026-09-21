@@ -161,28 +161,3 @@ export function extractActionableLines(markdown: string): string[] {
     )
     .filter(Boolean);
 }
-
-/**
- * Detects lines that look like actionable items (checklist, bullets, numbered).
- */
-export function detectConvertibleLines(
-  markdown: string,
-): { text: string; lineIndex: number; kind: "bullet" | "checklist" | "numbered" }[] {
-  if (!markdown) return [];
-  const lines = markdown.split("\n");
-  const result: { text: string; lineIndex: number; kind: "bullet" | "checklist" | "numbered" }[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (/^(-|\*|\+)\s+\[[ x]\]\s+/.test(line)) {
-      const text = line.replace(/^(-|\*|\+)\s+\[[ x]\]\s+/, "").trim();
-      if (text) result.push({ text, lineIndex: i, kind: "checklist" });
-    } else if (/^\d+\.\s+/.test(line)) {
-      const text = line.replace(/^\d+\.\s+/, "").trim();
-      if (text) result.push({ text, lineIndex: i, kind: "numbered" });
-    } else if (/^(-|\*|\+)\s+/.test(line)) {
-      const text = line.replace(/^(-|\*|\+)\s+/, "").trim();
-      if (text) result.push({ text, lineIndex: i, kind: "bullet" });
-    }
-  }
-  return result;
-}

@@ -19,9 +19,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@cadence/contracts": "workspace:*",
-    "@cadence/nlp": "workspace:*",
-    "date-fns": "^4.4.0",
     "rrule": "^2.8.1"
   },
   "devDependencies": {

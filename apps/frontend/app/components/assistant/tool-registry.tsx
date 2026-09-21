@@ -34,7 +34,7 @@ interface ToolDescriptor {
     render?: (ctx: ToolRenderContext, state: ReturnType<typeof partRenderState>) => React.ReactNode;
 }
 
-export const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
+const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     // ── read → activity chip ──────────────────────────────────────────────
     get_tasks: { class: "read", label: "Checked your tasks" },
     get_task_detail: { class: "read", label: "Checked your tasks" },

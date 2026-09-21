@@ -35,15 +35,6 @@ export interface StoredDesktopAuthSession {
 
 let memoryCache: StoredDesktopAuthSession | null | undefined;
 
-function toBase64Url(value: string) {
-    const bytes = new TextEncoder().encode(value);
-    let binary = "";
-    bytes.forEach((byte) => {
-        binary += String.fromCharCode(byte);
-    });
-    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
 function fromBase64Url(value: string) {
     const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
     const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
@@ -98,10 +89,6 @@ function emitDesktopAuthSessionChange(session: StoredDesktopAuthSession | null) 
     window.dispatchEvent(new CustomEvent<StoredDesktopAuthSession | null>(DESKTOP_AUTH_EVENT, {
         detail: session,
     }));
-}
-
-export function serializeDesktopAuthPayload(session: StoredDesktopAuthSession) {
-    return toBase64Url(JSON.stringify(session));
 }
 
 export function deserializeDesktopAuthPayload(payload: string): StoredDesktopAuthSession | null {

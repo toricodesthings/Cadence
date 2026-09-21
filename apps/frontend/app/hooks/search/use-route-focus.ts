@@ -15,7 +15,7 @@ export interface RouteFocusParams {
 const FOCUS_PARAM_KEYS = ["focusKind", "focusId", "focusScope", "focusDate", "focusSource"] as const;
 
 /** Read focus params from URL search params */
-export function parseFocusParams(searchParams: URLSearchParams): RouteFocusParams | null {
+function parseFocusParams(searchParams: URLSearchParams): RouteFocusParams | null {
     const focusKind = searchParams.get("focusKind") as FocusKind | null;
     const focusId = searchParams.get("focusId");
     if (!focusKind || !focusId) return null;

@@ -321,6 +321,7 @@ export default function TodayRoute() {
         </div>
     ) : (
         <div className="flex items-center gap-2">
+            <ActiveFilterBar placement="header" />
             <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
             <SortMenu mode={sortMode} onModeChange={setSortMode} view={view} onViewChange={setView} />
             {!shell.isWide && selectedTaskId ? (
@@ -489,7 +490,7 @@ export default function TodayRoute() {
             }}
         >
             <PageContent width="default" className="shrink-0 empty:hidden">
-                <ActiveFilterBar />
+                <ActiveFilterBar placement="body" />
                 {todayEvents.length > 0 && (
                     <div className="pb-2">
                         <div className="mb-2 flex items-center justify-between gap-3">

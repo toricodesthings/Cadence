@@ -13,7 +13,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { Env } from "../../../types/env";
 
 /** Dimensionality of the `ai_memories.embedding` column — embeddings MUST match. */
-export const EMBEDDING_DIMENSIONS = 1536;
+const EMBEDDING_DIMENSIONS = 1536;
 
 /** 1536-dim default; configurable via AI_EMBEDDING_MODEL. */
 const DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-small";
@@ -28,7 +28,7 @@ export function isMemoryEnabled(env: Env, perUserEnabled?: boolean): boolean {
 }
 
 /** Configured embedding model id, or a 1536-dim default. */
-export function getEmbeddingModelId(env: Env): string {
+function getEmbeddingModelId(env: Env): string {
     return env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_EMBEDDING_MODEL;
 }
 
@@ -65,7 +65,7 @@ export async function embedText(env: Env, text: string): Promise<number[]> {
 }
 
 /** Batch embedding via `embedMany`. Each vector is validated to be 1536-dim. */
-export async function embedTexts(env: Env, texts: string[]): Promise<number[][]> {
+async function embedTexts(env: Env, texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
     const { embeddings } = await embedMany({ model: getEmbeddingModel(env), values: texts });
     return embeddings.map(assertDimensions);

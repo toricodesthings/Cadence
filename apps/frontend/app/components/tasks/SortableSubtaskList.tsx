@@ -24,14 +24,14 @@ function getRenderableSubtaskKey(subtask: RenderableSubtask) {
     return subtask.__optimisticKey ?? subtask.id;
 }
 
-export function computeSubtaskMidpointIndex(prevIndex: number | null, nextIndex: number | null): number {
+function computeSubtaskMidpointIndex(prevIndex: number | null, nextIndex: number | null): number {
     if (prevIndex === null && nextIndex === null) return 0;
     if (prevIndex === null) return nextIndex! - 1;
     if (nextIndex === null) return prevIndex! + 1;
     return (prevIndex + nextIndex) / 2;
 }
 
-export function buildOptimisticSubtaskReorder(
+function buildOptimisticSubtaskReorder(
     subtasks: Subtask[],
     activeId: string,
     overId: string,

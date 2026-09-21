@@ -38,7 +38,7 @@ export async function assertProjectOwnership(tx: Tx, userId: string, projectId: 
  * Throws 403 if the section belongs to another user.
  * Throws 404 if the section does not exist.
  */
-export async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string) {
+async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string) {
     await assertRowOwnership(tx, taskSections, userId, sectionId, "Section");
 }
 
@@ -47,7 +47,7 @@ export async function assertSectionOwnership(tx: Tx, userId: string, sectionId: 
  * Throws 403 if any tag belongs to another user.
  * Throws 404 if any tag does not exist.
  */
-export async function assertTagsOwnership(tx: Tx, userId: string, tagIds: string[]) {
+async function assertTagsOwnership(tx: Tx, userId: string, tagIds: string[]) {
     if (tagIds.length === 0) return;
     const uniqueIds = [...new Set(tagIds)];
     const rows = await tx

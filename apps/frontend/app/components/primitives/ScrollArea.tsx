@@ -20,7 +20,6 @@ export const Root = forwardRef<
     />
 ));
 Root.displayName = "ScrollArea.Root";
-export const Corner = RadixScrollArea.Corner;
 
 /* ── Viewport ───────────────────────────────────────────────────── */
 export const Viewport = forwardRef<

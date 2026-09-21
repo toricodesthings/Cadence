@@ -29,7 +29,7 @@ export function getModelId(env: Env): string {
 }
 
 /** OpenAI-compatible language model via OpenRouter (existing routing). */
-export function getModel(env: Env) {
+function getModel(env: Env) {
     const apiKey = env.OPENROUTER_API_KEY || "dummy";
     const openrouter = createOpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey });
     return openrouter(getModelId(env));

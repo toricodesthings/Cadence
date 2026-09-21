@@ -6,8 +6,6 @@ import { cn } from "../../lib/utils"
 
 const Select = SelectPrimitive.Root
 
-const SelectGroup = SelectPrimitive.Group
-
 const SelectValue = SelectPrimitive.Value
 
 const SelectTrigger = React.forwardRef<
@@ -82,37 +80,10 @@ const SelectItem = React.forwardRef<
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
-const SelectLabel = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Label>,
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
->(({ className, ...props }, ref) => (
-    <SelectPrimitive.Label
-        ref={ref}
-        className={cn("px-2 py-1.5 text-sm font-semibold text-twilight-text-muted", className)}
-        {...props}
-    />
-))
-SelectLabel.displayName = SelectPrimitive.Label.displayName
-
-const SelectSeparator = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Separator>,
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
->(({ className, ...props }, ref) => (
-    <SelectPrimitive.Separator
-        ref={ref}
-        className={cn("-mx-1 my-1 h-px bg-twilight-border", className)}
-        {...props}
-    />
-))
-SelectSeparator.displayName = SelectPrimitive.Separator.displayName
-
 export {
     Select,
-    SelectGroup,
     SelectValue,
     SelectTrigger,
     SelectContent,
-    SelectLabel,
     SelectItem,
-    SelectSeparator,
 }

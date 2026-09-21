@@ -11,7 +11,7 @@
  * Use {@link isPersistedId} to gate such follow-up actions until the create has
  * been reconciled.
  */
-export const TEMP_ID_PREFIX = "temp-";
+const TEMP_ID_PREFIX = "temp-";
 
 /** Build an optimistic id for a not-yet-persisted entity. */
 export function createTempId(): string {

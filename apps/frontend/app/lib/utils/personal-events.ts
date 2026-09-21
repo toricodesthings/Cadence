@@ -26,7 +26,7 @@ export function getNormalizedMonthDay(monthDay: string, year: number) {
     };
 }
 
-export function getPersonalEventOccurrenceDate(monthDay: string, year: number) {
+function getPersonalEventOccurrenceDate(monthDay: string, year: number) {
     const normalized = getNormalizedMonthDay(monthDay, year);
     return `${year}-${String(normalized.month).padStart(2, "0")}-${String(normalized.day).padStart(2, "0")}`;
 }
@@ -44,7 +44,7 @@ export function getPersonalEventCountdownLabel(daysUntil: number) {
     return `In ${daysUntil} days`;
 }
 
-export function getPersonalEventMonthDayLabel(monthDay: string, year = new Date().getFullYear()) {
+function getPersonalEventMonthDayLabel(monthDay: string, year = new Date().getFullYear()) {
     return formatShortDate(getPersonalEventOccurrenceDate(monthDay, year));
 }
 

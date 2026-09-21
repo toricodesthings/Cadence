@@ -2,8 +2,7 @@ import {
     format,
     startOfWeek,
     endOfWeek,
-    addDays as dfnsAddDays,
-    isSameDay as dfnsIsSameDay,
+    addDays,
     endOfMonth,
     eachDayOfInterval,
 } from "date-fns";
@@ -100,13 +99,7 @@ export function parseEffectiveTaskDate(dateStr: string, isAllDay: boolean): Date
 
 // ─── Date Arithmetic (re-exported from date-fns) ─────────────────────────────
 
-export function addDays(date: Date, days: number): Date {
-    return dfnsAddDays(date, days);
-}
-
-export function isSameDay(a: Date, b: Date): boolean {
-    return dfnsIsSameDay(a, b);
-}
+export { addDays };
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
@@ -192,7 +185,7 @@ export function getWeekStart(date: Date): Date {
 /** Return an array of 7 Date objects for the week containing the given date */
 export function getWeekDates(date: Date): Date[] {
     const start = getWeekStart(date);
-    return eachDayOfInterval({ start, end: dfnsAddDays(start, 6) });
+    return eachDayOfInterval({ start, end: addDays(start, 6) });
 }
 
 // ─── Calendar Grid ───────────────────────────────────────────────────────────
@@ -254,14 +247,4 @@ export function getYearDateRange(year: number) {
         start: toISODate(start),
         end: toISODate(end),
     };
-}
-
-/** Return start-of-day `YYYY-MM-DD` string for a given date (local timezone) */
-export function startOfDay(date: Date): string {
-    return toISODate(date);
-}
-
-/** Return end-of-day `YYYY-MM-DD` string for a given date (local timezone) */
-export function endOfDay(date: Date): string {
-    return toISODate(date);
 }

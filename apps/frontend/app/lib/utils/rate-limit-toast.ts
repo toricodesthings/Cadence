@@ -18,8 +18,3 @@ export function showRateLimitToast(
     lastMessage = message;
     toast.error(message);
 }
-
-export function resetRateLimitToastState() {
-    lastShownAt = 0;
-    lastMessage = "";
-}
