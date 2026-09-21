@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-09-21
+
 ### Changed
 
 - Board columns on Today, Upcoming and projects now sit closer to the top of the page instead of floating below an empty gap.
