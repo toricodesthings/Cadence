@@ -3,7 +3,7 @@ import { FOCUS_VIEW_PRESETS, composeFocusView } from "@cadence/nlp/focus-views";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { useCreateFocusView, useDeleteFocusView, useFocusViews, useUpdateFocusView } from "../../hooks/core/use-focus-views";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useProjects } from "../../hooks/projects";
+import { useProjects } from "../../hooks/projects/use-projects";
 import { Zap, Clock, CalendarX2, UserCheck, Brain, CloudFog, Search, X, BookmarkPlus, Pin, Trash2, Pencil } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import * as ContextMenu from "../primitives/ContextMenu";

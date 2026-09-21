@@ -9,7 +9,7 @@ const queueCompletionMock = vi.fn();
 const cancelCompletionMock = vi.fn();
 const clearCompletionMock = vi.fn();
 
-vi.mock("../../../app/hooks/tasks", () => ({
+vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
     useUpdateTask: () => ({
         mutate: updateTaskMutateMock,
     }),

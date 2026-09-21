@@ -7,7 +7,7 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toISODate } from "../../lib/utils/date-format";
-import { snapshotHabitCache, rollbackHabitCache, cancelHabitQueries } from "../../hooks/habits/optimistic-helpers";
+import { habitCache } from "../../hooks/habits/optimistic-helpers";
 import { transformListCache } from "../../lib/api/cache-guards";
 import type { Habit, UnresolvedHabitSummary } from "@cadence/contracts/habit";
 
@@ -51,8 +51,8 @@ export function HabitToastResolver() {
         resolvingRef.current = true;
 
         // Optimistic update — update canvas cells immediately
-        await cancelHabitQueries(queryClient);
-        const snapshot = snapshotHabitCache(queryClient);
+        await habitCache.cancel(queryClient);
+        const snapshot = habitCache.snapshot(queryClient);
 
         const todayHabitIds = new Set(todayItems.map(({ habitId }) => habitId));
         const applyUpdate = (habits: Habit[] | undefined): Habit[] | undefined =>
@@ -103,7 +103,7 @@ export function HabitToastResolver() {
                     : `Marked ${todayItems.length} routine check-ins complete`,
             );
         } catch (error) {
-            rollbackHabitCache(queryClient, snapshot);
+            habitCache.rollback(queryClient, snapshot);
             const message = error instanceof Error ? error.message : "Couldn't check in every routine";
             toast.error(message);
         } finally {

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { invalidateTaskCaches, snapshotTaskCache, rollbackTaskCache, cancelTaskQueries } from "./optimistic-helpers";
+import { taskCache } from "./optimistic-helpers";
 import type { Task, TaskState } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
@@ -27,8 +27,8 @@ export function useBatchStateTransition() {
             },
         ),
         onMutate: async ({ taskIds, state }) => {
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
             queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
                 transformListCache(old, (items) =>
                     items.map((task) => (taskIds.includes(task.id) ? { ...task, state } : task)),
@@ -41,10 +41,10 @@ export function useBatchStateTransition() {
             tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
         },
         onError: (err, _vars, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to update tasks");
         },
-        onSettled: () => invalidateTaskCaches(queryClient),
+        onSettled: () => taskCache.invalidate(queryClient),
     });
 }
 
@@ -66,8 +66,8 @@ export function useBatchRescheduleTasks() {
             },
         ),
         onMutate: async ({ taskIds, scheduledStart, isAllDay }) => {
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
             queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
                 transformListCache(old, (items) =>
                     items.map((task) =>
@@ -82,10 +82,10 @@ export function useBatchRescheduleTasks() {
             tasks.forEach((task) => reconcileTaskInCaches(queryClient, task));
         },
         onError: (err, _vars, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to reschedule tasks");
         },
-        onSettled: () => invalidateTaskCaches(queryClient),
+        onSettled: () => taskCache.invalidate(queryClient),
     });
 }
 
@@ -107,8 +107,8 @@ export function useBatchDeleteTasks() {
             },
         ),
         onMutate: async ({ taskIds }) => {
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
             queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
                 transformListCache(old, (items) =>
                     items.filter((task) => !taskIds.includes(task.id)),
@@ -120,9 +120,9 @@ export function useBatchDeleteTasks() {
             taskIds.forEach((taskId) => removeTaskFromCaches(queryClient, taskId));
         },
         onError: (err, _vars, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to delete tasks");
         },
-        onSettled: () => invalidateTaskCaches(queryClient),
+        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

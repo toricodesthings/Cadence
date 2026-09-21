@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { SIDE_PANEL_SURFACE } from "./side-panel-surface";
 
 interface ImmersiveDetailLayoutProps {
     header: ReactNode;
@@ -24,7 +23,7 @@ export function ImmersiveDetailLayout({
         <div
             data-detail-mode={mode}
             className={[
-                `photo-shell-surface ${SIDE_PANEL_SURFACE} flex h-full min-h-0 flex-col overflow-hidden`,
+                "photo-shell-surface surface-shell flex h-full min-h-0 flex-col overflow-hidden",
                 className,
             ].join(" ").trim()}
         >

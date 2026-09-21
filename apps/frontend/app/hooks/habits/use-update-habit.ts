@@ -1,12 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import {
-    snapshotHabitCache,
-    rollbackHabitCache,
-    invalidateHabitCaches,
-    cancelHabitQueries,
-} from "./optimistic-helpers";
+import { habitCache } from "./optimistic-helpers";
 import type { Habit, UpdateHabit } from "@cadence/contracts/habit";
 import { toast } from "sonner";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
@@ -36,8 +31,8 @@ export function useUpdateHabit() {
         ),
 
         onMutate: async ({ id, ...patch }) => {
-            await cancelHabitQueries(queryClient);
-            const snapshot = snapshotHabitCache(queryClient);
+            await habitCache.cancel(queryClient);
+            const snapshot = habitCache.snapshot(queryClient);
 
             let fullHabit: Habit | undefined;
             queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all, exact: true }).forEach(([_, data]) => {
@@ -95,9 +90,9 @@ export function useUpdateHabit() {
         },
 
         onError: (err, _vars, context) => {
-            if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
+            if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Couldn't update routine");
-            invalidateHabitCaches(queryClient);
+            habitCache.invalidate(queryClient);
         },
     });
 }

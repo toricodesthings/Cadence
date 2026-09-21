@@ -2,12 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import {
-    snapshotHabitCache,
-    rollbackHabitCache,
-    invalidateHabitCaches,
-    cancelHabitQueries,
-} from "./optimistic-helpers";
+import { habitCache } from "./optimistic-helpers";
 import type { ResolveHabitAction, Habit } from "@cadence/contracts/habit";
 import { toast } from "sonner";
 import { patchHabitMonthlyCache, reconcileHabitInCaches } from "../../lib/api/cache-sync";
@@ -58,8 +53,8 @@ export function useResolveHabit(boundHabitId?: string) {
         ),
         onMutate: async (action) => {
             const habitId = idOf(action);
-            await cancelHabitQueries(queryClient);
-            const snapshot = snapshotHabitCache(queryClient);
+            await habitCache.cancel(queryClient);
+            const snapshot = habitCache.snapshot(queryClient);
             const requestKey = makeCellKey(habitId, action.targetDate);
 
             // Helper to update a habit's log status in-place
@@ -105,9 +100,9 @@ export function useResolveHabit(boundHabitId?: string) {
             if (context?.requestKey) {
                 latestResolveByCell.delete(context.requestKey);
             }
-            if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
+            if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Couldn't update routine");
         },
-        onSettled: () => invalidateHabitCaches(queryClient),
+        onSettled: () => habitCache.invalidate(queryClient),
     });
 }

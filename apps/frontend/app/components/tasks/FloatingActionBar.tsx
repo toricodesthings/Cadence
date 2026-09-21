@@ -1,9 +1,10 @@
 import { X, Calendar, CheckSquare, Trash2, Sun, Moon, ArrowRight, Archive, FolderOpen, Hash } from "lucide-react";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useBatchStateTransition, useBatchDeleteTasks, useBatchRescheduleTasks } from "../../hooks/tasks/use-batch-state";
-import { useUpdateTask } from "../../hooks/tasks";
-import { useProjects } from "../../hooks/projects";
-import { useTags, useAddTaskTag } from "../../hooks/tags";
+import { useUpdateTask } from "../../hooks/tasks/use-update-task";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
+import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
 import { toast } from "sonner";
 import * as Popover from "../primitives/Popover";
 import { Button } from "../primitives/Button";

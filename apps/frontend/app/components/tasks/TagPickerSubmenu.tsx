@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Tag as TagIcon, ChevronRight, Plus, Check } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ScrollArea from "../primitives/ScrollArea";
-import { useTags, useCreateTag } from "../../hooks/tags";
+import { useTags } from "../../hooks/tags/use-tags";
+import { useCreateTag } from "../../hooks/tags/use-create-tag";
 import { TAG_PALETTE } from "../../lib/constants/colors";
 
 interface TagPickerSubmenuProps {

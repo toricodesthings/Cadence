@@ -158,9 +158,6 @@ importers:
       '@fontsource-variable/sora':
         specifier: ^5.3.0
         version: 5.3.0
-      '@miconvert/browser-image-compression':
-        specifier: ^1.2.2
-        version: 1.2.2
       '@neondatabase/auth':
         specifier: 0.5.0-beta
         version: 0.5.0-beta(865f4e35de2cc583f3c93d4adf4aacde)
@@ -248,9 +245,6 @@ importers:
       framer-motion:
         specifier: ^13.2.0
         version: 13.2.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      fuse.js:
-        specifier: ^7.5.0
-        version: 7.5.0
       hono:
         specifier: ^4.13.7
         version: 4.13.7
@@ -263,9 +257,6 @@ importers:
       lucide-react:
         specifier: ^1.45.0
         version: 1.45.0(react@19.3.0)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -281,9 +272,6 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
-      rrule:
-        specifier: ^2.8.1
-        version: 2.8.1
       sonner:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1548,9 +1536,6 @@ packages:
     peerDependencies:
       react: ^17.0.2 || ^18.0.0 || ^19.0
       react-dom: ^17.0.2 || ^18.0.0 || ^19.0
-
-  '@miconvert/browser-image-compression@1.2.2':
-    resolution: {integrity: sha512-/5VEnuARObggwg0tuKrlsQdhftM2n6P59zZySGI/8moattDY42w1Gv0BCK3GvgAwMr2EUCQ0YTLSxlA+wuGvzw==}
 
   '@mongodb-js/saslprep@1.5.4':
     resolution: {integrity: sha512-05UC0jQsjKAOuXQ0H9Ud9vUTJpZIg+n/FinpR30tI5I8pY2inTfPOZ5OF/cg3Ce/N9MoD1xhRCeOsJtuTbFYlw==}
@@ -7147,8 +7132,6 @@ snapshots:
     dependencies:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
-
-  '@miconvert/browser-image-compression@1.2.2': {}
 
   '@mongodb-js/saslprep@1.5.4':
     dependencies:

@@ -10,7 +10,7 @@ const useSubtasksByTaskIdsMock = vi.fn();
 const useUpdateTaskMock = vi.fn();
 const useTagsMock = vi.fn();
 
-vi.mock("../../../app/hooks/sections", () => ({
+vi.mock("../../../app/hooks/sections/use-sections", () => ({
     useSections: (projectId?: string | null) => useSectionsMock(projectId),
     useCreateSection: (projectId?: string | null) => useCreateSectionMock(projectId),
     useUpdateSection: (projectId?: string | null) => useUpdateSectionMock(projectId),
@@ -21,11 +21,11 @@ vi.mock("../../../app/hooks/tasks/use-subtasks", () => ({
     useSubtasksByTaskIds: (taskIds: string[]) => useSubtasksByTaskIdsMock(taskIds),
 }));
 
-vi.mock("../../../app/hooks/tasks", () => ({
+vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
     useUpdateTask: () => useUpdateTaskMock(),
 }));
 
-vi.mock("../../../app/hooks/tags", () => ({
+vi.mock("../../../app/hooks/tags/use-tags", () => ({
     useTags: () => useTagsMock(),
 }));
 

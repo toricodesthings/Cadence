@@ -3,7 +3,6 @@ import { API_BASE_URL } from "../env";
 
 type UsageEvent =
     // Capture lifecycle
-    | "capture.opened"
     | "capture.submitted"
     | "capture.clarify_opened"
     | "capture.placed"
@@ -14,38 +13,24 @@ type UsageEvent =
     | "nlp.low_confidence_seen"
     // Task events
     | "task.complete"
-    | "task.reschedule"
     | "task.create"
-    | "task.reorder"
     | "task.quick_action_used"
     | "task.context_menu_opened"
     | "task.context_menu_action"
     // Habit events
-    | "habit.complete"
-    | "habit.skip"
-    | "habit.snooze"
-    | "habit.resume"
-    | "habit.pause"
     | "habit.context_menu_opened"
-    | "habit.context_menu_action"
     // Capture / Inbox events
     | "capture.context_menu_opened"
     | "capture.context_menu_action"
-    | "inbox.capture"
-    | "inbox.process"
     // Project events
     | "project.context_menu_opened"
-    | "project.context_menu_action"
     // Schedule events
-    | "schedule.open"
-    | "schedule.drag"
     | "schedule.drop_completed"
     | "schedule.quick_add_used"
     | "schedule.context_menu_opened"
     | "schedule.context_menu_action"
     // Event events
     | "event.context_menu_opened"
-    | "event.context_menu_action"
     // Keyboard & navigation
     | "shortcut.used"
     | "command_palette.opened"
@@ -54,14 +39,10 @@ type UsageEvent =
     | "reminder.presented"
     | "reminder.deferred"
     | "reminder.dismissed"
-    | "reminder.completed"
     // Weekly reset
     | "weekly_reset.started"
     | "weekly_reset.abandoned"
-    | "weekly_reset.completed"
-    // Search & export
-    | "search.query"
-    | "export.request";
+    | "weekly_reset.completed";
 
 /** Structured telemetry metadata per §11.8 taxonomy */
 export interface UsageEventMetadata {

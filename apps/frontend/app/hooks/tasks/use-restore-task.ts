@@ -1,12 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import {
-    snapshotTaskCache,
-    rollbackTaskCache,
-    invalidateTaskCaches,
-    cancelTaskQueries,
-} from "./optimistic-helpers";
+import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { transformListCache } from "../../lib/api/cache-guards";
@@ -30,8 +25,8 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
         },
 
         onMutate: async (id) => {
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
 
             // Remove from archived/trash cache optimistically
             queryClient.setQueriesData<Task[]>(
@@ -53,10 +48,10 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to restore task");
         },
 
-        onSettled: () => invalidateTaskCaches(queryClient),
+        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

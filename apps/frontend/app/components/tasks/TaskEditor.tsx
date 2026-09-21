@@ -6,16 +6,20 @@ import {
     ExternalLink, Check, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTasks, useUpdateTask, useArchiveTask, useCreateSubtask } from "../../hooks/tasks";
-import { useProjects } from "../../hooks/projects";
-import { useSections } from "../../hooks/sections";
+import { useTasks } from "../../hooks/tasks/use-tasks";
+import { useUpdateTask } from "../../hooks/tasks/use-update-task";
+import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
+import { useCreateSubtask } from "../../hooks/tasks/use-subtasks";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useSections } from "../../hooks/sections/use-sections";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { TagPickerList } from "./TagPickerSubmenu";
 import { TagBubble } from "../sidebar/TagBubble";
-import { useTags, useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
+import { useTags } from "../../hooks/tags/use-tags";
+import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";

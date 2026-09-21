@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import { ChevronDown, ChevronRight, Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TaskList } from "../tasks/TaskList";
-import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections";
+import { useSections, useCreateSection, useUpdateSection, useDeleteSection } from "../../hooks/sections/use-sections";
 import { AddTaskInput } from "./AddTaskInput";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";

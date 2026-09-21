@@ -1,7 +1,6 @@
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { AuthUIProvider } from "@neondatabase/auth/react/ui";
-import { ThemeProvider } from "next-themes";
 import { useNavigate, Link as RouterLink } from "react-router";
 import { toast } from "sonner";
 import { authClient } from "./lib/auth-client";
@@ -296,60 +295,54 @@ function AccountProviders({ children }: { children: ReactNode }) {
     return (
         <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
             <div className="neon-auth-ui">
-                <ThemeProvider
-                    attribute="class"
-                    defaultTheme="dark"
-                    enableSystem
-                >
-                    <AuthUIProvider
-                        authClient={authClient}
-                        navigate={(path) => navigate(path)}
-                        replace={(path) => navigate(path, { replace: true })}
-                        onSessionChange={() => {
-                            // Skip broad invalidation while auth recovery is in
-                            // progress — recovery may trigger onSessionChange via
-                            // getSession(), which would cascade into a refetch loop.
-                            if (recoveryInFlight.current) return;
-                            queryClient.invalidateQueries();
-                        }}
-                        Link={Link}
-                        social={social as any}
-                        multiSession={false}
-                        apiKey={false}
-                        magicLink={false}
-                        passkey={false}
-                        oneTap={false}
-                        genericOAuth={undefined}
-                        twoFactor={undefined}
-                        toast={({ variant = "default", message }) => {
-                            if (!message) return;
+                <AuthUIProvider
+                    authClient={authClient}
+                    navigate={(path) => navigate(path)}
+                    replace={(path) => navigate(path, { replace: true })}
+                    onSessionChange={() => {
+                        // Skip broad invalidation while auth recovery is in
+                        // progress — recovery may trigger onSessionChange via
+                        // getSession(), which would cascade into a refetch loop.
+                        if (recoveryInFlight.current) return;
+                        queryClient.invalidateQueries();
+                    }}
+                    Link={Link}
+                    social={social as any}
+                    multiSession={false}
+                    apiKey={false}
+                    magicLink={false}
+                    passkey={false}
+                    oneTap={false}
+                    genericOAuth={undefined}
+                    twoFactor={undefined}
+                    toast={({ variant = "default", message }) => {
+                        if (!message) return;
 
-                            switch (variant) {
-                                case "success":
-                                    toast.success(message);
-                                    return;
-                                case "error":
-                                    toast.error(message);
-                                    return;
-                                case "warning":
-                                    toast.warning(message);
-                                    return;
-                                case "info":
-                                    toast.info(message);
-                                    return;
-                                default:
-                                    toast.message(message);
-                            }
-                        }}
-                    >
-                        {authReady && session?.user.id && <BackgroundLayer key={session.user.id} />}
-                        <div className="relative">
-                            <WorkspaceStartup>{children}</WorkspaceStartup>
-                        </div>
-                        <Toaster />
-                        <OfflineBanner />
-                    </AuthUIProvider>
-                </ThemeProvider>
+                        switch (variant) {
+                            case "success":
+                                toast.success(message);
+                                return;
+                            case "error":
+                                toast.error(message);
+                                return;
+                            case "warning":
+                                toast.warning(message);
+                                return;
+                            case "info":
+                                toast.info(message);
+                                return;
+                            default:
+                                toast.message(message);
+                        }
+                    }}
+                >
+                    {authReady && session?.user.id && <BackgroundLayer key={session.user.id} />}
+                    <div className="relative">
+                        <WorkspaceStartup>{children}</WorkspaceStartup>
+                    </div>
+                    <Toaster />
+                    <OfflineBanner />
+                </AuthUIProvider>
             </div>
         </PersistQueryClientProvider>
     );

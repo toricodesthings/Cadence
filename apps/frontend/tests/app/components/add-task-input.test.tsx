@@ -5,18 +5,18 @@ import { AddTaskInput } from "../../../app/components/tasks/AddTaskInput";
 const createTaskMutateMock = vi.fn();
 const useNlpParseMock = vi.fn();
 
-vi.mock("../../../app/hooks/tasks", () => ({
+vi.mock("../../../app/hooks/tasks/use-create-task", () => ({
     useCreateTask: () => ({
         mutate: createTaskMutateMock,
         isPending: false,
     }),
 }));
 
-vi.mock("../../../app/hooks/projects", () => ({
+vi.mock("../../../app/hooks/projects/use-projects", () => ({
     useProjects: () => ({ data: [] }),
 }));
 
-vi.mock("../../../app/hooks/tags", () => ({
+vi.mock("../../../app/hooks/tags/use-tags", () => ({
     useTags: () => ({ data: [] }),
 }));
 

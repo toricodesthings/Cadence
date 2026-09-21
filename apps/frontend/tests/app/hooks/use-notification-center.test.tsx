@@ -11,7 +11,7 @@ const fixture = vi.hoisted(() => {
         $get: vi.fn(async () => ({ ok: true, json: async () => ({ data: [] }) })), $post: post,
     } } } } };
 });
-vi.mock("../../../app/hooks/tasks", () => ({ useTasks: () => ({ data: fixture.empty }) }));
+vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: () => ({ data: fixture.empty }) }));
 vi.mock("../../../app/hooks/habits/use-habits", () => ({ useAllHabits: () => ({ data: fixture.empty }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ authReady: true, isAuthenticated: true }) }));

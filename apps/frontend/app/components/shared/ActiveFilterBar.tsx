@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
-import { useTags } from "../../hooks/tags";
+import { useTags } from "../../hooks/tags/use-tags";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Tip } from "../primitives/Tooltip";
 

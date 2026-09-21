@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { invalidateTaskCaches } from "./optimistic-helpers";
+import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
@@ -30,6 +30,6 @@ export function useDuplicateTask() {
             toast.error(err.message || "Failed to duplicate task");
         },
 
-        onSettled: () => invalidateTaskCaches(queryClient),
+        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

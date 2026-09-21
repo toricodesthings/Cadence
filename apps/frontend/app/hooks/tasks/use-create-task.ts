@@ -2,12 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import {
-    snapshotTaskCache,
-    rollbackTaskCache,
-    invalidateTaskCaches,
-    cancelTaskQueries,
-} from "./optimistic-helpers";
+import { taskCache } from "./optimistic-helpers";
 import type { CreateTaskInput, Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
@@ -85,8 +80,8 @@ export function useCreateTask() {
         ),
 
         onMutate: async (input) => {
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
 
             // Build an optimistic task with a temporary ID
             const optimisticTask: Task = {
@@ -131,15 +126,15 @@ export function useCreateTask() {
         onSuccess: (task, _input, context) => {
             if (!task) return; // Queued offline
             if (isRecurringTask(task)) {
-                invalidateTaskCaches(queryClient);
+                taskCache.invalidate(queryClient);
                 return;
             }
             reconcileTaskInCaches(queryClient, task, context?.optimisticId);
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
-            invalidateTaskCaches(queryClient);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
+            taskCache.invalidate(queryClient);
             if (err instanceof ApiErrorResponse && err.status === 429) {
                 showRateLimitToast("Slow down — too many tasks at once. Try again in a moment.");
             } else {

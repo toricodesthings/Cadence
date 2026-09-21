@@ -9,14 +9,14 @@ const useCreateSectionMock = vi.fn();
 const useUpdateSectionMock = vi.fn();
 const useDeleteSectionMock = vi.fn();
 
-vi.mock("../../../app/hooks/sections", () => ({
+vi.mock("../../../app/hooks/sections/use-sections", () => ({
     useSections: (projectId?: string | null) => useSectionsMock(projectId),
     useCreateSection: (projectId?: string | null) => useCreateSectionMock(projectId),
     useUpdateSection: (projectId?: string | null) => useUpdateSectionMock(projectId),
     useDeleteSection: (projectId?: string | null) => useDeleteSectionMock(projectId),
 }));
 
-vi.mock("../../../app/hooks/tasks", () => ({
+vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
     useUpdateTask: () => ({ mutate: vi.fn() }),
 }));
 

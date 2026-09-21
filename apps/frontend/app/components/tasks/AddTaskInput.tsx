@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { Plus, Calendar, CalendarHeart } from "lucide-react";
-import { useCreateTask } from "../../hooks/tasks";
-import { useProjects } from "../../hooks/projects";
-import { useTags } from "../../hooks/tags";
+import { useCreateTask } from "../../hooks/tasks/use-create-task";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import type { Task } from "@cadence/contracts/task";
-import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { QuickAddActionTray } from "./QuickAddActionTray";
 import { ParseSummaryChips } from "./ParseSummaryChips";
@@ -123,7 +122,7 @@ export function AddTaskInput({
             ...(sectionId && { sectionId }),
             ...(parsedInput.waitingOn && { waitingOn: parsedInput.waitingOn }),
             ...(parsedInput.durationMinutes && { durationEstimate: parsedInput.durationMinutes }),
-            nlp: buildCanonicalNlpEnvelope({
+            nlp: {
                 rawInput: value,
                 sourceSurface: "inline_add",
                 dateStyle,
@@ -137,7 +136,7 @@ export function AddTaskInput({
                     scheduledEnd: resolvedDeadline.scheduledEnd ?? null,
                     recurrenceRule: resolvedDeadline.recurrenceRule ?? null,
                 },
-            }),
+            },
         });
 
         setValue("");

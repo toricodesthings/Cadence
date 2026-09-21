@@ -1,8 +1,8 @@
 import { Calendar, Flag, FolderOpen, Hash } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
-import { useProjects } from "../../hooks/projects";
-import { useTags } from "../../hooks/tags";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
 import type { TaskPriority } from "@cadence/contracts/task";
 import { PRIORITY_OPTIONS } from "./task-choice-options";

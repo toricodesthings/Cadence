@@ -11,9 +11,8 @@ import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
 import { QuickScheduleSurface } from "../tasks/QuickScheduleSurface";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useProjects } from "../../hooks/projects";
-import { useTags } from "../../hooks/tags";
-import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
+import { useProjects } from "../../hooks/projects/use-projects";
+import { useTags } from "../../hooks/tags/use-tags";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { trackUsageEvent } from "../../lib/api/track-event";
 
@@ -69,7 +68,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor, detailMode = "pe
         projects: projects.map((p) => ({ id: p.id, name: p.name })),
         tags: tags.map((t) => ({ id: t.id, name: t.name })),
         enabled: intelligenceEnabled,
-        sourceSurface: "clarify_sheet",
+        sourceSurface: "clarify_sheet" as const,
         dateStyle,
         dismissedEntityIds,
         confidenceThreshold,
@@ -99,23 +98,22 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor, detailMode = "pe
         if (nlp.cleanedTitle) setEditedTitle(nlp.cleanedTitle);
     }, [nlp.cleanedTitle]);
 
-    const buildNlpEnvelope = (scheduledDate?: string) =>
-        buildCanonicalNlpEnvelope({
-            rawInput: item.rawText,
-            sourceSurface: "clarify_sheet",
-            dateStyle,
-            dismissedEntityIds,
-            userOverrides: {
-                title: editedTitle,
-                scheduledDate: scheduledDate ?? null,
-                projectId: nlp.projectId,
-                tagIds: nlp.tagIds,
-                priority: nlp.priority,
-                durationEstimate: nlp.durationMinutes,
-                recurrenceRule: nlp.recurrenceRule,
-                waitingOn: nlp.waitingOn,
-            },
-        });
+    const buildNlpEnvelope = (scheduledDate?: string) => ({
+        rawInput: item.rawText,
+        sourceSurface: "clarify_sheet" as const,
+        dateStyle,
+        dismissedEntityIds,
+        userOverrides: {
+            title: editedTitle,
+            scheduledDate: scheduledDate ?? null,
+            projectId: nlp.projectId,
+            tagIds: nlp.tagIds,
+            priority: nlp.priority,
+            durationEstimate: nlp.durationMinutes,
+            recurrenceRule: nlp.recurrenceRule,
+            waitingOn: nlp.waitingOn,
+        },
+    });
 
     const place = (
         schedule?: {

@@ -31,8 +31,6 @@ export default defineConfig(({ mode }) => ({
       "framer-motion",
       "react-markdown",
       "remark-gfm",
-      "rrule",
-      "fuse.js",
       "date-fns",
       "lucide-react",
       "sonner",

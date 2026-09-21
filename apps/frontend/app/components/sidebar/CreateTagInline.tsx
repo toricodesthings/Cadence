@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Check, X } from "lucide-react";
-import { useCreateTag } from "../../hooks/tags";
+import { useCreateTag } from "../../hooks/tags/use-create-tag";
 import { TAG_PALETTE } from "../../lib/constants/colors";
 
 interface CreateTagInlineProps {

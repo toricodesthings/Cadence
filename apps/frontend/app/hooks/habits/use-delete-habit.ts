@@ -2,12 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import {
-    snapshotHabitCache,
-    rollbackHabitCache,
-    invalidateHabitCaches,
-    cancelHabitQueries,
-} from "./optimistic-helpers";
+import { habitCache } from "./optimistic-helpers";
 import { toast } from "sonner";
 import { removeHabitFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
@@ -29,8 +24,8 @@ export function useDeleteHabit() {
         ),
 
         onMutate: async (id) => {
-            await cancelHabitQueries(queryClient);
-            const snapshot = snapshotHabitCache(queryClient);
+            await habitCache.cancel(queryClient);
+            const snapshot = habitCache.snapshot(queryClient);
 
             // Remove from both flat list and weekly caches
             const remove = <T extends { id: string }>(old: T[] | undefined) =>
@@ -47,10 +42,10 @@ export function useDeleteHabit() {
         },
 
         onError: (err, _id, context) => {
-            if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
+            if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Couldn't delete routine");
         },
 
-        onSettled: () => invalidateHabitCaches(queryClient),
+        onSettled: () => habitCache.invalidate(queryClient),
     });
 }

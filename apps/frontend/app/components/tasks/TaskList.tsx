@@ -19,8 +19,8 @@ import {
 } from "@dnd-kit/sortable";
 import { SortableTaskCard } from "./SortableTaskCard";
 import { TaskCard } from "./TaskCard";
-import { useReorderTask } from "../../hooks/tasks";
-import { useTags } from "../../hooks/tags";
+import { useReorderTask } from "../../hooks/tasks/use-reorder-task";
+import { useTags } from "../../hooks/tags/use-tags";
 import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { computeMidpointIndex } from "../../lib/utils/order-index";
 import { TaskContextMenuWrapper } from "./TaskContextMenuWrapper";

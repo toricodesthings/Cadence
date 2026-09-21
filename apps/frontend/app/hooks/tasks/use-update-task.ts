@@ -2,12 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import {
-    snapshotTaskCache,
-    rollbackTaskCache,
-    invalidateTaskCaches,
-    cancelTaskQueries,
-} from "./optimistic-helpers";
+import { taskCache } from "./optimistic-helpers";
 import type { Task, UpdateTaskInput } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
@@ -67,8 +62,8 @@ export function useUpdateTask() {
 
         onMutate: async ({ id, ...raw }) => {
             const updates = normalizeDateRange(raw);
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
 
             queryClient.setQueriesData<Task[]>(
                 { queryKey: queryKeys.tasks.all },
@@ -81,21 +76,21 @@ export function useUpdateTask() {
         onSuccess: (task) => {
             if (!task) return; // Queued offline
             if (isRecurringTask(task)) {
-                invalidateTaskCaches(queryClient);
+                taskCache.invalidate(queryClient);
                 return;
             }
             reconcileTaskInCaches(queryClient, task);
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             const message = err instanceof Error ? err.message : "Failed to update task";
             if (/conflict|modified|stale/i.test(message)) {
                 toast.error("Task changed elsewhere. Reloading the latest version.");
             } else {
                 toast.error(message || "Failed to update task");
             }
-            invalidateTaskCaches(queryClient);
+            taskCache.invalidate(queryClient);
         },
     });
 }

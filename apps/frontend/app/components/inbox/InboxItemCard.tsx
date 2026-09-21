@@ -3,7 +3,6 @@ import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { relativeTime } from "../../lib/utils/date-format";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useSettings } from "../../hooks/core/use-settings";
-import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { isPersistedId } from "../../lib/api/optimistic-id";
 import { Sun, Sparkles, Search, MoreHorizontal, Sunrise, Clock, Trash2, Loader2 } from "lucide-react";
@@ -62,23 +61,22 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
         : null;
     const dateStyle = userSettings?.dateTime?.dateStyle ?? "mdy";
 
-    const buildInboxEnvelope = (scheduledDate?: string) =>
-        buildCanonicalNlpEnvelope({
-            rawInput: analysis?.rawInput ?? item.rawText,
-            sourceSurface: analysis?.sourceSurface ?? "inbox",
-            dateStyle: analysis?.dateStyle ?? dateStyle,
-            dismissedEntityIds: analysis?.dismissedEntityIds ?? [],
-            userOverrides: {
-                ...(analysis?.userOverrides ?? {}),
-                scheduledDate: scheduledDate ?? null,
-                projectId: analysis?.projectId ?? null,
-                tagIds: analysis?.tagIds ?? [],
-                priority: analysis?.priority ?? null,
-                durationEstimate: analysis?.durationEstimate ?? null,
-                recurrenceRule: analysis?.recurrenceRule ?? null,
-                waitingOn: analysis?.waitingOn ?? null,
-            },
-        });
+    const buildInboxEnvelope = (scheduledDate?: string) => ({
+        rawInput: analysis?.rawInput ?? item.rawText,
+        sourceSurface: analysis?.sourceSurface ?? "inbox",
+        dateStyle: analysis?.dateStyle ?? dateStyle,
+        dismissedEntityIds: analysis?.dismissedEntityIds ?? [],
+        userOverrides: {
+            ...(analysis?.userOverrides ?? {}),
+            scheduledDate: scheduledDate ?? null,
+            projectId: analysis?.projectId ?? null,
+            tagIds: analysis?.tagIds ?? [],
+            priority: analysis?.priority ?? null,
+            durationEstimate: analysis?.durationEstimate ?? null,
+            recurrenceRule: analysis?.recurrenceRule ?? null,
+            waitingOn: analysis?.waitingOn ?? null,
+        },
+    });
 
     const trackCaptureAction = (outcome: string) => {
         trackUsageEvent("capture.context_menu_action", { object_type: "capture", outcome });

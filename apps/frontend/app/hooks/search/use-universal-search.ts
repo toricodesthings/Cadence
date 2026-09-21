@@ -1,10 +1,10 @@
 import { useMemo, useDeferredValue } from "react";
 import { useTasks } from "../tasks/use-tasks";
-import { useSubtasksByTaskIds } from "../tasks";
+import { useSubtasksByTaskIds } from "../tasks/use-subtasks";
 import { useAllHabits } from "../habits/use-habits";
-import { useInbox } from "../inbox";
-import { useProjects } from "../projects";
-import { useSections } from "../sections";
+import { useInbox } from "../inbox/use-inbox";
+import { useProjects } from "../projects/use-projects";
+import { useSections } from "../sections/use-sections";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import type { FocusKind } from "./use-route-focus";

@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useTasks } from "../tasks";
+import { useTasks } from "../tasks/use-tasks";
 import { useAllHabits } from "../habits/use-habits";
 import { useSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";

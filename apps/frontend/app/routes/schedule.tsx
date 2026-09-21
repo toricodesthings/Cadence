@@ -30,7 +30,8 @@ import { ScheduleHeader, type CalendarViewMode } from "../components/calendar/Sc
 import { CalendarTaskChipOverlay } from "../components/calendar/CalendarTaskChip";
 import { CalendarEventPopover, type CalendarEventInfo } from "../components/calendar/CalendarEventPopover";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
-import { useTasks, useUpdateTask } from "../hooks/tasks";
+import { useTasks } from "../hooks/tasks/use-tasks";
+import { useUpdateTask } from "../hooks/tasks/use-update-task";
 import {
     toISODate,
     getMonthDateRange,

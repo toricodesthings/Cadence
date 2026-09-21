@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
-import { SIDE_PANEL_SURFACE } from "../shared/side-panel-surface";
 import { PLACE_DROP, dayLabel, useWeekLoad } from "./PlaceSheet";
 import { formatTime, getWeekStart, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
@@ -37,7 +36,7 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
     );
 
     return (
-        <div className={`photo-shell-surface ${SIDE_PANEL_SURFACE} flex h-full flex-col`}>
+        <div className="photo-shell-surface surface-shell flex h-full flex-col">
             {/* Header — mirrors the Cadence panel header so the two rail panes read
                 as siblings (same height, font-display title, lantern-glow icon). */}
             <header className="flex h-(--shell-header-h) shrink-0 items-center gap-3 border-b border-twilight-border px-4">

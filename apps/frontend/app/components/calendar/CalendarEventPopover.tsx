@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Bell, CalendarHeart, CalendarRange, Clock3, Flag, Gauge, Milestone, StickyNote } from "lucide-react";
 import { toast } from "sonner";
-import { useCreateTask } from "../../hooks/tasks";
+import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
 import { formatShortDateLabel } from "../../lib/utils/date-format";

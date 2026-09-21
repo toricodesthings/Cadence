@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { CalendarCheck, CalendarRange, CalendarX, Clock, Play, X } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
-import { useUpdateTask } from "../../hooks/tasks";
+import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { DateOnlyPickerPopover } from "./DateOnlyPickerPopover";
 import { TimePicker, Tip } from "../primitives";

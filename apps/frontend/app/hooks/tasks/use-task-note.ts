@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useTasks } from "../tasks";
+import { useTasks } from "./use-tasks";
 import { useDebouncedCallback } from "../core/use-debounced-callback";
 import type { SaveStatus } from "../../components/tasks/TaskNoteSaveStatus";
 import { getNoteOwnerTaskId } from "../../lib/notes/recurring-note-scope";

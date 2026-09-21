@@ -1,32 +1,40 @@
-import imageCompression from "@miconvert/browser-image-compression";
 import { BACKGROUND_IMAGE_LIMITS } from "@cadence/contracts/settings";
 
 /**
- * Compresses an image file natively in the browser and returns a base64 Data URL.
- * Designed safely for limits like Neon Auth's avatar storage.
- * 
- * @param file The raw input file from an <input type="file" />
- * @param maxSizeMB Maximum size of returning image (default 0.1 / 100KB)
- * @param maxWidthOrHeight Hard limiter on height/width pixels
- * @returns {Promise<string>} A base64 resolving Data URI representation of the WEBP
+ * Re-encode an image as WebP, no larger than `maxDimension` on its long side.
+ * Drawing through a canvas also drops camera metadata (EXIF, including GPS).
+ * Steps down through `qualities` until the result fits `maxBytes`.
  */
-export async function compressImageToBase64(
-    file: File,
-    maxSizeMB: number = 0.1,
-    maxWidthOrHeight: number = 256
-): Promise<string> {
-    const options = {
-        maxSizeMB,
-        maxWidthOrHeight,
-        useWebWorker: true,
-        fileType: "image/webp" as const
-    };
+async function encodeWebp(file: Blob, maxDimension: number, qualities: number[], maxBytes = Infinity): Promise<Blob> {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    try {
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Canvas is unavailable for preparing that image.");
+        context.imageSmoothingQuality = "high";
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        let blob!: Blob;
+        for (const quality of qualities) {
+            blob = await canvasToBlob(canvas, quality);
+            if (blob.size <= maxBytes) break;
+        }
+        return blob;
+    } finally {
+        bitmap.close();
+        discardCanvas(canvas);
+    }
+}
 
-    const compressedFile = await imageCompression(file, options);
+/** Shrink an avatar to a small WebP data URL (Neon Auth stores it inline). */
+export async function compressImageToBase64(file: File): Promise<string> {
+    const compressed = await encodeWebp(file, 256, [0.8]);
 
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.readAsDataURL(compressedFile);
+        reader.readAsDataURL(compressed);
         reader.onloadend = () => {
             if (typeof reader.result === "string") {
                 resolve(reader.result);
@@ -39,22 +47,12 @@ export async function compressImageToBase64(
 }
 
 /**
- * Compress a user-selected photo for use as an app background.
- *
- * Re-encoding through a canvas also drops camera metadata (EXIF, including GPS)
- * before the file ever leaves the device. The server re-checks and strips again.
- *
- * @param file The raw input file from an <input type="file" />
- * @returns A WebP file sized for a large display
+ * Compress a user-selected photo for use as an app background, sized for a large
+ * display and under the API's byte limit. The server re-checks and strips again.
  */
 export async function compressBackgroundImage(file: File): Promise<File> {
-    return imageCompression(file, {
-        maxSizeMB: 1.4,
-        maxWidthOrHeight: BACKGROUND_IMAGE_LIMITS.maxDimension,
-        initialQuality: 0.86,
-        useWebWorker: true,
-        fileType: "image/webp" as const,
-    });
+    const blob = await encodeWebp(file, BACKGROUND_IMAGE_LIMITS.maxDimension, [0.86, 0.72, 0.58], BACKGROUND_IMAGE_LIMITS.maxBytes);
+    return new File([blob], "background.webp", { type: "image/webp" });
 }
 
 /**

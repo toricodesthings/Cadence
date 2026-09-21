@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { useCreateProject } from "../../hooks/projects";
+import { useCreateProject } from "../../hooks/projects/use-create-project";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { Button } from "../primitives/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../primitives/Dialog";

@@ -6,7 +6,7 @@ import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { CheckCircle2 } from "lucide-react";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { useTasks } from "../hooks/tasks";
+import { useTasks } from "../hooks/tasks/use-tasks";
 import { TaskCard } from "../components/tasks/TaskCard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";

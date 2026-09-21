@@ -8,11 +8,10 @@ const { process, update, parse } = vi.hoisted(() => ({ process: vi.fn(), update:
 vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({ useProcessInboxToTask: () => ({ mutate: process, isPending: false }), todayISO: () => "2026-09-16", tomorrowISO: () => "2026-09-17" }));
 vi.mock("../../../app/hooks/inbox/use-update-inbox-item", () => ({ useUpdateInboxItem: () => ({ mutate: update, isPending: false }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: {} }) }));
-vi.mock("../../../app/hooks/projects", () => ({ useProjects: () => ({ data: [] }) }));
-vi.mock("../../../app/hooks/tags", () => ({ useTags: () => ({ data: [] }) }));
+vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
+vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/use-nlp-parse", () => ({ useNlpParse: parse }));
 vi.mock("../../../app/lib/api/track-event", () => ({ trackUsageEvent: vi.fn() }));
-vi.mock("../../../app/lib/nlp/build-canonical-envelope", () => ({ buildCanonicalNlpEnvelope: (value: unknown) => value }));
 vi.mock("../../../app/components/tasks/ParseSummaryChips", () => ({ ParseSummaryChips: ({ onDismiss }: { onDismiss: (id: string) => void }) => <button onClick={() => onDismiss("date-1")}>Dismiss detected date</button> }));
 vi.mock("../../../app/components/tasks/QuickScheduleSurface", () => ({ QuickScheduleSurface: ({ onChange }: { onChange: (value: unknown) => void }) => <button onClick={() => onChange({ dueDate: "2026-09-20", recurrenceRule: "FREQ=WEEKLY", isAllDay: true })}>Pick custom schedule</button> }));
 const item = { id: "capture-1", rawText: "Call Sam tomorrow", createdAt: "2026-09-15T12:00:00Z", aiSuggestion: "Keep it brief" } as InboxItem;

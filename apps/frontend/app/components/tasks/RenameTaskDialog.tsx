@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../primitives/Dialog";
 import { Button } from "../primitives/Button";
-import { useUpdateTask } from "../../hooks/tasks";
+import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 
 interface RenameTaskDialogProps {
     taskId: string | null;

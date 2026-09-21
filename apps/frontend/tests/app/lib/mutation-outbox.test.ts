@@ -3,7 +3,7 @@ import type { MutationOp } from "../../../app/lib/api/offline-wal";
 
 // We need to test the module's internal queue behavior
 // Reset the module state between tests
-let queueMutation: typeof import("../../../app/lib/api/mutation-outbox").queueMutation;
+let queueMutation: typeof import("../../../app/lib/api/offline-wal").enqueueWalEntry;
 
 // Mock idb-keyval to avoid IndexedDB in tests
 vi.mock("idb-keyval", () => ({
@@ -17,8 +17,8 @@ describe("mutation-outbox", () => {
     beforeEach(async () => {
         vi.resetModules();
         // Re-import fresh module for each test to get a clean queue
-        const mod = await import("../../../app/lib/api/mutation-outbox");
-        queueMutation = mod.queueMutation;
+        const mod = await import("../../../app/lib/api/offline-wal");
+        queueMutation = mod.enqueueWalEntry;
     });
 
     it("queues the mutation operation to the WAL", async () => {

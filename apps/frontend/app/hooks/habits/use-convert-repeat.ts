@@ -5,8 +5,8 @@ import type { Task } from "@cadence/contracts/task";
 import { useApiClient } from "../auth/use-api-client";
 import { useCreateTask } from "../tasks/use-create-task";
 import { useCreateHabit } from "./use-create-habit";
-import { invalidateTaskCaches } from "../tasks/optimistic-helpers";
-import { invalidateHabitCaches } from "./optimistic-helpers";
+import { taskCache } from "../tasks/optimistic-helpers";
+import { habitCache } from "./optimistic-helpers";
 import { getTaskMutationTargetId, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import { toISODate } from "../../lib/utils/date-format";
 
@@ -42,8 +42,8 @@ export function useConvertRepeat() {
         await client.api.habits[":id"].$patch({ param: { id }, json: { archived } });
     };
     const settle = () => {
-        invalidateTaskCaches(queryClient);
-        invalidateHabitCaches(queryClient);
+        taskCache.invalidate(queryClient);
+        habitCache.invalidate(queryClient);
     };
 
     const taskToRoutine = async (task: Task) => {

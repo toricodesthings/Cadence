@@ -1,6 +1,6 @@
 import { ListTodo, ArrowRightCircle } from "lucide-react";
 import { extractActionableLines } from "../../lib/notes/markdown-transforms";
-import { useCreateSubtask } from "../../hooks/tasks";
+import { useCreateSubtask } from "../../hooks/tasks/use-subtasks";
 
 interface TaskNoteConvertMenuProps {
     taskId: string;

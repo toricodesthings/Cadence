@@ -1,6 +1,10 @@
 import { useState, useMemo, useCallback } from "react";
-import { useInbox, useDeleteInboxItem } from "../inbox";
-import { useTasks, useUpdateTask, useCreateTask, useArchiveTask } from "../tasks";
+import { useInbox } from "../inbox/use-inbox";
+import { useDeleteInboxItem } from "../inbox/use-delete-inbox-item";
+import { useTasks } from "../tasks/use-tasks";
+import { useUpdateTask } from "../tasks/use-update-task";
+import { useCreateTask } from "../tasks/use-create-task";
+import { useArchiveTask } from "../tasks/use-archive-task";
 import { useHabitsWeekly } from "../habits/use-habits";
 import { usePauseHabit } from "../habits/use-pause-habit";
 import { toISODate } from "../../lib/utils/date-format";

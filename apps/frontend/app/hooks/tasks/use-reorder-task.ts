@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { invalidateTaskCaches, snapshotTaskCache, rollbackTaskCache, cancelTaskQueries } from "./optimistic-helpers";
+import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
@@ -28,8 +28,8 @@ export function useReorderTask() {
             },
         ),
         onMutate: async ({ id, orderIndex, orderedTaskIds }) => {
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
             const rank = new Map(orderedTaskIds.map((taskId, index) => [taskId, index] as const));
 
             queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
@@ -59,9 +59,9 @@ export function useReorderTask() {
             reconcileTaskInCaches(queryClient, task);
         },
         onError: (err, _vars, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to reorder task");
-            invalidateTaskCaches(queryClient);
+            taskCache.invalidate(queryClient);
         },
     });
 }

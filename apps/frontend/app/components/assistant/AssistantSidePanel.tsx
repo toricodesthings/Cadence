@@ -37,7 +37,6 @@ import { authenticatedFetch } from "../../lib/api/client";
 import { stopServerStream } from "../../lib/ai/stop-stream";
 import { deriveFallbackTitle } from "@cadence/domain/ai-title";
 import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData } from "@cadence/contracts/ai";
-import { SIDE_PANEL_SURFACE } from "../shared/side-panel-surface";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
 
@@ -608,7 +607,7 @@ export function AssistantSidePanel({
 
     const panelContent = (
         <div
-            className={`${SIDE_PANEL_SURFACE} flex h-full flex-col ${isMobile ? "" : "photo-shell-surface"}`}
+            className={`surface-shell flex h-full flex-col ${isMobile ? "" : "photo-shell-surface"}`}
             role="dialog"
             aria-label={`${assistantName} assistant conversation`}
         >

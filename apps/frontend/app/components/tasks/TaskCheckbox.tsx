@@ -1,4 +1,4 @@
-import { useUpdateTask } from "../../hooks/tasks";
+import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useUpdateSubtask } from "../../hooks/tasks/use-subtasks";
 import { useTaskCompletionStore } from "../../stores/task-completion-store";
 import { useSettings } from "../../hooks/core/use-settings";

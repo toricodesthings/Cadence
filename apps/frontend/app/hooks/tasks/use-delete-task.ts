@@ -2,12 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import {
-    snapshotTaskCache,
-    rollbackTaskCache,
-    invalidateTaskCaches,
-    cancelTaskQueries,
-} from "./optimistic-helpers";
+import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { removeTaskFromCaches } from "../../lib/api/cache-sync";
@@ -29,8 +24,8 @@ export function useDeleteTask() {
         ),
 
         onMutate: async (id) => {
-            await cancelTaskQueries(queryClient);
-            const snapshot = snapshotTaskCache(queryClient);
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
 
             queryClient.setQueriesData<Task[]>(
                 { queryKey: queryKeys.tasks.all },
@@ -45,10 +40,10 @@ export function useDeleteTask() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) rollbackTaskCache(queryClient, context.snapshot);
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to delete task");
         },
 
-        onSettled: () => invalidateTaskCaches(queryClient),
+        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

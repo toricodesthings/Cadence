@@ -1,7 +1,7 @@
 import React from "react";
 import { Columns3, ChevronRight } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
-import { useSections } from "../../hooks/sections";
+import { useSections } from "../../hooks/sections/use-sections";
 
 interface MoveToSectionSubmenuProps {
     currentProjectId: string | null;
