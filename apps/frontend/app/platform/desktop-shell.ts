@@ -1,7 +1,7 @@
 import { getCurrentWindow, Window } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { QuickAddTab } from "../components/quick-add/QuickAddSurface";
-import { getNativeStore, IS_DESKTOP_RUNTIME } from "./runtime";
+import { getNativeStore, getWebStorage, hasDesktopWindow } from "./runtime";
 
 export const MAIN_DESKTOP_WINDOW_LABEL = "main";
 export const QUICK_CAPTURE_WINDOW_LABEL = "quick-capture";
@@ -39,20 +39,8 @@ export interface QuickCaptureCompletionPayload {
     route: string;
 }
 
-function hasDesktopWindowRuntime() {
-    return IS_DESKTOP_RUNTIME && typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
-function getFallbackStorage() {
-    if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
-        return null;
-    }
-
-    return window.localStorage;
-}
-
 export async function getCurrentDesktopWindowLabel() {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return null;
     }
 
@@ -60,7 +48,7 @@ export async function getCurrentDesktopWindowLabel() {
 }
 
 export async function listenForDesktopCommands(handler: (payload: DesktopCommandPayload) => void) {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return () => undefined;
     }
 
@@ -70,7 +58,7 @@ export async function listenForDesktopCommands(handler: (payload: DesktopCommand
 }
 
 export async function listenForQuickCaptureCompletions(handler: (payload: QuickCaptureCompletionPayload) => void) {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return () => undefined;
     }
 
@@ -80,7 +68,7 @@ export async function listenForQuickCaptureCompletions(handler: (payload: QuickC
 }
 
 export async function rememberDesktopWorkspaceRoute(route: string) {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return;
     }
 
@@ -90,11 +78,11 @@ export async function rememberDesktopWorkspaceRoute(route: string) {
         return;
     }
 
-    getFallbackStorage()?.setItem(DESKTOP_LAST_ROUTE_FALLBACK_KEY, route);
+    getWebStorage()?.setItem(DESKTOP_LAST_ROUTE_FALLBACK_KEY, route);
 }
 
 export async function readRememberedDesktopWorkspaceRoute() {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return null;
     }
 
@@ -104,11 +92,11 @@ export async function readRememberedDesktopWorkspaceRoute() {
         return typeof route === "string" ? route : null;
     }
 
-    return getFallbackStorage()?.getItem(DESKTOP_LAST_ROUTE_FALLBACK_KEY) ?? null;
+    return getWebStorage()?.getItem(DESKTOP_LAST_ROUTE_FALLBACK_KEY) ?? null;
 }
 
 export async function focusMainDesktopWindow() {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return;
     }
 
@@ -143,7 +131,7 @@ async function waitForWindow(webviewWindow: WebviewWindow) {
 }
 
 export async function openQuickCaptureWindow(tab: QuickAddTab = "task") {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return;
     }
 
@@ -176,7 +164,7 @@ export async function openQuickCaptureWindow(tab: QuickAddTab = "task") {
 }
 
 export async function completeQuickCapture(route: string) {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return;
     }
 
@@ -190,7 +178,7 @@ export async function completeQuickCapture(route: string) {
 }
 
 export async function closeCurrentDesktopWindow() {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return;
     }
 
@@ -198,7 +186,7 @@ export async function closeCurrentDesktopWindow() {
 }
 
 export async function configureGlobalQuickCaptureShortcut(enabled: boolean) {
-    if (!hasDesktopWindowRuntime()) {
+    if (!hasDesktopWindow()) {
         return;
     }
 

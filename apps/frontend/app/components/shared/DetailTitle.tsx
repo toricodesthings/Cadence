@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type RefObject, type ReactNode } from "react";
 
 /** Save title changes on blur/Enter, and keep titles readable while resizing. */
-export function DetailTitle({ value, onSave, onDraftChange, children, label, maxLength, textareaRef }: {
+export function DetailTitle({ value, onSave, onDraftChange, children, leading, label, maxLength, textareaRef }: {
     value: string;
     onSave: (value: string) => void;
     onDraftChange?: (value: string) => void;
     children?: ReactNode;
+    /** Sits before the title, e.g. an emoji picker. */
+    leading?: ReactNode;
     label: string;
     maxLength?: number;
     textareaRef?: RefObject<HTMLTextAreaElement | null>;
@@ -28,6 +30,8 @@ export function DetailTitle({ value, onSave, onDraftChange, children, label, max
     return (
         <section className="shrink-0 rounded-[1.35rem] border border-twilight-border/35 bg-white/[0.025] px-5 py-4">
             <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Title</p>
+            <div className="flex items-start gap-3">
+            {leading}
             <textarea ref={ref} rows={1} value={draft} maxLength={maxLength} aria-label={label}
                 onChange={(e) => { setDraft(e.target.value); onDraftChange?.(e.target.value); }}
                 onBlur={() => {
@@ -41,6 +45,7 @@ export function DetailTitle({ value, onSave, onDraftChange, children, label, max
                 }}
                 className="min-h-0 w-full resize-none overflow-hidden bg-transparent font-display text-[1.3rem] font-semibold leading-[1.25] tracking-[-0.025em] text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
             />
+            </div>
             {children}
         </section>
     );

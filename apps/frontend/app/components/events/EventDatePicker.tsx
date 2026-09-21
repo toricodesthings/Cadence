@@ -2,28 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { CalendarGrid } from "../calendar/CalendarGrid";
 import * as Popover from "../primitives/Popover";
-import { getDateFormatConfig, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { formatShortDateLabel, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 
 const EMPTY_DAY_SET = new Set<number>();
-
-function formatDateLabel(date: string) {
-    const config = getDateFormatConfig();
-    const d = parseLocalDate(date);
-    if (config.dateStyle === "dmy") {
-        return d.toLocaleDateString("en-GB", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
-    }
-    return d.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-}
 
 export function EventDatePicker({
     value,
@@ -81,14 +62,14 @@ export function EventDatePicker({
                         <span className={`flex items-center justify-center bg-white/[0.04] text-moonlit ${compact ? "h-8 w-8 rounded-lg" : "h-9 w-9 rounded-xl"}`}>
                             <Calendar size={16} aria-hidden="true" />
                         </span>
-                        <span className="text-sm font-medium text-twilight-text">{formatDateLabel(value)}</span>
+                        <span className="text-sm font-medium text-twilight-text">{formatShortDateLabel(value, { year: true })}</span>
                     </span>
                 </button>
             </Popover.Trigger>
             <Popover.Content
                 side="bottom"
                 align="start"
-                className="layer-system-dialog z-[120] w-[20rem] overflow-hidden rounded-[24px] p-0"
+                className="w-[20rem] overflow-hidden rounded-[24px] p-0"
             >
                 <div className="border-b border-twilight-border/40 px-3 py-2.5">
                     <div className="flex items-center justify-between">

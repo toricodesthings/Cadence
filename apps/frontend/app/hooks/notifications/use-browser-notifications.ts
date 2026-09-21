@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
 import type { AppNotification } from "../../lib/notifications/notification-model";
+import { isInQuietHours } from "../../lib/notifications/reminder-engine";
 import {
     getNotificationPermission,
     requestNotificationPermission,
@@ -9,31 +10,6 @@ import {
 import { useState } from "react";
 
 export type NotificationPermission = "default" | "granted" | "denied";
-
-/**
- * Check if the current time falls within quiet hours.
- * Handles midnight crossing (e.g. 22:00 → 07:00).
- */
-function isInQuietHours(
-    now: Date,
-    enabled: boolean,
-    start: string | null,
-    end: string | null,
-): boolean {
-    if (!enabled || !start || !end) return false;
-    const [sh, sm] = start.split(":").map(Number);
-    const [eh, em] = end.split(":").map(Number);
-    const current = now.getHours() * 60 + now.getMinutes();
-    const startMin = sh * 60 + sm;
-    const endMin = eh * 60 + em;
-
-    if (startMin <= endMin) {
-        // Same-day range (e.g. 09:00 → 17:00)
-        return current >= startMin && current < endMin;
-    }
-    // Crosses midnight (e.g. 22:00 → 07:00)
-    return current >= startMin || current < endMin;
-}
 
 /**
  * Returns the current platform notification permission state.

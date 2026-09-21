@@ -1,19 +1,11 @@
 import { useMemo } from "react";
+import { getDaysInMonth, getFirstDayOfWeek, weekdayLabels } from "../../lib/utils/date-format";
 import { CalendarDayCell } from "./CalendarDayCell";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "@cadence/contracts/task";
 
-const DAYS_SHORT = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-const DAYS_FULL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function getDaysInMonth(y: number, m: number) {
-    return new Date(y, m + 1, 0).getDate();
-}
-
-function getFirstDayOfWeek(y: number, m: number) {
-    const d = new Date(y, m, 1).getDay();
-    return d === 0 ? 6 : d - 1;
-}
+const DAYS_SHORT = weekdayLabels(2);
+const DAYS_FULL = weekdayLabels(3);
 
 interface CalendarGridProps {
     year: number;

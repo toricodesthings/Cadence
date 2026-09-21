@@ -17,7 +17,8 @@ import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
 import { DeferredMount } from "../shared/DeferredMount";
 import type { CSSProperties } from "react";
-import { lazy, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { useOnlineStatus } from "../../hooks/core/use-online-status";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDocumentMeta } from "../../hooks/core/use-document-meta";
@@ -121,24 +122,6 @@ interface ShellHeaderConfig {
     accentColor?: string;
 }
 
-function subscribeToNetworkState(listener: () => void) {
-    window.addEventListener("online", listener);
-    window.addEventListener("offline", listener);
-
-    return () => {
-        window.removeEventListener("online", listener);
-        window.removeEventListener("offline", listener);
-    };
-}
-
-function getNetworkSnapshot() {
-    return navigator.onLine;
-}
-
-function getServerNetworkSnapshot() {
-    return true;
-}
-
 function DesktopHeaderStatus({
     onOpenPrivacySettings,
     onOpenSyncInspector,
@@ -146,7 +129,7 @@ function DesktopHeaderStatus({
     onOpenPrivacySettings: () => void;
     onOpenSyncInspector: () => void;
 }) {
-    const isOnline = useSyncExternalStore(subscribeToNetworkState, getNetworkSnapshot, getServerNetworkSnapshot);
+    const isOnline = useOnlineStatus();
     const outbox = useMutationOutbox();
     const update = useAvailableDesktopUpdate();
     const { layoutScale, setLayoutScale, stepLayoutScale } = useDesktopLayoutScale();

@@ -12,8 +12,7 @@ import {
     useDeleteConversation,
 } from "../../hooks/ai/use-conversation-mutations";
 import { ConversationListItem } from "./ConversationListItem";
-
-const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
 /**
  * The saved-conversations history drawer (design §7). An in-panel surface

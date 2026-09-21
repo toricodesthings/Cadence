@@ -1,8 +1,8 @@
 import { Check, Loader2, Inbox, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Tip } from "../primitives";
+import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
-const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 /** A short spring used for icons popping in on settle (purposeful, not bouncy). */
 const SETTLE_POP = { type: "spring" as const, stiffness: 500, damping: 28 };
 

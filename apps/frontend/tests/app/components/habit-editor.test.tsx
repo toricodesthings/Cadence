@@ -41,7 +41,7 @@ describe("HabitEditor", () => {
         fireEvent.change(screen.getByLabelText("Routine purpose"), { target: { value: "Stay active" } });
         fireEvent.blur(screen.getByLabelText("Routine purpose"));
         expect(update).toHaveBeenCalledWith({ id: habit.id, description: "Stay active" });
-        fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Weekdays" }));
         expect(update).toHaveBeenCalledWith({ id: habit.id, recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" });
         fireEvent.change(screen.getByLabelText("Routine usual time"), { target: { value: "10:30" } });
         expect(update).toHaveBeenCalledWith({ id: habit.id, targetTime: "10:30" });

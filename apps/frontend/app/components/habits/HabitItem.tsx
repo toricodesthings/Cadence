@@ -5,6 +5,7 @@ import type { Habit, HabitLog } from "@cadence/contracts/habit";
 import { useState } from "react";
 import * as Popover from "../primitives/Popover";
 import { toISODate } from "../../lib/utils/date-format";
+import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 
 interface HabitItemProps {
     habit: Habit;
@@ -15,6 +16,7 @@ interface HabitItemProps {
 export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
     const { mutate: resolveHabit } = useResolveHabit(habit.id);
     const [open, setOpen] = useState(false);
+    const isCoarsePointer = useIsCoarsePointer();
 
     const today = toISODate(new Date());
     const isCompleted = log.status === "COMPLETED";
@@ -31,9 +33,8 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
         e.stopPropagation();
         e.preventDefault();
 
-        // On touch (coarse pointer), always open popover for explicit choice
-        const isTouch = window.matchMedia("(pointer: coarse)").matches;
-        if (isTouch) {
+        // On touch, always open popover for explicit choice
+        if (isCoarsePointer) {
             setOpen(true);
             return;
         }

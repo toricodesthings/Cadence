@@ -1,22 +1,10 @@
 import { useMemo } from "react";
 import type { Task } from "@cadence/contracts/task";
-import { toISODate } from "../../lib/utils/date-format";
+import { getDaysInMonth, getFirstDayOfWeek, MONTH_NAMES, toISODate, weekdayLabels } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
 
-const MONTHS = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-const DAYS_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
-
-function getDaysInMonth(y: number, m: number) {
-    return new Date(y, m + 1, 0).getDate();
-}
-
-function getFirstDayOfWeek(y: number, m: number) {
-    const d = new Date(y, m, 1).getDay();
-    return d === 0 ? 6 : d - 1; // Monday = 0
-}
+const MONTHS = MONTH_NAMES.map((m) => m.slice(0, 3));
+const DAYS_SHORT = weekdayLabels(1);
 
 interface MiniMonthProps {
     year: number;

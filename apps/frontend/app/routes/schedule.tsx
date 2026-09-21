@@ -1,4 +1,5 @@
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
+import { slideVariants, type SlideCustom } from "../lib/constants/motion";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Switch } from "../components/primitives/Switch";
@@ -65,15 +66,6 @@ import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
 import { trackUsageEvent } from "../lib/api/track-event";
-
-/** `distance` collapses to 0 under reduced motion, leaving an instant switch. */
-type SlideCustom = { direction: number; distance: number };
-
-const slideVariants = {
-    enter: ({ direction, distance }: SlideCustom) => ({ x: direction > 0 ? distance : -distance, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: ({ direction, distance }: SlideCustom) => ({ x: direction > 0 ? -distance : distance, opacity: 0 }),
-};
 
 function applyCalendarClutterFilters(tasks: Task[], clutter: {
     showAllDay?: boolean;

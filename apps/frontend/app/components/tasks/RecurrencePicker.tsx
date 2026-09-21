@@ -1,5 +1,6 @@
 import React from "react";
 import { Repeat } from "lucide-react";
+import { RRULE_WEEKDAYS } from "../../lib/constants/repeat";
 
 interface RecurrencePickerProps {
     value: string | null;
@@ -9,7 +10,7 @@ interface RecurrencePickerProps {
 const PRESETS = [
     { label: "None", rrule: null },
     { label: "Daily", rrule: "FREQ=DAILY;INTERVAL=1" },
-    { label: "Weekdays", rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" },
+    { label: "Weekdays", rrule: RRULE_WEEKDAYS },
     { label: "Weekly", rrule: "FREQ=WEEKLY;INTERVAL=1" },
     { label: "Biweekly", rrule: "FREQ=WEEKLY;INTERVAL=2" },
     { label: "Monthly", rrule: "FREQ=MONTHLY;INTERVAL=1" },

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Inbox, Sun, Sunrise, CalendarDays, Trash2, ChevronRight, Sparkles } from "lucide-react";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
+import { relativeTime } from "../../lib/utils/date-format";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
 import { CARD, PANEL_TRIGGER, PanelHeader, PanelTrigger } from "../shared/DetailPanelSections";
@@ -196,7 +197,7 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor, detailMode = "pe
                         <div className="mt-3 flex min-w-0 items-center gap-2 text-xs text-twilight-text-muted">
                             <Sparkles size={14} className="shrink-0 text-accent-primary" aria-hidden="true" />
                             <span>{item.aiSuggestion && !nlp.summary ? "Cadence suggests" : "Captured"}</span>
-                            <time dateTime={item.createdAt} className="ml-auto shrink-0 tabular-nums">{relativeTime(item.createdAt)}</time>
+                            <time dateTime={item.createdAt} className="ml-auto shrink-0 tabular-nums">{relativeTime(item.createdAt, { suffix: " ago" })}</time>
                         </div>
                         {item.aiSuggestion && !nlp.summary && (
                             <p className="text-[13px] text-twilight-text-soft mb-3 italic leading-relaxed">
@@ -320,20 +321,4 @@ export function ClarifySheet({ item, onClose, onOpenFullEditor, detailMode = "pe
             </DetailPanelLayout>
         </div>
     );
-}
-
-function relativeTime(iso: string): string {
-    const now = Date.now();
-    const then = new Date(iso).getTime();
-    const diffSec = Math.max(0, Math.floor((now - then) / 1000));
-
-    if (diffSec < 60) return "just now";
-    const mins = Math.floor(diffSec / 60);
-    if (mins < 60) return `${mins} m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 30) return `${days} d ago`;
-    const months = Math.floor(days / 30);
-    return `${months} mo ago`;
 }

@@ -7,17 +7,12 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
-import { getDateFormatConfig } from "../../lib/utils/date-format";
+import { getDateFormatConfig, MONTH_NAMES } from "../../lib/utils/date-format";
 import * as Popover from "../primitives/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
 import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "../layout/PageHeader";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
-
-const MONTHS = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-];
 
 const MONTH_ICONS: LucideIcon[] = [
     Snowflake, CloudSnow, Wind, CloudRain,
@@ -175,7 +170,7 @@ export function ScheduleHeader({
     compact = false,
 }: ScheduleHeaderProps) {
     const CurrentIcon = MONTH_ICONS[month];
-    const mainHeading = viewMode === "year" ? String(year) : `${MONTHS[month]} ${year}`;
+    const mainHeading = viewMode === "year" ? String(year) : `${MONTH_NAMES[month]} ${year}`;
     const subtitleLabel = buildSubtitleLabel(viewMode, currentDate);
     const clock = useRealtimeClock();
 

@@ -1,5 +1,6 @@
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
+import { relativeTime } from "../../lib/utils/date-format";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useSettings } from "../../hooks/core/use-settings";
 import { buildCanonicalNlpEnvelope } from "../../lib/nlp/build-canonical-envelope";
@@ -370,18 +371,3 @@ function OverflowItem({
 }
 
 /* ── Relative timestamp — "just now", "3 m", "2 h", "5 d" (M3 fix) ── */
-function relativeTime(iso: string): string {
-    const now = Date.now();
-    const then = new Date(iso).getTime();
-    const diffSec = Math.max(0, Math.floor((now - then) / 1000));
-
-    if (diffSec < 60) return "just now";
-    const mins = Math.floor(diffSec / 60);
-    if (mins < 60) return `${mins} m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} h`;
-    const days = Math.floor(hrs / 24);
-    if (days < 30) return `${days} d`;
-    const months = Math.floor(days / 30);
-    return `${months} mo`;
-}

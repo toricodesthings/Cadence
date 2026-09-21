@@ -33,3 +33,11 @@ export function useHabitTitleLookup() {
         return "this routine";
     };
 }
+
+/** "Mar 8" in the viewer's locale, or null for a missing/invalid date. */
+export function formatDate(iso?: string | null): string | null {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}

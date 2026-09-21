@@ -20,6 +20,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Habits are now called Routines everywhere, including the page, the dock, search and quick add. Old links to /habits still work.
 - Today shows each routine once. Routines sit in one light list with their time, and finished ones fold into "2 done", which you can reopen and undo.
 - "Needs attention" is now "Still open", in a calm colour, and only appears when a task has carried over.
+- Creating a routine now looks and works like adding to the schedule: name and emoji first, then which days, then "Any time" or a set time with an optional reminder, and everything else folded under More options. Closing with unsaved changes asks first.
 - A missed routine now lets go instead of piling up: it no longer shows on Today or Upcoming as something to catch up on, and the routine reminder only mentions today.
 
 ### Removed
@@ -29,6 +30,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Fixed
 
 - Checking off or skipping a routine from Upcoming or the Schedule now updates straight away, works offline, and says so if it fails.
+- The week and day views and the routine grid now mark the right day as today late at night, instead of jumping ahead to tomorrow, and the week view files tasks under the right day.
 
 ## [0.14.4] - 2026-09-21
 

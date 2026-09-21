@@ -1,26 +1,9 @@
-import { useSyncExternalStore } from "react";
 import { WifiOff, RefreshCw } from "lucide-react";
 import { useMutationOutbox } from "../../lib/api/mutation-outbox";
-
-function subscribe(cb: () => void) {
-    window.addEventListener("online", cb);
-    window.addEventListener("offline", cb);
-    return () => {
-        window.removeEventListener("online", cb);
-        window.removeEventListener("offline", cb);
-    };
-}
-
-function getSnapshot() {
-    return navigator.onLine;
-}
-
-function getServerSnapshot() {
-    return true;
-}
+import { useOnlineStatus } from "../../hooks/core/use-online-status";
 
 export function OfflineBanner() {
-    const isOnline = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+    const isOnline = useOnlineStatus();
     const outbox = useMutationOutbox();
 
     if (isOnline && outbox.total === 0) return null;

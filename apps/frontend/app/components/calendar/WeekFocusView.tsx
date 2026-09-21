@@ -4,6 +4,7 @@ import { ArrowLeftRight, CalendarRange } from "lucide-react";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 import type { PersonalEvent } from "../../types/settings";
 import type { Task } from "@cadence/contracts/task";
+import { toISODate } from "../../lib/utils/date-format";
 import { DayFocusView } from "./DayFocusView";
 
 interface WeekFocusViewProps {
@@ -17,10 +18,6 @@ interface WeekFocusViewProps {
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
-}
-
-function toISODate(date: Date) {
-    return date.toISOString().slice(0, 10);
 }
 
 export function WeekFocusView({

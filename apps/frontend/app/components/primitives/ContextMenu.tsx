@@ -6,6 +6,7 @@
  */
 import * as RadixContextMenu from "@radix-ui/react-context-menu";
 import { forwardRef } from "react";
+import { FLOATING_MOTION, MENU_ITEM, MENU_ITEM_DANGER, MENU_ROW, MENU_SEPARATOR, MENU_SUB_SLIDE, MENU_SURFACE } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
 export const Root = RadixContextMenu.Root;
@@ -23,7 +24,7 @@ export const SubTrigger = forwardRef<
     <RadixContextMenu.SubTrigger
         ref={ref}
         className={[
-            "px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors",
+            MENU_ROW,
             "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text",
             "data-[state=open]:bg-white/[0.04] data-[state=open]:text-twilight-text",
             className,
@@ -44,12 +45,9 @@ export const SubContent = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={[
-            "glass-surface layer-floating-ui min-w-[200px] rounded-xl p-1",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=open]:fade-in data-[state=closed]:fade-out",
-            "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
-            "data-[state=open]:slide-in-from-left-2 data-[state=closed]:slide-out-to-left-2",
-            "duration-200",
+            MENU_SURFACE,
+            FLOATING_MOTION,
+            MENU_SUB_SLIDE,
             className,
         ].join(" ")}
         {...props}
@@ -67,11 +65,9 @@ export const Content = forwardRef<
             ref={ref}
             collisionPadding={collisionPadding}
             className={[
-                "glass-surface layer-floating-ui min-w-[200px] rounded-xl p-1 max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto overscroll-contain",
-                "data-[state=open]:animate-in data-[state=closed]:animate-out",
-                "data-[state=open]:fade-in data-[state=closed]:fade-out",
-                "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
-                "duration-200",
+                MENU_SURFACE,
+                "max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto overscroll-contain",
+                FLOATING_MOTION,
                 className,
             ].join(" ")}
             {...props}
@@ -88,14 +84,14 @@ export const Item = forwardRef<
     const variants = {
         default:
             "text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text",
-        danger: "text-red-400/70 hover:bg-red-500/10",
+        danger: MENU_ITEM_DANGER,
     };
 
     return (
         <RadixContextMenu.Item
             ref={ref}
             className={[
-                "flex items-center px-3 py-2.5 text-[15px] rounded-lg cursor-pointer outline-none transition-colors",
+                MENU_ITEM,
                 variants[variant],
                 className,
             ].join(" ")}
@@ -112,7 +108,7 @@ export const Separator = forwardRef<
 >(({ className = "", ...props }, ref) => (
     <RadixContextMenu.Separator
         ref={ref}
-        className={`h-px bg-twilight-border my-1 ${className}`}
+        className={`${MENU_SEPARATOR} ${className}`}
         {...props}
     />
 ));

@@ -2,17 +2,16 @@ import React from "react";
 import { Minus } from "lucide-react";
 import { Tip } from "../primitives";
 import type { EffortLevel } from "@cadence/contracts/task";
+import { EFFORT_OPTIONS } from "./task-choice-options";
 
 interface EffortPickerProps {
     currentEffort: EffortLevel;
     onSelect: (effort: EffortLevel) => void;
 }
 
-const EFFORT_OPTIONS: { value: EffortLevel; label: string; dots: number }[] = [
+const EFFORT_CHOICES: { value: EffortLevel; label: string; dots: number }[] = [
     { value: null, label: "None", dots: 0 },
-    { value: 1, label: "Low effort", dots: 1 },
-    { value: 2, label: "Medium effort", dots: 2 },
-    { value: 3, label: "High effort", dots: 3 },
+    ...EFFORT_OPTIONS.map((o) => ({ value: o.value, label: `${o.label} effort`, dots: o.value })),
 ];
 
 const DOT_COLORS: Record<number, string> = {
@@ -28,7 +27,7 @@ export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSel
                 Effort
             </span>
             <div className="grid w-full grid-cols-4 gap-1">
-                {EFFORT_OPTIONS.map((opt) => {
+                {EFFORT_CHOICES.map((opt) => {
                     const isActive = currentEffort === opt.value;
                     return (
                         <Tip key={String(opt.value)} label={opt.label} side="bottom">

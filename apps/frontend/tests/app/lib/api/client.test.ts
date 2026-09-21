@@ -18,6 +18,8 @@ vi.mock("../../../../app/lib/auth-client", () => ({
 vi.mock("../../../../app/platform/runtime", () => ({
     IS_DESKTOP_RUNTIME: false,
     platformFetch: (input: RequestInfo | URL, init?: RequestInit) => platformFetchMock(input, init),
+    getDesktopStore: async () => null,
+    getWebStorage: () => window.localStorage,
 }));
 
 describe("api/client", () => {

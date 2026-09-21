@@ -5,6 +5,7 @@ import { useProjects } from "../../hooks/projects";
 import { useTags } from "../../hooks/tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
 import type { TaskPriority } from "@cadence/contracts/task";
+import { PRIORITY_OPTIONS } from "./task-choice-options";
 import type { UserSettings } from "../../types/settings";
 
 type QuickAddAction = "date" | "priority" | "project" | "tag";
@@ -32,12 +33,9 @@ interface QuickAddActionTrayProps {
     onToggleTag: (tagId: string) => void;
 }
 
-const PRIORITY_OPTIONS: Array<{ value: TaskPriority | null; label: string }> = [
+const PRIORITY_CHOICES: Array<{ value: TaskPriority | null; label: string }> = [
     { value: null, label: "No priority" },
-    { value: 1, label: "P4 · Low" },
-    { value: 2, label: "P3 · Medium" },
-    { value: 3, label: "P2 · High" },
-    { value: 4, label: "P1 · Urgent" },
+    ...PRIORITY_OPTIONS.filter((o) => o.value > 0).map((o) => ({ value: o.value, label: `P${5 - o.value} · ${o.label}` })),
 ];
 
 export function QuickAddActionTray({
@@ -112,7 +110,7 @@ export function QuickAddActionTray({
                         </Popover.Trigger>
                         <Popover.Content className="w-44 p-1">
                             <div className="space-y-1">
-                                {PRIORITY_OPTIONS.map((option) => (
+                                {PRIORITY_CHOICES.map((option) => (
                                     <button
                                         key={option.label}
                                         type="button"

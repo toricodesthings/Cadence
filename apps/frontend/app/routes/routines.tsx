@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
-import { toISODate, getWeekDates } from "../lib/utils/date-format";
+import { toISODate, getWeekDates, MONTH_NAMES } from "../lib/utils/date-format";
+import { slideVariants } from "../lib/constants/motion";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
 import { HabitsMonthView } from "../components/habits/HabitsMonthView";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
@@ -21,17 +22,6 @@ import * as Popover from "../components/primitives/Popover";
 import { Tip } from "../components/primitives/Tooltip";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
-
-const MONTHS = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-];
-
-const slideVariants = {
-    enter: (delta: number) => ({ x: delta > 0 ? 28 : -28, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (delta: number) => ({ x: delta > 0 ? -28 : 28, opacity: 0 }),
-};
 
 export default function Habits() {
     const shell = useShellMode();
@@ -119,7 +109,7 @@ export default function Habits() {
         month: "long",
         year: "numeric",
     }).format(periodDate);
-    const mainHeading = `${MONTHS[monthIdx]} ${year}`;
+    const mainHeading = `${MONTH_NAMES[monthIdx]} ${year}`;
     const currentHeading = displayMode === "week" ? mainHeading : monthRangeLabel;
     const selectedHabit = visibleHabits.find((h) => h.id === selectedHabitId) ?? null;
 
@@ -350,10 +340,10 @@ export default function Habits() {
                     )}
 
                     <div className="flex-1 overflow-hidden flex flex-col pt-4 min-w-0">
-                        <AnimatePresence initial={false} custom={direction} mode="wait">
+                        <AnimatePresence initial={false} custom={{ direction, distance: 28 }} mode="wait">
                             <motion.div
                                 key={`${displayMode}-${currentDate}`}
-                                custom={direction}
+                                custom={{ direction, distance: 28 }}
                                 variants={slideVariants}
                                 initial="enter"
                                 animate="center"

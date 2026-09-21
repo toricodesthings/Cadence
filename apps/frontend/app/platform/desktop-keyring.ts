@@ -3,15 +3,12 @@ import {
     getSecret,
     setSecret,
 } from "tauri-plugin-keyring-api";
+import { hasDesktopWindow } from "./runtime";
 
 const CADENCE_KEYRING_SERVICE = "com.cadence.desktop";
 
-function hasTauriWindow() {
-    return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
 async function ensureKeyringReady() {
-    return hasTauriWindow();
+    return hasDesktopWindow();
 }
 
 function encodeSecret(value: string) {

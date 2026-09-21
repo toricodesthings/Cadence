@@ -1,19 +1,10 @@
 import { useMemo } from "react";
 import { CalendarDays } from "lucide-react";
 import { Tip } from "../primitives";
-import { formatTime } from "../../lib/utils/date-format";
+import { formatTime, getDaysInMonth, getFirstDayOfWeek, weekdayLabels } from "../../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function getDaysInMonth(y: number, m: number) {
-    return new Date(y, m + 1, 0).getDate();
-}
-
-function getFirstDayOfWeek(y: number, m: number) {
-    const d = new Date(y, m, 1).getDay();
-    return d === 0 ? 6 : d - 1; // Monday = 0
-}
+const WEEKDAY_LABELS = weekdayLabels(3);
 
 export interface MonthPeekViewProps {
     year: number;

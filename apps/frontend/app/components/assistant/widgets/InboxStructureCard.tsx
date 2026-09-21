@@ -1,17 +1,11 @@
 import { Inbox, Check } from "lucide-react";
 import { ProposalCard, IdentityBlock, MetaPill, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";
+import { formatDate } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useProcessInboxToTask } from "../../../hooks/inbox/use-process-inbox-to-task";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 import { Calendar, Clock } from "lucide-react";
-
-function formatDate(iso?: string | null): string | null {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 /**
  * Suggestion card for `propose_structure_inbox_item` (design §4.1). Turns a

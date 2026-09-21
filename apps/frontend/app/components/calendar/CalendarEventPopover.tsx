@@ -1,34 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import {
-    Bell,
-    CalendarHeart,
-    CalendarRange,
-    ChevronDown,
-    Clock3,
-    Flag,
-    Gauge,
-    Milestone,
-    SlidersHorizontal,
-    StickyNote,
-    X,
-} from "lucide-react";
+import { Bell, CalendarHeart, CalendarRange, Clock3, Flag, Gauge, Milestone, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateTask } from "../../hooks/tasks";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
-import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
+import { formatShortDateLabel } from "../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
-import { cn } from "../../lib/utils";
-import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
-import { UtilitySheet } from "../shared/UtilitySheet";
-import { Tip } from "../primitives";
 import { TimePicker } from "../primitives";
-import { Switch } from "../primitives";
-import { Button } from "../primitives/Button";
-import { Dialog, DialogCloseButton, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
-import * as AlertDialog from "../primitives/AlertDialog";
+import {
+    Composer,
+    ComposerSubmit,
+    ComposerMore,
+    ComposerTabs,
+    ComposerTitle,
+    ComposerToggle,
+    COMPOSER_FIELD,
+    WeekdayPicker,
+    WEEKDAY_ORDER,
+    type WeekdayCode,
+} from "../shared/Composer";
 import { EventDatePicker } from "../events/EventDatePicker";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
 
@@ -49,41 +41,10 @@ interface CalendarEventPopoverProps {
 
 type ComposerMode = "once" | "weekly";
 type ScheduleCreateTab = "task" | "event";
-type WeekdayCode = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
-
-const WEEKDAY_ORDER: WeekdayCode[] = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
-const WEEKDAY_LABELS: Record<WeekdayCode, { short: string; long: string }> = {
-    MO: { short: "Mon", long: "Monday" },
-    TU: { short: "Tue", long: "Tuesday" },
-    WE: { short: "Wed", long: "Wednesday" },
-    TH: { short: "Thu", long: "Thursday" },
-    FR: { short: "Fri", long: "Friday" },
-    SA: { short: "Sat", long: "Saturday" },
-    SU: { short: "Sun", long: "Sunday" },
-};
-
-const BAND = "shrink-0 overflow-y-auto [scrollbar-gutter:stable]";
 
 function toWeekdayCode(date: string): WeekdayCode {
     const day = new Date(`${date}T00:00:00`).getDay();
     return (["SU", "MO", "TU", "WE", "TH", "FR", "SA"][day] ?? "MO") as WeekdayCode;
-}
-
-function formatDateLabel(date: string) {
-    const config = getDateFormatConfig();
-    const d = parseLocalDate(date);
-    if (config.dateStyle === "dmy") {
-        return d.toLocaleDateString("en-GB", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-        });
-    }
-    return d.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-    });
 }
 
 function formatTimeValue(hour: number, minute: number) {
@@ -118,48 +79,7 @@ function buildWeeklyRule(days: WeekdayCode[], endDate: string | null) {
     return endDate ? `${base};UNTIL=${buildUntilValue(endDate)}` : base;
 }
 
-function WeekdayPicker({
-    value,
-    onChange,
-}: {
-    value: WeekdayCode[];
-    onChange: (days: WeekdayCode[]) => void;
-}) {
-    return (
-        <div
-            role="group"
-            aria-label="Select days of the week"
-            className="grid grid-cols-7 gap-1 sm:gap-1.5"
-        >
-            {WEEKDAY_ORDER.map((day) => {
-                const active = value.includes(day);
-                return (
-                    <Tip key={day} label={WEEKDAY_LABELS[day].long} side="top">
-                        <button
-                            type="button"
-                            aria-label={WEEKDAY_LABELS[day].long}
-                            aria-pressed={active}
-                            onClick={() => {
-                                if (active && value.length === 1) return;
-                                onChange(active ? value.filter((item) => item !== day) : [...value, day]);
-                            }}
-                            className={`flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl border text-xs font-semibold transition-colors duration-200 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
-                                active
-                                    ? "border-accent-primary/30 bg-accent-primary/15 text-accent-primary shadow-[0_0_12px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]"
-                                    : "border-white/[0.06] bg-white/[0.02] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
-                            }`}
-                        >
-                            {WEEKDAY_LABELS[day].short}
-                        </button>
-                    </Tip>
-                );
-            })}
-        </div>
-    );
-}
-
 export function CalendarEventPopover({ info, initialTab = "task", onClose }: CalendarEventPopoverProps) {
-    const shell = useShellMode();
     const navigate = useNavigate();
     const taskTitleRef = useRef<HTMLInputElement>(null);
     const eventTitleRef = useRef<HTMLInputElement>(null);
@@ -187,7 +107,6 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const [eventTrackMilestone, setEventTrackMilestone] = useState(false);
     const [eventStartedOn, setEventStartedOn] = useState(info.date);
     const [eventNotify, setEventNotify] = useState(true);
-    const [discardOpen, setDiscardOpen] = useState(false);
 
     useEffect(() => {
         setTab(initialTab);
@@ -214,15 +133,6 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         || !eventNotify,
     );
     const isDirty = taskDirty || eventDirty;
-
-    const requestClose = useCallback(() => {
-        if (!isDirty) {
-            onClose();
-            return;
-        }
-
-        setDiscardOpen(true);
-    }, [isDirty, onClose]);
 
     const recurrenceRule = mode === "weekly" ? buildWeeklyRule(weekdays, hasEndDate ? endDate : null) : null;
     const summary = useMemo(
@@ -284,435 +194,251 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         onClose();
     }, [eventDate, eventEmoji, eventLabel, eventNotify, eventStartedOn, eventTrackMilestone, navigate, onClose, personalEvents]);
 
-    const eventDateLabel = useMemo(() => formatDateLabel(eventDate), [eventDate]);
+    const eventDateLabel = useMemo(() => formatShortDateLabel(eventDate), [eventDate]);
     const taskSubtitle = mode === "weekly" ? (summary?.label ?? "Repeats every week") : formatTimeRange(startTime, endTime);
 
-    const composerTitle = `Create on ${tab === "task" ? formatDateLabel(startDate) : eventDateLabel}`;
+    const composerTitle = `Create on ${tab === "task" ? formatShortDateLabel(startDate) : eventDateLabel}`;
     const composerSubtitle = tab === "task" ? taskSubtitle : "Yearly personal event";
 
-    /* ── Shared composer bands — the same content in the desktop dialog and the
-       compact draggable sheet, so the two never drift (§4.5). ── */
     const typeTabs = (
-                    <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>
-                        <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-1" role="tablist" aria-label="Create type">
-                            {([
-                                { id: "task", label: "Task", icon: CalendarRange },
-                                { id: "event", label: "Event", icon: CalendarHeart },
-                            ] as const).map((option) => {
-                                const Icon = option.icon;
-                                return (
-                                    <button
-                                        key={option.id}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={tab === option.id}
-                                        onClick={() => setTab(option.id)}
-                                        className={cn(
-                                            "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors",
-                                            tab === option.id
-                                                ? option.id === "task"
-                                                    ? "bg-accent-primary/15 text-accent-primary"
-                                                    : "bg-accent-nav-schedule/15 text-accent-nav-schedule"
-                                                : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text",
-                                        )}
-                                    >
-                                        <Icon size={15} aria-hidden="true" />
-                                        {option.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-    );
-
-    const composerBody = (
-                    <div className="min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable] px-5 py-4 sm:px-6 sm:py-5">
-                        {tab === "task" ? (
-                            <div className="space-y-5">
-                                <div data-focus-container className="border-b border-white/[0.06] transition-colors focus-within:border-accent-primary/50">
-                                    <input
-                                        ref={taskTitleRef}
-                                        value={title}
-                                        onChange={(event) => setTitle(event.target.value)}
-                                        placeholder="Block title…"
-                                        className="w-full bg-transparent pb-3 font-display text-xl text-twilight-text outline-none placeholder:text-twilight-text-muted/60"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-1">
-                                    {([
-                                        { id: "once", label: "Once" },
-                                        { id: "weekly", label: "Repeats weekly" },
-                                    ] as const).map((option) => (
-                                        <button
-                                            key={option.id}
-                                            type="button"
-                                            onClick={() => setMode(option.id)}
-                                            className={`min-h-10 cursor-pointer rounded-xl px-3 text-sm font-medium transition-colors ${
-                                                mode === option.id
-                                                    ? "bg-accent-primary/15 text-accent-primary"
-                                                    : "text-twilight-text-soft hover:bg-white/[0.05]"
-                                            }`}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {mode === "weekly" ? (
-                                    <>
-                                        <WeekdayPicker value={weekdays} onChange={setWeekdays} />
-                                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-                                            <div className="min-w-0 space-y-0.5">
-                                                <p className="text-sm font-medium text-twilight-text">Fixed</p>
-                                                <p className="text-xs text-twilight-text-soft">
-                                                    {interactionMode === "timetable" ? "It just passes if missed. No check-off." : "Still owed if missed. Carries over until checked off."}
-                                                </p>
-                                            </div>
-                                            <Switch
-                                                checked={interactionMode === "timetable"}
-                                                onCheckedChange={(checked) => setInteractionMode(checked ? "timetable" : "task")}
-                                                aria-label="Make this a fixed block"
-                                            />
-                                        </div>
-                                    </>
-                                ) : null}
-
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <label className="space-y-1.5">
-                                        <span className={FIELD_LABEL}>Start</span>
-                                        <TimePicker
-                                            value={startTime}
-                                            onChange={setStartTime}
-                                            icon={<Clock3 size={14} className="text-moonlit" />}
-                                        />
-                                    </label>
-
-                                    <label className="space-y-1.5">
-                                        <span className={FIELD_LABEL}>End</span>
-                                        <TimePicker
-                                            value={endTime}
-                                            onChange={setEndTime}
-                                            icon={<Clock3 size={14} className="text-moonlit" />}
-                                        />
-                                    </label>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <label className="space-y-1.5">
-                                        <span className={`flex h-6 items-center ${FIELD_LABEL}`}>From</span>
-                                        <div className="cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-                                            <input
-                                                type="date"
-                                                value={startDate}
-                                                onChange={(event) => {
-                                                    setStartDate(event.target.value);
-                                                    if (mode === "weekly") {
-                                                        setWeekdays([toWeekdayCode(event.target.value)]);
-                                                    }
-                                                }}
-                                                className="w-full cursor-pointer bg-transparent text-sm text-twilight-text outline-none [color-scheme:dark]"
-                                            />
-                                        </div>
-                                    </label>
-
-                                    <div className="space-y-1.5">
-                                        <div className="flex h-6 items-center justify-between">
-                                            <span className={FIELD_LABEL}>Until</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setHasEndDate((value) => !value);
-                                                    if (hasEndDate) {
-                                                        setEndDate("");
-                                                    } else {
-                                                        setEndDate(startDate);
-                                                    }
-                                                }}
-                                                className={`flex min-h-9 cursor-pointer sm:-mr-2 items-center rounded-lg px-2 text-[11px] font-medium transition-colors ${hasEndDate ? "text-accent-primary" : "text-twilight-text-soft hover:text-twilight-text"}`}
-                                            >
-                                                {hasEndDate ? "Remove" : "Add end date"}
-                                            </button>
-                                        </div>
-                                        <div className="cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-                                            <input
-                                                type="date"
-                                                value={endDate}
-                                                onChange={(event) => setEndDate(event.target.value)}
-                                                disabled={!hasEndDate}
-                                                className="w-full cursor-pointer bg-transparent text-sm text-twilight-text outline-none disabled:cursor-not-allowed disabled:opacity-30 [color-scheme:dark]"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <details className="group rounded-2xl border border-white/[0.06] bg-white/[0.03]">
-                                    <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 px-4 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text group-open:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 rounded-2xl [&::-webkit-details-marker]:hidden">
-                                        <SlidersHorizontal size={15} className="shrink-0 text-accent-primary" aria-hidden="true" />
-                                        <span className="flex-1">More options</span>
-                                        <ChevronDown size={15} className="shrink-0 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
-                                    </summary>
-                                    <div className="space-y-4 border-t border-white/[0.05] px-4 pb-4 pt-4">
-                                        <label className="block">
-                                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                                                <StickyNote size={12} aria-hidden="true" />
-                                                Notes
-                                            </span>
-                                            <textarea
-                                                value={notes}
-                                                onChange={(event) => setNotes(event.target.value)}
-                                                rows={2}
-                                                className="w-full resize-y rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                                                placeholder="Room, context, why this block matters…"
-                                            />
-                                        </label>
-
-                                        <div role="group" aria-label="Priority">
-                                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                                                <Flag size={12} aria-hidden="true" />
-                                                Priority
-                                            </span>
-                                            <div className="grid grid-cols-5 gap-1.5">
-                                                {PRIORITY_OPTIONS.map((item) => {
-                                                    const Icon = item.icon;
-                                                    return (
-                                                        <button
-                                                            key={item.value}
-                                                            type="button"
-                                                            aria-label={`Priority: ${item.label}`}
-                                                            aria-pressed={priority === item.value}
-                                                            onClick={() => setPriority(item.value)}
-                                                            className={`${CHIP_BASE} min-h-12 flex-col gap-0.5 sm:min-h-10 sm:flex-row sm:gap-1.5 ${priority === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
-                                                        >
-                                                            <Icon size={14} aria-hidden="true" />
-                                                            <span className="text-[10px] leading-none sm:text-xs sm:leading-normal">{item.label}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        <div role="group" aria-label="Effort">
-                                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                                                <Gauge size={12} aria-hidden="true" />
-                                                Effort
-                                            </span>
-                                            <div className="grid grid-cols-3 gap-1.5">
-                                                {EFFORT_OPTIONS.map((item) => {
-                                                    const Icon = item.icon;
-                                                    return (
-                                                        <button
-                                                            key={item.value}
-                                                            type="button"
-                                                            aria-pressed={effort === item.value}
-                                                            onClick={() => setEffort(effort === item.value ? null : item.value)}
-                                                            className={`${CHIP_BASE} ${effort === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
-                                                        >
-                                                            <Icon size={13} aria-hidden="true" />
-                                                            {item.label}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </details>
-                            </div>
-                        ) : (
-                            <div className="space-y-5">
-                                <div className="space-y-2">
-                                    <span className={FIELD_LABEL}>Event</span>
-                                    <div data-focus-container className="flex items-center gap-3 rounded-[28px] border border-white/[0.06] bg-white/[0.03] p-3 transition-colors focus-within:border-accent-nav-schedule/40">
-                                        <EmojiPickerPopover
-                                            emoji={eventEmoji}
-                                            onSelect={setEventEmoji}
-                                            contentClassName="layer-system-dialog z-[120]"
-                                        >
-                                            <button
-                                                type="button"
-                                                aria-label="Pick an emoji"
-                                                className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.04] text-[24px] text-twilight-text transition-colors hover:border-white/[0.10] hover:bg-white/[0.06]"
-                                            >
-                                                {eventEmoji || <CalendarHeart size={18} className="text-accent-nav-schedule" />}
-                                            </button>
-                                        </EmojiPickerPopover>
-
-                                        <input
-                                            ref={eventTitleRef}
-                                            type="text"
-                                            value={eventLabel}
-                                            onChange={(event) => setEventLabel(event.target.value)}
-                                            placeholder="Birthday, retreat, launch day…"
-                                            maxLength={80}
-                                            className="min-w-0 flex-1 bg-transparent text-[1.05rem] font-medium text-twilight-text outline-none placeholder:text-twilight-text-muted/55"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <span className={FIELD_LABEL}>Date</span>
-                                    <EventDatePicker value={eventDate} onChange={setEventDate} />
-                                </div>
-
-                                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="flex min-w-0 items-center gap-2.5">
-                                            <Milestone size={15} className="shrink-0 text-accent-nav-schedule" aria-hidden="true" />
-                                            <div className="space-y-0.5">
-                                                <p className="text-sm font-medium text-twilight-text">Milestone tracking</p>
-                                                <p className="text-xs text-twilight-text-soft">Count the days since it began</p>
-                                            </div>
-                                        </div>
-                                        <Switch
-                                            checked={eventTrackMilestone}
-                                            onCheckedChange={(checked) => {
-                                                setEventTrackMilestone(checked);
-                                                if (checked) {
-                                                    setEventStartedOn((current) => current || eventDate);
-                                                }
-                                            }}
-                                            aria-label="Enable milestone tracking for this personal event"
-                                        />
-                                    </div>
-
-                                    {eventTrackMilestone ? (
-                                        <div className="mt-3 flex items-center gap-3 border-t border-white/[0.05] pt-3">
-                                            <span className={`shrink-0 ${FIELD_LABEL}`}>
-                                                Started on
-                                            </span>
-                                            <div className="min-w-0 flex-1">
-                                                <EventDatePicker compact value={eventStartedOn} onChange={setEventStartedOn} />
-                                            </div>
-                                        </div>
-                                    ) : null}
-                                </div>
-
-                                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="flex min-w-0 items-center gap-2.5">
-                                            <Bell size={15} className="shrink-0 text-accent-nav-schedule" aria-hidden="true" />
-                                            <div className="space-y-0.5">
-                                                <p className="text-sm font-medium text-twilight-text">Notifications</p>
-                                                <p className="text-xs text-twilight-text-soft">Show a reminder dot</p>
-                                            </div>
-                                        </div>
-                                        <Switch
-                                            checked={eventNotify}
-                                            onCheckedChange={setEventNotify}
-                                            aria-label="Enable notifications for this personal event"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-    );
-
-    const composerFooter = (
-                    <div className={`${BAND} flex items-center justify-end gap-2 border-t border-white/[0.06] px-5 py-4 sm:px-6`}>
-                        <Button variant="ghost" size="md" onClick={requestClose}>
-                            Cancel
-                        </Button>
-
-                        {tab === "task" ? (
-                            <Button
-                                variant="primary"
-                                size="md"
-                                onClick={handleTaskSubmit}
-                                disabled={!title.trim() || isPending}
-                                className="bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/26 disabled:opacity-40"
-                            >
-                                <CalendarRange size={14} aria-hidden="true" />
-                                {isPending ? "Saving…" : mode === "weekly" ? "Create series" : "Add to schedule"}
-                            </Button>
-                        ) : (
-                            <Button
-                                variant="primary"
-                                size="md"
-                                onClick={handleEventSubmit}
-                                disabled={!eventLabel.trim()}
-                                className="bg-accent-nav-schedule/18 text-accent-nav-schedule hover:bg-accent-nav-schedule/26 disabled:opacity-40"
-                            >
-                                <CalendarHeart size={14} aria-hidden="true" />
-                                Add event
-                            </Button>
-                        )}
-                    </div>
+        <ComposerTabs
+            role="tablist"
+            ariaLabel="Create type"
+            value={tab}
+            onChange={setTab}
+            options={[
+                { id: "task", label: "Task", icon: CalendarRange },
+                { id: "event", label: "Event", icon: CalendarHeart, activeClassName: "bg-accent-nav-schedule/15 text-accent-nav-schedule" },
+            ]}
+        />
     );
 
     return (
-        <>
-            {shell.isCompact ? (
-                /* Compact shells get the shared sheet: drag handle, drag-down
-                   dismiss, header, band and pinned footer all come from it. */
-                <UtilitySheet
-                    title={composerTitle}
-                    subtitle={composerSubtitle}
-                    open
-                    onClose={requestClose}
-                    band={typeTabs}
-                    footer={composerFooter}
-                    scrollable={false}
-                    flush
-                >
-                    {composerBody}
-                </UtilitySheet>
+        <Composer
+            open
+            title={composerTitle}
+            subtitle={composerSubtitle}
+            band={typeTabs}
+            isDirty={isDirty}
+            discardTitle="Discard this schedule draft?"
+            discardDescription="This will close the composer and lose any unsaved task or event details."
+            onClose={onClose}
+            footer={tab === "task" ? (
+                <ComposerSubmit
+                    onSubmit={handleTaskSubmit}
+                    submitLabel={isPending ? "Saving…" : mode === "weekly" ? "Create series" : "Add to schedule"}
+                    icon={CalendarRange}
+                    disabled={!title.trim() || isPending}
+                />
             ) : (
-            <Dialog open={true} onOpenChange={(open) => { if (!open) requestClose(); }}>
-                <DialogContent
-                    className={cn(
-                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),40rem)] overflow-hidden rounded-[30px] p-0",
-                        "sm:max-w-2xl sm:max-h-[90dvh]",
-                    )}
-                    hideCloseButton
-                >
-                    <div className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}>
-                        <div className="min-w-0 space-y-1.5">
-                            <DialogTitle className="font-display text-xl tracking-tight text-twilight-text">
-                                {composerTitle}
-                            </DialogTitle>
-                            <DialogDescription className="text-sm text-twilight-text-soft">
-                                {composerSubtitle}
-                            </DialogDescription>
-                        </div>
-                        <DialogCloseButton className="-mt-2" />
+                <ComposerSubmit
+                    onSubmit={handleEventSubmit}
+                    submitLabel="Add event"
+                    icon={CalendarHeart}
+                    tone="schedule"
+                    disabled={!eventLabel.trim()}
+                />
+            )}
+        >
+            {tab === "task" ? (
+                <>
+                    <ComposerTitle inputRef={taskTitleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Block title…" aria-label="Block title" />
+
+                    <ComposerTabs
+                        ariaLabel="Repeat"
+                        value={mode}
+                        onChange={setMode}
+                        options={[{ id: "once", label: "Once" }, { id: "weekly", label: "Repeats weekly" }]}
+                    />
+
+                    {mode === "weekly" ? (
+                        <>
+                            <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+                            <ComposerToggle
+                                label="Fixed"
+                                description={interactionMode === "timetable" ? "It just passes if missed. No check-off." : "Still owed if missed. Carries over until checked off."}
+                                checked={interactionMode === "timetable"}
+                                onCheckedChange={(checked) => setInteractionMode(checked ? "timetable" : "task")}
+                                ariaLabel="Make this a fixed block"
+                            />
+                        </>
+                    ) : null}
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label className="space-y-1.5">
+                            <span className={FIELD_LABEL}>Start</span>
+                            <TimePicker value={startTime} onChange={setStartTime} icon={<Clock3 size={14} className="text-moonlit" />} />
+                        </label>
+                        <label className="space-y-1.5">
+                            <span className={FIELD_LABEL}>End</span>
+                            <TimePicker value={endTime} onChange={setEndTime} icon={<Clock3 size={14} className="text-moonlit" />} />
+                        </label>
                     </div>
 
-                    {typeTabs}
-                    {composerBody}
-                    {composerFooter}
-                </DialogContent>
-            </Dialog>
-            )}
-
-            <AlertDialog.Root open={discardOpen} onOpenChange={setDiscardOpen}>
-                <AlertDialog.Content>
-                    <AlertDialog.Header>
-                        <AlertDialog.Title>Discard this schedule draft?</AlertDialog.Title>
-                        <AlertDialog.Description>
-                            This will close the composer and lose any unsaved task or event details.
-                        </AlertDialog.Description>
-                    </AlertDialog.Header>
-                    <AlertDialog.Footer>
-                        <AlertDialog.Cancel asChild>
-                            <Button variant="secondary" className="border-white/10 bg-white/5">
-                                Keep editing
-                            </Button>
-                        </AlertDialog.Cancel>
-                        <AlertDialog.Action asChild>
-                            <Button
-                                variant="danger"
-                                onClick={() => {
-                                    setDiscardOpen(false);
-                                    onClose();
+                    <div className="grid grid-cols-2 gap-3">
+                        <label className="space-y-1.5">
+                            <span className={`flex h-6 items-center ${FIELD_LABEL}`}>From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(event) => {
+                                    setStartDate(event.target.value);
+                                    if (mode === "weekly") setWeekdays([toWeekdayCode(event.target.value)]);
                                 }}
-                            >
-                                Discard draft
-                            </Button>
-                        </AlertDialog.Action>
-                    </AlertDialog.Footer>
-                </AlertDialog.Content>
-            </AlertDialog.Root>
-        </>
+                                className={`${COMPOSER_FIELD} cursor-pointer`}
+                            />
+                        </label>
+
+                        <div className="space-y-1.5">
+                            <div className="flex h-6 items-center justify-between">
+                                <span className={FIELD_LABEL}>Until</span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setHasEndDate((value) => !value);
+                                        setEndDate(hasEndDate ? "" : startDate);
+                                    }}
+                                    className={`flex min-h-9 cursor-pointer items-center rounded-lg px-2 text-[11px] font-medium transition-colors sm:-mr-2 ${hasEndDate ? "text-accent-primary" : "text-twilight-text-soft hover:text-twilight-text"}`}
+                                >
+                                    {hasEndDate ? "Remove" : "Add end date"}
+                                </button>
+                            </div>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(event) => setEndDate(event.target.value)}
+                                disabled={!hasEndDate}
+                                aria-label="Until"
+                                className={`${COMPOSER_FIELD} cursor-pointer disabled:cursor-not-allowed disabled:opacity-30`}
+                            />
+                        </div>
+                    </div>
+
+                    <ComposerMore>
+                        <label className="block">
+                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                                <StickyNote size={12} aria-hidden="true" />
+                                Notes
+                            </span>
+                            <textarea
+                                value={notes}
+                                onChange={(event) => setNotes(event.target.value)}
+                                rows={2}
+                                className={`${COMPOSER_FIELD} resize-y`}
+                                placeholder="Room, context, why this block matters…"
+                            />
+                        </label>
+
+                        <div role="group" aria-label="Priority">
+                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                                <Flag size={12} aria-hidden="true" />
+                                Priority
+                            </span>
+                            <div className="grid grid-cols-5 gap-1.5">
+                                {PRIORITY_OPTIONS.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <button
+                                            key={item.value}
+                                            type="button"
+                                            aria-label={`Priority: ${item.label}`}
+                                            aria-pressed={priority === item.value}
+                                            onClick={() => setPriority(item.value)}
+                                            className={`${CHIP_BASE} min-h-12 flex-col gap-0.5 sm:min-h-10 sm:flex-row sm:gap-1.5 ${priority === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
+                                        >
+                                            <Icon size={14} aria-hidden="true" />
+                                            <span className="text-[10px] leading-none sm:text-xs sm:leading-normal">{item.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div role="group" aria-label="Effort">
+                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                                <Gauge size={12} aria-hidden="true" />
+                                Effort
+                            </span>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {EFFORT_OPTIONS.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <button
+                                            key={item.value}
+                                            type="button"
+                                            aria-pressed={effort === item.value}
+                                            onClick={() => setEffort(effort === item.value ? null : item.value)}
+                                            className={`${CHIP_BASE} ${effort === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
+                                        >
+                                            <Icon size={13} aria-hidden="true" />
+                                            {item.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </ComposerMore>
+                </>
+            ) : (
+                <>
+                    <ComposerTitle
+                        inputRef={eventTitleRef}
+                        value={eventLabel}
+                        onChange={(event) => setEventLabel(event.target.value)}
+                        placeholder="Birthday, retreat, launch day…"
+                        maxLength={80}
+                        aria-label="Event name"
+                        leading={(
+                            <EmojiPickerPopover emoji={eventEmoji} onSelect={setEventEmoji}>
+                                <button
+                                    type="button"
+                                    aria-label={eventEmoji ? "Change emoji" : "Pick an emoji"}
+                                    className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.04] text-[20px] text-twilight-text transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-nav-schedule/50"
+                                >
+                                    {eventEmoji || <CalendarHeart size={18} className="text-accent-nav-schedule" />}
+                                </button>
+                            </EmojiPickerPopover>
+                        )}
+                    />
+
+                    <div className="space-y-2">
+                        <span className={FIELD_LABEL}>Date</span>
+                        <EventDatePicker value={eventDate} onChange={setEventDate} />
+                    </div>
+
+                    <ComposerToggle
+                        icon={Milestone}
+                        iconClassName="text-accent-nav-schedule"
+                        label="Milestone tracking"
+                        description="Count the days since it began"
+                        checked={eventTrackMilestone}
+                        onCheckedChange={(checked) => {
+                            setEventTrackMilestone(checked);
+                            if (checked) setEventStartedOn((current) => current || eventDate);
+                        }}
+                        ariaLabel="Enable milestone tracking for this personal event"
+                    >
+                        {eventTrackMilestone ? (
+                            <div className="flex items-center gap-3">
+                                <span className={`shrink-0 ${FIELD_LABEL}`}>Started on</span>
+                                <div className="min-w-0 flex-1">
+                                    <EventDatePicker compact value={eventStartedOn} onChange={setEventStartedOn} />
+                                </div>
+                            </div>
+                        ) : null}
+                    </ComposerToggle>
+
+                    <ComposerToggle
+                        icon={Bell}
+                        iconClassName="text-accent-nav-schedule"
+                        label="Notifications"
+                        description="Show a reminder dot"
+                        checked={eventNotify}
+                        onCheckedChange={setEventNotify}
+                        ariaLabel="Enable notifications for this personal event"
+                    />
+                </>
+            )}
+        </Composer>
     );
 }

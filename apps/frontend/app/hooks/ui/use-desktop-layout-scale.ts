@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import { getNativeStore, IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { getNativeStore, getWebStorage, IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { createExternalStore } from "../../lib/utils/external-store";
 
 export type DesktopLayoutScale = "compact" | "default" | "comfortable" | "large";
 
@@ -17,23 +18,11 @@ const DESKTOP_LAYOUT_SCALE_VALUES: Record<DesktopLayoutScale, number> = {
 const DESKTOP_LAYOUT_SCALE_ORDER: DesktopLayoutScale[] = ["compact", "default", "comfortable", "large"];
 
 let loaded = false;
-let currentScale: DesktopLayoutScale = "default";
 let loadPromise: Promise<void> | null = null;
-
-const subscribers = new Set<() => void>();
-
-function hasWindow() {
-    return typeof window !== "undefined";
-}
+const scaleStore = createExternalStore<DesktopLayoutScale>("default");
 
 function isPersistedDesktopLayoutScale(value: unknown): value is DesktopLayoutScale {
     return value === "compact" || value === "default" || value === "comfortable" || value === "large";
-}
-
-function emitChange() {
-    subscribers.forEach((listener) => {
-        listener();
-    });
 }
 
 async function readPersistedScale() {
@@ -45,11 +34,7 @@ async function readPersistedScale() {
         }
     }
 
-    if (!hasWindow() || typeof window.localStorage === "undefined") {
-        return null;
-    }
-
-    const raw = window.localStorage.getItem(DESKTOP_LAYOUT_SCALE_STORAGE_KEY);
+    const raw = getWebStorage()?.getItem(DESKTOP_LAYOUT_SCALE_STORAGE_KEY);
     return isPersistedDesktopLayoutScale(raw) ? raw : null;
 }
 
@@ -62,11 +47,7 @@ async function persistScale(scale: DesktopLayoutScale) {
         }
     }
 
-    if (!hasWindow() || typeof window.localStorage === "undefined") {
-        return;
-    }
-
-    window.localStorage.setItem(DESKTOP_LAYOUT_SCALE_STORAGE_KEY, scale);
+    getWebStorage()?.setItem(DESKTOP_LAYOUT_SCALE_STORAGE_KEY, scale);
 }
 
 async function ensureLoaded() {
@@ -77,9 +58,8 @@ async function ensureLoaded() {
     if (!loadPromise) {
         loadPromise = (async () => {
             const stored = await readPersistedScale();
-            currentScale = stored ?? "default";
             loaded = true;
-            emitChange();
+            scaleStore.set(stored ?? "default");
         })();
     }
 
@@ -87,17 +67,13 @@ async function ensureLoaded() {
 }
 
 function subscribe(listener: () => void) {
-    subscribers.add(listener);
     void ensureLoaded();
-
-    return () => {
-        subscribers.delete(listener);
-    };
+    return scaleStore.subscribe(listener);
 }
 
 function getSnapshot() {
     void ensureLoaded();
-    return currentScale;
+    return scaleStore.get();
 }
 
 function getServerSnapshot(): DesktopLayoutScale {
@@ -105,16 +81,15 @@ function getServerSnapshot(): DesktopLayoutScale {
 }
 
 export async function setDesktopLayoutScale(nextScale: DesktopLayoutScale) {
-    currentScale = nextScale;
     loaded = true;
-    emitChange();
+    scaleStore.set(nextScale);
     await persistScale(nextScale);
 }
 
 export async function stepDesktopLayoutScale(direction: 1 | -1) {
     await ensureLoaded();
 
-    const currentIndex = DESKTOP_LAYOUT_SCALE_ORDER.indexOf(currentScale);
+    const currentIndex = DESKTOP_LAYOUT_SCALE_ORDER.indexOf(scaleStore.get());
     const nextIndex = Math.max(0, Math.min(DESKTOP_LAYOUT_SCALE_ORDER.length - 1, currentIndex + direction));
     await setDesktopLayoutScale(DESKTOP_LAYOUT_SCALE_ORDER[nextIndex]);
 }

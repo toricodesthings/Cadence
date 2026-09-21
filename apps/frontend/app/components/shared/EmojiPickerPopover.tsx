@@ -9,10 +9,11 @@ interface EmojiPickerPopoverProps {
     emoji?: string;
     onSelect: (emoji: string) => void;
     children?: React.ReactNode;
-    contentClassName?: string;
+    /** Shows "Remove emoji" above the picker while one is set. */
+    onClear?: () => void;
 }
 
-export function EmojiPickerPopover({ emoji, onSelect, children, contentClassName }: EmojiPickerPopoverProps) {
+export function EmojiPickerPopover({ emoji, onSelect, children, onClear }: EmojiPickerPopoverProps) {
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
@@ -31,8 +32,19 @@ export function EmojiPickerPopover({ emoji, onSelect, children, contentClassName
             <Popover.Content
                 side="bottom"
                 align="start"
-                className={`layer-system-dialog overflow-hidden rounded-xl p-0 ${contentClassName ?? ""}`}
+                className="overflow-hidden rounded-xl p-0"
             >
+                {emoji && onClear ? (
+                    <Popover.Close asChild>
+                        <button
+                            type="button"
+                            onClick={onClear}
+                            className="flex min-h-11 w-full cursor-pointer items-center justify-center border-b border-white/[0.06] text-sm text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/50"
+                        >
+                            Remove emoji
+                        </button>
+                    </Popover.Close>
+                ) : null}
                 <Suspense
                     fallback={
                         <div className="w-[352px] h-[435px] flex items-center justify-center text-twilight-text-muted text-sm">

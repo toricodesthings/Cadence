@@ -2,38 +2,19 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Dialog, DialogCloseButton, DialogContent } from "../primitives/Dialog";
 import { useNavigate } from "react-router";
 import {
-    Search, CheckSquare, Flame, Inbox, FolderOpen, Navigation, FileText, Telescope,
+    Search,
 } from "lucide-react";
-import { useUniversalSearch, type SearchResult, type SearchResultKind } from "../../hooks/search/use-universal-search";
+import { useUniversalSearch, type SearchResult } from "../../hooks/search/use-universal-search";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { trackUsageEvent } from "../../lib/api/track-event";
+import { GROUP_LABELS, GROUP_ORDER, SearchResultIcon } from "./search-groups";
 
 interface CommandPaletteProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
-const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
-    task: <CheckSquare size={16} aria-hidden="true" />,
-    habit: <Flame size={16} aria-hidden="true" />,
-    inbox: <Inbox size={16} aria-hidden="true" />,
-    project: <FolderOpen size={16} aria-hidden="true" />,
-    "focus-view": <Telescope size={16} aria-hidden="true" />,
-    page: <Navigation size={16} aria-hidden="true" />,
-};
-
-const GROUP_LABELS: Record<string, string> = {
-    pages: "Pages",
-    tasks: "Tasks",
-    habits: "Routines",
-    captures: "Captures",
-    projects: "Projects",
-    focusViews: "Focus Views",
-};
-
-const GROUP_ORDER = ["pages", "tasks", "habits", "captures", "projects", "focusViews"] as const;
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const [rawQuery, setRawQuery] = useState("");
@@ -205,7 +186,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                                         `}
                                     >
                                         <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] ${flatIndex === selectedIndex ? "text-accent-primary" : "text-twilight-text-muted"}`}>
-                                            {item.noteAction ? <FileText size={16} aria-hidden="true" /> : KIND_ICON[item.kind]}
+                                            <SearchResultIcon result={item} size={16} />
                                         </div>
                                         <div className="flex-1 min-w-0 text-left">
                                             <span className="truncate block">{item.title}</span>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MoreVertical, Pin, Copy, Trash2, Calendar, Bell, Sun, Moon, CalendarDays, ArrowRight, CalendarClock, X, ListChecks, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
+import type { GenericMenu } from "../primitives/menu-styles";
 import { Button } from "../primitives/Button";
 import { useArchiveTask, useUpdateTask, useDuplicateTask } from "../../hooks/tasks";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags";
@@ -14,8 +15,6 @@ import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Task } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
-
-type GenericMenu = typeof DropdownMenu | typeof ContextMenu;
 
 export interface TaskMenuItemsProps {
     task: Task;

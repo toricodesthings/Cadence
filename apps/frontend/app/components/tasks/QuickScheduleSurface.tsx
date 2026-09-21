@@ -13,7 +13,7 @@ import {
 import { Tip, TimePicker } from "../primitives";
 import { CalendarGrid } from "../calendar/CalendarGrid";
 import { RecurrencePicker } from "./RecurrencePicker";
-import { addDays, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { addDays, fromTimeValue, parseLocalDate, toISODate, toTimeValue } from "../../lib/utils/date-format";
 
 interface QuickScheduleSurfaceProps {
     dueDate: string | null;
@@ -47,20 +47,6 @@ const QUICK_ACTIONS = [
 ] as const;
 
 const DEFAULT_TIME = "09:00";
-
-/** ISO → local "HH:mm" for the TimePicker primitive. */
-function toTimeValue(iso: string): string {
-    const d = new Date(iso);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-/** "HH:mm" from the primitive → ISO, anchored on the given date. */
-function toTimeOnDate(dateOnly: string, time: string): string {
-    const [h, m] = time.split(":").map(Number);
-    const d = parseLocalDate(dateOnly);
-    d.setHours(h, m, 0, 0);
-    return d.toISOString();
-}
 
 /** "HH:mm" → ISO on the start date, rolling to the next day when the block crosses midnight. */
 function toEndOnDate(startIso: string, time: string): string {
@@ -110,7 +96,7 @@ export function QuickScheduleSurface({
     }, [dueDate, isOpen, scheduledEnd, scheduledStart]);
 
     const startTimeValue = scheduledStart ? toTimeValue(scheduledStart) : DEFAULT_TIME;
-    const startIsoFor = (dateOnly: string) => toTimeOnDate(dateOnly, startTimeValue);
+    const startIsoFor = (dateOnly: string) => fromTimeValue(dateOnly, startTimeValue);
 
     const handleMonthChange = (offset: number) => {
         setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
@@ -209,10 +195,10 @@ export function QuickScheduleSurface({
 
     // The TimePicker commits on Enter/blur/pick — no debounce needed.
     const handleStartTimeChange = (time: string) => {
-        const startIso = toTimeOnDate(selectedDate, time);
+        const startIso = fromTimeValue(selectedDate, time);
         let endIso: string | null = null;
         if (endTimeValue) {
-            const sameDayEnd = toTimeOnDate(selectedDate, endTimeValue);
+            const sameDayEnd = fromTimeValue(selectedDate, endTimeValue);
             // Keep a positive block: when the end would land at or before the
             // new start, bump it to start + 1 hour.
             endIso = new Date(sameDayEnd) > new Date(startIso)

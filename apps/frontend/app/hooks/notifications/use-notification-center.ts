@@ -17,6 +17,7 @@ import type { AppNotification, NotificationGroup } from "../../lib/notifications
 import { groupNotification, GROUP_ORDER } from "../../lib/notifications/notification-model";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { unwrapResponse } from "../../lib/api/helpers";
+import { createExternalStore } from "../../lib/utils/external-store";
 
 const NOTIFICATION_STATE_STORAGE_KEY = "cadence_notification_state";
 
@@ -89,22 +90,11 @@ const initialPersistedState = readPersistedState();
 const dismissedIds = new Set<string>(initialPersistedState.dismissedIds);
 const readIds = new Set<string>(initialPersistedState.readIds);
 const deferredUntil = new Map<string, string>(initialPersistedState.deferredUntilEntries);
-let storeVersion = 0;
-const listeners = new Set<() => void>();
+const versionStore = createExternalStore(0);
 
 function emitChange() {
     writePersistedState();
-    storeVersion++;
-    for (const l of listeners) l();
-}
-
-function subscribe(cb: () => void) {
-    listeners.add(cb);
-    return () => listeners.delete(cb);
-}
-
-function getSnapshot() {
-    return storeVersion;
+    versionStore.set(versionStore.get() + 1);
 }
 
 function getDismissalState(): NotificationDismissalState {
@@ -144,7 +134,7 @@ export function useNotificationCenter() {
     });
 
     // Track version so we re-derive when read/dismissed/deferred changes
-    const version = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    const version = useSyncExternalStore(versionStore.subscribe, versionStore.get, versionStore.get);
 
     // Use a ref-based "now" that updates every 60s
     const nowRef = useRef(new Date());

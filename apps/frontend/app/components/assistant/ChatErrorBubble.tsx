@@ -3,8 +3,7 @@ import { AlertCircle, RotateCcw, Copy, ChevronDown } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "../primitives/Button";
 import type { StreamError } from "../../lib/ai/stream-error";
-
-const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
 /**
  * One inline error bubble for both pre-stream (HTTP) and mid-stream (error part)

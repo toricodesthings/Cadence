@@ -138,9 +138,48 @@ export function formatShortDateTime(iso: string): string {
     return format(parseLocalDate(iso), `${datePart}, ${timePart}`);
 }
 
+/** Weekday + short date from "YYYY-MM-DD": "Thu, Mar 8" or "Thu 8 Mar" (dmy); `year` appends the year. */
+export function formatShortDateLabel(date: string, { year = false }: { year?: boolean } = {}): string {
+    const dmy = _config.dateStyle === "dmy";
+    return parseLocalDate(date).toLocaleDateString(dmy ? "en-GB" : "en-US", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        ...(year ? { year: "numeric" } : {}),
+    });
+}
+
+/** "HH:mm" (local) from an ISO timestamp — the `TimePicker` value format. */
+export function toTimeValue(iso: string): string {
+    const d = new Date(iso);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** "HH:mm" → ISO on `base`'s local date (`base` is "YYYY-MM-DD" or a full ISO). */
+export function fromTimeValue(base: string, time: string): string {
+    const [h, m] = time.split(":").map(Number);
+    const d = parseLocalDate(base);
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+}
+
 /** Format a local-safe date span: "Mar 8 - Mar 10" */
 export function formatDateSpan(startIso: string, endIso: string): string {
     return `${formatShortDate(startIso)} - ${formatShortDate(endIso)}`;
+}
+
+/** Compact age: "just now", "5 m", "3 h", "2 d", "4 mo" — plus `suffix` (e.g. " ago"). */
+export function relativeTime(iso: string, { suffix = "" }: { suffix?: string } = {}): string {
+    const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+
+    if (diffSec < 60) return "just now";
+    const mins = Math.floor(diffSec / 60);
+    if (mins < 60) return `${mins} m${suffix}`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} h${suffix}`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days} d${suffix}`;
+    return `${Math.floor(days / 30)} mo${suffix}`;
 }
 
 // ─── Week Helpers ────────────────────────────────────────────────────────────
@@ -154,6 +193,30 @@ export function getWeekStart(date: Date): Date {
 export function getWeekDates(date: Date): Date[] {
     const start = getWeekStart(date);
     return eachDayOfInterval({ start, end: dfnsAddDays(start, 6) });
+}
+
+// ─── Calendar Grid ───────────────────────────────────────────────────────────
+
+export const MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+];
+
+const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** Weekday labels cut to `length` chars ("Mon", "Mo", "M"), starting on `weekStartsOn` (0 = Sunday, 1 = Monday). */
+export function weekdayLabels(length: number, weekStartsOn: 0 | 1 = 1): string[] {
+    const names = weekStartsOn === 0 ? [WEEKDAY_NAMES[6], ...WEEKDAY_NAMES.slice(0, 6)] : WEEKDAY_NAMES;
+    return names.map((d) => d.slice(0, length));
+}
+
+export function getDaysInMonth(year: number, month: number): number {
+    return new Date(year, month + 1, 0).getDate();
+}
+
+/** Blank cells before day 1 in a month grid whose weeks start on `weekStartsOn` (0 = Sunday, 1 = Monday). */
+export function getFirstDayOfWeek(year: number, month: number, weekStartsOn: 0 | 1 = 1): number {
+    return (new Date(year, month, 1).getDay() - weekStartsOn + 7) % 7;
 }
 
 // ─── Date Range Builders ─────────────────────────────────────────────────────

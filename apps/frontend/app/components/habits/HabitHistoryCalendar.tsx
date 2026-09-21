@@ -1,24 +1,11 @@
 import { Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "../primitives/Button";
 import { useHabitMonthly } from "../../hooks/habits/use-habit-monthly";
-
-const MONTHS = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-];
-
-function getDaysInMonth(year: number, month: number) {
-    return new Date(year, month + 1, 0).getDate();
-}
-
-function getFirstDayOfWeek(year: number, month: number) {
-    // 0 = Sunday
-    return new Date(year, month, 1).getDay();
-}
+import { getDaysInMonth, getFirstDayOfWeek, MONTH_NAMES, weekdayLabels } from "../../lib/utils/date-format";
 
 // ─── Heatmap Calendar ────────────────────────────────────────────────────────
 
-const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const DOW = weekdayLabels(2, 0);
 
 interface HeatmapCalendarProps {
     habitId: string;
@@ -31,7 +18,7 @@ export function HabitHistoryCalendar({ habitId, year, month, onNavigate }: Heatm
     const { data, isLoading } = useHabitMonthly(habitId, year, month);
 
     const daysInMonth = getDaysInMonth(year, month);
-    const firstDow = getFirstDayOfWeek(year, month);
+    const firstDow = getFirstDayOfWeek(year, month, 0);
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
     const todayDay = isCurrentMonth ? today.getDate() : -1;
@@ -61,7 +48,7 @@ export function HabitHistoryCalendar({ habitId, year, month, onNavigate }: Heatm
                     <ChevronLeft size={15} />
                 </Button>
                 <span className="text-[13px] font-semibold text-twilight-text tabular-nums">
-                    {MONTHS[month]} {year}
+                    {MONTH_NAMES[month]} {year}
                 </span>
                 <Button
                     variant="ghost"

@@ -3,27 +3,10 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../primit
 import { useMutationOutbox } from "../../lib/api/mutation-outbox";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
-import { useSyncExternalStore } from "react";
-
-function subscribeToNetworkState(listener: () => void) {
-    window.addEventListener("online", listener);
-    window.addEventListener("offline", listener);
-    return () => {
-        window.removeEventListener("online", listener);
-        window.removeEventListener("offline", listener);
-    };
-}
-
-function getNetworkSnapshot() {
-    return navigator.onLine;
-}
-
-function getServerNetworkSnapshot() {
-    return true;
-}
+import { useOnlineStatus } from "../../hooks/core/use-online-status";
 
 export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-    const isOnline = useSyncExternalStore(subscribeToNetworkState, getNetworkSnapshot, getServerNetworkSnapshot);
+    const isOnline = useOnlineStatus();
     const outbox = useMutationOutbox();
     const { sync, isSyncing, lastSyncedAt } = useWorkspaceSync();
     const update = useAvailableDesktopUpdate();

@@ -1,9 +1,11 @@
+import { toISODate } from "../../lib/utils/date-format";
+
 interface HabitDayPlaceholderProps {
     targetDate: string;
 }
 
 export function HabitDayPlaceholder({ targetDate }: HabitDayPlaceholderProps) {
-    const today = new Date().toISOString().substring(0, 10);
+    const today = toISODate(new Date());
     const isPast = targetDate < today;
     const isToday = targetDate === today;
 

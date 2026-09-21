@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as AlertDialog from "../primitives/AlertDialog";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
+import type { GenericMenu } from "../primitives/menu-styles";
 import { Button } from "../primitives/Button";
 import { MoreHorizontal, Pencil, Trash2, Archive, ArchiveRestore, Pause, Play } from "lucide-react";
 import { useDeleteHabit } from "../../hooks/habits/use-delete-habit";
@@ -94,8 +95,6 @@ export function HabitMenu({ habit, onEdit }: HabitMenuProps) {
         </>
     );
 }
-
-type GenericMenu = typeof DropdownMenu | typeof ContextMenu;
 
 interface HabitMenuItemsProps {
     habit: Habit;

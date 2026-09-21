@@ -1,37 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
-    Search, CheckSquare, Flame, Inbox, FolderOpen, Navigation, FileText, Telescope, Clock, ArrowUpLeft,
+    Search, Clock, ArrowUpLeft,
 } from "lucide-react";
 import { UtilitySheet } from "../shared/UtilitySheet";
-import { useUniversalSearch, type SearchResult, type SearchResultKind } from "../../hooks/search/use-universal-search";
+import { useUniversalSearch, type SearchResult } from "../../hooks/search/use-universal-search";
 import { useSearchNavigation } from "../../hooks/search/use-search-navigation";
 import { trackUsageEvent } from "../../lib/api/track-event";
+import { GROUP_LABELS, GROUP_ORDER, SearchResultIcon } from "./search-groups";
 
 interface MobileSearchSheetProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
-
-/** Same icon vocabulary as the command palette, sized up for touch. */
-const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
-    task: <CheckSquare size={18} aria-hidden="true" />,
-    habit: <Flame size={18} aria-hidden="true" />,
-    inbox: <Inbox size={18} aria-hidden="true" />,
-    project: <FolderOpen size={18} aria-hidden="true" />,
-    "focus-view": <Telescope size={18} aria-hidden="true" />,
-    page: <Navigation size={18} aria-hidden="true" />,
-};
-
-const GROUP_LABELS: Record<string, string> = {
-    pages: "Pages",
-    tasks: "Tasks",
-    habits: "Routines",
-    captures: "Captures",
-    projects: "Projects",
-    focusViews: "Focus Views",
-};
-
-const GROUP_ORDER = ["pages", "tasks", "habits", "captures", "projects", "focusViews"] as const;
 
 /** A couple of example chips so the empty state is never a blank void (§0.2 Law 1). */
 const EXAMPLE_CHIPS = ["Today", "Upcoming", "Routines", "Trash"] as const;
@@ -159,7 +139,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                                     className="flex min-h-[52px] w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]"
                                 >
                                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-twilight-text-muted">
-                                        {item.noteAction ? <FileText size={18} aria-hidden="true" /> : KIND_ICON[item.kind]}
+                                        <SearchResultIcon result={item} size={18} />
                                     </span>
                                     <span className="flex min-w-0 flex-1 flex-col">
                                         <span className="truncate text-[15px] font-medium">{item.title}</span>

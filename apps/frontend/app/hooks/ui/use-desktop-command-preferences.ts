@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import { getNativeStore, IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { getNativeStore, getWebStorage, IS_DESKTOP_RUNTIME } from "../../platform/runtime";
+import { createExternalStore } from "../../lib/utils/external-store";
 
 interface DesktopCommandPreferences {
     quickCaptureShortcutEnabled: boolean;
@@ -14,23 +15,8 @@ const DEFAULT_DESKTOP_COMMAND_PREFERENCES: DesktopCommandPreferences = {
 };
 
 let loaded = false;
-let currentPreferences: DesktopCommandPreferences = DEFAULT_DESKTOP_COMMAND_PREFERENCES;
 let loadPromise: Promise<void> | null = null;
-const subscribers = new Set<() => void>();
-
-function emitChange() {
-    subscribers.forEach((listener) => {
-        listener();
-    });
-}
-
-function getFallbackStorage() {
-    if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
-        return null;
-    }
-
-    return window.localStorage;
-}
+const preferencesStore = createExternalStore(DEFAULT_DESKTOP_COMMAND_PREFERENCES);
 
 function isDesktopCommandPreferences(value: unknown): value is DesktopCommandPreferences {
     if (!value || typeof value !== "object") {
@@ -52,7 +38,7 @@ async function readPreferences() {
         }
     }
 
-    const fallbackStorage = getFallbackStorage();
+    const fallbackStorage = getWebStorage();
     if (!fallbackStorage) {
         return DEFAULT_DESKTOP_COMMAND_PREFERENCES;
     }
@@ -79,7 +65,7 @@ async function persistPreferences(nextPreferences: DesktopCommandPreferences) {
         }
     }
 
-    getFallbackStorage()?.setItem(DESKTOP_COMMAND_PREFERENCES_FALLBACK_KEY, JSON.stringify(nextPreferences));
+    getWebStorage()?.setItem(DESKTOP_COMMAND_PREFERENCES_FALLBACK_KEY, JSON.stringify(nextPreferences));
 }
 
 async function ensureLoaded() {
@@ -89,9 +75,9 @@ async function ensureLoaded() {
 
     if (!loadPromise) {
         loadPromise = (async () => {
-            currentPreferences = await readPreferences();
+            const stored = await readPreferences();
             loaded = true;
-            emitChange();
+            preferencesStore.set(stored);
         })();
     }
 
@@ -99,17 +85,13 @@ async function ensureLoaded() {
 }
 
 function subscribe(listener: () => void) {
-    subscribers.add(listener);
     void ensureLoaded();
-
-    return () => {
-        subscribers.delete(listener);
-    };
+    return preferencesStore.subscribe(listener);
 }
 
 function getSnapshot() {
     void ensureLoaded();
-    return currentPreferences;
+    return preferencesStore.get();
 }
 
 function getServerSnapshot() {
@@ -118,13 +100,10 @@ function getServerSnapshot() {
 
 export async function updateDesktopCommandPreferences(patch: Partial<DesktopCommandPreferences>) {
     await ensureLoaded();
-    currentPreferences = {
-        ...currentPreferences,
-        ...patch,
-    };
+    const next = { ...preferencesStore.get(), ...patch };
     loaded = true;
-    emitChange();
-    await persistPreferences(currentPreferences);
+    preferencesStore.set(next);
+    await persistPreferences(next);
 }
 
 export function useDesktopCommandPreferences() {

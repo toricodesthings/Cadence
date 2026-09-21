@@ -3,8 +3,7 @@ import { Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Markdown } from "./Markdown";
 import { MessageActions } from "./MessageActions";
-
-const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
 /** Conversation avatar — Cadence on the assistant side, the signed-in user on
  * theirs. `min-w-7` is load-bearing: the container is a flex child, so without

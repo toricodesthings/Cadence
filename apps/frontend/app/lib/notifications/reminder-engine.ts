@@ -45,7 +45,8 @@ export interface NotificationDismissalState {
 
 // ── §11.7: Quiet hours check ──
 
-function isInQuietHours(
+/** Handles midnight crossing (e.g. 22:00 → 07:00). */
+export function isInQuietHours(
     now: Date,
     enabled: boolean,
     start: string | null,

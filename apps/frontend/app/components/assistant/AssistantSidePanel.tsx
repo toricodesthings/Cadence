@@ -38,8 +38,8 @@ import { stopServerStream } from "../../lib/ai/stop-stream";
 import { deriveFallbackTitle } from "@cadence/domain/ai-title";
 import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData } from "@cadence/contracts/ai";
 import { SIDE_PANEL_SURFACE } from "../shared/side-panel-surface";
-
-const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { useOnlineStatus } from "../../hooks/core/use-online-status";
 
 /** Three soft bouncing dots — the "assistant is typing…" affordance. */
 function TypingDots({ name }: { name: string }) {
@@ -54,24 +54,6 @@ function TypingDots({ name }: { name: string }) {
             ))}
         </span>
     );
-}
-
-/** Subscribe to the browser online/offline events (offline guard, design §8.4). */
-function useOnline(): boolean {
-    const [online, setOnline] = useState(
-        typeof navigator === "undefined" ? true : navigator.onLine,
-    );
-    useEffect(() => {
-        const on = () => setOnline(true);
-        const off = () => setOnline(false);
-        window.addEventListener("online", on);
-        window.addEventListener("offline", off);
-        return () => {
-            window.removeEventListener("online", on);
-            window.removeEventListener("offline", off);
-        };
-    }, []);
-    return online;
 }
 
 /** The `status` metadata a persisted assistant turn may carry (§8.3). */
@@ -100,7 +82,7 @@ export function AssistantSidePanel({
     } = useAssistantStore();
     const { session } = useAuthState();
     const reduceMotion = useReducedMotion();
-    const online = useOnline();
+    const online = useOnlineStatus();
     const queryClient = useQueryClient();
     // The assistant's (renameable) name — the same identity the model speaks
     // with (settings.assistant.assistantName), so the panel chrome and the

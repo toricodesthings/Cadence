@@ -140,6 +140,22 @@ export async function getNativeStore(storeName: string): Promise<NativeStoreAdap
     return (await loadPlatformRuntime()).getNativeStore(storeName);
 }
 
+/** True inside a Tauri window of the desktop build. */
+export function hasDesktopWindow(): boolean {
+    return IS_DESKTOP_RUNTIME && typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/** The named native store inside a Tauri window; null otherwise or when it fails to load. */
+export async function getDesktopStore(storeName: string): Promise<NativeStoreAdapter | null> {
+    if (!hasDesktopWindow()) return null;
+    return getNativeStore(storeName).catch(() => null);
+}
+
+/** `localStorage`, or null outside a browser. */
+export function getWebStorage(): Storage | null {
+    return typeof window !== "undefined" && typeof window.localStorage !== "undefined" ? window.localStorage : null;
+}
+
 export async function resizeWindow(width: number, height: number, center?: boolean): Promise<void> {
     return (await loadPlatformRuntime()).resizeWindow(width, height, center);
 }

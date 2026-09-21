@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as Popover from "./Popover";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
+import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 
 interface TimePickerProps {
     value: string;
@@ -93,19 +94,6 @@ function nearestIndex(value: string, items: string[]): number {
         }
     });
     return best;
-}
-
-/** True on touch-first devices (phones, tablets) where native pickers win. */
-function useIsCoarsePointer(): boolean {
-    const [isCoarse, setIsCoarse] = React.useState(false);
-    React.useEffect(() => {
-        const mq = window.matchMedia("(hover: none) and (pointer: coarse)");
-        setIsCoarse(mq.matches);
-        const onChange = (e: MediaQueryListEvent) => setIsCoarse(e.matches);
-        mq.addEventListener("change", onChange);
-        return () => mq.removeEventListener("change", onChange);
-    }, []);
-    return isCoarse;
 }
 
 export function TimePicker(props: TimePickerProps) {

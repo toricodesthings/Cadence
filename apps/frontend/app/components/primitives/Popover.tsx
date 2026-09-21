@@ -6,6 +6,7 @@
  */
 import * as RadixPopover from "@radix-ui/react-popover";
 import { forwardRef } from "react";
+import { FLOATING_MOTION, FLOATING_SURFACE } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
 export const Root = RadixPopover.Root;
@@ -48,11 +49,9 @@ export const Content = forwardRef<
             sideOffset={sideOffset}
             data-cadence-popover-content="true"
             className={[
-                "glass-surface layer-floating-ui rounded-2xl p-4 shadow-2xl",
-                "data-[state=open]:animate-in data-[state=closed]:animate-out",
-                "data-[state=open]:fade-in data-[state=closed]:fade-out",
-                "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
-                "duration-200",
+                FLOATING_SURFACE,
+                "rounded-2xl p-4 shadow-2xl",
+                FLOATING_MOTION,
                 className,
             ].join(" ")}
             {...props}

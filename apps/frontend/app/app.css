@@ -170,6 +170,8 @@
      Background floating UI can't appear over a modal because the inert backdrop
      blocks it, so raising this layer is safe. */
   --z-floating-ui: 120;
+  /* The boot/route loading scene covers everything, floating UI included. */
+  --z-loading-screen: 200;
 }
 
 /*
@@ -1180,6 +1182,10 @@
 
   .layer-system-dialog {
     z-index: var(--z-system-dialog);
+  }
+
+  .layer-loading-screen {
+    z-index: var(--z-loading-screen);
   }
 
   .mobile-scroll-region {

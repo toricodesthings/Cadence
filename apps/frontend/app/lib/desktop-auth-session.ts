@@ -3,7 +3,7 @@ import {
     readDesktopSecureSecret,
     writeDesktopSecureSecret,
 } from "../platform/desktop-keyring";
-import { IS_DESKTOP_RUNTIME, getNativeStore } from "../platform/runtime";
+import { getDesktopStore, getWebStorage } from "../platform/runtime";
 
 const DESKTOP_AUTH_STORE_NAME = "cadence_auth";
 const DESKTOP_AUTH_STORAGE_KEY = "desktop_oauth_session";
@@ -34,18 +34,6 @@ export interface StoredDesktopAuthSession {
 }
 
 let memoryCache: StoredDesktopAuthSession | null | undefined;
-
-function hasWindow() {
-    return typeof window !== "undefined";
-}
-
-function isTauriWindow() {
-    return hasWindow() && "__TAURI_INTERNALS__" in window;
-}
-
-function canUseWebStorage() {
-    return hasWindow() && typeof window.localStorage !== "undefined";
-}
 
 function toBase64Url(value: string) {
     const bytes = new TextEncoder().encode(value);
@@ -102,20 +90,8 @@ function isPersistedDesktopAuthSessionMetadata(value: unknown): value is Omit<St
         && isDesktopAuthSessionData(session.data);
 }
 
-async function getStorageAdapter() {
-    if (!IS_DESKTOP_RUNTIME || !isTauriWindow()) {
-        return null;
-    }
-
-    try {
-        return await getNativeStore(DESKTOP_AUTH_STORE_NAME);
-    } catch {
-        return null;
-    }
-}
-
 function emitDesktopAuthSessionChange(session: StoredDesktopAuthSession | null) {
-    if (!hasWindow()) {
+    if (typeof window === "undefined") {
         return;
     }
 
@@ -142,7 +118,7 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
         return memoryCache;
     }
 
-    const adapter = await getStorageAdapter();
+    const adapter = await getDesktopStore(DESKTOP_AUTH_STORE_NAME);
     if (adapter) {
         const stored = await adapter.get<unknown>(DESKTOP_AUTH_STORAGE_KEY);
         if (!isPersistedDesktopAuthSessionMetadata(stored)) {
@@ -163,13 +139,14 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
         return memoryCache;
     }
 
-    if (!canUseWebStorage()) {
+    const storage = getWebStorage();
+    if (!storage) {
         memoryCache = null;
         return memoryCache;
     }
 
     try {
-        const raw = window.localStorage.getItem(DESKTOP_AUTH_STORAGE_KEY);
+        const raw = storage.getItem(DESKTOP_AUTH_STORAGE_KEY);
         if (!raw) {
             memoryCache = null;
             return memoryCache;
@@ -187,7 +164,7 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
 export async function writeDesktopAuthSession(session: StoredDesktopAuthSession): Promise<void> {
     memoryCache = session;
 
-    const adapter = await getStorageAdapter();
+    const adapter = await getDesktopStore(DESKTOP_AUTH_STORE_NAME);
     if (adapter) {
         try {
             if (session.jwt) {
@@ -214,8 +191,9 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
         }
     }
 
-    if (canUseWebStorage()) {
-        window.localStorage.setItem(DESKTOP_AUTH_STORAGE_KEY, JSON.stringify(session));
+    const storage = getWebStorage();
+    if (storage) {
+        storage.setItem(DESKTOP_AUTH_STORAGE_KEY, JSON.stringify(session));
         emitDesktopAuthSessionChange(session);
         return;
     }
@@ -226,7 +204,7 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
 export async function clearDesktopAuthSession(): Promise<void> {
     memoryCache = null;
 
-    const adapter = await getStorageAdapter();
+    const adapter = await getDesktopStore(DESKTOP_AUTH_STORE_NAME);
     if (adapter) {
         await adapter.del(DESKTOP_AUTH_STORAGE_KEY);
         await clearDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY);
@@ -234,15 +212,13 @@ export async function clearDesktopAuthSession(): Promise<void> {
         return;
     }
 
-    if (canUseWebStorage()) {
-        window.localStorage.removeItem(DESKTOP_AUTH_STORAGE_KEY);
-    }
+    getWebStorage()?.removeItem(DESKTOP_AUTH_STORAGE_KEY);
 
     emitDesktopAuthSessionChange(null);
 }
 
 export function subscribeDesktopAuthSession(listener: (session: StoredDesktopAuthSession | null) => void) {
-    if (!hasWindow()) {
+    if (typeof window === "undefined") {
         return () => {};
     }
 

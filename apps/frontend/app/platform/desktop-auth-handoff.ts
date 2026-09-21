@@ -1,4 +1,4 @@
-import { IS_DESKTOP_RUNTIME, getNativeStore } from "./runtime";
+import { getDesktopStore, getWebStorage } from "./runtime";
 
 export const DESKTOP_AUTH_STATE_PARAM = "desktop_auth_state";
 
@@ -14,18 +14,6 @@ interface PendingDesktopAuthHandoff {
     expiresAt: number;
 }
 
-function hasWindow() {
-    return typeof window !== "undefined";
-}
-
-function isTauriWindow() {
-    return hasWindow() && "__TAURI_INTERNALS__" in window;
-}
-
-function canUseWebStorage() {
-    return hasWindow() && typeof window.localStorage !== "undefined";
-}
-
 function isPendingDesktopAuthHandoff(value: unknown): value is PendingDesktopAuthHandoff {
     if (!value || typeof value !== "object") {
         return false;
@@ -39,18 +27,6 @@ function isPendingDesktopAuthHandoff(value: unknown): value is PendingDesktopAut
         && typeof handoff.expiresAt === "number";
 }
 
-async function getStorageAdapter() {
-    if (!IS_DESKTOP_RUNTIME || !isTauriWindow()) {
-        return null;
-    }
-
-    try {
-        return await getNativeStore(DESKTOP_AUTH_HANDOFF_STORE);
-    } catch {
-        return null;
-    }
-}
-
 function createStateToken() {
     if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
         const bytes = new Uint8Array(24);
@@ -62,18 +38,19 @@ function createStateToken() {
 }
 
 async function readPendingDesktopAuthHandoff() {
-    const adapter = await getStorageAdapter();
+    const adapter = await getDesktopStore(DESKTOP_AUTH_HANDOFF_STORE);
     if (adapter) {
         const stored = await adapter.get<unknown>(DESKTOP_AUTH_HANDOFF_KEY);
         return isPendingDesktopAuthHandoff(stored) ? stored : null;
     }
 
-    if (!canUseWebStorage()) {
+    const storage = getWebStorage();
+    if (!storage) {
         return null;
     }
 
     try {
-        const raw = window.localStorage.getItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY);
+        const raw = storage.getItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY);
         if (!raw) {
             return null;
         }
@@ -86,27 +63,26 @@ async function readPendingDesktopAuthHandoff() {
 }
 
 async function writePendingDesktopAuthHandoff(handoff: PendingDesktopAuthHandoff) {
-    const adapter = await getStorageAdapter();
+    const adapter = await getDesktopStore(DESKTOP_AUTH_HANDOFF_STORE);
     if (adapter) {
         await adapter.set(DESKTOP_AUTH_HANDOFF_KEY, handoff);
         return;
     }
 
-    if (canUseWebStorage()) {
-        window.localStorage.setItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY, JSON.stringify(handoff));
+    const storage = getWebStorage();
+    if (storage) {
+        storage.setItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY, JSON.stringify(handoff));
     }
 }
 
 async function clearPendingDesktopAuthHandoff() {
-    const adapter = await getStorageAdapter();
+    const adapter = await getDesktopStore(DESKTOP_AUTH_HANDOFF_STORE);
     if (adapter) {
         await adapter.del(DESKTOP_AUTH_HANDOFF_KEY);
         return;
     }
 
-    if (canUseWebStorage()) {
-        window.localStorage.removeItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY);
-    }
+    getWebStorage()?.removeItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY);
 }
 
 export async function prepareDesktopAuthHandoff(redirectTo: string) {

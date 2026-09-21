@@ -134,7 +134,7 @@ export function TimedDropPreview({
 
     return (
         <div
-            className="pointer-events-none absolute inset-x-1 z-[15] overflow-hidden rounded-2xl border border-moonlit/45 bg-moonlit/[0.08] shadow-[0_12px_30px_rgba(142,197,252,0.12)]"
+            className="pointer-events-none absolute inset-x-1 z-15 overflow-hidden rounded-2xl border border-moonlit/45 bg-moonlit/[0.08] shadow-[0_12px_30px_rgba(142,197,252,0.12)]"
             style={{ top, height }}
             aria-hidden="true"
         >

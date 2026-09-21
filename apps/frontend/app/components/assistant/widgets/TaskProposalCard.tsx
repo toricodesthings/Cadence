@@ -1,6 +1,7 @@
 import { Sparkles, Calendar, Clock, Check, Pencil } from "lucide-react";
 import { ProposalCard, IdentityBlock, MetaPill, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";
+import { formatDate } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useCreateTask } from "../../../hooks/tasks/use-create-task";
 import { useUpdateTask } from "../../../hooks/tasks/use-update-task";
@@ -19,13 +20,6 @@ type TaskProposalInput = Partial<CreateTaskInput> & {
     state?: UpdateTaskInput["state"];
     waitingOn?: UpdateTaskInput["waitingOn"];
 };
-
-function formatDate(iso?: string | null): string | null {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 /**
  * Suggestion card for `propose_create_task` / `propose_update_task` (design §4.1).

@@ -116,7 +116,7 @@ export function TaskNoteCommandMenu({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: flipUp ? -4 : 4 }}
                 transition={{ duration: 0.12 }}
-                className="fixed z-[60] w-64 overflow-hidden rounded-xl border border-twilight-border/60 bg-twilight-surface/95 shadow-lg backdrop-blur-xl"
+                className="layer-floating-ui fixed w-64 overflow-hidden rounded-xl border border-twilight-border/60 bg-twilight-surface/95 shadow-lg backdrop-blur-xl"
                 style={{ top, left, maxHeight: `min(16rem, ${viewportHeight - 16}px)` }}
                 role="listbox"
                 aria-label="Slash commands"

@@ -5,7 +5,7 @@ import { useUpdateTask } from "../../hooks/tasks";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { DateOnlyPickerPopover } from "./DateOnlyPickerPopover";
 import { TimePicker, Tip } from "../primitives";
-import { formatShortDate, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { formatShortDate, fromTimeValue, parseLocalDate, toISODate, toTimeValue } from "../../lib/utils/date-format";
 
 /**
  * Direct editor for recurring timetable blocks (Fixed).
@@ -55,20 +55,6 @@ function formatUntilValue(dateOnly: string): string {
 function shiftByDays(iso: string, days: number): string {
     const d = new Date(iso);
     d.setDate(d.getDate() + days);
-    return d.toISOString();
-}
-
-/** ISO → local "HH:mm" for the TimePicker primitive. */
-function toTimeValue(iso: string): string {
-    const d = new Date(iso);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-/** "HH:mm" from the primitive → ISO, re-anchored onto the given base date. */
-function fromTimeValue(baseIso: string, time: string): string {
-    const [h, m] = time.split(":").map(Number);
-    const d = new Date(baseIso);
-    d.setHours(h, m, 0, 0);
     return d.toISOString();
 }
 

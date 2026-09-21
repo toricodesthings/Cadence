@@ -21,7 +21,7 @@ import type { ReactNode } from "react";
  */
 export function Loading({ title, children }: { title?: string; children?: ReactNode }) {
     return (
-        <div className="loading-screen fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden">
+        <div className="loading-screen layer-loading-screen fixed inset-0 flex items-center justify-center overflow-hidden">
             <div className="loading-stage" aria-hidden="true">
                 <svg className="ls-layer" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
                     <LoadingDefs />

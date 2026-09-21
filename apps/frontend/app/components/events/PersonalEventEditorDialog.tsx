@@ -79,7 +79,6 @@ export function PersonalEventEditorDialog({
                             <EmojiPickerPopover
                                 emoji={emoji}
                                 onSelect={setEmoji}
-                                contentClassName="layer-system-dialog z-[120]"
                             >
                                 <button
                                     type="button"

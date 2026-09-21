@@ -6,7 +6,7 @@ import { EmptyState } from "../tasks/EmptyState";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 import type { PersonalEvent } from "../../types/settings";
-import { formatTime } from "../../lib/utils/date-format";
+import { formatTime, toISODate } from "../../lib/utils/date-format";
 
 interface TimeSlot {
     label: string;
@@ -40,7 +40,7 @@ export function DayFocusView({
     onCompleteTask,
     onArchiveTask,
 }: DayFocusViewProps) {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = toISODate(new Date());
     const isCurrentDate = currentDate === todayIso;
     const scrollRef = useRef<HTMLDivElement | null>(null);
 

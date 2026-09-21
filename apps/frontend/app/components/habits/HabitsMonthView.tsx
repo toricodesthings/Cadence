@@ -3,14 +3,15 @@ import { Check, Clock, Flame, Pause } from "lucide-react";
 
 import { useHabitsMonthly, type HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
 import { useProjects } from "../../hooks/projects/use-projects";
-import { toISODate } from "../../lib/utils/date-format";
+import { getDaysInMonth, getFirstDayOfWeek, toISODate, weekdayLabels } from "../../lib/utils/date-format";
+import { sortHabits } from "../../lib/utils/habits";
 import type { Habit } from "@cadence/contracts/habit";
 import { HabitMenu } from "./HabitMenu";
 import { RoutineMark } from "./RoutineMark";
 import { useSettings } from "../../hooks/core/use-settings";
 import { HabitContextMenuWrapper } from "./HabitContextMenuWrapper";
 
-const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const DOW = weekdayLabels(2, 0);
 
 interface HabitsMonthViewProps {
     year: number;
@@ -21,29 +22,9 @@ interface HabitsMonthViewProps {
     emptyStateMode?: "active" | "archived";
 }
 
-function sortHabits(habits: Habit[]): Habit[] {
-    const now = new Date();
-    return [...habits].sort((a, b) => {
-        const aPaused = a.pausedUntil && new Date(a.pausedUntil) > now ? 1 : 0;
-        const bPaused = b.pausedUntil && new Date(b.pausedUntil) > now ? 1 : 0;
-        if (aPaused !== bPaused) return aPaused - bPaused;
-
-        const aDue = a.isDueToday || a.isOverdue ? 0 : 1;
-        const bDue = b.isDueToday || b.isOverdue ? 0 : 1;
-        if (aDue !== bDue) return aDue - bDue;
-
-        const aTimed = a.targetTime ? 0 : 1;
-        const bTimed = b.targetTime ? 0 : 1;
-        if (aTimed !== bTimed) return aTimed - bTimed;
-
-        if (a.targetTime && b.targetTime) return a.targetTime.localeCompare(b.targetTime);
-        return a.sortOrder - b.sortOrder;
-    });
-}
-
 function buildMonthCells(year: number, month: number) {
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDow = getFirstDayOfWeek(year, month, 0);
     const cells: Array<number | null> = [
         ...Array(firstDow).fill(null),
         ...Array.from({ length: daysInMonth }, (_, index) => index + 1),

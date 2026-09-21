@@ -3,8 +3,7 @@ import { Check, X, AlertCircle, Loader2, type LucideIcon } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Button, type ButtonVariant } from "../../primitives/Button";
 import { Skeleton } from "../../primitives/Skeleton";
-
-const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+import { EASE_OUT_EXPO } from "../../../lib/constants/motion";
 
 /**
  * The shared proposal-card shell (design §3). Every `propose_*` card is the same
