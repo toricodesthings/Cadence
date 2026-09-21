@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-21
+
 Routines replace Habits, and Today gets a day strip
 
 ### Added
