@@ -7,6 +7,7 @@ import { trackUsageEvent } from "../../lib/api/track-event";
 import { isPersistedId } from "../../lib/api/optimistic-id";
 import { Sun, Sparkles, Search, MoreHorizontal, Sunrise, Clock, Trash2, Loader2 } from "lucide-react";
 import * as ContextMenu from "../primitives/ContextMenu";
+import { PlaceDraggable } from "../holding/PlaceSheet";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { useCallback, useRef, useEffect } from "react";
 
@@ -150,8 +151,9 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isFocused, item.id, clarify, place, discard]);
 
+    // Draggable onto Capture's Place rail (desktop); dropping places it like "Today" does.
     return (
-        <ContextMenu.Root onOpenChange={(isOpen) => {
+        <PlaceDraggable id={`capture:${item.id}`} title={item.rawText} onPlace={place}><ContextMenu.Root onOpenChange={(isOpen) => {
             if (isOpen) trackUsageEvent("capture.context_menu_opened", { object_type: "capture", input_method: "context_menu" });
         }}>
         <ContextMenu.Trigger asChild>
@@ -301,7 +303,7 @@ export function InboxItemCard({ item, isSelected, isFocused, onSelect, onClarify
                 </div>
             </ContextMenu.Item>
         </ContextMenu.Content>
-        </ContextMenu.Root>
+        </ContextMenu.Root></PlaceDraggable>
     );
 }
 

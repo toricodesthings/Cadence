@@ -11,6 +11,7 @@ import {
     Milestone,
     SlidersHorizontal,
     StickyNote,
+    X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateTask } from "../../hooks/tasks";
@@ -21,6 +22,7 @@ import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
+import { UtilitySheet } from "../shared/UtilitySheet";
 import { Tip } from "../primitives";
 import { TimePicker } from "../primitives";
 import { Switch } from "../primitives";
@@ -285,32 +287,12 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const eventDateLabel = useMemo(() => formatDateLabel(eventDate), [eventDate]);
     const taskSubtitle = mode === "weekly" ? (summary?.label ?? "Repeats every week") : formatTimeRange(startTime, endTime);
 
-    return (
-        <>
-            <Dialog open={true} onOpenChange={(open) => { if (!open) requestClose(); }}>
-                <DialogContent
-                    className={cn(
-                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),40rem)] overflow-hidden rounded-[30px] p-0",
-                        shell.isPhone
-                            ? "inset-x-3 bottom-3 max-h-[88dvh]"
-                            : "sm:max-w-2xl sm:max-h-[90dvh]",
-                    )}
-                    hideCloseButton
-                >
-                    <div className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}>
-                        <div className="min-w-0 space-y-1.5">
-                            <DialogTitle className="font-display text-xl tracking-tight text-twilight-text">
-                                Create on {tab === "task" ? formatDateLabel(startDate) : eventDateLabel}
-                            </DialogTitle>
-                            <DialogDescription className="text-sm text-twilight-text-soft">
-                                {tab === "task"
-                                    ? taskSubtitle
-                                    : "Yearly personal event"}
-                            </DialogDescription>
-                        </div>
-                        <DialogCloseButton className="-mt-2" />
-                    </div>
+    const composerTitle = `Create on ${tab === "task" ? formatDateLabel(startDate) : eventDateLabel}`;
+    const composerSubtitle = tab === "task" ? taskSubtitle : "Yearly personal event";
 
+    /* ── Shared composer bands — the same content in the desktop dialog and the
+       compact draggable sheet, so the two never drift (§4.5). ── */
+    const typeTabs = (
                     <div className={`${BAND} border-b border-white/[0.06] px-5 py-4 sm:px-6`}>
                         <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-1" role="tablist" aria-label="Create type">
                             {([
@@ -341,7 +323,9 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                             })}
                         </div>
                     </div>
+    );
 
+    const composerBody = (
                     <div className="min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable] px-5 py-4 sm:px-6 sm:py-5">
                         {tab === "task" ? (
                             <div className="space-y-5">
@@ -622,7 +606,9 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                             </div>
                         )}
                     </div>
+    );
 
+    const composerFooter = (
                     <div className={`${BAND} flex items-center justify-end gap-2 border-t border-white/[0.06] px-5 py-4 sm:px-6`}>
                         <Button variant="ghost" size="md" onClick={requestClose}>
                             Cancel
@@ -652,8 +638,52 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                             </Button>
                         )}
                     </div>
+    );
+
+    return (
+        <>
+            {shell.isCompact ? (
+                /* Compact shells get the shared sheet: drag handle, drag-down
+                   dismiss, header, band and pinned footer all come from it. */
+                <UtilitySheet
+                    title={composerTitle}
+                    subtitle={composerSubtitle}
+                    open
+                    onClose={requestClose}
+                    band={typeTabs}
+                    footer={composerFooter}
+                    scrollable={false}
+                    flush
+                >
+                    {composerBody}
+                </UtilitySheet>
+            ) : (
+            <Dialog open={true} onOpenChange={(open) => { if (!open) requestClose(); }}>
+                <DialogContent
+                    className={cn(
+                        "flex flex-col gap-0 w-[min(calc(100vw-1.5rem),40rem)] overflow-hidden rounded-[30px] p-0",
+                        "sm:max-w-2xl sm:max-h-[90dvh]",
+                    )}
+                    hideCloseButton
+                >
+                    <div className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}>
+                        <div className="min-w-0 space-y-1.5">
+                            <DialogTitle className="font-display text-xl tracking-tight text-twilight-text">
+                                {composerTitle}
+                            </DialogTitle>
+                            <DialogDescription className="text-sm text-twilight-text-soft">
+                                {composerSubtitle}
+                            </DialogDescription>
+                        </div>
+                        <DialogCloseButton className="-mt-2" />
+                    </div>
+
+                    {typeTabs}
+                    {composerBody}
+                    {composerFooter}
                 </DialogContent>
             </Dialog>
+            )}
 
             <AlertDialog.Root open={discardOpen} onOpenChange={setDiscardOpen}>
                 <AlertDialog.Content>

@@ -185,7 +185,7 @@ export function KanbanBoard({
     projectId = null,
     selectedTaskId = null,
     onSelectTask = () => { },
-    desktopCanvasPaddingClassName = "px-4 py-4",
+    desktopCanvasPaddingClassName = "px-4 pb-4 pt-2",
 }: KanbanBoardProps) {
     const shell = useShellMode();
     const { data: sections = [] } = useSections(projectId);
@@ -369,7 +369,7 @@ export function KanbanBoard({
 
     if (shell.isCompact) {
         return (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 sm:px-6">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 py-4">
                 <BoardCanvas
                     columns={visibleColumns.map((column) => ({
                         id: column.id,

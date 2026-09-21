@@ -12,12 +12,13 @@ import { useRightPanelStore } from "../stores/right-panel-store";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { HabitToastResolver } from "../components/habits/HabitToastResolver";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { ChevronLeft, ChevronRight, Plus, PanelLeftOpen, Flame } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, Flame } from "lucide-react";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { useNavigate } from "react-router";
 import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "../components/layout/PageHeader";
+import * as Popover from "../components/primitives/Popover";
+import { Tip } from "../components/primitives/Tooltip";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
 
@@ -35,7 +36,6 @@ const slideVariants = {
 export default function Habits() {
     const shell = useShellMode();
     const setRailView = useRightPanelStore((s) => s.setRailView);
-    const navigate = useNavigate();
     const today = new Date();
     const [currentDate, setCurrentDate] = useState<string>(toISODate(today));
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -158,96 +158,96 @@ export default function Habits() {
             <div className="flex h-full overflow-hidden">
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {shell.isPhone ? (
-                        <header className={PAGE_HEADER_SURFACE}>
-                            <div className="px-4 pt-2.5 pb-3">
-                                {/* Row 1: sidebar toggle + page identity + heading + nav arrows */}
-                                <div className="flex items-center gap-2 min-h-[44px]">
+                        <header className={`${PAGE_HEADER_SURFACE} px-4 pt-2.5 pb-3`}>
+                            {/* Same two rows as Schedule: identity + period nav +
+                                overflow on top, view switcher + Today below. */}
+                            <div className="flex items-center gap-2 min-h-[44px]">
+                                <div className="min-w-0 flex-1">
+                                    <PageHeaderIdentity compact icon={<Flame size={16} aria-hidden="true" />} accentColor={HABITS_ACCENT} eyebrow="Habits" title={currentHeading} />
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0">
                                     <button
                                         type="button"
-                                        onClick={() => navigate("/browse", { state: { pageBack: true, backLabel: "Back" } })}
-                                        className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.05]"
-                                        aria-label="Open navigation"
+                                        onClick={() => handleNavigate(-1)}
+                                        className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                        aria-label={displayMode === "week" ? "Previous week" : "Previous month"}
                                     >
-                                        <PanelLeftOpen size={18} />
+                                        <ChevronLeft size={15} />
                                     </button>
-                                    <div className="min-w-0 flex-1">
-                                        <PageHeaderIdentity compact icon={<Flame size={16} aria-hidden="true" />} accentColor={HABITS_ACCENT} eyebrow="Habits" title={currentHeading} />
-                                    </div>
-                                    <div className="flex items-center gap-0.5 shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleNavigate(-1)}
-                                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                            aria-label="Previous week"
-                                        >
-                                            <ChevronLeft size={15} />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleNavigate(1)}
-                                            className="btn-icon min-h-8 min-w-8 rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                            aria-label="Next week"
-                                        >
-                                            <ChevronRight size={15} />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                                    <nav
-                                        className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
-                                        role="radiogroup"
-                                        aria-label="Habit display mode"
-                                    >
-                                        {(["week", "month"] as const).map((mode) => (
-                                            <button
-                                                key={mode}
-                                                type="button"
-                                                role="radio"
-                                                aria-checked={displayMode === mode}
-                                                onClick={() => setDisplayMode(mode)}
-                                                className={`
-                                                    rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
-                                                    ${displayMode === mode
-                                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
-                                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
-                                                `}
-                                            >
-                                                {mode === "week" ? "Week" : "Month"}
-                                            </button>
-                                        ))}
-                                    </nav>
-                                    <nav
-                                        className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
-                                        role="radiogroup"
-                                        aria-label="Habit view mode"
-                                    >
-                                        {(["active", "archived"] as const).map((mode) => (
-                                            <button
-                                                key={mode}
-                                                type="button"
-                                                role="radio"
-                                                aria-checked={viewMode === mode}
-                                                onClick={() => setViewMode(mode)}
-                                                className={`
-                                                    rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
-                                                    ${viewMode === mode
-                                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
-                                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
-                                                `}
-                                            >
-                                                {mode === "active" ? "Active" : "Archived"}
-                                            </button>
-                                        ))}
-                                    </nav>
                                     <button
                                         type="button"
-                                        onClick={handleToday}
-                                        disabled={isCurrentPeriod}
-                                        className="ml-auto rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text cursor-pointer disabled:opacity-30"
+                                        onClick={() => handleNavigate(1)}
+                                        className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                        aria-label={displayMode === "week" ? "Next week" : "Next month"}
                                     >
-                                        Today
+                                        <ChevronRight size={15} />
                                     </button>
                                 </div>
+                                <Popover.Root>
+                                    <Tip label="Habit options"><Popover.Trigger asChild>
+                                        <button
+                                            type="button"
+                                            className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
+                                            aria-label="Habit options"
+                                        >
+                                            <Settings size={16} />
+                                        </button>
+                                    </Popover.Trigger></Tip>
+                                    <Popover.Content side="bottom" align="end" className="w-64 space-y-2 p-3">
+                                        <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">Show</h3>
+                                        <div className="space-y-1.5" role="radiogroup" aria-label="Habit view mode">
+                                            {(["active", "archived"] as const).map((mode) => (
+                                                <button
+                                                    key={mode}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={viewMode === mode}
+                                                    onClick={() => setViewMode(mode)}
+                                                    className={`touch-target flex min-h-11 w-full items-center rounded-xl border px-3 text-sm font-medium ${
+                                                        viewMode === mode
+                                                            ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
+                                                            : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
+                                                    }`}
+                                                >
+                                                    {mode === "active" ? "Active routines" : "Archived routines"}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </Popover.Content>
+                                </Popover.Root>
+                            </div>
+
+                            <div className="mt-1.5 flex items-center gap-1">
+                                <nav
+                                    className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
+                                    role="radiogroup"
+                                    aria-label="Habit display mode"
+                                >
+                                    {(["week", "month"] as const).map((mode) => (
+                                        <button
+                                            key={mode}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={displayMode === mode}
+                                            onClick={() => setDisplayMode(mode)}
+                                            className={`rounded-lg border px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer ${
+                                                displayMode === mode
+                                                    ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
+                                                    : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"
+                                            }`}
+                                        >
+                                            {mode === "week" ? "Week" : "Month"}
+                                        </button>
+                                    ))}
+                                </nav>
+                                <button
+                                    type="button"
+                                    onClick={handleToday}
+                                    disabled={isCurrentPeriod}
+                                    className="ml-auto rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text cursor-pointer disabled:opacity-30"
+                                >
+                                    Today
+                                </button>
                             </div>
                         </header>
                     ) : (
@@ -406,16 +406,20 @@ export default function Habits() {
                     </ResponsiveOverlayPanel>
                 )}
 
-                {shell.isPhone ? (
-                    <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
-                        <button
-                            type="button"
-                            onClick={() => setIsCreateOpen(true)}
-                            className="pointer-events-auto touch-target inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-accent-primary/25 bg-accent-primary px-5 text-sm font-semibold text-twilight-void shadow-[0_18px_48px_color-mix(in_srgb,var(--accent-primary)_28%,transparent)]"
-                        >
-                            <Plus size={15} aria-hidden="true" />
-                            Add Routine
-                        </button>
+                {shell.isCompact ? (
+                    /* Bottom-right orb like every other page — the dock owns the
+                       centre, so a centred pill collided with it. */
+                    <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end sm:right-5">
+                        <Tip label="Add routine" side="left">
+                            <button
+                                type="button"
+                                onClick={() => setIsCreateOpen(true)}
+                                aria-label="Add routine"
+                                className="pointer-events-auto flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-midnight shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <Plus size={20} aria-hidden="true" />
+                            </button>
+                        </Tip>
                     </div>
                 ) : null}
             </div>

@@ -51,6 +51,7 @@ import { invalidateEverywhere } from "../lib/api/workspace-cache";
 import { toast } from "sonner";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
+import { usePeriodSwipe } from "../hooks/ui/use-period-swipe";
 import {
     getDateFromTimedDropId,
     parseCalendarTimedDropId,
@@ -61,17 +62,20 @@ import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { LocationNotice } from "../components/location/LocationNotice";
-import { Wrench } from "lucide-react";
+import { Plus, Wrench } from "lucide-react";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
 import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
 import { trackUsageEvent } from "../lib/api/track-event";
 
+/** `distance` collapses to 0 under reduced motion, leaving an instant switch. */
+type SlideCustom = { direction: number; distance: number };
+
 const slideVariants = {
-    enter: (d: number) => ({ x: d > 0 ? 32 : -32, opacity: 0 }),
+    enter: ({ direction, distance }: SlideCustom) => ({ x: direction > 0 ? distance : -distance, opacity: 0 }),
     center: { x: 0, opacity: 1 },
-    exit: (d: number) => ({ x: d > 0 ? -32 : 32, opacity: 0 }),
+    exit: ({ direction, distance }: SlideCustom) => ({ x: direction > 0 ? -distance : distance, opacity: 0 }),
 };
 
 function applyCalendarClutterFilters(tasks: Task[], clutter: {
@@ -401,6 +405,19 @@ export default function Schedule() {
             }
         });
     }, [viewMode]);
+
+    // Compact shells change period by dragging the calendar body; the gesture
+    // feeds the same direction + slide path the header arrows use. It stands
+    // down while a task chip is being dragged so dnd-kit keeps the pointer.
+    const { reducedMotion, dragProps } = usePeriodSwipe({
+        enabled: shell.isCompact && !activeDragTask,
+        onCommit: handleNavigate,
+    });
+
+    const slideCustom = useMemo<SlideCustom>(
+        () => ({ direction, distance: reducedMotion ? 0 : 32 }),
+        [direction, reducedMotion],
+    );
 
     const handleToday = useCallback(() => {
         const now = new Date();
@@ -1008,23 +1025,25 @@ export default function Schedule() {
                         onAddTask={handleAddTaskToolbar}
                         onAddEvent={handleAddEventToolbar}
                         overflowContent={shell.isPhone ? mobileOverflowContent : overflowContent}
-                        onToggleSidebar={shell.isCompact ? () => navigate("/browse", { state: { pageBack: true, backLabel: "Back" } }) : undefined}
                         compact={shell.isCompact}
                     />
 
                     {/* Main calendar area */}
                     <div className="flex-1 min-h-0 relative flex overflow-hidden">
                         {/* Calendar views */}
-                        <div className="flex-1 min-w-0 relative overflow-hidden">
-                            <AnimatePresence initial={false} custom={direction} mode="wait">
+                        <motion.div
+                            {...dragProps}
+                            className={`flex-1 min-w-0 relative overflow-hidden${shell.isCompact ? " select-none" : ""}`}
+                        >
+                            <AnimatePresence initial={false} custom={slideCustom} mode="wait">
                                 <motion.div
                                     key={viewKey}
-                                    custom={direction}
+                                    custom={slideCustom}
                                     variants={slideVariants}
                                     initial="enter"
                                     animate="center"
                                     exit="exit"
-                                    transition={{
+                                    transition={reducedMotion ? { duration: 0 } : {
                                         x: { type: "spring", stiffness: 320, damping: 32 },
                                         opacity: { duration: 0.18 },
                                     }}
@@ -1086,7 +1105,6 @@ export default function Schedule() {
                                                 onSelectTask={handleSelectTask}
                                                 onCompleteTask={handleCompleteTask}
                                                 onArchiveTask={handleArchiveTask}
-                                                onNavigateWeek={handleNavigate}
                                             />
                                         ) : (
                                             <WeekView
@@ -1119,8 +1137,6 @@ export default function Schedule() {
                                                 onSelectTask={handleSelectTask}
                                                 onCompleteTask={handleCompleteTask}
                                                 onArchiveTask={handleArchiveTask}
-                                                onNavigateNext={() => handleNavigate(1)}
-                                                onNavigatePrev={() => handleNavigate(-1)}
                                             />
                                         ) : (
                                             <DayView
@@ -1158,20 +1174,25 @@ export default function Schedule() {
                                     )}
                                 </motion.div>
                             </AnimatePresence>
-                        </div>
+                        </motion.div>
 
                     </div>
                 </div>
 
-                {shell.isPhone ? (
-                    <div className="layer-floating-bar pointer-events-none fixed inset-x-0 bottom-5 flex justify-center px-4">
-                        <button
-                            type="button"
-                            onClick={handleAddTaskToolbar}
-                            className="pointer-events-auto touch-target inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-accent-primary/25 bg-accent-primary px-5 text-sm font-semibold text-twilight-void shadow-[0_18px_48px_color-mix(in_srgb,var(--accent-primary)_28%,transparent)]"
-                        >
-                            Add Task
-                        </button>
+                {/* Compact shells get the same bottom-right orb every other page
+                    uses; the dock owns the centre, so a centred pill collided. */}
+                {shell.isCompact ? (
+                    <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end sm:right-5">
+                        <Tip label="Add to schedule" side="left">
+                            <button
+                                type="button"
+                                onClick={handleAddTaskToolbar}
+                                aria-label="Add to schedule"
+                                className="pointer-events-auto flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-midnight shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <Plus size={20} aria-hidden="true" />
+                            </button>
+                        </Tip>
                     </div>
                 ) : null}
 

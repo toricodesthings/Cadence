@@ -17,6 +17,7 @@
 		"test:security": "vitest run tests/security",
 		"test:watch": "vitest",
 		"typecheck": "tsc --noEmit",
+		"lint": "oxlint .",
 		"db:generate": "drizzle-kit generate",
 		"db:check": "drizzle-kit check",
 		"db:migrate": "drizzle-kit migrate",

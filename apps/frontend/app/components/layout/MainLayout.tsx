@@ -58,6 +58,7 @@ const CommandPalette = lazy(() => import("../command-palette/CommandPalette").th
 const AssistantSidePanel = lazy(() => import("../assistant/AssistantSidePanel").then((m) => ({ default: m.AssistantSidePanel })));
 const MobileSearchSheet = lazy(() => import("../command-palette/MobileSearchSheet").then((m) => ({ default: m.MobileSearchSheet })));
 const ShortcutReference = lazy(() => import("../shared/ShortcutReference").then((m) => ({ default: m.ShortcutReference })));
+const WorkspaceMenuSheet = lazy(() => import("./WorkspaceMenuSheet").then((m) => ({ default: m.WorkspaceMenuSheet })));
 const NotificationsSheet = lazy(() => import("../notifications/NotificationsSheet").then((m) => ({ default: m.NotificationsSheet })));
 const SettingsDialog = lazy(() => import("../settings/SettingsDialog").then((m) => ({ default: m.SettingsDialog })));
 const QuickAddSurface = lazy(() => import("../quick-add/QuickAddSurface").then((m) => ({ default: m.QuickAddSurface })));
@@ -223,6 +224,7 @@ export function MainLayout({
     headerCenter,
     headerRight,
     compactHeaderRightInline = false,
+    compactHeaderLeading,
     customSidebar,
     hideHeader = false,
     hideContextualOrb = false,
@@ -243,6 +245,9 @@ export function MainLayout({
     headerCenter?: React.ReactNode,
     headerRight?: React.ReactNode,
     compactHeaderRightInline?: boolean,
+    /** Compact-shell-only control rendered before the page identity, replacing
+     * the workspace menu button every compact route gets by default. */
+    compactHeaderLeading?: React.ReactNode,
     customSidebar?: React.ReactNode,
     hideHeader?: boolean,
     hideContextualOrb?: boolean,
@@ -255,6 +260,7 @@ export function MainLayout({
     const { isCollapsed, toggleCollapse } = useSidebarStore();
     const [commandOpen, setCommandOpen] = useState(false);
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+    const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
     const [shortcutsRefOpen, setShortcutsRefOpen] = useState(false);
     const [quickAddOpen, setQuickAddOpen] = useState(false);
     const [quickAddInitialTab, setQuickAddInitialTab] = useState<QuickAddTab>("task");
@@ -707,8 +713,23 @@ export function MainLayout({
                         <header className={PAGE_HEADER_SURFACE}>
                             <div className="px-4 pb-3 pt-2.5" style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}>
                                 <div className="flex w-full flex-col gap-2">
-                                    <div className="flex min-h-11 items-center justify-between gap-4 sm:min-h-12">
-                                        {headerIdentity}
+                                    <div className="flex min-h-11 items-center justify-between gap-3 sm:min-h-12">
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                                            {compactHeaderLeading ?? (
+                                                /* Compact shells have no sidebar, so every route keeps
+                                                   the workspace menu (Today, Upcoming, projects, tags)
+                                                   one tap away from the header. */
+                                                <Tooltip.Tip label="Workspace menu"><button
+                                                    type="button"
+                                                    onClick={() => setWorkspaceMenuOpen(true)}
+                                                    aria-label="Open workspace menu"
+                                                    aria-haspopup="dialog"
+                                                    aria-expanded={workspaceMenuOpen}
+                                                    className="mobile-icon-button -ml-1 shrink-0"
+                                                ><PanelLeftOpen size={20} aria-hidden="true" /></button></Tooltip.Tip>
+                                            )}
+                                            {headerIdentity}
+                                        </div>
                                         <MobileHeaderActions onSearch={openSearch}>{compactHeaderRightInline ? headerRight : null}</MobileHeaderActions>
                                     </div>
                                     {(headerCenter || (headerRight && !compactHeaderRightInline)) && (
@@ -856,6 +877,9 @@ export function MainLayout({
             </Suspense>
             <Suspense fallback={null}>
                 <DeferredMount active={commandOpen}><CommandPalette open={commandOpen} onOpenChange={setCommandOpen} /></DeferredMount>
+            </Suspense>
+            <Suspense fallback={null}>
+                <DeferredMount active={workspaceMenuOpen}><WorkspaceMenuSheet open={workspaceMenuOpen} onClose={() => setWorkspaceMenuOpen(false)} /></DeferredMount>
             </Suspense>
             <Suspense fallback={null}>
                 <DeferredMount active={mobileSearchOpen}><MobileSearchSheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen} /></DeferredMount>

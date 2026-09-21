@@ -11,6 +11,7 @@ import { QuickScheduleSurface } from "./QuickScheduleSurface";
 import { MoveToSubmenu } from "./MoveToSubmenu";
 import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Task } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
 
@@ -360,6 +361,29 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
     );
 }
 
+function TaskQuickActions({ task }: { task: Task }) {
+    const updateTask = useUpdateTask();
+    const duplicateTask = useDuplicateTask();
+    const archiveTask = useArchiveTask();
+    return (
+        <>
+            <DropdownMenu.Item onSelect={() => updateTask.mutate({ id: task.id, isPinned: !task.isPinned })}>
+                <div className="flex items-center gap-2">
+                    <Pin size={16} className={task.isPinned ? "fill-accent-primary text-accent-primary" : ""} />
+                    <span>{task.isPinned ? "Unpin task" : "Pin to top"}</span>
+                </div>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => duplicateTask.mutate(task.id)}>
+                <div className="flex items-center gap-2"><Copy size={16} /><span>Duplicate</span></div>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator />
+            <DropdownMenu.Item onSelect={() => archiveTask.mutate(task.id)} variant="danger">
+                <div className="flex items-center gap-2"><Trash2 size={16} /><span>Move to Trash</span></div>
+            </DropdownMenu.Item>
+        </>
+    );
+}
+
 export interface TaskContextMenuProps {
     task: Task;
     onAddSubtask?: () => void;
@@ -369,6 +393,7 @@ export interface TaskContextMenuProps {
 
 export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }: TaskContextMenuProps) {
     const [open, setOpen] = useState(false);
+    const shell = useShellMode();
 
     return (
         <DropdownMenu.Root open={open} onOpenChange={setOpen}>
@@ -378,6 +403,12 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }
                 </Button>
             </DropdownMenu.Trigger>
 
+            {shell.isCompact ? (
+                /* Compact: quick actions only — everything editable lives in task detail. */
+                <DropdownMenu.Content className="w-56" side="bottom" align="end" sideOffset={4}>
+                    <TaskQuickActions task={task} />
+                </DropdownMenu.Content>
+            ) : (
             <DropdownMenu.Content className="w-[22rem]" side="right" align="start" sideOffset={8}>
                 <TaskMenuItems
                     task={task}
@@ -388,6 +419,7 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }
                     holdingContext={holdingContext}
                 />
             </DropdownMenu.Content>
+            )}
         </DropdownMenu.Root>
     );
 }

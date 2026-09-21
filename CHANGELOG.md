@@ -6,6 +6,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Board columns on Today, Upcoming and projects now sit closer to the top of the page instead of floating below an empty gap.
+- The phone dock is now Capture, Schedule, the assistant, Habits and Browse. Today, Upcoming, your projects and your tags moved into a workspace menu that opens from the left of the Capture header.
+- Browse now opens with a profile card — your picture, a "Hey, Sam" greeting, and one tap through to Profile & Security — above Events, Weekly Reset, Settings, Completed, Trash and support.
+- Adding to the schedule on a phone now uses the same round button in the bottom-right corner as every other page, so it no longer sits on top of the dock, and the header's add button is gone.
+- Search and the schedule's create panel now slide up as draggable sheets you can flick down to dismiss, like the rest of the app's mobile panels.
+- Creating a routine on a phone now opens the same swipe-up panel as everywhere else, with the fields scrolling and Cancel and Create pinned within thumb reach, and the Add Routine button moved to the round button in the bottom-right corner so it no longer sits on top of the dock.
+- The Habits header on a phone now matches Schedule and Capture: the month, the arrows and a small options button on one row, Week and Month plus Today on the next.
+- Toasts are smaller and calmer on phones: they now appear at the top of the screen, away from the dock, and can be flicked away in any direction.
+- Page controls like sort and view no longer take over the whole screen on a phone — they open in a small menu, with sort sliding in as a sub-panel.
+- The workspace menu (Today, Upcoming, projects, tags) now opens from the left of the header on every phone page, not just Capture.
+- Upcoming now shows the same task cards as Today, with routines grouped underneath each day, instead of its own plainer list.
+- Board columns on a phone no longer repeat their name under the column chooser, and long lists scroll again on Today and Upcoming.
+- On a phone, a task's ⋮ menu is now just Pin, Duplicate and Move to Trash; everything else is edited in the task's details.
+- Task details now let you change the project and section and turn a reminder on or off, instead of only showing them.
+- On a phone, the View switch in page controls now spans the whole menu, and the Sort row shows the current order.
+- Adding a project or tag from the phone workspace menu now opens a full-size form in the same panel, with a back button, big colour swatches and a Create button within reach.
+- On a phone, tasks waiting in Capture now have one-tap buttons to place them on Today, Tomorrow or the lightest day of the week, with Undo. "Pick day…" and the header calendar open a swipeable week that shows how busy each day is and what's already on it, replacing the old calendar panel.
+- Tasks that already have a date no longer sit in Capture's "Ready to place" list.
+- On desktop, Capture's side panel is now a Place panel: this week and next as day tiles, with small dots showing how busy each day is. Drag a new capture or a waiting task onto a day to place it, or hover a task for the same one-click Today, Tomorrow and lightest-day buttons as on phones. Click a day to see what's on it. The old month calendar and its count bubbles are gone.
+- On phones and tablets the calendar now follows your finger as you swipe it sideways to move between days, weeks or months, springing back if you change your mind, and an empty day greets you with a calm note instead of a bare line of text.
+
+### Fixed
+
+- A routine you missed on several days now shows once under "Routines to catch up" on Today and Upcoming, instead of once for every missed day.
+
 ## [0.14.3] - 2026-09-18
 
 ### Changed

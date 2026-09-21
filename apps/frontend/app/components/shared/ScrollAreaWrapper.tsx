@@ -5,10 +5,12 @@ interface ScrollAreaWrapperProps {
     className?: string;
 }
 
-/** Full-height scroll container using the ScrollArea primitive */
+/** Full-height scroll container using the ScrollArea primitive. In a flex column
+ * it takes the leftover space, so siblings above it (filters, event chips) never
+ * push the scroll region past the viewport. */
 export function ScrollAreaWrapper({ children, className }: ScrollAreaWrapperProps) {
     return (
-        <ScrollArea.Root className={`mobile-scroll-region h-full ${className ?? ""}`}>
+        <ScrollArea.Root className={`mobile-scroll-region h-full min-h-0 flex-1 ${className ?? ""}`}>
             <ScrollArea.Viewport className="scrollbar-thin">
                 {children}
             </ScrollArea.Viewport>

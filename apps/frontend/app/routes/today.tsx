@@ -3,10 +3,11 @@ import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useEffect, useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat, Clock3 } from "lucide-react";
+import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
-import { AgendaHabitDivider, AgendaRow } from "../components/shared/AgendaRow";
+import { AgendaHabitDivider } from "../components/shared/AgendaRow";
+import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -19,6 +20,7 @@ import { PageContent } from "../components/layout/PageLayout";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
 import { ControlsSheet } from "../components/shared/ControlsSheet";
+import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useTasks } from "../hooks/tasks";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
@@ -57,52 +59,6 @@ interface TodayHabitItem {
     bucket: "overdue" | "today";
 }
 
-function TodayHabitCompletionButton({
-    habitId,
-    targetDate,
-}: {
-    habitId: string;
-    targetDate: string;
-}) {
-    const resolveHabit = useResolveHabit(habitId);
-    const isResolving = resolveHabit.isPending;
-
-    const handleResolve = (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.stopPropagation();
-        if (isResolving) return;
-        resolveHabit.mutate({ targetDate, status: "COMPLETED" });
-    };
-
-    return (
-        <button
-            type="button"
-            onClick={handleResolve}
-            data-no-dnd="true"
-            disabled={isResolving}
-            aria-label={isResolving ? "Completing routine" : "Mark routine complete"}
-            className="group relative mt-0.5 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 disabled:cursor-wait lg:h-8 lg:w-8"
-        >
-            <span
-                className={`
-                    relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 lg:h-6 lg:w-6
-                    ${isResolving
-                        ? "border-accent-primary/60 bg-accent-primary/15 text-accent-primary"
-                        : "border-moonlit/45 text-moonlit/80 group-hover:border-moonlit/70 group-hover:text-moonlit"
-                    }
-                `}
-            >
-                {isResolving ? (
-                    <Clock3 className="h-3 w-3 animate-pulse" />
-                ) : (
-                    <span className="relative flex h-3.5 w-3.5 items-center justify-center" aria-hidden="true">
-                        <span className="h-2 w-2 rounded-full bg-moonlit/80" />
-                    </span>
-                )}
-            </span>
-        </button>
-    );
-}
-
 function TodayHabitRow({
     item,
     onOpenHabits,
@@ -110,38 +66,18 @@ function TodayHabitRow({
     item: TodayHabitItem;
     onOpenHabits: () => void;
 }) {
+    const resolveHabit = useResolveHabit(item.habitId);
     const isOverdue = item.bucket === "overdue";
 
     return (
-        <AgendaRow
-            leading={<TodayHabitCompletionButton habitId={item.habitId} targetDate={item.targetDate} />}
+        <RoutineAgendaRow
+            title={item.title}
+            overdue={isOverdue}
+            metaLabel={isOverdue ? `From ${formatShortDate(item.dueDate)}` : "Today"}
+            timeLabel={item.timeLabel}
             onOpen={onOpenHabits}
-            ariaLabel={`Open habits for ${item.title}`}
-            className={isOverdue ? "bg-moonlit/[0.05] hover:bg-moonlit/[0.07]" : "bg-moonlit/[0.035] hover:bg-moonlit/[0.06]"}
-        >
-            <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
-                <Repeat size={11} aria-hidden="true" />
-                <span>{isOverdue ? "Catch-up" : "Routine"}</span>
-            </div>
-
-            <div className="min-w-0 truncate text-[15px] font-medium leading-snug text-twilight-text sm:text-[15.5px]">
-                {item.title}
-            </div>
-
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
-                <span className="inline-flex items-center gap-1.5 font-medium text-moonlit">
-                    <Repeat size={12} aria-hidden="true" />
-                    {isOverdue ? `From ${formatShortDate(item.dueDate)}` : "Today"}
-                </span>
-
-                {item.timeLabel ? (
-                    <span className="inline-flex items-center gap-1.5">
-                        <Clock3 size={12} aria-hidden="true" />
-                        {item.timeLabel}
-                    </span>
-                ) : null}
-            </div>
-        </AgendaRow>
+            onComplete={() => resolveHabit.mutateAsync({ targetDate: item.targetDate, status: "COMPLETED" })}
+        />
     );
 }
 
@@ -229,6 +165,8 @@ export default function TodayRoute() {
         }
 
         for (const habit of activeTagId ? [] : habits) {
+            // One catch-up row per habit, dated from its earliest missed day.
+            let overdueItem: TodayHabitItem | null = null;
             for (const log of habit.logs ?? []) {
                 if (log.status !== "PENDING") continue;
 
@@ -247,11 +185,12 @@ export default function TodayRoute() {
                 };
 
                 if (item.bucket === "overdue") {
-                    overdueHabits.push(item);
+                    if (!overdueItem || item.dueDate < overdueItem.dueDate) overdueItem = item;
                 } else {
                     rhythmHabits.push(item);
                 }
             }
+            if (overdueItem) overdueHabits.push(overdueItem);
         }
 
         const compareHabits = (a: TodayHabitItem, b: TodayHabitItem) => {
@@ -327,12 +266,6 @@ export default function TodayRoute() {
         </EditSidePanelRail>
     );
 
-    const sortOptions = [
-        { value: "smart", label: "Smart order" },
-        { value: "priority", label: "Priority" },
-        { value: "manual", label: "Manual" },
-    ] as const;
-
     const headerRight = shell.isCompact ? (
         <div className="flex items-center gap-2">
             <Suspense fallback={null}><LazyFocusViewBar /></Suspense>
@@ -343,35 +276,14 @@ export default function TodayRoute() {
                 {
                     id: "view",
                     label: "View",
-                    content: (
-                        <div className="space-y-3">
-                            <p className="text-sm text-twilight-text-soft">Switch between list and board.</p>
-                            <ViewToggle view={view} onViewChange={setView} compact />
-                        </div>
-                    ),
+                    content: <ViewToggle view={view} onViewChange={setView} compact />,
                 },
                 {
                     id: "sort",
                     label: "Sort",
-                    content: (
-                        <div className="space-y-2">
-                            {sortOptions.map((option) => (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => setSortMode(option.value)}
-                                    aria-pressed={sortMode === option.value}
-                                    className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
-                                        sortMode === option.value
-                                            ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
-                                            : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
-                                    }`}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                    ),
+                    display: "drill" as const,
+                    summary: SORT_MODE_OPTIONS.find((option) => option.value === sortMode)?.label,
+                    content: <SortOptionList mode={sortMode} onModeChange={setSortMode} />,
                 },
                 ...(selectedTaskId ? [{
                     id: "details",
@@ -603,7 +515,7 @@ export default function TodayRoute() {
                 accentColor: "var(--accent-nav-today, var(--accent-primary))",
             }}
         >
-            <PageContent width="default">
+            <PageContent width="default" className="shrink-0 empty:hidden">
                 <ActiveFilterBar />
                 {todayEvents.length > 0 && (
                     <div className="pb-2">
@@ -635,7 +547,7 @@ export default function TodayRoute() {
                 )}
             </PageContent>
             {view === "kanban" ? (
-                <div className="flex-1 min-h-0 min-w-0">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                     {isLoading ? (
                         <PageContent width="default">
                             <TaskListSkeleton />

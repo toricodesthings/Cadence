@@ -5,6 +5,7 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { BoardCanvas } from "../shared/BoardCanvas";
 import { InboxList } from "../inbox/InboxList";
 import { TaskCard } from "../tasks/TaskCard";
+import { PlaceChips, PlaceDraggable, usePlaceTask, useWeekLoad } from "./PlaceSheet";
 import { isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Task } from "@cadence/contracts/task";
@@ -17,6 +18,8 @@ interface HoldingFeedProps {
     onSelectTask: (taskId: string) => void;
     onSelectInboxItem: (itemId: string) => void;
     onClarifyInboxItem: (itemId: string) => void;
+    /** Opens the pick-a-day sheet for a Ready task. */
+    onPlaceTask?: (task: Task) => void;
 }
 
 /**
@@ -29,8 +32,10 @@ interface HoldingFeedProps {
  * Per Law 1: captures lead because that is the page's primary job.
  * Per H5: the page must foreground inbox items, not unscheduled tasks.
  */
-export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selectedInboxItemId, onSelectTask, onSelectInboxItem, onClarifyInboxItem }: HoldingFeedProps) {
+export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selectedInboxItemId, onSelectTask, onSelectInboxItem, onClarifyInboxItem, onPlaceTask }: HoldingFeedProps) {
     const shell = useShellMode();
+    const { lightest } = useWeekLoad(new Date(), Boolean(onPlaceTask));
+    const place = usePlaceTask();
     const [readyExpanded, setReadyExpanded] = useState(true);
 
     // Only show captures still in clarifying state (C5 — placed/discarded are resolved)
@@ -52,8 +57,18 @@ export function HoldingFeed({ inboxItems, holdingTasks, selectedTaskId, selected
     const isEmpty = totalBurden === 0;
 
     const capturesContent = <InboxList items={activeCaptures} selectedItemId={selectedInboxItemId} onSelectItem={onSelectInboxItem} onClarify={onClarifyInboxItem} />;
-    const tasksContent = <div className="flex flex-col gap-0.5">{readyToPlace.map((task) => <TaskCard key={task.id} task={task} isSelected={selectedTaskId === task.id} onSelect={onSelectTask} holdingContext />)}</div>;
-    if (shell.isCompact) return <BoardCanvas className="mobile-capture-board" columns={[
+    // Desktop: cards drag onto the Place rail, and the chips fade in on hover/focus
+    // (space stays reserved so the list doesn't jump under the pointer).
+    const tasksContent = <div className="flex flex-col gap-0.5">{readyToPlace.map((task) => {
+        const selected = selectedTaskId === task.id;
+        const card = <TaskCard task={task} isSelected={selected} onSelect={onSelectTask} holdingContext />;
+        const chips = onPlaceTask && <PlaceChips task={task} lightest={lightest} onPick={() => onPlaceTask(task)}
+            className={shell.isCompact || selected ? "" : "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"} />;
+        return shell.isCompact
+            ? <div key={task.id}>{card}{chips}</div>
+            : <PlaceDraggable key={task.id} id={`task:${task.id}`} title={task.title} onPlace={(iso) => place(task, iso)} className="group">{card}{chips}</PlaceDraggable>;
+    })}</div>;
+    if (shell.isCompact) return <BoardCanvas className="mobile-capture-board -mx-4" columns={[
         { id: "captures", title: "New captures", count: activeCaptures.length, content: hasClarifyItems ? <div className="px-1">{capturesContent}</div> : <p className="px-3 py-8 text-sm text-twilight-text-soft">No new captures. Tap Add to get something out of your head.</p> },
         { id: "ready", title: "Ready to place", count: readyToPlace.length, content: hasReadyItems ? tasksContent : <p className="px-3 py-8 text-sm text-twilight-text-soft">Nothing waiting to be placed. Clarify a capture when you’re ready.</p> },
     ]} />;

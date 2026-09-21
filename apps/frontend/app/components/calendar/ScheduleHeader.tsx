@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Settings, PanelLeftOpen, CalendarHeart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, CalendarHeart } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
     SunDim, Sun, Waves, Flame,
@@ -47,8 +47,6 @@ export interface ScheduleHeaderProps {
     onAddEvent?: () => void;
     /** Overflow content (holiday + clutter controls) */
     overflowContent?: ReactNode;
-    /** Sidebar toggle handler for phone layout */
-    onToggleSidebar?: () => void;
     compact?: boolean;
 }
 
@@ -174,7 +172,6 @@ export function ScheduleHeader({
     onAddTask,
     onAddEvent,
     overflowContent,
-    onToggleSidebar,
     compact = false,
 }: ScheduleHeaderProps) {
     const CurrentIcon = MONTH_ICONS[month];
@@ -186,18 +183,9 @@ export function ScheduleHeader({
         // ── Phone: two tight rows ──────────────────────────────────────────
         return (
             <header className={`${PAGE_HEADER_SURFACE} px-4 pt-2.5 pb-3 sm:px-6 sm:pt-3 sm:pb-3`}>
-                {/* Row 1: sidebar toggle + page identity + heading + nav + overflow + add */}
+                {/* Row 1: page identity + heading + nav + overflow. Browse is a
+                    dock tab now, and creation lives in the floating orb. */}
                 <div className="flex items-center gap-2 min-h-[44px]">
-                    {onToggleSidebar && (
-                        <button
-                            type="button"
-                            onClick={onToggleSidebar}
-                            className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.05]"
-                            aria-label="Open navigation"
-                        >
-                            <PanelLeftOpen size={18} />
-                        </button>
-                    )}
                     <div className="min-w-0 flex-1">
                         <PageHeaderIdentity
                             compact
@@ -238,41 +226,6 @@ export function ScheduleHeader({
                             </Popover.Trigger>
                             <Popover.Content side="bottom" align="end" className="w-80 p-3">
                                 {overflowContent}
-                            </Popover.Content>
-                        </Popover.Root>
-                    )}
-                    {(onAddTask || onAddEvent) && (
-                        <Popover.Root>
-                            <Popover.Trigger asChild>
-                                <button
-                                    type="button"
-                                    className="btn-icon touch-target rounded-full text-accent-primary hover:bg-accent-primary/15"
-                                    aria-label="Add to schedule"
-                                >
-                                    <Plus size={16} />
-                                </button>
-                            </Popover.Trigger>
-                            <Popover.Content side="bottom" align="end" className="w-44 p-1.5">
-                                {onAddTask && (
-                                    <button
-                                        type="button"
-                                        onClick={onAddTask}
-                                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-twilight-text hover:bg-white/[0.06] transition-colors"
-                                    >
-                                        <Plus size={14} className="text-accent-primary" />
-                                        Add task
-                                    </button>
-                                )}
-                                {onAddEvent && (
-                                    <button
-                                        type="button"
-                                        onClick={onAddEvent}
-                                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-twilight-text hover:bg-white/[0.06] transition-colors"
-                                    >
-                                        <CalendarHeart size={14} className="text-accent-nav-schedule" />
-                                        Add event
-                                    </button>
-                                )}
                             </Popover.Content>
                         </Popover.Root>
                     )}

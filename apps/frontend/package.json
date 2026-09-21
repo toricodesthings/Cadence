@@ -14,6 +14,7 @@
     "deploy:dev": "pnpm build && wrangler deploy --env dev",
     "test": "vitest run",
     "typecheck": "react-router typegen && tsc",
+    "lint": "oxlint .",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

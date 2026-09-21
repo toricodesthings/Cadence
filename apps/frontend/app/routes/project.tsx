@@ -21,6 +21,7 @@ import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { ControlsSheet } from "../components/shared/ControlsSheet";
+import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
@@ -405,28 +406,9 @@ export default function ProjectView() {
                             {
                                 id: "sort",
                                 label: "Sort",
-                                content: (
-                                    <div className="space-y-2">
-                                        {[
-                                            { value: "smart", label: "Smart order" },
-                                            { value: "priority", label: "Priority" },
-                                            { value: "manual", label: "Manual" },
-                                        ].map((option) => (
-                                            <button
-                                                key={option.value}
-                                                type="button"
-                                                onClick={() => setSortMode(option.value as typeof sortMode)}
-                                                className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
-                                                    sortMode === option.value
-                                                        ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
-                                                        : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
-                                                }`}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                ),
+                                display: "drill" as const,
+                                summary: SORT_MODE_OPTIONS.find((option) => option.value === sortMode)?.label,
+                                content: <SortOptionList mode={sortMode} onModeChange={setSortMode} />,
                             },
                             {
                                 id: "project",
@@ -519,7 +501,7 @@ export default function ProjectView() {
                     accentColor: projectAccent,
                 }}
             >
-                <PageContent width="default">
+                <PageContent width="default" className="empty:hidden">
                     <ActiveFilterBar />
                 </PageContent>
                 {view === "kanban" ? (

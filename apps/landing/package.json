@@ -8,6 +8,7 @@
     "preview": "pnpm build && vite preview",
     "deploy": "pnpm build && wrangler deploy",
     "typecheck": "react-router typegen && tsc",
+    "lint": "oxlint .",
     "cf-typegen": "wrangler types --include-runtime=false"
   },
   "dependencies": {

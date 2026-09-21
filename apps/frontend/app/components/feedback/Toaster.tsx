@@ -3,21 +3,27 @@ import type { CSSProperties } from "react";
 import { Toaster as SonnerToaster } from "sonner";
 
 import { CADENCE_TOAST_DURATION, installCadenceToastTheme } from "../../lib/utils/cadence-toast";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 installCadenceToastTheme();
 
 export function Toaster() {
+    const shell = useShellMode();
+
     return (
         <SonnerToaster
-            position="bottom-right"
+            /* Compact shells drop the toast at the top, clear of the dock and the
+               thumb zone, and let it be flicked away in any direction. */
+            position={shell.isCompact ? "top-center" : "bottom-right"}
             theme="dark"
             expand={false}
-            visibleToasts={5}
-            gap={12}
+            visibleToasts={shell.isCompact ? 3 : 5}
+            gap={shell.isCompact ? 8 : 12}
             duration={CADENCE_TOAST_DURATION}
             offset={24}
-            mobileOffset={16}
-            style={{ "--width": "26.5rem" } as CSSProperties}
+            mobileOffset={{ top: "max(0.5rem, env(safe-area-inset-top))", left: "0.75rem", right: "0.75rem" }}
+            swipeDirections={shell.isCompact ? ["top", "left", "right"] : ["right"]}
+            style={{ "--width": shell.isCompact ? "100%" : "26.5rem" } as CSSProperties}
             containerAriaLabel="Cadence notifications"
             toastOptions={{
                 unstyled: true,

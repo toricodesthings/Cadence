@@ -1199,6 +1199,14 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Vertical scroller that keeps touch momentum and never rubber-bands the
+     page behind it — used by compact calendar surfaces under a swipe gesture. */
+  .touch-scroll-y {
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .touch-target {
     min-width: 44px;
     min-height: 44px;
@@ -1768,17 +1776,66 @@ a:active {
   box-shadow: 0 0 0 2px var(--accent-primary);
 }
 
-@media (max-width: 640px) {
+/* Compact shells: one tight line-and-a-half that a thumb can flick away.
+   Matches the 768px shell breakpoint, not a bespoke one. */
+@media (max-width: 767px) {
   .cadence-toast {
-    width: min(100%, calc(100vw - 1.5rem));
-    max-width: calc(100vw - 1.5rem);
-    column-gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    column-gap: 0.6rem;
+    row-gap: 0.1rem;
+    border-radius: 1rem;
+    padding: 0.62rem 0.7rem;
+    box-shadow: 0 10px 22px rgba(3, 9, 20, 0.3);
+  }
+
+  .cadence-toast:has(.cadence-toast__description),
+  .cadence-toast:has(.cadence-toast__buttonRow) {
+    padding: 0.68rem 0.7rem 0.62rem;
+    row-gap: 0.3rem;
+  }
+
+  .cadence-toast__title {
+    font-size: 0.85rem;
+  }
+
+  .cadence-toast__description {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    max-width: none;
+  }
+
+  .cadence-toast__buttonRow {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
   }
 
   .cadence-toast__action,
-  .cadence-toast__cancel {
-    min-height: 2.75rem;
-    padding: 0 0.8rem;
+  .cadence-toast__cancel,
+  .cadence-toast__secondaryAction,
+  .cadence-toast__tertiaryAction {
+    min-height: 2.25rem;
+    flex: 1 1 0;
+    padding: 0 0.7rem;
+    font-size: 0.72rem;
+  }
+
+  /* A flick in any direction dismisses, so the close target shrinks out of
+     the way instead of eating a third of the width. */
+  .cadence-toast__close {
+    height: 1.75rem;
+    width: 1.75rem;
+  }
+
+  .cadence-toast__close svg {
+    height: 0.85rem;
+    width: 0.85rem;
   }
 }
 
@@ -2262,9 +2319,6 @@ a:active {
 .mobile-page-scroll { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
 /* The floating dock leaves a visible gap to the screen's bottom edge. */
 .mobile-tab-bar.safe-bottom { padding-bottom: max(0.875rem, env(safe-area-inset-bottom)); }
-.mobile-browse-panel [data-radix-scroll-area-viewport] { height: auto; }
-.mobile-browse-panel a, .mobile-browse-panel button { min-height: 44px; }
-.mobile-browse-panel button { min-width: 44px; }
 body:has(.compact-navigation-shell) .mobile-floating-action {
   bottom: calc(6.5rem + env(safe-area-inset-bottom));
 }

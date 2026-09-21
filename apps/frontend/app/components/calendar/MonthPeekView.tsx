@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { CalendarDays } from "lucide-react";
+import { Tip } from "../primitives";
 import { formatTime } from "../../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 
@@ -125,8 +126,14 @@ export function MonthPeekView({
                                 key={i}
                                 type="button"
                                 onClick={() => handleDaySelect(day)}
+                                aria-label={new Date(year, month, day).toLocaleDateString("en-US", {
+                                    weekday: "long",
+                                    month: "long",
+                                    day: "numeric",
+                                })}
+                                aria-pressed={isSelected}
                                 className={`
-                                    relative aspect-square flex items-center justify-center text-[12px] rounded-lg
+                                    relative aspect-square min-h-11 flex items-center justify-center text-[12px] rounded-lg
                                     transition-colors duration-150 cursor-pointer
                                     ${isToday ? "bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary font-bold" : ""}
                                     ${isSelected && !isToday ? "bg-white/[0.1] text-twilight-text ring-1 ring-white/15" : ""}
@@ -158,7 +165,7 @@ export function MonthPeekView({
             </div>
 
             {/* Selected day agenda */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-24">
+            <div className="touch-scroll-y flex-1 min-h-0 px-4 pb-24">
                 <div className="sticky top-0 z-10 -mx-1 border-b border-twilight-border/15 bg-panel/88 px-1 py-3 backdrop-blur-xl">
                     <span className="text-[13px] font-semibold text-twilight-text-soft">
                         {new Date(year, month, selectedDay).toLocaleDateString("en-US", {
@@ -222,13 +229,17 @@ export function MonthPeekView({
                                                         </span>
                                                     ) : null}
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); onCompleteTask(t.id); }}
-                                                    className="h-7 w-7 shrink-0 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
-                                                >
-                                                    <span className="h-2 w-2 rounded-full border border-twilight-text-muted/50" />
-                                                </button>
+                                                <Tip label="Complete task" side="left">
+                                                    <button
+                                                        type="button"
+                                                        aria-label={`Complete ${t.title}`}
+                                                        onClick={(e) => { e.stopPropagation(); onCompleteTask(t.id); }}
+                                                        className="touch-target group flex shrink-0 cursor-pointer items-center justify-center rounded-full"
+                                                    >
+                                                        {/* Same vocabulary as TaskCheckbox: an empty ring until it's done. */}
+                                                        <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 transition-colors group-hover:border-accent-primary/50" />
+                                                    </button>
+                                                </Tip>
                                             </div>
                                         ))}
                                     </div>

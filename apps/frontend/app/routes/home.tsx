@@ -16,6 +16,8 @@ import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { Button } from "../components/primitives/Button";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
+import { PlaceDndProvider, PlaceSheet } from "../components/holding/PlaceSheet";
+import type { Task } from "@cadence/contracts/task";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { useAssistantStore } from "../stores/assistant-store";
@@ -33,6 +35,8 @@ export default function HomeRoute() {
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const [placeOpen, setPlaceOpen] = useState(false);
+    const [placeTask, setPlaceTask] = useState<Task | null>(null);
 
     useTaskDetailsRequest((taskId) => {
         setSelectedTaskId(taskId);
@@ -45,6 +49,7 @@ export default function HomeRoute() {
     const { data: holdingTasks = [], isLoading: tasksLoading } = useTasks({
         state: "ACTIVE",
         hasNoProject: true,
+        hasNoDate: true,
     });
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } = useRightPanelStore();
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
@@ -80,7 +85,7 @@ export default function HomeRoute() {
                         onOpenFullEditor={(taskId) => { setSelectedInboxItemId(null); setSelectedTaskId(taskId); }} />
                 ) : selectedTaskId ? (
                     <EditSidePanel kind="task" taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
-                ) : <HoldingPlannerPanel />
+                ) : <HoldingPlannerPanel onSelectTask={(id) => handleSelectTask(id)} />
             ) : null}
         </EditSidePanelRail>
     );
@@ -151,11 +156,12 @@ export default function HomeRoute() {
         <Button variant="ghost" size="icon"
             type="button"
             onClick={() => {
+                if (shell.isCompact) { setPlaceTask(null); setPlaceOpen(true); return; }
                 clearSelection();
                 setMobilePanelOpen(true);
             }}
             className="btn-icon rounded-2xl"
-            aria-label="Open planner"
+            aria-label={shell.isCompact ? "Pick a day" : "Open planner"}
         >
             <CalendarDays size={16} aria-hidden="true" />
         </Button>
@@ -172,11 +178,12 @@ export default function HomeRoute() {
             onSelectTask={handleSelectTask}
             onSelectInboxItem={handleSelectInboxItem}
             onClarifyInboxItem={handleClarifyInboxItem}
+            onPlaceTask={(task) => { setPlaceTask(task); setPlaceOpen(true); }}
         />
     );
 
     return (
-        <MainLayout
+        <PlaceDndProvider><MainLayout
             requireAuth
             hideContextualOrb
             sidePanel={sidePanel}
@@ -211,6 +218,7 @@ export default function HomeRoute() {
                     <CaptureInput mobile draft={captureDraft} onDraftChange={setCaptureDraft} onCaptured={() => setCaptureOpen(false)} />
                 </UtilitySheet>
             </>}
+            <PlaceSheet open={placeOpen} task={placeTask} onClose={() => setPlaceOpen(false)} onOpenTask={handleSelectTask} />
 
             {/* ── Mobile overlay — ClarifySheet / EditSidePanel / Overview (C4 fix) ── */}
             {!shell.isWide && (
@@ -263,11 +271,11 @@ export default function HomeRoute() {
                                 }}
                             />
                         ) : (
-                            <HoldingPlannerPanel key="holding-mobile-planner" />
+                            <HoldingPlannerPanel key="holding-mobile-planner" onSelectTask={(id) => handleSelectTask(id)} />
                         )}
                     </>
                 </ResponsiveOverlayPanel>
             )}
-        </MainLayout>
+        </MainLayout></PlaceDndProvider>
     );
 }

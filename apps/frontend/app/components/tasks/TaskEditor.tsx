@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "rea
 import {
     Calendar, Bell, Tag, FolderOpen, Flag,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
-    CircleDot, Gauge, EyeOff, Clock, Plus,
+    CircleDot, Gauge, EyeOff, Clock, Plus, Columns3,
     ExternalLink, Check, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTasks, useUpdateTask, useArchiveTask, useCreateSubtask } from "../../hooks/tasks";
 import { useProjects } from "../../hooks/projects";
+import { useSections } from "../../hooks/sections";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
@@ -52,6 +53,9 @@ interface TaskEditorProps {
 function formatDateTime(iso: string) {
     return formatShortDate(iso);
 }
+
+/** Native select dressed as a value button — the OS picker is the mobile-friendly one. */
+const VALUE_SELECT = "min-h-10 max-w-full cursor-pointer appearance-none truncate rounded-lg bg-transparent px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
 const VALUE_BTN = "flex min-h-10 max-w-full cursor-pointer items-center rounded-lg px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
@@ -234,6 +238,7 @@ export function TaskEditor({
     };
 
     const project = projects?.find((p) => p.id === task?.projectId);
+    const { data: sections = [] } = useSections(task?.projectId ?? null);
 
     const scheduleSummary = task ? getTaskScheduleSummary(task) : null;
     const recurrenceSummary = task ? getTaskRecurrenceSummary(task) : null;
@@ -573,13 +578,18 @@ export function TaskEditor({
                                             </FieldRow>
                                         ) : null}
 
-                                        {task.reminderAt && (
-                                            <FieldRow icon={Bell} label="Reminder">
-                                                <span className="px-2.5 text-[13px] text-twilight-text-soft">
+                                        <FieldRow icon={Bell} label="Reminder">
+                                            {task.reminderAt ? (
+                                                <span className="truncate px-2.5 text-[13px] text-twilight-text-soft">
                                                     {formatShortDateTime(task.reminderAt)}
                                                 </span>
-                                            </FieldRow>
-                                        )}
+                                            ) : null}
+                                            <Switch
+                                                checked={Boolean(task.reminderAt)}
+                                                onCheckedChange={(on) => updateTask.mutate({ id: task.id, reminderAt: on ? new Date().toISOString() : null, reminderSilenced: false })}
+                                                aria-label={task.reminderAt ? "Remove reminder" : "Set reminder"}
+                                            />
+                                        </FieldRow>
                                     </DetailGroup>
 
                                     <DetailGroup title="Weight">
@@ -630,10 +640,30 @@ export function TaskEditor({
 
                                     <DetailGroup title="Organize">
                                         <FieldRow icon={FolderOpen} label="Project">
-                                            <span className={`truncate px-2.5 text-[13px] ${project ? "text-twilight-text-soft" : "text-twilight-text-muted"}`}>
-                                                {project?.name ?? "None"}
-                                            </span>
+                                            <select
+                                                aria-label="Project"
+                                                value={task.projectId ?? ""}
+                                                onChange={(e) => updateTask.mutate({ id: task.id, projectId: e.target.value || null, sectionId: null })}
+                                                className={`${VALUE_SELECT} ${project ? "" : "text-twilight-text-muted"}`}
+                                            >
+                                                <option value="">None</option>
+                                                {projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                            </select>
                                         </FieldRow>
+
+                                        {sections.length > 0 ? (
+                                            <FieldRow icon={Columns3} label="Section">
+                                                <select
+                                                    aria-label="Section"
+                                                    value={task.sectionId ?? ""}
+                                                    onChange={(e) => updateTask.mutate({ id: task.id, sectionId: e.target.value || null })}
+                                                    className={VALUE_SELECT}
+                                                >
+                                                    <option value="">Unsectioned</option>
+                                                    {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+                                                </select>
+                                            </FieldRow>
+                                        ) : null}
 
                                         <FieldBlock icon={Tag} label="Tags">
                                             <div className="flex flex-wrap items-center gap-1.5">

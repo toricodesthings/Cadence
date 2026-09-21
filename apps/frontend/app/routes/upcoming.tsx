@@ -5,17 +5,14 @@ import { useNavigate } from "react-router";
 import {
     AlertTriangle,
     CalendarRange,
-    Clock3,
     Layers3,
-    Circle,
     PanelRightClose,
-    Repeat,
     Sunrise,
-    Sparkles,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../components/layout/MainLayout";
-import { AgendaHabitDivider, AgendaRow } from "../components/shared/AgendaRow";
+import { AgendaHabitDivider } from "../components/shared/AgendaRow";
+import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -23,11 +20,12 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
-import { TaskCheckbox } from "../components/tasks/TaskCheckbox";
+import { TaskList } from "../components/tasks/TaskList";
 import { PageContent } from "../components/layout/PageLayout";
 import { ViewToggle } from "../components/shared/ViewToggle";
 import { SortMenu } from "../components/shared/SortMenu";
 import { ControlsSheet } from "../components/shared/ControlsSheet";
+import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useTasks } from "../hooks/tasks";
 import { useProjects } from "../hooks/projects";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
@@ -148,151 +146,9 @@ function classifyUpcomingBucket(dateOnly: string, todayISO: string, tomorrowISO:
     return null;
 }
 
-function UpcomingCompletionButton({
-    item,
-    onCompleteHabit,
-}: {
-    item: UpcomingViewerItem;
-    onCompleteHabit: (item: UpcomingViewerItem) => Promise<void>;
-}) {
-    const [isResolving, setIsResolving] = useState(false);
-
-    if (item.kind === "task" && item.task) {
-        return <TaskCheckbox task={item.task} />;
-    }
-
-    const handleResolve = async (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.stopPropagation();
-        if (isResolving) return;
-
-        setIsResolving(true);
-        try {
-            await onCompleteHabit(item);
-        } finally {
-            setIsResolving(false);
-        }
-    };
-
-    return (
-        <button
-            type="button"
-            onClick={handleResolve}
-            data-no-dnd="true"
-            disabled={isResolving}
-            aria-label={isResolving ? "Completing routine" : "Mark routine complete"}
-            className="group relative mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors duration-200 cursor-pointer disabled:cursor-wait lg:h-8 lg:w-8"
-        >
-            <span
-                className={`
-                    relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 lg:h-6 lg:w-6
-                    ${isResolving
-                        ? "border-accent-primary/60 bg-accent-primary/15 text-accent-primary"
-                        : "border-moonlit/45 text-moonlit/80 group-hover:border-moonlit/70 group-hover:text-moonlit"
-                    }
-                `}
-            >
-                {isResolving ? (
-                    <Clock3 className="h-3 w-3 animate-pulse" />
-                ) : (
-                    <span className="relative flex h-3.5 w-3.5 items-center justify-center" aria-hidden="true">
-                        <span className="h-2 w-2 rounded-full bg-moonlit/80" />
-                    </span>
-                )}
-            </span>
-        </button>
-    );
-}
-
-function UpcomingTaskRow({
-    item,
-    isSelected,
-    onSelect,
-    onOpenHabits,
-    onCompleteHabit,
-    bucketKey,
-}: {
-    item: UpcomingViewerItem;
-    isSelected: boolean;
-    onSelect: (taskId: string) => void;
-    onOpenHabits: () => void;
-    onCompleteHabit: (item: UpcomingViewerItem) => Promise<void>;
-    bucketKey: UpcomingBucketKey;
-}) {
-    const handleOpen = () => {
-        if (item.kind === "habit") {
-            onOpenHabits();
-            return;
-        }
-
-        if (item.task) {
-            onSelect(item.task.id);
-        }
-    };
-
-    const isHabit = item.kind === "habit";
-    const habitEyebrow = bucketKey === "overdue" ? "Catch-up" : "Routine";
-    const habitPrimaryMeta = bucketKey === "overdue" ? `From ${formatShortDate(item.dueDate)}` : "Today ritual";
-
-    return (
-        <AgendaRow
-            leading={<UpcomingCompletionButton item={item} onCompleteHabit={onCompleteHabit} />}
-            onOpen={handleOpen}
-            ariaLabel={item.kind === "habit" ? `Open routines for ${item.title}` : `Open ${item.title}`}
-            className={isHabit
-                ? `${isSelected ? "bg-moonlit/[0.07]" : "bg-moonlit/[0.035] hover:bg-moonlit/[0.06]"}`
-                : isSelected ? "bg-white/[0.04]" : "hover:bg-white/[0.028]"}
-        >
-            {isHabit ? (
-                <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
-                    <Repeat size={11} aria-hidden="true" />
-                    <span>{habitEyebrow}</span>
-                </div>
-            ) : null}
-
-            <div className="flex items-start gap-2">
-                <span className="min-w-0 truncate text-[15px] font-medium leading-snug text-twilight-text sm:text-[15.5px]">
-                    {item.title}
-                </span>
-            </div>
-
-            {item.rationaleLabel ? (
-                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-1 text-[10px] font-medium text-accent-primary">
-                    <Sparkles size={10} aria-hidden="true" />
-                    <span className="truncate">{item.rationaleLabel}</span>
-                </span>
-            ) : null}
-
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-twilight-text-soft">
-                <span className={`inline-flex items-center gap-1.5 font-medium ${isHabit ? "text-moonlit" : "text-accent-primary"}`}>
-                    {isHabit ? <Repeat size={12} aria-hidden="true" /> : <CalendarRange size={12} aria-hidden="true" />}
-                    {isHabit ? habitPrimaryMeta : `${item.dateLabel} ${formatShortDate(item.dueDate)}`}
-                </span>
-
-                {item.timeLabel ? (
-                    <span className="inline-flex items-center gap-1.5">
-                        <Clock3 size={12} aria-hidden="true" />
-                        {item.timeLabel}
-                    </span>
-                ) : null}
-
-                {item.projectName ? (
-                    <span
-                        className="inline-flex items-center gap-1.5"
-                        style={{ color: item.projectColor ?? "var(--color-twilight-text-soft)" }}
-                    >
-                        <Circle size={7} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-                        {item.projectEmoji ? <span aria-hidden="true">{item.projectEmoji}</span> : null}
-                        <span>{item.projectName}</span>
-                    </span>
-                ) : null}
-            </div>
-        </AgendaRow>
-    );
-}
-
 function UpcomingEmptyState({ title }: { title: string }) {
     return (
-        <div className="px-14 py-3 text-[13px] italic text-twilight-text-muted/65">
+        <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
             Nothing in {title.toLowerCase()}.
         </div>
     );
@@ -412,8 +268,11 @@ export default function Upcoming() {
 
         for (const habit of activeTagId ? [] : habits) {
             const project = null;
+            // One catch-up row per habit, dated from its earliest missed day.
+            let hasOverdue = false;
+            const logs = [...(habit.logs ?? [])].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
 
-            for (const log of habit.logs ?? []) {
+            for (const log of logs) {
                 if (log.status !== "PENDING") continue;
 
                 const dateOnly = toDateOnly(log.targetDate);
@@ -422,6 +281,10 @@ export default function Upcoming() {
                 const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
                 if (!bucket) continue;
                 if (bucket === "nextWeek") continue;
+                if (bucket === "overdue") {
+                    if (hasOverdue) continue;
+                    hasOverdue = true;
+                }
 
 
                 const habitTimeLabel = habit.targetTime
@@ -522,43 +385,56 @@ export default function Upcoming() {
 
     const openHabits = () => navigate("/habits");
 
-    const renderUpcomingBucket = (title: string, bucketKey: UpcomingBucketKey, items: UpcomingViewerItem[]) => {
+    // Same shape as Today: the real task cards first, then pending routines
+    // under a divider, so a task reads identically on both routes.
+    const renderUpcomingBucket = (
+        title: string,
+        bucketKey: UpcomingBucketKey,
+        items: UpcomingViewerItem[],
+        cardVariant?: "list" | "board",
+    ) => {
         if (items.length === 0) {
             return <UpcomingEmptyState title={title} />;
         }
 
-        const taskItems = items.filter((item) => item.kind === "task");
+        const taskItems = items.filter((item) => item.kind === "task" && item.task);
         const habitItems = items.filter((item) => item.kind === "habit");
-        const shouldSeparateHabits = habitItems.length > 0 && (bucketKey === "today" || bucketKey === "overdue");
+        const rationaleByTaskId = Object.fromEntries(
+            taskItems.map((item) => [item.task!.id, item.rationaleLabel]),
+        );
 
         return (
-            <div className="flex flex-col divide-y divide-white/[0.05]">
-                {(shouldSeparateHabits ? taskItems : items).map((item) => (
-                    <UpcomingTaskRow
-                        key={item.id}
-                        item={item}
-                        bucketKey={bucketKey}
-                        isSelected={item.kind === "task" && selectedTaskId === item.id}
-                        onSelect={handleSelectTask}
-                        onOpenHabits={openHabits}
-                        onCompleteHabit={handleCompleteHabit}
+            <div className="flex flex-col gap-3">
+                {taskItems.length > 0 ? (
+                    <TaskList
+                        tasks={taskItems.map((item) => item.task!)}
+                        selectedTaskId={selectedTaskId}
+                        onSelectTask={handleSelectTask}
+                        rationaleByTaskId={rationaleByTaskId}
+                        {...(cardVariant ? { cardVariant } : {})}
                     />
-                ))}
+                ) : null}
 
-                {shouldSeparateHabits ? (
+                {habitItems.length > 0 ? (
                     <>
-                        <AgendaHabitDivider label={bucketKey === "overdue" ? "Routines to catch up" : "Rituals today"} />
-                        {habitItems.map((item) => (
-                            <UpcomingTaskRow
-                                key={item.id}
-                                item={item}
-                                bucketKey={bucketKey}
-                                isSelected={false}
-                                onSelect={handleSelectTask}
-                                onOpenHabits={openHabits}
-                                onCompleteHabit={handleCompleteHabit}
-                            />
-                        ))}
+                        {taskItems.length > 0 ? (
+                            <AgendaHabitDivider label={bucketKey === "overdue" ? "Routines to catch up" : "Routines"} />
+                        ) : null}
+                        <div className="flex flex-col divide-y divide-white/[0.05]">
+                            {habitItems.map((item) => (
+                                <RoutineAgendaRow
+                                    key={item.id}
+                                    title={item.title}
+                                    overdue={bucketKey === "overdue"}
+                                    metaLabel={bucketKey === "overdue"
+                                        ? `From ${formatShortDate(item.dueDate)}`
+                                        : bucketKey === "today" ? "Today" : formatShortDate(item.dueDate)}
+                                    timeLabel={item.timeLabel}
+                                    onOpen={openHabits}
+                                    onComplete={() => handleCompleteHabit(item)}
+                                />
+                            ))}
+                        </div>
                     </>
                 ) : null}
             </div>
@@ -572,14 +448,8 @@ export default function Upcoming() {
         accentClass: section.accentClass,
         count: groupedItems[section.key].length,
         listContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key]),
-        boardContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key]),
+        boardContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key], "board"),
     }));
-
-    const sortOptions = [
-        { value: "smart", label: "Smart order" },
-        { value: "priority", label: "Priority" },
-        { value: "manual", label: "Manual" },
-    ] as const;
 
     return (
         <MainLayout
@@ -599,35 +469,14 @@ export default function Upcoming() {
                         {
                             id: "view",
                             label: "View",
-                            content: (
-                                <div className="space-y-3">
-                                    <p className="text-sm text-twilight-text-soft">Switch between list and board.</p>
-                                    <ViewToggle view={view} onViewChange={setView} compact />
-                                </div>
-                            ),
+                            content: <ViewToggle view={view} onViewChange={setView} compact />,
                         },
                         {
                             id: "sort",
                             label: "Sort",
-                            content: (
-                                <div className="space-y-2">
-                                    {sortOptions.map((option) => (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => setSortMode(option.value)}
-                                    aria-pressed={sortMode === option.value}
-                                            className={`touch-target flex min-h-11 w-full items-center justify-between rounded-2xl border px-4 text-sm font-medium ${
-                                                sortMode === option.value
-                                                    ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
-                                                    : "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft"
-                                            }`}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            ),
+                            display: "drill" as const,
+                            summary: SORT_MODE_OPTIONS.find((option) => option.value === sortMode)?.label,
+                            content: <SortOptionList mode={sortMode} onModeChange={setSortMode} />,
                         },
                         ...(selectedTaskId ? [{
                             id: "details",
@@ -659,7 +508,7 @@ export default function Upcoming() {
                 accentColor: "var(--accent-nav-upcoming, var(--accent-primary))",
             }}
         >
-            <PageContent width="default">
+            <PageContent width="default" className="shrink-0 empty:hidden">
                 <ActiveFilterBar />
                 {upcomingEvents.length > 0 && (
                     <div className="pb-2">
@@ -692,7 +541,7 @@ export default function Upcoming() {
                 )}
             </PageContent>
             {view === "kanban" ? (
-                <div className="flex-1 min-h-0 min-w-0">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                     {isLoading ? (
                         <PageContent width="default">
                             <TaskListSkeleton />

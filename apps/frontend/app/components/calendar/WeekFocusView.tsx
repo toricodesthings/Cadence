@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
 import { ArrowLeftRight, CalendarRange } from "lucide-react";
-import { useSwipeNavigation } from "../../hooks/use-swipe-navigation";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 import type { PersonalEvent } from "../../types/settings";
 import type { Task } from "@cadence/contracts/task";
@@ -18,7 +17,6 @@ interface WeekFocusViewProps {
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
-    onNavigateWeek: (delta: number) => void;
 }
 
 function toISODate(date: Date) {
@@ -36,32 +34,8 @@ export function WeekFocusView({
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
-    onNavigateWeek,
 }: WeekFocusViewProps) {
     const today = toISODate(new Date());
-    const currentIndex = useMemo(
-        () => weekDates.findIndex((date) => toISODate(date) === currentDate),
-        [currentDate, weekDates],
-    );
-
-    const swipeHandlers = useSwipeNavigation({
-        onSwipeLeft: () => {
-            if (currentIndex >= 0 && currentIndex < weekDates.length - 1) {
-                onSelectDate(toISODate(weekDates[currentIndex + 1]));
-                return;
-            }
-
-            onNavigateWeek(1);
-        },
-        onSwipeRight: () => {
-            if (currentIndex > 0) {
-                onSelectDate(toISODate(weekDates[currentIndex - 1]));
-                return;
-            }
-
-            onNavigateWeek(-1);
-        },
-    });
 
     const rangeLabel = useMemo(() => {
         if (weekDates.length === 0) return "";
@@ -79,7 +53,7 @@ export function WeekFocusView({
     }, [weekDates]);
 
     return (
-        <div className="flex h-full min-h-0 flex-col" {...swipeHandlers}>
+        <div className="flex h-full min-h-0 flex-col">
             <div className="shrink-0 border-b border-twilight-border/20 px-4 pb-3 pt-2">
                 <div className="flex items-center justify-between gap-3 pb-2">
                     <div className="flex min-w-0 items-center gap-3">
@@ -91,10 +65,11 @@ export function WeekFocusView({
                         </span>
                     </div>
                     <span
+                        role="img"
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-twilight-text-soft"
-                        aria-label="Swipe between days"
+                        aria-label="Swipe left or right to change week"
                     >
-                        <ArrowLeftRight size={14} />
+                        <ArrowLeftRight size={14} aria-hidden="true" />
                     </span>
                 </div>
 
@@ -146,22 +121,6 @@ export function WeekFocusView({
                     onSelectTask={onSelectTask}
                     onCompleteTask={onCompleteTask}
                     onArchiveTask={onArchiveTask}
-                    onNavigatePrev={() => {
-                        if (currentIndex > 0) {
-                            onSelectDate(toISODate(weekDates[currentIndex - 1]));
-                            return;
-                        }
-
-                        onNavigateWeek(-1);
-                    }}
-                    onNavigateNext={() => {
-                        if (currentIndex >= 0 && currentIndex < weekDates.length - 1) {
-                            onSelectDate(toISODate(weekDates[currentIndex + 1]));
-                            return;
-                        }
-
-                        onNavigateWeek(1);
-                    }}
                 />
             </div>
         </div>

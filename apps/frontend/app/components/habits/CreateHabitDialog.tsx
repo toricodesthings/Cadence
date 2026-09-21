@@ -4,6 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronRight, Clock, FolderOpen, Tag, Sunrise, Dumbbell, Droplet, BookOpen } from "lucide-react";
 import * as Dialog from "../primitives/Dialog";
+import { UtilitySheet } from "../shared/UtilitySheet";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { TimePicker } from "../primitives";
 import { Button } from "../primitives/Button";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
@@ -54,7 +56,10 @@ interface Props {
     onOpenChange: (open: boolean) => void;
 }
 
+const FORM_ID = "create-habit-form";
+
 export function CreateHabitDialog({ open, onOpenChange }: Props) {
+    const shell = useShellMode();
     const { mutate: createHabit } = useCreateHabit();
     const { data: projects = [] } = useProjects();
     const { data: tags = [] } = useTags();
@@ -105,23 +110,14 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
         );
     };
 
-    return (
-        <Dialog.Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
-            <Dialog.DialogContent className="sm:max-w-xl">
-                <Dialog.DialogHeader>
-                    <Dialog.DialogTitle>New routine</Dialog.DialogTitle>
-                    <Dialog.DialogDescription>
-                        Start with a name — add timing and connections when you're ready.
-                    </Dialog.DialogDescription>
-                </Dialog.DialogHeader>
-
-                <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
+    const fields = (
+        <>
                     {/* Starter packs — collapsible horizontal carousel */}
                     <div className="flex flex-col gap-2">
                         <button
                             type="button"
                             onClick={() => setShowStarterPacks((v) => !v)}
-                            className="flex items-center gap-2 text-left cursor-pointer group"
+                            className="flex min-h-11 items-center gap-2 text-left cursor-pointer group"
                         >
                             <motion.div animate={{ rotate: showStarterPacks ? 90 : 0 }} transition={{ duration: 0.15 }}>
                                 <ChevronRight size={12} className="text-twilight-text-muted/50" />
@@ -140,7 +136,9 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                                     transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                                     className="overflow-hidden"
                                 >
-                                    <div className="grid grid-cols-4 gap-2">
+                                    <div className={shell.isCompact
+                                        ? "-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 scrollbar-hidden"
+                                        : "grid grid-cols-4 gap-2"}>
                                         {HABIT_STARTER_PACKS.map((preset) => (
                                             <button
                                                 key={preset.id}
@@ -150,7 +148,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                                                     form.setValue("description", preset.description, { shouldDirty: true });
                                                     form.setValue("recurrenceRule", preset.recurrenceRule, { shouldDirty: true });
                                                 }}
-                                                className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-4 text-center transition-colors hover:bg-white/[0.06] hover:border-accent-primary/20 cursor-pointer"
+                                                className={`flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-4 text-center transition-colors hover:bg-white/[0.06] hover:border-accent-primary/20 cursor-pointer ${shell.isCompact ? "w-40 shrink-0 snap-start" : ""}`}
                                             >
                                                 <preset.icon size={22} className="text-accent-primary/70 shrink-0" />
                                                 <span className="text-[12px] font-semibold text-twilight-text leading-tight">{preset.title}</span>
@@ -167,7 +165,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                     <div className="flex flex-col gap-1.5">
                         <input
                             id="habit-title"
-                            autoFocus
+                            autoFocus={!shell.isCompact}
                             placeholder="Name this routine…"
                             {...form.register("title")}
                             className="w-full border-b border-white/[0.10] bg-transparent pb-3 font-display text-xl text-twilight-text outline-none placeholder:text-twilight-text-muted/50 transition-[border-color] duration-200 focus:border-accent-primary/40"
@@ -195,7 +193,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                         <button
                             type="button"
                             onClick={() => setShowTiming((v) => !v)}
-                            className="flex items-center gap-2 text-left cursor-pointer group"
+                            className="flex min-h-11 items-center gap-2 text-left cursor-pointer group"
                         >
                             <Clock size={14} className="text-twilight-text-muted/60" />
                             <span className="text-sm font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
@@ -282,7 +280,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                         <button
                             type="button"
                             onClick={() => setShowConnections((v) => !v)}
-                            className="flex items-center gap-2 text-left cursor-pointer group"
+                            className="flex min-h-11 items-center gap-2 text-left cursor-pointer group"
                         >
                             <FolderOpen size={14} className="text-twilight-text-muted/60" />
                             <span className="text-sm font-medium text-twilight-text-soft group-hover:text-twilight-text transition-colors">
@@ -340,7 +338,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                                                 <select
                                                     id="habit-project"
                                                     {...form.register("projectId")}
-                                                    className="w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)] appearance-none"
+                                                    className="min-h-11 w-full rounded-2xl bg-white/[0.05] border border-white/[0.08] px-4 py-2.5 text-sm text-twilight-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-accent-primary/30 focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-primary)_7%,transparent)] appearance-none"
                                                 >
                                                     <option value="">None</option>
                                                     {projects.map((p) => (
@@ -366,7 +364,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                                                                 key={tag.id}
                                                                 type="button"
                                                                 onClick={() => toggleTag(tag.id)}
-                                                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
+                                                                className={`inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors cursor-pointer ${
                                                                     selected
                                                                         ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25"
                                                                         : "bg-white/[0.04] text-twilight-text-muted border border-white/[0.08] hover:bg-white/[0.07] hover:text-twilight-text"
@@ -386,25 +384,64 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                         </AnimatePresence>
                     </div>
 
+        </>
+    );
+
+    const submitButton = (
+        <Button
+            type="submit"
+            form={FORM_ID}
+            variant="primary"
+            size="md"
+            disabled={!form.formState.isDirty || form.formState.isSubmitting}
+            className="bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/26 disabled:opacity-40"
+        >
+            Create routine
+        </Button>
+    );
+
+    if (shell.isCompact) {
+        // Same swipe-up sheet as every other mobile panel: the fields scroll and
+        // the actions stay pinned where a thumb can reach them.
+        return (
+            <UtilitySheet
+                title="New routine"
+                subtitle="Start with a name — add timing and connections later."
+                open={open}
+                onClose={handleClose}
+                footer={(
+                    <div className="flex gap-2 border-t border-twilight-border px-4 pb-4 pt-3 [&>*]:flex-1">
+                        <Button type="button" variant="ghost" size="md" onClick={handleClose}>Cancel</Button>
+                        {submitButton}
+                    </div>
+                )}
+            >
+                <form id={FORM_ID} onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
+                    {fields}
+                </form>
+            </UtilitySheet>
+        );
+    }
+
+    return (
+        <Dialog.Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
+            <Dialog.DialogContent className="sm:max-w-xl">
+                <Dialog.DialogHeader>
+                    <Dialog.DialogTitle>New routine</Dialog.DialogTitle>
+                    <Dialog.DialogDescription>
+                        Start with a name — add timing and connections when you're ready.
+                    </Dialog.DialogDescription>
+                </Dialog.DialogHeader>
+
+                <form id={FORM_ID} onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-2">
+                    {fields}
+
                     {/* Actions */}
                     <div className="flex justify-end gap-2 pt-1">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="md"
-                            onClick={handleClose}
-                        >
+                        <Button type="button" variant="ghost" size="md" onClick={handleClose}>
                             Cancel
                         </Button>
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            size="md"
-                            disabled={!form.formState.isDirty || form.formState.isSubmitting}
-                            className="bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/26 disabled:opacity-40"
-                        >
-                            Create routine
-                        </Button>
+                        {submitButton}
                     </div>
                 </form>
             </Dialog.DialogContent>

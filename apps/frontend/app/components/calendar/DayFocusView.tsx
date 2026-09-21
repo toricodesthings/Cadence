@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { Flag, Clock } from "lucide-react";
 import { CalendarTaskChip } from "./CalendarTaskChip";
-import { useSwipeNavigation } from "../../hooks/use-swipe-navigation";
+import { Tip } from "../primitives";
+import { EmptyState } from "../tasks/EmptyState";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "../../lib/holidays/provider";
 import type { PersonalEvent } from "../../types/settings";
@@ -13,6 +14,10 @@ interface TimeSlot {
     tasks: Task[];
 }
 
+/** Swiping to another day remounts this view, so the offset outlives it —
+ *  the same time of day stays in view, the way a native calendar behaves. */
+let lastDayScrollTop = 0;
+
 export interface DayFocusViewProps {
     currentDate: string;
     tasks: Task[];
@@ -23,10 +28,6 @@ export interface DayFocusViewProps {
     onSelectTask: (id: string) => void;
     onCompleteTask: (id: string) => void;
     onArchiveTask: (id: string) => void;
-    /** Called when user swipes left (next day) */
-    onNavigateNext?: () => void;
-    /** Called when user swipes right (previous day) */
-    onNavigatePrev?: () => void;
 }
 
 export function DayFocusView({
@@ -38,15 +39,20 @@ export function DayFocusView({
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
-    onNavigateNext,
-    onNavigatePrev,
 }: DayFocusViewProps) {
     const todayIso = new Date().toISOString().slice(0, 10);
     const isCurrentDate = currentDate === todayIso;
-    const swipeHandlers = useSwipeNavigation({
-        onSwipeLeft: () => onNavigateNext?.(),
-        onSwipeRight: () => onNavigatePrev?.(),
-    });
+    const scrollRef = useRef<HTMLDivElement | null>(null);
+
+    useLayoutEffect(() => {
+        const node = scrollRef.current;
+        if (!node) return;
+        node.scrollTop = Math.min(lastDayScrollTop, Math.max(0, node.scrollHeight - node.clientHeight));
+    }, [currentDate]);
+
+    const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+        lastDayScrollTop = event.currentTarget.scrollTop;
+    }, []);
 
     const { allDay, timed } = useMemo(() => ({
         allDay: tasks.filter((t) => t.isAllDay || !t.scheduledStart),
@@ -85,7 +91,7 @@ export function DayFocusView({
     });
 
     return (
-        <div className="flex flex-col h-full min-h-0 overflow-y-auto px-4 pb-24" {...swipeHandlers}>
+        <div ref={scrollRef} onScroll={handleScroll} className="touch-scroll-y flex flex-col h-full min-h-0 px-4 pb-24">
             {isCurrentDate && (
                 <div className="sticky top-0 z-10 -mx-1 mb-2 border-b border-twilight-border/20 bg-twilight-deep/88 px-1 py-3 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-3 rounded-2xl border border-accent-primary/20 bg-accent-primary/10 px-3 py-2 text-sm text-accent-primary shadow-[0_12px_30px_color-mix(in_srgb,var(--accent-primary)_12%,transparent)]">
@@ -152,8 +158,8 @@ export function DayFocusView({
 
             {/* Time slots */}
             {slots.length === 0 && allDay.length === 0 && (
-                <div className="flex-1 flex items-center justify-center text-twilight-text-muted/60 text-sm">
-                    No tasks scheduled
+                <div className="flex flex-1 items-center justify-center">
+                    <EmptyState variant="schedule" />
                 </div>
             )}
 
@@ -193,15 +199,17 @@ export function DayFocusView({
                                             {t.scheduledEnd ? ` – ${formatTime(t.scheduledEnd)}` : ""}
                                         </span>
                                     </div>
-                                    {onCompleteTask && (
+                                    <Tip label="Complete task" side="left">
                                         <button
                                             type="button"
+                                            aria-label={`Complete ${t.title}`}
                                             onClick={(e) => { e.stopPropagation(); onCompleteTask(t.id); }}
-                                            className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+                                            className="touch-target group flex shrink-0 cursor-pointer items-center justify-center rounded-full"
                                         >
-                                            <span className="w-2 h-2 rounded-full border border-twilight-text-muted/50" />
+                                            {/* Same vocabulary as TaskCheckbox: an empty ring until it's done. */}
+                                            <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70 transition-colors group-hover:border-accent-primary/50" />
                                         </button>
-                                    )}
+                                    </Tip>
                                 </div>
                             ))}
                         </div>

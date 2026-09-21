@@ -1,7 +1,7 @@
-import { Feather, Plus, CalendarRange, Inbox, CheckCircle2 } from "lucide-react";
+import { Feather, Plus, CalendarRange, CalendarClock, Inbox, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router";
 
-type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" | "default";
+type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" | "schedule" | "default";
 
 interface EmptyStateProps {
     variant?: EmptyStateVariant;
@@ -35,6 +35,11 @@ const VARIANTS: Record<EmptyStateVariant, {
         title: "No finished tasks yet.",
         description: "Tasks you complete will appear here for reference.",
         cta: { label: "Go to Today", to: "/today" },
+    },
+    schedule: {
+        icon: CalendarClock,
+        title: "This day is clear.",
+        description: "Nothing is booked yet. Add a block when you're ready, or swipe across to another day.",
     },
     default: {
         icon: Feather,

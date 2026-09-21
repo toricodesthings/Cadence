@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { Bell, Calendar, Inbox, LayoutDashboard, LayoutGrid, Search, Sparkles } from "lucide-react";
+import { Bell, Calendar, Flame, Inbox, LayoutGrid, Search, Sparkles } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 
+// Today, Upcoming and Projects live in the Capture page's workspace menu, so
+// the dock keeps the four surfaces you switch between, not the ones you filter.
 const TABS = [
     { to: "/", label: "Capture", icon: Inbox },
-    { to: "/today", label: "Today", icon: LayoutDashboard },
     { to: "/schedule", label: "Schedule", icon: Calendar },
+    { to: "/habits", label: "Habits", icon: Flame },
     { to: "/browse", label: "Browse", icon: LayoutGrid },
 ];
 

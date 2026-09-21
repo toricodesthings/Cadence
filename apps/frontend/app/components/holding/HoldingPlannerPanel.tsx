@@ -1,22 +1,39 @@
-import { useMemo } from "react";
-import { CalendarDays, CheckSquare, Inbox as InboxIcon } from "lucide-react";
-import { CalendarView } from "../calendar/CalendarView";
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { useDndContext, useDroppable } from "@dnd-kit/core";
+import { CalendarDays, ChevronRight } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { SIDE_PANEL_SURFACE } from "../shared/side-panel-surface";
-import { useInbox } from "../../hooks/inbox";
-import { useTasks } from "../../hooks/tasks";
+import { PLACE_DROP, dayLabel, useWeekLoad } from "./PlaceSheet";
+import { formatTime, getWeekStart, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
+import { loadWord } from "../../lib/utils/task/day-load";
 
-export function HoldingPlannerPanel() {
-    const { data: inboxItems = [] } = useInbox();
-    const { data: allTasks = [] } = useTasks({});
+/** 0–3 dots: free · light · steady · busy. */
+const loadDots = (load: number) => (load === 0 ? 0 : load <= 2 ? 1 : load <= 5 ? 2 : 3);
 
-    const unmanagedCount = useMemo(
-        () => allTasks.filter((task) => task.state === "ACTIVE" && !task.projectId && !task.sectionId && !task.dueDate && !task.scheduledStart).length,
-        [allTasks],
-    );
-    const unprocessedCount = useMemo(
-        () => inboxItems.filter((item) => !item.processed).length,
-        [inboxItems],
+/**
+ * The Capture rail when nothing is selected: this week and next as a grid of
+ * day tiles that captures and Ready tasks drop onto. Busy-ness is dots, words
+ * only for the chosen day, so the panel reads as a calendar, not a report.
+ */
+export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: string) => void }) {
+    const navigate = useNavigate();
+    const todayIso = toISODate(new Date());
+    const { tasks, loads } = useWeekLoad(getWeekStart(new Date()), true, 14);
+    const [selected, setSelected] = useState(todayIso);
+    const dragging = Boolean(useDndContext().active);
+    const days = [...loads];
+    const dayTasks = tasks.filter((t) => toTaskDateOnly(t.dueDate ?? t.scheduledStart) === selected);
+
+    const week = (label: string, slice: typeof days) => (
+        <section aria-label={label} className="space-y-2">
+            <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">{label}</h3>
+            <div className="grid grid-cols-7 gap-1.5">
+                {slice.map(([iso, load]) => <DayTile key={iso} iso={iso} load={load} isToday={iso === todayIso}
+                    isPast={iso < todayIso} isSelected={iso === selected} dragging={dragging} onSelect={() => setSelected(iso)} />)}
+            </div>
+        </section>
     );
 
     return (
@@ -28,35 +45,83 @@ export function HoldingPlannerPanel() {
                     <CalendarDays size={17} />
                 </div>
                 <div className="leading-tight">
-                    <h2 className="font-display text-lg font-semibold leading-tight tracking-tight text-twilight-text">
-                        Overview
-                    </h2>
+                    <h2 className="font-display text-lg font-semibold leading-tight tracking-tight text-twilight-text">Place</h2>
                     <span className="mt-0.5 block text-[11px] font-medium leading-none text-twilight-text-muted">
-                        Plan &amp; place
+                        {dragging ? "Drop on a day" : "Drag a capture or task onto a day"}
                     </span>
                 </div>
             </header>
 
             <ScrollAreaWrapper>
-                <div className="flex min-h-full flex-col px-5 py-5">
-                    <CalendarView />
+                <div className="flex min-h-full flex-col gap-5 px-4 py-5">
+                    {week("This week", days.slice(0, 7))}
+                    {week("Next week", days.slice(7))}
 
-                    <div className="mt-4 rounded-[1.5rem] border border-twilight-border/35 bg-twilight-surface/16 px-4 py-3 backdrop-blur-xl">
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/35 bg-white/[0.03] px-3 py-1.5">
-                                <CheckSquare size={12} className="text-accent-primary" aria-hidden="true" />
-                                <span>Awaiting placement</span>
-                                <span className="text-twilight-text">{unmanagedCount}</span>
-                            </div>
-                            <div className="inline-flex items-center gap-2 rounded-full border border-twilight-border/35 bg-white/[0.03] px-3 py-1.5">
-                                <InboxIcon size={12} className="text-moonlit" aria-hidden="true" />
-                                <span>To clarify</span>
-                                <span className="text-twilight-text">{unprocessedCount}</span>
-                            </div>
+                    <section aria-live="polite" className="rounded-3xl border border-twilight-border/35 bg-white/[0.02] p-4">
+                        <div className="flex items-baseline justify-between gap-3">
+                            <h3 className="font-display text-base font-semibold text-twilight-text">
+                                {selected === todayIso ? "Today" : parseLocalDate(selected).toLocaleDateString(undefined, { weekday: "long" })}
+                                <span className="ml-2 text-sm font-normal text-twilight-text-soft">{parseLocalDate(selected).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                            </h3>
+                            <span className="text-xs text-twilight-text-muted">{loadWord(loads.get(selected) ?? 0)}</span>
                         </div>
+                        {dayTasks.length ? (
+                            <ul className="mt-3 space-y-0.5">
+                                {dayTasks.map((task) => (
+                                    <li key={task.id}>
+                                        <button type="button" onClick={() => onSelectTask?.(task.id)}
+                                            className="flex min-h-9 w-full items-center gap-2.5 rounded-xl px-2 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text">
+                                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/70" aria-hidden="true" />
+                                            <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                                            {task.scheduledStart && !task.isAllDay && <span className="shrink-0 text-xs text-twilight-text-muted">{formatTime(task.scheduledStart)}</span>}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : <p className="mt-2 text-sm text-twilight-text-muted">Nothing here yet.</p>}
+                    </section>
+
+                    <div className="mt-auto flex gap-2">
+                        {/* Transparent native date input over the button: the OS picker for far-off days. */}
+                        <label className="relative flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-2xl border border-twilight-border/40 bg-white/[0.03] text-sm font-medium text-twilight-text-soft hover:bg-white/[0.06]">
+                            Pick a date…
+                            <input type="date" aria-label="Pick a date" onChange={(e) => e.target.value && navigate(`/schedule?date=${e.target.value}`)} className="absolute inset-0 cursor-pointer opacity-0" />
+                        </label>
+                        <button type="button" onClick={() => navigate(`/schedule?date=${selected}&view=week`)}
+                            className="flex min-h-10 flex-1 items-center justify-center gap-1 rounded-2xl border border-twilight-border/40 bg-white/[0.03] text-sm font-medium text-twilight-text-soft hover:bg-white/[0.06]">
+                            Open in Schedule <ChevronRight size={14} aria-hidden="true" />
+                        </button>
                     </div>
                 </div>
             </ScrollAreaWrapper>
         </div>
+    );
+}
+
+function DayTile({ iso, load, isToday, isPast, isSelected, dragging, onSelect }: {
+    iso: string; load: number; isToday: boolean; isPast: boolean; isSelected: boolean; dragging: boolean; onSelect: () => void;
+}) {
+    const { setNodeRef, isOver } = useDroppable({ id: PLACE_DROP + iso, disabled: isPast });
+    const date = parseLocalDate(iso);
+    const dots = loadDots(load);
+    const tone = isOver
+        ? "scale-105 border-accent-primary bg-accent-primary/25"
+        : isSelected
+            ? "border-accent-primary/50 bg-accent-primary/15"
+            : dragging && !isPast
+                ? "border-dashed border-accent-primary/35 bg-white/[0.04]"
+                : "border-twilight-border/30 bg-white/[0.02] hover:bg-white/[0.05]";
+    return (
+        <button ref={setNodeRef} type="button" onClick={onSelect} aria-pressed={isSelected}
+            aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
+            className={`flex aspect-[4/5] min-h-14 flex-col items-center justify-center gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 ${tone} ${isPast ? "opacity-40" : ""}`}>
+            <span className={`text-[10px] font-semibold uppercase tracking-wider ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
+                {date.toLocaleDateString(undefined, { weekday: "narrow" })}
+            </span>
+            <span className={`font-display text-lg font-semibold leading-none ${isToday ? "text-accent-primary" : "text-twilight-text"}`}>{date.getDate()}</span>
+            <span className="flex h-1.5 gap-0.5" aria-hidden="true">
+                {Array.from({ length: dots }, (_, i) => <span key={i} className="h-1.5 w-1.5 rounded-full bg-accent-primary/75" />)}
+            </span>
+        </button>
     );
 }
