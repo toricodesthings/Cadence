@@ -30,6 +30,6 @@ export function useHabitTitleLookup() {
             const found = habits.find((h) => h.id === id);
             if (found) return found.title;
         }
-        return "this habit";
+        return "this routine";
     };
 }

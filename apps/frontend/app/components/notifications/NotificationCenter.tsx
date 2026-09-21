@@ -111,7 +111,7 @@ export function NotificationCenter({
             {visible.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center gap-4 px-5 py-10 text-center">
                 <div className="flex size-14 items-center justify-center rounded-2xl bg-accent-primary-dim text-accent-primary"><BellRing size={24} aria-hidden="true" /></div>
                 <div><p className="font-display text-lg font-semibold text-twilight-text">{query ? "No matching notifications" : unreadOnly && all.length > 0 ? "You’re all caught up" : "Nothing to catch up on"}</p>
-                    <p className="mt-2 max-w-xs text-sm leading-relaxed text-twilight-text-muted">{query ? "Try another word or clear your search." : unreadOnly && all.length > 0 ? "Your read notifications are still in All." : "Your task and habit reminders will appear here."}</p></div>
+                    <p className="mt-2 max-w-xs text-sm leading-relaxed text-twilight-text-muted">{query ? "Try another word or clear your search." : unreadOnly && all.length > 0 ? "Your read notifications are still in All." : "Your task and routine reminders will appear here."}</p></div>
                 {(query || unreadOnly && all.length > 0) && <button type="button" className={actionClass} onClick={() => { setSearch(""); setUnreadOnly(false); resetList(); searchRef.current?.focus(); }}>Show all notifications</button>}
             </div> : <>
                 <ul className="space-y-3">
@@ -142,7 +142,7 @@ export function NotificationCenter({
             }}>
                 <AlertDialog.Header>
                     <AlertDialog.Title>Clear {clearIds?.length} notifications?</AlertDialog.Title>
-                    <AlertDialog.Description>This clears all notifications, including ones hidden by your filters. Your tasks and habits won’t change.</AlertDialog.Description>
+                    <AlertDialog.Description>This clears all notifications, including ones hidden by your filters. Your tasks and routines won’t change.</AlertDialog.Description>
                 </AlertDialog.Header>
                 <AlertDialog.Footer>
                     <AlertDialog.Cancel asChild><Button variant="ghost" size="md">Keep notifications</Button></AlertDialog.Cancel>

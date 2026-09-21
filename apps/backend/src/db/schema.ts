@@ -30,7 +30,6 @@ export const taskInteractionModeEnum = pgEnum('task_interaction_mode', ['task', 
 export const memoryTypeEnum = pgEnum('memory_type', ['CORE', 'EPHEMERAL']);
 export const suggestionStatusEnum = pgEnum('suggestion_status', ['PENDING', 'ACCEPTED', 'DISMISSED']);
 export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', 'PENDING']);
-export const targetModeEnum = pgEnum('target_mode', ['AMBIENT', 'ANCHOR', 'BLOCK']);
 export const captureKindEnum = pgEnum('capture_kind', ['task', 'thought', 'reference', 'unknown']);
 export const captureStatusEnum = pgEnum('capture_status', ['clarifying', 'placed', 'kept', 'discarded']);
 export const analysisStatusEnum = pgEnum('analysis_status', ['pending', 'parsed', 'reviewed', 'applied', 'dismissed']);
@@ -476,9 +475,10 @@ export const habits = pgTable(
         // Use RRULE standard natively to support "Every Weekday", "Every 3 Days", etc.
         recurrenceRule: text('recurrence_rule').notNull(),
         targetTime: text('target_time'), // e.g., "19:00" string for time-specific habits, null for all-day
+        // Per-weekday overrides of targetTime, keyed by RRULE day ("MO".."SU") → "HH:mm"
+        targetTimes: jsonb('target_times').$type<Record<string, string>>(),
 
-        // Presence mode: AMBIENT (default), ANCHOR (has targetTime), BLOCK (reserves schedule time)
-        targetMode: targetModeEnum('target_mode').default('AMBIENT').notNull(),
+        emoji: text('emoji'),
 
         // Reminders
         reminderEnabled: boolean('reminder_enabled').default(false).notNull(),

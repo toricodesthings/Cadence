@@ -42,8 +42,8 @@ export const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     get_projects: { class: "read", label: "Checked your projects" },
     get_sections: { class: "read", label: "Checked your projects" },
     get_tags: { class: "read", label: "Checked your projects" },
-    get_habits: { class: "read", label: "Looked at your habits" },
-    get_habit_status_today: { class: "read", label: "Looked at your habits" },
+    get_habits: { class: "read", label: "Looked at your routines" },
+    get_habit_status_today: { class: "read", label: "Looked at your routines" },
     get_inbox_items: { class: "read", label: "Looked through your inbox" },
     get_suggestions: { class: "read", label: "Took a look around" },
     get_user_metrics: { class: "read", label: "Took a look around" },
@@ -87,7 +87,7 @@ export const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     },
     propose_log_habit: {
         class: "proposal",
-        label: "Proposed a habit log",
+        label: "Proposed a routine check-in",
         render: (ctx, state) => <LogHabitCard ctx={ctx} state={state} />,
     },
     propose_structure_inbox_item: {

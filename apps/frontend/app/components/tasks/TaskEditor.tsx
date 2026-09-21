@@ -20,6 +20,8 @@ import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
 import { TimetableBlockEditor } from "./TimetableBlockEditor";
+import { RepeatKindPicker } from "../shared/RepeatKindPicker";
+import { getTaskRepeatKind, useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
 import { DateOnlyPickerPopover } from "./DateOnlyPickerPopover";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -108,6 +110,7 @@ export function TaskEditor({
     const { data: doneTasks } = useTasks({ state: "COMPLETE" });
     const { data: projects } = useProjects();
     const updateTask = useUpdateTask();
+    const convertRepeat = useConvertRepeat();
     const archiveTask = useArchiveTask();
     const createSubtask = useCreateSubtask(taskId);
     const { data: tags } = useTags();
@@ -252,7 +255,7 @@ export function TaskEditor({
         : scheduleSummary?.isDuration
             ? "Duration"
             : scheduleSummary?.isTimed
-                ? (isPassiveTimetable ? "Anchor" : "Time block")
+                ? (isPassiveTimetable ? "Fixed time" : "Time block")
                 : "Deadline";
 
     const charCount = notes.length;
@@ -262,7 +265,7 @@ export function TaskEditor({
         ? `${completedSubtasks}/${subtasks.length} complete`
         : "No subtasks yet";
     const noteSummary = notes.trim() ? `${charCount.toLocaleString()} chars` : "Tap to write notes";
-    const stateLabel = task?.state === "WAITING" ? "Waiting" : task?.state === "COMPLETE" ? "Complete" : isPassiveTimetable ? "Anchor" : "Active";
+    const stateLabel = task?.state === "WAITING" ? "Waiting" : task?.state === "COMPLETE" ? "Complete" : isPassiveTimetable ? "Fixed" : "Active";
     const detailsSummary = [
         stateLabel,
         scheduleSummary ? scheduleLabel : null,
@@ -294,7 +297,7 @@ export function TaskEditor({
                     onModeChange={onDetailModeChange}
                     onClose={onClose}
                     closeLabel="Close task details"
-                    title={isRecurringTask(task) ? "Rhythm" : "Task"}
+                    title={isPassiveTimetable ? "Fixed" : "Task"}
                     leading={<TaskCheckbox task={task} compact />}
                 >
                         <DetailTitle value={task.title} label="Task title" textareaRef={titleTextareaRef}
@@ -495,31 +498,25 @@ export function TaskEditor({
                                             )}
                                         </AnimatePresence>
 
-                                        {canToggleInteractionMode && (
-                                            <FieldBlock icon={Repeat} label="Each time">
-                                                <div className="grid grid-cols-2 gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        aria-pressed={task.interactionMode === "timetable"}
-                                                        onClick={() => updateTask.mutate({
+                                        {isRecurringTask(task) && (
+                                            <div className="py-1.5">
+                                                <RepeatKindPicker
+                                                    value={getTaskRepeatKind(task)}
+                                                    disabled={convertRepeat.isPending}
+                                                    fixedUnavailableReason={canToggleInteractionMode ? null : "Give it a start and end time to make it fixed."}
+                                                    onChange={(kind) => {
+                                                        if (kind === "routine") {
+                                                            void convertRepeat.taskToRoutine(task).then(onClose);
+                                                            return;
+                                                        }
+                                                        updateTask.mutate({
                                                             id: task.id,
-                                                            interactionMode: "timetable",
-                                                            ...(task.state === "COMPLETE" ? { state: "ACTIVE" } : {}),
-                                                        })}
-                                                        className={`${CHIP_BASE} ${task.interactionMode === "timetable" ? "border-moonlit/30 bg-moonlit/15 text-moonlit" : CHIP_IDLE}`}
-                                                    >
-                                                        Fixed block
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        aria-pressed={task.interactionMode === "task"}
-                                                        onClick={() => updateTask.mutate({ id: task.id, interactionMode: "task" })}
-                                                        className={`${CHIP_BASE} ${task.interactionMode === "task" ? CHIP_ACTIVE : CHIP_IDLE}`}
-                                                    >
-                                                        Check off
-                                                    </button>
-                                                </div>
-                                            </FieldBlock>
+                                                            interactionMode: kind === "fixed" ? "timetable" : "task",
+                                                            ...(kind === "fixed" && task.state === "COMPLETE" ? { state: "ACTIVE" as const } : {}),
+                                                        });
+                                                    }}
+                                                />
+                                            </div>
                                         )}
                                     </DetailGroup>
 

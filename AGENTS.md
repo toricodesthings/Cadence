@@ -2,6 +2,16 @@
 
 Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`.
 
+## Find code with the graph first
+
+If `graphify-out/graph.json` exists (a local, git-ignored knowledge graph of `apps/` + `packages/`, refreshed by a post-commit hook), use it before grepping for anything cross-file:
+
+- Callers and blast radius: `graphify query "what depends on <symbol or file>"` · one symbol: `graphify explain "<node>"`
+- How two pieces connect (UI → hook → contract → route → DB): `graphify path "<A>" "<B>" --undirected`
+- Feature areas and hubs: `graphify-out/GRAPH_REPORT.md`
+
+The graph tracks structure, not behaviour, and lags uncommitted edits. Open the files it points to before editing, and grep only for exact strings or when the graph comes up empty.
+
 ## AGENTS.md files are the current truth
 
 - Each AGENTS.md describes the code **as it is now**. If your change makes a line wrong, fix that line in the same change.

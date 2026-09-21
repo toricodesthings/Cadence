@@ -222,7 +222,7 @@ export function AITab() {
             <SettingsSection title="Data">
                 <SettingsRow
                     title="Clear intelligence history"
-                    description="Remove all stored parse snapshots and dismissed entity records. This does not affect your tasks or habits."
+                    description="Remove all stored parse snapshots and dismissed entity records. This does not affect your tasks or routines."
                 >
                     <Button
                         variant="secondary"

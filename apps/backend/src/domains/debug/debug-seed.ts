@@ -117,6 +117,7 @@ export function createSeedTask(userId: string, input: SeedTaskInput) {
     return {
         userId,
         ...parsed,
+        interactionMode: parsed.interactionMode ?? "task",
         ...normalizeTaskTemporalFields(parsed),
     };
 }

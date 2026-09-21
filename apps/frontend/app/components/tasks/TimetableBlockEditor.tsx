@@ -8,7 +8,7 @@ import { TimePicker, Tip } from "../primitives";
 import { formatShortDate, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 
 /**
- * Direct editor for recurring timetable blocks ("Fixed block" rhythms).
+ * Direct editor for recurring timetable blocks (Fixed).
  * The generic schedule popover only edits the anchor date and start time —
  * this surface owns the block's start time, end time and repeat weekdays so
  * mistakes (e.g. 3:55 AM instead of PM) are one tap to fix.

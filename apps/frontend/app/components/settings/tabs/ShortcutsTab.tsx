@@ -186,7 +186,7 @@ export function ShortcutsTab() {
                     { keys: "G then T", label: "Go to Today" },
                     { keys: "G then S", label: "Go to Schedule" },
                     { keys: "G then I", label: "Go to Inbox" },
-                    { keys: "G then H", label: "Go to Habits" },
+                    { keys: "G then H", label: "Go to Routines" },
                     { keys: "G then U", label: "Go to Upcoming" },
                     { keys: "G then W", label: "Go to Weekly Review" },
                 ].map(({ keys, label }) => (

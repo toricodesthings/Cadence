@@ -27,7 +27,6 @@ const HABIT_ROW = {
     id: TEST_HABIT_ID,
     userId: TEST_USER_ID,
     title: "Stretch",
-    targetMode: "BLOCK",
     reminderEnabled: true,
     colorAccent: "emerald",
     archived: false,
@@ -94,19 +93,5 @@ describe("PATCH /habits/:id", () => {
 
         expect(response.status).toBe(200);
         expect(set).toEqual({ archived: true, updatedAt: expect.any(SQL) });
-    });
-
-    it("leaves the mode to SQL when only a target time is sent, so BLOCK is kept", async () => {
-        const { response, set } = await patchHabit({ targetTime: "07:30" });
-
-        expect(response.status).toBe(200);
-        expect(set?.targetMode).toBeInstanceOf(SQL);
-    });
-
-    it("promotes an explicit AMBIENT mode to ANCHOR when a target time is sent", async () => {
-        const { response, set } = await patchHabit({ targetTime: "07:30", targetMode: "AMBIENT" });
-
-        expect(response.status).toBe(200);
-        expect(set?.targetMode).toBe("ANCHOR");
     });
 });

@@ -1,23 +1,16 @@
 import { useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
 import { Check, Clock, Flame, Pause } from "lucide-react";
 
-import { useApiClient } from "../../hooks/auth/use-api-client";
-import { useAuthState } from "../../hooks/auth/use-auth-state";
+import { useHabitsMonthly, type HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
 import { useProjects } from "../../hooks/projects/use-projects";
-import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
-import { unwrapResponse } from "../../lib/api/helpers";
 import { toISODate } from "../../lib/utils/date-format";
 import type { Habit } from "@cadence/contracts/habit";
 import { HabitMenu } from "./HabitMenu";
+import { RoutineMark } from "./RoutineMark";
+import { useSettings } from "../../hooks/core/use-settings";
 import { HabitContextMenuWrapper } from "./HabitContextMenuWrapper";
 
 const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-interface HabitMonthlyData {
-    scheduledDays: number[];
-    logsByDay: Record<number, string>;
-}
 
 interface HabitsMonthViewProps {
     year: number;
@@ -173,28 +166,14 @@ export function HabitsMonthView({
     onSelectHabit,
     emptyStateMode = "active",
 }: HabitsMonthViewProps) {
-    const client = useApiClient();
-    const { authReady, isAuthenticated } = useAuthState();
     const { data: projects = [] } = useProjects();
+    const { data: settings } = useSettings();
+    const showStreaks = settings?.tasks?.showStreaks !== false;
     const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
     const sortedHabits = useMemo(() => sortHabits(habits), [habits]);
     const todayIso = toISODate(new Date());
 
-    const monthlyQueries = useQueries({
-        queries: sortedHabits.map((habit) => ({
-            queryKey: queryKeys.habits.monthly(habit.id, year, month),
-            enabled: authReady && isAuthenticated,
-            staleTime: STALE_TIMES.HABITS,
-            queryFn: async () => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const res = await (client as any).api.habits[":id"].monthly.$get({
-                    param: { id: habit.id },
-                    query: { year: String(year), month: String(month) },
-                });
-                return unwrapResponse<HabitMonthlyData>(res);
-            },
-        })),
-    });
+    const monthlyQueries = useHabitsMonthly(sortedHabits.map((habit) => habit.id), year, month);
 
     if (habits.length === 0) {
         return (
@@ -259,16 +238,22 @@ export function HabitsMonthView({
                                         aria-pressed={isSelected}
                                     >
                                         <div className="flex items-start gap-2">
-                                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent-primary shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_45%,transparent)]" />
+                                            {habit.emoji ? (
+                                                <RoutineMark emoji={habit.emoji} size={14} />
+                                            ) : (
+                                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent-primary shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_45%,transparent)]" />
+                                            )}
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-2">
                                                     <h3 className="truncate text-[15px] font-medium text-twilight-text">
                                                         {habit.title}
                                                     </h3>
-                                                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2 py-0.5 text-[10px] font-medium text-accent-primary">
-                                                        <Flame size={10} />
-                                                        {habit.currentStreak}
-                                                    </span>
+                                                    {showStreaks ? (
+                                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2 py-0.5 text-[10px] font-medium text-accent-primary">
+                                                            <Flame size={10} />
+                                                            {habit.currentStreak}
+                                                        </span>
+                                                    ) : null}
                                                 </div>
                                                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                                     {isPaused ? (

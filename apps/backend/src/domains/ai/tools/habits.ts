@@ -33,7 +33,6 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             id: habits.id,
                             title: habits.title,
                             recurrenceRule: habits.recurrenceRule,
-                            targetMode: habits.targetMode,
                             currentStreak: habits.currentStreak,
                             longestStreak: habits.longestStreak,
                             totalCompletions: habits.totalCompletions,

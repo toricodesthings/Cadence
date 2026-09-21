@@ -8,6 +8,8 @@ import { HabitDayPlaceholder } from "./HabitDayPlaceholder";
 import { Flame, Clock, Pause, CheckCircle2 } from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useProjects } from "../../hooks/projects/use-projects";
+import { useSettings } from "../../hooks/core/use-settings";
+import { RoutineMark } from "./RoutineMark";
 
 /**
  * Sort: due+overdue timed → due+overdue anytime → remaining timed by targetTime → remaining anytime by sortOrder
@@ -42,6 +44,8 @@ interface HabitsCanvasProps {
 }
 
 export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit, emptyStateMode = "active" }: HabitsCanvasProps) {
+    const { data: settings } = useSettings();
+    const showStreaks = settings?.tasks?.showStreaks !== false;
     const shell = useShellMode();
     const { data: projects = [] } = useProjects();
     const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
@@ -86,7 +90,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
 
                     {hasMissedDays ? (
                         <div className="mt-3 rounded-full border border-accent-primary/16 bg-accent-primary/10 px-3 py-1.5 text-center text-[11px] font-medium text-accent-primary">
-                            Striped cells are missed scheduled days. Tap to catch up.
+                            Striped days weren’t logged. Tap one if you did it.
                         </div>
                     ) : null}
 
@@ -97,7 +101,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                     <Flame size={24} className="text-accent-primary" />
                                 </div>
                                 <h3 className="mb-2 text-lg font-medium text-twilight-text">
-                                    {emptyStateMode === "archived" ? "No archived habits." : "The sanctuary is ready."}
+                                    {emptyStateMode === "archived" ? "No archived routines." : "The sanctuary is ready."}
                                 </h3>
                                 <p className="max-w-sm text-sm text-twilight-text-muted">
                                     {emptyStateMode === "archived"
@@ -129,19 +133,18 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                     onClick={() => onSelectHabit?.(habit.id)}
                                                     className="min-w-0 flex-1 text-left"
                                                 >
-                                                    <h3 className="truncate text-[15px] font-medium text-twilight-text">
-                                                        {habit.title}
+                                                    <h3 className="flex min-w-0 items-center gap-2 text-[15px] font-medium text-twilight-text">
+                                                        {habit.emoji ? <RoutineMark emoji={habit.emoji} size={14} /> : null}
+                                                        <span className="truncate">{habit.title}</span>
                                                     </h3>
                                                     <div className="mt-1 flex items-center gap-2 flex-wrap">
-                                                        <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2 py-0.5 text-[10px] font-medium text-accent-primary">
-                                                            <Flame size={10} />
-                                                            {habit.currentStreak}
-                                                        </span>
-                                                        {habit.isOverdue ? (
-                                                            <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/16 bg-accent-primary/10 px-2 py-0.5 text-[10px] font-medium text-accent-primary">
-                                                                Catch up
+                                                        {showStreaks ? (
+                                                            <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2 py-0.5 text-[10px] font-medium text-accent-primary">
+                                                                <Flame size={10} />
+                                                                {habit.currentStreak}
                                                             </span>
-                                                        ) : habit.isDueToday ? (
+                                                        ) : null}
+                                                        {habit.isDueToday ? (
                                                             <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-twilight-text-soft">
                                                                 Today
                                                             </span>
@@ -224,7 +227,7 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                     <Flame size={24} className="text-accent-primary" />
                                 </div>
                                 <h3 className="mb-2 text-lg font-medium text-twilight-text">
-                                    {emptyStateMode === "archived" ? "No archived habits." : "The sanctuary is ready."}
+                                    {emptyStateMode === "archived" ? "No archived routines." : "The sanctuary is ready."}
                                 </h3>
                                 <p className="max-w-sm text-sm text-twilight-text-muted">
                                     {emptyStateMode === "archived"
@@ -256,7 +259,11 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                         aria-label={`View details for ${habit.title}`}
                                                         aria-pressed={isSelected}
                                                     >
-                                                        <span className={`mt-[7px] h-2 w-2 shrink-0 rounded-full shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_50%,transparent)] transition-colors ${isSelected ? "bg-accent-primary" : "bg-accent-primary/60 group-hover:bg-accent-primary"}`} />
+                                                        {habit.emoji ? (
+                                                            <RoutineMark emoji={habit.emoji} size={14} className="mt-0.5" />
+                                                        ) : (
+                                                            <span className={`mt-[7px] h-2 w-2 shrink-0 rounded-full shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_50%,transparent)] transition-colors ${isSelected ? "bg-accent-primary" : "bg-accent-primary/60 group-hover:bg-accent-primary"}`} />
+                                                        )}
                                                         <div className="min-w-0 flex-1">
                                                             <h3 className={`truncate text-[15px] font-medium leading-snug transition-colors ${
                                                                 isSelected
@@ -266,15 +273,13 @@ export function HabitsCanvas({ weekDates, habits, selectedHabitId, onSelectHabit
                                                                 {habit.title}
                                                             </h3>
                                                             <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                                                                <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary">
-                                                                    <Flame size={11} />
-                                                                    {habit.currentStreak}
-                                                                </span>
-                                                                {habit.isOverdue ? (
-                                                                    <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/16 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary">
-                                                                        Catch up
+                                                                {showStreaks ? (
+                                                                    <span className="inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-accent-primary">
+                                                                        <Flame size={11} />
+                                                                        {habit.currentStreak}
                                                                     </span>
-                                                                ) : habit.isDueToday ? (
+                                                                ) : null}
+                                                                {habit.isDueToday ? (
                                                                     <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-medium text-twilight-text-soft">
                                                                         <CheckCircle2 size={11} /> Today
                                                                     </span>

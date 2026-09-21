@@ -86,7 +86,6 @@ describe("toMinimalHabit", () => {
         id: "h1",
         title: "Meditate",
         recurrenceRule: "FREQ=DAILY",
-        targetMode: "AMBIENT",
         currentStreak: 4,
         longestStreak: 12,
         totalCompletions: 30,

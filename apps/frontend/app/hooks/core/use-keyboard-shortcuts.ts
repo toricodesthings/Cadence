@@ -169,7 +169,7 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                     t: "/today",
                     s: "/schedule",
                     i: "/",
-                    h: "/habits",
+                    h: "/routines",
                     u: "/upcoming",
                     w: "/weekly-review",
                 };

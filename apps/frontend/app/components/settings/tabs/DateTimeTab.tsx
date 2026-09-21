@@ -272,8 +272,8 @@ export function DateTimeTab() {
                 </SettingsRow>
 
                 <SettingsRow
-                    title="Show habit markers"
-                    description="Overlay recurring habit markers alongside scheduled work."
+                    title="Show routine markers"
+                    description="Show routines alongside scheduled work."
                 >
                     <Switch
                         checked={calSettings.clutter?.showHabitAnchors ?? true}

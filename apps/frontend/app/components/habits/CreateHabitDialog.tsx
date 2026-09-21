@@ -12,6 +12,8 @@ import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { CadencePicker } from "./CadencePicker";
+import { RoutineMark } from "./RoutineMark";
+import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { createHabitSchema, type CreateHabitValues } from "../../lib/validations/habit-schemas";
 
 const HABIT_STARTER_PACKS: Array<{
@@ -77,6 +79,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
             recurrenceRule: "FREQ=DAILY",
             colorAccent: "lantern",
             targetTime: null,
+            emoji: null,
             reminderEnabled: false,
             projectId: null,
             tagIds: [],
@@ -84,6 +87,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
     });
 
     const watchTargetTime = form.watch("targetTime");
+    const watchEmoji = form.watch("emoji");
 
     const handleClose = () => {
         form.reset();
@@ -163,6 +167,16 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
 
                     {/* Level 1: Name + Cadence (always visible) */}
                     <div className="flex flex-col gap-1.5">
+                        <div className="flex items-end gap-3">
+                        <EmojiPickerPopover emoji={watchEmoji ?? ""} onSelect={(emoji) => form.setValue("emoji", emoji || null, { shouldDirty: true })}>
+                            <button
+                                type="button"
+                                aria-label={watchEmoji ? "Change emoji" : "Pick an emoji"}
+                                className="mb-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white/[0.04] text-accent-primary transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            >
+                                <RoutineMark emoji={watchEmoji} size={18} />
+                            </button>
+                        </EmojiPickerPopover>
                         <input
                             id="habit-title"
                             autoFocus={!shell.isCompact}
@@ -170,6 +184,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                             {...form.register("title")}
                             className="w-full border-b border-white/[0.10] bg-transparent pb-3 font-display text-xl text-twilight-text outline-none placeholder:text-twilight-text-muted/50 transition-[border-color] duration-200 focus:border-accent-primary/40"
                         />
+                        </div>
                         {form.formState.errors.title && (
                             <span className="text-rose-500 text-xs mt-1">{form.formState.errors.title.message}</span>
                         )}

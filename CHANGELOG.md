@@ -6,6 +6,30 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Today now opens with a strip of the things that happen at a set time, like classes and shifts, in order through the day: what's happening now, and what's next and how long until it starts. Tap it to fold it away.
+- Routines can have an emoji, picked the same way as for events. It shows on Today, on the Routines page and in the day strip.
+- A routine can have a different time on some days, such as the gym at 7:00 on Mondays and any time on Saturdays.
+- A repeating task or routine now asks "If you miss one…": still owed (a task that carries over), let it go (a routine), or it just passes (a fixed block with no check-off). Switching moves it over with Undo.
+- Repeating tasks named like a class, lecture, shift or meeting, with a start and end time, now start out as fixed blocks. You can change this with one tap.
+- A Settings switch (Tasks → Routine streaks) hides routine streaks everywhere.
+
+### Changed
+
+- Habits are now called Routines everywhere, including the page, the dock, search and quick add. Old links to /habits still work.
+- Today shows each routine once. Routines sit in one light list with their time, and finished ones fold into "2 done", which you can reopen and undo.
+- "Needs attention" is now "Still open", in a calm colour, and only appears when a task has carried over.
+- A missed routine now lets go instead of piling up: it no longer shows on Today or Upcoming as something to catch up on, and the routine reminder only mentions today.
+
+### Removed
+
+- The Rhythms column on Today. Its fixed blocks moved to the day strip and its routines to the Routines list.
+
+### Fixed
+
+- Checking off or skipping a routine from Upcoming or the Schedule now updates straight away, works offline, and says so if it fails.
+
 ## [0.14.4] - 2026-09-21
 
 ### Changed

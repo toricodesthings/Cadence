@@ -564,7 +564,7 @@ export default function ProjectView() {
                                                     key={habit.id}
                                                     habit={habit}
                                                     targetDate={pendingLog?.targetDate?.substring(0, 10) ?? todayISO}
-                                                    onNavigate={() => navigate("/habits")}
+                                                    onNavigate={() => navigate("/routines")}
                                                 />
                                             );
                                         })}

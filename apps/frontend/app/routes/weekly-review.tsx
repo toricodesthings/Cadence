@@ -192,7 +192,7 @@ export default function WeeklyReview() {
 
     useDocumentMeta(
         "Weekly Reset · Cadence",
-        "Process inbox items, unscheduled work, waiting tasks, and habit progress in one weekly ritual.",
+        "Process inbox items, unscheduled work, waiting tasks, and routines in one weekly ritual.",
     );
 
     const {
@@ -466,14 +466,14 @@ export default function WeeklyReview() {
                                                 }}
                                                 onOpenInHabits={() => {
                                                     markHabitReviewed(habit.id);
-                                                    navigate("/habits");
+                                                    navigate("/routines");
                                                 }}
                                             />
                                         ))}
                                     </div>
                                 ) : (
                                     <StepDone
-                                        label={habitReviewItems.length > 0 ? "Routines reviewed." : "Visit Habits to start a rhythm."}
+                                        label={habitReviewItems.length > 0 ? "Routines reviewed." : "Visit Routines to start one."}
                                         onNext={handleNext}
                                     />
                                 )}

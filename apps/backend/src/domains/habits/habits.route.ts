@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { eq, and, inArray, gte, lte, sql, desc, isNull, or, type SQL } from "drizzle-orm";
+import { eq, and, inArray, gte, lte, sql, desc, isNull, or } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
-import { toLocalDateStr, offsetLocalDateStr } from "../../platform/date-utils";
+import { toLocalDateStr } from "../../platform/date-utils";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, monthlyHabitsQuerySchema, habitListQuerySchema, unresolvedQuerySchema } from "@cadence/contracts/habit";
 import { uuidParamSchema } from "../../types/api";
@@ -356,15 +356,11 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 if (existing) return existing;
             }
 
-            // Auto-promote targetMode when targetTime is provided
-            const targetMode = body.targetTime && (!body.targetMode || body.targetMode === "AMBIENT")
-                ? "ANCHOR" : body.targetMode;
-
             await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
 
             const [row] = await tx
                 .insert(habits)
-                .values({ ...body, targetMode, userId })
+                .values({ ...body, userId })
                 .returning();
 
             // Insert tag associations if provided
@@ -391,15 +387,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { expectedUpdatedAt, tagIds, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        // Setting a target time promotes an AMBIENT habit to ANCHOR. When the client
-        // doesn't send a mode, decide in SQL so only a habit that is currently
-        // AMBIENT changes — a BLOCK habit keeps its mode.
-        let targetMode: typeof body.targetMode | SQL = body.targetMode;
-        if (body.targetTime && targetMode === "AMBIENT") targetMode = "ANCHOR";
-        if (body.targetTime && targetMode === undefined) {
-            targetMode = sql`CASE WHEN ${habits.targetMode} = 'AMBIENT' THEN 'ANCHOR' ELSE ${habits.targetMode} END`;
-        }
-
         const updated = await withRls(db, userId, async (tx) => {
             if (expectedUpdatedAt) {
                 const [existing] = await tx
@@ -414,7 +401,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             const [row] = await tx
                 .update(habits)
-                .set({ ...body, targetMode, updatedAt: sql`NOW()` })
+                .set({ ...body, updatedAt: sql`NOW()` })
                 .where(and(eq(habits.id, id), eq(habits.userId, userId)))
                 .returning();
 
@@ -467,12 +454,11 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const db = getDbClient(c.env);
 
         const result = await withRls(db, userId, async (tx) => {
-            // Compute today/yesterday in the caller's local timezone so habits
-            // are not prematurely flagged or resolved due to UTC date drift.
+            // Compute today in the caller's local timezone so habits are not
+            // prematurely flagged or resolved due to UTC date drift.
             const tz = timezone || "UTC";
             const now = new Date();
             const todayStr = toLocalDateStr(now, tz);
-            const yesterdayStr = offsetLocalDateStr(-1, now, tz);
 
             const activeHabits = await tx
                 .select()
@@ -485,8 +471,8 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             if (activeHabits.length === 0) return [];
 
-            // Recovery window: yesterday and today
-            const windowStart = new Date(`${yesterdayStr}T00:00:00.000Z`);
+            // Today only: a missed routine lets go, it is never carried over.
+            const windowStart = new Date(`${todayStr}T00:00:00.000Z`);
             const windowEnd = new Date(`${todayStr}T23:59:59.999Z`);
 
             // Fetch existing logs in the window
@@ -497,7 +483,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 .where(and(
                     eq(habitLogs.userId, userId),
                     inArray(habitLogs.habitId, habitIds),
-                    gte(habitLogs.targetDate, yesterdayStr),
+                    gte(habitLogs.targetDate, todayStr),
                     lte(habitLogs.targetDate, todayStr),
                 ));
 
@@ -512,7 +498,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 habitId: string;
                 title: string;
                 targetTime: string | null;
-                targetMode: string;
                 latestTargetDate: string;
                 missedCount: number;
                 actionableDates: string[];
@@ -527,7 +512,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                         habitId: habit.id,
                         title: habit.title,
                         targetTime: habit.targetTime,
-                        targetMode: habit.targetMode,
                         latestTargetDate: actionableDates[actionableDates.length - 1],
                         missedCount: actionableDates.length,
                         actionableDates,

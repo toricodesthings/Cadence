@@ -21,21 +21,27 @@ function makeCellKey(habitId: string, targetDate: string) {
     return `${habitId}:${toISODate(new Date(targetDate))}`;
 }
 
-export function useResolveHabit(habitId: string) {
+/** Pass `habitId` per call when one hook instance resolves many habits (e.g. schedule rows). */
+type ResolveVariables = ResolveHabitAction & { habitId?: string };
+
+export function useResolveHabit(boundHabitId?: string) {
+    const idOf = (vars: ResolveVariables) => vars.habitId ?? boundHabitId ?? "";
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: withOfflineSupport<
-            ResolveHabitAction,
+            ResolveVariables,
             { habit: Habit; requestId: string; requestKey: string }
         >(
             (action) => ({
                 type: "resolve_habit",
-                id: habitId,
+                id: idOf(action),
                 payload: { targetDate: action.targetDate, status: action.status },
             }),
-            async (action) => {
+            async (vars) => {
+                const habitId = idOf(vars);
+                const { habitId: _omit, ...action } = vars;
                 const requestKey = makeCellKey(habitId, action.targetDate);
                 const requestId = crypto.randomUUID();
                 latestResolveByCell.set(requestKey, requestId);
@@ -51,6 +57,7 @@ export function useResolveHabit(habitId: string) {
             },
         ),
         onMutate: async (action) => {
+            const habitId = idOf(action);
             await cancelHabitQueries(queryClient);
             const snapshot = snapshotHabitCache(queryClient);
             const requestKey = makeCellKey(habitId, action.targetDate);
@@ -91,7 +98,7 @@ export function useResolveHabit(habitId: string) {
                 return;
             }
             reconcileHabitInCaches(queryClient, result.habit);
-            patchHabitMonthlyCache(queryClient, habitId, action.targetDate, action.status);
+            patchHabitMonthlyCache(queryClient, idOf(action), action.targetDate, action.status);
             latestResolveByCell.delete(result.requestKey);
         },
         onError: (err, _action, context) => {
@@ -99,7 +106,7 @@ export function useResolveHabit(habitId: string) {
                 latestResolveByCell.delete(context.requestKey);
             }
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to resolve habit");
+            toast.error(err.message || "Couldn't update routine");
         },
         onSettled: () => invalidateHabitCaches(queryClient),
     });

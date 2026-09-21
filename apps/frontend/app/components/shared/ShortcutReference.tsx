@@ -18,7 +18,7 @@ const SECTIONS: { title: string; items: ShortcutEntry[] }[] = [
             { keys: ["G", "T"], label: "Go to Today" },
             { keys: ["G", "S"], label: "Go to Schedule" },
             { keys: ["G", "I"], label: "Go to Inbox" },
-            { keys: ["G", "H"], label: "Go to Habits" },
+            { keys: ["G", "H"], label: "Go to Routines" },
             { keys: ["G", "U"], label: "Go to Upcoming" },
             { keys: ["G", "W"], label: "Go to Weekly Reset" },
         ],

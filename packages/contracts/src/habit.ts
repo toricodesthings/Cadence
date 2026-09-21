@@ -4,8 +4,11 @@ import { isoDateTimeSchema } from "./common";
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
 
-export const targetModeSchema = z.enum(["AMBIENT", "ANCHOR", "BLOCK"]);
-export type TargetMode = z.infer<typeof targetModeSchema>;
+/** RRULE weekday keys, Monday first. */
+export const HABIT_WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+const habitTimeSchema = z.union([z.string().regex(/^\d{2}:\d{2}$/), z.literal("")]);
+/** Per-weekday time overrides; a day without a key uses `targetTime`, "" means any time. */
+export const habitTargetTimesSchema = z.partialRecord(z.enum(HABIT_WEEKDAYS), habitTimeSchema);
 
 // No .default()s on create schemas: an omitted field takes its DB column default, and
 // a default here would leak into the .partial() update schema and overwrite data.
@@ -15,7 +18,8 @@ export const insertHabitSchema = z.object({
     notes: z.string().nullable().optional(),
     recurrenceRule: z.string().max(500),
     targetTime: z.string().max(30).nullable().optional(),
-    targetMode: targetModeSchema.optional(),
+    targetTimes: habitTargetTimesSchema.nullable().optional(),
+    emoji: z.string().max(16).nullable().optional(),
     reminderEnabled: z.boolean().optional(),
     colorAccent: z.string().optional(),
     archived: z.boolean().optional(),
@@ -65,7 +69,8 @@ export const habitRowSchema = z.object({
     description: z.string().nullable(),
     recurrenceRule: z.string(),
     targetTime: z.string().nullable(),
-    targetMode: targetModeSchema,
+    targetTimes: z.record(z.string(), z.string()).nullable(),
+    emoji: z.string().nullable(),
     reminderEnabled: z.boolean(),
     projectId: z.uuid().nullable(),
     sortOrder: z.number(),
@@ -112,7 +117,6 @@ export const unresolvedHabitSummarySchema = z.object({
     habitId: z.uuid(),
     title: z.string(),
     targetTime: z.string().nullable(),
-    targetMode: z.string(),
     latestTargetDate: z.string(),
     missedCount: z.number(),
     actionableDates: z.array(z.string()),

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useHabitsWeekly } from "./use-habits";
 import type { Task } from "@cadence/contracts/task";
+import { routineTimeOn } from "@cadence/domain/repeats";
 
 /**
  * Fetches habits for a date range and maps them to virtual Task objects
@@ -16,9 +17,10 @@ export function useVirtualHabitTasks(options: {
     return useMemo<Task[]>(() => {
         return rawHabits.flatMap((h) =>
             h.logs?.filter(l => l.status !== "SKIPPED").map(l => {
-                const isAllDay = !h.targetTime;
+                const time = routineTimeOn(h, l.targetDate);
+                const isAllDay = !time;
                 // Use floating local time (no Z suffix) so habits appear at the correct local hour
-                const scheduledStart = h.targetTime ? `${l.targetDate.substring(0, 10)}T${h.targetTime}:00` : l.targetDate;
+                const scheduledStart = time ? `${l.targetDate.substring(0, 10)}T${time}:00` : l.targetDate;
 
                 return {
                     id: `habit-${h.id}--${l.targetDate}`,

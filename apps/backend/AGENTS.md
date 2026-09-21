@@ -101,7 +101,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 ## 8. Domain Model
 
-`src/db/schema.ts` is truth: **28 tables**, **17 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiPromptBlocks`, `aiPromptRevision`, `aiTitlePrompts`) · infra (`mutationDedup`).
+`src/db/schema.ts` is truth: **28 tables**, **16 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiPromptBlocks`, `aiPromptRevision`, `aiTitlePrompts`) · infra (`mutationDedup`).
 
 **Deliberate RLS exception:** `aiPromptBlocks`/`aiPromptRevision` have **no RLS** — global app config, identical for every user, written only by migrations/admin route, read only by the prompt cache loader outside `withRls`. Any block write bumps `aiPromptRevision.revision` (cache-bust token) in the same transaction.
 

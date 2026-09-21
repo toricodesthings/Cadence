@@ -364,15 +364,15 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                                         <WeekdayPicker value={weekdays} onChange={setWeekdays} />
                                         <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
                                             <div className="min-w-0 space-y-0.5">
-                                                <p className="text-sm font-medium text-twilight-text">Timetable anchor</p>
+                                                <p className="text-sm font-medium text-twilight-text">Fixed</p>
                                                 <p className="text-xs text-twilight-text-soft">
-                                                    {interactionMode === "timetable" ? "Fixed block. No check-off." : "Asks for a check-off each time."}
+                                                    {interactionMode === "timetable" ? "It just passes if missed. No check-off." : "Still owed if missed. Carries over until checked off."}
                                                 </p>
                                             </div>
                                             <Switch
                                                 checked={interactionMode === "timetable"}
                                                 onCheckedChange={(checked) => setInteractionMode(checked ? "timetable" : "task")}
-                                                aria-label="Treat this recurring block as a timetable anchor"
+                                                aria-label="Make this a fixed block"
                                             />
                                         </div>
                                     </>

@@ -104,13 +104,13 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
         title: "Trash",
         description: "Inspect archived and discarded tasks without cluttering the main planning flow.",
     },
-    "/habits": {
-        title: "Habits",
-        description: "Track weekly habits in a spacious rhythm that keeps each day readable.",
+    "/routines": {
+        title: "Routines",
+        description: "Keep up the routines you care about, one calm week at a time.",
     },
     "/weekly-review": {
         title: "Weekly Reset",
-        description: "Process inbox items, unscheduled work, waiting tasks, and habit progress in one weekly ritual.",
+        description: "Process inbox items, unscheduled work, waiting tasks, and routines in one weekly ritual.",
     },
 };
 
@@ -509,7 +509,7 @@ export function MainLayout({
                     navigate("/schedule");
                     break;
                 case "navigate-habits":
-                    navigate("/habits");
+                    navigate("/routines");
                     break;
                 case "navigate-weekly-review":
                     navigate("/weekly-review");
@@ -563,10 +563,10 @@ export function MainLayout({
 
         return PAGE_META[location.pathname] ?? {
             title: "Cadence",
-            description: "Cadence is a calm planning workspace for tasks, habits, and weekly resets.",
+            description: "Cadence is a calm planning workspace for tasks, routines, and weekly resets.",
         };
     }, [location.pathname]);
-    const controlsSidebarPanel = shell.isPhone || !["/schedule", "/habits", "/events"].includes(location.pathname);
+    const controlsSidebarPanel = shell.isPhone || !["/schedule", "/routines", "/events"].includes(location.pathname);
 
     const resolvedPageTitle = pageTitle ?? pageMeta.title;
     const resolvedPageDescription = pageDescription ?? pageMeta.description;

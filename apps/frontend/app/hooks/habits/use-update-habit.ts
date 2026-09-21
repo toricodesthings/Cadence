@@ -96,7 +96,7 @@ export function useUpdateHabit() {
 
         onError: (err, _vars, context) => {
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to update habit");
+            toast.error(err.message || "Couldn't update routine");
             invalidateHabitCaches(queryClient);
         },
     });

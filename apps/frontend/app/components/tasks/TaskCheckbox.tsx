@@ -128,7 +128,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
             } ${compact ? "h-8 w-8" : "mt-0.5 h-11 w-11 lg:h-8 lg:w-8"}`}
             aria-label={
                 task && !allowsManualCompletion
-                    ? `${title} is a timetable anchor`
+                    ? `${title} is fixed, no check-off`
                     : isComplete
                         ? "Mark incomplete"
                         : isPendingComplete

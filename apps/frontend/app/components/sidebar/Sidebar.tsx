@@ -25,7 +25,7 @@ export function Sidebar({
 }) {
     const location = useLocation();
     const isSchedule = location.pathname === "/schedule";
-    const isHabits = location.pathname === "/habits";
+    const isHabits = location.pathname === "/routines";
     const isEvents = location.pathname === "/events";
     const { isCollapsed, toggleCollapse, width, setWidth } = useSidebarStore();
     const [isResizing, setIsResizing] = useState(false);

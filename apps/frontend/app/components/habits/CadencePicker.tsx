@@ -90,7 +90,7 @@ export function CadencePicker({ value, onChange }: CadencePickerProps) {
     return (
         <div className="flex flex-col gap-3">
             {/* Preset + Custom toggles */}
-            <div role="group" aria-label="Habit cadence" className="flex flex-wrap gap-2">
+            <div role="group" aria-label="Routine cadence" className="flex flex-wrap gap-2">
                 {PRESETS.map((preset) => {
                     const active = mode === "preset" && value === preset.value;
                     return (

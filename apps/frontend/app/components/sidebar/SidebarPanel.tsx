@@ -134,8 +134,8 @@ export function SidebarPanel({
                                 />
                                 <NavLink
                                     icon={Flame}
-                                    label="Habits"
-                                    href="/habits"
+                                    label="Routines"
+                                    href="/routines"
                                     showDot={hasHabitsDue}
                                     activeColor="text-accent-nav-habits"
                                     activeBg="bg-accent-nav-habits/15"

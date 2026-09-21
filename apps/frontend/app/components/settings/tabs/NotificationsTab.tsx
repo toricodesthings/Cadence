@@ -79,7 +79,7 @@ export function NotificationsTab() {
             <SettingsSection title="Delivery">
                 <SettingsRow
                     title="Daily summary emails"
-                    description="Receive a morning email outlining your tasks for the day and recent habit performance."
+                    description="Receive a morning email outlining your tasks for the day and your routines."
                 >
                     <Switch
                         checked={notif.email}
@@ -149,7 +149,7 @@ export function NotificationsTab() {
                     />
                 </SettingsRow>
                 <SettingsRow
-                    title="Habit reminders"
+                    title="Routine reminders"
                     description="Reminders for routines approaching their target time."
                 >
                     <Switch
@@ -187,8 +187,8 @@ export function NotificationsTab() {
             {/* ── Routine behavior ── */}
             <SettingsSection title="Routine behavior">
                 <SettingsRow
-                    title="Show due count on Habits nav"
-                    description="Display a dot indicator on the Habits sidebar link when routines need a check-in."
+                    title="Show a dot on Routines"
+                    description="Show a dot on the Routines link when a routine is open today."
                 >
                     <Switch
                         checked={notif.showHabitNavDueCount}

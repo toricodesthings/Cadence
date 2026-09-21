@@ -27,7 +27,7 @@ const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
 const GROUP_LABELS: Record<string, string> = {
     pages: "Pages",
     tasks: "Tasks",
-    habits: "Habits",
+    habits: "Routines",
     captures: "Captures",
     projects: "Projects",
     focusViews: "Focus Views",
@@ -162,7 +162,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                         autoFocus
                         value={rawQuery}
                         onChange={(e) => setRawQuery(e.target.value)}
-                        placeholder="Search tasks, habits, captures, pages…"
+                        placeholder="Search tasks, routines, captures, pages…"
                         className="w-full bg-transparent text-lg text-twilight-text outline-none placeholder:text-twilight-text-muted"
                         aria-label="Search workspace"
                     />

@@ -180,7 +180,7 @@ export function CalendarDayCell({
                 <span className="flex items-center gap-1.5">
                     {hasHabit && !isToday && (
                         <span
-                            title="Habits scheduled"
+                            title="Routines scheduled"
                             className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/50 shadow-[0_0_4px_color-mix(in_srgb,var(--accent-primary)_40%,transparent)]"
                         />
                     )}

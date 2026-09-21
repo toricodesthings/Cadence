@@ -90,7 +90,7 @@ describe("TaskCheckbox", () => {
             />,
         );
 
-        const checkbox = screen.getByRole("button", { name: "Calculus lecture is a timetable anchor" });
+        const checkbox = screen.getByRole("button", { name: "Calculus lecture is fixed, no check-off" });
         expect(checkbox.hasAttribute("disabled")).toBe(true);
 
         fireEvent.click(checkbox);

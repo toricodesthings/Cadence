@@ -44,7 +44,7 @@ export function HabitContextMenuWrapper({ habit, children, onEdit }: HabitContex
                     <AlertDialog.Header>
                         <AlertDialog.Title>Delete "{habit.title}"?</AlertDialog.Title>
                         <AlertDialog.Description>
-                            This will permanently remove the habit and all its history. This action cannot be undone.
+                            This will permanently remove the routine and all its history. This action cannot be undone.
                         </AlertDialog.Description>
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
@@ -52,7 +52,7 @@ export function HabitContextMenuWrapper({ habit, children, onEdit }: HabitContex
                             <Button variant="ghost" size="md">Cancel</Button>
                         </AlertDialog.Cancel>
                         <AlertDialog.Action asChild>
-                            <Button variant="danger" size="md" onClick={handleDelete}>Delete habit</Button>
+                            <Button variant="danger" size="md" onClick={handleDelete}>Delete routine</Button>
                         </AlertDialog.Action>
                     </AlertDialog.Footer>
                 </AlertDialog.Content>

@@ -44,7 +44,8 @@ export const insertTaskSchema = z.object({
     reminderAt: isoDateTimeSchema.nullable().optional(),
     reminderSilenced: z.boolean().default(false),
     recurrenceRule: z.string().max(500).nullable().optional(),
-    interactionMode: taskInteractionModeSchema.default("task"),
+    // Omitted → the server picks a default (see @cadence/domain suggestInteractionMode).
+    interactionMode: taskInteractionModeSchema.optional(),
     waitingOn: z.string().max(500).nullable().optional(),
     waitingReminder: isoDateTimeSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),

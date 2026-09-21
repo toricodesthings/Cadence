@@ -12,7 +12,7 @@ import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 const TABS = [
     { to: "/", label: "Capture", icon: Inbox },
     { to: "/schedule", label: "Schedule", icon: Calendar },
-    { to: "/habits", label: "Habits", icon: Flame },
+    { to: "/routines", label: "Routines", icon: Flame },
     { to: "/browse", label: "Browse", icon: LayoutGrid },
 ];
 

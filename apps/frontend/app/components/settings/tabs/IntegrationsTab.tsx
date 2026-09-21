@@ -212,8 +212,8 @@ export function IntegrationsTab() {
                             />
                         </SettingsRow>
                         <SettingsRow
-                            title="Include habits"
-                            description="Add habit schedules to the ICS feed alongside tasks."
+                            title="Include routines"
+                            description="Add routines to the ICS feed alongside tasks."
                         >
                             <Switch
                                 checked={integrations.ics.includeHabits}

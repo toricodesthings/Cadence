@@ -12,7 +12,7 @@ interface ContextualAddOrbProps {
 const OPTIONS: Array<{ tab: QuickAddTab; label: string; icon: typeof CheckSquare }> = [
     { tab: "task", label: "Task", icon: CheckSquare },
     { tab: "capture", label: "Thought", icon: MessageSquare },
-    { tab: "habit", label: "Habit", icon: Flame },
+    { tab: "habit", label: "Routine", icon: Flame },
 ];
 
 export function ContextualAddOrb({ onOpen, directCapture = false }: ContextualAddOrbProps) {

@@ -83,7 +83,6 @@ export const calendarTools = (env: Env, userId: string, _ctx: AgentContext) => (
                             title: habits.title,
                             recurrenceRule: habits.recurrenceRule,
                             targetTime: habits.targetTime,
-                            targetMode: habits.targetMode,
                         })
                         .from(habits)
                         .where(and(eq(habits.userId, userId), eq(habits.archived, false)))

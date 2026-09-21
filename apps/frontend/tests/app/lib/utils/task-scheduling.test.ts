@@ -148,7 +148,7 @@ describe("task scheduling helpers", () => {
 
         expect(getTaskScheduleSummary(passiveSeries)).toMatchObject({
             kind: "timed",
-            secondaryLabel: "Timetable anchor",
+            secondaryLabel: "Fixed",
         });
 
         expect(

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
+import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { ApiErrorResponse } from "../../types/api";
 import { showRateLimitToast } from "../../lib/utils/rate-limit-toast";
@@ -109,7 +110,7 @@ export function useCreateTask() {
                 reminderAt: input.reminderAt ?? null,
                 reminderSilenced: input.reminderSilenced ?? false,
                 recurrenceRule: input.recurrenceRule ?? null,
-                interactionMode: input.interactionMode ?? "task",
+                interactionMode: input.interactionMode ?? suggestInteractionMode(input),
                 effort: input.effort ?? null,
                 waitingOn: input.waitingOn ?? null,
                 waitingReminder: input.waitingReminder ?? null,

@@ -21,6 +21,7 @@ import {
     validateTaskRecurrenceRule,
 } from "@cadence/domain/task-recurrence";
 import { computeGappedOrderIndex } from "@cadence/domain/ordering";
+import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "../../types/api";
@@ -413,6 +414,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     .insert(tasks)
                     .values({
                         ...taskBody,
+                        interactionMode: taskBody.interactionMode ?? suggestInteractionMode(taskBody),
                         userId,
                     })
                     .returning();

@@ -36,7 +36,7 @@ export function LogHabitCard({
         return (
             <ProposalCard
                 state="output-available"
-                eyebrow="LOG HABIT"
+                eyebrow="LOG ROUTINE"
                 eyebrowGlyph={Repeat}
                 ariaLabel={`Log habit: ${habitName}`}
                 primaryLabel="Log it"
@@ -51,7 +51,7 @@ export function LogHabitCard({
     return (
         <ProposalCard
             state={state}
-            eyebrow="LOG HABIT"
+            eyebrow="LOG ROUTINE"
             eyebrowGlyph={Repeat}
             ariaLabel={`Log habit: ${habitName}`}
             primaryLabel="Log it"

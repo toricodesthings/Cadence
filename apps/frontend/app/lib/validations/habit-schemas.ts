@@ -11,6 +11,7 @@ export const createHabitSchema = insertHabitSchema
         recurrenceRule: true,
         colorAccent: true,
         targetTime: true,
+        emoji: true,
         reminderEnabled: true,
         projectId: true,
         tagIds: true,

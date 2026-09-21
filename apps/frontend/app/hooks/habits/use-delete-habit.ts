@@ -48,7 +48,7 @@ export function useDeleteHabit() {
 
         onError: (err, _id, context) => {
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to delete habit");
+            toast.error(err.message || "Couldn't delete routine");
         },
 
         onSettled: () => invalidateHabitCaches(queryClient),

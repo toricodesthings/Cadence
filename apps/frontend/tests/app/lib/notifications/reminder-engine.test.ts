@@ -61,7 +61,8 @@ const BASE_HABIT: Habit = {
     longestStreak: 0,
     colorAccent: "#000",
     archived: false,
-    targetMode: "AMBIENT" as const,
+    targetTimes: null,
+    emoji: null,
     projectId: null,
     sortOrder: 0,
     pausedUntil: null,
@@ -197,7 +198,7 @@ describe("filterByBehavior", () => {
         // Should have a single bundled notification
         const bundled = filtered.filter((n) => n.id.startsWith("habit-bundle"));
         expect(bundled.length).toBe(1);
-        expect(bundled[0].body).toContain("4 habits");
+        expect(bundled[0].body).toContain("4 routines");
     });
 });
 

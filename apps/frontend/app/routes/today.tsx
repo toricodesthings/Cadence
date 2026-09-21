@@ -3,16 +3,16 @@ import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useEffect, useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { AlertTriangle, EyeOff, Eye, PanelRightClose, Sunrise, Repeat } from "lucide-react";
+import { ChevronDown, EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Repeat } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
-import { AgendaHabitDivider } from "../components/shared/AgendaRow";
 import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
+import { DaySpine, type SpineItem } from "../components/today/DaySpine";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
@@ -28,57 +28,59 @@ import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
-import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { useRouteFocus, buildFocusSearchParams } from "../hooks/search/use-route-focus";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
-import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
-import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
+import { formatTime, toISODate } from "../lib/utils/date-format";
+import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
+import { routineTimeOn } from "@cadence/domain/repeats";
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import type { Task } from "@cadence/contracts/task";
 
-const RHYTHMS_STORAGE_KEY = "cadence-today-hide-rhythms";
+const ROUTINES_STORAGE_KEY = "cadence-today-hide-routines";
 
-interface TodayHabitItem {
+interface TodayRoutine {
     id: string;
     habitId: string;
     title: string;
-    dueDate: string;
-    sortAt: string;
-    timeLabel: string | null;
-    targetDate: string;
-    bucket: "overdue" | "today";
+    emoji: string | null;
+    /** "HH:mm" for today, when the routine has one. */
+    time: string | null;
+    done: boolean;
 }
 
-function TodayHabitRow({
-    item,
-    onOpenHabits,
-}: {
-    item: TodayHabitItem;
-    onOpenHabits: () => void;
-}) {
+function TodayRoutineRow({ item, onOpen }: { item: TodayRoutine; onOpen: () => void }) {
     const resolveHabit = useResolveHabit(item.habitId);
-    const isOverdue = item.bucket === "overdue";
+    const todayISO = toISODate(new Date());
 
     return (
         <RoutineAgendaRow
             title={item.title}
-            overdue={isOverdue}
-            metaLabel={isOverdue ? `From ${formatShortDate(item.dueDate)}` : "Today"}
-            timeLabel={item.timeLabel}
-            onOpen={onOpenHabits}
-            onComplete={() => resolveHabit.mutateAsync({ targetDate: item.targetDate, status: "COMPLETED" })}
+            emoji={item.emoji}
+            done={item.done}
+            timeLabel={item.time ? formatTime(`${todayISO}T${item.time}:00`) : null}
+            onOpen={onOpen}
+            onComplete={() => resolveHabit.mutateAsync({ targetDate: todayISO, status: item.done ? "PENDING" : "COMPLETED" })}
         />
     );
+}
+
+function readHideRoutines() {
+    try {
+        return window.localStorage.getItem(ROUTINES_STORAGE_KEY) === "1";
+    } catch {
+        return false;
+    }
 }
 
 export default function TodayRoute() {
@@ -89,6 +91,7 @@ export default function TodayRoute() {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
+    const [showDoneRoutines, setShowDoneRoutines] = useState(false);
 
     useTaskDetailsRequest((taskId) => {
         setSelectedTaskId(taskId);
@@ -96,9 +99,8 @@ export default function TodayRoute() {
         setMobilePanelOpen(true);
     });
 
-    const [hideRhythms, setHideRhythms] = useState(false);
+    const [hideRoutines, setHideRoutines] = useState(false);
     const todayISO = toISODate(new Date());
-    const habitsRangeStart = toISODate(addDays(new Date(), -30));
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
     const { data: userSettings } = useSettings();
@@ -113,7 +115,7 @@ export default function TodayRoute() {
 
     useDocumentMeta(
         "Today · Cadence",
-        "Review overdue work and today's commitments in one calm, focused viewer.",
+        "Where you need to be, what's still open, and the routines you're keeping up today.",
     );
 
     useRouteFocus();
@@ -122,16 +124,16 @@ export default function TodayRoute() {
     useKeyboardShortcuts({ onNextSection, onPrevSection });
 
     useEffect(() => {
-        if (typeof window === "undefined") return;
-        setHideRhythms(window.localStorage.getItem(RHYTHMS_STORAGE_KEY) === "1");
+        setHideRoutines(readHideRoutines());
     }, []);
 
     const { data: tasks = [], isLoading } = useTasks({
         state: "ACTIVE",
         effectiveOnOrBeforeDate: todayISO,
     });
+    // Routines are today-only: a missed one lets go and never shows here again.
     const { data: habits = [] } = useHabitsWeekly({
-        start: habitsRangeStart,
+        start: todayISO,
         end: todayISO,
         enabled: !activeTagId,
     });
@@ -145,58 +147,36 @@ export default function TodayRoute() {
     }, [activeTagId, tasks, activeDefinition, intelligenceEnabled, focusViewsEnabled]);
 
     const grouped = useMemo(() => {
-        const urgent: Task[] = [];
+        const stillOpen: Task[] = [];
         const today: Task[] = [];
-        const rhythmTasks: Task[] = [];
-        const overdueHabits: TodayHabitItem[] = [];
-        const rhythmHabits: TodayHabitItem[] = [];
+        const fixed: Task[] = [];
+        const routines: TodayRoutine[] = [];
 
         for (const task of filteredTasks) {
             const anchor = getTaskTimelineAnchor(task);
             if (!anchor) continue;
             if (isPassiveTimetableTask(task)) {
-                if (anchor === todayISO) {
-                    rhythmTasks.push(task);
-                }
+                if (anchor === todayISO) fixed.push(task);
                 continue;
             }
-            if (anchor < todayISO) urgent.push(task);
+            if (anchor < todayISO) stillOpen.push(task);
             if (anchor === todayISO) today.push(task);
         }
 
         for (const habit of activeTagId ? [] : habits) {
-            // One catch-up row per habit, dated from its earliest missed day.
-            let overdueItem: TodayHabitItem | null = null;
-            for (const log of habit.logs ?? []) {
-                if (log.status !== "PENDING") continue;
-
-                const dateOnly = toTaskDateOnly(log.targetDate);
-                if (!dateOnly || dateOnly > todayISO) continue;
-
-                const item: TodayHabitItem = {
-                    id: `habit-${habit.id}-${dateOnly}`,
-                    habitId: habit.id,
-                    title: habit.title,
-                    dueDate: dateOnly,
-                    sortAt: habit.targetTime ? `${dateOnly}T${habit.targetTime}:00` : `${dateOnly}T12:00:00`,
-                    timeLabel: habit.targetTime ? formatTime(`${dateOnly}T${habit.targetTime}:00`) : null,
-                    targetDate: dateOnly,
-                    bucket: dateOnly < todayISO ? "overdue" : "today",
-                };
-
-                if (item.bucket === "overdue") {
-                    if (!overdueItem || item.dueDate < overdueItem.dueDate) overdueItem = item;
-                } else {
-                    rhythmHabits.push(item);
-                }
-            }
-            if (overdueItem) overdueHabits.push(overdueItem);
+            const log = habit.logs?.find((entry) => toTaskDateOnly(entry.targetDate) === todayISO);
+            if (!log || log.status === "SKIPPED") continue;
+            routines.push({
+                id: `habit-${habit.id}-${todayISO}`,
+                habitId: habit.id,
+                title: habit.title,
+                emoji: habit.emoji ?? null,
+                time: routineTimeOn(habit, todayISO),
+                done: log.status === "COMPLETED",
+            });
         }
 
-        const compareHabits = (a: TodayHabitItem, b: TodayHabitItem) => {
-            if (a.sortAt !== b.sortAt) return a.sortAt.localeCompare(b.sortAt);
-            return a.title.localeCompare(b.title);
-        };
+        routines.sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.title.localeCompare(b.title));
 
         const useRanking = intelligenceEnabled && smartSortEnabled && sortMode === "smart";
         const rationaleByTaskId: Record<string, string | null> = {};
@@ -227,14 +207,38 @@ export default function TodayRoute() {
         };
 
         return {
-            urgent: sortBucket(urgent),
+            stillOpen: sortBucket(stillOpen),
             today: sortBucket(today),
-            rhythmTasks: sortTasks(rhythmTasks, sortMode),
-            overdueHabits: overdueHabits.sort(compareHabits),
-            rhythmHabits: rhythmHabits.sort(compareHabits),
+            fixed,
+            routinesOpen: routines.filter((routine) => !routine.done),
+            routinesDone: routines.filter((routine) => routine.done),
             rationaleByTaskId,
         };
     }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled, lowStimulationMode]);
+
+    const spineItems = useMemo<SpineItem[]>(() => {
+        const items: SpineItem[] = [];
+        for (const task of grouped.fixed) {
+            const occurrence = getPassiveTimetableOccurrenceAnchor(task, new Date());
+            if (!occurrence || !task.scheduledStart) continue;
+            const start = new Date(occurrence);
+            const durationMs = task.scheduledEnd ? new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime() : 0;
+            items.push({ id: task.id, kind: "fixed", title: task.title, start, end: durationMs > 0 ? new Date(start.getTime() + durationMs) : null });
+        }
+        for (const routine of [...grouped.routinesOpen, ...grouped.routinesDone]) {
+            if (!routine.time) continue;
+            items.push({
+                id: routine.id,
+                kind: "routine",
+                title: routine.title,
+                emoji: routine.emoji,
+                start: new Date(`${todayISO}T${routine.time}:00`),
+                end: null,
+                done: routine.done,
+            });
+        }
+        return items;
+    }, [grouped, todayISO]);
 
     const handleSelectTask = (taskId: string) => {
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
@@ -244,19 +248,32 @@ export default function TodayRoute() {
         }
     };
 
-    const toggleRhythms = () => {
-        setHideRhythms((current) => {
+    const toggleRoutines = () => {
+        setHideRoutines((current) => {
             const next = !current;
-            if (typeof window !== "undefined") {
-                window.localStorage.setItem(RHYTHMS_STORAGE_KEY, next ? "1" : "0");
+            try {
+                window.localStorage.setItem(ROUTINES_STORAGE_KEY, next ? "1" : "0");
+            } catch {
+                // Per-viewer convenience only.
             }
             return next;
         });
     };
 
-    const openHabits = () => navigate("/habits");
+    const openRoutine = (habitId: string) => {
+        navigate(`/routines?${buildFocusSearchParams({ focusKind: "habit", focusId: habitId })}`);
+    };
 
-    const rhythmsTotalCount = grouped.rhythmTasks.length + grouped.rhythmHabits.length;
+    const openSpineItem = (item: SpineItem) => {
+        if (item.kind === "fixed") {
+            handleSelectTask(item.id);
+            return;
+        }
+        const routine = [...grouped.routinesOpen, ...grouped.routinesDone].find((entry) => entry.id === item.id);
+        if (routine) openRoutine(routine.habitId);
+    };
+
+    const routinesCount = grouped.routinesOpen.length + grouped.routinesDone.length;
 
     const sidePanel = (
         <EditSidePanelRail ariaLabel="Resize today sidebar">
@@ -320,15 +337,12 @@ export default function TodayRoute() {
         </div>
     );
 
-    const rhythmsHidden = !shell.isCompact && hideRhythms;
-    const visibleRhythmTasks = rhythmsHidden ? [] : grouped.rhythmTasks;
-    const visibleRhythmHabits = rhythmsHidden ? [] : grouped.rhythmHabits;
+    const routinesHidden = !shell.isCompact && hideRoutines;
     const totalVisible =
-        grouped.urgent.length +
-        grouped.overdueHabits.length +
+        grouped.stillOpen.length +
         grouped.today.length +
-        visibleRhythmTasks.length +
-        visibleRhythmHabits.length;
+        grouped.fixed.length +
+        (routinesHidden ? 0 : routinesCount);
 
     const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board", emptyLabel?: string) => {
         if (tasks.length > 0) {
@@ -344,49 +358,53 @@ export default function TodayRoute() {
         }
 
         return (
-            <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
+            <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
                 {emptyLabel}
             </div>
         );
     };
 
-    const MAX_OVERDUE_HABITS = 3;
-
-    const renderUrgentBucket = (cardVariant?: "list" | "board") => {
-        const hasTasks = grouped.urgent.length > 0;
-        const hasHabits = grouped.overdueHabits.length > 0;
-
-        if (!hasTasks && !hasHabits) {
+    const renderRoutines = () => {
+        if (routinesHidden) {
             return (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    Nothing needs attention. You're on track.
+                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
+                    Routines hidden ({routinesCount}).
                 </div>
             );
         }
 
-        const visibleOverdueHabits = grouped.overdueHabits.slice(0, MAX_OVERDUE_HABITS);
-        const overflowCount = grouped.overdueHabits.length - visibleOverdueHabits.length;
+        const doneCount = grouped.routinesDone.length;
 
         return (
-            <div className="flex flex-col gap-3">
-                {hasTasks ? <TaskList tasks={grouped.urgent} selectedTaskId={selectedTaskId} onSelectTask={handleSelectTask} rationaleByTaskId={grouped.rationaleByTaskId} {...(cardVariant ? { cardVariant } : {})} /> : null}
-                {hasHabits ? (
+            <div className="flex flex-col">
+                {grouped.routinesOpen.length === 0 ? (
+                    <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
+                        All done for today.
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-0.5">
+                        {grouped.routinesOpen.map((item) => (
+                            <TodayRoutineRow key={item.id} item={item} onOpen={() => openRoutine(item.habitId)} />
+                        ))}
+                    </div>
+                )}
+                {doneCount > 0 ? (
                     <>
-                        {hasTasks ? <AgendaHabitDivider label="Routines to catch up" /> : null}
-                        <div className="flex flex-col divide-y divide-white/[0.05]">
-                            {visibleOverdueHabits.map((item) => (
-                                <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />
-                            ))}
-                        </div>
-                        {overflowCount > 0 ? (
-                            <button
-                                type="button"
-                                onClick={openHabits}
-                                className="mx-3 mt-1 inline-flex items-center gap-2 rounded-2xl px-3 py-2.5 text-[13px] font-medium text-moonlit/90 transition-colors hover:bg-moonlit/[0.07]"
-                            >
-                                <Repeat size={13} aria-hidden="true" />
-                                {overflowCount} more routine{overflowCount > 1 ? "s" : ""} to revisit
-                            </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowDoneRoutines((value) => !value)}
+                            aria-expanded={showDoneRoutines}
+                            className="mx-2 mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 self-start rounded-2xl px-3 text-[13px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showDoneRoutines ? "rotate-180" : ""}`} />
+                            {doneCount} done
+                        </button>
+                        {showDoneRoutines ? (
+                            <div className="flex flex-col gap-0.5">
+                                {grouped.routinesDone.map((item) => (
+                                    <TodayRoutineRow key={item.id} item={item} onOpen={() => openRoutine(item.habitId)} />
+                                ))}
+                            </div>
                         ) : null}
                     </>
                 ) : null}
@@ -394,110 +412,65 @@ export default function TodayRoute() {
         );
     };
 
-    const renderRhythmsBucket = (cardVariant?: "list" | "board") => {
-        const hasAnchorTasks = grouped.rhythmTasks.length > 0;
-        const hasHabits = grouped.rhythmHabits.length > 0;
-
-        if (!hasAnchorTasks && !hasHabits) {
-            return (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    No rhythms for today.
-                </div>
-            );
-        }
-
-        if (rhythmsHidden) {
-            return (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/65">
-                    Rhythms hidden ({rhythmsTotalCount}).
-                </div>
-            );
-        }
-
-        return (
-            <div className="flex flex-col gap-3">
-                {hasAnchorTasks ? (
-                    <TaskList
-                        tasks={grouped.rhythmTasks}
-                        selectedTaskId={selectedTaskId}
-                        onSelectTask={handleSelectTask}
-                        rationaleByTaskId={grouped.rationaleByTaskId}
-                        {...(cardVariant ? { cardVariant } : {})}
-                    />
-                ) : null}
-                {hasHabits ? (
-                    <>
-                        {hasAnchorTasks ? <AgendaHabitDivider label="Today's routines" /> : null}
-                        <div className="flex flex-col divide-y divide-white/[0.05]">
-                            {grouped.rhythmHabits.map((item) => (
-                                <TodayHabitRow key={item.id} item={item} onOpenHabits={openHabits} />
-                            ))}
-                        </div>
-                    </>
-                ) : null}
-            </div>
-        );
-    };
-
-    const rhythmsHideShowLabel = hideRhythms
-        ? `Show (${rhythmsTotalCount})`
-        : "Hide";
+    const routinesToggleLabel = hideRoutines ? `Show routines (${routinesCount})` : "Hide routines";
 
     const sections = [
-        {
-            key: "urgent",
-            title: "Needs attention",
-            icon: AlertTriangle,
-            accentClass: "text-[var(--color-priority-urgent)]",
-            count: grouped.urgent.length + grouped.overdueHabits.length,
-            listContent: renderUrgentBucket(),
-            boardContent: renderUrgentBucket("board"),
-        },
+        ...(grouped.stillOpen.length > 0 ? [{
+            key: "still-open",
+            title: "Still open",
+            icon: Inbox,
+            accentClass: "text-twilight-text-soft",
+            count: grouped.stillOpen.length,
+            listContent: renderTaskBucket(grouped.stillOpen),
+            boardContent: renderTaskBucket(grouped.stillOpen, "board"),
+        }] : []),
         {
             key: "today",
             title: "Today",
             icon: Sunrise,
             accentClass: "text-accent-primary",
             count: grouped.today.length,
-            listContent: renderTaskBucket(grouped.today, undefined, "Nothing scheduled for today yet."),
-            boardContent: renderTaskBucket(grouped.today, "board", "Nothing scheduled for today yet."),
+            listContent: renderTaskBucket(grouped.today, undefined, "Nothing planned for today yet."),
+            boardContent: renderTaskBucket(grouped.today, "board", "Nothing planned for today yet."),
         },
-        ...(rhythmsTotalCount > 0 ? [{
-            key: "rhythms",
-            title: "Rhythms",
+        ...(routinesCount > 0 ? [{
+            key: "routines",
+            title: "Routines",
             icon: Repeat,
             accentClass: "text-moonlit",
-            count: hideRhythms ? rhythmsTotalCount : (visibleRhythmTasks.length + visibleRhythmHabits.length),
+            count: routinesHidden ? routinesCount : grouped.routinesOpen.length,
             headerAction: !shell.isCompact && (
                 <button
                     type="button"
-                    onClick={toggleRhythms}
-                    className="touch-target inline-flex min-h-11 items-center gap-2 rounded-2xl border border-moonlit/20 bg-moonlit/10 px-4 text-xs font-medium uppercase tracking-[0.14em] text-moonlit"
-                    aria-pressed={hideRhythms}
+                    onClick={toggleRoutines}
+                    className="touch-target inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-2xl border border-moonlit/20 bg-moonlit/10 px-4 text-xs font-medium uppercase tracking-[0.14em] text-moonlit"
+                    aria-pressed={hideRoutines}
                 >
-                    {hideRhythms ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
-                    {rhythmsHideShowLabel}
+                    {hideRoutines ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
+                    {hideRoutines ? `Show (${routinesCount})` : "Hide"}
                 </button>
             ),
             boardHeaderAction: !shell.isCompact && (
-                <Tip label={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"} side="bottom">
+                <Tip label={routinesToggleLabel} side="bottom">
                     <button
                         type="button"
-                        onClick={toggleRhythms}
+                        onClick={toggleRoutines}
                         className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
-                        aria-label={hideRhythms ? `Show rhythms (${rhythmsTotalCount})` : "Hide rhythms"}
+                        aria-label={routinesToggleLabel}
                     >
-                        {hideRhythms ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
+                        {hideRoutines ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
                     </button>
                 </Tip>
             ),
-            listSectionClassName: "rounded-[28px] border border-moonlit/20 bg-moonlit/[0.08] px-4 py-4 shadow-[0_18px_60px_rgba(7,14,26,0.18)]",
-            boardSectionClassName: "border-moonlit/25 bg-moonlit/[0.08]",
-            boardCollapsed: rhythmsHidden,
-            listContent: renderRhythmsBucket(),
-            boardContent: renderRhythmsBucket("board"),
+            listSectionClassName: "rounded-[28px] border border-moonlit/15 bg-moonlit/[0.05] px-4 py-4",
+            boardSectionClassName: "border-moonlit/20 bg-moonlit/[0.05]",
+            boardCollapsed: routinesHidden,
+            listContent: renderRoutines(),
+            boardContent: renderRoutines(),
         }] : []),
     ];
+
+    const spine = spineItems.length > 0 ? <DaySpine items={spineItems} onOpen={openSpineItem} /> : null;
 
     return (
         <MainLayout
@@ -520,7 +493,7 @@ export default function TodayRoute() {
                 {todayEvents.length > 0 && (
                     <div className="pb-2">
                         <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/80">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/90">
                                 Events today
                             </p>
                             <button
@@ -545,6 +518,7 @@ export default function TodayRoute() {
                         </div>
                     </div>
                 )}
+                {view === "kanban" ? spine : null}
             </PageContent>
             {view === "kanban" ? (
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -570,11 +544,14 @@ export default function TodayRoute() {
                         {isLoading ? (
                             <TaskListSkeleton />
                         ) : totalVisible > 0 ? (
-                            <BucketedCollectionView
-                                view={view}
-                                sections={sections}
-                                desktopColumnScroll
-                            />
+                            <>
+                                {spine}
+                                <BucketedCollectionView
+                                    view={view}
+                                    sections={sections}
+                                    desktopColumnScroll
+                                />
+                            </>
                         ) : (
                             <EmptyState variant="today" />
                         )}

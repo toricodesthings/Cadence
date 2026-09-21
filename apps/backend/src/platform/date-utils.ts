@@ -17,14 +17,3 @@
 export function toLocalDateStr(date: Date = new Date(), timezone = "UTC"): string {
     return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(date);
 }
-
-/**
- * Return the `YYYY-MM-DD` date string for the day that is `offsetDays` before
- * or after the given moment in the specified timezone.
- *
- * @param offsetDays - Positive = future, negative = past (default: 0)
- */
-export function offsetLocalDateStr(offsetDays: number, date: Date = new Date(), timezone = "UTC"): string {
-    const offset = offsetDays * 24 * 60 * 60 * 1000;
-    return toLocalDateStr(new Date(date.getTime() + offset), timezone);
-}

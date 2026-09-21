@@ -112,7 +112,7 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                         resolveHabit({ targetDate: log.targetDate, status: "COMPLETED" });
                         setOpen(false);
                     }}
-                    aria-label="Mark habit complete"
+                    aria-label="Mark routine complete"
                 >
                     <Check className="h-5 w-5" />
                 </button>
@@ -122,7 +122,7 @@ export function HabitItem({ habit, log, targetDate }: HabitItemProps) {
                         resolveHabit({ targetDate: log.targetDate, status: "SKIPPED" });
                         setOpen(false);
                     }}
-                    aria-label="Skip habit"
+                    aria-label="Skip routine"
                 >
                     <X className="h-5 w-5" />
                 </button>

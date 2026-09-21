@@ -15,7 +15,8 @@ export default [
     route("project/:projectId", "routes/project.tsx"),
     route("terms", "routes/terms.tsx"),
     route("auth/:pathname", "routes/auth.tsx"),
-    route("habits", "routes/habits.tsx"),
+    route("routines", "routes/routines.tsx"),
+    route("habits", "routes/habits-redirect.tsx"),
     route("help-feedback", "routes/help-feedback.tsx"),
     route("weekly-review", "routes/weekly-review.tsx"),
 ] satisfies RouteConfig;

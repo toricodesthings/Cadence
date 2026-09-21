@@ -24,10 +24,11 @@ export function HabitToastResolver() {
         if (!Array.isArray(data)) return [];
 
         const seen = new Set<string>();
+        const today = toISODate(new Date());
         return data.flatMap((habit) =>
             habit.actionableDates.flatMap((targetDate) => {
                 const key = `${habit.habitId}:${targetDate}`;
-                if (seen.has(key)) return [];
+                if (targetDate !== today || seen.has(key)) return [];
                 seen.add(key);
                 return [{ habitId: habit.habitId, targetDate }];
             }),
@@ -36,7 +37,8 @@ export function HabitToastResolver() {
     const actionableHabits = useMemo(() => {
         if (!Array.isArray(data)) return [];
 
-        return data.filter((habit) => habit.actionableDates.length > 0);
+        const today = toISODate(new Date());
+        return data.filter((habit) => habit.actionableDates.includes(today));
     }, [data]);
 
     const resolveAll = useCallback(async () => {
@@ -97,12 +99,12 @@ export function HabitToastResolver() {
 
             toast.success(
                 todayItems.length === 1
-                    ? "Marked 1 habit check-in complete"
-                    : `Marked ${todayItems.length} habit check-ins complete`,
+                    ? "Marked 1 routine check-in complete"
+                    : `Marked ${todayItems.length} routine check-ins complete`,
             );
         } catch (error) {
             rollbackHabitCache(queryClient, snapshot);
-            const message = error instanceof Error ? error.message : "Failed to complete all habits";
+            const message = error instanceof Error ? error.message : "Couldn't check in every routine";
             toast.error(message);
         } finally {
             resolvingRef.current = false;
@@ -126,17 +128,16 @@ export function HabitToastResolver() {
         shownRef.current = true;
 
         const count = actionableHabits.length;
-        const missedCheckIns = actionableItems.length;
         const description = actionableHabits.slice(0, 3).map((habit) => habit.title).join(", ");
 
         toast.info(
             count === 1
-                ? "1 routine still needs a check-in"
-                : `${count} routines still need a check-in`,
+                ? "1 routine open today"
+                : `${count} routines open today`,
             {
                 id: "habit-unresolved-bundle",
                 duration: 12000,
-                description: description + (count > 3 ? ` +${count - 3} more` : ` · ${missedCheckIns} missed check-in${missedCheckIns === 1 ? "" : "s"}`),
+                description: description + (count > 3 ? ` +${count - 3} more` : ""),
                 action: {
                     label: "Check all",
                     onClick: () => {

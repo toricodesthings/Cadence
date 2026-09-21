@@ -130,8 +130,8 @@ export default function Habits() {
     }, [selectedHabitId, visibleHabits]);
 
     useDocumentMeta(
-        "Habits · Cadence",
-        "Track weekly habits in a spacious rhythm that keeps each day readable.",
+        "Routines · Cadence",
+        "Keep up the routines you care about, one calm week at a time.",
     );
 
     useRouteFocus({
@@ -145,12 +145,12 @@ export default function Habits() {
     return (
         <MainLayout requireAuth hideHeader hideContextualOrb
             sidePanel={(
-                <EditSidePanelRail ariaLabel="Resize habit detail panel">
+                <EditSidePanelRail ariaLabel="Resize routine detail panel">
                     {shell.isWide && selectedHabit ? <EditSidePanel kind="habit" habit={selectedHabit} onClose={() => setSelectedHabitId(null)} /> : null}
                 </EditSidePanelRail>
             )}
             sidePanelActive={Boolean(selectedHabit)}
-            sidePanelLabel="Habit"
+            sidePanelLabel="Routine"
             onCloseSidePanel={() => setSelectedHabitId(null)}
         >
             <HabitToastResolver />
@@ -163,7 +163,7 @@ export default function Habits() {
                                 overflow on top, view switcher + Today below. */}
                             <div className="flex items-center gap-2 min-h-[44px]">
                                 <div className="min-w-0 flex-1">
-                                    <PageHeaderIdentity compact icon={<Flame size={16} aria-hidden="true" />} accentColor={HABITS_ACCENT} eyebrow="Habits" title={currentHeading} />
+                                    <PageHeaderIdentity compact icon={<Flame size={16} aria-hidden="true" />} accentColor={HABITS_ACCENT} eyebrow="Routines" title={currentHeading} />
                                 </div>
                                 <div className="flex items-center gap-0.5 shrink-0">
                                     <button
@@ -184,18 +184,18 @@ export default function Habits() {
                                     </button>
                                 </div>
                                 <Popover.Root>
-                                    <Tip label="Habit options"><Popover.Trigger asChild>
+                                    <Tip label="Routine options"><Popover.Trigger asChild>
                                         <button
                                             type="button"
                                             className="btn-icon touch-target rounded-full text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                                            aria-label="Habit options"
+                                            aria-label="Routine options"
                                         >
                                             <Settings size={16} />
                                         </button>
                                     </Popover.Trigger></Tip>
                                     <Popover.Content side="bottom" align="end" className="w-64 space-y-2 p-3">
                                         <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">Show</h3>
-                                        <div className="space-y-1.5" role="radiogroup" aria-label="Habit view mode">
+                                        <div className="space-y-1.5" role="radiogroup" aria-label="Routine view mode">
                                             {(["active", "archived"] as const).map((mode) => (
                                                 <button
                                                     key={mode}
@@ -221,7 +221,7 @@ export default function Habits() {
                                 <nav
                                     className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
                                     role="radiogroup"
-                                    aria-label="Habit display mode"
+                                    aria-label="Routine display mode"
                                 >
                                     {(["week", "month"] as const).map((mode) => (
                                         <button
@@ -254,7 +254,7 @@ export default function Habits() {
                         <PageHeader
                             icon={<Flame size={18} aria-hidden="true" />}
                             accentColor={HABITS_ACCENT}
-                            eyebrow="Habits"
+                            eyebrow="Routines"
                             title={currentHeading}
                             meta={displayMode === "week" ? weekRangeLabel : "Motivational review"}
                             actions={<>
@@ -289,7 +289,7 @@ export default function Habits() {
                                     <nav
                                         className="flex min-h-11 items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
                                         role="radiogroup"
-                                        aria-label="Habit display mode"
+                                        aria-label="Routine display mode"
                                     >
                                         {(["week", "month"] as const).map((mode) => (
                                             <button
@@ -314,7 +314,7 @@ export default function Habits() {
                                     <nav
                                         className="flex min-h-11 items-center gap-0.5 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
                                         role="radiogroup"
-                                        aria-label="Habit view mode"
+                                        aria-label="Routine view mode"
                                     >
                                         {(["active", "archived"] as const).map((mode) => (
                                             <button
@@ -391,7 +391,7 @@ export default function Habits() {
 
                 {!shell.isWide && selectedHabit && (
                     <ResponsiveOverlayPanel
-                        ariaLabel={`Habit details for ${selectedHabit.title}`}
+                        ariaLabel={`Routine details for ${selectedHabit.title}`}
                         open={!!selectedHabit}
                         onClose={() => setSelectedHabitId(null)}
                         mode={mobileDetailMode}

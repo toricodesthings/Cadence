@@ -192,6 +192,7 @@ export const userSettingsSchema = z.object({
         hideTrash: z.boolean().optional(),
         hideCompleted: z.boolean().optional(),
         showDoneCelebration: z.boolean().optional(),
+        showStreaks: z.boolean().optional(),
         quickAdd: z.object({
             preset: z.enum(["minimal", "planner", "power"]).optional(),
             style: z.enum(["icon", "label"]).optional(),
@@ -437,6 +438,7 @@ export const SETTINGS_DEFAULTS = {
         hideCompleted: false,
         hideTrash: false,
         showDoneCelebration: true,
+        showStreaks: true,
         quickAdd: {
             preset: "planner" as const,
             style: "label" as const,

@@ -484,7 +484,7 @@ export default function AuthPage() {
         isCallback
             ? "Completing your Cadence sign-in flow."
             : isSignUp
-                ? "Create your Cadence account and enter a calm workspace for tasks, habits, and weekly resets."
+                ? "Create your Cadence account and enter a calm workspace for tasks, routines, and weekly resets."
                 : "Sign in to Cadence and return to your calm planning workspace.",
     );
 

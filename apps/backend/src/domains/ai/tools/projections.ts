@@ -125,7 +125,6 @@ export interface MinimalHabit {
     id: string;
     title: string;
     recurrenceRule: string;
-    targetMode: string;
     currentStreak: number;
     longestStreak: number;
     /** completed / (completed + skipped), 0..1, rounded to 2dp. 0 when no history. */
@@ -139,7 +138,6 @@ export interface HabitRow {
     id: string;
     title: string;
     recurrenceRule: string;
-    targetMode: string;
     currentStreak: number;
     longestStreak: number;
     totalCompletions: number;
@@ -164,7 +162,6 @@ export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit
         id: row.id,
         title: row.title,
         recurrenceRule: row.recurrenceRule,
-        targetMode: row.targetMode,
         currentStreak: row.currentStreak,
         longestStreak: row.longestStreak,
         adherence,

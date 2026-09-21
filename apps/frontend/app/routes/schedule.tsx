@@ -44,10 +44,7 @@ import {
 } from "../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 import { useVirtualHabitTasks } from "../hooks/habits/use-virtual-habit-tasks";
-import { useApiClient } from "../hooks/auth/use-api-client";
-import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "../lib/api/query-keys";
-import { invalidateEverywhere } from "../lib/api/workspace-cache";
+import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { toast } from "sonner";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
@@ -166,6 +163,7 @@ export default function Schedule() {
     );
 
     const { mutate: updateTask } = useUpdateTask();
+    const { mutate: resolveHabit } = useResolveHabit();
 
     // ── Derived values ─────────────────────────────────────────────────────
     const { y: year, m: month } = parseYMD(currentDate);
@@ -309,8 +307,6 @@ export default function Schedule() {
         calendarClutter.showHabitAnchors === false ? [] : virtualHabitTasks
     ), [calendarClutter.showHabitAnchors, virtualHabitTasks]);
 
-    const client = useApiClient();
-    const queryClient = useQueryClient();
 
     // ── Group month tasks by day-number ─────────────────────────────────────
     // Habits are intentionally NOT injected into tasksByDay for month view —
@@ -618,7 +614,7 @@ export default function Schedule() {
     // ── Task event handlers ─────────────────────────────────────────────────
     const handleSelectTask = useCallback((taskId: string) => {
         if (taskId.startsWith("habit-")) {
-            navigate("/habits");
+            navigate("/routines");
             return;
         }
         const task = allVisibleTasks.get(taskId);
@@ -632,15 +628,7 @@ export default function Schedule() {
         if (taskId.startsWith("habit-")) {
             const [_, habitId, targetDate] = taskId.split("--", 3);
             const realId = habitId.replace("habit-", "");
-            try {
-                await client.api.habits[":id"].resolve.$post({
-                    param: { id: realId },
-                    json: { targetDate, status: "COMPLETED" },
-                });
-                await invalidateEverywhere(queryClient, queryKeys.habits.all);
-            } catch (err) {
-                toast.error("Failed to resolve habit");
-            }
+            resolveHabit({ habitId: realId, targetDate, status: "COMPLETED" });
             return;
         }
         const task = allVisibleTasks.get(taskId);
@@ -652,21 +640,13 @@ export default function Schedule() {
         toast("Task completed", {
             action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "ACTIVE" }) },
         });
-    }, [updateTask, client, queryClient, allVisibleTasks]);
+    }, [updateTask, resolveHabit, allVisibleTasks]);
 
     const handleArchiveTask = useCallback(async (taskId: string) => {
         if (taskId.startsWith("habit-")) {
             const [_, habitId, targetDate] = taskId.split("--", 3);
             const realId = habitId.replace("habit-", "");
-            try {
-                await client.api.habits[":id"].resolve.$post({
-                    param: { id: realId },
-                    json: { targetDate, status: "SKIPPED" },
-                });
-                await invalidateEverywhere(queryClient, queryKeys.habits.all);
-            } catch (err) {
-                toast.error("Failed to dismiss habit");
-            }
+            resolveHabit({ habitId: realId, targetDate, status: "SKIPPED" });
             return;
         }
         const task = allVisibleTasks.get(taskId);
@@ -678,7 +658,7 @@ export default function Schedule() {
         toast("Task archived", {
             action: { label: "Undo", onClick: () => updateTask({ id: taskId, state: "ACTIVE" }) },
         });
-    }, [updateTask, client, queryClient, allVisibleTasks]);
+    }, [updateTask, resolveHabit, allVisibleTasks]);
 
     const handleResizeTask = useCallback((taskId: string, durationMinutes: number) => {
         const task = allVisibleTasks.get(taskId);
@@ -838,7 +818,7 @@ export default function Schedule() {
                         />
                     </label>
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show habit markers</span>
+                        <span>Show routine markers</span>
                         <Switch
                             checked={calendarClutter.showHabitAnchors}
                             onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })}
@@ -921,7 +901,7 @@ export default function Schedule() {
                         />
                     </label>
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show habit markers</span>
+                        <span>Show routine markers</span>
                         <Switch
                             checked={calendarClutter.showHabitAnchors}
                             onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })}

@@ -54,7 +54,8 @@ export function useCreateHabit() {
                 longestStreak: 0,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-                targetMode: input.targetTime ? "ANCHOR" : (input.targetMode ?? "AMBIENT"),
+                targetTimes: input.targetTimes ?? null,
+                emoji: input.emoji ?? null,
                 projectId: input.projectId ?? null,
                 sortOrder: input.sortOrder ?? 0,
                 pausedUntil: input.pausedUntil ?? null,
@@ -97,7 +98,7 @@ export function useCreateHabit() {
 
         onError: (err, _input, context) => {
             if (context?.snapshot) rollbackHabitCache(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to create habit");
+            toast.error(err.message || "Couldn't create routine");
         },
 
         onSettled: () => invalidateHabitCaches(queryClient),

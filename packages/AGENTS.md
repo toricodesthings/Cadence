@@ -171,6 +171,9 @@ Never import `AppError` here.
   backend import).
 - `ordering.ts` — fractional `orderIndex` math (`ORDER_INDEX_GAP`,
   `computeNextOrderIndex`, `computeMidpointIndex`, `computeGappedOrderIndex`).
+- `repeats.ts` — the Fixed / Routine / Task rules: `routineTimeOn` (a routine's
+  time on a date, honouring per-weekday overrides) and `suggestInteractionMode`
+  (the server default that makes class-like timed series Fixed).
 - `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
   `normalizeTitle`) for the frontend's optimistic title and the backend fallback.
 

@@ -37,7 +37,7 @@ interface QuickAddSurfaceProps {
 const TABS: { key: QuickAddTab; label: string; icon: React.ReactNode }[] = [
     { key: "task", label: "Task", icon: <CheckSquare size={14} aria-hidden="true" /> },
     { key: "capture", label: "Thought", icon: <MessageSquare size={14} aria-hidden="true" /> },
-    { key: "habit", label: "Habit", icon: <Flame size={14} aria-hidden="true" /> },
+    { key: "habit", label: "Routine", icon: <Flame size={14} aria-hidden="true" /> },
 ];
 
 // ── Main Surface ──────────────────────────────────────────────────
@@ -428,16 +428,16 @@ function HabitForm({ onClose, onComplete }: { onClose: () => void; onComplete?: 
                         focusId: created?.id ?? "",
                         focusSource: "quick-add",
                     });
-                    const route = created ? `/habits?${focusParams}` : "/habits";
+                    const route = created ? `/routines?${focusParams}` : "/routines";
 
                     if (!created) {
-                        toast.success("Habit queued for sync");
+                        toast.success("Routine queued for sync");
                         onClose();
                         onComplete?.(route);
                         return;
                     }
 
-                    toast.success("Habit created");
+                    toast.success("Routine created");
                     onClose();
                     if (onComplete) {
                         onComplete(route);
@@ -455,7 +455,7 @@ function HabitForm({ onClose, onComplete }: { onClose: () => void; onComplete?: 
                 ref={inputRef}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Name your habit…"
+                placeholder="Name your routine…"
                 className="w-full rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-3 text-sm text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-accent-primary/30 focus:ring-1 focus:ring-accent-primary/20 transition-colors"
                 autoFocus
             />
@@ -480,7 +480,7 @@ function HabitForm({ onClose, onComplete }: { onClose: () => void; onComplete?: 
                     disabled={!title.trim() || createHabit.isPending}
                     className="rounded-xl bg-accent-primary/15 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
-                    {createHabit.isPending ? "Creating…" : "Create Habit"}
+                    {createHabit.isPending ? "Creating…" : "Create routine"}
                 </button>
             </div>
         </form>

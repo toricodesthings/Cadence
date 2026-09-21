@@ -3,13 +3,12 @@ import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 import {
-    AlertTriangle,
+    Inbox,
     CalendarRange,
     Layers3,
     PanelRightClose,
     Sunrise,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { MainLayout } from "../components/layout/MainLayout";
 import { AgendaHabitDivider } from "../components/shared/AgendaRow";
 import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
@@ -29,10 +28,11 @@ import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOpti
 import { useTasks } from "../hooks/tasks";
 import { useProjects } from "../hooks/projects";
 import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
+import { routineTimeOn } from "@cadence/domain/repeats";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
-import { useApiClient } from "../hooks/auth/use-api-client";
 import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
@@ -41,8 +41,6 @@ import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
-import { invalidateEverywhere } from "../lib/api/workspace-cache";
-import { queryKeys } from "../lib/api/query-keys";
 import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
 import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
@@ -71,20 +69,21 @@ interface UpcomingViewerItem {
     task: Task | null;
     habitId?: string;
     habitTargetDate?: string;
+    emoji?: string | null;
     rationaleLabel: string | null;
 }
 
 const UPCOMING_SECTIONS: Array<{
     key: UpcomingBucketKey;
     title: string;
-    icon: typeof AlertTriangle;
+    icon: typeof Inbox;
     accentClass: string;
 }> = [
     {
         key: "overdue",
-        title: "Needs attention",
-        icon: AlertTriangle,
-        accentClass: "text-[var(--color-priority-urgent)]",
+        title: "Still open",
+        icon: Inbox,
+        accentClass: "text-twilight-text-soft",
     },
     {
         key: "today",
@@ -172,8 +171,7 @@ export default function Upcoming() {
         setMobilePanelOpen(true);
     });
 
-    const queryClient = useQueryClient();
-    const client = useApiClient();
+    const { mutate: resolveHabit } = useResolveHabit();
     const shell = useShellMode();
     const { data: userSettings } = useSettings();
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
@@ -268,8 +266,6 @@ export default function Upcoming() {
 
         for (const habit of activeTagId ? [] : habits) {
             const project = null;
-            // One catch-up row per habit, dated from its earliest missed day.
-            let hasOverdue = false;
             const logs = [...(habit.logs ?? [])].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
 
             for (const log of logs) {
@@ -280,16 +276,11 @@ export default function Upcoming() {
 
                 const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
                 if (!bucket) continue;
-                if (bucket === "nextWeek") continue;
-                if (bucket === "overdue") {
-                    if (hasOverdue) continue;
-                    hasOverdue = true;
-                }
+                // A missed routine lets go: it never shows as overdue.
+                if (bucket === "nextWeek" || bucket === "overdue") continue;
 
-
-                const habitTimeLabel = habit.targetTime
-                    ? formatTime(`${dateOnly}T${habit.targetTime}:00`)
-                    : null;
+                const time = routineTimeOn(habit, dateOnly);
+                const habitTimeLabel = time ? formatTime(`${dateOnly}T${time}:00`) : null;
 
                 grouped[bucket].push({
                     id: `habit-${habit.id}-${dateOnly}`,
@@ -297,7 +288,7 @@ export default function Upcoming() {
                     title: habit.title,
                     dueDate: dateOnly,
                     dateLabel: "Due",
-                    sortAt: habit.targetTime ? `${dateOnly}T${habit.targetTime}:00` : `${dateOnly}T12:00:00`,
+                    sortAt: time ? `${dateOnly}T${time}:00` : `${dateOnly}T12:00:00`,
                     timeLabel: habitTimeLabel,
                     projectId: null,
                     projectName: project,
@@ -306,6 +297,7 @@ export default function Upcoming() {
                     task: null,
                     habitId: habit.id,
                     habitTargetDate: log.targetDate,
+                    emoji: habit.emoji,
                     rationaleLabel: null,
                 });
             }
@@ -364,15 +356,9 @@ export default function Upcoming() {
         }
     };
 
-    const handleCompleteHabit = async (item: UpcomingViewerItem) => {
+    const handleCompleteHabit = (item: UpcomingViewerItem) => {
         if (item.kind !== "habit" || !item.habitId || !item.habitTargetDate) return;
-
-        await client.api.habits[":id"].resolve.$post({
-            param: { id: item.habitId },
-            json: { targetDate: item.habitTargetDate, status: "COMPLETED" },
-        });
-
-        await invalidateEverywhere(queryClient, queryKeys.habits.all);
+        resolveHabit({ habitId: item.habitId, targetDate: item.habitTargetDate, status: "COMPLETED" });
     };
 
     const sidePanel = (
@@ -383,7 +369,7 @@ export default function Upcoming() {
         </EditSidePanelRail>
     );
 
-    const openHabits = () => navigate("/habits");
+    const openHabits = () => navigate("/routines");
 
     // Same shape as Today: the real task cards first, then pending routines
     // under a divider, so a task reads identically on both routes.
@@ -418,17 +404,15 @@ export default function Upcoming() {
                 {habitItems.length > 0 ? (
                     <>
                         {taskItems.length > 0 ? (
-                            <AgendaHabitDivider label={bucketKey === "overdue" ? "Routines to catch up" : "Routines"} />
+                            <AgendaHabitDivider label="Routines" />
                         ) : null}
                         <div className="flex flex-col divide-y divide-white/[0.05]">
                             {habitItems.map((item) => (
                                 <RoutineAgendaRow
                                     key={item.id}
                                     title={item.title}
-                                    overdue={bucketKey === "overdue"}
-                                    metaLabel={bucketKey === "overdue"
-                                        ? `From ${formatShortDate(item.dueDate)}`
-                                        : bucketKey === "today" ? "Today" : formatShortDate(item.dueDate)}
+                                    emoji={item.emoji}
+                                    dateLabel={bucketKey === "nextWeek" ? formatShortDate(item.dueDate) : null}
                                     timeLabel={item.timeLabel}
                                     onOpen={openHabits}
                                     onComplete={() => handleCompleteHabit(item)}

@@ -83,7 +83,7 @@ fn build_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<tauri::menu::
     let navigate_menu = SubmenuBuilder::new(app, "Navigate")
         .text("navigate.capture", "Capture")
         .text("navigate.schedule", "Schedule")
-        .text("navigate.habits", "Habits")
+        .text("navigate.habits", "Routines")
         .text("navigate.weekly_review", "Weekly Review")
         .build()?;
 

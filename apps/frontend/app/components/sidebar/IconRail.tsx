@@ -69,9 +69,9 @@ const NAV_LINKS = [
         notificationFn: undefined,
     },
     {
-        to: "/habits",
+        to: "/routines",
         icon: Flame,
-        label: "Habits",
+        label: "Routines",
         activeColor: "text-accent-nav-habits",
         activeBg: "bg-accent-nav-habits/15 glow-accent",
         hoverColor: "hover:text-accent-nav-habits/70",
@@ -326,7 +326,7 @@ export function IconRail({
             <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1 w-full px-2">
                 {NAV_LINKS.map(({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
                     const isActive = location.pathname === to;
-                    const showDot = to === "/habits" ? hasHabitsDue : notificationFn && notificationFn();
+                    const showDot = to === "/routines" ? hasHabitsDue : notificationFn && notificationFn();
                     return (
                         <Tip key={to} label={label} side="right">
                             <Link

@@ -25,7 +25,7 @@ const KIND_ICON: Record<SearchResultKind, React.ReactNode> = {
 const GROUP_LABELS: Record<string, string> = {
     pages: "Pages",
     tasks: "Tasks",
-    habits: "Habits",
+    habits: "Routines",
     captures: "Captures",
     projects: "Projects",
     focusViews: "Focus Views",
@@ -34,7 +34,7 @@ const GROUP_LABELS: Record<string, string> = {
 const GROUP_ORDER = ["pages", "tasks", "habits", "captures", "projects", "focusViews"] as const;
 
 /** A couple of example chips so the empty state is never a blank void (§0.2 Law 1). */
-const EXAMPLE_CHIPS = ["Today", "Upcoming", "Habits", "Trash"] as const;
+const EXAMPLE_CHIPS = ["Today", "Upcoming", "Routines", "Trash"] as const;
 
 const RECENT_KEY = "cadence-recent-searches";
 const RECENT_LIMIT = 6;
@@ -175,7 +175,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                     <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
                         <Search size={28} className="text-twilight-text-muted/40" aria-hidden="true" />
                         <p className="text-sm text-twilight-text-soft">No matches for &ldquo;{query}&rdquo;</p>
-                        <p className="text-xs text-twilight-text-muted/70">Try a task name, project, habit, or page.</p>
+                        <p className="text-xs text-twilight-text-muted/70">Try a task name, project, routine, or page.</p>
                     </div>
                 ) : (
                     <div className="px-2 py-3">

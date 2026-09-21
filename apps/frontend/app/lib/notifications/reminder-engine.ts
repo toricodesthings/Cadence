@@ -2,6 +2,7 @@ import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { AppNotification } from "./notification-model";
 import { formatTime, formatShortDate, toISODate } from "../utils/date-format";
+import { routineTimeOn } from "@cadence/domain/repeats";
 
 // ── §11.7: Defer choices ──
 
@@ -142,8 +143,9 @@ export function deriveCandidates(
     for (const habit of habits) {
         if (habit.archived || !habit.reminderEnabled) continue;
 
-        if (habit.targetTime) {
-            const [hours, minutes] = habit.targetTime.split(":").map(Number);
+        const targetTime = routineTimeOn(habit, toISODate(now));
+        if (targetTime) {
+            const [hours, minutes] = targetTime.split(":").map(Number);
             const targetToday = new Date(now);
             targetToday.setHours(hours, minutes, 0, 0);
 
@@ -160,11 +162,11 @@ export function deriveCandidates(
                         kind: "habit-reminder",
                         title: habit.title,
                         body: diffMs > 0
-                            ? `Due at ${habit.targetTime.slice(0, 5)}`
+                            ? `Due at ${targetTime.slice(0, 5)}`
                             : "Due now",
                         triggerAt: targetToday.toISOString(),
                         entityId: habit.id,
-                        route: "/habits",
+                        route: "/routines",
                         priority: "normal",
                         read: false,
                     });
@@ -230,11 +232,11 @@ export function filterByBehavior(
             filtered.push({
                 id: `habit-bundle::${toISODate(now)}`,
                 kind: "habit-reminder",
-                title: "Missed routines",
-                body: `${missedHabits.length} habits are waiting for you`,
+                title: "Routines today",
+                body: `${missedHabits.length} routines are open today`,
                 triggerAt: now.toISOString(),
                 entityId: null,
-                route: "/habits",
+                route: "/routines",
                 priority: "normal",
                 read: false,
             });

@@ -22,10 +22,10 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Compact navigation", () => {
-    it.each(["/", "/today", "/schedule", "/habits", "/browse", "/project/example", "/?settings=appearance", "/today?notifications=true"])("keeps four destinations and one selected tab at %s", (path) => {
+    it.each(["/", "/today", "/schedule", "/routines", "/browse", "/project/example", "/?settings=appearance", "/today?notifications=true"])("keeps four destinations and one selected tab at %s", (path) => {
         render(<MemoryRouter initialEntries={[path]}><TooltipProvider><MobileTabBar /></TooltipProvider></MemoryRouter>);
         const links = within(screen.getByRole("navigation", { name: "Primary navigation" })).getAllByRole("link");
-        expect(links.map((link) => link.getAttribute("aria-label"))).toEqual(["Capture", "Schedule", "Habits", "Browse"]);
+        expect(links.map((link) => link.getAttribute("aria-label"))).toEqual(["Capture", "Schedule", "Routines", "Browse"]);
         expect(links.filter((link) => link.getAttribute("aria-current") === "page")).toHaveLength(1);
     });
 

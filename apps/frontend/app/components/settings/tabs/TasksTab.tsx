@@ -191,6 +191,17 @@ export function TasksTab() {
                         }
                     />
                 </SettingsRow>
+                <SettingsRow
+                    title="Routine streaks"
+                    description="Show how many times in a row you've kept each routine."
+                >
+                    <Switch
+                        checked={taskSettings.showStreaks}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ tasks: { showStreaks: val } })
+                        }
+                    />
+                </SettingsRow>
             </SettingsSection>
 
             <SettingsSection title="Quick add">

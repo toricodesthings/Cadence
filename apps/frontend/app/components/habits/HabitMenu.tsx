@@ -44,7 +44,7 @@ export function HabitMenu({ habit, onEdit }: HabitMenuProps) {
                     <AlertDialog.Header>
                         <AlertDialog.Title>Delete "{habit.title}"?</AlertDialog.Title>
                         <AlertDialog.Description>
-                            This will permanently remove the habit and all its history. This action cannot be undone.
+                            This will permanently remove the routine and all its history. This action cannot be undone.
                         </AlertDialog.Description>
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
@@ -59,7 +59,7 @@ export function HabitMenu({ habit, onEdit }: HabitMenuProps) {
                                 size="md"
                                 onClick={handleDelete}
                             >
-                                Delete habit
+                                Delete routine
                             </Button>
                         </AlertDialog.Action>
                     </AlertDialog.Footer>
@@ -135,7 +135,7 @@ export function HabitMenuItems({ habit, isPaused, MenuComponents: Menu, onEdit, 
                 onSelect={onEdit}
             >
                 <Pencil size={12} aria-hidden="true" />
-                Edit habit
+                Edit routine
                 <kbd className="ml-auto text-[10px] opacity-40 font-mono">e</kbd>
             </Menu.Item>
             <Menu.Separator />
@@ -156,7 +156,7 @@ export function HabitMenuItems({ habit, isPaused, MenuComponents: Menu, onEdit, 
                 onSelect={onDelete}
             >
                 <Trash2 size={12} aria-hidden="true" />
-                Delete habit
+                Delete routine
             </Menu.Item>
         </>
     );
