@@ -49,7 +49,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .orderBy(habits.sortOrder)
                         .limit(cap),
                 );
-                return { habits: rows.map((r) => toMinimalHabit(r, ctx.currentDate)) };
+                return { habits: rows.map((r) => toMinimalHabit(r, ctx.today)) };
             }),
     }),
 
@@ -61,7 +61,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_habit_status_today", userId, async () => {
-                const today = ctx.currentDate.slice(0, 10);
+                const today = ctx.today;
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
                     const active = await tx

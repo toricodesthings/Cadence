@@ -1,7 +1,7 @@
 import { Inbox, Check } from "lucide-react";
 import { ProposalCard, IdentityBlock, MetaPill, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";
-import { formatDate } from "./card-lookups";
+import { formatWhen } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useProcessInboxToTask } from "../../../hooks/inbox/use-process-inbox-to-task";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
@@ -24,7 +24,7 @@ export function InboxStructureCard({
     const processInbox = useProcessInboxToTask();
     const input = normalizeTaskWriteTemporalInput(ctx.part?.input ?? {});
     const title = input.title ?? "this capture";
-    const dateLabel = formatDate(input.scheduledStart ?? input.dueDate);
+    const dateLabel = formatWhen(input.scheduledStart ?? input.dueDate);
 
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
         await processInbox.mutateAsync({

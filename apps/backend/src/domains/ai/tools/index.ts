@@ -18,10 +18,12 @@ import { metricTools } from "./metrics";
  * factory and is never a model-supplied argument (doc 05 §1, §5).
  */
 export interface AgentContext {
-    /** IANA timezone, e.g. "America/Toronto". */
+    /** The user's IANA timezone, validated (falls back to "UTC"), e.g. "America/Toronto". */
     timezone: string;
-    /** The user's current local clock time as an ISO-8601 string. */
+    /** The current instant from the user's clock, ISO-8601. */
     currentDate: string;
+    /** The user's local calendar date, `YYYY-MM-DD` — what "today" means for every tool. */
+    today: string;
     /** First day of the week, e.g. "Sunday" | "Monday" — informs week windows. */
     weekStart?: string;
     /** BCP-47 locale, e.g. "en-CA". */

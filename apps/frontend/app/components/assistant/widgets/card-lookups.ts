@@ -5,6 +5,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../../lib/api/query-keys";
+import { formatShortDate, formatShortDateTime, parseLocalDate } from "../../../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 
@@ -34,10 +35,13 @@ export function useHabitTitleLookup() {
     };
 }
 
-/** "Mar 8" in the viewer's locale, or null for a missing/invalid date. */
-export function formatDate(iso?: string | null): string | null {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+/**
+ * When a proposal lands, in the viewer's time zone and date/time settings:
+ * "Mar 8" for a date-only value, "Mar 8, 2:00 PM" for a timed one. Null when
+ * missing or invalid. Date-only values are local days, never UTC midnight.
+ */
+export function formatWhen(value?: string | null): string | null {
+    if (!value) return null;
+    if (Number.isNaN(parseLocalDate(value).getTime())) return null;
+    return value.length === 10 ? formatShortDate(value) : formatShortDateTime(value);
 }

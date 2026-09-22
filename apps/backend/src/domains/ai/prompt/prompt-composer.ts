@@ -56,7 +56,7 @@ const FENCED_AUX_KINDS: ReadonlySet<PromptBlockKind> = new Set([
  *
  * Whitelisted tokens and their mapping:
  *   {{timezone}}          → ctx.timezone
- *   {{currentDate}}       → ctx.currentDateISO (local ISO clock)
+ *   {{currentDate}}       → ctx.currentDateISO (local wall clock + offset + weekday)
  *   {{weekStart}}         → ctx.weekStart
  *   {{locale}}            → ctx.locale
  *   {{burnoutIndex}}      → ctx.metrics.burnoutIndex

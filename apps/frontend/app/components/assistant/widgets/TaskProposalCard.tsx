@@ -1,7 +1,7 @@
 import { Sparkles, Calendar, Clock, Check, Pencil } from "lucide-react";
 import { ProposalCard, IdentityBlock, MetaPill, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";
-import { formatDate } from "./card-lookups";
+import { formatWhen } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useCreateTask } from "../../../hooks/tasks/use-create-task";
 import { useUpdateTask } from "../../../hooks/tasks/use-update-task";
@@ -77,7 +77,7 @@ export function TaskProposalCard({
     });
 
     const title = input.title ?? "this task";
-    const dateLabel = formatDate(input.scheduledStart ?? input.dueDate);
+    const dateLabel = formatWhen(input.scheduledStart ?? input.dueDate);
     const eyebrow = mode === "create" ? "SUGGESTED TASK" : "TASK UPDATE";
     const primaryLabel = mode === "update" ? "Update" : dateLabel ? "Schedule" : "Save";
 

@@ -6,10 +6,12 @@ import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useBatchRescheduleTasks } from "../../../hooks/tasks/use-batch-state";
 import { normalizeTaskWriteTemporalField } from "../../../lib/utils/task/task-scheduling";
 import { useTaskTitleLookup } from "./card-lookups";
+import { parseLocalDate } from "../../../lib/utils/date-format";
 
 function dayLabel(iso?: string): string {
     if (!iso) return "later";
-    const d = new Date(iso);
+    // A date-only target is a local day; `new Date("2026-09-22")` would be UTC midnight.
+    const d = parseLocalDate(iso);
     if (Number.isNaN(d.getTime())) return "later";
     return d.toLocaleDateString(undefined, { weekday: "long" });
 }

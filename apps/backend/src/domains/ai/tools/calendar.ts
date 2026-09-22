@@ -11,21 +11,22 @@ import {
     normalizeStartBoundary,
     normalizeEndBoundary,
 } from "@cadence/domain/task-temporal";
-import { toMinimalTask } from "./projections";
+import { taskLocalDay, toMinimalTask } from "./projections";
+import { addDaysToDateStr, toLocalDateStr } from "../../../platform/date-utils";
 
 /** Hard cap on the span a single schedule-window read may cover. */
 const MAX_RANGE_DAYS = 62;
 
-export const calendarTools = (env: Env, userId: string, _ctx: AgentContext) => ({
+export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_schedule_window: tool({
         description:
             "READ-ONLY. Fetch tasks (by scheduled/due date) plus active habits within a date range " +
             "for density-aware planning. The range is capped at ~2 months and the task count is " +
-            "hard-capped server-side. Dates are ISO-8601 (date or datetime).",
+            "hard-capped server-side. Pass the user's local dates (YYYY-MM-DD); both ends are inclusive.",
         inputSchema: z.object({
-            start: z.string().describe("Range start, ISO-8601 (inclusive)."),
-            end: z.string().describe("Range end, ISO-8601 (inclusive)."),
+            start: z.string().describe("First local date, YYYY-MM-DD (a datetime is reduced to its local date)."),
+            end: z.string().describe("Last local date, YYYY-MM-DD (inclusive)."),
             limit: z
                 .number()
                 .int()
@@ -36,16 +37,17 @@ export const calendarTools = (env: Env, userId: string, _ctx: AgentContext) => (
         }),
         execute: async ({ start, end, limit }) =>
             safeExecute("get_schedule_window", userId, async () => {
-                const startIso = normalizeStartBoundary(start);
-                let endIso = normalizeEndBoundary(end);
-
+                // Work in the user's local dates; a datetime is reduced to its local day.
+                const localDay = (value: string) =>
+                    /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : toLocalDateStr(new Date(value), ctx.timezone);
+                const from = localDay(start);
+                let to = localDay(end);
                 // Clamp the span server-side so a huge range can't be requested.
-                const startMs = Date.parse(startIso);
-                const endMs = Date.parse(endIso);
-                if (Number.isFinite(startMs) && Number.isFinite(endMs)) {
-                    const maxMs = startMs + MAX_RANGE_DAYS * 86_400_000;
-                    if (endMs > maxMs) endIso = new Date(maxMs).toISOString();
-                }
+                const maxTo = addDaysToDateStr(from, MAX_RANGE_DAYS);
+                if (to > maxTo) to = maxTo;
+                // The DB filters by UTC day; query a day wider and keep exact local days below.
+                const startIso = normalizeStartBoundary(addDaysToDateStr(from, -1));
+                const endIso = normalizeEndBoundary(addDaysToDateStr(to, 1));
                 const cap = clampLimit(limit, 50);
 
                 const db = getDbClient(env);
@@ -89,9 +91,13 @@ export const calendarTools = (env: Env, userId: string, _ctx: AgentContext) => (
                         .orderBy(habits.sortOrder)
                         .limit(50);
 
+                    const inRange = taskRows.filter((row) => {
+                        const day = taskLocalDay(row, ctx.timezone);
+                        return day !== null && day >= from && day <= to;
+                    });
                     return {
-                        range: { start: startIso, end: endIso },
-                        tasks: taskRows.map(toMinimalTask),
+                        range: { start: from, end: to, timezone: ctx.timezone },
+                        tasks: inRange.map((row) => toMinimalTask(row, ctx.timezone)),
                         habits: habitRows,
                     };
                 });

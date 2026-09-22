@@ -7,6 +7,8 @@
  * `tests/unit/ai-tools.test.ts`.
  */
 
+import { addDaysToDateStr, toLocalDateStr, toZonedIso } from "../../../platform/date-utils";
+
 /** A minimal task row as projected for the model. */
 export interface MinimalTask {
     id: string;
@@ -38,16 +40,23 @@ export interface TaskRow {
     content?: string | null;
 }
 
-/** Project a task row to its minimal, token-frugal shape. Drops `content`. */
-export function toMinimalTask(row: TaskRow): MinimalTask {
+/**
+ * Project a task row to its minimal, token-frugal shape. Drops `content`.
+ * Dates are written the way the user reads them, so the model never converts:
+ * all-day values as the stored calendar date ("2026-03-10"), timed values as the
+ * user's wall clock with offset ("2026-03-10T14:00:00-04:00").
+ */
+export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
+    const show = (value: string | null) =>
+        value === null ? null : row.isAllDay ? value.slice(0, 10) : toZonedIso(new Date(value), timezone);
     return {
         id: row.id,
         title: row.title,
         state: row.state,
         isAllDay: row.isAllDay,
-        dueDate: row.dueDate,
-        scheduledStart: row.scheduledStart,
-        scheduledEnd: row.scheduledEnd,
+        dueDate: show(row.dueDate),
+        scheduledStart: show(row.scheduledStart),
+        scheduledEnd: show(row.scheduledEnd),
         durationEstimate: row.durationEstimate,
         priority: row.priority,
         projectId: row.projectId,
@@ -227,39 +236,36 @@ export function toMinimalSuggestion(row: SuggestionRow): MinimalSuggestion {
 }
 
 /**
- * Resolve a coarse `dueWindow` token into an inclusive ISO-8601 [start,end]
- * range, anchored on the user's local clock. Pure so it is unit-testable; the
- * task tool feeds the result into the reused task-filters `scheduledRangeStart/End`.
- * `overdue` returns only an `end` (everything up to now).
+ * The calendar day a task belongs to for this user: all-day tasks keep their
+ * stored date (a noon-UTC anchor, the same day in every zone); timed tasks fall
+ * on the day their start has in the user's zone. Null when undated.
+ */
+export function taskLocalDay(
+    row: { isAllDay: boolean; dueDate: string | null; scheduledStart: string | null },
+    timezone: string,
+): string | null {
+    const value = row.isAllDay ? row.dueDate ?? row.scheduledStart : row.scheduledStart ?? row.dueDate;
+    if (!value) return null;
+    return row.isAllDay ? value.slice(0, 10) : toLocalDateStr(new Date(value), timezone);
+}
+
+/**
+ * Resolve a coarse `dueWindow` token into an inclusive range of the user's local
+ * dates (`YYYY-MM-DD`), from `today` (the user's local date). Pure; callers match
+ * tasks against it with {@link taskLocalDay}. `overdue` has no lower bound.
  */
 export function resolveDueWindow(
     window: "overdue" | "today" | "this_week" | "this_month",
-    currentDate: string,
+    today: string,
     weekStartsOn: "Sunday" | "Monday" = "Sunday",
-): { start?: string; end: string } {
-    const now = new Date(currentDate);
-    const y = now.getUTCFullYear();
-    const m = now.getUTCMonth();
-    const d = now.getUTCDate();
-    const startOfDay = new Date(Date.UTC(y, m, d, 0, 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
-
-    if (window === "overdue") {
-        // Everything strictly before the start of today is overdue.
-        return { end: new Date(startOfDay.getTime() - 1).toISOString() };
-    }
-    if (window === "today") {
-        return { start: startOfDay.toISOString(), end: endOfDay.toISOString() };
-    }
+): { from?: string; to: string } {
+    if (window === "overdue") return { to: addDaysToDateStr(today, -1) };
+    if (window === "today") return { from: today, to: today };
     if (window === "this_week") {
-        const dow = startOfDay.getUTCDay(); // 0=Sun..6=Sat
-        const offset = weekStartsOn === "Monday" ? (dow + 6) % 7 : dow;
-        const weekStart = new Date(startOfDay.getTime() - offset * 86_400_000);
-        const weekEnd = new Date(weekStart.getTime() + 7 * 86_400_000 - 1);
-        return { start: weekStart.toISOString(), end: weekEnd.toISOString() };
+        const dow = new Date(`${today}T00:00:00.000Z`).getUTCDay(); // 0=Sun..6=Sat
+        const from = addDaysToDateStr(today, -(weekStartsOn === "Monday" ? (dow + 6) % 7 : dow));
+        return { from, to: addDaysToDateStr(from, 6) };
     }
-    // this_month
-    const monthStart = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0));
-    const monthEnd = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
-    return { start: monthStart.toISOString(), end: monthEnd.toISOString() };
+    const from = `${today.slice(0, 7)}-01`;
+    return { from, to: addDaysToDateStr(addDaysToDateStr(from, 32).slice(0, 7) + "-01", -1) };
 }

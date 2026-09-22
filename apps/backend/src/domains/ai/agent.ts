@@ -19,6 +19,7 @@ import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
 import { isMemoryEnabled, embedText } from "./memory/embedding";
 import { retrieveMemories, type RetrievedMemory } from "./memory/memory-retrieval";
 import type { Env } from "../../types/env";
+import { resolveTimeZone, toLocalDateStr, toZonedIso } from "../../platform/date-utils";
 
 /** Default chat model: cost-effective, low-latency. Overridable via AI_CHAT_MODEL. */
 const DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
@@ -38,7 +39,7 @@ function getModel(env: Env) {
 /** Options resolved by the route before assembling the agent for one turn. */
 export interface AgentBuildOptions {
     timezone: string;
-    currentDate: string;     // ISO local clock
+    currentDate: string;     // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // latest user message text — used for memory retrieval
@@ -138,6 +139,19 @@ function compileDefaults(): CompiledPromptBlocks {
 }
 
 /**
+ * The user's clock for this turn. The model is shown local wall-clock time with
+ * its offset and weekday ("2026-09-21T22:30:00-04:00 (Monday)"), never a UTC "Z"
+ * instant it would misread as local; tools get the same zone and local date.
+ */
+export function userClock(timezone: string | undefined, currentDate: string) {
+    const tz = resolveTimeZone(timezone);
+    const parsed = new Date(currentDate);
+    const now = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(now);
+    return { timezone: tz, now, today: toLocalDateStr(now, tz), localTime: `${toZonedIso(now, tz)} (${weekday})` };
+}
+
+/**
  * Assemble the per-request agent: DB-composed system prompt (Base + Auxiliary) +
  * the full RLS-scoped tool surface. Returns the agent and the resolved model id
  * (for message metadata / conversation.model).
@@ -148,12 +162,13 @@ export async function getAgentInstance(
     opts: AgentBuildOptions,
 ): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string }> {
     const locale = opts.locale ?? "en";
+    const clock = userClock(opts.timezone, opts.currentDate);
     const { metrics, persona, weekStart } = await loadUserContext(env, userId);
     const memories = await maybeRetrieveMemories(env, userId, persona, opts.queryText);
 
     const ctx: PromptRuntimeContext = {
-        timezone: opts.timezone,
-        currentDateISO: opts.currentDate,
+        timezone: clock.timezone,
+        currentDateISO: clock.localTime,
         locale,
         weekStart,
         metrics,
@@ -188,8 +203,9 @@ export async function getAgentInstance(
     }
 
     const agentCtx: AgentContext = {
-        timezone: opts.timezone,
-        currentDate: opts.currentDate,
+        timezone: clock.timezone,
+        currentDate: clock.now.toISOString(),
+        today: clock.today,
         weekStart,
         locale,
     };

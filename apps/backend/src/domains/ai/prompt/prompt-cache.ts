@@ -152,7 +152,10 @@ const RUNTIME_CONTEXT_TEMPLATE = `# RUNTIME CONTEXT
 - Locale: {{locale}}
 
 Treat the current local time as the source of truth for "today", "tomorrow",
-"yesterday", and "next week". Never infer the date from anything else.`;
+"yesterday", and "next week". Never infer the date from anything else.
+
+Times in tool results are already in this timezone; say them to the user as given.
+When you write a time, use this local time with its UTC offset (as shown above), never Z.`;
 
 const HUMAN_METRICS_TEMPLATE = `# ACTIVE HUMAN METRICS
 These numbers describe the user's current load. Read them as signals that shape how
@@ -216,7 +219,7 @@ export const DEFAULT_PROMPT_BLOCKS: PromptBlock[] = [
     { kind: "output_contract", layer: "base", locale: "en", orderIndex: 4, template: OUTPUT_CONTRACT_TEMPLATE, version: 1 },
     { kind: "tool_policy", layer: "base", locale: "en", orderIndex: 5, template: TOOL_POLICY_TEMPLATE, version: 1 },
     // ── Auxiliary (lower authority, appended below) ──
-    { kind: "runtime_context", layer: "auxiliary", locale: "en", orderIndex: 1, template: RUNTIME_CONTEXT_TEMPLATE, version: 1 },
+    { kind: "runtime_context", layer: "auxiliary", locale: "en", orderIndex: 1, template: RUNTIME_CONTEXT_TEMPLATE, version: 2 },
     { kind: "human_metrics", layer: "auxiliary", locale: "en", orderIndex: 2, template: HUMAN_METRICS_TEMPLATE, version: 1 },
     { kind: "persona_customization", layer: "auxiliary", locale: "en", orderIndex: 3, template: PERSONA_CUSTOMIZATION_TEMPLATE, version: 2 },
     { kind: "retrieved_memory", layer: "auxiliary", locale: "en", orderIndex: 4, template: RETRIEVED_MEMORY_TEMPLATE, version: 1 },

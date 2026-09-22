@@ -5,6 +5,7 @@ import {
     toMinimalInboxItem,
     toMinimalSuggestion,
     resolveDueWindow,
+    taskLocalDay,
     type TaskRow,
     type HabitRow,
 } from "../../src/domains/ai/tools/projections";
@@ -27,20 +28,44 @@ const baseTask: TaskRow = {
 
 describe("toMinimalTask", () => {
     it("projects only the token-frugal fields and DROPS content", () => {
-        const result = toMinimalTask(baseTask);
-        expect(result).toEqual({
-            id: "t1",
-            title: "Write report",
-            state: "ACTIVE",
-            isAllDay: false,
-            dueDate: "2026-06-10T12:00:00.000Z",
-            scheduledStart: null,
-            scheduledEnd: null,
-            durationEstimate: 30,
-            priority: 2,
-            projectId: "p1",
-            waitingOn: null,
+        expect(Object.keys(toMinimalTask(baseTask, "UTC")).sort()).toEqual(
+            ["dueDate", "durationEstimate", "id", "isAllDay", "priority", "projectId", "scheduledEnd", "scheduledStart", "state", "title", "waitingOn"],
+        );
+    });
+
+    it("writes timed values as the user's wall clock with offset, so the model never converts", () => {
+        const task = { ...baseTask, scheduledStart: "2026-06-10T18:00:00.000Z", scheduledEnd: "2026-06-10T19:30:00.000Z" };
+
+        expect(toMinimalTask(task, "America/Toronto")).toMatchObject({
+            scheduledStart: "2026-06-10T14:00:00-04:00",
+            scheduledEnd: "2026-06-10T15:30:00-04:00",
+            dueDate: "2026-06-10T08:00:00-04:00",
         });
+    });
+
+    it("writes all-day values as the stored calendar date, in any zone", () => {
+        const task = { ...baseTask, isAllDay: true, dueDate: "2026-06-10T12:00:00.000Z", scheduledEnd: "2026-06-12T23:59:59.999Z" };
+
+        for (const tz of ["Pacific/Auckland", "America/Los_Angeles"]) {
+            expect(toMinimalTask(task, tz)).toMatchObject({ dueDate: "2026-06-10", scheduledEnd: "2026-06-12", scheduledStart: null });
+        }
+    });
+});
+
+describe("taskLocalDay", () => {
+    it("puts a timed task on the day its start has in the user's zone", () => {
+        const lateEvening = { isAllDay: false, dueDate: null, scheduledStart: "2026-06-11T02:30:00.000Z" }; // 22:30 on the 10th in Toronto
+
+        expect(taskLocalDay(lateEvening, "America/Toronto")).toBe("2026-06-10");
+        expect(taskLocalDay(lateEvening, "UTC")).toBe("2026-06-11");
+    });
+
+    it("keeps an all-day task on its stored date in every zone, and is null when undated", () => {
+        const allDay = { isAllDay: true, dueDate: "2026-06-10T12:00:00.000Z", scheduledStart: null };
+
+        expect(taskLocalDay(allDay, "Pacific/Kiritimati")).toBe("2026-06-10");
+        expect(taskLocalDay(allDay, "Pacific/Pago_Pago")).toBe("2026-06-10");
+        expect(taskLocalDay({ isAllDay: true, dueDate: null, scheduledStart: null }, "UTC")).toBeNull();
     });
 });
 
@@ -131,34 +156,21 @@ describe("toMinimalSuggestion", () => {
     });
 });
 
-describe("resolveDueWindow", () => {
-    const now = "2026-06-05T15:30:00.000Z"; // a Friday
+describe("resolveDueWindow (user's local dates)", () => {
+    const today = "2026-06-05"; // a Friday
 
-    it("overdue → end is just before start of today, no start bound", () => {
-        const w = resolveDueWindow("overdue", now);
-        expect(w.start).toBeUndefined();
-        expect(w.end).toBe("2026-06-04T23:59:59.999Z");
+    it.each([
+        ["overdue", "Sunday", { to: "2026-06-04" }],
+        ["today", "Sunday", { from: "2026-06-05", to: "2026-06-05" }],
+        ["this_week", "Sunday", { from: "2026-05-31", to: "2026-06-06" }],
+        ["this_week", "Monday", { from: "2026-06-01", to: "2026-06-07" }],
+        ["this_month", "Sunday", { from: "2026-06-01", to: "2026-06-30" }],
+    ] as const)("%s (week starts %s) → %j", (window, weekStart, expected) => {
+        expect(resolveDueWindow(window, today, weekStart)).toEqual(expected);
     });
 
-    it("today → full UTC day bounds", () => {
-        expect(resolveDueWindow("today", now)).toEqual({
-            start: "2026-06-05T00:00:00.000Z",
-            end: "2026-06-05T23:59:59.999Z",
-        });
-    });
-
-    it("this_week respects Sunday vs Monday week start", () => {
-        const sun = resolveDueWindow("this_week", now, "Sunday");
-        expect(sun.start).toBe("2026-05-31T00:00:00.000Z"); // Sunday
-        const mon = resolveDueWindow("this_week", now, "Monday");
-        expect(mon.start).toBe("2026-06-01T00:00:00.000Z"); // Monday
-    });
-
-    it("this_month → first to last day of the month", () => {
-        expect(resolveDueWindow("this_month", now)).toEqual({
-            start: "2026-06-01T00:00:00.000Z",
-            end: "2026-06-30T23:59:59.999Z",
-        });
+    it("handles month ends that roll a year", () => {
+        expect(resolveDueWindow("this_month", "2026-12-31")).toEqual({ from: "2026-12-01", to: "2026-12-31" });
     });
 });
 

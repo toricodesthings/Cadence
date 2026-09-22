@@ -55,14 +55,14 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
         description:
             "PROPOSAL ONLY — does NOT write anything. Turns a messy capture into a structured task " +
             "draft for confirmation; the task is created (and the capture placed) later via REST. " +
-            "Use YYYY-MM-DD for all-day dueDate values; use ISO datetimes with Z or +/-HH:MM offsets for time blocks. " +
+            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset from the runtime context (e.g. 2026-09-22T14:00:00-04:00), never Z. " +
             "Duration is in minutes.",
         inputSchema: z.object({
             inboxItemId: z.string().uuid().describe("Source capture id."),
             title: z.string().min(1).max(500).describe("Cleaned task title."),
             content: z.string().max(5000).optional().describe("Optional note body."),
             dueDate: z.string().optional().describe("Deadline. For all-day tasks use YYYY-MM-DD."),
-            scheduledStart: z.string().optional().describe("Block start. Use an ISO datetime with Z or +/-HH:MM offset."),
+            scheduledStart: z.string().optional().describe("Block start: the user's local time with their UTC offset, e.g. 2026-09-22T14:00:00-04:00."),
             durationEstimate: z.number().int().min(1).max(1440).optional().describe("Minutes."),
             projectId: z.string().uuid().optional().describe("Re-validated on confirm."),
             tagIds: z.array(z.string().uuid()).max(20).optional().describe("Re-validated on confirm."),

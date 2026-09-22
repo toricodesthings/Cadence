@@ -6,7 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+- The assistant now knows your local date and time, so "today" and "tomorrow" are right late in the evening.
+- The assistant quotes task times in your time zone instead of UTC.
+- Assistant suggestion cards show the right day and include the time for timed tasks.
+
 ## [0.15.1] - 2026-09-22
+
+Timezone-aware dates and task reliability
 
 ### Changed
 - Settings now shows the time zone Cadence uses (your device's) instead of a lock option that had no effect.

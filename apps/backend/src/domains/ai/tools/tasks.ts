@@ -8,13 +8,15 @@ import type { Env } from "../../../types/env";
 import { normalizeTaskFilters } from "../../tasks/task-filters";
 import { buildTaskWhereClause } from "../../tasks/tasks.route";
 import type { AgentContext } from "./index";
-import { safeExecute, clampLimit } from "./index";
+import { safeExecute, clampLimit, MAX_LIST_LIMIT } from "./index";
 import {
     toMinimalTask,
     toMinimalSubtask,
     toMinimalTag,
     resolveDueWindow,
+    taskLocalDay,
 } from "./projections";
+import { addDaysToDateStr } from "../../../platform/date-utils";
 
 /** Columns returned by the minimal task projection — selected once, reused. */
 const minimalTaskColumns = {
@@ -79,15 +81,15 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     hasNoDate: args.missingStructure || undefined,
                     hasNoProject: args.missingStructure || undefined,
                 };
-                if (args.dueWindow) {
-                    const w = resolveDueWindow(args.dueWindow, ctx.currentDate, weekStartsOn);
-                    if (w.start) {
-                        filterInput.scheduledRangeStart = w.start;
-                        filterInput.scheduledRangeEnd = w.end;
-                    } else {
-                        // overdue → no lower bound; use effective-anchor on-or-before.
-                        filterInput.effectiveOnOrBeforeDate = w.end;
-                    }
+                // The window is in the user's local dates. The DB filters by UTC day, and a
+                // timed task's local day can differ by one, so query a day wider on each
+                // side and keep exactly the tasks whose local day falls inside.
+                const window = args.dueWindow ? resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn) : null;
+                if (window?.from) {
+                    filterInput.scheduledRangeStart = addDaysToDateStr(window.from, -1);
+                    filterInput.scheduledRangeEnd = addDaysToDateStr(window.to, 1);
+                } else if (window) {
+                    filterInput.effectiveOnOrBeforeDate = addDaysToDateStr(window.to, 1);
                 }
                 const normalized = normalizeTaskFilters(filterInput as never);
                 const conditions = buildTaskWhereClause(userId, normalized);
@@ -99,9 +101,19 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .from(tasks)
                         .where(and(...conditions))
                         .orderBy(desc(tasks.priority), desc(tasks.createdAt))
-                        .limit(limit),
+                        // ponytail: edge-day rows count toward this cap before the local-day
+                        // filter; a window holding more than 50 dated tasks may come back short.
+                        .limit(window ? MAX_LIST_LIMIT : limit),
                 );
-                return { tasks: rows.map(toMinimalTask), count: rows.length };
+                const inWindow = window
+                    ? rows
+                          .filter((row) => {
+                              const day = taskLocalDay(row, ctx.timezone);
+                              return day !== null && (!window.from || day >= window.from) && day <= window.to;
+                          })
+                          .slice(0, limit)
+                    : rows;
+                return { tasks: inWindow.map((row) => toMinimalTask(row, ctx.timezone)), count: inWindow.length };
             }),
     }),
 
@@ -143,7 +155,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .limit(50);
 
                     return {
-                        task: toMinimalTask(row),
+                        task: toMinimalTask(row, ctx.timezone),
                         subtasks: subs.map(toMinimalSubtask),
                         tags: tagRows.map(toMinimalTag),
                     };
@@ -180,7 +192,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .orderBy(desc(tasks.createdAt))
                         .limit(cap),
                 );
-                return { tasks: rows.map(toMinimalTask), count: rows.length };
+                return { tasks: rows.map((row) => toMinimalTask(row, ctx.timezone)), count: rows.length };
             }),
     }),
 
@@ -194,15 +206,15 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
         description:
             "PROPOSAL ONLY — does NOT create anything. Drafts a task for the user to confirm; " +
             "the actual task is created later via the REST API after explicit approval. " +
-            "Use YYYY-MM-DD for all-day dueDate values; use ISO datetimes with Z or +/-HH:MM offsets for time blocks. " +
+            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset from the runtime context (e.g. 2026-09-22T14:00:00-04:00), never Z. " +
             "Duration is in minutes.",
         inputSchema: z.object({
             title: z.string().min(1).max(500).describe("Task title."),
             content: z.string().max(5000).optional().describe("Optional note body."),
             isAllDay: z.boolean().default(true).describe("All-day vs. time-blocked."),
             dueDate: z.string().optional().describe("Deadline. For all-day tasks use YYYY-MM-DD."),
-            scheduledStart: z.string().optional().describe("Block start. Use an ISO datetime with Z or +/-HH:MM offset."),
-            scheduledEnd: z.string().optional().describe("Block end. Use an ISO datetime with Z or +/-HH:MM offset."),
+            scheduledStart: z.string().optional().describe("Block start: the user's local time with their UTC offset, e.g. 2026-09-22T14:00:00-04:00."),
+            scheduledEnd: z.string().optional().describe("Block end: the user's local time with their UTC offset."),
             durationEstimate: z.number().int().min(1).max(1440).optional().describe("Minutes."),
             projectId: z.string().uuid().optional().describe("Target project (re-validated on confirm)."),
             tagIds: z.array(z.string().uuid()).max(20).optional().describe("Tags (re-validated on confirm)."),
@@ -215,7 +227,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
         description:
             "PROPOSAL ONLY — does NOT modify anything. Validates a field change/reschedule on " +
             "an existing task (by id) and returns it for confirmation. Applied later via REST. " +
-            "Use YYYY-MM-DD for all-day dueDate values; use ISO datetimes with Z or +/-HH:MM offsets for time blocks. " +
+            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset from the runtime context (e.g. 2026-09-22T14:00:00-04:00), never Z. " +
             "Duration is in minutes.",
         inputSchema: z.object({
             taskId: z.string().uuid().describe("Task to change."),
@@ -223,8 +235,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
             content: z.string().max(5000).optional(),
             state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional(),
             dueDate: z.string().nullable().optional().describe("YYYY-MM-DD for all-day deadlines, or null to clear."),
-            scheduledStart: z.string().nullable().optional().describe("ISO datetime with Z or +/-HH:MM offset, or null to clear."),
-            scheduledEnd: z.string().nullable().optional().describe("ISO datetime with Z or +/-HH:MM offset, or null to clear."),
+            scheduledStart: z.string().nullable().optional().describe("The user's local time with their UTC offset (e.g. 2026-09-22T14:00:00-04:00), or null to clear."),
+            scheduledEnd: z.string().nullable().optional().describe("The user's local time with their UTC offset (e.g. 2026-09-22T14:00:00-04:00), or null to clear."),
             durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
             projectId: z.string().uuid().nullable().optional(),
             priority: z.number().int().min(0).max(3).optional(),
@@ -238,10 +250,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "PROPOSAL ONLY — does NOT move anything. Builds a structured change-set plan that " +
             "moves N tasks to a target date (e.g. 'push overdue tasks to Monday'). Returns the " +
             "plan for confirmation; the moves happen later via REST. Use YYYY-MM-DD for all-day targets; " +
-            "use an ISO datetime with Z or +/-HH:MM offset for timed targets.",
+            "for timed targets use the user's local time with their UTC offset (e.g. 2026-09-22T14:00:00-04:00), never Z.",
         inputSchema: z.object({
             taskIds: z.array(z.string().uuid()).min(1).max(50).describe("Tasks to reschedule."),
-            targetDate: z.string().describe("New due/scheduled date for all of them, ISO-8601."),
+            targetDate: z.string().describe("The user's local date (YYYY-MM-DD), or local time with UTC offset for a timed target."),
             field: z
                 .enum(["dueDate", "scheduledStart"])
                 .default("dueDate")
