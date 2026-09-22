@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { CalendarDays } from "lucide-react";
 import { Tip } from "../primitives";
-import { formatTime, getDaysInMonth, getFirstDayOfWeek, weekdayLabels } from "../../lib/utils/date-format";
+import { formatTime, getDaysInMonth, getFirstDayOfWeek, toISODate, weekdayLabels } from "../../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 
 const WEEKDAY_LABELS = weekdayLabels(3);
@@ -38,7 +38,7 @@ export function MonthPeekView({
     onCompleteTask,
 }: MonthPeekViewProps) {
     const selectedDay = parseInt(currentDate.split("-")[2], 10);
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = toISODate(new Date());
     const todayParts = todayStr.split("-");
     const todayDay = parseInt(todayParts[2], 10);
     const isCurrentMonth = parseInt(todayParts[0], 10) === year && parseInt(todayParts[1], 10) === month + 1;

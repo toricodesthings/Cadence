@@ -121,7 +121,8 @@ describe("deriveCandidates", () => {
     });
 
     it("produces a task-reminder candidate when reminder is within 1 hour", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        // Both instants in UTC: a local `now` against a UTC reminder only lines up near UTC.
+        const now = new Date("2026-03-26T10:00:00.000Z");
         const task: Task = {
             ...BASE_TASK,
             reminderAt: "2026-03-26T10:30:00.000Z",

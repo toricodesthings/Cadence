@@ -2,12 +2,45 @@ import { and } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { normalizeTaskFilters } from "../../src/domains/tasks/task-filters";
+import { taskFiltersSchema } from "../../src/domains/tasks/tasks.schema";
 import { buildTaskWhereClause } from "../../src/domains/tasks/tasks.route";
 
 /** Render the WHERE clause the list route would run for these query filters. */
 function whereFor(filters: Parameters<typeof normalizeTaskFilters>[0]) {
     return new PgDialect().sqlToQuery(and(...buildTaskWhereClause("user-1", normalizeTaskFilters(filters)))!);
 }
+
+describe("task list query validation", () => {
+    it("coerces query strings and keeps date-only ranges as sent", () => {
+        expect(
+            taskFiltersSchema.parse({
+                scheduledRangeStart: "2026-03-01",
+                scheduledRangeEnd: "2026-03-31",
+                hasNoProject: "true",
+                effectiveOnOrBeforeDate: "2026-03-09",
+            }),
+        ).toEqual({
+            scheduledRangeStart: "2026-03-01",
+            scheduledRangeEnd: "2026-03-31",
+            hasNoProject: true,
+            effectiveOnOrBeforeDate: "2026-03-09",
+        });
+    });
+
+    it("requires both ends of a schedule range", () => {
+        expect(() => taskFiltersSchema.parse({ scheduledRangeStart: "2026-03-01" })).toThrow(/must be provided together/);
+    });
+
+    it("rejects a range that ends before it starts", () => {
+        expect(() => taskFiltersSchema.parse({ scheduledRangeStart: "2026-03-31", scheduledRangeEnd: "2026-03-01" })).toThrow(
+            /must be on or after/,
+        );
+    });
+
+    it("accepts a single-day range given as date-only start and end", () => {
+        expect(taskFiltersSchema.safeParse({ scheduledRangeStart: "2026-03-09", scheduledRangeEnd: "2026-03-09" }).success).toBe(true);
+    });
+});
 
 describe("task list filtering", () => {
     it("adds the inclusive end-of-day boundary for effectiveOnOrBeforeDate", () => {

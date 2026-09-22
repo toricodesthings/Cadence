@@ -17,11 +17,10 @@ export function throwIfNotFound<T>(value: T | null | undefined, label: string): 
 
 export function assertNoConflict(expectedUpdatedAt: string | undefined, actualUpdatedAt: string, entity: string) {
     if (!expectedUpdatedAt) return;
-    // Compare instants, not strings. Temporal columns are read as Postgres
-    // timestamptz text ("2026-09-19 12:00:00+00") while the API serializes the
-    // same column as strict ISO ("2026-09-19T12:00:00.000Z") — same instant,
-    // different string. A naive !== would false-positive a conflict on the
-    // client's next edit after it caches the serialized form.
+    // Compare instants, not strings: the API serves strict ISO, but a client may
+    // send the same instant in another valid form (an offset, no milliseconds, or
+    // a value cached before timestamps were unified). A naive !== would report a
+    // false conflict.
     const expectedMs = new Date(expectedUpdatedAt).getTime();
     const actualMs = new Date(actualUpdatedAt).getTime();
     const sameInstant =

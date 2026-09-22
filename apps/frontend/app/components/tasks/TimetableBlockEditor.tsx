@@ -72,18 +72,6 @@ function alignEndToStart(anchorStart: Date, timeSource: Date): Date {
     return end;
 }
 
-/**
- * Coerce a stored timestamp to strict ISO for PATCH payloads. Cached values can
- * carry a non-ISO shape (e.g. Postgres text from Drizzle string mode) that the
- * request schema's strict `iso.datetime` rejects — echoed verbatim, they 400.
- * Returns null when the input is unparseable rather than emitting garbage.
- */
-function toStrictIso(value: string | null): string | null {
-    if (!value) return null;
-    const ms = new Date(value).getTime();
-    return Number.isNaN(ms) ? null : new Date(ms).toISOString();
-}
-
 function formatDuration(startIso: string, endIso: string): string {
     const minutes = Math.max(0, Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
     const hours = Math.floor(minutes / 60);
@@ -118,13 +106,13 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
     // handlers must chain off this ref — otherwise an end edit made inside the
     // debounce window would be computed from (and commit) the stale start.
     const latestTimesRef = useRef<{ start: string | null; end: string | null }>({
-        start: toStrictIso(task.scheduledStart ?? null),
-        end: toStrictIso(task.scheduledEnd ?? null),
+        start: task.scheduledStart ?? null,
+        end: task.scheduledEnd ?? null,
     });
     const lastSentRef = useRef<string | null>(null);
 
     useEffect(() => {
-        latestTimesRef.current = { start: toStrictIso(task.scheduledStart ?? null), end: toStrictIso(task.scheduledEnd ?? null) };
+        latestTimesRef.current = { start: task.scheduledStart ?? null, end: task.scheduledEnd ?? null };
     }, [task.scheduledStart, task.scheduledEnd]);
 
     // Reads the ref at fire time, so an immediate mutation (add/clear end) that

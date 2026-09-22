@@ -13,7 +13,7 @@
 		"check": "tsc --noEmit && vitest run",
 		"test": "vitest run",
 		"test:unit": "vitest run tests/unit",
-		"test:contracts": "vitest run tests/contracts",
+		"test:integration": "vitest run tests/integration",
 		"test:security": "vitest run tests/security",
 		"test:watch": "vitest",
 		"typecheck": "tsc --noEmit",
@@ -42,6 +42,8 @@
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260922.1",
 		"@dotenvx/dotenvx": "^2.29.0",
+		"@electric-sql/pglite": "^0.5.8",
+		"@electric-sql/pglite-pgvector": "^0.0.9",
 		"@types/node": "^25.9.8",
 		"drizzle-kit": "^0.31.11",
 		"typescript": "^7.0.2",

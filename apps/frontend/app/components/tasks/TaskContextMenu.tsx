@@ -17,6 +17,7 @@ import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Task } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
+import { toISODate } from "../../lib/utils/date-format";
 
 export interface TaskMenuItemsProps {
     task: Task;
@@ -69,7 +70,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
         // Return ISO string
         updateTask.mutate({
             id: task.id,
-            dueDate: date.toISOString().split("T")[0],
+            dueDate: toISODate(date),
             scheduledStart: null,
             scheduledEnd: null,
             isAllDay: true,

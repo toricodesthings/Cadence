@@ -50,6 +50,11 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             // Verify inbox item exists and belongs to user
             const [item] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
             throwIfNotFound(item, "Inbox item");
+            // Already placed (double submit, second device): return that task, never a duplicate.
+            if (item.processed && item.placedTaskId) {
+                const [placed] = await tx.select().from(tasks).where(and(eq(tasks.id, item.placedTaskId), eq(tasks.userId, userId)));
+                if (placed) return { task: placed, alreadyProcessed: true };
+            }
 
             const nlpRuntime = await loadNlpRuntime(tx, userId);
             const envelope = nlp ?? {
@@ -192,6 +197,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 if (existing) return existing;
             }
 
+            await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
             const [row] = await tx
                 .insert(inboxItems)
                 .values({ ...body, userId })
@@ -234,13 +240,14 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const [updated] = await withRls(db, userId, (tx) =>
-            tx
+        const [updated] = await withRls(db, userId, async (tx) => {
+            await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
+            return tx
                 .update(inboxItems)
                 .set(body)
                 .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
-                .returning(),
-        );
+                .returning();
+        });
 
         throwIfNotFound(updated, "Inbox item");
 

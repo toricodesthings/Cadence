@@ -19,53 +19,11 @@ function getLocalUtcOffsetLabel(): string {
     return minutes > 0 ? `UTC${sign}${hours}:${String(minutes).padStart(2, "0")}` : `UTC${sign}${hours}`;
 }
 
-/** All UTC offsets from UTC-12 to UTC+14 (including :30 and :45 fractional zones) */
-const ALL_UTC_OFFSETS: { value: string; label: string }[] = [
-    { value: "Etc/GMT+12", label: "UTC−12" },
-    { value: "Etc/GMT+11", label: "UTC−11" },
-    { value: "Etc/GMT+10", label: "UTC−10" },
-    { value: "Pacific/Marquesas", label: "UTC−9:30" },
-    { value: "Etc/GMT+9", label: "UTC−9" },
-    { value: "Etc/GMT+8", label: "UTC−8" },
-    { value: "Etc/GMT+7", label: "UTC−7" },
-    { value: "Etc/GMT+6", label: "UTC−6" },
-    { value: "Etc/GMT+5", label: "UTC−5" },
-    { value: "Etc/GMT+4", label: "UTC−4" },
-    { value: "America/St_Johns", label: "UTC−3:30" },
-    { value: "Etc/GMT+3", label: "UTC−3" },
-    { value: "Etc/GMT+2", label: "UTC−2" },
-    { value: "Etc/GMT+1", label: "UTC−1" },
-    { value: "Etc/GMT", label: "UTC+0" },
-    { value: "Etc/GMT-1", label: "UTC+1" },
-    { value: "Etc/GMT-2", label: "UTC+2" },
-    { value: "Etc/GMT-3", label: "UTC+3" },
-    { value: "Asia/Tehran", label: "UTC+3:30" },
-    { value: "Etc/GMT-4", label: "UTC+4" },
-    { value: "Asia/Kabul", label: "UTC+4:30" },
-    { value: "Etc/GMT-5", label: "UTC+5" },
-    { value: "Asia/Kolkata", label: "UTC+5:30" },
-    { value: "Asia/Kathmandu", label: "UTC+5:45" },
-    { value: "Etc/GMT-6", label: "UTC+6" },
-    { value: "Asia/Yangon", label: "UTC+6:30" },
-    { value: "Etc/GMT-7", label: "UTC+7" },
-    { value: "Etc/GMT-8", label: "UTC+8" },
-    { value: "Australia/Eucla", label: "UTC+8:45" },
-    { value: "Etc/GMT-9", label: "UTC+9" },
-    { value: "Australia/Darwin", label: "UTC+9:30" },
-    { value: "Etc/GMT-10", label: "UTC+10" },
-    { value: "Australia/Lord_Howe", label: "UTC+10:30" },
-    { value: "Etc/GMT-11", label: "UTC+11" },
-    { value: "Etc/GMT-12", label: "UTC+12" },
-    { value: "Pacific/Chatham", label: "UTC+12:45" },
-    { value: "Etc/GMT-13", label: "UTC+13" },
-    { value: "Etc/GMT-14", label: "UTC+14" },
-];
-
 export function DateTimeTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
     const navigate = useNavigate();
-    const autoLabel = useMemo(() => `Automatic (${getLocalUtcOffsetLabel()})`, []);
+    const systemZone = useMemo(() => `${Intl.DateTimeFormat().resolvedOptions().timeZone} (${getLocalUtcOffsetLabel()})`, []);
     const currentYear = new Date().getFullYear();
     const holidayOverlay = useHolidayOverlay({
         start: `${currentYear}-01-01`,
@@ -151,26 +109,9 @@ export function DateTimeTab() {
             <SettingsSection title="Timezone">
                 <SettingsRow
                     title="Timezone"
-                    description="Cadence automatically uses your system time. Lock to a specific timezone if you travel often."
+                    description="Cadence shows every date and time in your device's time zone, and follows it when you travel."
                 >
-                    <div className="w-full sm:max-w-[18rem]">
-                        <Select
-                            value={dtSettings.timezone}
-                            onValueChange={(val) =>
-                                updateSettings.mutate({ dateTime: { timezone: val } })
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="local">{autoLabel}</SelectItem>
-                                {ALL_UTC_OFFSETS.map((tz) => (
-                                    <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <p className="text-sm text-warm-white/70">{systemZone}</p>
                 </SettingsRow>
             </SettingsSection>
 

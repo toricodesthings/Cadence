@@ -242,7 +242,7 @@ sync. Add to it when you add a `TaskReadShape` branch.
 - **Dependency boundaries:** `packages/*/scripts/check-imports.mjs`, wired into
   each package's `lint` script (and the turbo `lint` task). It fails on any
   forbidden import specifier.
-- **Per-package gates:** `pnpm --filter @cadence/<pkg> typecheck | lint | test`.
+- **Per-package gates:** `pnpm --filter @cadence/<pkg> typecheck | lint | test`. Each package tests its own modules in `src/<module>.test.ts` (contracts: size limits and update-carries-only-sent-fields are API promises); apps never re-test package rules.
 - **Whole workspace:** `pnpm typecheck` (turbo, all packages + apps).
 
 ---

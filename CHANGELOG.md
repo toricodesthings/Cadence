@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+- Settings now shows the time zone Cadence uses (your device's) instead of a lock option that had no effect.
+
+### Fixed
+- Dragging tasks into a new order now saves instead of failing.
+- "Today" and quick due dates no longer land on the wrong day late in the evening or early morning.
+- Moving a timed block on the schedule keeps it on the day you dropped it in every time zone.
+- Adding a tag a task already has no longer shows an error.
+- Processing the same inbox item twice no longer creates a duplicate task.
+
 ## [0.15.0] - 2026-09-21
 
 Routines replace Habits, and Today gets a day strip

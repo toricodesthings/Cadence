@@ -120,49 +120,6 @@ function getTemporalFieldsForPersistence(fields: {
     return normalizeTaskTemporalFields(fields);
 }
 
-/**
- * Temporal columns are stored as Postgres `timestamptz` and read via Drizzle
- * `mode: 'string'`, which yields raw text like "2026-09-19 12:00:00+00" (space
- * separator, no `T`). The API contract declares these as ISO 8601 datetimes,
- * and the client echoes them back verbatim on PATCH — so a non-ISO string would
- * fail validation on the next write. Normalize every temporal field to strict
- * ISO at the serialization boundary. Parsing is safe: `new Date` accepts the
- * Postgres form, and the converted instant is identical, so reads and calendar
- * placement are unchanged.
- */
-const TASK_TEMPORAL_KEYS = [
-    "dueDate",
-    "scheduledStart",
-    "scheduledEnd",
-    "reminderAt",
-    "notBefore",
-    "waitingReminder",
-    "createdAt",
-    "updatedAt",
-] as const;
-
-function toStrictIsoTimestamp(value: unknown): unknown {
-    if (typeof value !== "string" || !value) return value;
-    // Already strict ISO (has the `T` separator) — leave untouched.
-    if (value.includes("T")) return value;
-    const ms = new Date(value).getTime();
-    return Number.isNaN(ms) ? value : new Date(ms).toISOString();
-}
-
-function serializeTask<T extends Record<string, unknown>>(task: T): T {
-    const out = { ...task };
-    for (const key of TASK_TEMPORAL_KEYS) {
-        if (key in out && out[key] != null) {
-            (out as Record<string, unknown>)[key] = toStrictIsoTimestamp(out[key]);
-        }
-    }
-    return out;
-}
-
-function serializeTasks<T extends Record<string, unknown>>(rows: T[]): T[] {
-    return rows.map(serializeTask);
-}
-
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/:id/duplicate", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
@@ -221,7 +178,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             return dup;
         });
 
-        return c.json({ data: serializeTask(duplicate) }, 201);
+        return c.json({ data: duplicate }, 201);
     })
     .post("/:id/reparse", apiValidator("param", uuidParamSchema), apiValidator("json", nlpReparseSchema), async (c) => {
         const userId = c.get("userId");
@@ -441,7 +398,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             // executionCtx may not be available in test environments
         }
 
-        return c.json({ data: serializeTask(task) }, 201);
+        return c.json({ data: task }, 201);
     })
     .post("/:id/tags", apiValidator("param", uuidParamSchema), apiValidator("json", taskTagSchema), async (c) => {
         const userId = c.get("userId");
@@ -464,11 +421,19 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
             throwIfNotFound(tag, "Tag");
 
+            // Idempotent: re-attaching an attached tag (e.g. an offline replay) returns the
+            // existing association instead of tripping the unique (task, tag) index.
             const [assoc] = await tx
                 .insert(taskTags)
                 .values({ taskId: id, tagId })
+                .onConflictDoNothing()
                 .returning();
-            return assoc;
+            if (assoc) return assoc;
+            const [existing] = await tx
+                .select()
+                .from(taskTags)
+                .where(and(eq(taskTags.taskId, id), eq(taskTags.tagId, tagId)));
+            return existing;
         });
 
         return c.json({ data: association }, 201);
@@ -499,7 +464,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             trackBatchEvents(db, userId, taskIds.map((id) => ({ event: "task.reschedule", metadata: { taskId: id } }))),
         );
 
-        return c.json({ data: serializeTasks(updatedTasks) });
+        return c.json({ data: updatedTasks });
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTaskSchema), async (c) => {
         const userId = c.get("userId");
@@ -565,7 +530,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             );
         }
 
-        return c.json({ data: serializeTask(updated) });
+        return c.json({ data: updated });
     })
     .patch("/:id/reorder", apiValidator("param", uuidParamSchema), apiValidator("json", reorderTaskSchema), async (c) => {
         const userId = c.get("userId");
@@ -576,9 +541,11 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const updated = await withRls(db, userId, async (tx) => {
             // If the client sent the full ordered list, rebalance all affected tasks
             if (orderedTaskIds && orderedTaskIds.length > 1) {
-                // Batch all reorder updates into a single UPDATE with CASE
+                // Batch all reorder updates into a single UPDATE with CASE. The cast is
+                // required: drivers send JS numbers untyped, and a CASE whose branches are
+                // all untyped resolves to text, which Postgres won't assign to a double.
                 const caseChunks = orderedTaskIds.map(
-                    (taskId, idx) => sql`WHEN ${taskId} THEN ${computeGappedOrderIndex(idx)}`,
+                    (taskId, idx) => sql`WHEN ${taskId} THEN ${computeGappedOrderIndex(idx)}::double precision`,
                 );
                 await tx.execute(sql`
                     UPDATE tasks
@@ -605,7 +572,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         });
 
         throwIfNotFound(updated, "Task");
-        return c.json({ data: serializeTask(updated) });
+        return c.json({ data: updated });
     })
     .patch("/batch/state", apiValidator("json", batchStateSchema), async (c) => {
         const userId = c.get("userId");
@@ -627,7 +594,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             );
         }
 
-        return c.json({ data: serializeTasks(updatedTasks) });
+        return c.json({ data: updatedTasks });
     })
     .get("/", apiValidator("query", taskListQuerySchema), async (c) => {
         const userId = c.get("userId");
@@ -675,7 +642,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         });
 
         c.header("Cache-Control", "private, no-store");
-        return c.json({ data: serializeTasks(items) });
+        return c.json({ data: items });
     })
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
@@ -693,7 +660,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         throwIfNotFound(task, "Task");
 
         c.header("Cache-Control", "private, no-store");
-        return c.json({ data: serializeTask(task) });
+        return c.json({ data: task });
     })
     .get("/:id/tags", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");

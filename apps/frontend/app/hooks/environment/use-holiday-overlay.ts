@@ -16,8 +16,7 @@ export type HolidayRegionSource = "precise" | "approximate" | "manual" | "timezo
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function getBrowserTimeZone(settingsTimeZone: string | undefined) {
-    if (settingsTimeZone && settingsTimeZone !== "local") return settingsTimeZone;
+function getBrowserTimeZone() {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
@@ -45,8 +44,8 @@ export function useHolidayOverlay({
     const year = Number.parseInt(start.slice(0, 4), 10);
 
     const timeZoneCountryCode = useMemo(
-        () => inferCountryFromTimezone(getBrowserTimeZone(settings?.dateTime?.timezone)),
-        [settings?.dateTime?.timezone],
+        () => inferCountryFromTimezone(getBrowserTimeZone()),
+        [],
     );
     const localeCountryCode = useMemo(() => getLocaleRegion(locale), [locale]);
 

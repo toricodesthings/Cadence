@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     fromTimeValue,
+    getEffectiveTaskDate,
     getDaysInMonth,
     getFirstDayOfWeek,
+    preserveLocalTime,
     relativeTime,
     toISODate,
     toTimeValue,
@@ -36,5 +38,20 @@ describe("date-format shared helpers", () => {
         expect(toTimeValue(onDate)).toBe("07:30");
         expect(toISODate(new Date(onDate))).toBe("2026-09-21");
         expect(toTimeValue(fromTimeValue(onDate, "22:05"))).toBe("22:05");
+    });
+
+    it("preserveLocalTime moves a timed block to another day at the same local clock time", () => {
+        // 21:30 local is a different UTC day in many zones; the result must stay 21:30 local on the target day.
+        const late = new Date(2026, 2, 10, 21, 30).toISOString();
+
+        const moved = new Date(preserveLocalTime("2026-03-12", late));
+
+        expect([moved.getFullYear(), moved.getMonth(), moved.getDate(), moved.getHours(), moved.getMinutes()]).toEqual([2026, 2, 12, 21, 30]);
+    });
+
+    it("getEffectiveTaskDate reads all-day dates as stored and timed ones in the user's zone", () => {
+        expect(getEffectiveTaskDate("2026-03-10T12:00:00.000Z", true)).toBe("2026-03-10");
+        expect(getEffectiveTaskDate(new Date(2026, 2, 10, 23, 30).toISOString(), false)).toBe("2026-03-10");
+        expect(getEffectiveTaskDate(new Date(2026, 2, 11, 0, 30).toISOString(), false)).toBe("2026-03-11");
     });
 });

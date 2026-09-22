@@ -7,6 +7,7 @@ import { useProjects } from "../projects/use-projects";
 import { useSections } from "../sections/use-sections";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
+import { toISODate } from "../../lib/utils/date-format";
 import type { FocusKind } from "./use-route-focus";
 
 /** Type-safe null filter */
@@ -162,7 +163,7 @@ function resolveTaskRoute(task: {
         return { route: "/schedule", context: "Schedule anchor" };
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = toISODate(new Date());
     const effectiveDate = getTaskTimelineAnchor(task) ?? task.dueDate ?? task.scheduledStart;
 
     if (task.projectId) return { route: `/project/${task.projectId}`, context: "Project" };

@@ -54,8 +54,8 @@ src/
 
 ## 3. Adding Code
 
-- **New feature in existing domain:** contract in `@cadence/contracts/{domain}` → server refinement in `{domain}.schema.ts` only if needed → route handler → Drizzle schema + matching `xRowSchema` if persistence changed → tests in `tests/unit/` or `tests/contracts/`.
-- **New domain:** author contract (`packages/contracts/src/{domain}.ts` + sub-path export) → `{domain}.route.ts` importing shapes directly from `@cadence/contracts/{domain}` (chained router) → mount in `src/index.ts` on the chained `apiApp` → Row-parity assertion in `tests/unit/contract-parity.test.ts` + contract tests.
+- **New feature in existing domain:** contract in `@cadence/contracts/{domain}` → server refinement in `{domain}.schema.ts` only if needed → route handler → Drizzle schema + matching `xRowSchema` if persistence changed → tests in `tests/unit/` or `tests/integration/`.
+- **New domain:** author contract (`packages/contracts/src/{domain}.ts` + sub-path export) → `{domain}.route.ts` importing shapes directly from `@cadence/contracts/{domain}` (chained router) → mount in `src/index.ts` on the chained `apiApp` → Row-parity line in `tests/unit/contract-parity.test.ts` + schema tests in `packages/contracts` + `tests/integration/{domain}.test.ts`.
 - **Platform infra:** only genuinely cross-cutting code (auth, db, rls, errors, logging, validation, idempotency, ownership, metrics, redis).
 
 ## 4. Request Lifecycle
@@ -66,10 +66,11 @@ Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, a
 
 ## 5. Database Rules
 
+- **Timestamps:** every `timestamp with time zone` column is declared with the `timestamptz()` helper in `schema.ts`, which reads values as strict ISO (`2026-03-09T12:00:00.000Z`). Never use drizzle's `timestamp()` directly, or that column goes out as Postgres text. Integration tests fail on any non-ISO date-time in a response.
 - **Per-request clients only.** `const db = getDbClient(c.env)`. Never a module-scope singleton — Hyperdrive pools connections, Workers don't hold them.
 - **RLS is mandatory** for user-scoped work: `withRls(db, userId, async (tx) => { ... })`. Sets `request.jwt.claims`; guarantees same connection for config+query.
 - **Type aliases:** import `DbClient`/`Tx` from `src/types/db.ts` — never redefine `Parameters<Parameters<DbClient["transaction"]>[0]>[0]` inline.
-- **Ownership:** `assertProjectOwnership`/`assertSectionOwnership`/`assertTagsOwnership`/`assertOwnership` in `platform/ownership.ts` (404 if missing, 403 if wrong owner).
+- **Ownership:** `assertProjectOwnership`/`assertSectionOwnership`/`assertTagsOwnership`/`assertOwnership` in `platform/ownership.ts`. Another user's row is invisible under RLS, so it resolves as 404 (existence never leaks); the 403 branch only fires if RLS is bypassed.
 - **Migrations:** update `schema.ts` → `pnpm db:generate` → `pnpm db:check` → `pnpm db:migrate`. Never `drizzle-kit push`. `drizzle.config.ts` reads `.dev.vars`; migrations output to `apps/backend/drizzle/`.
 
 ## 6. API Conventions
@@ -121,7 +122,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 ## 11. Tests
 
-`tests/unit/` (pure logic, no HTTP) · `tests/contracts/` (route-level, mocked DB) · `tests/security/` (ASVS + middleware). Commands: `pnpm test` (all of `tests/`, what CI runs), `test:unit`, `test:contracts`, `test:security`, `test:watch`, `pnpm check` (typecheck + all tests).
+`tests/unit/` (pure logic, no HTTP, no DB) · `tests/integration/` (routes against a real Postgres: `tests/helpers/db.ts` runs PGlite with every journaled migration, as a non-superuser role so RLS applies; each test creates its own users via `createUser()` and calls routes with `apiAs()`; only external services are faked: HTTP upstreams, R2, Redis) · `tests/security/` (worker middleware chain + static tenant-isolation scan of `src/`). Schema tests live in `packages/contracts`, not here. Commands: `pnpm test` (all of `tests/`, what CI runs), `test:unit`, `test:integration`, `test:security`, `test:watch`, `pnpm check` (typecheck + all tests).
 
 ## 12. Auth (`platform/auth.ts`)
 
@@ -148,7 +149,7 @@ Dev secrets in `.dev.vars`. Prefer Worker bindings over ad hoc env reads.
 ## 15. Commands
 
 ```bash
-pnpm dev | deploy | check | test | test:unit | test:contracts | test:security | test:watch
+pnpm dev | deploy | check | test | test:unit | test:integration | test:security | test:watch
 pnpm typecheck | cf-typegen
 pnpm db:generate | db:check | db:migrate | db:studio
 ```

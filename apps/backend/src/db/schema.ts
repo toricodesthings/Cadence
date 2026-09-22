@@ -2,7 +2,7 @@ import {
     pgTable,
     uuid,
     text,
-    timestamp,
+    customType,
     boolean,
     real,
     doublePrecision,
@@ -16,6 +16,16 @@ import {
     pgPolicy,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
+
+/**
+ * `timestamp with time zone`, read as a strict ISO-8601 string ("2026-03-09T12:00:00.000Z").
+ * Drivers hand back Postgres text ("2026-03-09 12:00:00+00"); normalizing here, where every
+ * read passes, keeps API timestamps in one format and lets clients echo them back as-is.
+ */
+const timestamptz = customType<{ data: string; driverData: string | Date }>({
+    dataType: () => "timestamp with time zone",
+    fromDriver: (value) => new Date(value).toISOString(),
+});
 
 /** RLS condition: row belongs to the JWT-authenticated user */
 const rlsUsing = sql`(user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`;
@@ -83,7 +93,7 @@ export const users = pgTable('users', {
         notifications: { email: true, browser: false, taskReminders: true, habitReminders: true, dueDateAlerts: true },
         shortcuts: {}
     }).notNull(), // User preferences (view mode, theme, etc.)
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, () => ({
     rlsPolicy: pgPolicy("users_owner_access", {
         as: "permissive",
@@ -103,7 +113,7 @@ export const userMetrics = pgTable('user_metrics', {
     overdueCarryLoad: integer('overdue_carry_load').default(0).notNull(), // number of tasks currently overdue
     habitAdherenceRate: real('habit_adherence_rate').default(0).notNull(), // completed / (completed + skipped) rolling 14 days
     scheduleDensity: real('schedule_density').default(0).notNull(), // avg scheduled minutes per day over 7 days
-    lastCalculatedAt: timestamp('last_calculated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    lastCalculatedAt: timestamptz('last_calculated_at').default(sql`now()`).notNull(),
 }, (table) => {
     return {
         userIdIdx: uniqueIndex('user_metrics_user_id_unique').on(table.userId),
@@ -126,16 +136,16 @@ export const aiMemories = pgTable('ai_memories', {
     embedding: vector('embedding', { dimensions: 1536 }), // pgvector for RAG similarity search (dimensions match chosen AI model)
     type: memoryTypeEnum('type').default('EPHEMERAL').notNull(),
     salience: real('salience').default(0.5).notNull(),            // 0..1 importance; drives retrieval ranking & pruning
-    lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true, mode: 'string' }),
+    lastAccessedAt: timestamptz('last_accessed_at'),
     accessCount: integer('access_count').default(0).notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }), // null for CORE; set for EPHEMERAL
+    expiresAt: timestamptz('expires_at'), // null for CORE; set for EPHEMERAL
     sourceConversationId: uuid('source_conversation_id')          // provenance → ai_conversations
         .references(() => aiConversations.id, { onDelete: 'set null' }),
     sourceMessageId: text('source_message_id'),                   // which message produced it
     embeddingModel: text('embedding_model'),                      // model id used → safe re-embed on model change
     dedupeHash: text('dedupe_hash'),                              // normalized-content hash to avoid near-duplicates
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => {
     return {
         userIdIdx: index('ai_memories_user_id_idx').on(table.userId),
@@ -168,8 +178,8 @@ export const aiPromptBlocks = pgTable('ai_prompt_blocks', {
     version: integer('version').default(1).notNull(),             // per-block edit counter
     isActive: boolean('is_active').default(true).notNull(),
     notes: text('notes'),                                         // editor-facing change rationale
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     activeLookupIdx: uniqueIndex('ai_prompt_blocks_active_kind_locale_unique').on(table.kind, table.locale),
 }));
@@ -180,7 +190,7 @@ export const aiPromptBlocks = pgTable('ai_prompt_blocks', {
 export const aiPromptRevision = pgTable('ai_prompt_revision', {
     id: integer('id').primaryKey().default(1),                   // enforced singleton: only row id=1
     revision: integer('revision').default(1).notNull(),          // bumped on ANY block change
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 });
 
 // 3c. AI Title Prompt — the system prompt for the conversation auto-titler.
@@ -194,8 +204,8 @@ export const aiTitlePrompts = pgTable('ai_title_prompts', {
     version: integer('version').default(1).notNull(),
     isActive: boolean('is_active').default(true).notNull(),
     notes: text('notes'),                                         // editor-facing change rationale
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     localeUnique: uniqueIndex('ai_title_prompts_locale_unique').on(table.locale),
 }));
@@ -206,7 +216,7 @@ export const aiConversations = pgTable('ai_conversations', {
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     title: text('title'),                                        // AI-generated short title; null until set
     model: text('model'),                                        // model id used for the thread
-    lastMessageAt: timestamp('last_message_at', { withTimezone: true, mode: 'string' }),
+    lastMessageAt: timestamptz('last_message_at'),
     archived: boolean('archived').default(false).notNull(),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(), // token totals, etc.
     // Non-null while a turn is producing; compare-and-cleared on finish. Source of
@@ -218,8 +228,8 @@ export const aiConversations = pgTable('ai_conversations', {
     // text, and drives the client's Retry affordance after reload (doc Update 4 §7.10).
     lastStreamId: text('last_stream_id'),
     lastStreamStatus: text('last_stream_status'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userIdIdx: index('ai_conversations_user_id_idx').on(table.userId),
     userRecentIdx: index('ai_conversations_user_recent_idx').on(table.userId, table.lastMessageAt),
@@ -239,7 +249,7 @@ export const aiMessages = pgTable('ai_messages', {
     metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}).notNull(), // usage, model, timing
     status: aiMessageStatusEnum('status').default('complete').notNull(),
     orderIndex: doublePrecision('order_index').notNull(),       // stable fractional ordering within a thread
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     convoOrderIdx: index('ai_messages_convo_order_idx').on(table.conversationId, table.orderIndex),
     userIdIdx: index('ai_messages_user_id_idx').on(table.userId),
@@ -256,7 +266,7 @@ export const taskSections = pgTable('task_sections', {
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     orderIndex: doublePrecision('order_index').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userIdIdx: index('task_sections_user_id_idx').on(table.userId),
     projectIdIdx: index('task_sections_project_id_idx').on(table.projectId),
@@ -275,7 +285,7 @@ export const projects = pgTable('projects', {
     name: text('name').notNull(),
     colorAccent: text('color_accent').default('luminous-amber'), // Ties strictly to Tailwind CSS Variables
     emoji: text('emoji'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userIdIdx: index('projects_user_id_idx').on(table.userId),
     rlsPolicy: pgPolicy("projects_owner_access", {
@@ -303,9 +313,9 @@ export const tasks = pgTable('tasks', {
 
     // The Calendar Unified Layer
     isAllDay: boolean('is_all_day').default(true).notNull(), // Does it float at the top of the day, or exist in a time block?
-    dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }), // The deadline
-    scheduledStart: timestamp('scheduled_start', { withTimezone: true, mode: 'string' }), // e.g. Tuesday at 2 PM
-    scheduledEnd: timestamp('scheduled_end', { withTimezone: true, mode: 'string' }), // e.g. Tuesday at 3 PM
+    dueDate: timestamptz('due_date'), // The deadline
+    scheduledStart: timestamptz('scheduled_start'), // e.g. Tuesday at 2 PM
+    scheduledEnd: timestamptz('scheduled_end'), // e.g. Tuesday at 3 PM
     durationEstimate: integer('duration_estimate'), // If unscheduled, how big should the block be when dragged to the calendar? (in minutes)
     timezoneLocked: boolean('timezone_locked').default(false).notNull(), // If TRUE, scheduledStart stays strictly at "3 PM" regardless of user traveling timezones
 
@@ -316,7 +326,7 @@ export const tasks = pgTable('tasks', {
     isPinned: boolean('is_pinned').default(false).notNull(),
 
     // ── Reminder System ──
-    reminderAt: timestamp('reminder_at', { withTimezone: true, mode: 'string' }),
+    reminderAt: timestamptz('reminder_at'),
     reminderSilenced: boolean('reminder_silenced').default(false).notNull(),
 
     // ── Recurrence (iCalendar RRULE) ──
@@ -325,12 +335,12 @@ export const tasks = pgTable('tasks', {
 
     // ── Additional Task States & Tracking ──
     waitingOn: text('waiting_on'),
-    waitingReminder: timestamp('waiting_reminder', { withTimezone: true, mode: 'string' }),
+    waitingReminder: timestamptz('waiting_reminder'),
     effort: integer('effort'), // 1=Low, 2=Medium, 3=High, NULL=unset
-    notBefore: timestamp('not_before', { withTimezone: true, mode: 'string' }),
+    notBefore: timestamptz('not_before'),
 
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => {
     return {
         userIdIdx: index('tasks_user_id_idx').on(table.userId),
@@ -358,8 +368,8 @@ export const tags = pgTable("tags", {
         .notNull(),
     name: text("name").notNull(),
     color: text("color").default("default"),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-        .defaultNow()
+    createdAt: timestamptz("created_at")
+        .default(sql`now()`)
         .notNull(),
 }, (table) => ({
     userIdIdx: index("tags_user_id_idx").on(table.userId),
@@ -412,7 +422,7 @@ export const inboxSections = pgTable('inbox_sections', {
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     name: text('name').notNull(),
     orderIndex: integer('order_index').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_sections_user_id_idx').on(table.userId),
     rlsPolicy: pgPolicy("inbox_sections_owner_access", {
@@ -445,9 +455,9 @@ export const inboxItems = pgTable('inbox_items', {
     analysisNeedsReview: boolean('analysis_needs_review').default(false).notNull(),
     analysisReviewReason: text('analysis_review_reason'),
     analysisEntityCount: integer('analysis_entity_count').default(0).notNull(),
-    clarifiedAt: timestamp('clarified_at', { withTimezone: true, mode: 'string' }),
-    appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'string' }),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    clarifiedAt: timestamptz('clarified_at'),
+    appliedAt: timestamptz('applied_at'),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
     rlsPolicy: pgPolicy("inbox_items_owner_access", {
@@ -507,11 +517,11 @@ export const habits = pgTable(
         // User-authored notes for this habit
         notes: text('notes'),
 
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
-            .defaultNow()
+        createdAt: timestamptz('created_at')
+            .default(sql`now()`)
             .notNull(),
-        updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
-            .defaultNow()
+        updatedAt: timestamptz('updated_at')
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => {
@@ -568,19 +578,13 @@ export const habitLogs = pgTable(
 
         // The localized day/date the action was due, stored as YYYY-MM-DD
         targetDate: date('target_date', { mode: 'string' }).notNull(),
-        completedAt: timestamp('completed_at', {
-            withTimezone: true,
-            mode: 'string',
-        }),
+        completedAt: timestamptz('completed_at'),
 
         // Timestamp of last explicit resolution action (complete/skip/clear)
-        resolvedAt: timestamp('resolved_at', {
-            withTimezone: true,
-            mode: 'string',
-        }),
+        resolvedAt: timestamptz('resolved_at'),
 
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
-            .defaultNow()
+        createdAt: timestamptz('created_at')
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => {
@@ -618,8 +622,8 @@ export const subtasks = pgTable(
         title: text("title").notNull(),
         isComplete: boolean("is_complete").default(false).notNull(),
         orderIndex: doublePrecision("order_index").notNull(),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -650,11 +654,11 @@ export const taskNotes = pgTable(
         wordCount: integer("word_count").default(0).notNull(),
         headingCount: integer("heading_count").default(0).notNull(),
         version: integer("version").default(1).notNull(),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
-        updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        updatedAt: timestamptz("updated_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -683,16 +687,10 @@ export const taskMetrics = pgTable(
         rescheduleCount: integer("reschedule_count").default(0).notNull(),
         delayCount: integer("delay_count").default(0).notNull(),
         createdToDone: integer("created_to_done"),
-        firstScheduled: timestamp("first_scheduled", {
-            withTimezone: true,
-            mode: "string",
-        }),
-        completedAt: timestamp("completed_at", {
-            withTimezone: true,
-            mode: "string",
-        }),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        firstScheduled: timestamptz("first_scheduled"),
+        completedAt: timestamptz("completed_at"),
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -726,8 +724,8 @@ export const usageEvents = pgTable(
         outcome: text("outcome"), // success/failure/cancel
         latencyMs: integer("latency_ms"), // action latency when relevant
         selectionCount: integer("selection_count"), // for batch operations
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -754,17 +752,17 @@ export const notificationState = pgTable(
         objectType: text("object_type").notNull(), // "task" | "habit" | "event"
         objectId: uuid("object_id").notNull(),
         triggerId: text("trigger_id").notNull(), // e.g. "due_date_reminder", "habit_due"
-        firstPresentedAt: timestamp("first_presented_at", { withTimezone: true, mode: "string" }),
-        lastPresentedAt: timestamp("last_presented_at", { withTimezone: true, mode: "string" }),
-        dismissedAt: timestamp("dismissed_at", { withTimezone: true, mode: "string" }),
-        deferredUntil: timestamp("deferred_until", { withTimezone: true, mode: "string" }),
+        firstPresentedAt: timestamptz("first_presented_at"),
+        lastPresentedAt: timestamptz("last_presented_at"),
+        dismissedAt: timestamptz("dismissed_at"),
+        deferredUntil: timestamptz("deferred_until"),
         actionTaken: text("action_taken"),
         presentationCount: integer("presentation_count").default(0).notNull(),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
-        updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        updatedAt: timestamptz("updated_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -794,10 +792,10 @@ export const suggestions = pgTable(
         body: text("body"),
         status: suggestionStatusEnum("status").default("PENDING").notNull(),
         relatedTaskIds: jsonb("related_task_ids").$type<string[]>().default([]),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
-        resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "string" }),
+        resolvedAt: timestamptz("resolved_at"),
     },
     (table) => ({
         userIdIdx: index("suggestions_user_id_idx").on(table.userId),
@@ -821,8 +819,8 @@ export const mutationDedup = pgTable(
             .notNull(),
         clientMutationId: text("client_mutation_id").notNull(),
         resultId: uuid("result_id"),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -857,9 +855,9 @@ export const taskNlpMetadata = pgTable(
         parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
         confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
         // ── Resolved columns (queryable without unpacking JSON) ──
-        resolvedDueDate: timestamp("resolved_due_date", { withTimezone: true, mode: "string" }),
-        resolvedScheduledStart: timestamp("resolved_scheduled_start", { withTimezone: true, mode: "string" }),
-        resolvedScheduledEnd: timestamp("resolved_scheduled_end", { withTimezone: true, mode: "string" }),
+        resolvedDueDate: timestamptz("resolved_due_date"),
+        resolvedScheduledStart: timestamptz("resolved_scheduled_start"),
+        resolvedScheduledEnd: timestamptz("resolved_scheduled_end"),
         resolvedRecurrenceRule: text("resolved_recurrence_rule"),
         resolvedProjectId: uuid("resolved_project_id"),
         resolvedTagIds: jsonb("resolved_tag_ids").$type<string[]>(),
@@ -873,8 +871,8 @@ export const taskNlpMetadata = pgTable(
         mediumConfidenceEntityCount: integer("medium_confidence_entity_count").default(0).notNull(),
         lowConfidenceEntityCount: integer("low_confidence_entity_count").default(0).notNull(),
         isCurrent: boolean("is_current").default(true).notNull(),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -906,9 +904,9 @@ export const taskNlpMetadataHistory = pgTable(
         parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
         confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
         // ── Resolved columns (mirror of task_nlp_metadata) ──
-        resolvedDueDate: timestamp("resolved_due_date", { withTimezone: true, mode: "string" }),
-        resolvedScheduledStart: timestamp("resolved_scheduled_start", { withTimezone: true, mode: "string" }),
-        resolvedScheduledEnd: timestamp("resolved_scheduled_end", { withTimezone: true, mode: "string" }),
+        resolvedDueDate: timestamptz("resolved_due_date"),
+        resolvedScheduledStart: timestamptz("resolved_scheduled_start"),
+        resolvedScheduledEnd: timestamptz("resolved_scheduled_end"),
         resolvedRecurrenceRule: text("resolved_recurrence_rule"),
         resolvedProjectId: uuid("resolved_project_id"),
         resolvedTagIds: jsonb("resolved_tag_ids").$type<string[]>(),
@@ -922,8 +920,8 @@ export const taskNlpMetadataHistory = pgTable(
         mediumConfidenceEntityCount: integer("medium_confidence_entity_count").default(0).notNull(),
         lowConfidenceEntityCount: integer("low_confidence_entity_count").default(0).notNull(),
         isCurrent: boolean("is_current").default(false).notNull(),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
@@ -951,11 +949,11 @@ export const savedFocusViews = pgTable(
         isPinned: boolean("is_pinned").default(false).notNull(),
         source: focusViewSourceEnum("source").default("preset").notNull(),
         orderIndex: doublePrecision("order_index").default(0).notNull(),
-        createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        createdAt: timestamptz("created_at")
+            .default(sql`now()`)
             .notNull(),
-        updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-            .defaultNow()
+        updatedAt: timestamptz("updated_at")
+            .default(sql`now()`)
             .notNull(),
     },
     (table) => ({

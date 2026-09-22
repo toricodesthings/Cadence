@@ -1,7 +1,7 @@
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { AppNotification } from "./notification-model";
-import { formatTime, formatShortDate, toISODate } from "../utils/date-format";
+import { formatShortDate, formatTime, getEffectiveTaskDate, toISODate } from "../utils/date-format";
 import { routineTimeOn } from "@cadence/domain/repeats";
 
 // ── §11.7: Defer choices ──
@@ -106,7 +106,8 @@ export function deriveCandidates(
         if (task.dueDate) {
             const dueDate = new Date(task.dueDate);
             const todayStr = toISODate(now);
-            const dueDateStr = task.dueDate.slice(0, 10);
+            // All-day: the stored day. Timed: the day in the user's time zone.
+            const dueDateStr = getEffectiveTaskDate(task.dueDate, task.isAllDay);
 
             if (dueDateStr === todayStr) {
                 items.push({

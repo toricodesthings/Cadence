@@ -1,5 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
-import { projects, tags, taskSections } from "../db/schema";
+import { inboxSections, projects, tags, taskSections } from "../db/schema";
 import { AppError } from "./errors";
 import type { Tx } from "../types/db";
 
@@ -10,7 +10,7 @@ import type { Tx } from "../types/db";
  */
 async function assertRowOwnership(
     tx: Tx,
-    table: typeof projects | typeof taskSections,
+    table: typeof projects | typeof taskSections | typeof inboxSections,
     userId: string,
     id: string,
     label: string,
@@ -60,11 +60,12 @@ async function assertTagsOwnership(tx: Tx, userId: string, tagIds: string[]) {
 export async function assertOwnership(
     tx: Tx,
     userId: string,
-    refs: { projectId?: string | null; sectionId?: string | null; tagIds?: string[] },
+    refs: { projectId?: string | null; sectionId?: string | null; inboxSectionId?: string | null; tagIds?: string[] },
 ) {
     const checks: Promise<void>[] = [];
     if (refs.projectId) checks.push(assertProjectOwnership(tx, userId, refs.projectId));
     if (refs.sectionId) checks.push(assertRowOwnership(tx, taskSections, userId, refs.sectionId, "Section"));
+    if (refs.inboxSectionId) checks.push(assertRowOwnership(tx, inboxSections, userId, refs.inboxSectionId, "Inbox section"));
     if (refs.tagIds?.length) checks.push(assertTagsOwnership(tx, userId, refs.tagIds));
     await Promise.all(checks);
 }

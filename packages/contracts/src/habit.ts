@@ -31,7 +31,9 @@ export const insertHabitSchema = z.object({
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
 export const updateHabitSchema = insertHabitSchema.partial().extend({
-    expectedUpdatedAt: isoDateTimeSchema.optional(),
+    // Any timestamp text, like task/note updates: the server compares instants, so
+    // an equivalent form (or a value cached before timestamps were unified) still matches.
+    expectedUpdatedAt: z.string().optional(),
 });
 export type UpdateHabit = z.input<typeof updateHabitSchema>;
 

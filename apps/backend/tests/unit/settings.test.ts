@@ -1,184 +1,40 @@
 import { describe, expect, it } from "vitest";
-import {
-    focusViewDefinitionSchema,
-    migrateLegacySettings,
-    savedFocusViewInputSchema,
-    settingsPatchSchema,
-} from "@cadence/contracts/settings";
 import { normalizeSettings } from "../../src/domains/settings/settings.route";
 
-describe("settings patch schema", () => {
-    it("accepts nested partial updates used by the frontend", () => {
-        expect(
-            settingsPatchSchema.parse({
-                tasks: {
-                    hideCompleted: true,
-                    intelligence: { lowStimulationMode: true, dismissedEntityIds: ["project:1"] },
-                },
-                dateTime: { timezone: "America/Toronto" },
-                calendar: { holidays: { enabled: false } },
-                location: { countryCode: "CA", promptDismissedAt: "2026-03-11T15:00:00.000Z" },
-                weather: { enabled: false },
-                preferredView: "kanban",
-            }),
-        ).toEqual({
-            tasks: {
-                hideCompleted: true,
-                intelligence: { lowStimulationMode: true, dismissedEntityIds: ["project:1"] },
-            },
-            dateTime: { timezone: "America/Toronto" },
-            calendar: { holidays: { enabled: false } },
-            location: { countryCode: "CA", promptDismissedAt: "2026-03-11T15:00:00.000Z" },
-            weather: { enabled: false },
-            preferredView: "kanban",
-        });
-    });
-
-    it("strips the retired holiday location fields from patches", () => {
-        expect(
-            settingsPatchSchema.parse({
-                calendar: { holidays: { enabled: true, usePreciseLocation: true, locationMode: "manual" } },
-            }),
-        ).toEqual({ calendar: { holidays: { enabled: true } } });
-    });
-
-    it("rejects unknown location modes", () => {
-        expect(() => settingsPatchSchema.parse({ location: { mode: "gps" } })).toThrow();
-    });
-});
-
-describe("legacy location migration", () => {
-    it("maps manual holiday settings to manual location", () => {
-        const migrated = migrateLegacySettings({
-            calendar: {
-                holidays: {
-                    enabled: true,
-                    usePreciseLocation: false,
-                    locationMode: "manual",
-                    countryCode: "CA",
-                    subdivisionCode: "CA-ON",
-                    promptDismissedAt: null,
-                },
-            },
-        }) as Record<string, any>;
-
-        expect(migrated.location).toEqual({
-            mode: "manual",
-            countryCode: "CA",
-            subdivisionCode: "CA-ON",
-            city: null,
-            promptDismissedAt: null,
-        });
-    });
-
-    it("keeps precise location and a permanent dismissal", () => {
-        const migrated = migrateLegacySettings({
-            calendar: {
-                holidays: {
-                    enabled: true,
-                    usePreciseLocation: true,
-                    locationMode: "auto",
-                    countryCode: null,
-                    subdivisionCode: null,
-                    promptDismissedAt: "2026-03-11T15:00:00.000Z",
-                },
-            },
-        }) as Record<string, any>;
-
-        expect(migrated.location.mode).toBe("precise");
-        expect(migrated.location.promptDismissedAt).toBe("2026-03-11T15:00:00.000Z");
-    });
-
-    it("never overwrites an existing location section", () => {
-        const stored = {
-            location: { mode: "off" },
-            calendar: { holidays: { enabled: true, usePreciseLocation: true, locationMode: "auto" } },
-        };
-        expect(migrateLegacySettings(stored)).toBe(stored);
-    });
-
-    it("normalizes legacy users to approximate with the defaults filled in", () => {
+// Schema, deepMerge, and legacy-location rules are tested in @cadence/contracts.
+// This covers only what the backend adds on top when it reads stored settings.
+describe("normalizeSettings", () => {
+    it("moves legacy users to approximate location and fills every default", () => {
         const normalized = normalizeSettings({
             calendar: { holidays: { enabled: false, usePreciseLocation: false, locationMode: "auto" } },
         });
 
-        expect(normalized.location).toEqual({
-            mode: "approximate",
-            countryCode: null,
-            subdivisionCode: null,
-            city: null,
-            promptDismissedAt: null,
-        });
+        expect(normalized.location).toEqual({ mode: "approximate", countryCode: null, subdivisionCode: null, city: null, promptDismissedAt: null });
         expect(normalized.weather).toEqual({ enabled: true });
         expect(normalized.calendar.holidays.enabled).toBe(false);
     });
-});
 
-describe("settings patch schema (validation)", () => {
+    it("keeps a stored photo instead of merging it into the null default", () => {
+        const image = { id: "22222222-2222-4222-8222-222222222222", dominant: "#1a2233", swatches: ["#e8a44a"], accent: null, blur: 20, brightness: 70 };
 
-    it("rejects invalid nested values", () => {
-        expect(() =>
-            settingsPatchSchema.parse({
-                notifications: { email: "yes" },
-            }),
-        ).toThrow();
-    });
-
-    it("accepts saved focus view payloads", () => {
-        expect(
-            savedFocusViewInputSchema.parse({
-                name: "Quick Wins",
-                definition: focusViewDefinitionSchema.parse({
-                    states: ["ACTIVE"],
-                    projectIds: [],
-                    tagIds: [],
-                    needsDate: false,
-                    needsProject: false,
-                    priorityMin: null,
-                    effortMax: 1,
-                    dueWindow: null,
-                    waitingOnly: false,
-                    missingStructureOnly: false,
-                    sortMode: "smart",
-                }),
-                isPinned: true,
-                source: "manual",
-            }),
-        ).toMatchObject({
-            name: "Quick Wins",
-            isPinned: true,
-            source: "manual",
-        });
-    });
-});
-
-describe("photo background settings", () => {
-    const image = {
-        id: "22222222-2222-4222-8222-222222222222",
-        dominant: "#1a2233",
-        swatches: ["#e8a44a"],
-        accent: null,
-        blur: 20,
-        brightness: 70,
-    };
-
-    it("keeps a stored photo when normalizing over the defaults", () => {
-        // `backgroundImage` defaults to null, so merging an object over it must
-        // replace rather than try to merge key by key.
         const normalized = normalizeSettings({ appearance: { backgroundMode: "image", backgroundImage: image } });
+
         expect(normalized.appearance.backgroundImage).toEqual(image);
         expect(normalized.appearance.backgroundMode).toBe("image");
     });
 
     it("defaults to no photo and the theme background", () => {
         const normalized = normalizeSettings({});
+
         expect(normalized.appearance.backgroundImage).toBeNull();
         expect(normalized.appearance.backgroundMode).toBe("theme");
     });
 
-    it("accepts photo adjustments in a patch", () => {
-        expect(settingsPatchSchema.parse({ appearance: { backgroundImage: { accent: "#e8a44a", blur: 40 } } })).toEqual({
-            appearance: { backgroundImage: { accent: "#e8a44a", blur: 40 } },
-        });
+    it("migrates legacy preferredView into tasks.defaultView", () => {
+        expect(normalizeSettings({ preferredView: "kanban" }).tasks.defaultView).toBe("kanban");
+    });
+
+    it("never lets legacy preferredView override an explicit tasks.defaultView", () => {
+        expect(normalizeSettings({ preferredView: "kanban", tasks: { defaultView: "list" } }).tasks.defaultView).toBe("list");
     });
 });

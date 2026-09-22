@@ -65,7 +65,10 @@ export async function resolveOrCreateConversation(
             .onConflictDoNothing()
             .returning({ id: aiConversations.id });
 
-        return { id: created?.id ?? args.conversationId, created: true, title: null };
+        // No row back means the id exists but RLS hides it: another user's thread.
+        // Never adopt it, or this user's turns would be written under their id.
+        if (!created) throw new AppError(404, "NOT_FOUND", "Conversation not found");
+        return { id: created.id, created: true, title: null };
     }
 
     const [row] = await tx

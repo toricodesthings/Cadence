@@ -495,7 +495,7 @@ export default function Schedule() {
             const durationMs = getTaskDurationMs(activeDragTask);
             const startMinutes = start.getHours() * 60 + start.getMinutes();
             const endMinutes = Math.min(24 * 60, startMinutes + Math.round(durationMs / 60_000));
-            const startIso = new Date(`${dateStr}T${start.toISOString().slice(11)}`).toISOString();
+            const startIso = preserveLocalTime(dateStr, activeDragTask.scheduledStart);
             const endIso = new Date(new Date(startIso).getTime() + durationMs).toISOString();
 
             return {

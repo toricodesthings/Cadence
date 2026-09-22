@@ -1,28 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../helpers/app";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiAs, createTestApp } from "../helpers/app";
+import { createUser, startTestDb } from "../helpers/db";
 
-const { getDbClientMock, withRlsMock } = vi.hoisted(() => ({
-    getDbClientMock: vi.fn(),
-    withRlsMock: vi.fn(),
-}));
-const { checkIdempotencyMock, recordMutationMock, getIdempotencyKeyMock } = vi.hoisted(() => ({
-    checkIdempotencyMock: vi.fn().mockResolvedValue(null),
-    recordMutationMock: vi.fn().mockResolvedValue(undefined),
-    getIdempotencyKeyMock: vi.fn().mockReturnValue(undefined),
-}));
-
-vi.mock("../../src/platform/db", () => ({ getDbClient: getDbClientMock }));
-vi.mock("../../src/platform/rls", () => ({ withRls: withRlsMock }));
-vi.mock("../../src/platform/idempotency", () => ({
-    checkIdempotency: checkIdempotencyMock,
-    recordMutation: recordMutationMock,
-    getIdempotencyKey: getIdempotencyKeyMock,
-}));
+vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
 import { backgroundRoutes } from "../../src/domains/settings/background.route";
+import { settingsRoutes } from "../../src/domains/settings/settings.route";
 
-const USER_ID = "11111111-1111-4111-8111-111111111111";
-const OTHER_USER_ID = "99999999-9999-4999-8999-999999999999";
+beforeAll(startTestDb);
+
+const settings = (userId: string) => apiAs(userId, "/settings", settingsRoutes);
 
 /** Smallest valid still WebP: a VP8L chunk with a 2×2 header. */
 const TINY_WEBP = new Uint8Array([
@@ -55,32 +42,6 @@ function createBucket() {
     return bucket;
 }
 
-function createTx(state: { settings: Record<string, any> }) {
-    return {
-        select: vi.fn(() => ({
-            from: vi.fn(() => ({
-                where: vi.fn(() => ({
-                    limit: vi.fn(async () => [{ settings: state.settings }]),
-                })),
-            })),
-        })),
-        update: vi.fn(() => ({
-            set: vi.fn((value: { settings: Record<string, any> }) => {
-                state.settings = value.settings;
-                return {
-                    where: vi.fn(() => ({
-                        returning: vi.fn(async () => [{ settings: value.settings }]),
-                    })),
-                };
-            }),
-        })),
-    };
-}
-
-function createApp(userId = USER_ID) {
-    return createTestApp("/settings/background", backgroundRoutes, userId);
-}
-
 function uploadForm(bytes: Uint8Array = TINY_WEBP) {
     const form = new FormData();
     form.set("file", new File([bytes], "background.webp", { type: "image/webp" }));
@@ -91,13 +52,13 @@ function uploadForm(bytes: Uint8Array = TINY_WEBP) {
 
 describe("background routes", () => {
     let bucket: ReturnType<typeof createBucket>;
-    let state: { settings: Record<string, any> };
+    let userId: string;
+    let createApp: (as?: string) => ReturnType<typeof createTestApp>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         bucket = createBucket();
-        state = { settings: {} };
-        withRlsMock.mockImplementation(async (_db, _userId, fn) => fn(createTx(state)));
-        checkIdempotencyMock.mockResolvedValue(null);
+        userId = await createUser();
+        createApp = (as = userId) => createTestApp("/settings/background", backgroundRoutes, as);
     });
 
     it("stores a sanitized photo privately and switches to image mode", async () => {
@@ -109,7 +70,7 @@ describe("background routes", () => {
         expect(body.data.appearance.backgroundMode).toBe("image");
         expect(image).toMatchObject({ dominant: "#1a2233", swatches: ["#e8a44a", "#7eb8d4"], accent: null, blur: 0, brightness: 80 });
 
-        const key = `backgrounds/${USER_ID}/${image.id}.webp`;
+        const key = `backgrounds/${userId}/${image.id}.webp`;
         expect([...bucket.objects.keys()]).toEqual([key]);
         // The trailing EXIF chunk was stripped before storage.
         expect(bucket.objects.get(key)!.length).toBe(TINY_WEBP.length - 10);
@@ -118,7 +79,7 @@ describe("background routes", () => {
     it("replaces the previous photo and keeps its adjustments", async () => {
         const app = createApp();
         await app.request("/settings/background", { method: "POST", body: uploadForm() }, { USER_ASSETS: bucket });
-        state.settings.appearance.backgroundImage.blur = 30;
+        await settings(userId)("PATCH", "", { appearance: { backgroundImage: { blur: 30 } } });
 
         const res = await app.request("/settings/background", { method: "POST", body: uploadForm() }, { USER_ASSETS: bucket });
         const image = ((await res.json()) as { data: any }).data.appearance.backgroundImage;
@@ -154,7 +115,7 @@ describe("background routes", () => {
         expect(own.headers.get("Content-Type")).toBe("image/webp");
         expect(own.headers.get("Cache-Control")).toContain("private");
 
-        const other = await createApp(OTHER_USER_ID).request(`/settings/background/${id}`, {}, { USER_ASSETS: bucket });
+        const other = await createApp(await createUser()).request(`/settings/background/${id}`, {}, { USER_ASSETS: bucket });
         expect(other.status).toBe(404);
     });
 
