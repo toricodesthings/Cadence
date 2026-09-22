@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-22
+
 Schedule on your phone opens on your day, keeps the month out of the way, and puts everything within reach.
 
 ### Added
