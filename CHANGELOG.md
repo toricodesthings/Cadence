@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-09-22
+
 ### Changed
 - Settings now shows the time zone Cadence uses (your device's) instead of a lock option that had no effect.
 
