@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
-import { createRequestContext } from "../../src/platform/request-log";
-import type { AuthVariables } from "../../src/platform/auth";
-import { formatErrorResponse } from "../../src/platform/errors";
+import { createTestApp, TEST_USER_ID } from "../helpers/app";
 
 const { getDbClientMock, withRlsMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
@@ -19,22 +16,10 @@ vi.mock("../../src/platform/rls", () => ({
 
 import { suggestionRoutes } from "../../src/domains/suggestions/suggestions.route";
 
-const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_SUGGESTION_ID = "22222222-2222-4222-8222-222222222222";
 
 function createSuggestionApp() {
-    const app = new Hono<{ Variables: AuthVariables }>();
-    app.onError((err, c) => {
-        const res = formatErrorResponse(err);
-        return c.json(res.body, res.status as 500);
-    });
-    app.use("*", createRequestContext());
-    app.use("*", async (c, next) => {
-        c.set("userId", TEST_USER_ID);
-        await next();
-    });
-    app.route("/suggestions", suggestionRoutes as any);
-    return app;
+    return createTestApp("/suggestions", suggestionRoutes);
 }
 
 const SUGGESTION_ROW = {
@@ -109,71 +94,38 @@ describe("suggestion route contracts", () => {
 
     // ── PATCH /suggestions/:id ──
 
-    it("accepts a suggestion by setting status to ACCEPTED", async () => {
+    function patch(id: string, body: unknown) {
+        return createSuggestionApp().request(`http://localhost/suggestions/${id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+        });
+    }
+
+    it.each(["ACCEPTED", "DISMISSED"])("resolves a suggestion as %s and stamps resolvedAt", async (status) => {
         const capture: { set?: Record<string, unknown> } = {};
-        const updatedRow = { ...SUGGESTION_ROW, status: "ACCEPTED", resolvedAt: "2026-03-16T12:00:00.000Z" };
-        const tx = createUpdateTx([updatedRow], capture);
+        const tx = createUpdateTx([{ ...SUGGESTION_ROW, status, resolvedAt: "2026-03-16T12:00:00.000Z" }], capture);
         getDbClientMock.mockReturnValue(tx);
         withRlsMock.mockImplementation(async (_db: any, _userId: any, cb: any) => cb(tx));
 
-        const app = createSuggestionApp();
-        const response = await app.request(`http://localhost/suggestions/${TEST_SUGGESTION_ID}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ status: "ACCEPTED" }),
-        });
+        const response = await patch(TEST_SUGGESTION_ID, { status });
 
         expect(response.status).toBe(200);
-        const body = (await response.json()) as any;
-        expect(body.data.status).toBe("ACCEPTED");
-        expect(capture.set?.status).toBe("ACCEPTED");
+        expect(((await response.json()) as any).data.status).toBe(status);
+        expect(capture.set?.status).toBe(status);
         expect(capture.set?.resolvedAt).toBeDefined();
     });
 
-    it("dismisses a suggestion by setting status to DISMISSED", async () => {
-        const capture: { set?: Record<string, unknown> } = {};
-        const updatedRow = { ...SUGGESTION_ROW, status: "DISMISSED", resolvedAt: "2026-03-16T12:00:00.000Z" };
-        const tx = createUpdateTx([updatedRow], capture);
-        getDbClientMock.mockReturnValue(tx);
-        withRlsMock.mockImplementation(async (_db: any, _userId: any, cb: any) => cb(tx));
-
-        const app = createSuggestionApp();
-        const response = await app.request(`http://localhost/suggestions/${TEST_SUGGESTION_ID}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ status: "DISMISSED" }),
-        });
-
-        expect(response.status).toBe(200);
-        const body = (await response.json()) as any;
-        expect(body.data.status).toBe("DISMISSED");
-        expect(capture.set?.status).toBe("DISMISSED");
-    });
-
-    it("rejects an invalid status value", async () => {
-        const app = createSuggestionApp();
-        const response = await app.request(`http://localhost/suggestions/${TEST_SUGGESTION_ID}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ status: "INVALID_STATUS" }),
-        });
+    it.each([
+        ["an unknown status", TEST_SUGGESTION_ID, { status: "INVALID_STATUS" }],
+        ["a missing status", TEST_SUGGESTION_ID, {}],
+        ["a non-uuid id", "not-a-uuid", { status: "ACCEPTED" }],
+    ])("rejects %s with 400 before touching the DB", async (_label, id, body) => {
+        const response = await patch(id, body);
 
         expect(response.status).toBe(400);
-        const body = (await response.json()) as any;
-        expect(body.error.code).toBe("INVALID_REQUEST");
-    });
-
-    it("rejects patch without status field", async () => {
-        const app = createSuggestionApp();
-        const response = await app.request(`http://localhost/suggestions/${TEST_SUGGESTION_ID}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({}),
-        });
-
-        expect(response.status).toBe(400);
-        const body = (await response.json()) as any;
-        expect(body.error.code).toBe("INVALID_REQUEST");
+        expect(((await response.json()) as any).error.code).toBe("INVALID_REQUEST");
+        expect(getDbClientMock).not.toHaveBeenCalled();
     });
 
     it("returns 404 when resolving a nonexistent suggestion", async () => {
@@ -194,16 +146,4 @@ describe("suggestion route contracts", () => {
         expect(body.error.code).toBe("NOT_FOUND");
     });
 
-    it("rejects patch with invalid uuid param", async () => {
-        const app = createSuggestionApp();
-        const response = await app.request("http://localhost/suggestions/not-a-uuid", {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ status: "ACCEPTED" }),
-        });
-
-        expect(response.status).toBe(400);
-        const body = (await response.json()) as any;
-        expect(body.error.code).toBe("INVALID_REQUEST");
-    });
 });

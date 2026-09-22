@@ -1,9 +1,5 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { logger, hashIdentifier, issuesFromError, shorten } from "../../src/platform/log";
-
-afterEach(() => {
-    vi.restoreAllMocks();
-});
 
 describe("logger", () => {
     it("routes levels to the matching console method", () => {

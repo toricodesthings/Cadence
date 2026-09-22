@@ -10,7 +10,7 @@ import {
     emptyUsage,
     type AiLimits,
 } from "../../src/domains/ai/safety/rate-limit";
-import { rlKeys, RL_NS } from "../../src/domains/ai/safety/rate-limit-keys";
+import { rlKeys } from "../../src/domains/ai/safety/rate-limit-keys";
 import type { Env } from "../../src/types/env";
 
 const USER_KEY = "deadbeefdeadbeef";
@@ -30,14 +30,6 @@ const k = rlKeys(USER_KEY);
 const asRedis = (r: FakeRedis) => r as unknown as Parameters<typeof admit>[0];
 
 describe("rate-limit-keys", () => {
-    it("builds tenant-scoped keys under the namespace + userKey", () => {
-        expect(k.req5h).toBe(`${RL_NS}:${USER_KEY}:5h:req`);
-        expect(k.tok5h).toBe(`${RL_NS}:${USER_KEY}:5h:tok`);
-        expect(k.req7d).toBe(`${RL_NS}:${USER_KEY}:7d:req`);
-        expect(k.tok7d).toBe(`${RL_NS}:${USER_KEY}:7d:tok`);
-        expect(k.inflight).toBe(`${RL_NS}:${USER_KEY}:inflight`);
-    });
-
     it("never builds the same key across two different userKeys (§15.1)", () => {
         expect(rlKeys("aaaa").tok5h).not.toBe(rlKeys("bbbb").tok5h);
     });

@@ -10,13 +10,13 @@ import {
     seedDate,
     seedDateTime,
 } from "../../src/domains/debug/debug-seed";
-import { getTaskEffectiveAnchor, getTaskScheduleKind } from "../../../frontend/app/lib/utils/task/task-scheduling";
+import { classifyTaskReadShape } from "@cadence/domain/task-temporal";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const ANCHOR = new Date(Date.UTC(2026, 2, 9, 12, 0, 0, 0));
 
 describe("debug seed helpers", () => {
-    it("builds canonical all-day deadline tasks for frontend deadline views", () => {
+    it("builds canonical all-day deadline tasks for deadline views", () => {
         const task = createSeedTask(USER_ID, {
             title: "Call landlord about hallway leak",
             state: "ACTIVE",
@@ -32,11 +32,10 @@ describe("debug seed helpers", () => {
         expect(task.dueDate).toBe("2026-03-09T12:00:00.000Z");
         expect(task.scheduledStart).toBeNull();
         expect(task.scheduledEnd).toBeNull();
-        expect(getTaskScheduleKind(task)).toBe("deadline");
-        expect(getTaskEffectiveAnchor(task)).toBe("2026-03-09");
+        expect(classifyTaskReadShape(task)).toBe("deadline_only");
     });
 
-    it("builds canonical all-day duration tasks for frontend schedule spans", () => {
+    it("builds canonical all-day duration tasks for schedule spans", () => {
         const task = createSeedTask(USER_ID, {
             title: "Stage weekend reset window",
             state: "ACTIVE",
@@ -51,11 +50,10 @@ describe("debug seed helpers", () => {
         expect(task.dueDate).toBe("2026-03-11T12:00:00.000Z");
         expect(task.scheduledStart).toBeNull();
         expect(task.scheduledEnd).toBe("2026-03-12T23:59:59.999Z");
-        expect(getTaskScheduleKind(task)).toBe("duration");
-        expect(getTaskEffectiveAnchor(task)).toBe("2026-03-11");
+        expect(classifyTaskReadShape(task)).toBe("all_day_duration");
     });
 
-    it("builds canonical timed tasks for frontend calendar blocks", () => {
+    it("builds canonical timed tasks for calendar blocks", () => {
         const task = createSeedTask(USER_ID, {
             title: "Draft launch announcement",
             state: "ACTIVE",
@@ -73,8 +71,7 @@ describe("debug seed helpers", () => {
         expect(task.dueDate).toBeNull();
         expect(task.scheduledStart).toBe("2026-03-09T14:00:00.000Z");
         expect(task.scheduledEnd).toBe("2026-03-09T15:30:00.000Z");
-        expect(getTaskScheduleKind(task)).toBe("timed");
-        expect(getTaskEffectiveAnchor(task)).toBe("2026-03-09");
+        expect(classifyTaskReadShape(task)).toBe("timed_block");
     });
 
     it("builds recurring timetable seed tasks without mutating the timed anchor", () => {
@@ -96,8 +93,7 @@ describe("debug seed helpers", () => {
         expect(task.scheduledEnd).toBe("2026-03-10T10:45:00.000Z");
         expect(task.timezoneLocked).toBe(true);
         expect(task.recurrenceRule).toBe("FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z");
-        expect(getTaskScheduleKind(task)).toBe("timed");
-        expect(getTaskEffectiveAnchor(task)).toBe("2026-03-10");
+        expect(classifyTaskReadShape(task)).toBe("timed_block");
     });
 
     it("leaves column defaults to the database for non-task seed entities", () => {

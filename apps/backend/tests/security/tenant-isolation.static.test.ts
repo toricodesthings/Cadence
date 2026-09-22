@@ -5,41 +5,38 @@
  * explicit `eq(<table>.userId, userId)` predicate on every user-scoped query.
  * The cron path scans cross-tenant by design, which means the DB connection
  * role can bypass RLS — so the explicit `userId` predicate is load-bearing, not
- * merely defense in depth. If a future handler forgets it, RLS may not catch
- * the leak.
+ * merely defense in depth. If future code forgets it, RLS may not catch the leak.
  *
- * This test fails the build when a route-level UPDATE or DELETE against a
- * user-scoped table is missing a `userId` predicate. UPDATE/DELETE are the
- * catastrophic vectors (cross-tenant tampering / deletion); reads carry less
- * blast radius and are additionally covered by RLS.
+ * This test fails when an UPDATE or DELETE against a user-scoped table anywhere
+ * in `src/` is missing a `userId` predicate. UPDATE/DELETE are the catastrophic
+ * vectors (cross-tenant tampering / deletion); reads carry less blast radius
+ * and are additionally covered by RLS.
  *
- * A small allowlist covers operations that are safe by construction: they key
- * off a parent row whose ownership was verified earlier in the same
- * transaction, or a join table that has no `userId` column of its own. Each
- * entry is annotated with WHY it is safe. Adding a new userId-less write means
- * consciously adding it here (with a justification) — that is the ratchet.
+ * A small allowlist covers operations that are safe by construction. Each entry
+ * says WHY. Adding a new userId-less write means consciously adding it here
+ * (with a justification) — that is the ratchet.
  *
- * Raw `tx.execute(sql`...`)` statements are intentionally out of scope; the one
- * such write (tasks reorder) is reviewed to include `AND user_id = ${userId}`.
+ * Raw `tx.execute(sql`...`)` statements are out of scope; the one such write
+ * (tasks reorder) is reviewed to include `AND user_id = ${userId}`.
  */
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DOMAINS_DIR = join(fileURLToPath(import.meta.url), "../../../src/domains");
+const SRC_DIR = join(fileURLToPath(import.meta.url), "../../../src");
 
 /** Tables that carry per-user data and must be scoped by `userId`. */
 const USER_SCOPED_TABLES = [
-    "users", "userMetrics", "aiMemories", "taskSections", "projects", "tasks",
-    "tags", "taskTags", "inboxItems", "inboxSections", "habits", "habitTags",
-    "habitLogs", "subtasks", "taskNotes", "taskMetrics", "usageEvents",
+    "users", "userMetrics", "aiMemories", "aiConversations", "aiMessages", "taskSections",
+    "projects", "tasks", "tags", "taskTags", "inboxItems", "inboxSections", "habits",
+    "habitTags", "habitLogs", "subtasks", "taskNotes", "taskMetrics", "usageEvents",
     "notificationState", "suggestions", "mutationDedup", "taskNlpMetadata",
     "taskNlpMetadataHistory", "savedFocusViews",
 ];
 
 /**
- * Where-clause fragments that are safe despite lacking a direct `userId`
+ * Statement fragments that are safe despite lacking a direct `userId`
  * predicate. Each must stay justified.
  */
 const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
@@ -48,68 +45,54 @@ const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     { fragment: "eq(habits.id, habit.id", reason: "`habit` was fetched via a userId-scoped select in the same tx" },
     { fragment: "eq(habitTags.habitId, id", reason: "`id` is verified as an owned habit (update + throwIfNotFound) before tag sync" },
     { fragment: "eq(inboxItems.id, id", reason: "inbox item ownership verified earlier in the same tx (process route)" },
+    { fragment: "eq(taskMetrics.id, existing[0].id", reason: "`existing` was fetched via a userId-scoped select in the same tx" },
+    { fragment: "lt(mutationDedup.createdAt, cutoff", reason: "cron TTL prune; sweeps every user's expired dedup keys by design" },
+    { fragment: "inArray(aiMemories.id, idsToDelete", reason: "cron prune; ids come from a deliberate cross-tenant EPHEMERAL/expired select" },
 ];
 
-function collectRouteFiles(dir: string): string[] {
-    const out: string[] = [];
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+function collectSourceFiles(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
         const full = join(dir, entry.name);
-        if (entry.isDirectory()) out.push(...collectRouteFiles(full));
-        else if (entry.name.endsWith(".route.ts") || entry.name === "debug-seed.ts") out.push(full);
-    }
-    return out;
+        if (entry.isDirectory()) return collectSourceFiles(full);
+        return entry.name.endsWith(".ts") ? [full] : [];
+    });
 }
 
-/** Extract the chained statement text starting at an UPDATE/DELETE call. */
+/** The chained statement text from an UPDATE/DELETE call to its terminator. */
 function statementFrom(source: string, opIndex: number): string {
     const rest = source.slice(opIndex);
-    const returningIdx = rest.indexOf(".returning(");
-    const semicolonIdx = rest.indexOf(";");
-    const candidates = [returningIdx, semicolonIdx].filter((i) => i >= 0);
-    // End at the statement terminator (.returning() or ;). Only fall back to a
-    // generous fixed window when neither is found, so long .set({...}) blocks
-    // never hide the trailing .where() clause.
-    const end = candidates.length > 0 ? Math.min(...candidates) : 1500;
-    return rest.slice(0, end);
+    // End at the first terminator so long `.set({...})` blocks never hide the
+    // trailing `.where()`; fall back to a generous window when there is none.
+    const ends = [rest.indexOf(".returning("), rest.indexOf(";")].filter((i) => i >= 0);
+    return rest.slice(0, ends.length > 0 ? Math.min(...ends) : 1500);
 }
 
-const tableUnion = USER_SCOPED_TABLES.join("|");
-const writeOpRegex = new RegExp(`\\.(update|delete)\\(\\s*(${tableUnion})\\s*\\)`, "g");
+const writeOp = new RegExp(`\\.(update|delete)\\(\\s*(${USER_SCOPED_TABLES.join("|")})\\s*\\)`, "g");
 
-describe("Tenant isolation: every route-level write filters by userId", () => {
-    const files = collectRouteFiles(DOMAINS_DIR);
-
-    it("discovers route files to scan", () => {
-        expect(files.length).toBeGreaterThan(5);
-    });
-
-    for (const file of files) {
+function findUnscopedWrites() {
+    const writes: string[] = [];
+    const violations: string[] = [];
+    for (const file of collectSourceFiles(SRC_DIR)) {
         const source = readFileSync(file, "utf8");
-        const shortName = file.slice(file.indexOf("/domains/"));
-
-        let match: RegExpExecArray | null;
-        const regex = new RegExp(writeOpRegex.source, "g");
-        while ((match = regex.exec(source)) !== null) {
-            const verb = match[1];
-            const table = match[2];
-            const op = `${verb}(${table})`;
-            const stmt = statementFrom(source, match.index);
-            const line = source.slice(0, match.index).split("\n").length;
-            const hasUserId = /userId/.test(stmt);
-            const allowed = ALLOWED_WITHOUT_USERID.find((a) => stmt.includes(a.fragment));
-
-            it(`${shortName}:${line} — ${op} is tenant-scoped`, () => {
-                if (hasUserId || allowed) {
-                    expect(true).toBe(true);
-                    return;
-                }
-                throw new Error(
-                    `${shortName}:${line} performs ${op} without a userId predicate and is not in the ` +
-                    `allowlist.\nStatement:\n${stmt.trim()}\n\n` +
-                    `Either add eq(${table}.userId, userId) to the WHERE clause, or — if it is ` +
-                    `safe by construction — add an annotated entry to ALLOWED_WITHOUT_USERID.`,
-                );
-            });
+        for (const match of source.matchAll(writeOp)) {
+            const [, verb, table] = match;
+            const where = `src/${relative(SRC_DIR, file)}:${source.slice(0, match.index).split("\n").length}`;
+            const stmt = statementFrom(source, match.index!);
+            writes.push(where);
+            if (/userId/.test(stmt) || ALLOWED_WITHOUT_USERID.some((a) => stmt.includes(a.fragment))) continue;
+            violations.push(`${where} ${verb}(${table}) has no userId predicate:\n${stmt.trim()}`);
         }
     }
+    return { writes, violations };
+}
+
+it("every UPDATE/DELETE on a user-scoped table in src/ filters by userId", () => {
+    const { writes, violations } = findUnscopedWrites();
+
+    // Guards the scanner itself: a broken regex or path would otherwise pass vacuously.
+    expect(writes.length).toBeGreaterThan(50);
+    expect(
+        violations,
+        "Add eq(<table>.userId, userId) to the WHERE clause, or — if safe by construction — add an annotated entry to ALLOWED_WITHOUT_USERID.",
+    ).toEqual([]);
 });

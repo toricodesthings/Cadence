@@ -8,7 +8,7 @@ import { getDbClient } from "../../platform/db";
 import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
 import { assertOwnership } from "../../platform/ownership";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
-import { trackCompletion, trackReschedule, trackEvent, trackBatchCompletion, trackBatchEvents } from "../../platform/metrics";
+import { trackReschedule, trackBatchCompletion, trackBatchEvents } from "../../platform/metrics";
 import { withRls } from "../../platform/rls";
 import { normalizeTaskFilters, type NormalizedTaskFilters } from "./task-filters";
 import {
@@ -24,7 +24,7 @@ import { computeGappedOrderIndex } from "@cadence/domain/ordering";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
-import { uuidParamSchema } from "../../types/api";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "./tasks.schema";
 import type { Env } from "../../types/env";
@@ -435,7 +435,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         try {
             c.executionCtx.waitUntil(
-                trackEvent(getDbClient(c.env), userId, "task.create", { taskId: task.id }),
+                trackBatchEvents(db, userId, [{ event: "task.create", metadata: { taskId: task.id } }]),
             );
         } catch {
             // executionCtx may not be available in test environments
@@ -490,14 +490,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .returning(),
         );
 
-        const db2 = getDbClient(c.env);
         for (const id of taskIds) {
             c.executionCtx.waitUntil(
-                trackReschedule(db2, id, userId, temporalFields.scheduledStart ?? temporalFields.dueDate),
+                trackReschedule(db, id, userId, temporalFields.scheduledStart ?? temporalFields.dueDate),
             );
         }
         c.executionCtx.waitUntil(
-            trackBatchEvents(db2, userId, taskIds.map((id) => ({ event: "task.reschedule", metadata: { taskId: id } }))),
+            trackBatchEvents(db, userId, taskIds.map((id) => ({ event: "task.reschedule", metadata: { taskId: id } }))),
         );
 
         return c.json({ data: serializeTasks(updatedTasks) });
@@ -553,16 +552,16 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         if (hasTaskTemporalMutation(body)) {
             c.executionCtx.waitUntil(
-                trackReschedule(getDbClient(c.env), id, userId, updated.scheduledStart ?? updated.dueDate),
+                trackReschedule(db, id, userId, updated.scheduledStart ?? updated.dueDate),
             );
             c.executionCtx.waitUntil(
-                trackEvent(getDbClient(c.env), userId, "task.reschedule", { taskId: id }),
+                trackBatchEvents(db, userId, [{ event: "task.reschedule", metadata: { taskId: id } }]),
             );
         }
         if (body.state === "COMPLETE") {
-            c.executionCtx.waitUntil(trackCompletion(getDbClient(c.env), id, userId));
+            c.executionCtx.waitUntil(trackBatchCompletion(db, [id], userId));
             c.executionCtx.waitUntil(
-                trackEvent(getDbClient(c.env), userId, "task.complete", { taskId: id }),
+                trackBatchEvents(db, userId, [{ event: "task.complete", metadata: { taskId: id } }]),
             );
         }
 
@@ -622,10 +621,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         );
 
         if (state === "COMPLETE") {
-            const db2 = getDbClient(c.env);
-            c.executionCtx.waitUntil(trackBatchCompletion(db2, taskIds, userId));
+                c.executionCtx.waitUntil(trackBatchCompletion(db, taskIds, userId));
             c.executionCtx.waitUntil(
-                trackBatchEvents(db2, userId, taskIds.map((id) => ({ event: "task.complete", metadata: { taskId: id } }))),
+                trackBatchEvents(db, userId, taskIds.map((id) => ({ event: "task.complete", metadata: { taskId: id } }))),
             );
         }
 

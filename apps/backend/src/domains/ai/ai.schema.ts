@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { aiPromptBlockKindEnum } from "../../db/schema";
 
 // Wire-crossing AI shapes (UIMessage, chat request, conversation/message
 // schemas, widget part payloads) live in @cadence/contracts/ai.
@@ -8,14 +9,8 @@ export * from "@cadence/contracts/ai";
 // Used only by the admin/debug-gated PATCH path. Any write bumps ai_prompt_revision
 // in the same transaction (cache-bust). Not part of the public API surface.
 
-const promptBlockKindSchema = z.enum([
-    "identity", "safety", "operating_principles", "output_contract", "tool_policy",
-    "runtime_context", "human_metrics", "persona_customization",
-    "retrieved_memory", "workspace_snapshot", "tone_neutral", "tone_protective",
-]);
-
 export const promptBlockUpsertSchema = z.object({
-    kind: promptBlockKindSchema,
+    kind: z.enum(aiPromptBlockKindEnum.enumValues),
     layer: z.enum(["base", "auxiliary"]),
     locale: z.string().min(2).max(10).default("en"),
     orderIndex: z.number().int().min(0),
@@ -23,7 +18,6 @@ export const promptBlockUpsertSchema = z.object({
     isActive: z.boolean().optional(),
     notes: z.string().max(500).optional(),
 });
-export type PromptBlockUpsert = z.infer<typeof promptBlockUpsertSchema>;
 
 // ── Admin: conversation auto-title prompt editing (ai_title_prompts) ──
 // One active row per locale; the title-prompt loader picks it up within its TTL.
@@ -33,4 +27,3 @@ export const titlePromptUpsertSchema = z.object({
     isActive: z.boolean().optional(),
     notes: z.string().max(500).optional(),
 });
-export type TitlePromptUpsert = z.infer<typeof titlePromptUpsertSchema>;

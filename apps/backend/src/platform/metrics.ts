@@ -38,71 +38,6 @@ export async function trackReschedule(
     });
 }
 
-export async function trackCompletion(
-    db: DbClient,
-    taskId: string,
-    userId: string,
-) {
-    await withRls(db, userId, async (tx) => {
-        const task = await tx
-            .select({ createdAt: tasks.createdAt })
-            .from(tasks)
-            .where(eq(tasks.id, taskId))
-            .limit(1);
-
-        if (!task[0]) return;
-
-        const completedAt = new Date().toISOString();
-        const createdToDone = Math.floor(
-            (Date.now() - new Date(task[0].createdAt).getTime()) / 1000,
-        );
-
-        await tx
-            .insert(taskMetrics)
-            .values({
-                taskId,
-                userId,
-                completedAt,
-                createdToDone,
-            })
-            .onConflictDoNothing();
-
-        await tx
-            .update(taskMetrics)
-            .set({
-                completedAt,
-                createdToDone,
-            })
-            .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)));
-    });
-}
-
-/** Fire-and-forget usage event. Safe to call inside waitUntil. */
-export async function trackEvent(
-    db: DbClient,
-    userId: string,
-    event: string,
-    metadata?: Record<string, unknown>,
-) {
-    try {
-        await withRls(db, userId, async (tx) => {
-            await tx.insert(usageEvents).values({
-                userId,
-                event,
-                metadata: metadata ?? null,
-            });
-        });
-    } catch (err) {
-        // Best-effort telemetry — never block the caller, but surface the failure
-        // so a broken usage-event write is visible instead of silently lost.
-        logger.warn("http", "telemetry_write_failed", {
-            userHash: await hashIdentifier(userId),
-            event,
-            issues: issuesFromError(err),
-        });
-    }
-}
-
 /**
  * Batch-track completion for multiple tasks in a single RLS transaction.
  * Reduces N DB connections + N transactions → 1 of each.
@@ -190,7 +125,7 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
             scheduleDensity,
         });
 
-        await upsertUserMetrics(tx, userId, {
+        const data = {
             rescheduleVelocity,
             currentBurnoutIndex: burnoutIndex,
             completionRatio,
@@ -198,7 +133,11 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
             habitAdherenceRate,
             scheduleDensity,
             lastCalculatedAt: now.toISOString(),
-        });
+        };
+        await tx
+            .insert(userMetrics)
+            .values({ userId, ...data })
+            .onConflictDoUpdate({ target: [userMetrics.userId], set: data });
     });
 }
 
@@ -270,22 +209,4 @@ function computeBurnoutIndex(signals: {
             ),
         ),
     );
-}
-
-async function upsertUserMetrics(tx: Tx, userId: string, data: {
-    rescheduleVelocity: number;
-    currentBurnoutIndex: number;
-    completionRatio: number;
-    overdueCarryLoad: number;
-    habitAdherenceRate: number;
-    scheduleDensity: number;
-    lastCalculatedAt: string;
-}) {
-    await tx
-        .insert(userMetrics)
-        .values({ userId, ...data })
-        .onConflictDoUpdate({
-            target: [userMetrics.userId],
-            set: data,
-        });
 }

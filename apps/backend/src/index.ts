@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
+import { bodyLimit } from "hono/body-limit";
 import type { Env } from "./types/env";
 import { getDeploymentStage, getAllowedOrigins } from "./types/env";
 import { authMiddleware } from "./platform/auth";
-import { formatErrorResponse } from "./platform/errors";
+import { createErrorBody, formatErrorResponse } from "./platform/errors";
 import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCode } from "./platform/request-log";
 import { taskRoutes } from "./domains/tasks/tasks.route";
 import { projectRoutes } from "./domains/projects/projects.route";
@@ -64,18 +65,14 @@ app.use("*", secureHeaders());
 
 // ── Request Body Size Limit (100KB) ──
 // Photo uploads are exempt here and enforce their own limit on the route.
-const BODY_LIMIT_EXEMPT_POSTS = new Set(["/api/v1/settings/background"]);
-app.use("/api/v1/*", async (c, next) => {
-  if (c.req.method === "POST" && BODY_LIMIT_EXEMPT_POSTS.has(c.req.path.replace(/\/$/, ""))) return next();
-  const contentLength = c.req.header("content-length");
-  if (contentLength && parseInt(contentLength, 10) > 102400) {
-    return c.json(
-      { error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large", status: 413 } },
-      413,
-    );
-  }
-  await next();
+const limitBody = bodyLimit({
+  maxSize: 100 * 1024,
+  onError: (c) =>
+    c.json(createErrorBody({ code: "PAYLOAD_TOO_LARGE", message: "Request body too large", status: 413 }), 413),
 });
+app.use("/api/v1/*", (c, next) =>
+  c.req.method === "POST" && c.req.path.replace(/\/$/, "") === "/api/v1/settings/background" ? next() : limitBody(c, next),
+);
 app.use(
   "*",
   cors({
@@ -107,15 +104,13 @@ app.route("/health", healthRoutes);
 function rateLimitResponse(c: import("hono").Context) {
   setRequestErrorCode(c, "TOO_MANY_REQUESTS");
   return c.json(
-    {
-      error: {
-        code: "TOO_MANY_REQUESTS",
-        message: "Rate limit exceeded. Please slow down.",
-        status: 429,
-        isRetryable: true,
-        requestId: getRequestId(c),
-      },
-    },
+    createErrorBody({
+      code: "TOO_MANY_REQUESTS",
+      message: "Rate limit exceeded. Please slow down.",
+      status: 429,
+      isRetryable: true,
+      requestId: getRequestId(c),
+    }),
     { status: 429, headers: { "Retry-After": "60" } },
   );
 }
@@ -123,13 +118,6 @@ function rateLimitResponse(c: import("hono").Context) {
 // ── Protected ──
 
 // Keep admin debug tooling dark in production unless explicitly enabled.
-app.use("/api/v1/debug", async (c, next) => {
-  if (!areDebugRoutesEnabled(c.env)) {
-    return c.notFound();
-  }
-  await next();
-});
-
 app.use("/api/v1/debug/*", async (c, next) => {
   if (!areDebugRoutesEnabled(c.env)) {
     return c.notFound();
@@ -153,20 +141,8 @@ app.use("/api/v1/*", authMiddleware);
 // Tier 2: User-scoped read/write limiters (post-auth)
 app.use("/api/v1/*", async (c, next) => {
   if (c.req.method === "OPTIONS") return next();
-  const userId = c.get("userId");
-  const method = c.req.method;
-
-  if (method === "GET") {
-    if (c.env.RATE_LIMITER_READ) {
-      const { success } = await c.env.RATE_LIMITER_READ.limit({ key: userId });
-      if (!success) return rateLimitResponse(c);
-    }
-  } else {
-    if (c.env.RATE_LIMITER_WRITE) {
-      const { success } = await c.env.RATE_LIMITER_WRITE.limit({ key: userId });
-      if (!success) return rateLimitResponse(c);
-    }
-  }
+  const limiter = c.req.method === "GET" ? c.env.RATE_LIMITER_READ : c.env.RATE_LIMITER_WRITE;
+  if (limiter && !(await limiter.limit({ key: c.get("userId") })).success) return rateLimitResponse(c);
   await next();
 });
 

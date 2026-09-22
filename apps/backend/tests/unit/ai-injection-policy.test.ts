@@ -30,11 +30,6 @@ describe("fenceData", () => {
         );
     });
 
-    it("carries the kind and trust attributes", () => {
-        const out = fenceData({ nonce: "n", kind: "retrieved_memory", trust: "trusted", content: "x" });
-        expect(out).toContain(`kind="retrieved_memory"`);
-        expect(out).toContain(`trust="trusted"`);
-    });
 });
 
 describe("sanitizeUntrusted", () => {

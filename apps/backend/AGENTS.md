@@ -60,7 +60,7 @@ src/
 
 ## 4. Request Lifecycle
 
-`createRequestContext` (request ID) → `secureHeaders()` → body size limit (100KB, `/api/v1/*`; the photo upload is exempt and capped on its own route) → CORS allowlist → debug-route guard (404 unless dev + `ENABLE_DEBUG_ROUTES=true`) → Tier-1 IP rate limit (pre-auth) → JWT auth (`userId` attached) → Tier-2 user rate limit (read/write) → Tier-3 admin rate limit (`/api/v1/debug/*`) → `apiValidator()` → handler: `getDbClient(c.env)` → `withRls(db, userId, fn)` → `{ data: ... }`.
+`createRequestContext` (request ID) → `secureHeaders()` → body size limit (100KB, `/api/v1/*`; the photo upload is exempt and capped on its own route) → CORS allowlist → debug-route guard (404 in production, or unless `ENABLE_DEBUG_ROUTES=true`) → Tier-1 IP rate limit (pre-auth) → JWT auth (`userId` attached) → Tier-2 user rate limit (read/write) → Tier-3 admin rate limit (`/api/v1/debug/*`) → `apiValidator()` → handler: `getDbClient(c.env)` → `withRls(db, userId, fn)` → `{ data: ... }`.
 
 Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, attaches request ID, never leaks stack traces/SQL.
 
@@ -121,7 +121,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 ## 11. Tests
 
-`tests/unit/` (pure logic, no HTTP) · `tests/contracts/` (route-level, mocked DB) · `tests/security/` (ASVS + middleware). Commands: `pnpm test`, `test:unit`, `test:contracts`, `test:security`, `test:watch`, `pnpm check` (typecheck + all tests).
+`tests/unit/` (pure logic, no HTTP) · `tests/contracts/` (route-level, mocked DB) · `tests/security/` (ASVS + middleware). Commands: `pnpm test` (all of `tests/`, what CI runs), `test:unit`, `test:contracts`, `test:security`, `test:watch`, `pnpm check` (typecheck + all tests).
 
 ## 12. Auth (`platform/auth.ts`)
 

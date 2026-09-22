@@ -7,7 +7,7 @@ import { withRls } from "../../platform/rls";
 import { toLocalDateStr } from "../../platform/date-utils";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, monthlyHabitsQuerySchema, habitListQuerySchema, unresolvedQuerySchema } from "@cadence/contracts/habit";
-import { uuidParamSchema } from "../../types/api";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound, assertNoConflict } from "../../platform/errors";

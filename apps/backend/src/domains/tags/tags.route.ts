@@ -5,7 +5,7 @@ import { getIdempotencyKey, checkIdempotency, recordMutation } from "../../platf
 import { withRls } from "../../platform/rls";
 import { tags } from "../../db/schema";
 import { insertTagSchema, updateTagSchema } from "@cadence/contracts/tag";
-import { uuidParamSchema } from "../../types/api";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";

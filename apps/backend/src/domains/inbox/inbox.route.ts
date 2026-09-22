@@ -7,7 +7,7 @@ import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
 import { inboxItems, inboxSections, tasks, taskTags } from "../../db/schema";
 import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
-import { uuidParamSchema } from "../../types/api";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";

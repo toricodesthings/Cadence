@@ -326,6 +326,7 @@ export async function saveAssistantMessage(
  */
 export async function touchConversation(
     tx: Tx,
+    userId: string,
     conversationId: string,
     opts?: {
         lastMessageAt?: string;
@@ -345,7 +346,10 @@ export async function touchConversation(
             set.metadata = sql`${aiConversations.metadata} || ${JSON.stringify(opts.metadataMerge)}::jsonb`;
         }
 
-        await tx.update(aiConversations).set(set).where(eq(aiConversations.id, conversationId));
+        await tx
+            .update(aiConversations)
+            .set(set)
+            .where(and(eq(aiConversations.id, conversationId), eq(aiConversations.userId, userId)));
     } catch (error) {
         logger.warn("ai", "ai_persist_failed", { op: "touchConversation", conversationId, error });
     }

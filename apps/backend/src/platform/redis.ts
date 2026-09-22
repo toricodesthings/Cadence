@@ -68,8 +68,3 @@ export function getRedis(env: Env): Redis | null {
 export function getRateLimitRedis(env: Env): Redis | null {
     return buildRedisClient(env);
 }
-
-/** True when resumable streams + hard abort are configured and enabled. */
-export function isResumeEnabled(env: Env): boolean {
-    return getRedis(env) !== null;
-}

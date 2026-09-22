@@ -1,0 +1,100 @@
+# Cadence CI — health signal on every PR and push to main (Cloudflare deploys on push; this gates nothing).
+# One install, one step per concern: the red step's name says what broke. Later steps still run after a failure.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: https://api.cadenceapp.cloud
+      VITE_NEON_AUTH_URL: https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      # Desktop's typecheck is cargo (Rust), covered by desktop.yml.
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm turbo run typecheck --continue --filter=!@cadence/desktop
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint --continue
+
+      - name: Test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm test --continue
+
+      - name: Build
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm turbo run build --continue --filter=!@cadence/desktop
+
+      - name: Deploy dry-run
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          pnpm --filter @cadence/backend exec wrangler deploy --dry-run --env=""
+          pnpm --filter @cadence/frontend exec wrangler deploy --dry-run --env=""
+          pnpm --filter @cadence/landing exec wrangler deploy --dry-run
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+
+      - name: Block tracked secret files
+        run: |
+          tracked=$(
+            git ls-files \
+              | grep -E '(^|/)(\.env($|\.)|\.dev\.vars($|\.)|.*\.(pem|key|crt)$)' \
+              | grep -Ev '(^|/)\.(env|dev\.vars)(\.[^/]+)?\.(example|sample|template)$' \
+              || true
+          )
+          if [ -n "${tracked}" ]; then
+            printf '::error::Tracked secret-like files detected:\n%s\n' "${tracked}" >&2
+            exit 1
+          fi
+
+      - name: Block embedded private keys and hardcoded tokens
+        if: ${{ !cancelled() }}
+        run: |
+          if git grep -nE -- '-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----' -- .; then
+            echo "::error::Embedded private key material found in tracked files." >&2
+            exit 1
+          fi
+          if git grep -nEi \
+            -- '(sk_live_|sk_test_|AKIA[A-Z0-9]{16}|ghp_[a-zA-Z0-9]{36}|xox[bsapr]-[a-zA-Z0-9-]+)' \
+            -- . ':!pnpm-lock.yaml' ':!*.md' ':!.github/workflows/*.yml'; then
+            echo "::error::Potential hardcoded secret or API key detected." >&2
+            exit 1
+          fi
+
+      # Reads the lockfile only; no install needed.
+      - name: Audit production dependencies
+        if: ${{ !cancelled() }}
+        run: pnpm audit --prod --audit-level=high

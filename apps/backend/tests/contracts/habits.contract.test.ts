@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
+import { createTestApp, TEST_USER_ID } from "../helpers/app";
 import { SQL } from "drizzle-orm";
-import { createRequestContext } from "../../src/platform/request-log";
-import type { AuthVariables } from "../../src/platform/auth";
-import { formatErrorResponse } from "../../src/platform/errors";
 
 const { getDbClientMock, withRlsMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
@@ -20,7 +17,6 @@ vi.mock("../../src/platform/rls", () => ({
 
 import { habitRoutes } from "../../src/domains/habits/habits.route";
 
-const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_HABIT_ID = "33333333-3333-4333-8333-333333333333";
 
 const HABIT_ROW = {
@@ -33,18 +29,7 @@ const HABIT_ROW = {
 };
 
 function createHabitApp() {
-    const app = new Hono<{ Variables: AuthVariables }>();
-    app.onError((err, c) => {
-        const res = formatErrorResponse(err);
-        return c.json(res.body, res.status as 500);
-    });
-    app.use("*", createRequestContext());
-    app.use("*", async (c, next) => {
-        c.set("userId", TEST_USER_ID);
-        await next();
-    });
-    app.route("/habits", habitRoutes as any);
-    return app;
+    return createTestApp("/habits", habitRoutes);
 }
 
 /** A tx whose update records the `.set()` payload; the follow-up tag read returns none. */

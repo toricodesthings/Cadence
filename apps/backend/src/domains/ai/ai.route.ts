@@ -304,7 +304,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                         status,
                         metadata: cleaned.metadata,
                     });
-                    await touchConversation(tx, conversationId, { model: modelId });
+                    await touchConversation(tx, userId, conversationId, { model: modelId });
                 });
             } catch {
                 logger.warn("ai", "ai_persist_failed", { requestId, userHash, conversationId });

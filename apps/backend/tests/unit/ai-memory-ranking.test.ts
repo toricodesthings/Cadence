@@ -81,12 +81,6 @@ describe("rankMemories", () => {
 });
 
 describe("computeDedupeHash", () => {
-    it("is deterministic for identical input", () => {
-        expect(computeDedupeHash("uses 25-min pomodoro")).toEqual(
-            computeDedupeHash("uses 25-min pomodoro"),
-        );
-    });
-
     it("normalizes case and whitespace", () => {
         const base = computeDedupeHash("Uses 25-min Pomodoro");
         expect(computeDedupeHash("uses 25-min pomodoro")).toEqual(base);

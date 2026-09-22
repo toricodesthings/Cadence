@@ -1,8 +1,7 @@
-import { config } from 'dotenv';
 import { defineConfig } from 'drizzle-kit';
 
 // Load Wrangler's .dev.vars (not .env)
-config({ path: '.dev.vars' });
+process.loadEnvFile('.dev.vars');
 
 export default defineConfig({
     schema: './src/db/schema.ts',

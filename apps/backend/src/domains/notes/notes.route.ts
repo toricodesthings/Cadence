@@ -4,7 +4,7 @@ import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { tasks, taskNotes } from "../../db/schema";
 import { upsertNoteSchema } from "@cadence/contracts/note";
-import { taskIdParamSchema } from "../../types/api";
+import { taskIdParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound, assertNoConflict } from "../../platform/errors";

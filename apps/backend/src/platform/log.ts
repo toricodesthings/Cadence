@@ -83,16 +83,8 @@ export function issuesFromError(error: unknown): IssueSummary[] | undefined {
 function emit(level: LogLevel, source: LogSource, event: string, fields: LogFields) {
     // Object — not a string — so Workers Logs indexes each field. See module header.
     const payload = { event, level, source, ...fields };
-
-    if (level === "error") {
-        console.error(payload);
-        return;
-    }
-    if (level === "warn") {
-        console.warn(payload);
-        return;
-    }
-    console.info(payload);
+    // LogLevel values are literally the console method names.
+    console[level](payload);
 }
 
 /**

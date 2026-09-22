@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
-import { getRedis, isResumeEnabled } from "../../src/platform/redis";
+import { describe, expect, it, vi } from "vitest";
+import { getRedis } from "../../src/platform/redis";
 import { logger } from "../../src/platform/log";
 import type { Env } from "../../src/types/env";
 
@@ -16,8 +16,6 @@ function envWith(overrides: Partial<Env>): Env {
 }
 
 describe("getRedis", () => {
-    afterEach(() => vi.restoreAllMocks());
-
     it("returns null when the flag is off", () => {
         expect(getRedis(envWith({ AI_STREAM_RESUME_ENABLED: "false" }))).toBeNull();
         expect(getRedis(envWith({ AI_STREAM_RESUME_ENABLED: undefined }))).toBeNull();
@@ -46,6 +44,5 @@ describe("getRedis", () => {
     it("constructs a client when flag on + https url + token present", () => {
         const client = getRedis(envWith({}));
         expect(client).not.toBeNull();
-        expect(isResumeEnabled(envWith({}))).toBe(true);
     });
 });

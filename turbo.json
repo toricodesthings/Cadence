@@ -28,6 +28,9 @@
       ],
       "outputs": []
     },
+    "test": {
+      "outputs": []
+    },
     "cf-typegen": {
       "cache": false
     },

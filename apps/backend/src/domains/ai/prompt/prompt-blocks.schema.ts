@@ -8,25 +8,10 @@
  * prompt-composer, persona-directives) depend on. Keep names stable.
  */
 import { z } from "zod";
+import { aiPromptBlockKindEnum } from "../../../db/schema";
 
-/**
- * The 12 canonical block kinds. Mirrors the `ai_prompt_block_kind` pgEnum in
- * src/db/schema.ts. Base layer: identity..tool_policy. Auxiliary layer:
- * runtime_context..tone_protective.
- */
-export type PromptBlockKind =
-    | "identity"
-    | "safety"
-    | "operating_principles"
-    | "output_contract"
-    | "tool_policy"
-    | "runtime_context"
-    | "human_metrics"
-    | "persona_customization"
-    | "retrieved_memory"
-    | "workspace_snapshot"
-    | "tone_neutral"
-    | "tone_protective";
+/** The 12 canonical block kinds — the `ai_prompt_block_kind` pgEnum is the one list. */
+export type PromptBlockKind = (typeof aiPromptBlockKindEnum.enumValues)[number];
 
 /** Composition layer. Base is highest authority and always precedes Auxiliary. */
 export type PromptLayer = "base" | "auxiliary";
@@ -107,29 +92,13 @@ export interface PromptRuntimeContext {
     snapshot?: WorkspaceSnapshot;
 }
 
-/** All 12 block kinds, for the row validator. */
-const PROMPT_BLOCK_KINDS = [
-    "identity",
-    "safety",
-    "operating_principles",
-    "output_contract",
-    "tool_policy",
-    "runtime_context",
-    "human_metrics",
-    "persona_customization",
-    "retrieved_memory",
-    "workspace_snapshot",
-    "tone_neutral",
-    "tone_protective",
-] as const satisfies readonly PromptBlockKind[];
-
 /**
  * Validates a row loaded from `ai_prompt_blocks` into a `PromptBlock`. Drops the
  * DB-only columns (id, isActive, notes, timestamps) — the composer only needs the
  * compositional fields. Fails closed on a malformed/unknown kind or layer.
  */
 export const promptBlockRowSchema = z.object({
-    kind: z.enum(PROMPT_BLOCK_KINDS),
+    kind: z.enum(aiPromptBlockKindEnum.enumValues),
     layer: z.enum(["base", "auxiliary"]),
     locale: z.string(),
     orderIndex: z.number().int(),

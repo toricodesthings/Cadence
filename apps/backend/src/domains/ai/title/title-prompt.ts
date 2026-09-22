@@ -48,46 +48,31 @@ let seedSyncAttempted = false;
 
 /**
  * Version-diff the compiled-in template against the 'en' row and upsert when the
- * code default is newer (or the row is missing). Same semantics as the prompt
- * block seed-sync: version-guarded UPDATE, conflict-tolerant INSERT, admin edits
- * with a higher version win.
+ * code default is newer (or the row is missing). One version-guarded upsert, so admin edits with a
+ * higher version win.
  */
 async function ensureTitlePromptSeeded(env: Env): Promise<boolean> {
     if (seedSyncAttempted) return false;
     seedSyncAttempted = true;
 
-    const db = getDbClient(env);
-    const updated = await db
-        .update(aiTitlePrompts)
-        .set({
-            template: DEFAULT_TITLE_PROMPT,
-            version: DEFAULT_TITLE_PROMPT_VERSION,
-            isActive: true,
-            notes: "seeded from code default",
-        })
-        .where(and(eq(aiTitlePrompts.locale, "en"), lt(aiTitlePrompts.version, DEFAULT_TITLE_PROMPT_VERSION)))
-        .returning({ id: aiTitlePrompts.id });
-    if (updated.length > 0) {
-        logger.info("ai", "title_prompt_seeded", { mode: "update" });
-        return true;
-    }
-
-    const inserted = await db
+    const seed = {
+        template: DEFAULT_TITLE_PROMPT,
+        version: DEFAULT_TITLE_PROMPT_VERSION,
+        isActive: true,
+        notes: "seeded from code default",
+    };
+    const written = await getDbClient(env)
         .insert(aiTitlePrompts)
-        .values({
-            locale: "en",
-            template: DEFAULT_TITLE_PROMPT,
-            version: DEFAULT_TITLE_PROMPT_VERSION,
-            isActive: true,
-            notes: "seeded from code default",
+        .values({ locale: "en", ...seed })
+        .onConflictDoUpdate({
+            target: aiTitlePrompts.locale,
+            set: seed,
+            setWhere: lt(aiTitlePrompts.version, DEFAULT_TITLE_PROMPT_VERSION),
         })
-        .onConflictDoNothing()
         .returning({ id: aiTitlePrompts.id });
-    if (inserted.length > 0) {
-        logger.info("ai", "title_prompt_seeded", { mode: "insert" });
-        return true;
-    }
-    return false;
+    if (written.length === 0) return false;
+    logger.info("ai", "title_prompt_seeded", {});
+    return true;
 }
 
 /**

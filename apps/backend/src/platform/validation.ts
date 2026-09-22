@@ -2,9 +2,10 @@ import { zValidator } from "@hono/zod-validator";
 import type { ValidationTargets } from "hono";
 import type { ZodSchema } from "zod";
 import { createErrorBody } from "./errors";
-import { logValidationFailure, setRequestErrorCode, type ValidationIssueSummary } from "./request-log";
+import { logValidationFailure, setRequestErrorCode } from "./request-log";
+import type { IssueSummary } from "./log";
 
-function formatIssues(issues: Array<{ code: string; message: string; path?: PropertyKey[] }>): ValidationIssueSummary[] {
+function formatIssues(issues: Array<{ code: string; message: string; path?: PropertyKey[] }>): IssueSummary[] {
     return issues.map((issue) => ({
         code: issue.code,
         message: issue.message,

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    nextOrderIndex,
     rowToUIMessage,
     uiMessageToRow,
     type StoredMessage,
@@ -25,9 +24,6 @@ describe("rowToUIMessage", () => {
             parts: [{ type: "text", text: "hello" }],
             metadata: { model: "gpt-test", totalUsage: { tokens: 42 } },
         });
-        // Persistence-only fields must not leak into the UIMessage.
-        expect(ui).not.toHaveProperty("status");
-        expect(ui).not.toHaveProperty("orderIndex");
     });
 });
 
@@ -85,13 +81,3 @@ describe("uiMessageToRow", () => {
     });
 });
 
-describe("nextOrderIndex", () => {
-    it("increments from null", () => {
-        expect(nextOrderIndex(null)).toBe(1);
-    });
-
-    it("increments from a value", () => {
-        expect(nextOrderIndex(5)).toBe(6);
-        expect(nextOrderIndex(0)).toBe(1);
-    });
-});

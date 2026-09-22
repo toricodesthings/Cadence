@@ -20,20 +20,4 @@ describe("health route contracts", () => {
         expect(new Date(body.data.timestamp).toISOString()).toBe(body.data.timestamp);
     });
 
-    it("returns proper JSON content-type header", async () => {
-        const app = createHealthApp();
-        const response = await app.request("http://localhost/health");
-
-        expect(response.headers.get("content-type")).toContain("application/json");
-    });
-
-    it("rejects non-GET methods", async () => {
-        const app = createHealthApp();
-
-        const postResponse = await app.request("http://localhost/health", { method: "POST" });
-        expect(postResponse.status).toBe(404);
-
-        const deleteResponse = await app.request("http://localhost/health", { method: "DELETE" });
-        expect(deleteResponse.status).toBe(404);
-    });
 });

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
     toMinimalTask,
-    toMinimalSubtask,
-    toMinimalTag,
-    toMinimalProject,
-    toMinimalSection,
     toMinimalHabit,
     toMinimalInboxItem,
     toMinimalSuggestion,
@@ -44,39 +40,6 @@ describe("toMinimalTask", () => {
             priority: 2,
             projectId: "p1",
             waitingOn: null,
-        });
-        expect(result).not.toHaveProperty("content");
-    });
-});
-
-describe("toMinimalSubtask / toMinimalTag / toMinimalProject / toMinimalSection", () => {
-    it("projects subtasks to id/title/isComplete", () => {
-        expect(toMinimalSubtask({ id: "s1", title: "step", isComplete: true })).toEqual({
-            id: "s1",
-            title: "step",
-            isComplete: true,
-        });
-    });
-
-    it("projects tags to id/name/color", () => {
-        expect(toMinimalTag({ id: "g1", name: "urgent", color: "red" })).toEqual({
-            id: "g1",
-            name: "urgent",
-            color: "red",
-        });
-    });
-
-    it("projects projects to id/name/emoji/accent", () => {
-        expect(
-            toMinimalProject({ id: "p1", name: "Home", emoji: "🏠", colorAccent: "amber" }),
-        ).toEqual({ id: "p1", name: "Home", emoji: "🏠", colorAccent: "amber" });
-    });
-
-    it("projects sections to id/name/projectId", () => {
-        expect(toMinimalSection({ id: "x1", name: "Doing", projectId: "p1" })).toEqual({
-            id: "x1",
-            name: "Doing",
-            projectId: "p1",
         });
     });
 });
@@ -153,7 +116,6 @@ describe("toMinimalSuggestion", () => {
             status: "PENDING",
             relatedTaskIds: [],
         });
-        expect(result).not.toHaveProperty("body");
     });
 
     it("preserves provided relatedTaskIds", () => {

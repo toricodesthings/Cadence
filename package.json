@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "dev": "turbo run dev --parallel --filter=@cadence/backend --filter=@cadence/frontend",
@@ -18,6 +18,7 @@
     "typecheck": "turbo run typecheck",
     "typecheck:desktop": "pnpm --filter @cadence/desktop typecheck",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "cf-typegen": "turbo run cf-typegen",
     "db:generate": "pnpm --filter @cadence/backend db:generate",
     "db:migrate": "pnpm --filter @cadence/backend db:migrate",
@@ -29,23 +30,15 @@
     "release": "release-it"
   },
   "devDependencies": {
-    "@release-it/keep-a-changelog": "^8.0.0",
-    "oxlint": "^1.83.0",
-    "release-it": "^21.0.2",
-    "turbo": "^2.10.12"
+    "@release-it/keep-a-changelog": "^8.0.1",
+    "oxlint": "^1.85.0",
+    "release-it": "^21.1.0",
+    "turbo": "^2.11.2"
   },
   "pnpm": {
     "overrides": {
-      "@hono/node-server": "^1.19.11",
       "esbuild": "^0.27.4",
-      "effect": "3.21.0",
-      "fastify": "^5.7.3",
       "hono": "^4.13.7",
-      "lodash": "^4.17.23",
-      "node-forge@<1.4.0": "1.4.0",
-      "path-to-regexp@<0.1.13": "0.1.13",
-      "picomatch@<2.3.2": "2.3.2",
-      "picomatch@>=4.0.0 <4.0.4": "4.0.4",
       "zod": "^4.6.2",
       "@daveyplate/better-auth-ui>@better-auth/api-key": "1.6.23"
     },

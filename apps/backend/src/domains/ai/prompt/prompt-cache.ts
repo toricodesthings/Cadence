@@ -261,9 +261,8 @@ let seedSyncAttempted = false;
 /**
  * Diff DEFAULT_PROMPT_BLOCKS against the DB and upsert anything newer, bumping
  * the revision once when something changed. Returns true when it seeded.
- * Concurrent isolates racing here are harmless: the per-block version guard
- * (`WHERE version < :new`) makes updates idempotent, `onConflictDoNothing`
- * absorbs duplicate inserts, and an extra revision bump only busts caches.
+ * Concurrent isolates racing here are harmless: the version-guarded upsert is
+ * idempotent and an extra revision bump only busts caches.
  */
 async function ensureBlocksSeeded(env: Env): Promise<boolean> {
     if (seedSyncAttempted) return false;
@@ -283,44 +282,24 @@ async function ensureBlocksSeeded(env: Env): Promise<boolean> {
 
     await db.transaction(async (tx) => {
         for (const block of plan) {
-            // Two-step, version-guarded upsert: UPDATE wins only over an older
-            // version; a missed update means the row is absent → INSERT (with
-            // conflict-tolerance for a concurrent seeder).
-            const updated = await tx
-                .update(aiPromptBlocks)
-                .set({
-                    layer: block.layer,
-                    orderIndex: block.orderIndex,
-                    template: block.template,
-                    version: block.version,
-                    isActive: true,
-                    notes: "seeded from code defaults",
-                    updatedAt: sql`NOW()`,
-                })
-                .where(
-                    and(
-                        eq(aiPromptBlocks.kind, block.kind),
-                        eq(aiPromptBlocks.locale, block.locale),
-                        lt(aiPromptBlocks.version, block.version),
-                    ),
-                )
-                .returning({ kind: aiPromptBlocks.kind });
-
-            if (updated.length === 0) {
-                await tx
-                    .insert(aiPromptBlocks)
-                    .values({
-                        kind: block.kind,
-                        layer: block.layer,
-                        locale: block.locale,
-                        orderIndex: block.orderIndex,
-                        template: block.template,
-                        version: block.version,
-                        isActive: true,
-                        notes: "seeded from code defaults",
-                    })
-                    .onConflictDoNothing();
-            }
+            const fields = {
+                layer: block.layer,
+                orderIndex: block.orderIndex,
+                template: block.template,
+                version: block.version,
+                isActive: true,
+                notes: "seeded from code defaults",
+            };
+            // Version-guarded upsert: overwrites only an older row, so an admin
+            // hot-patch with a higher version wins.
+            await tx
+                .insert(aiPromptBlocks)
+                .values({ kind: block.kind, locale: block.locale, ...fields })
+                .onConflictDoUpdate({
+                    target: [aiPromptBlocks.kind, aiPromptBlocks.locale],
+                    set: { ...fields, updatedAt: sql`NOW()` },
+                    setWhere: lt(aiPromptBlocks.version, block.version),
+                });
         }
 
         // Same-transaction revision bump = the cross-isolate cache-bust token.

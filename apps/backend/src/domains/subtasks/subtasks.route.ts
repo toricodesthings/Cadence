@@ -5,7 +5,7 @@ import { getIdempotencyKey, checkIdempotency, recordMutation } from "../../platf
 import { withRls } from "../../platform/rls";
 import { tasks, subtasks } from "../../db/schema";
 import { insertSubtaskSchema, bulkSubtasksSchema, updateSubtaskSchema, reorderSubtaskSchema } from "@cadence/contracts/subtask";
-import { uuidParamSchema, taskIdParamSchema } from "../../types/api";
+import { uuidParamSchema, taskIdParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";

@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
-import { createRequestContext } from "../../src/platform/request-log";
-import { formatErrorResponse } from "../../src/platform/errors";
-import type { AuthVariables } from "../../src/platform/auth";
+import { createTestApp } from "../helpers/app";
 
 const { getDbClientMock, withRlsMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
@@ -81,18 +78,7 @@ function createTx(state: { settings: Record<string, any> }) {
 }
 
 function createApp(userId = USER_ID) {
-    const app = new Hono<{ Variables: AuthVariables }>();
-    app.use("*", createRequestContext());
-    app.use("*", async (c, next) => {
-        c.set("userId", userId);
-        await next();
-    });
-    app.route("/settings/background", backgroundRoutes as any);
-    app.onError((err, c) => {
-        const res = formatErrorResponse(err, "test");
-        return c.json(res.body, res.status as any);
-    });
-    return app;
+    return createTestApp("/settings/background", backgroundRoutes, userId);
 }
 
 function uploadForm(bytes: Uint8Array = TINY_WEBP) {

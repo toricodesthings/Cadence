@@ -1,5 +1,4 @@
-import { test } from "vitest";
-import { expectTypeOf } from "vitest";
+import { expectTypeOf, test } from "vitest";
 import type { z } from "zod";
 import {
     tasks,
@@ -24,52 +23,22 @@ import type { taskSectionRowSchema } from "@cadence/contracts/section";
 import type { taskNoteRowSchema } from "@cadence/contracts/note";
 import type { aiConversationRowSchema, aiMessageRowSchema } from "@cadence/contracts/ai";
 
-// These are compile-time guardrails (enforced by `tsc --noEmit`): every contract
-// Row schema must be structurally identical to its Drizzle `$inferSelect` row.
-// A column rename/add/nullability change now fails typecheck here instead of
-// silently breaking a client. This is the only legitimate place a test depends
-// on Drizzle.
+// Compile-time guardrails, enforced by `tsc --noEmit` (vitest itself cannot fail
+// them): every contract Row schema must be structurally identical to its Drizzle
+// `$inferSelect` row. A column rename/add/nullability change fails typecheck on
+// the exact line below instead of silently breaking a client. This is the only
+// legitimate place a test depends on Drizzle.
 
-test("task row contract matches DB", () => {
+test("every contract row schema matches its Drizzle table", () => {
     expectTypeOf<z.infer<typeof taskRowSchema>>().toEqualTypeOf<typeof tasks.$inferSelect>();
-});
-
-test("project row contract matches DB", () => {
     expectTypeOf<z.infer<typeof projectRowSchema>>().toEqualTypeOf<typeof projects.$inferSelect>();
-});
-
-test("tag row contract matches DB", () => {
     expectTypeOf<z.infer<typeof tagRowSchema>>().toEqualTypeOf<typeof tags.$inferSelect>();
-});
-
-test("inbox item row contract matches DB", () => {
     expectTypeOf<z.infer<typeof inboxItemRowSchema>>().toEqualTypeOf<typeof inboxItems.$inferSelect>();
-});
-
-test("inbox section row contract matches DB", () => {
     expectTypeOf<z.infer<typeof inboxSectionRowSchema>>().toEqualTypeOf<typeof inboxSections.$inferSelect>();
-});
-
-test("habit row contract matches DB", () => {
     expectTypeOf<z.infer<typeof habitRowSchema>>().toEqualTypeOf<typeof habits.$inferSelect>();
-});
-
-test("subtask row contract matches DB", () => {
     expectTypeOf<z.infer<typeof subtaskRowSchema>>().toEqualTypeOf<typeof subtasks.$inferSelect>();
-});
-
-test("task section row contract matches DB", () => {
     expectTypeOf<z.infer<typeof taskSectionRowSchema>>().toEqualTypeOf<typeof taskSections.$inferSelect>();
-});
-
-test("task note row contract matches DB", () => {
     expectTypeOf<z.infer<typeof taskNoteRowSchema>>().toEqualTypeOf<typeof taskNotes.$inferSelect>();
-});
-
-test("ai conversation row contract matches DB", () => {
     expectTypeOf<z.infer<typeof aiConversationRowSchema>>().toEqualTypeOf<typeof aiConversations.$inferSelect>();
-});
-
-test("ai message row contract matches DB", () => {
     expectTypeOf<z.infer<typeof aiMessageRowSchema>>().toEqualTypeOf<typeof aiMessages.$inferSelect>();
 });

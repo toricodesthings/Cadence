@@ -7,7 +7,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { uuidParamSchema } from "../../types/api";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import { resolveSuggestionSchema } from "./suggestions.schema";
 
 // Routes are CHAINED so the schema flows into AppType for the Hono RPC client.

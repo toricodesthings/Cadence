@@ -5,8 +5,7 @@ import { apiValidator } from "../../platform/validation";
 import { createErrorBody } from "../../platform/errors";
 import { logger, shorten, issuesFromError } from "../../platform/log";
 import {
-    weatherQuerySchema,
-    reverseGeocodeQuerySchema,
+    coordsQuerySchema,
     geocodeSearchQuerySchema,
     holidayCountriesQuerySchema,
     holidaySubdivisionsQuerySchema,
@@ -106,7 +105,7 @@ function getLanguage(locale: string): string {
 export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── GET /api/proxy/weather ──
     // Short cache: weather changes frequently
-    .get("/weather", apiValidator("query", weatherQuerySchema), async (c) => {
+    .get("/weather", apiValidator("query", coordsQuerySchema), async (c) => {
         const { latitude, longitude } = c.req.valid("query");
         const url = `${OPEN_METEO_BASE}/v1/forecast?latitude=${roundCoordinate(latitude)}&longitude=${roundCoordinate(longitude)}&current_weather=true&temperature_unit=celsius`;
 
@@ -130,7 +129,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
     // ── GET /api/proxy/geocode/reverse ──
     // Long cache: a lat/lon mapping rarely changes
-    .get("/geocode/reverse", apiValidator("query", reverseGeocodeQuerySchema), async (c) => {
+    .get("/geocode/reverse", apiValidator("query", coordsQuerySchema), async (c) => {
         const { latitude, longitude } = c.req.valid("query");
         const url = `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${roundCoordinate(latitude)}&lon=${roundCoordinate(longitude)}&zoom=5&addressdetails=1`;
 

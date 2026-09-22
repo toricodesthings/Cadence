@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
-import { createRequestContext } from "../../src/platform/request-log";
-import type { AuthVariables } from "../../src/platform/auth";
+import { createTestApp } from "../helpers/app";
 
 const { getDbClientMock, withRlsMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
@@ -31,14 +29,7 @@ import { settingsRoutes } from "../../src/domains/settings/settings.route";
 import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
 
 function createSettingsApp() {
-    const app = new Hono<{ Variables: AuthVariables }>();
-    app.use("*", createRequestContext());
-    app.use("*", async (c, next) => {
-        c.set("userId", "11111111-1111-4111-8111-111111111111");
-        await next();
-    });
-    app.route("/settings", settingsRoutes as any);
-    return app;
+    return createTestApp("/settings", settingsRoutes);
 }
 
 function createSettingsTx(existingSettings: Record<string, unknown>, capture: { merged?: Record<string, unknown> }) {
@@ -283,116 +274,57 @@ describe("settings route contracts", () => {
         expect(body.data.tasks.defaultView).toBe("list");
     });
 
-    it("accepts new appearance settings patch", async () => {
-        const capture: { merged?: Record<string, unknown> } = {};
-        const existingSettings = {};
-        const tx = createSettingsTx(existingSettings, capture);
-        getDbClientMock.mockReturnValue(tx);
-        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
-
-        const app = createSettingsApp();
-        const response = await app.request("http://localhost/settings", {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                appearance: { theme: "daylight", density: "compact" },
-            }),
-        });
-
-        expect(response.status).toBe(200);
-        const body = await response.json() as any;
-        expect(body.data.appearance.theme).toBe("daylight");
-        expect(body.data.appearance.density).toBe("compact");
-        // Defaults should be preserved for unpatched fields
-        expect(body.data.appearance.motion).toBe("system");
-        expect(body.data.appearance.accentIntensity).toBe("balanced");
-    });
-
-    it("accepts privacy and integrations patches", async () => {
-        const capture: { merged?: Record<string, unknown> } = {};
-        const existingSettings = {};
-        const tx = createSettingsTx(existingSettings, capture);
-        getDbClientMock.mockReturnValue(tx);
-        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
-
-        const app = createSettingsApp();
-        const response = await app.request("http://localhost/settings", {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
+    it.each([
+        {
+            section: "appearance",
+            patch: { appearance: { theme: "daylight", density: "compact" } },
+            expected: { appearance: { theme: "daylight", density: "compact", motion: "system", accentIntensity: "balanced" } },
+        },
+        {
+            section: "privacy + integrations",
+            patch: {
                 privacy: { usageDiagnostics: false, exportFormat: "csv" },
                 integrations: { googleCalendar: { enabled: true, syncMode: "two_way" } },
-            }),
-        });
-
-        expect(response.status).toBe(200);
-        const body = await response.json() as any;
-        expect(body.data.privacy.usageDiagnostics).toBe(false);
-        expect(body.data.privacy.exportFormat).toBe("csv");
-        expect(body.data.privacy.crashReports).toBe(true); // default preserved
-        expect(body.data.integrations.googleCalendar.enabled).toBe(true);
-        expect(body.data.integrations.googleCalendar.syncMode).toBe("two_way");
-    });
-
-    it("accepts shortcuts structured patch", async () => {
-        const capture: { merged?: Record<string, unknown> } = {};
-        const existingSettings = {};
-        const tx = createSettingsTx(existingSettings, capture);
+            },
+            expected: {
+                privacy: { usageDiagnostics: false, exportFormat: "csv", crashReports: true },
+                integrations: { googleCalendar: { enabled: true, syncMode: "two_way" } },
+            },
+        },
+        {
+            section: "shortcuts",
+            patch: { shortcuts: { enabled: false, bindings: { newTask: "n" } } },
+            expected: { shortcuts: { enabled: false, bindings: { newTask: "n", commandPalette: "mod+k" } } },
+        },
+        {
+            section: "quiet hours",
+            patch: { notifications: { quietHoursEnabled: true, quietHoursStart: "22:00", quietHoursEnd: "07:00" } },
+            expected: { notifications: { quietHoursEnabled: true, quietHoursStart: "22:00", quietHoursEnd: "07:00" } },
+        },
+    ])("merges a $section patch over the defaults, keeping unpatched defaults", async ({ patch, expected }) => {
+        const tx = createSettingsTx({}, {});
         getDbClientMock.mockReturnValue(tx);
         withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
 
-        const app = createSettingsApp();
-        const response = await app.request("http://localhost/settings", {
+        const response = await createSettingsApp().request("http://localhost/settings", {
             method: "PATCH",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                shortcuts: { enabled: false, bindings: { newTask: "n" } },
-            }),
+            body: JSON.stringify(patch),
         });
 
         expect(response.status).toBe(200);
-        const body = await response.json() as any;
-        expect(body.data.shortcuts.enabled).toBe(false);
-        expect(body.data.shortcuts.bindings.newTask).toBe("n");
-        expect(body.data.shortcuts.bindings.commandPalette).toBe("mod+k"); // default preserved
+        expect(((await response.json()) as any).data).toMatchObject(expected);
     });
 
     it("rejects invalid enum values for new settings", async () => {
-        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-        const app = createSettingsApp();
-        const response = await app.request("http://localhost/settings", {
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+        const response = await createSettingsApp().request("http://localhost/settings", {
             method: "PATCH",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                appearance: { theme: "neon" },
-            }),
+            body: JSON.stringify({ appearance: { theme: "neon" } }),
         });
 
         expect(response.status).toBe(400);
-        warnSpy.mockRestore();
-    });
-
-    it("accepts quiet hours settings", async () => {
-        const capture: { merged?: Record<string, unknown> } = {};
-        const existingSettings = {};
-        const tx = createSettingsTx(existingSettings, capture);
-        getDbClientMock.mockReturnValue(tx);
-        withRlsMock.mockImplementation(async (_db, _userId, callback) => callback(tx));
-
-        const app = createSettingsApp();
-        const response = await app.request("http://localhost/settings", {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-                notifications: { quietHoursEnabled: true, quietHoursStart: "22:00", quietHoursEnd: "07:00" },
-            }),
-        });
-
-        expect(response.status).toBe(200);
-        const body = await response.json() as any;
-        expect(body.data.notifications.quietHoursEnabled).toBe(true);
-        expect(body.data.notifications.quietHoursStart).toBe("22:00");
-        expect(body.data.notifications.quietHoursEnd).toBe("07:00");
     });
 
     it("lists and mutates saved focus views", async () => {

@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
-import { createRequestContext } from "../../src/platform/request-log";
-import type { AuthVariables } from "../../src/platform/auth";
-import { formatErrorResponse } from "../../src/platform/errors";
+import { createTestApp, TEST_USER_ID } from "../helpers/app";
 
 const { getDbClientMock, withRlsMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
@@ -19,22 +16,10 @@ vi.mock("../../src/platform/rls", () => ({
 
 import { tagRoutes } from "../../src/domains/tags/tags.route";
 
-const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_TAG_ID = "22222222-2222-4222-8222-222222222222";
 
 function createTagApp() {
-    const app = new Hono<{ Variables: AuthVariables }>();
-    app.onError((err, c) => {
-        const res = formatErrorResponse(err);
-        return c.json(res.body, res.status as 500);
-    });
-    app.use("*", createRequestContext());
-    app.use("*", async (c, next) => {
-        c.set("userId", TEST_USER_ID);
-        await next();
-    });
-    app.route("/tags", tagRoutes as any);
-    return app;
+    return createTestApp("/tags", tagRoutes);
 }
 
 const TAG_ROW = {

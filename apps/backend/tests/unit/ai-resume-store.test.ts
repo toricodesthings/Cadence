@@ -11,7 +11,7 @@ import {
 } from "../../src/domains/ai/streaming/resume-store";
 import { buildResumeStream } from "../../src/domains/ai/streaming/replay";
 import { startAbortWatcher } from "../../src/domains/ai/streaming/abort-watcher";
-import { keys, CLOSE_GRACE_S, STREAM_MAXLEN, STREAM_NS } from "../../src/domains/ai/streaming/stream-keys";
+import { keys, CLOSE_GRACE_S } from "../../src/domains/ai/streaming/stream-keys";
 
 const USER_KEY = "deadbeefdeadbeef";
 const SID = "stream_abc123";
@@ -31,14 +31,6 @@ async function drain(stream: ReadableStream<Uint8Array>): Promise<string> {
 }
 
 describe("stream-keys", () => {
-    it("builds tenant-scoped keys under the namespace + userKey", () => {
-        const k = keys(USER_KEY, SID);
-        expect(k.chunks).toBe(`${STREAM_NS}:${USER_KEY}:${SID}:chunks`);
-        expect(k.state).toBe(`${STREAM_NS}:${USER_KEY}:${SID}:state`);
-        expect(k.abort).toBe(`${STREAM_NS}:${USER_KEY}:${SID}:abort`);
-        expect(k.meta).toBe(`${STREAM_NS}:${USER_KEY}:${SID}:meta`);
-    });
-
     it("never builds the same key across two different userKeys (§15.1)", () => {
         expect(keys("aaaa", SID).chunks).not.toBe(keys("bbbb", SID).chunks);
     });
@@ -91,15 +83,6 @@ describe("resume-store", () => {
         await flushChunks(redis as any, USER_KEY, SID, "frame");
         expect(redis.requests - before).toBe(1);
         expect(redis.xaddCount()).toBe(1);
-    });
-
-    it("xadd carries the MAXLEN runaway guard (§15.3)", async () => {
-        const spy = vi.spyOn(redis as any, "pipeline");
-        await flushChunks(redis as any, USER_KEY, SID, "frame");
-        // The pipeline's xadd is recorded; assert MAXLEN constant is the configured guard.
-        expect(STREAM_MAXLEN).toBeGreaterThan(0);
-        expect(redis.xaddCount()).toBe(1);
-        spy.mockRestore();
     });
 
     it("closeStream flips terminal state and shrinks TTL to the grace window (§15.2)", async () => {

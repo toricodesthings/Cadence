@@ -1,24 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
-import { createRequestContext } from "../../src/platform/request-log";
-import type { AuthVariables } from "../../src/platform/auth";
-import { formatErrorResponse } from "../../src/platform/errors";
+import { createTestApp } from "../helpers/app";
 import { tasks as tasksTable, taskTags as taskTagsTable, taskNlpMetadata as taskNlpMetadataTable } from "../../src/db/schema";
 
 const {
     getDbClientMock,
     withRlsMock,
     trackRescheduleMock,
-    trackCompletionMock,
-    trackEventMock,
     trackBatchEventsMock,
     trackBatchCompletionMock,
 } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(),
     withRlsMock: vi.fn(),
     trackRescheduleMock: vi.fn().mockResolvedValue(undefined),
-    trackCompletionMock: vi.fn().mockResolvedValue(undefined),
-    trackEventMock: vi.fn().mockResolvedValue(undefined),
     trackBatchEventsMock: vi.fn().mockResolvedValue(undefined),
     trackBatchCompletionMock: vi.fn().mockResolvedValue(undefined),
 }));
@@ -33,8 +26,6 @@ vi.mock("../../src/platform/rls", () => ({
 
 vi.mock("../../src/platform/metrics", () => ({
     trackReschedule: trackRescheduleMock,
-    trackCompletion: trackCompletionMock,
-    trackEvent: trackEventMock,
     trackBatchEvents: trackBatchEventsMock,
     trackBatchCompletion: trackBatchCompletionMock,
 }));
@@ -49,18 +40,7 @@ function createExecutionContext() {
 }
 
 function createTaskApp() {
-    const app = new Hono<{ Variables: AuthVariables }>();
-    app.onError((err, c) => {
-        const res = formatErrorResponse(err);
-        return c.json(res.body, res.status as 500);
-    });
-    app.use("*", createRequestContext());
-    app.use("*", async (c, next) => {
-        c.set("userId", "11111111-1111-4111-8111-111111111111");
-        await next();
-    });
-    app.route("/tasks", taskRoutes as any);
-    return app;
+    return createTestApp("/tasks", taskRoutes);
 }
 
 function createFindManyDb(result: unknown[]) {

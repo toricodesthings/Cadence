@@ -28,15 +28,8 @@ const JSON_SUMMARY_KEYS = new Set([
 
 const PARAM_SUMMARY_KEYS = new Set(["id", "tagId"]);
 
-/** Re-exported under the legacy name so domain code keeps importing from here. */
-export type ValidationIssueSummary = IssueSummary;
-
 function summarizeValue(key: string, value: unknown) {
     if (value === undefined) return undefined;
-
-    if (key === "taskIds" && Array.isArray(value)) {
-        return value.length;
-    }
 
     if (typeof value === "string") {
         if (key === "title") return value.length;
@@ -166,7 +159,7 @@ export function createRequestContext() {
 export async function logValidationFailure(
     c: Context<any>,
     target: string,
-    issues: ValidationIssueSummary[],
+    issues: IssueSummary[],
     rawData: unknown,
 ) {
     const requestId = getRequestId(c);
