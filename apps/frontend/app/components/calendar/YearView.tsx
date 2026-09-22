@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Task } from "@cadence/contracts/task";
 import { getDaysInMonth, getFirstDayOfWeek, MONTH_NAMES, toISODate, weekdayLabels } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
@@ -22,7 +22,6 @@ interface MiniMonthProps {
     onSelectMonth: (month: number) => void;
     /** Jump to day view for a specific day */
     onSelectDay: (dateStr: string) => void;
-    compact?: boolean;
 }
 
 function MiniMonth({
@@ -36,7 +35,6 @@ function MiniMonth({
     today,
     onSelectMonth,
     onSelectDay,
-    compact = false,
 }: MiniMonthProps) {
     const todayStr = toISODate(today);
     const daysInMonth = getDaysInMonth(year, month);
@@ -52,12 +50,12 @@ function MiniMonth({
     const monthStr = String(month + 1).padStart(2, "0");
 
     return (
-        <div className={`glass flex flex-col gap-3 rounded-2xl transition-colors hover:bg-white/[0.02] ${compact ? "p-3" : "p-4"}`}>
+        <div className="glass flex flex-col gap-3 rounded-2xl p-4 transition-colors hover:bg-white/[0.02]">
             {/* Month name */}
             <button
                 type="button"
                 onClick={() => onSelectMonth(month)}
-                className={`cursor-pointer pb-1 text-left font-display font-semibold text-twilight-text-soft transition-colors hover:text-accent-primary ${compact ? "text-[13px]" : "text-[14px]"}`}
+                className="cursor-pointer pb-1 text-left font-display text-[14px] font-semibold text-twilight-text-soft transition-colors hover:text-accent-primary"
             >
                 {MONTHS[month]}
             </button>
@@ -157,9 +155,13 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEv
         return map;
     }, [tasks]);
 
+    if (compact) {
+        return <PhoneYear year={year} taskDateCounts={taskDateCounts} today={today} onSelectMonth={onSelectMonth} />;
+    }
+
     return (
         <div className="h-full overflow-y-auto">
-            <div className={`grid p-1 pb-6 ${compact ? "grid-cols-2 gap-3" : "grid-cols-3 gap-4"}`}>
+            <div className="grid grid-cols-3 gap-4 p-1 pb-6">
                 {Array.from({ length: 12 }, (_, m) => (
                     <MiniMonth
                         key={m}
@@ -173,9 +175,75 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEv
                         today={today}
                         onSelectMonth={onSelectMonth}
                         onSelectDay={onSelectDay}
-                        compact={compact}
                     />
                 ))}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Year on a phone, the way a pocket calendar shows it: twelve small months,
+ * each one a single tap target that opens the month. Days are a glance, not
+ * buttons; they'd be far too small to hit.
+ */
+function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
+    year: number;
+    taskDateCounts: Map<string, number>;
+    today: Date;
+    onSelectMonth: (month: number) => void;
+}) {
+    const todayStr = toISODate(today);
+    const currentRef = useRef<HTMLButtonElement | null>(null);
+
+    useEffect(() => {
+        currentRef.current?.scrollIntoView({ block: "center" });
+    }, [year]);
+
+    return (
+        <div className="touch-scroll-y h-full px-3 pb-36 pt-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                {Array.from({ length: 12 }, (_, month) => {
+                    const monthStr = String(month + 1).padStart(2, "0");
+                    const isCurrent = today.getFullYear() === year && today.getMonth() === month;
+                    const cells = [
+                        ...Array.from({ length: getFirstDayOfWeek(year, month) }, () => 0),
+                        ...Array.from({ length: getDaysInMonth(year, month) }, (_, i) => i + 1),
+                    ];
+                    return (
+                        <button
+                            key={month}
+                            ref={isCurrent ? currentRef : undefined}
+                            type="button"
+                            onClick={() => onSelectMonth(month)}
+                            aria-label={`${MONTH_NAMES[month]} ${year}`}
+                            className="cursor-pointer rounded-2xl p-1.5 text-left transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            <span className={`mb-1.5 block font-display text-[15px] font-semibold ${isCurrent ? "text-accent-primary" : "text-twilight-text"}`}>
+                                {MONTHS[month]}
+                            </span>
+                            <span className="grid grid-cols-7 gap-y-0.5" aria-hidden="true">
+                                {cells.map((day, i) => {
+                                    if (!day) return <span key={i} />;
+                                    const dayStr = `${year}-${monthStr}-${String(day).padStart(2, "0")}`;
+                                    const count = taskDateCounts.get(dayStr) ?? 0;
+                                    const isToday = dayStr === todayStr;
+                                    return (
+                                        <span
+                                            key={i}
+                                            className={`flex aspect-square items-center justify-center rounded-full text-[10.5px] tabular-nums ${
+                                                isToday ? "bg-accent-primary font-bold text-twilight-void" : "text-twilight-text-soft"
+                                            }`}
+                                            style={count > 0 && !isToday ? { backgroundColor: `color-mix(in srgb, var(--accent-primary) ${Math.min(45, 12 + count * 8)}%, transparent)` } : undefined}
+                                        >
+                                            {day}
+                                        </span>
+                                    );
+                                })}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );

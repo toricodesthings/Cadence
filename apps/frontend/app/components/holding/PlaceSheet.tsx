@@ -95,9 +95,17 @@ export function PlaceChips({ task, lightest, onPick, className = "" }: { task: T
  * browses days and hands off to Schedule. Busy-ness is shown as bars and words,
  * never counts, so a full week doesn't read as a wall of numbers.
  */
-export function PlaceSheet({ open, task, onClose, onOpenTask }: { open: boolean; task: Task | null; onClose: () => void; onOpenTask: (taskId: string) => void }) {
+export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
+    open: boolean;
+    task: Task | null;
+    onClose: () => void;
+    onOpenTask: (taskId: string) => void;
+    /** Replaces the default placement (a date with no time), e.g. to keep a scheduled time. */
+    onPlace?: (task: Task, iso: string) => void;
+}) {
     const navigate = useNavigate();
-    const place = usePlaceTask();
+    const defaultPlace = usePlaceTask();
+    const place = onPlace ?? defaultPlace;
     const todayIso = toISODate(new Date());
     const [stripStart, setStripStart] = useState(() => parseLocalDate(todayIso));
     const [picked, setPicked] = useState<string | null>(null);

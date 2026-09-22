@@ -5,7 +5,10 @@ import { toast } from "sonner";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
-import { formatShortDateLabel } from "../../lib/utils/date-format";
+import { formatShortDateLabel, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { useSettings } from "../../hooks/core/use-settings";
+import { useNlpParse } from "../../hooks/use-nlp-parse";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { TimePicker } from "../primitives";
@@ -29,6 +32,8 @@ export interface CalendarEventInfo {
     startHour: number;
     startMinute: number;
     isAllDay?: boolean;
+    /** Length of the draft block; an hour when unset. */
+    durationMinutes?: number;
     anchorX: number;
     anchorY: number;
 }
@@ -61,11 +66,18 @@ function formatTimeRange(startTime: string, endTime: string) {
     return `${fmt(startTime)} – ${fmt(endTime)}`;
 }
 
-function addHour(timeValue: string) {
+function addMinutes(timeValue: string, delta: number) {
     const [hours, minutes] = timeValue.split(":").map(Number);
     const end = new Date();
-    end.setHours(hours + 1, minutes, 0, 0);
+    end.setHours(hours, minutes + delta, 0, 0);
     return formatTimeValue(end.getHours(), end.getMinutes());
+}
+
+function minutesBetween(start: string, end: string) {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    const diff = eh * 60 + em - (sh * 60 + sm);
+    return diff > 0 ? diff : diff + 24 * 60;
 }
 
 function buildUntilValue(date: string) {
@@ -87,6 +99,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const personalEvents = usePersonalEvents(new Date(`${info.date}T00:00:00`).getFullYear());
 
     const [tab, setTab] = useState<ScheduleCreateTab>(initialTab);
+    // Phones lead with one line to type; the exact times wait under More.
+    const isPhone = useShellMode().isPhone;
 
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
@@ -96,7 +110,9 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const [hasEndDate, setHasEndDate] = useState(false);
     const [weekdays, setWeekdays] = useState<WeekdayCode[]>([toWeekdayCode(info.date)]);
     const [startTime, setStartTime] = useState(formatTimeValue(info.startHour, info.startMinute));
-    const [endTime, setEndTime] = useState(addHour(formatTimeValue(info.startHour, info.startMinute)));
+    const [endTime, setEndTime] = useState(addMinutes(formatTimeValue(info.startHour, info.startMinute), info.durationMinutes ?? 60));
+    /** Once a time or date field is touched, typed dates stop steering them. */
+    const [whenTouched, setWhenTouched] = useState(false);
     const [priority, setPriority] = useState<TaskPriority>(0);
     const [effort, setEffort] = useState<EffortLevel>(null);
     const [interactionMode, setInteractionMode] = useState<TaskInteractionMode>("timetable");
@@ -123,6 +139,36 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         return () => cancelAnimationFrame(id);
     }, [tab]);
 
+    // "Dinner with Sam Fri 7pm": a typed day and time fill the when, until a field is touched.
+    const { data: userSettings } = useSettings();
+    const intelligence = userSettings?.tasks?.intelligence;
+    const nlp = useNlpParse({
+        input: title,
+        projects: [],
+        tags: [],
+        enabled: isPhone && tab === "task" && mode === "once" && !whenTouched && intelligence?.nlpEnabled !== false,
+        sourceSurface: "quick_add",
+        dateStyle: userSettings?.dateTime?.dateStyle ?? "mdy",
+        confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
+        lowStimulationMode: intelligence?.lowStimulationMode ?? false,
+    });
+    const parsedStart = !whenTouched && mode === "once" && nlp.scheduledStart ? new Date(nlp.scheduledStart) : null;
+    const parsedDate = !whenTouched && mode === "once" && nlp.dueDate ? toISODate(parseLocalDate(nlp.dueDate.slice(0, 10))) : null;
+    const whenStartDate = parsedStart ? toISODate(parsedStart) : parsedDate ?? startDate;
+    const whenStartTime = parsedStart ? formatTimeValue(parsedStart.getHours(), parsedStart.getMinutes()) : startTime;
+    const whenEndTime = parsedStart ? addMinutes(whenStartTime, nlp.durationMinutes ?? minutesBetween(startTime, endTime)) : endTime;
+    const parsedWhen = Boolean(parsedStart || parsedDate);
+    const submitTitle = (parsedWhen && nlp.cleanedTitle.trim()) || title.trim();
+
+    /** Hand the typed when to the fields before the user edits one of them. */
+    const touchWhen = () => {
+        if (whenTouched) return;
+        setStartDate(whenStartDate);
+        setStartTime(whenStartTime);
+        setEndTime(whenEndTime);
+        setWhenTouched(true);
+    };
+
     const taskDirty = Boolean(title.trim() || notes.trim() || mode === "weekly" || hasEndDate || priority > 0 || effort !== null);
     const eventDirty = Boolean(
         eventLabel.trim()
@@ -140,28 +186,28 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             mode === "weekly"
                 ? getTaskRecurrenceSummary({
                     recurrenceRule,
-                    scheduledStart: new Date(`${startDate}T${startTime}:00`).toISOString(),
-                    scheduledEnd: new Date(`${startDate}T${endTime}:00`).toISOString(),
+                    scheduledStart: new Date(`${whenStartDate}T${whenStartTime}:00`).toISOString(),
+                    scheduledEnd: new Date(`${whenStartDate}T${whenEndTime}:00`).toISOString(),
                 })
                 : null,
-        [mode, recurrenceRule, startDate, startTime, endTime],
+        [mode, recurrenceRule, whenStartDate, whenStartTime, whenEndTime],
     );
 
     const handleTaskSubmit = useCallback(() => {
-        if (!title.trim()) return;
+        if (!submitTitle) return;
 
-        const start = new Date(`${startDate}T${startTime}:00`);
-        const end = new Date(`${startDate}T${endTime}:00`);
+        const start = new Date(`${whenStartDate}T${whenStartTime}:00`);
+        const end = new Date(`${whenStartDate}T${whenEndTime}:00`);
         if (end <= start) {
             end.setDate(end.getDate() + 1);
         }
 
         createTask(
             {
-                title: title.trim(),
+                title: submitTitle,
                 content: notes.trim() || null,
                 orderIndex: Date.now(),
-                dueDate: startDate,
+                dueDate: whenStartDate,
                 scheduledStart: start.toISOString(),
                 scheduledEnd: end.toISOString(),
                 isAllDay: false,
@@ -173,7 +219,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             },
             { onSuccess: onClose },
         );
-    }, [createTask, effort, endTime, interactionMode, mode, notes, onClose, priority, recurrenceRule, startDate, startTime, title]);
+    }, [createTask, effort, interactionMode, mode, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
 
     const handleEventSubmit = useCallback(() => {
         if (!eventLabel.trim() || !eventDate) return;
@@ -195,9 +241,9 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     }, [eventDate, eventEmoji, eventLabel, eventNotify, eventStartedOn, eventTrackMilestone, navigate, onClose, personalEvents]);
 
     const eventDateLabel = useMemo(() => formatShortDateLabel(eventDate), [eventDate]);
-    const taskSubtitle = mode === "weekly" ? (summary?.label ?? "Repeats every week") : formatTimeRange(startTime, endTime);
+    const taskSubtitle = mode === "weekly" ? (summary?.label ?? "Repeats every week") : formatTimeRange(whenStartTime, whenEndTime);
 
-    const composerTitle = `Create on ${tab === "task" ? formatShortDateLabel(startDate) : eventDateLabel}`;
+    const composerTitle = `Create on ${tab === "task" ? formatShortDateLabel(whenStartDate) : eventDateLabel}`;
     const composerSubtitle = tab === "task" ? taskSubtitle : "Yearly personal event";
 
     const typeTabs = (
@@ -211,6 +257,61 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                 { id: "event", label: "Event", icon: CalendarHeart, activeClassName: "bg-accent-nav-schedule/15 text-accent-nav-schedule" },
             ]}
         />
+    );
+
+    const whenFields = (
+        <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5">
+                    <span className={FIELD_LABEL}>Start</span>
+                    <TimePicker value={whenStartTime} onChange={(value) => { touchWhen(); setStartTime(value); }} icon={<Clock3 size={14} className="text-moonlit" />} />
+                </label>
+                <label className="space-y-1.5">
+                    <span className={FIELD_LABEL}>End</span>
+                    <TimePicker value={whenEndTime} onChange={(value) => { touchWhen(); setEndTime(value); }} icon={<Clock3 size={14} className="text-moonlit" />} />
+                </label>
+            </div>
+
+            <div className={`grid gap-3 ${mode === "weekly" ? "grid-cols-2" : "grid-cols-1"}`}>
+                <label className="space-y-1.5">
+                    <span className={`flex h-6 items-center ${FIELD_LABEL}`}>{mode === "weekly" ? "From" : "Date"}</span>
+                    <input
+                        type="date"
+                        value={whenStartDate}
+                        onChange={(event) => {
+                            touchWhen();
+                            setStartDate(event.target.value);
+                            if (mode === "weekly") setWeekdays([toWeekdayCode(event.target.value)]);
+                        }}
+                        className={`${COMPOSER_FIELD} cursor-pointer`}
+                    />
+                </label>
+
+                {mode === "weekly" ? <div className="space-y-1.5">
+                    <div className="flex h-6 items-center justify-between">
+                        <span className={FIELD_LABEL}>Until</span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setHasEndDate((value) => !value);
+                                setEndDate(hasEndDate ? "" : startDate);
+                            }}
+                            className={`flex min-h-9 cursor-pointer items-center rounded-lg px-2 text-[11px] font-medium transition-colors sm:-mr-2 ${hasEndDate ? "text-accent-primary" : "text-twilight-text-soft hover:text-twilight-text"}`}
+                        >
+                            {hasEndDate ? "Remove" : "Add end date"}
+                        </button>
+                    </div>
+                    <input
+                        type="date"
+                        value={endDate}
+                        onChange={(event) => setEndDate(event.target.value)}
+                        disabled={!hasEndDate}
+                        aria-label="Until"
+                        className={`${COMPOSER_FIELD} cursor-pointer disabled:cursor-not-allowed disabled:opacity-30`}
+                    />
+                </div> : null}
+            </div>
+        </>
     );
 
     return (
@@ -228,7 +329,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                     onSubmit={handleTaskSubmit}
                     submitLabel={isPending ? "Saving…" : mode === "weekly" ? "Create series" : "Add to schedule"}
                     icon={CalendarRange}
-                    disabled={!title.trim() || isPending}
+                    disabled={!submitTitle || isPending}
                 />
             ) : (
                 <ComposerSubmit
@@ -242,7 +343,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         >
             {tab === "task" ? (
                 <>
-                    <ComposerTitle inputRef={taskTitleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Block title…" aria-label="Block title" />
+                    <ComposerTitle inputRef={taskTitleRef} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isPhone ? "What, and when? e.g. Lunch with Sam Fri 1pm" : "Block title…"} aria-label="Block title" />
 
                     <ComposerTabs
                         ariaLabel="Repeat"
@@ -264,57 +365,10 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                         </>
                     ) : null}
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <label className="space-y-1.5">
-                            <span className={FIELD_LABEL}>Start</span>
-                            <TimePicker value={startTime} onChange={setStartTime} icon={<Clock3 size={14} className="text-moonlit" />} />
-                        </label>
-                        <label className="space-y-1.5">
-                            <span className={FIELD_LABEL}>End</span>
-                            <TimePicker value={endTime} onChange={setEndTime} icon={<Clock3 size={14} className="text-moonlit" />} />
-                        </label>
-                    </div>
+                    {isPhone ? null : whenFields}
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <label className="space-y-1.5">
-                            <span className={`flex h-6 items-center ${FIELD_LABEL}`}>From</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(event) => {
-                                    setStartDate(event.target.value);
-                                    if (mode === "weekly") setWeekdays([toWeekdayCode(event.target.value)]);
-                                }}
-                                className={`${COMPOSER_FIELD} cursor-pointer`}
-                            />
-                        </label>
-
-                        <div className="space-y-1.5">
-                            <div className="flex h-6 items-center justify-between">
-                                <span className={FIELD_LABEL}>Until</span>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setHasEndDate((value) => !value);
-                                        setEndDate(hasEndDate ? "" : startDate);
-                                    }}
-                                    className={`flex min-h-9 cursor-pointer items-center rounded-lg px-2 text-[11px] font-medium transition-colors sm:-mr-2 ${hasEndDate ? "text-accent-primary" : "text-twilight-text-soft hover:text-twilight-text"}`}
-                                >
-                                    {hasEndDate ? "Remove" : "Add end date"}
-                                </button>
-                            </div>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(event) => setEndDate(event.target.value)}
-                                disabled={!hasEndDate}
-                                aria-label="Until"
-                                className={`${COMPOSER_FIELD} cursor-pointer disabled:cursor-not-allowed disabled:opacity-30`}
-                            />
-                        </div>
-                    </div>
-
-                    <ComposerMore>
+                    <ComposerMore summary={isPhone ? formatTimeRange(whenStartTime, whenEndTime) : null}>
+                        {isPhone ? whenFields : null}
                         <label className="block">
                             <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
                                 <StickyNote size={12} aria-hidden="true" />

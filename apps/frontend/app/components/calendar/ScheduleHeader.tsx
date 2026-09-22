@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Settings, CalendarHeart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, SlidersHorizontal, CalendarHeart } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
     SunDim, Sun, Waves, Flame,
@@ -43,6 +43,15 @@ export interface ScheduleHeaderProps {
     /** Overflow content (holiday + clutter controls) */
     overflowContent?: ReactNode;
     compact?: boolean;
+    /** Phone: the title names what you're looking at, and the label above it zooms out. */
+    phone?: {
+        title: string;
+        /** Quiet line under the title, e.g. "Today · light". */
+        meta?: string | null;
+        /** Where zooming out goes ("September", "2026"); absent at the top level. */
+        backLabel?: string | null;
+        onZoomOut?: () => void;
+    };
 }
 
 /** Build the contextual subtitle — week range, day label, or seasonal context. */
@@ -168,11 +177,68 @@ export function ScheduleHeader({
     onAddEvent,
     overflowContent,
     compact = false,
+    phone,
 }: ScheduleHeaderProps) {
     const CurrentIcon = MONTH_ICONS[month];
     const mainHeading = viewMode === "year" ? String(year) : `${MONTH_NAMES[month]} ${year}`;
     const subtitleLabel = buildSubtitleLabel(viewMode, currentDate);
     const clock = useRealtimeClock();
+
+    if (phone) {
+        // ── Phone: one row. Period changes are swipes and taps on the calendar
+        //    itself; the label above the title zooms out (Day → Month → Year).
+        const identity = (
+            <span className="flex min-w-0 flex-col gap-0.5 text-left">
+                <span className="flex items-center gap-0.5 text-[12px] font-semibold uppercase leading-none tracking-[0.14em] text-twilight-text-muted">
+                    {phone.backLabel ? (
+                        <>
+                            <ChevronLeft size={14} aria-hidden="true" className="-ml-1 text-accent-primary" />
+                            <span className="text-accent-primary normal-case tracking-normal">{phone.backLabel}</span>
+                        </>
+                    ) : "Schedule"}
+                </span>
+                <span className="truncate font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
+                    {phone.title}
+                </span>
+                {phone.meta ? <span className="truncate text-[12.5px] text-twilight-text-soft">{phone.meta}</span> : null}
+            </span>
+        );
+
+        return (
+            <header className={`${PAGE_HEADER_SURFACE} px-4 pb-2 pt-2.5`}>
+                <div className="flex min-h-[52px] items-center gap-2">
+                    <h1 className="min-w-0 flex-1">
+                        {phone.backLabel && phone.onZoomOut ? (
+                            <button
+                                type="button"
+                                onClick={phone.onZoomOut}
+                                aria-label={`${phone.title}. Back to ${phone.backLabel}`}
+                                className="-mx-1 flex min-h-11 max-w-full cursor-pointer rounded-xl px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            >
+                                {identity}
+                            </button>
+                        ) : identity}
+                    </h1>
+                    {overflowContent && (
+                        <Popover.Root>
+                            <Popover.Trigger asChild>
+                                <button
+                                    type="button"
+                                    className="btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                                    aria-label="View and display options"
+                                >
+                                    <SlidersHorizontal size={18} aria-hidden="true" />
+                                </button>
+                            </Popover.Trigger>
+                            <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">
+                                {overflowContent}
+                            </Popover.Content>
+                        </Popover.Root>
+                    )}
+                </div>
+            </header>
+        );
+    }
 
     if (compact) {
         // ── Phone: two tight rows ──────────────────────────────────────────

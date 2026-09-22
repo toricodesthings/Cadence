@@ -44,19 +44,10 @@ export function useTasks(options: UseTasksOptions = {}) {
     });
 
     useEffect(() => {
-        if (!import.meta.env.DEV) {
-            return;
+        if (query.error) {
+            console.error("[cadence:tasks-query] error", query.error);
         }
-
-        console.info("[cadence:tasks-query] state changed", {
-            filters: filterOptions,
-            enabled: enabled && authReady && isAuthenticated,
-            status: query.status,
-            fetchStatus: query.fetchStatus,
-            count: query.data?.length ?? null,
-            error: query.error instanceof Error ? query.error.message : null,
-        });
-    }, [authReady, enabled, filterOptions, isAuthenticated, query.data?.length, query.error, query.fetchStatus, query.status]);
+    }, [query.error]);
 
     return query;
 }

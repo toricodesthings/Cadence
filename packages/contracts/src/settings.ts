@@ -160,6 +160,8 @@ export const userSettingsSchema = z.object({
             showAllDay: z.boolean().optional(),
             showTimedTasks: z.boolean().optional(),
             showHabitAnchors: z.boolean().optional(),
+            /** Fixed blocks (timetable). Missing means shown. */
+            showFixed: z.boolean().optional(),
         }).optional(),
         holidays: z.object({
             enabled: z.boolean(),
@@ -409,6 +411,7 @@ export const SETTINGS_DEFAULTS = {
             showAllDay: true,
             showTimedTasks: true,
             showHabitAnchors: true,
+            showFixed: true,
         },
         holidays: {
             enabled: true,

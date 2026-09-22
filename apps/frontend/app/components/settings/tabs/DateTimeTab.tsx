@@ -49,6 +49,7 @@ export function DateTimeTab() {
             showAllDay: true,
             showTimedTasks: true,
             showHabitAnchors: true,
+            showFixed: true,
         },
         holidays: {
             enabled: true,
@@ -208,6 +209,18 @@ export function DateTimeTab() {
                         checked={calSettings.clutter?.showTimedTasks ?? true}
                         onCheckedChange={(val) =>
                             updateSettings.mutate({ calendar: { clutter: { showTimedTasks: val } } })
+                        }
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    title="Show fixed blocks"
+                    description="Classes, shifts and other times you're committed to."
+                >
+                    <Switch
+                        checked={calSettings.clutter?.showFixed ?? true}
+                        onCheckedChange={(val) =>
+                            updateSettings.mutate({ calendar: { clutter: { showFixed: val } } })
                         }
                     />
                 </SettingsRow>

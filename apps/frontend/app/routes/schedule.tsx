@@ -21,10 +21,12 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { CalendarGrid } from "../components/calendar/CalendarGrid";
 import { WeekView } from "../components/calendar/WeekView";
-import { WeekFocusView } from "../components/calendar/WeekFocusView";
 import { DayView } from "../components/calendar/DayView";
-import { DayFocusView } from "../components/calendar/DayFocusView";
-import { MonthPeekView } from "../components/calendar/MonthPeekView";
+import { DayAgenda } from "../components/calendar/phone/DayAgenda";
+import { DayStrip } from "../components/calendar/phone/DayStrip";
+import { MonthFold } from "../components/calendar/phone/MonthFold";
+import { LightenTodaySheet, ReadyToPlaceSheet } from "../components/calendar/phone/ScheduleSheets";
+import { PlaceSheet, dayLabel } from "../components/holding/PlaceSheet";
 import { YearView } from "../components/calendar/YearView";
 import { ScheduleHeader, type CalendarViewMode } from "../components/calendar/ScheduleHeader";
 import { CalendarTaskChipOverlay } from "../components/calendar/CalendarTaskChip";
@@ -43,6 +45,7 @@ import {
     preserveLocalTime,
     getEffectiveTaskDate,
     parseEffectiveTaskDate,
+    MONTH_NAMES,
 } from "../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 import { useVirtualHabitTasks } from "../hooks/habits/use-virtual-habit-tasks";
@@ -56,12 +59,18 @@ import {
     parseCalendarTimedDropId,
     type CalendarDropPreview,
 } from "../lib/utils/calendar/calendar-dnd";
-import { getTaskSeriesId, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task/task-scheduling";
+import { getTaskSeriesId, isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task/task-scheduling";
+import { dayLoad, groupByDate, scheduleKind } from "../lib/utils/calendar/schedule-day";
+import { loadWord } from "../lib/utils/task/day-load";
+import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useTaskCompletionStore } from "../stores/task-completion-store";
+import { format } from "date-fns";
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { LocationNotice } from "../components/location/LocationNotice";
-import { Plus, Wrench } from "lucide-react";
+import { CalendarCheck, Feather, Plus, Wrench } from "lucide-react";
+import * as Popover from "../components/primitives/Popover";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
@@ -72,9 +81,11 @@ function applyCalendarClutterFilters(tasks: Task[], clutter: {
     showAllDay?: boolean;
     showTimedTasks?: boolean;
     showHabitAnchors?: boolean;
+    showFixed?: boolean;
 }) {
     return tasks.filter((task) => {
         if (task.isHabit && clutter.showHabitAnchors === false) return false;
+        if (!task.isHabit && isPassiveTimetableTask(task) && clutter.showFixed === false) return false;
         if (!task.isHabit && task.isAllDay && clutter.showAllDay === false) return false;
         if (!task.isHabit && !task.isAllDay && clutter.showTimedTasks === false) return false;
         return true;
@@ -103,7 +114,7 @@ export default function Schedule() {
     const deviceClass = shell.isPhone ? "phone" : shell.isDesktop ? "desktop" : "tablet";
     const storageKey = `cadence-schedule-view-${deviceClass}`;
     const defaultView: CalendarViewMode = shell.isPhone ? "day" : shell.isDesktop ? "month" : "week";
-    const [viewMode, setViewModeRaw] = useState<CalendarViewMode>(() => {
+    const [storedViewMode, setViewModeRaw] = useState<CalendarViewMode>(() => {
         const queryView = searchParams.get("view");
         if (isCalendarViewModeValue(queryView)) return queryView;
         try {
@@ -112,6 +123,9 @@ export default function Schedule() {
         } catch { /* noop */ }
         return defaultView;
     });
+    // Phones zoom Day → Month → Year; Week's strip lives inside Day there.
+    const viewMode: CalendarViewMode = shell.isPhone && storedViewMode === "week" ? "day" : storedViewMode;
+    const isPhoneDay = shell.isPhone && viewMode === "day";
     const setViewMode = useCallback((mode: CalendarViewMode) => {
         setViewModeRaw(mode);
         try { localStorage.setItem(storageKey, mode); } catch { /* noop */ }
@@ -122,6 +136,12 @@ export default function Schedule() {
         return isValidDateParam(queryDate) ? queryDate : toISODate(today);
     });
     const [direction, setDirection] = useState(0);
+    /** 1 = zooming in (Year → Month → Day), -1 = out; phones only. */
+    const [zoom, setZoom] = useState(0);
+    const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+    const [placeTask, setPlaceTask] = useState<Task | null>(null);
+    const [readyOpen, setReadyOpen] = useState(false);
+    const [lightenOpen, setLightenOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
 
@@ -156,7 +176,9 @@ export default function Schedule() {
     );
 
     const { mutate: updateTask } = useUpdateTask();
-    const { mutate: resolveHabit } = useResolveHabit();
+    const resolveHabitMutation = useResolveHabit();
+    const resolveHabit = resolveHabitMutation.mutate;
+    const queueCompletion = useTaskCompletionStore((state) => state.queueCompletion);
 
     // ── Derived values ─────────────────────────────────────────────────────
     const { y: year, m: month } = parseYMD(currentDate);
@@ -174,7 +196,7 @@ export default function Schedule() {
     const { data: weekTasks = [] } = useTasks({
         state: "ACTIVE",
         scheduledRange: weekRange,
-        enabled: viewMode === "week",
+        enabled: viewMode === "week" || isPhoneDay,
     });
 
     // Date-only bounds, same shape as week/month/year ranges, so the optimistic
@@ -183,7 +205,7 @@ export default function Schedule() {
     const { data: dayTasks = [] } = useTasks({
         state: "ACTIVE",
         scheduledRange: dayRange,
-        enabled: viewMode === "day",
+        enabled: viewMode === "day" && !shell.isPhone,
     });
 
     const yearRange = getYearDateRange(year);
@@ -201,7 +223,7 @@ export default function Schedule() {
             };
         }
 
-        if (viewMode === "week") {
+        if (viewMode === "week" || isPhoneDay) {
             return {
                 start: weekRange.start.substring(0, 10),
                 end: weekRange.end.substring(0, 10),
@@ -219,7 +241,7 @@ export default function Schedule() {
             start: monthRange.start.substring(0, 10),
             end: monthRange.end.substring(0, 10),
         };
-    }, [currentDate, monthRange.end, monthRange.start, viewMode, weekRange.end, weekRange.start, yearRange.end, yearRange.start]);
+    }, [currentDate, isPhoneDay, monthRange.end, monthRange.start, viewMode, weekRange.end, weekRange.start, yearRange.end, yearRange.start]);
 
     const holidayOverlay = useHolidayOverlay({
         start: holidayQueryRange.start,
@@ -234,6 +256,7 @@ export default function Schedule() {
         showAllDay: true,
         showTimedTasks: true,
         showHabitAnchors: true,
+        showFixed: true,
     };
     const birthdayDate = useMemo(() => {
         const bd = userSettings?.profile?.birthday;
@@ -283,15 +306,18 @@ export default function Schedule() {
     const habitRange = useMemo(() => {
         if (viewMode === "year") return { start: "", end: "", enabled: false };
         const ranges = { month: monthRange, week: weekRange, day: dayRange };
-        const r = ranges[viewMode as keyof typeof ranges];
+        const r = ranges[(isPhoneDay ? "week" : viewMode) as keyof typeof ranges];
         return {
             start: typeof r.start === "string" ? r.start.substring(0, 10) : "",
             end: typeof r.end === "string" ? r.end.substring(0, 10) : "",
             enabled: true,
         };
-    }, [viewMode, monthRange, weekRange, dayRange]);
+    }, [viewMode, isPhoneDay, monthRange, weekRange, dayRange]);
 
     const virtualHabitTasks = useVirtualHabitTasks(habitRange);
+    // Same query as the virtual tasks (cached): the real routines, for their editor and emoji.
+    const { data: rawHabits = [] } = useHabitsWeekly(habitRange);
+    const habitById = useMemo(() => new Map(rawHabits.map((habit) => [habit.id, habit])), [rawHabits]);
     const visibleMonthTasks = useMemo(() => applyCalendarClutterFilters(monthTasks, calendarClutter), [calendarClutter, monthTasks]);
     const visibleWeekTasks = useMemo(() => applyCalendarClutterFilters(weekTasks, calendarClutter), [calendarClutter, weekTasks]);
     const visibleDayTasks = useMemo(() => applyCalendarClutterFilters(dayTasks, calendarClutter), [calendarClutter, dayTasks]);
@@ -379,8 +405,44 @@ export default function Schedule() {
         return map;
     }, [visibleDayTasks, visibleHabitTasks, visibleMonthTasks, visibleWeekTasks]);
 
+    // ── Phone surface: one grouping (routines included) for marks and lists ─
+    const todayIso = toISODate(today);
+    const phoneGroups = useMemo(() => {
+        if (!shell.isPhone || viewMode === "year") return new Map<string, Task[]>();
+        return groupByDate([...(viewMode === "month" ? visibleMonthTasks : visibleWeekTasks), ...visibleHabitTasks]);
+    }, [shell.isPhone, viewMode, visibleHabitTasks, visibleMonthTasks, visibleWeekTasks]);
+
+    /** Holiday, birthday and personal-event names by ISO day, for the phone surface. */
+    const phoneMarkers = useMemo(() => {
+        const map = new Map<string, string[]>();
+        if (!shell.isPhone) return map;
+        const add = (iso: string, name: string) => map.set(iso, [...(map.get(iso) ?? []), name]);
+        if (holidayOverlay.enabled) {
+            for (const [iso, holidays] of Object.entries(holidaysByDateRecord)) holidays.forEach((holiday) => add(iso, holiday.name));
+        }
+        if (birthdayDate) add(birthdayDate, "Your birthday");
+        if (personalEvents.enabled) {
+            for (const [iso, events] of Object.entries(personalEventsByDateRecord)) events.forEach((event) => add(iso, event.label));
+        }
+        return map;
+    }, [birthdayDate, holidayOverlay.enabled, holidaysByDateRecord, personalEvents.enabled, personalEventsByDateRecord, shell.isPhone]);
+
+    const weekLoads = useMemo(
+        () => new Map(weekDates.map((date) => [toISODate(date), dayLoad(phoneGroups.get(toISODate(date)) ?? [])])),
+        [phoneGroups, weekDates],
+    );
+
+    const routineEmoji = useCallback(
+        (task: Task) => (task.isHabit ? habitById.get(task.id.split("--")[0].replace(/^habit-/, ""))?.emoji ?? null : null),
+        [habitById],
+    );
+
+    const { data: holdingTasks = [] } = useTasks({ state: "ACTIVE", hasNoProject: true, hasNoDate: true, enabled: isPhoneDay });
+    const readyTasks = useMemo(() => holdingTasks.filter((task) => !isPassiveTimetableTask(task)), [holdingTasks]);
+
     // ── Navigation ──────────────────────────────────────────────────────────
     const handleNavigate = useCallback((delta: number) => {
+        setZoom(0);
         setDirection(delta);
         setCurrentDate((prev) => {
             switch (viewMode) {
@@ -404,11 +466,12 @@ export default function Schedule() {
     });
 
     const slideCustom = useMemo<SlideCustom>(
-        () => ({ direction, distance: reducedMotion ? 0 : 32 }),
-        [direction, reducedMotion],
+        () => ({ direction, distance: reducedMotion || zoom ? 0 : 32, zoom: reducedMotion ? 0 : zoom }),
+        [direction, reducedMotion, zoom],
     );
 
     const handleToday = useCallback(() => {
+        setZoom(0);
         const now = new Date();
         const todayStr = toISODate(now);
         const cur = parseYMD(currentDate);
@@ -421,20 +484,46 @@ export default function Schedule() {
     const handleSelectDate = useCallback((day: number) => {
         const newDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
         setCurrentDate(newDate);
-        // On phone month view, stay in month (peek mode) instead of switching to day
-        if (!(shell.isPhone && viewMode === "month")) {
-            setViewMode("day");
-        }
-    }, [year, month, shell.isPhone, viewMode, setViewMode]);
+        setViewMode("day");
+    }, [year, month, setViewMode]);
 
     // ── View mode change ────────────────────────────────────────────────────
     const handleViewMode = useCallback((mode: CalendarViewMode) => {
+        const depth: Record<CalendarViewMode, number> = { day: 0, week: 1, month: 2, year: 3 };
+        setZoom(shell.isPhone ? Math.sign(depth[viewMode] - depth[mode]) : 0);
         setDirection(0);
         setViewMode(mode);
-    }, [setViewMode]);
+    }, [setViewMode, shell.isPhone, viewMode]);
+
+    /** Phone: open a day from Month or Year, zooming in. */
+    const openDay = useCallback((iso: string) => {
+        setCurrentDate(iso);
+        handleViewMode("day");
+    }, [handleViewMode]);
 
     // Scroll-to-navigate removed per audit — invisible gesture that changes calendar
     // structure without visible explanation. Users can navigate via header arrows or keyboard.
+
+    /** Move a task to another day, keeping its time of day and length. One Undo. */
+    const moveTaskToDay = useCallback((task: Task, iso: string, { quiet = false } = {}) => {
+        const prev = { dueDate: task.dueDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd, isAllDay: task.isAllDay };
+        if (task.isAllDay || !task.scheduledStart) {
+            updateTask({ id: task.id, dueDate: iso, scheduledStart: null, scheduledEnd: null, isAllDay: true });
+        } else {
+            const start = preserveLocalTime(iso, task.scheduledStart);
+            updateTask({
+                id: task.id,
+                dueDate: iso,
+                scheduledStart: start,
+                scheduledEnd: new Date(new Date(start).getTime() + getTaskDurationMs(task)).toISOString(),
+                isAllDay: false,
+            });
+        }
+        if (!quiet) {
+            toast(`Moved to ${dayLabel(iso)}`, { action: { label: "Undo", onClick: () => updateTask({ id: task.id, ...prev }) } });
+        }
+        return prev;
+    }, [updateTask]);
 
     // ── DnD sensors ────────────────────────────────────────────────────────
     const sensors = useSensors(
@@ -578,36 +667,18 @@ export default function Schedule() {
         }
 
         if (droppedId.startsWith("day-")) {
-            const datePart = droppedId.slice(4);
-            const durationMs = getTaskDurationMs(task);
-
-            if (task.isAllDay || !task.scheduledStart) {
-                updateTask({
-                    id: taskId,
-                    dueDate: datePart,
-                    scheduledStart: null,
-                    scheduledEnd: null,
-                    isAllDay: true,
-                });
-            } else {
-                const preservedStart = preserveLocalTime(datePart, task.scheduledStart);
-                updateTask({
-                    id: taskId,
-                    dueDate: datePart,
-                    scheduledStart: preservedStart,
-                    scheduledEnd: new Date(new Date(preservedStart).getTime() + durationMs).toISOString(),
-                    isAllDay: false,
-                });
-            }
+            moveTaskToDay(task, droppedId.slice(4), { quiet: true });
             trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "day" });
             toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
         }
-    }, [allVisibleTasks, updateTask]);
+    }, [allVisibleTasks, moveTaskToDay, updateTask]);
 
     // ── Task event handlers ─────────────────────────────────────────────────
     const handleSelectTask = useCallback((taskId: string) => {
         if (taskId.startsWith("habit-")) {
-            navigate("/routines");
+            // Compact shells open the routine in the same sheet tasks use; desktop has its page.
+            if (shell.isCompact) setSelectedHabitId(taskId.split("--")[0].replace(/^habit-/, ""));
+            else navigate("/routines");
             return;
         }
         const task = allVisibleTasks.get(taskId);
@@ -615,7 +686,65 @@ export default function Schedule() {
             setMobileDetailMode("peek");
         }
         setSelectedTaskId(task ? getTaskSeriesId(task) : taskId);
-    }, [allVisibleTasks, shell.isWide, navigate]);
+    }, [allVisibleTasks, shell.isCompact, shell.isWide, navigate]);
+
+    // ── Phone row actions ───────────────────────────────────────────────────
+    const completeRow = useCallback((task: Task) => {
+        if (task.isHabit) {
+            const [habitPart, targetDate] = task.id.split("--", 2);
+            return resolveHabitMutation.mutateAsync({
+                habitId: habitPart.replace(/^habit-/, ""),
+                targetDate,
+                status: task.state === "COMPLETE" ? "PENDING" : "COMPLETED",
+            });
+        }
+        // Same short, cancellable countdown the checkbox shows.
+        queueCompletion({ taskId: task.id, onCommit: () => updateTask({ id: task.id, state: "COMPLETE" }) });
+    }, [queueCompletion, resolveHabitMutation, updateTask]);
+
+    const moveRowLater = useCallback((task: Task) => {
+        const anchor = task.scheduledStart ?? task.dueDate;
+        const from = anchor ? getEffectiveTaskDate(anchor, task.isAllDay) : todayIso;
+        moveTaskToDay(task, addDaysToIso(from < todayIso ? todayIso : from, 1));
+    }, [moveTaskToDay, todayIso]);
+
+    const rowHandlers = useMemo(() => ({
+        onOpen: (task: Task) => handleSelectTask(task.id),
+        onComplete: completeRow,
+        onLater: moveRowLater,
+        onPickDay: (task: Task) => setPlaceTask(task),
+    }), [completeRow, handleSelectTask, moveRowLater]);
+
+    const handleAddAt = useCallback((start: Date, minutes: number) => {
+        setDraftPlacement(null);
+        setEventPopoverTab("task");
+        setEventPopoverInfo({
+            date: toISODate(start),
+            startHour: start.getHours(),
+            startMinute: start.getMinutes(),
+            durationMinutes: minutes,
+            anchorX: window.innerWidth / 2,
+            anchorY: 140,
+        });
+    }, []);
+
+    /** Today's open, movable tasks: what "Lighten today" may offer. Never fixed blocks or routines. */
+    const lightenCandidates = useMemo(() => (phoneGroups.get(todayIso) ?? []).filter((task) =>
+        scheduleKind(task) === "task" && task.state !== "COMPLETE" && !isRecurringTask(task) && !isRecurringTaskInstance(task),
+    ), [phoneGroups, todayIso]);
+
+    const lightenToday = useCallback((tasks: Task[], to: "tomorrow" | "holding") => {
+        const tomorrow = addDaysToIso(todayIso, 1);
+        const previous = tasks.map((task) => {
+            const prev = { id: task.id, dueDate: task.dueDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd, isAllDay: task.isAllDay };
+            if (to === "tomorrow") moveTaskToDay(task, tomorrow, { quiet: true });
+            else updateTask({ id: task.id, dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true });
+            return prev;
+        });
+        toast(to === "tomorrow" ? "Moved to tomorrow" : "Dates cleared", {
+            action: { label: "Undo", onClick: () => previous.forEach((prev) => updateTask(prev)) },
+        });
+    }, [moveTaskToDay, todayIso, updateTask]);
 
     const handleCompleteTask = useCallback(async (taskId: string) => {
         if (taskId.startsWith("habit-")) {
@@ -811,6 +940,13 @@ export default function Schedule() {
                         />
                     </label>
                     <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                        <span>Show fixed blocks</span>
+                        <Switch
+                            checked={calendarClutter.showFixed !== false}
+                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showFixed: val } } })}
+                        />
+                    </label>
+                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
                         <span>Show routine markers</span>
                         <Switch
                             checked={calendarClutter.showHabitAnchors}
@@ -874,86 +1010,109 @@ export default function Schedule() {
         </div>
     );
 
-    const mobileOverflowContent = (
+    const tasksShown = calendarClutter.showAllDay !== false && calendarClutter.showTimedTasks !== false;
+    const showRow = (label: string, checked: boolean, onChange: (value: boolean) => void, extra?: React.ReactNode) => (
+        <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-2 text-sm text-twilight-text">
+            <span>{label}</span>
+            <span className="flex items-center gap-1">
+                {extra}
+                <Switch checked={checked} onCheckedChange={onChange} />
+            </span>
+        </label>
+    );
+
+    /** Phone ⋯: which zoom level, what to show (in the user's words), and relief for today. */
+    const phoneOptions = (
         <div className="space-y-4">
-            <div>
-                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Display</h4>
-                <div className="space-y-2">
-                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show all-day tasks</span>
-                        <Switch
-                            checked={calendarClutter.showAllDay}
-                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showAllDay: val } } })}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show timed blocks</span>
-                        <Switch
-                            checked={calendarClutter.showTimedTasks}
-                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showTimedTasks: val } } })}
-                        />
-                    </label>
-                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show routine markers</span>
-                        <Switch
-                            checked={calendarClutter.showHabitAnchors}
-                            onCheckedChange={(val) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } })}
-                        />
-                    </label>
-                </div>
+            <div role="radiogroup" aria-label="View" className="grid grid-cols-3 gap-1 rounded-2xl border border-twilight-border/40 p-1">
+                {(["day", "month", "year"] as const).map((mode) => (
+                    <Popover.Close asChild key={mode}>
+                        <button
+                            type="button"
+                            role="radio"
+                            aria-checked={viewMode === mode}
+                            onClick={() => handleViewMode(mode)}
+                            className={`min-h-11 cursor-pointer rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                viewMode === mode ? "bg-accent-primary/20 text-accent-primary" : "text-twilight-text-soft hover:bg-white/[0.05]"
+                            }`}
+                        >
+                            {mode === "day" ? "Day" : mode === "month" ? "Month" : "Year"}
+                        </button>
+                    </Popover.Close>
+                ))}
             </div>
 
             <div>
-                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Events</h4>
-                <div className="space-y-2">
-                    <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                        <span>Show personal events</span>
-                        <div className="flex items-center gap-2">
-                            {personalEvents.enabled && (
-                                <Tip label="Manage events" side="top">
-                                    <button
-                                        type="button"
-                                        className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                        onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
-                                        aria-label="Manage events"
-                                    >
-                                        <Wrench size={14} />
-                                    </button>
-                                </Tip>
-                            )}
-                            <Switch
-                                checked={personalEvents.enabled}
-                                onCheckedChange={(value) => personalEvents.setEnabled(value)}
-                            />
-                        </div>
-                    </label>
-                </div>
+                <h4 className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">Show</h4>
+                {showRow("Fixed", calendarClutter.showFixed !== false, (val) => updateSettings.mutate({ calendar: { clutter: { showFixed: val } } }))}
+                {showRow("Routines", calendarClutter.showHabitAnchors !== false, (val) => updateSettings.mutate({ calendar: { clutter: { showHabitAnchors: val } } }))}
+                {showRow("Tasks", tasksShown, (val) => updateSettings.mutate({ calendar: { clutter: { showAllDay: val, showTimedTasks: val } } }))}
+                {showRow("Holidays", holidayOverlay.enabled, (val) => holidayOverlay.setEnabled(val), holidayOverlay.enabled ? (
+                    <button
+                        type="button"
+                        className="btn-icon rounded-lg text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                        onClick={(e) => { e.preventDefault(); navigate("?settings=location"); }}
+                        aria-label="Configure holiday location"
+                    >
+                        <Wrench size={14} />
+                    </button>
+                ) : null)}
+                {showRow("Events", personalEvents.enabled, (val) => personalEvents.setEnabled(val), personalEvents.enabled ? (
+                    <button
+                        type="button"
+                        className="btn-icon rounded-lg text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                        onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
+                        aria-label="Manage events"
+                    >
+                        <Wrench size={14} />
+                    </button>
+                ) : null)}
             </div>
 
-            <div>
-                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Holidays</h4>
-                <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                    <span>Show holidays</span>
-                    <div className="flex items-center gap-2">
-                        {holidayOverlay.enabled ? (
-                            <button
-                                type="button"
-                                className="rounded-lg p-1 text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06] transition-colors cursor-pointer"
-                                onClick={(e) => { e.preventDefault(); navigate("?settings=location"); }}
-                                aria-label="Configure holiday location"
-                            >
-                                <Wrench size={14} />
-                            </button>
-                        ) : null}
-                        <Switch
-                            checked={holidayOverlay.enabled}
-                            onCheckedChange={(val) => holidayOverlay.setEnabled(val)}
-                        />
-                    </div>
-                </label>
-            </div>
+            {isPhoneDay && currentDate === todayIso && lightenCandidates.length > 0 ? (
+                <Popover.Close asChild>
+                    <button
+                        type="button"
+                        onClick={() => setLightenOpen(true)}
+                        className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl border border-twilight-border/40 px-3 text-left text-sm text-twilight-text transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                    >
+                        <Feather size={15} className="text-accent-primary" aria-hidden="true" />
+                        <span className="flex-1">Lighten today…</span>
+                    </button>
+                </Popover.Close>
+            ) : null}
         </div>
     );
+
+    const selectedHabit = selectedHabitId ? habitById.get(selectedHabitId) ?? null : null;
+
+    const isOffToday = viewMode === "year"
+        ? year !== today.getFullYear()
+        : viewMode === "month"
+            ? year !== today.getFullYear() || month !== today.getMonth()
+            : currentDate !== todayIso;
+
+    /** Phone header: name what's on screen; the label above zooms out. */
+    const phoneHeader = useMemo(() => {
+        if (viewMode === "year") return { title: String(year) };
+        if (viewMode === "month") {
+            return {
+                title: year === today.getFullYear() ? MONTH_NAMES[month] : `${MONTH_NAMES[month]} ${year}`,
+                backLabel: String(year),
+                onZoomOut: () => handleViewMode("year"),
+            };
+        }
+        const date = parseLocalDate(currentDate);
+        const days = Math.round((date.getTime() - parseLocalDate(todayIso).getTime()) / 86_400_000);
+        const relation = days === 0 ? "Today" : days === 1 ? "Tomorrow" : days === -1 ? "Yesterday" : days > 0 ? `In ${days} days` : `${-days} days ago`;
+        const items = phoneGroups.get(currentDate) ?? [];
+        return {
+            title: format(date, "EEEE d MMMM"),
+            meta: items.length ? `${relation} · ${loadWord(dayLoad(items))}` : relation,
+            backLabel: MONTH_NAMES[month],
+            onZoomOut: () => handleViewMode("month"),
+        };
+    }, [currentDate, handleViewMode, month, phoneGroups, todayIso, viewMode, year]);
 
     // ── View key for AnimatePresence ────────────────────────────────────────
     const viewKey = viewMode === "month"
@@ -997,9 +1156,30 @@ export default function Schedule() {
                         onToday={handleToday}
                         onAddTask={handleAddTaskToolbar}
                         onAddEvent={handleAddEventToolbar}
-                        overflowContent={shell.isPhone ? mobileOverflowContent : overflowContent}
+                        overflowContent={shell.isPhone ? phoneOptions : overflowContent}
                         compact={shell.isCompact}
+                        phone={shell.isPhone ? phoneHeader : undefined}
                     />
+
+                    {/* Phone Day: the week stays put while the day below swipes. */}
+                    {isPhoneDay ? (
+                        <DayStrip
+                            weekDates={weekDates}
+                            selectedIso={currentDate}
+                            loads={weekLoads}
+                            markedDays={new Set(phoneMarkers.keys())}
+                            onSelect={(iso) => {
+                                setZoom(0);
+                                setDirection(iso > currentDate ? 1 : -1);
+                                setCurrentDate(iso);
+                            }}
+                            onShiftWeek={(delta) => {
+                                setZoom(0);
+                                setDirection(delta);
+                                setCurrentDate((prev) => addDaysToIso(prev, delta * 7));
+                            }}
+                        />
+                    ) : null}
 
                     {/* Main calendar area */}
                     <div className="flex-1 min-h-0 relative flex overflow-hidden">
@@ -1018,6 +1198,7 @@ export default function Schedule() {
                                     exit="exit"
                                     transition={reducedMotion ? { duration: 0 } : {
                                         x: { type: "spring", stiffness: 320, damping: 32 },
+                                        scale: { type: "spring", stiffness: 380, damping: 34 },
                                         opacity: { duration: 0.18 },
                                     }}
                                     className="absolute inset-0 flex flex-col"
@@ -1025,20 +1206,19 @@ export default function Schedule() {
                                     {/* ── MONTH ── */}
                                     {viewMode === "month" && (
                                         shell.isPhone ? (
-                                            <MonthPeekView
+                                            <MonthFold
                                                 year={year}
                                                 month={month}
-                                                currentDate={currentDate}
-                                                datesWithTasks={datesWithTasks}
-                                                habitDays={habitDays}
-                                                holidayDays={holidayOverlay.enabled ? holidayDays : undefined}
-                                                birthdayDay={birthdayDay}
-                                                personalEventDays={personalEvents.enabled ? personalEvents.eventDays : undefined}
-                                                personalEventCountsByDay={personalEventCountsByDay}
-                                                tasksByDay={tasksByDay}
-                                                onSelectDate={handleSelectDate}
-                                                onSelectTask={handleSelectTask}
-                                                onCompleteTask={handleCompleteTask}
+                                                selectedIso={currentDate}
+                                                groups={phoneGroups}
+                                                markers={phoneMarkers}
+                                                routineEmoji={routineEmoji}
+                                                onSelect={setCurrentDate}
+                                                onOpenDay={openDay}
+                                                onNextMonth={() => handleNavigate(1)}
+                                                dragActive={Boolean(activeDragTask)}
+                                                reducedMotion={Boolean(reducedMotion)}
+                                                {...rowHandlers}
                                             />
                                         ) : (
                                         <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4">
@@ -1066,20 +1246,6 @@ export default function Schedule() {
 
                                     {/* ── WEEK ── */}
                                     {viewMode === "week" && (
-                                        shell.isPhone ? (
-                                            <WeekFocusView
-                                                weekDates={weekDates}
-                                                currentDate={currentDate}
-                                                tasksByDate={weekTasksByDate}
-                                                holidaysByDate={holidayOverlay.enabled ? holidaysByDateRecord : undefined}
-                                                birthdayDate={birthdayDate}
-                                                personalEventsByDate={personalEvents.enabled ? personalEventsByDateRecord : undefined}
-                                                onSelectDate={(dateStr) => setCurrentDate(dateStr)}
-                                                onSelectTask={handleSelectTask}
-                                                onCompleteTask={handleCompleteTask}
-                                                onArchiveTask={handleArchiveTask}
-                                            />
-                                        ) : (
                                             <WeekView
                                                 weekDates={weekDates}
                                                 tasksByDate={weekTasksByDate}
@@ -1095,21 +1261,24 @@ export default function Schedule() {
                                                 onGridClick={handleGridClick}
                                                 onJumpToDay={(dateStr) => { setCurrentDate(dateStr); setViewMode("day"); }}
                                             />
-                                        )
                                     )}
 
                                     {/* ── DAY ── */}
                                     {viewMode === "day" && (
                                         shell.isPhone ? (
-                                            <DayFocusView
-                                                currentDate={currentDate}
-                                                tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
+                                            <DayAgenda
+                                                dateIso={currentDate}
+                                                tasks={phoneGroups.get(currentDate) ?? []}
                                                 holidays={holidayOverlay.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
                                                 isBirthday={birthdayDate === currentDate}
                                                 personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}
-                                                onSelectTask={handleSelectTask}
-                                                onCompleteTask={handleCompleteTask}
-                                                onArchiveTask={handleArchiveTask}
+                                                routineEmoji={routineEmoji}
+                                                hasReady={readyTasks.length > 0}
+                                                onOpenReady={() => setReadyOpen(true)}
+                                                onAddAt={handleAddAt}
+                                                dragActive={Boolean(activeDragTask)}
+                                                reducedMotion={Boolean(reducedMotion)}
+                                                {...rowHandlers}
                                             />
                                         ) : (
                                             <DayView
@@ -1154,6 +1323,31 @@ export default function Schedule() {
 
                 {/* Compact shells get the same bottom-right orb every other page
                     uses; the dock owns the centre, so a centred pill collided. */}
+                <AnimatePresence>
+                    {shell.isPhone && isOffToday ? (
+                        <motion.div
+                            key="back-to-today"
+                            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.96 }}
+                            transition={reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
+                            className="layer-floating-bar mobile-floating-action fixed bottom-5 left-4"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (viewMode === "year") handleViewMode("month");
+                                    handleToday();
+                                }}
+                                className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-twilight-border/60 bg-panel-raised/90 px-4 text-sm font-medium text-twilight-text shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-md transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            >
+                                <CalendarCheck size={16} className="text-accent-primary" aria-hidden="true" />
+                                Today
+                            </button>
+                        </motion.div>
+                    ) : null}
+                </AnimatePresence>
+
                 {shell.isCompact ? (
                     <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end sm:right-5">
                         <Tip label="Add to schedule" side="left">
@@ -1203,6 +1397,24 @@ export default function Schedule() {
                     />
                 </ResponsiveOverlayPanel>
             )}
+            {shell.isCompact && selectedHabit ? (
+                <ResponsiveOverlayPanel ariaLabel="Routine details" open onClose={() => setSelectedHabitId(null)} mode="peek">
+                    <EditSidePanel kind="habit" habit={selectedHabit} onClose={() => setSelectedHabitId(null)} />
+                </ResponsiveOverlayPanel>
+            ) : null}
+            {shell.isPhone ? (
+                <>
+                    <PlaceSheet
+                        open={Boolean(placeTask)}
+                        task={placeTask}
+                        onClose={() => setPlaceTask(null)}
+                        onOpenTask={handleSelectTask}
+                        onPlace={(task, iso) => moveTaskToDay(task, iso)}
+                    />
+                    <ReadyToPlaceSheet open={readyOpen} dateIso={currentDate} tasks={readyTasks} onClose={() => setReadyOpen(false)} />
+                    <LightenTodaySheet open={lightenOpen} tasks={lightenCandidates} onClose={() => setLightenOpen(false)} onMove={lightenToday} />
+                </>
+            ) : null}
             {holidayPrompts}
         </MainLayout>
     );

@@ -6,7 +6,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Schedule on your phone opens on your day, keeps the month out of the way, and puts everything within reach.
+
+### Added
+- Swipe a task on your phone's Schedule to finish it, or to move it to tomorrow or another day, with Undo.
+- Free time between plans shows as space you can tap to fill.
+- "Lighten today" moves the rest of today's tasks to tomorrow or clears their dates in one step, with Undo.
+- Ready tasks from Holding can be placed on the day you're viewing, straight from Schedule.
+- A "Show fixed blocks" switch, alongside the ones for tasks and routines.
+
+### Changed
+- On phones, Month folds into your week as you scroll, so the day's plans get the whole screen.
+- On phones, Day view names the day and shows your week above it; the separate Week view is gone.
+- On phones, Day, Month and Year zoom into each other: tap the label above the title to zoom out.
+- Fixed blocks, routines and tasks each look like what they are on your phone's Schedule.
+- Adding to Schedule on a phone starts with one line; "lunch with Sam fri 1pm" fills in the day and time.
+- Year view on phones opens on the current month; tap a month to open it.
+
 ### Fixed
+- Days with only routines no longer show as open in Month view on phones.
+- Past times no longer fade on days that haven't happened yet.
+- Undo right after a change no longer fails with "Task changed elsewhere".
+- Opening a routine from Schedule on a phone or tablet no longer leaves the page.
 - The assistant now knows your local date and time, so "today" and "tomorrow" are right late in the evening.
 - The assistant quotes task times in your time zone instead of UTC.
 - Assistant suggestion cards show the right day and include the time for timed tasks.

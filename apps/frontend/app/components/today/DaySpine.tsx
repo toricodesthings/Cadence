@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, ChevronDown } from "lucide-react";
 import { RoutineMark } from "../habits/RoutineMark";
 import { formatTime } from "../../lib/utils/date-format";
+import { formatDuration } from "../../lib/utils/calendar/schedule-day";
+import { useMinuteClock } from "../../hooks/ui/use-realtime-clock";
 
 export interface SpineItem {
     id: string;
@@ -32,21 +34,8 @@ function writeCollapsed(value: boolean) {
     }
 }
 
-function useMinuteClock() {
-    const [now, setNow] = useState(() => new Date());
-    useEffect(() => {
-        const id = window.setInterval(() => setNow(new Date()), 60_000);
-        return () => window.clearInterval(id);
-    }, []);
-    return now;
-}
-
 function formatIn(ms: number) {
-    const minutes = Math.max(1, Math.round(ms / 60_000));
-    if (minutes < 60) return `in ${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return rest ? `in ${hours}h ${rest}m` : `in ${hours}h`;
+    return `in ${formatDuration(Math.max(1, Math.round(ms / 60_000)))}`;
 }
 
 /**

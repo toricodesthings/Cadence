@@ -21,18 +21,10 @@ export function useInbox() {
     });
 
     useEffect(() => {
-        if (!import.meta.env.DEV) {
-            return;
+        if (query.error) {
+            console.error("[cadence:inbox-query] error", query.error);
         }
-
-        console.info("[cadence:inbox-query] state changed", {
-            enabled: authReady && isAuthenticated,
-            status: query.status,
-            fetchStatus: query.fetchStatus,
-            count: query.data?.length ?? null,
-            error: query.error instanceof Error ? query.error.message : null,
-        });
-    }, [authReady, isAuthenticated, query.data?.length, query.error, query.fetchStatus, query.status]);
+    }, [query.error]);
 
     return query;
 }
