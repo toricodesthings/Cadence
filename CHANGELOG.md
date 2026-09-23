@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-23
+
 Tags are now a real place to visit on your phone.
 
 ### Added
