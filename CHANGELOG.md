@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-09-23
+
 The assistant gets to the point, sounds like the voice you picked, and can explain any part of Cadence.
 
 ### Added
