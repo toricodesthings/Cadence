@@ -24,14 +24,28 @@ const baseTask: TaskRow = {
     effort: 3,
     projectId: "p1",
     waitingOn: null,
+    interactionMode: "task",
+    recurrenceRule: null,
     content: "SECRET full markdown body that must never be projected",
 };
 
 describe("toMinimalTask", () => {
     it("projects only the token-frugal fields and DROPS content", () => {
         expect(Object.keys(toMinimalTask(baseTask, "UTC")).sort()).toEqual(
-            ["dueDate", "durationEstimate", "effort", "id", "isAllDay", "priority", "projectId", "scheduledEnd", "scheduledStart", "state", "title", "waitingOn"],
+            ["dueDate", "durationEstimate", "effort", "fixedBlock", "id", "isAllDay", "priority", "projectId", "repeats", "scheduledEnd", "scheduledStart", "state", "title", "waitingOn"],
         );
+    });
+
+    it("flags timetable blocks and repeats, and names an occurrence by its series id", () => {
+        const occurrence = {
+            ...baseTask,
+            id: "t1::2026-06-10T18:00:00.000Z",
+            seriesId: "t1",
+            interactionMode: "timetable",
+            recurrenceRule: "FREQ=WEEKLY",
+        };
+        expect(toMinimalTask(occurrence, "UTC")).toMatchObject({ id: "t1", fixedBlock: true, repeats: true });
+        expect(toMinimalTask(baseTask, "UTC")).toMatchObject({ id: "t1", fixedBlock: false, repeats: false });
     });
 
     it("writes timed values as the user's wall clock with offset, so the model never converts", () => {

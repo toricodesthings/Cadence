@@ -68,7 +68,9 @@ function fromTimeOnBase(baseIso: string | null, time: string): string {
 function alignEndToStart(anchorStart: Date, timeSource: Date): Date {
     const end = new Date(anchorStart);
     end.setHours(timeSource.getHours(), timeSource.getMinutes(), 0, 0);
-    if (end <= anchorStart) end.setDate(end.getDate() + 1);
+    // Same time as the start means a zero-length block, not 24h: push it an hour out.
+    if (end.getTime() === anchorStart.getTime()) end.setHours(end.getHours() + 1);
+    else if (end < anchorStart) end.setDate(end.getDate() + 1);
     return end;
 }
 

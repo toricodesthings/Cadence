@@ -42,7 +42,10 @@ export function useTypedWhen(nlp: Pick<NlpParseOutput, "scheduledStart" | "dueDa
         touched,
         /** Takes over the shown values, then applies the edit. */
         edit: (patch: Partial<WhenFields>) => {
-            setFields({ ...when, ...patch });
+            const next = { ...when, ...patch };
+            // A zero-length block would save as 24h (end ≤ start rolls over), so push the end an hour out.
+            if (next.start && next.start === next.end) next.end = addMinutesToTime(next.start, 60);
+            setFields(next);
             setTouched(true);
         },
         reset: () => {

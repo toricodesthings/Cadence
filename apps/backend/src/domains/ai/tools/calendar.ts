@@ -1,16 +1,17 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, between, eq, or } from "drizzle-orm";
+import { and, between, eq, isNotNull, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { tasks, habits } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
-import { safeExecute, clampLimit } from "./index";
+import { safeExecute, clampLimit, MAX_LIST_LIMIT } from "./index";
 import {
     normalizeStartBoundary,
     normalizeEndBoundary,
 } from "@cadence/domain/task-temporal";
+import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
 import { taskLocalDay, toMinimalTask } from "./projections";
 import { addDaysToDateStr, toLocalDateStr } from "../../../platform/date-utils";
 
@@ -23,7 +24,10 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
         description:
             "READ-ONLY. Fetch tasks (by scheduled/due date) plus active habits within a date range " +
             "for density-aware planning. The range is capped at ~2 months and the task count is " +
-            "hard-capped server-side. Pass the user's local dates (YYYY-MM-DD); both ends are inclusive.",
+            "hard-capped server-side. Pass the user's local dates (YYYY-MM-DD); both ends are inclusive. " +
+            "Repeating tasks appear once per occurrence. fixedBlock:true = a timetable commitment (class, " +
+            "shift): it occupies that time, can't be checked off and is never overdue — plan around it, " +
+            "and don't propose completing or moving it unless the user asks.",
         inputSchema: z.object({
             start: z.string().describe("First local date, YYYY-MM-DD (a datetime is reduced to its local date)."),
             end: z.string().describe("Last local date, YYYY-MM-DD (inclusive)."),
@@ -66,6 +70,10 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             effort: tasks.effort,
                             projectId: tasks.projectId,
                             waitingOn: tasks.waitingOn,
+                            interactionMode: tasks.interactionMode,
+                            recurrenceRule: tasks.recurrenceRule,
+                            orderIndex: tasks.orderIndex,
+                            isPinned: tasks.isPinned,
                         })
                         .from(tasks)
                         .where(
@@ -74,11 +82,15 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                                 or(
                                     between(tasks.scheduledStart, startIso, endIso),
                                     between(tasks.dueDate, startIso, endIso),
+                                    // A repeating series is stored at its first date; expand below.
+                                    isNotNull(tasks.recurrenceRule),
                                 ),
                             ),
                         )
                         .orderBy(tasks.scheduledStart)
-                        .limit(cap);
+                        // ponytail: this row cap applies before expansion, so 50+ series/dated rows
+                        // could crowd each other out. Page by date if that ever bites.
+                        .limit(MAX_LIST_LIMIT);
 
                     const habitRows = await tx
                         .select({
@@ -92,10 +104,18 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .orderBy(habits.sortOrder)
                         .limit(50);
 
-                    const inRange = taskRows.filter((row) => {
-                        const day = taskLocalDay(row, ctx.timezone);
-                        return day !== null && day >= from && day <= to;
+                    // Same expansion as GET /tasks for a date range: each occurrence of a
+                    // repeating series lands on its own day instead of the series' first date.
+                    const expanded = expandScheduleScopedTasks(taskRows, {
+                        scheduledRangeStart: startIso,
+                        scheduledRangeEnd: endIso,
                     });
+                    const inRange = expanded
+                        .filter((row) => {
+                            const day = taskLocalDay(row, ctx.timezone);
+                            return day !== null && day >= from && day <= to;
+                        })
+                        .slice(0, cap);
                     return {
                         range: { start: from, end: to, timezone: ctx.timezone },
                         tasks: inRange.map((row) => toMinimalTask(row, ctx.timezone)),

@@ -207,8 +207,10 @@ export function QuickScheduleSurface({
         });
     };
 
-    const handleEndTimeChange = (time: string) => {
+    const handleEndTimeChange = (picked: string) => {
         const startIso = startIsoFor(selectedDate);
+        // End = start would roll over into a 24h block; push it an hour out instead.
+        const time = picked === toTimeValue(startIso) ? plusOneHour(picked) : picked;
         setEndTimeValue(time);
         onChange({
             dueDate: selectedDate,

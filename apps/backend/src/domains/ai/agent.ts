@@ -32,10 +32,19 @@ export function getModelId(env: Env): string {
 /** Served by OpenRouter when the chat model is unavailable or rate-limited. */
 const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
 
+/**
+ * Thinking budget. Turns are short planning chores (read a few rows, draft one
+ * proposal), so "low" keeps latency and cost down; raise it if tool choice slips.
+ */
+const REASONING_EFFORT = "low";
+
 /** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
 function getModel(env: Env) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
-    return openrouter(getModelId(env), { models: [getModelId(env), FALLBACK_CHAT_MODEL] });
+    return openrouter(getModelId(env), {
+        models: [getModelId(env), FALLBACK_CHAT_MODEL],
+        reasoning: { effort: REASONING_EFFORT },
+    });
 }
 
 /** Options resolved by the route before assembling the agent for one turn. */

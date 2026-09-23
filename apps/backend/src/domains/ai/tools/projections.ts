@@ -23,6 +23,10 @@ export interface MinimalTask {
     effort: number | null;
     projectId: string | null;
     waitingOn: string | null;
+    /** A timetable block (class, shift): occupies time, can't be checked off, never overdue. */
+    fixedBlock: boolean;
+    /** Part of a repeating series; `id` is the series id. */
+    repeats: boolean;
 }
 
 export interface TaskRow {
@@ -38,6 +42,10 @@ export interface TaskRow {
     effort: number | null;
     projectId: string | null;
     waitingOn: string | null;
+    interactionMode: string;
+    recurrenceRule: string | null;
+    /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
+    seriesId?: string;
     // content/notes intentionally accepted but DROPPED by the projection.
     content?: string | null;
 }
@@ -52,7 +60,8 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
     const show = (value: string | null) =>
         value === null ? null : row.isAllDay ? value.slice(0, 10) : toZonedIso(new Date(value), timezone);
     return {
-        id: row.id,
+        // An expanded occurrence's id is "<series>::<start>"; the model acts on the series.
+        id: row.seriesId ?? row.id,
         title: row.title,
         state: row.state,
         isAllDay: row.isAllDay,
@@ -64,6 +73,8 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         effort: row.effort,
         projectId: row.projectId,
         waitingOn: row.waitingOn,
+        fixedBlock: row.interactionMode === "timetable",
+        repeats: !!row.recurrenceRule,
     };
 }
 

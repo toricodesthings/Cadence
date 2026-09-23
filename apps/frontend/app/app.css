@@ -2071,7 +2071,49 @@ a:active {
   animation: cadence-now-line-sheen 4.6s linear infinite;
 }
 
+/* ── Chip the now-line is crossing — accent border + the line's sheen running along it.
+   Same 4.6s path as .cadence-now-line-sheen (offset by the chip's 0.25rem inset), and
+   syncNowSheen() pins both to one start time so the highlight crosses the chip with the sheen. ── */
+@keyframes cadence-now-live-chip-sheen {
+  0% {
+    background-position-x: -7.25rem;
+    opacity: 0.18;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+
+  100% {
+    background-position-x: calc(100vw + 2.75rem);
+    opacity: 0.18;
+  }
+}
+
+.cadence-now-live-chip {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+.cadence-now-live-chip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 232, 168, 0.95) 50%, transparent 100%) no-repeat;
+  background-size: 5rem 100%;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: cadence-now-live-chip-sheen 4.6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .cadence-now-live-chip::after {
+    animation: none !important;
+    opacity: 0.45;
+  }
+
   .sync-spin {
     animation: none !important;
     opacity: 0.7;

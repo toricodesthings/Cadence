@@ -10,6 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Tap the assistant's "Looked a few things up" chip to see exactly which lookups it ran and with what.
 - The assistant can add, edit, tick off or delete subtasks, and add, remove or swap tags, after you confirm.
 - Assistant task cards mark tags being added (+) or removed (−), each in the tag's own colour.
+- In Week and Day view, whatever the current-time line is passing through glows with a shimmering border.
 
 ### Fixed
 - Assistant suggestion cards no longer squeeze to a narrow box when they arrive without a reply above them.
@@ -18,7 +19,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - The assistant can now see and set a task's effort level (Low/Medium/High); it had no access to it before.
 - Saying a task is "hard" or "very easy" now sets its effort level, shown as a chip on the suggestion card.
 - A task suggestion or update now shows its priority as a small colored icon by the title, matching the task list.
+- The assistant no longer treats fixed blocks like classes as overdue tasks, and sees each repeat on its own day.
 - Tasks timed for late evening now show on Today instead of going missing when that time is past midnight UTC.
+- The time dropdown in create and edit dialogs scrolls again instead of staying stuck on the first few times.
+- Setting a block's end to its start time (4pm–4pm) now moves the end an hour later instead of making it 24 hours.
+- Typing a time on desktop and pressing Enter now keeps what you typed instead of snapping back or resetting to 0:00.
 
 ## [0.17.0] - 2026-09-23
 

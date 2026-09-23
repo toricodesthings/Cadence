@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, type CSSProperties, type ReactElement } from "react";
+import { useState, useCallback, useEffect, useRef, type CSSProperties, type ReactElement } from "react";
 import { Check, Archive, GripVertical, Repeat, CalendarClock, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
@@ -11,6 +11,7 @@ import { formatTime } from "../../lib/utils/date-format";
 import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { CALENDAR_SLOT_MINUTES } from "../../lib/utils/calendar/calendar-dnd";
+import { syncNowSheen, useIsUnderNowLine } from "./CurrentTimeIndicator";
 
 /** Tailwind classes for the chip background/border based on priority */
 const PRIORITY_PILL_BG: Record<TaskPriority, string> = {
@@ -97,12 +98,16 @@ export function CalendarTaskChip({
     const isPassiveTimetable = isPassiveTimetableTask(task);
     const allowQuickActions = !task.isHabit && !isRecurring && supportsManualTaskCompletion(task);
     const isCompletedHabit = task.isHabit && task.state === "COMPLETE";
+    const isUnderNowLine = useIsUnderNowLine(task.scheduledStart, task.scheduledEnd, variant === "block");
+    const chipRef = useRef<HTMLDivElement | null>(null);
 
     const { listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `task-${task.id}`,
         data: { taskId: task.id, sourceId: sourceId ?? null },
         disabled: Boolean(task.isHabit || isRecurring),
     });
+    const isNowLive = isUnderNowLine && !isDragging;
+    useEffect(() => { if (isNowLive) syncNowSheen(chipRef.current); }, [isNowLive]);
 
     const dragStyle: CSSProperties = {
         transform: CSS.Translate.toString(transform),
@@ -249,7 +254,7 @@ export function CalendarTaskChip({
     return (
         <CalendarTaskMenu task={task}>
             <motion.div
-                ref={setNodeRef}
+                ref={(el) => { setNodeRef(el); chipRef.current = el; }}
                 style={blockStyle}
                 {...listeners}
                 data-task-chip
@@ -261,6 +266,7 @@ export function CalendarTaskChip({
                     ${isRecurring ? "bg-[rgba(126,184,212,0.10)] border-[rgba(126,184,212,0.22)]" : PRIORITY_PILL_BG[priority]}
                     ${isDragging ? "z-50 scale-[1.02] shadow-[0_16px_48px_rgba(0,0,0,0.5)]" : "z-10"}
                     ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
+                    ${isNowLive ? "cadence-now-live-chip" : ""}
                     ${habitRibbon ? `border-l-2 border-accent-primary/45 border-twilight-border/25 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent-primary)_12%,transparent),color-mix(in_srgb,var(--accent-primary)_4%,transparent))] ${isCompletedHabit ? "opacity-55" : "opacity-100"} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]` : ""}
                 `}
                 onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}

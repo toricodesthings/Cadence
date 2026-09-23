@@ -90,3 +90,43 @@ export function uiMessageToRow(
 export function nextOrderIndex(lastOrderIndex: number | null): number {
     return (lastOrderIndex ?? 0) + 1;
 }
+
+/** Reasoning formats whose plain-text entries need a signature to be replayed. */
+const SIGNED_REASONING_FORMATS: ReadonlySet<string> = new Set(["anthropic-claude-v1", "google-gemini-v1"]);
+
+function keepReasoningDetail(detail: unknown): boolean {
+    const d = detail as { type?: string; format?: string; signature?: string };
+    // Same rule (and same default format) the OpenRouter provider applies on replay.
+    if (d?.type !== "reasoning.text") return true;
+    if (!SIGNED_REASONING_FORMATS.has(d.format ?? "anthropic-claude-v1")) return true;
+    return !!d.signature;
+}
+
+function cleanMeta(meta: unknown): unknown {
+    const details = (meta as { openrouter?: { reasoning_details?: unknown } } | undefined)?.openrouter?.reasoning_details;
+    if (!Array.isArray(details)) return meta;
+    const m = meta as { openrouter: Record<string, unknown> };
+    return { ...m, openrouter: { ...m.openrouter, reasoning_details: details.filter(keepReasoningDetail) } };
+}
+
+/**
+ * Drop unsigned reasoning summaries (Gemini/Claude `reasoning.text` without a
+ * signature) from history before it goes back to the model. The provider would
+ * strip them anyway — with a console warning every turn (openrouter
+ * ai-sdk-provider #418/#423). Signed + encrypted entries (thought signatures
+ * that tool calls depend on) are kept.
+ */
+export function dropUnsignedReasoning<T extends { parts: unknown[] }>(messages: T[]): T[] {
+    return messages.map((msg) => ({
+        ...msg,
+        parts: msg.parts.map((part) => {
+            const p = part as { providerMetadata?: unknown; callProviderMetadata?: unknown };
+            if (!p || typeof p !== "object" || (!p.providerMetadata && !p.callProviderMetadata)) return part;
+            return {
+                ...p,
+                ...(p.providerMetadata ? { providerMetadata: cleanMeta(p.providerMetadata) } : {}),
+                ...(p.callProviderMetadata ? { callProviderMetadata: cleanMeta(p.callProviderMetadata) } : {}),
+            };
+        }),
+    }));
+}

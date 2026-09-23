@@ -40,12 +40,17 @@ Close.displayName = "Popover.Close";
 export const Content = forwardRef<
     HTMLDivElement,
     RadixPopover.PopoverContentProps
->(({ className = "", sideOffset = 8, ...props }, ref) => (
+>(({ className = "", sideOffset = 8, onWheel, onTouchMove, ...props }, ref) => (
     <RadixPopover.Portal>
         <RadixPopover.Content
             ref={ref}
             sideOffset={sideOffset}
             data-cadence-popover-content="true"
+            // A modal Dialog's scroll lock cancels wheel/touchmove at `document`
+            // for anything outside it; this content is portaled out, so stop
+            // those events here or its scrollable lists can't scroll.
+            onWheel={(e) => { e.stopPropagation(); onWheel?.(e); }}
+            onTouchMove={(e) => { e.stopPropagation(); onTouchMove?.(e); }}
             className={[
                 FLOATING_SURFACE,
                 "rounded-2xl p-4 shadow-2xl",

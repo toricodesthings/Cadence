@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, desc, ilike, or } from "drizzle-orm";
+import { and, eq, desc, ilike, ne, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { tasks, subtasks, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
@@ -32,6 +32,8 @@ const minimalTaskColumns = {
     effort: tasks.effort,
     projectId: tasks.projectId,
     waitingOn: tasks.waitingOn,
+    interactionMode: tasks.interactionMode,
+    recurrenceRule: tasks.recurrenceRule,
 } as const;
 
 export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
@@ -40,7 +42,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
         description:
             "READ-ONLY. Fetch the user's tasks filtered by state, project, due window, " +
             "waiting status, or missing-structure. Returns ids + minimal fields (title, " +
-            "dates, state) only — never note bodies. Results are hard-capped server-side.",
+            "dates, state) only — never note bodies. Excludes fixed timetable blocks (classes, shifts); " +
+            "use get_schedule_window for those. Results are hard-capped server-side.",
         inputSchema: z.object({
             state: z
                 .enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"])
@@ -93,7 +96,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     filterInput.effectiveOnOrBeforeDate = window.to;
                 }
                 const normalized = normalizeTaskFilters(filterInput as never);
-                const conditions = buildTaskWhereClause(userId, normalized);
+                // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
+                // checked off, so they never belong in a task list. get_schedule_window shows them.
+                const conditions = [...buildTaskWhereClause(userId, normalized), ne(tasks.interactionMode, "timetable")];
 
                 const db = getDbClient(env);
                 const rows = await withRls(db, userId, async (tx) =>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     rowToUIMessage,
+    dropUnsignedReasoning,
     uiMessageToRow,
     type StoredMessage,
 } from "../../src/domains/ai/persistence/message-mapper";
@@ -81,3 +82,32 @@ describe("uiMessageToRow", () => {
     });
 });
 
+
+describe("dropUnsignedReasoning", () => {
+    const details = [
+        { type: "reasoning.text", format: "google-gemini-v1", text: "summary" },
+        { type: "reasoning.text", format: "google-gemini-v1", text: "signed", signature: "sig" },
+        { type: "reasoning.encrypted", format: "google-gemini-v1", data: "opaque" },
+        { type: "reasoning.text", format: "openai-responses-v1", text: "other format" },
+        { type: "reasoning.text", text: "no format defaults to anthropic" },
+    ];
+    const meta = { openrouter: { reasoning_details: details, other: 1 } };
+
+    it("drops only unsigned text details, on reasoning and tool parts alike", () => {
+        const [msg] = dropUnsignedReasoning([
+            {
+                parts: [
+                    { type: "reasoning", text: "r", providerMetadata: meta },
+                    { type: "tool-get_tasks", callProviderMetadata: meta },
+                    { type: "text", text: "hi" },
+                ],
+            },
+        ]);
+        const kept = ["signed", undefined, "other format"];
+        const [reasoning, tool, text] = msg.parts as Array<Record<string, any>>;
+        expect(reasoning.providerMetadata.openrouter.reasoning_details.map((d: any) => d.text)).toEqual(kept);
+        expect(tool.callProviderMetadata.openrouter.reasoning_details.map((d: any) => d.text)).toEqual(kept);
+        expect(reasoning.providerMetadata.openrouter.other).toBe(1);
+        expect(text).toEqual({ type: "text", text: "hi" });
+    });
+});

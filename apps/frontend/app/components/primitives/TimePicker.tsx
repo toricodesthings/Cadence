@@ -184,7 +184,7 @@ function DesktopTimePicker({ value, onChange, icon, className, label, disabled, 
 
     const openList = React.useCallback(() => {
         const idx = items.indexOf(value);
-        setHighlight(idx === -1 ? nearestIndex(value, items) : idx);
+        setHighlight(!value ? -1 : idx === -1 ? nearestIndex(value, items) : idx);
         setOpen(true);
     }, [items, value]);
 
@@ -203,7 +203,7 @@ function DesktopTimePicker({ value, onChange, icon, className, label, disabled, 
                 return;
             }
             const delta = e.key === "ArrowDown" ? 1 : -1;
-            setHighlight((h) => (h + delta + items.length) % items.length);
+            setHighlight((h) => (h < 0 ? (delta > 0 ? 0 : items.length - 1) : (h + delta + items.length) % items.length));
         } else if (e.key === "Enter") {
             e.preventDefault();
             if (open && highlight >= 0 && items[highlight]) commit(items[highlight]);
@@ -237,6 +237,8 @@ function DesktopTimePicker({ value, onChange, icon, className, label, disabled, 
                         onChange={(e) => {
                             setText(e.target.value);
                             if (!open) openList();
+                            // Typing takes over from the list: Enter commits the text, not a stale highlight.
+                            setHighlight(-1);
                         }}
                         onFocus={(e) => {
                             // Select the text but don't pop the list — opening on
