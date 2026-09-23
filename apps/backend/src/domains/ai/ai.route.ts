@@ -11,7 +11,7 @@ import { apiValidator } from "../../platform/validation";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { getRequestId, setRequestErrorCode } from "../../platform/request-log";
-import { logger, hashIdentifier } from "../../platform/log";
+import { logger, hashIdentifier, issuesFromError, shorten } from "../../platform/log";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { getRedis, getRateLimitRedis } from "../../platform/redis";
 import {
@@ -293,7 +293,16 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 : undefined,
         onError: (error) => {
             const streamError = buildStreamError(error, requestId);
-            logger.warn("ai", "ai_stream_error", { requestId, userHash, code: streamError.code });
+            // Server-side only: the provider's status + reason (never reaches the client).
+            const upstream = error as { statusCode?: unknown; responseBody?: unknown };
+            logger.warn("ai", "ai_stream_error", {
+                requestId,
+                userHash,
+                code: streamError.code,
+                upstreamStatus: upstream?.statusCode,
+                upstreamBody: typeof upstream?.responseBody === "string" ? shorten(upstream.responseBody) : undefined,
+                issues: issuesFromError(error),
+            });
             return streamErrorToText(streamError);
         },
         onEnd: async ({ responseMessage, isAborted, finishReason }) => {
