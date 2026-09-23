@@ -8,9 +8,6 @@ import {
     aiConversations,
     aiMemories,
     aiMessages,
-    aiPromptBlocks,
-    aiPromptRevision,
-    aiTitlePrompts,
     habitLogs,
     habitTags,
     habits,
@@ -31,9 +28,7 @@ import {
     usageEvents,
     userMetrics,
 } from "../../db/schema";
-import { eq, sql } from "drizzle-orm";
-import { apiValidator } from "../../platform/validation";
-import { promptBlockUpsertSchema, titlePromptUpsertSchema } from "../ai/ai.schema";
+import { eq } from "drizzle-orm";
 import type { Env } from "../../types/env";
 import type { Tx } from "../../types/db";
 import type { AuthVariables } from "../../platform/auth";
@@ -145,81 +140,6 @@ export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 version: scenario.version,
             },
         });
-    })
-    // Live-edit a system-prompt block without a deploy (doc 04 §5 option 2).
-    // ai_prompt_blocks is GLOBAL config (no RLS) — written here, read by the prompt
-    // cache. The revision bump in the SAME transaction is the cache-bust token; the
-    // in-isolate cache reloads on the next chat turn within the Tier-0 TTL.
-    .patch("/ai/prompt-blocks", apiValidator("json", promptBlockUpsertSchema), async (c) => {
-    requireAdmin(c);
-    const db = getDbClient(c.env);
-    const block = c.req.valid("json");
-
-    await db.transaction(async (tx) => {
-        await tx
-            .insert(aiPromptBlocks)
-            .values({
-                kind: block.kind,
-                layer: block.layer,
-                locale: block.locale,
-                orderIndex: block.orderIndex,
-                template: block.template,
-                isActive: block.isActive ?? true,
-                notes: block.notes ?? null,
-            })
-            .onConflictDoUpdate({
-                target: [aiPromptBlocks.kind, aiPromptBlocks.locale],
-                set: {
-                    layer: block.layer,
-                    orderIndex: block.orderIndex,
-                    template: block.template,
-                    isActive: block.isActive ?? true,
-                    notes: block.notes ?? null,
-                    version: sql`${aiPromptBlocks.version} + 1`,
-                    updatedAt: sql`NOW()`,
-                },
-            });
-
-        // Bump the singleton revision (cache-bust). Create row id=1 on first write.
-        await tx
-            .insert(aiPromptRevision)
-            .values({ id: 1, revision: 1 })
-            .onConflictDoUpdate({
-                target: aiPromptRevision.id,
-                set: { revision: sql`${aiPromptRevision.revision} + 1`, updatedAt: sql`NOW()` },
-            });
-    });
-
-        return c.json({ data: { message: `Updated prompt block "${block.kind}" (${block.locale}); revision bumped.` } });
-    })
-    // Live-edit the conversation auto-title system prompt (ai_title_prompts is GLOBAL
-    // config — no RLS). One active row per locale; the title-prompt loader's TTL cache
-    // picks up the change on the next titled turn within ~60s.
-    .patch("/ai/title-prompt", apiValidator("json", titlePromptUpsertSchema), async (c) => {
-        requireAdmin(c);
-        const db = getDbClient(c.env);
-        const body = c.req.valid("json");
-
-        await db
-            .insert(aiTitlePrompts)
-            .values({
-                locale: body.locale,
-                template: body.template,
-                isActive: body.isActive ?? true,
-                notes: body.notes ?? null,
-            })
-            .onConflictDoUpdate({
-                target: aiTitlePrompts.locale,
-                set: {
-                    template: body.template,
-                    isActive: body.isActive ?? true,
-                    notes: body.notes ?? null,
-                    version: sql`${aiTitlePrompts.version} + 1`,
-                    updatedAt: sql`NOW()`,
-                },
-            });
-
-        return c.json({ data: { message: `Updated title prompt (${body.locale}).` } });
     })
     .get("/capabilities", async (c) => {
         const { userId, userEmail } = requireAdmin(c);

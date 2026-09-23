@@ -53,13 +53,7 @@ export const sourceSurfaceEnum = pgEnum('source_surface', [
 export const suggestionTypeEnum = pgEnum('suggestion_type', ['lighten_today', 'suggested_cleanup', 'move_overdue']);
 export const focusViewSourceEnum = pgEnum('focus_view_source', ['preset', 'composed', 'manual']);
 
-// AI assistant enums (see docs/ai_upgrade 04 — prompt storage, 08 — persistence)
-export const aiPromptLayerEnum = pgEnum('ai_prompt_layer', ['base', 'auxiliary']);
-export const aiPromptBlockKindEnum = pgEnum('ai_prompt_block_kind', [
-    'identity', 'safety', 'operating_principles', 'output_contract', 'tool_policy',
-    'runtime_context', 'human_metrics', 'persona_customization',
-    'retrieved_memory', 'workspace_snapshot', 'tone_neutral', 'tone_protective',
-]);
+// AI assistant enums (see docs/ai_upgrade 08 — persistence)
 export const aiMessageRoleEnum = pgEnum('ai_message_role', ['user', 'assistant', 'system']);
 export const aiMessageStatusEnum = pgEnum('ai_message_status', ['streaming', 'complete', 'failed', 'aborted']);
 
@@ -161,54 +155,6 @@ export const aiMemories = pgTable('ai_memories', {
         }),
     };
 }).enableRLS();
-
-// 3a. AI Prompt Blocks — modular, DB-stored system-prompt fragments.
-// GLOBAL APPLICATION CONFIG, identical for every user → intentionally NO RLS.
-// This table is system-owned: written only by migrations/admin tooling and read
-// by the prompt-cache loader; it is never reachable from user-scoped routes.
-// (Deliberate, recorded deviation from the "RLS or it doesn't ship" rule —
-// mirrors the documented types/inbox.ts exception style.) See docs/ai_upgrade/04.
-export const aiPromptBlocks = pgTable('ai_prompt_blocks', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    kind: aiPromptBlockKindEnum('kind').notNull(),
-    layer: aiPromptLayerEnum('layer').notNull(),
-    locale: text('locale').default('en').notNull(),               // future i18n
-    orderIndex: integer('order_index').notNull(),                 // deterministic composition order
-    template: text('template').notNull(),                         // may contain {{placeholders}}
-    version: integer('version').default(1).notNull(),             // per-block edit counter
-    isActive: boolean('is_active').default(true).notNull(),
-    notes: text('notes'),                                         // editor-facing change rationale
-    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
-}, (table) => ({
-    activeLookupIdx: uniqueIndex('ai_prompt_blocks_active_kind_locale_unique').on(table.kind, table.locale),
-}));
-// NOTE: enableRLS() intentionally omitted — global config, not user data.
-
-// 3b. AI Prompt Revision — singleton cache-bust token (only row id=1).
-// Any write to ai_prompt_blocks bumps `revision` (admin write path / trigger).
-export const aiPromptRevision = pgTable('ai_prompt_revision', {
-    id: integer('id').primaryKey().default(1),                   // enforced singleton: only row id=1
-    revision: integer('revision').default(1).notNull(),          // bumped on ANY block change
-    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
-});
-
-// 3c. AI Title Prompt — the system prompt for the conversation auto-titler.
-// Kept OUT of ai_prompt_blocks (it is not composed into the agent's base/auxiliary
-// stack) but still DB-backed + live-editable, with a compiled-in default floor in
-// title/title-prompt.ts. One active row per locale. Global config — no RLS.
-export const aiTitlePrompts = pgTable('ai_title_prompts', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    locale: text('locale').default('en').notNull(),
-    template: text('template').notNull(),
-    version: integer('version').default(1).notNull(),
-    isActive: boolean('is_active').default(true).notNull(),
-    notes: text('notes'),                                         // editor-facing change rationale
-    updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
-    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
-}, (table) => ({
-    localeUnique: uniqueIndex('ai_title_prompts_locale_unique').on(table.locale),
-}));
 
 // 3c. AI Conversations — one row per chat thread (owner RLS). See docs/ai_upgrade/08.
 export const aiConversations = pgTable('ai_conversations', {

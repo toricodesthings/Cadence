@@ -1,4 +1,4 @@
-import { ToolLoopAgent, isStepCount } from "ai";
+import { ToolLoopAgent, asSchema, isStepCount, type ToolSet } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
@@ -7,7 +7,7 @@ import { withRls } from "../../platform/rls";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
 import { buildToolRegistry, type AgentContext } from "./tools/index";
-import { getCompiledBlocks, DEFAULT_PROMPT_BLOCKS } from "./prompt/prompt-cache";
+import { PROMPT_BLOCKS } from "./prompt/prompt-blocks";
 import { composePrompt, selectToneBlock } from "./prompt/prompt-composer";
 import type {
     AssistantPersona,
@@ -130,14 +130,21 @@ function selectAuxiliary(
     });
 }
 
-/** Compile the compiled-in default Base+Auxiliary floor (used on composition failure). */
-function compileDefaults(): CompiledPromptBlocks {
-    const byOrder = (a: { orderIndex: number }, b: { orderIndex: number }) => a.orderIndex - b.orderIndex;
-    return {
-        base: DEFAULT_PROMPT_BLOCKS.filter((b) => b.layer === "base").sort(byOrder),
-        auxiliary: DEFAULT_PROMPT_BLOCKS.filter((b) => b.layer === "auxiliary").sort(byOrder),
-        revision: 0,
-    };
+let promptHash: Promise<string> | undefined;
+
+/**
+ * Fingerprint of everything the model sees besides the conversation: the prompt
+ * blocks plus each tool's name, description and input schema. Stamped on every
+ * assistant message so a behavior change can be traced to a prompt or tool edit.
+ * Static per deploy, so computed once per isolate.
+ */
+function getPromptHash(tools: ToolSet): Promise<string> {
+    promptHash ??= (async () => {
+        const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
+            [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
+        return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, toolDefs]));
+    })();
+    return promptHash;
 }
 
 /**
@@ -154,15 +161,15 @@ export function userClock(timezone: string | undefined, currentDate: string) {
 }
 
 /**
- * Assemble the per-request agent: DB-composed system prompt (Base + Auxiliary) +
- * the full RLS-scoped tool surface. Returns the agent and the resolved model id
- * (for message metadata / conversation.model).
+ * Assemble the per-request agent: composed system prompt (Base + Auxiliary) +
+ * the full RLS-scoped tool surface. Returns the agent, the resolved model id and
+ * the prompt hash (for message metadata / conversation.model).
  */
 export async function getAgentInstance(
     env: Env,
     userId: string,
     opts: AgentBuildOptions,
-): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string }> {
+): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string }> {
     const locale = opts.locale ?? "en";
     const clock = userClock(opts.timezone, opts.currentDate);
     const { metrics, persona, weekStart } = await loadUserContext(env, userId);
@@ -179,30 +186,11 @@ export async function getAgentInstance(
     };
 
     const tone = selectToneBlock(metrics, persona.adaptiveTone);
-    const compiled = await getCompiledBlocks(env);
-    const forTurn: CompiledPromptBlocks = {
-        base: compiled.base,
-        auxiliary: selectAuxiliary(compiled, tone, memories.length > 0),
-        revision: compiled.revision,
-    };
-
-    // Compose; on a placeholder error (typo in a DB block) fail closed to the
-    // compiled-in default Base rather than the request (doc 03 §6 / 04 §4).
-    let instructions: string;
-    try {
-        instructions = composePrompt(forTurn, ctx, opts.nonce);
-    } catch (error) {
-        logger.warn("ai", "prompt_placeholder_unknown", {
-            userHash: await hashIdentifier(userId),
-            issues: issuesFromError(error),
-        });
-        const fallback = compileDefaults();
-        instructions = composePrompt(
-            { base: fallback.base, auxiliary: selectAuxiliary(fallback, tone, memories.length > 0), revision: fallback.revision },
-            ctx,
-            opts.nonce,
-        );
-    }
+    const instructions = composePrompt(
+        { base: PROMPT_BLOCKS.base, auxiliary: selectAuxiliary(PROMPT_BLOCKS, tone, memories.length > 0) },
+        ctx,
+        opts.nonce,
+    );
 
     const agentCtx: AgentContext = {
         timezone: clock.timezone,
@@ -211,15 +199,16 @@ export async function getAgentInstance(
         weekStart,
         locale,
     };
+    const tools = buildToolRegistry(env, userId, agentCtx);
 
     const agent = new ToolLoopAgent({
         model: getModel(env),
         instructions,
-        tools: buildToolRegistry(env, userId, agentCtx),
+        tools,
         stopWhen: isStepCount(MAX_TOOL_STEPS),
         temperature: 0.4,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
 
-    return { agent, modelId: getModelId(env) };
+    return { agent, modelId: getModelId(env), promptHash: await getPromptHash(tools) };
 }

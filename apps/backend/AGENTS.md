@@ -95,27 +95,25 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | events | `/events` | single + batch usage tracking |
 | suggestions | `/suggestions` | list + accept/dismiss |
 | proxy | `/proxy` | proxied external calls: weather, reverse/forward geocoding, approximate location (`GET /geo/approximate` from Cloudflare `request.cf`), holidays. Coordinates are rounded to 2 decimals before any upstream call. |
-| debug | `/debug` | clear + seed (non-prod only) + admin prompt-block edit |
+| debug | `/debug` | clear + seed (non-prod only) |
 | ai | `/ai` | `POST /chat` (streamed, persisted), conversation CRUD, tool-output endpoints |
 
 `AppType` (exported from `src/index.ts`) is the RPC contract the frontend types against — treat as a critical integration boundary.
 
 ## 8. Domain Model
 
-`src/db/schema.ts` is truth: **28 tables**, **16 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiPromptBlocks`, `aiPromptRevision`, `aiTitlePrompts`) · infra (`mutationDedup`).
-
-**Deliberate RLS exception:** `aiPromptBlocks`/`aiPromptRevision` have **no RLS** — global app config, identical for every user, written only by migrations/admin route, read only by the prompt cache loader outside `withRls`. Any block write bumps `aiPromptRevision.revision` (cache-bust token) in the same transaction.
+`src/db/schema.ts` is truth: **25 tables**, **14 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`) · infra (`mutationDedup`).
 
 **Settings:** `UserSettingsSchema` lives in `settings.schema.ts`, re-exported from `db/schema.ts`. `settings.appearance.backgroundImage` is server-owned: `sanitizeBackgroundPatch` (`domains/settings/background-image.ts`) lets a PATCH change only accent/blur/brightness, never the photo's identity or existence. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant` (persona, tone, verbosity, emoji, nickname, customInstructions, proactiveSuggestions, memoryEnabled, adaptiveTone) maps via pure `personaToDirectives` into the `persona_customization` prompt block; free-text fields are sanitized + fenced before composition — never trust them raw in a prompt.
 
 ## 9. AI Domain (`src/domains/ai`)
 
 - `ai.route.ts` — `POST /chat` streams a turn via `createAgentUIStream`/`createUIMessageStream` (AI SDK v7), persists messages, supports resumable streams and `stopStream`. Conversation CRUD (`GET/PATCH/DELETE /conversations[/:id]`).
-- `agent.ts` — model/agent construction (`getAgentInstance`, `getModelId`).
+- `agent.ts` — model/agent construction (`getAgentInstance`, `getModelId`); stamps each assistant message's metadata with `promptHash` (prompt blocks + tool names/descriptions/schemas).
+- **Prompts are files, git is the only source:** system-prompt blocks are `prompt/blocks/*.md` (order and layer in `prompt/prompt-blocks.ts`), the title prompt is `title/title-prompt.md`. Edit and push; the deploy ships them. `.md` imports as text (wrangler `rules` + the vitest `md-text` plugin). An unknown `{{placeholder}}` throws in `composePrompt` — the composer tests catch it.
 - `tools/` — one file per callable surface: `tasks`, `projects`, `sections`, `tags`, `habits`, `inbox`, `calendar`, `metrics`, `suggestions`, `projections`. Tools read/write real user data through the same RLS-scoped path as routes — never bypass `withRls`.
 - **Time:** `userClock` (`agent.ts`) turns the client's instant + IANA zone into the turn's clock: the prompt gets local wall-clock time with offset and weekday, tools get `ctx.timezone` + `ctx.today` (the user's local date). Tools speak local: `toMinimalTask(row, tz)` writes timed values as `…T14:00:00-04:00` and all-day values as `YYYY-MM-DD`; day windows are local dates matched with `taskLocalDay` (query a day wider, filter exactly). Never slice a UTC timestamp for "today". Zone helpers live in `platform/date-utils.ts`.
 - **Redis (`platform/redis.ts`, Upstash REST over HTTPS only):** `getRedis(env)` gates stream-resumption (in-flight SSE chunk log + abort flag) — returns `null` if unconfigured/insecure, and every resumption path must no-op gracefully on `null`. `getRateLimitRedis(env)` is a separate accessor for AI-specific rate limiting. Redis is a *cache*, never the source of truth — Postgres is. Built per-request (Workers rule), never a module global.
-- Admin-gated `promptBlock*` schemas stay in `ai.schema.ts`, not in contracts (not client-facing).
 
 ## 10. Debug Seed System (`src/domains/debug/`)
 

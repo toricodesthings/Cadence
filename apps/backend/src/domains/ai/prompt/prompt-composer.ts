@@ -1,6 +1,6 @@
 /**
- * Pure, synchronous prompt composer (doc 03 §3). No I/O — all async (DB block
- * load, metrics, RAG) happens upstream in the cache loader / agent.ts. Given the
+ * Pure, synchronous prompt composer (doc 03 §3). No I/O — all async (metrics,
+ * RAG) happens upstream in agent.ts. Given the
  * same (compiled blocks, runtime ctx, nonce) it produces byte-identical output,
  * which is required for provider prompt caching and reproducible debugging.
  *
@@ -22,7 +22,7 @@ const BLOCK_SEPARATOR = "\n\n---\n\n";
 
 /**
  * Tone-morph policy (doc 03 §5). Thresholds live HERE (the single reviewable
- * place); the wording lives in the tone_* blocks (DB-tunable, no deploy).
+ * place); the wording lives in the tone_* blocks (blocks/tone-*.md).
  *
  * burnoutIndex > 70 AND adaptiveTone → protective; otherwise neutral. When the
  * user disables adaptiveTone (doc 07 §3) we always pick neutral.
@@ -155,7 +155,7 @@ function interpolate(template: string, resolver: Map<string, string>): string {
 /**
  * Compose the final system-prompt string from compiled blocks + runtime context.
  *
- * Steps (doc 03 §3): blocks arrive already partitioned + sorted by orderIndex;
+ * Steps (doc 03 §3): blocks arrive already partitioned, in composition order;
  * interpolate placeholders via the strict whitelist (unknown → throw); fence
  * every user/DB-derived auxiliary block with the per-request nonce; concatenate
  * Base ⧺ Auxiliary with `\n\n---\n\n`; return one string.

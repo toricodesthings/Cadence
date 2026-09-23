@@ -109,8 +109,7 @@ interface** — the parity guard only covers the Row subset.
   conversation/message Row+Entity, message role/status enums, and the
   `TaskProposalPart`/`DangerConfirmPart` widget payloads). Everything that
   composes prompts, runs tools, retrieves memory, or persists rows stays in
-  `apps/backend/src/domains/ai` (server-only). `promptBlock*` schemas are
-  admin-gated → they stay in `ai.schema.ts`, not here.
+  `apps/backend/src/domains/ai` (server-only).
 
 ### 1.5b Shared constants — `constants.ts` (Tier 2)
 
@@ -194,8 +193,8 @@ sync. Add to it when you add a `TaskReadShape` branch.
 - **Backend**: routes import shapes directly from `@cadence/contracts/<domain>`
   and pure logic from `@cadence/domain/*`. A `domains/*/*.schema.ts` exists only
   for server-only validation — `tasks.schema.ts` (filter/query `superRefine`)
-  and `ai.schema.ts` (admin promptBlock) re-export their contract; the
-  `events`/`suggestions`/`proxy`/`prompt-blocks` schemas are server-only. The per-domain schema shims, `settings-defaults.ts`,
+  and `ai.schema.ts` re-export their contract; the
+  `events`/`suggestions`/`proxy` schemas are server-only. The per-domain schema shims, `settings-defaults.ts`,
   `task-normalization.ts`, and `task-recurrence.ts` were **deleted** in cleanup.
   `types/api.ts` remains a thin re-export of `@cadence/contracts/common` (the
   documented shared-types home).

@@ -10,7 +10,7 @@ vi.mock("../../src/domains/ai/safety/injection-policy", () => ({
 }));
 
 import { composePrompt, selectToneBlock } from "../../src/domains/ai/prompt/prompt-composer";
-import { DEFAULT_PROMPT_BLOCKS } from "../../src/domains/ai/prompt/prompt-cache";
+import { PROMPT_BLOCKS } from "../../src/domains/ai/prompt/prompt-blocks";
 import type {
     CompiledPromptBlocks,
     HumanMetrics,
@@ -24,15 +24,7 @@ const metrics: HumanMetrics = {
 };
 
 function compiledDefaults(): CompiledPromptBlocks {
-    return {
-        base: DEFAULT_PROMPT_BLOCKS.filter((b) => b.layer === "base").sort(
-            (a, b) => a.orderIndex - b.orderIndex,
-        ),
-        auxiliary: DEFAULT_PROMPT_BLOCKS.filter((b) => b.layer === "auxiliary").sort(
-            (a, b) => a.orderIndex - b.orderIndex,
-        ),
-        revision: 1,
-    };
+    return { base: [...PROMPT_BLOCKS.base], auxiliary: [...PROMPT_BLOCKS.auxiliary] };
 }
 
 const baseCtx: PromptRuntimeContext = {
@@ -177,14 +169,10 @@ describe("composePrompt", () => {
                 {
                     kind: "identity",
                     layer: "base",
-                    locale: "en",
-                    orderIndex: 1,
                     template: "Hello {{bogusToken}}",
-                    version: 1,
                 },
             ],
             auxiliary: [],
-            revision: 1,
         };
         expect(() => composePrompt(compiled, baseCtx, "N")).toThrowError(/bogusToken/);
     });

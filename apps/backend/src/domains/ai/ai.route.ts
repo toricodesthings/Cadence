@@ -226,7 +226,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // `execute` below can await it without risk of hanging the response.
     const titlePromise = needsTitle
         ? (async () => {
-              const title = await generateConversationTitle(c.env, extractText(incoming.parts), body.locale);
+              const title = await generateConversationTitle(c.env, extractText(incoming.parts));
               c.executionCtx.waitUntil(
                   withRls(db, userId, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
               );
@@ -261,7 +261,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         incoming,
     ]) as unknown[];
 
-    const { agent } = await getAgentInstance(c.env, userId, {
+    const { agent, promptHash } = await getAgentInstance(c.env, userId, {
         timezone: body.timezone,
         currentDate: body.currentDate,
         locale: body.locale,
@@ -289,7 +289,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         generateMessageId: () => assistantMessageId,
         messageMetadata: ({ part }) =>
             part.type === "finish"
-                ? ({ totalUsage: (part as any).totalUsage, model: modelId } as any)
+                ? ({ totalUsage: (part as any).totalUsage, model: modelId, promptHash } as any)
                 : undefined,
         onError: (error) => {
             const streamError = buildStreamError(error, requestId);
