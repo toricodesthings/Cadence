@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
+import { DatePicker } from "../shared/DatePicker";
 import { PLACE_DROP, dayLabel, useWeekLoad } from "./PlaceSheet";
 import { formatTime, getWeekStart, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
@@ -81,11 +82,11 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                     </section>
 
                     <div className="mt-auto flex gap-2">
-                        {/* Transparent native date input over the button: the OS picker for far-off days. */}
-                        <label className="relative flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-2xl border border-twilight-border/40 bg-white/[0.03] text-sm font-medium text-twilight-text-soft hover:bg-white/[0.06]">
-                            Pick a date…
-                            <input type="date" aria-label="Pick a date" onChange={(e) => e.target.value && navigate(`/schedule?date=${e.target.value}`)} className="absolute inset-0 cursor-pointer opacity-0" />
-                        </label>
+                        <DatePicker label="Pick a date" value={null} onChange={(date) => date && navigate(`/schedule?date=${date}`)} className="flex-1">
+                            <button type="button" className="flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-2xl border border-twilight-border/40 bg-white/[0.03] text-sm font-medium text-twilight-text-soft hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                                Pick a date…
+                            </button>
+                        </DatePicker>
                         <button type="button" onClick={() => navigate(`/schedule?date=${selected}&view=week`)}
                             className="flex min-h-10 flex-1 items-center justify-center gap-1 rounded-2xl border border-twilight-border/40 bg-white/[0.03] text-sm font-medium text-twilight-text-soft hover:bg-white/[0.06]">
                             Open in Schedule <ChevronRight size={14} aria-hidden="true" />

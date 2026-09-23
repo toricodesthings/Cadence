@@ -4,9 +4,7 @@ import { PersonalEventEditor } from "../../../app/components/events/PersonalEven
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import type { PersonalEvent } from "../../../app/types/settings";
 
-vi.mock("../../../app/components/events/EventDatePicker", () => ({
-    EventDatePicker: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => <input aria-label="Event date" value={value} onChange={(e) => onChange(e.target.value)} />,
-}));
+vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => true }));
 vi.mock("../../../app/components/shared/EmojiPickerPopover", () => ({
     EmojiPickerPopover: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -44,7 +42,7 @@ describe("PersonalEventEditor", () => {
     it("saves date, milestone and reminder fields in place", () => {
         render(editor());
         fireEvent.click(screen.getByRole("button", { name: /Details/ }));
-        fireEvent.change(screen.getByRole("textbox", { name: "Event date" }), { target: { value: "2027-03-15" } });
+        fireEvent.change(screen.getByLabelText("Event date"), { target: { value: "2027-03-15" } });
         expect(onChange).toHaveBeenCalledWith({ monthDay: "03-15" });
         fireEvent.click(screen.getByRole("switch", { name: "Enable milestone tracking for this personal event" }));
         expect(onChange).toHaveBeenCalledWith({ startedOn: expect.stringMatching(/^\d{4}-10-12$/) });

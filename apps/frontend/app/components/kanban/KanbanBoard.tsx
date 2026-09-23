@@ -25,6 +25,7 @@ import type { Subtask } from "@cadence/contracts/subtask";
 import type { Task } from "@cadence/contracts/task";
 import type { Tag } from "@cadence/contracts/tag";
 import { BoardCanvas } from "../shared/BoardCanvas";
+import { AddSectionChip } from "../tasks/ProjectSheets";
 
 interface KanbanBoardProps {
     tasks: Task[];
@@ -32,6 +33,11 @@ interface KanbanBoardProps {
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
     desktopCanvasPaddingClassName?: string;
+    /** Compact shells: the section tab in view, owned by the route so its add sheet can target it. */
+    activeSectionId?: string;
+    onActiveSectionChange?: (id: string) => void;
+    /** Compact shells: opens the route's section management sheet. */
+    onManageSections?: () => void;
 }
 
 /** A single column (droppable zone) in the Kanban board */
@@ -186,6 +192,9 @@ export function KanbanBoard({
     selectedTaskId = null,
     onSelectTask = () => { },
     desktopCanvasPaddingClassName = "px-4 pb-4 pt-2",
+    activeSectionId,
+    onActiveSectionChange,
+    onManageSections,
 }: KanbanBoardProps) {
     const shell = useShellMode();
     const { data: sections = [] } = useSections(projectId);
@@ -196,7 +205,6 @@ export function KanbanBoard({
 
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [isAddingColumn, setIsAddingColumn] = useState(false);
-    const [activeSectionId, setActiveSectionId] = useState<string>("ungrouped");
     const [newColumnName, setNewColumnName] = useState("");
     const dragScroll = useDragScroll();
     const scrollContainerRef = dragScroll.ref;
@@ -269,17 +277,6 @@ export function KanbanBoard({
 
         return columns;
     }, [sections, sectionTaskMap, ungroupedTasks]);
-
-    useEffect(() => {
-        if (visibleColumns.length === 0) {
-            setActiveSectionId("ungrouped");
-            return;
-        }
-
-        if (!visibleColumns.some((column) => column.id === activeSectionId)) {
-            setActiveSectionId(visibleColumns[0].id);
-        }
-    }, [activeSectionId, visibleColumns]);
 
     const handleDragStart = (e: DragStartEvent) => {
         const task = tasks.find((t) => t.id === e.active.id);
@@ -369,64 +366,29 @@ export function KanbanBoard({
 
     if (shell.isCompact) {
         return (
-            <div className="flex min-h-0 flex-1 flex-col gap-4 py-4">
+            <div className="flex min-h-0 flex-1 flex-col py-4">
                 <BoardCanvas
+                    activeColumnId={activeSectionId}
+                    onActiveColumnChange={onActiveSectionChange}
+                    compactTrailing={onManageSections ? <AddSectionChip onClick={onManageSections} /> : null}
                     columns={visibleColumns.map((column) => ({
                         id: column.id,
                         title: column.name,
                         count: column.tasks.length,
-                        description: "Focus one section at a time",
-                        content: (
+                        content: column.tasks.length > 0 ? (
                             <TaskList
                                 tasks={column.tasks}
                                 selectedTaskId={selectedTaskId}
                                 onSelectTask={onSelectTask}
                                 cardVariant="board"
                             />
-                        ),
-                        footer: (
-                            <AddTaskInput
-                                projectId={projectId || undefined}
-                                sectionId={column.id === "ungrouped" ? undefined : column.id}
-                                tasks={column.tasks}
-                                compact
-                                placeholder={`Add task to ${column.name}...`}
-                            />
+                        ) : (
+                            <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
+                                Nothing in {column.name} yet.
+                            </div>
                         ),
                     }))}
                 />
-
-                <div ref={addColumnRef}>
-                    {isAddingColumn ? (
-                        <div className="rounded-[24px] border border-twilight-border/40 bg-twilight-surface/20 px-4 py-4 backdrop-blur-xl">
-                            <input
-                                autoFocus
-                                value={newColumnName}
-                                onChange={(e) => setNewColumnName(e.target.value)}
-                                placeholder="Section name..."
-                                className="w-full border-b border-twilight-border/40 bg-transparent pb-2 text-[13px] text-twilight-text outline-none placeholder:text-twilight-text-muted/40"
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleCreateColumn();
-                                    if (e.key === "Escape") { setIsAddingColumn(false); setNewColumnName(""); }
-                                }}
-                                onBlur={() => {
-                                    if (newColumnName.trim()) handleCreateColumn();
-                                    else { setIsAddingColumn(false); setNewColumnName(""); }
-                                }}
-                            />
-                        </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => setIsAddingColumn(true)}
-                            data-add-section-trigger
-                            className="touch-target flex min-h-12 w-full items-center justify-center gap-2 rounded-[24px] border border-dashed border-twilight-border/40 bg-white/[0.02] text-sm font-medium text-twilight-text-soft"
-                        >
-                            <Plus size={16} />
-                            Add section
-                        </button>
-                    )}
-                </div>
             </div>
         );
     }

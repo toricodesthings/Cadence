@@ -262,6 +262,12 @@ export function MainLayout({
     useEffect(() => {
         setRailView(assistantPanelOpen ? "assistant" : "context");
     }, [assistantPanelOpen, setRailView]);
+
+    // Compact has no global tag filter: a `?tag=` deep link opens that tag's page instead.
+    const deepLinkTag = shell.isCompact ? new URLSearchParams(location.search).get("tag") : null;
+    useEffect(() => {
+        if (deepLinkTag) navigate(`/tag/${encodeURIComponent(deepLinkTag)}`, { replace: true });
+    }, [deepLinkTag, navigate]);
     useFocusViews();
     const { data: settings } = useSettings();
     const { view, setView } = useViewMode();
@@ -675,8 +681,10 @@ export function MainLayout({
     ) : null;
 
     return (
-        <Tooltip.Provider delayDuration={300}>
-            <div className={`h-dvh overflow-hidden relative ${shell.isCompact ? "compact-navigation-shell" : ""}`}>
+        <>
+            {/* Compact headers pad under the iOS status bar themselves; the wide shell
+                (iPad landscape home-screen app) starts below it. Zero elsewhere. */}
+            <div className={`h-dvh overflow-hidden relative ${shell.isCompact ? "compact-navigation-shell" : "pt-[env(safe-area-inset-top)]"}`}>
                 <div className="flex h-full relative">
                     {shell.isCompact ? null : customSidebar !== undefined ? customSidebar : (
                         <Sidebar
@@ -694,7 +702,7 @@ export function MainLayout({
                         height and its bottom border lines up with side-panel headers. */}
                     {!hideHeader && (shell.isCompact ? (
                         <header className={PAGE_HEADER_SURFACE}>
-                            <div className="px-4 pb-3 pt-2.5" style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}>
+                            <div className="safe-header-top px-4 pb-3">
                                 <div className="flex w-full flex-col gap-2">
                                     <div className="flex min-h-11 items-center justify-between gap-3 sm:min-h-12">
                                         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -895,6 +903,6 @@ export function MainLayout({
             {shell.isLaptop && !isUtilityPage && location.pathname !== "/weekly-review" ? (
                 <AssistantLauncher besideOrb={shell.isPhone && !hideContextualOrb} />
             ) : null}
-        </Tooltip.Provider>
+        </>
     );
 }

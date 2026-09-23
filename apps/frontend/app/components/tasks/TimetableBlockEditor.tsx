@@ -3,7 +3,7 @@ import { CalendarCheck, CalendarRange, CalendarX, Clock, Play, X } from "lucide-
 import type { Task } from "@cadence/contracts/task";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
-import { DateOnlyPickerPopover } from "./DateOnlyPickerPopover";
+import { DatePicker } from "../shared/DatePicker";
 import { TimePicker, Tip } from "../primitives";
 import { formatShortDate, fromTimeValue, parseLocalDate, toISODate, toTimeValue } from "../../lib/utils/date-format";
 
@@ -302,7 +302,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         <CalendarCheck size={ROW_ICON_SIZE} className={ROW_ICON} aria-hidden="true" />
                         Starts on
                     </span>
-                    <DateOnlyPickerPopover
+                    <DatePicker
                         value={toISODate(parseLocalDate(task.scheduledStart))}
                         onChange={handleSeriesStartDate}
                         label="Series start date"
@@ -310,14 +310,14 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         <button type="button" className={DATE_VALUE_BTN}>
                             {startDateLabel}
                         </button>
-                    </DateOnlyPickerPopover>
+                    </DatePicker>
                 </div>
                 <div className="flex min-h-10 items-center justify-between gap-3">
                     <span className={ROW_LABEL}>
                         <CalendarX size={ROW_ICON_SIZE} className={ROW_ICON} aria-hidden="true" />
                         Ends on
                     </span>
-                    <DateOnlyPickerPopover
+                    <DatePicker
                         value={endDate}
                         onChange={handleSeriesEndDate}
                         label="Series end date"
@@ -326,7 +326,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         <button type="button" className={`${DATE_VALUE_BTN}${endDate ? "" : " text-twilight-text-muted"}`}>
                             {endDate ? formatShortDate(endDate) : "Never"}
                         </button>
-                    </DateOnlyPickerPopover>
+                    </DatePicker>
                 </div>
             </div>
         </div>

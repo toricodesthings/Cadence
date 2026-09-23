@@ -47,6 +47,8 @@ import { useHabitsWeekly } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { toISODate } from "../lib/utils/date-format";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
+import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
+import { ProjectSectionsSheet, ProjectTaskSheet, UNSECTIONED_ID } from "../components/tasks/ProjectSheets";
 
 
 /* ── Actionable linked-habit row ── */
@@ -118,6 +120,9 @@ export default function ProjectView() {
     const [colorValue, setColorValue] = useState("luminous-amber");
     const [emojiValue, setEmojiValue] = useState("");
     const [isCustomColor, setIsCustomColor] = useState(false);
+    const [addOpen, setAddOpen] = useState(false);
+    const [sectionsOpen, setSectionsOpen] = useState(false);
+    const [activeSectionId, setActiveSectionId] = useState(UNSECTIONED_ID);
 
     const project = projects?.find(p => p.id === projectId);
     const projectAccent = project ? resolveAccentColor(project.colorAccent) : "var(--accent-primary)";
@@ -383,6 +388,7 @@ export default function ProjectView() {
 
             <MainLayout
                 requireAuth
+                hideContextualOrb={shell.isCompact}
                 sidePanel={sidePanel}
                 sidePanelActive={Boolean(selectedTaskId)}
                 onCloseSidePanel={() => setSelectedTaskId(null)}
@@ -418,7 +424,7 @@ export default function ProjectView() {
                                     <div className="space-y-2">
                                         <button
                                             type="button"
-                                            onClick={focusAddTask}
+                                            onClick={() => setAddOpen(true)}
                                             className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
                                         >
                                             <Plus size={15} aria-hidden="true" />
@@ -426,11 +432,11 @@ export default function ProjectView() {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={triggerAddSection}
+                                            onClick={() => setSectionsOpen(true)}
                                             className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
                                         >
                                             <LayoutList size={15} aria-hidden="true" />
-                                            Add section
+                                            Sections
                                         </button>
                                         <button
                                             type="button"
@@ -516,13 +522,16 @@ export default function ProjectView() {
                                 projectId={projectId}
                                 selectedTaskId={selectedTaskId}
                                 onSelectTask={handleSelectTask}
+                                activeSectionId={activeSectionId}
+                                onActiveSectionChange={setActiveSectionId}
+                                onManageSections={() => setSectionsOpen(true)}
                             />
                         )}
                     </div>
                 ) : (
                     <ScrollAreaWrapper>
                         <PageContent width="default">
-                            {projectId && (
+                            {projectId && !shell.isCompact && (
                                 <div className="mb-4">
                                     <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
                                 </div>
@@ -576,6 +585,25 @@ export default function ProjectView() {
                         </PageContent>
                     </ScrollAreaWrapper>
                 )}
+
+                {shell.isCompact && projectId && project && <>
+                    <ContextualAddOrb directCapture directLabel="Add task" onOpen={() => setAddOpen(true)} />
+                    <ProjectTaskSheet
+                        open={addOpen}
+                        onClose={() => setAddOpen(false)}
+                        projectId={projectId}
+                        projectName={project.name}
+                        tasks={rawTasks ?? []}
+                        sectionId={activeSectionId}
+                        onSectionChange={setActiveSectionId}
+                    />
+                    <ProjectSectionsSheet
+                        open={sectionsOpen}
+                        onClose={() => setSectionsOpen(false)}
+                        projectId={projectId}
+                        tasks={rawTasks ?? []}
+                    />
+                </>}
             </MainLayout>
 
             {!shell.isWide && selectedTaskId && (

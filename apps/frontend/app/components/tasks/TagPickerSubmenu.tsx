@@ -5,6 +5,10 @@ import * as ScrollArea from "../primitives/ScrollArea";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useCreateTag } from "../../hooks/tags/use-create-tag";
 import { TAG_PALETTE } from "../../lib/constants/colors";
+import { resolveTagColor } from "../../lib/utils/color-resolver";
+import { UtilitySheet } from "../shared/UtilitySheet";
+import { Swatches, TAG_SWATCHES } from "../shared/Swatches";
+import { Button } from "../primitives/Button";
 
 interface TagPickerSubmenuProps {
     activeTagIds: string[];
@@ -134,3 +138,71 @@ export const TagPickerSubmenu: React.FC<TagPickerSubmenuProps> = (props) => {
         </Menu.Sub>
     );
 };
+
+/** Compact tag picker: a sheet with thumb-sized rows; typing filters, and an unmatched name can be created. */
+export function TagPickerSheet({ open, onClose, activeTagIds, onAdd, onRemove }: TagPickerListProps & { open: boolean; onClose: () => void }) {
+    const { data: tags = [] } = useTags();
+    const createTag = useCreateTag();
+    const [query, setQuery] = useState("");
+    const [color, setColor] = useState("default");
+    const name = query.trim();
+    const shown = tags.filter((t) => t.name.toLowerCase().includes(name.toLowerCase()));
+    const canCreate = Boolean(name) && !tags.some((t) => t.name.toLowerCase() === name.toLowerCase());
+
+    const create = async () => {
+        if (!canCreate || createTag.isPending) return;
+        const saved = await createTag.mutateAsync({ name, color });
+        setQuery("");
+        setColor("default");
+        onAdd(saved.id);
+    };
+
+    return (
+        <UtilitySheet
+            title="Tags"
+            open={open}
+            onClose={() => { setQuery(""); onClose(); }}
+            footer={
+                <form className="space-y-3 border-t border-twilight-border px-4 py-3" onSubmit={(e) => { e.preventDefault(); void create(); }}>
+                    {canCreate ? <Swatches options={TAG_SWATCHES} value={color} onChange={setColor} /> : null}
+                    <div className="flex items-center gap-2">
+                        <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Find or create a tag"
+                            aria-label="Find or create a tag"
+                            enterKeyHint="done"
+                            className="min-h-12 min-w-0 flex-1 rounded-2xl border border-twilight-border bg-white/[0.04] px-4 text-base text-twilight-text outline-none placeholder:text-twilight-text-muted/80 focus:border-accent-primary/40"
+                        />
+                        {canCreate ? <Button type="submit" variant="primary" size="md" className="min-h-12" disabled={createTag.isPending}>Create</Button> : null}
+                    </div>
+                </form>
+            }
+        >
+            {shown.length === 0 ? (
+                <p className="py-6 text-center text-sm text-twilight-text-muted/90">{name ? `No tag called “${name}” yet.` : "No tags yet. Type a name below to make one."}</p>
+            ) : (
+                <ul className="flex flex-col gap-1" aria-label="Tags">
+                    {shown.map((tag) => {
+                        const active = activeTagIds.includes(tag.id);
+                        return (
+                            <li key={tag.id}>
+                                <button
+                                    type="button"
+                                    role="checkbox"
+                                    aria-checked={active}
+                                    onClick={() => (active ? onRemove(tag.id) : onAdd(tag.id))}
+                                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl px-4 text-left text-[15px] text-twilight-text transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]"
+                                >
+                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: resolveTagColor(tag.color) }} aria-hidden="true" />
+                                    <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+                                    {active ? <Check size={18} className="text-accent-primary" aria-hidden="true" /> : null}
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </UtilitySheet>
+    );
+}

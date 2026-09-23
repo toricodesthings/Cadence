@@ -141,7 +141,7 @@ export function Sidebar({
                         animate={{ width: laptopWidth }}
                         exit={{ width: 0 }}
                         transition={sidebarMotionTransition}
-                        className="photo-shell-surface sticky top-0 relative h-dvh shrink-0 self-start overflow-hidden border-r border-twilight-border bg-twilight-surface/35 backdrop-blur-xl"
+                        className="photo-shell-surface sticky top-0 relative h-full shrink-0 self-start overflow-hidden border-r border-twilight-border bg-twilight-surface/35 backdrop-blur-xl"
                         aria-label="Application navigation"
                     >
                         <motion.div

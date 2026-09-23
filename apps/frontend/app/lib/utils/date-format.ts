@@ -148,6 +148,21 @@ export function toTimeValue(iso: string): string {
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+/** "HH:mm" shifted by `delta` minutes, wrapping past midnight. */
+export function addMinutesToTime(time: string, delta: number): string {
+    const [h, m] = time.split(":").map(Number);
+    const total = (((h * 60 + m + delta) % 1440) + 1440) % 1440;
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** Minutes from one "HH:mm" to the next, crossing midnight when `end` is earlier. */
+export function minutesBetweenTimes(start: string, end: string): number {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    const diff = eh * 60 + em - (sh * 60 + sm);
+    return diff > 0 ? diff : diff + 1440;
+}
+
 /** "HH:mm" → ISO on `base`'s local date (`base` is "YYYY-MM-DD" or a full ISO). */
 export function fromTimeValue(base: string, time: string): string {
     const [h, m] = time.split(":").map(Number);

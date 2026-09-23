@@ -23,3 +23,8 @@ export function resolveAccentColor(accent: string | null | undefined): string {
     if (accent && accent.startsWith("#")) return accent;
     return ACCENT_MAP[accent ?? "luminous-amber"] ?? ACCENT_MAP["luminous-amber"];
 }
+
+/** A tag's display colour: unset and "default" fall back to muted text. */
+export function resolveTagColor(color: string | null | undefined, fallback = "var(--color-twilight-text-muted)"): string {
+    return !color || color === "default" ? fallback : color;
+}

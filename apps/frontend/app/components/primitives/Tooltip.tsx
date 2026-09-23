@@ -42,7 +42,7 @@ Content.displayName = "Tooltip.Content";
  * (§6.6). Composes the themed Root/Trigger/Portal/Content/Arrow so callers
  * never re-derive the boilerplate. Pair with an `aria-label` on the child for
  * assistive tech; `Tip` carries the visible, themed hint. Requires a
- * `Tooltip.Provider` ancestor (mounted once at the app shell). */
+ * `Tooltip.Provider` ancestor (mounted once in `providers.tsx`). */
 export interface TipProps {
     /** Visible tooltip content. */
     label: ReactNode;

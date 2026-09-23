@@ -1,4 +1,6 @@
-import { PanelRight, Sparkles } from "lucide-react";
+import type { ComponentType } from "react";
+import { PanelRight } from "lucide-react";
+import { AssistantSigil } from "../assistant/AssistantSigil";
 import { motion } from "framer-motion";
 import { Tip } from "../primitives";
 import type { RailView } from "../../stores/right-panel-store";
@@ -21,9 +23,9 @@ export function RailViewToggle({
     onChange: (view: RailView) => void;
     contextLabel?: string;
 }) {
-    const tabs: { id: RailView; label: string; icon: typeof PanelRight }[] = [
+    const tabs: { id: RailView; label: string; icon: ComponentType<{ size?: number; className?: string }> }[] = [
         { id: "context", label: contextLabel, icon: PanelRight },
-        { id: "assistant", label: "Cadence", icon: Sparkles },
+        { id: "assistant", label: "Cadence", icon: AssistantSigil },
     ];
 
     return (
@@ -57,7 +59,7 @@ export function RailViewToggle({
                                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                                 />
                             ) : null}
-                            <Icon size={16} className="relative" aria-hidden="true" />
+                            <Icon size={id === "assistant" ? 19 : 16} className="relative" />
                         </button>
                     </Tip>
                 );

@@ -47,12 +47,8 @@ export interface Env {
     AI_TITLE_MODEL?: string;
     /** Master switch for the memory (pgvector RAG) layer. "true" enables retrieval/extraction. */
     AI_MEMORY_ENABLED?: string;
-    /** Embedding model id — must output 1536 dims to match ai_memories.embedding. */
+    /** OpenRouter embedding model id — must support `dimensions` (requested at 1536 for ai_memories.embedding). */
     AI_EMBEDDING_MODEL?: string;
-    /** Optional dedicated embedding API key; falls back to OPENROUTER_API_KEY when unset. */
-    AI_EMBEDDING_API_KEY?: string;
-    /** Optional OpenAI-compatible base URL for embeddings; falls back to the OpenRouter base. */
-    AI_EMBEDDING_BASE_URL?: string;
 
     // ── AI stream resumption (Upstash Redis, REST) ──
     /** Upstash Redis REST endpoint. When absent, resumption is disabled (streaming still works). */

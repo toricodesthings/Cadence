@@ -13,6 +13,7 @@ import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
+import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { PersonalEventEditorDialog } from "../components/events/PersonalEventEditorDialog";
@@ -114,12 +115,13 @@ export default function EventsRoute() {
             sidePanelLabel="Event"
             onCloseSidePanel={closeDetails}
             compactHeaderRightInline
-            headerRight={
+            hideContextualOrb={shell.isCompact}
+            headerRight={shell.isCompact ? undefined : (
                 <Button type="button" variant="cardPrimary" size="md" onClick={openCreate} aria-label="Add event" className={ADD_EVENT_CLASS}>
                     <CalendarPlus size={16} aria-hidden="true" />
                     <span className="hidden sm:inline">Add event</span>
                 </Button>
-            }
+            )}
             shellHeader={{
                 title: "Events",
                 eyebrow: "Calendar",
@@ -208,6 +210,8 @@ export default function EventsRoute() {
                     {detailPanel}
                 </ResponsiveOverlayPanel>
             ) : null}
+
+            {shell.isCompact ? <ContextualAddOrb directCapture directLabel="Add event" onOpen={openCreate} /> : null}
 
             <PersonalEventEditorDialog
                 open={editorOpen}

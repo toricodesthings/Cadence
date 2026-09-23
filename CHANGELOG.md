@@ -6,6 +6,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Tags are now a real place to visit on your phone.
+
+### Added
+- On your phone, each tag has its own page of tasks, where you can add, rename, recolour or delete it.
+- Add Cadence to your iPhone or iPad Home Screen from Safari for a full-screen app with its own icon.
+- On your phone, add, rename and delete a project's sections from one Sections sheet.
+- The assistant has an Auto mode that applies its suggested changes without asking; Ask first stays the default.
+- You can add images to an assistant message (preview only for now; they aren't sent yet).
+- On your phone, press and hold an assistant message to copy, edit or regenerate it.
+
+### Changed
+- On your phone, tags are picked from a thumb-sized sheet where you can also make new ones.
+- On your phone, projects look like Today, and the add button opens the Schedule-style composer for that section.
+- On your phone, the add button on Events adds an event directly; the button at the top is gone.
+- On your phone, adding an event opens the same draggable sheet as Schedule, with your phone's own date picker.
+- Date and time fields now match everywhere: your device's own pickers on touch, one calendar and time list otherwise.
+- Quick Add now uses the shared composer: a sheet on phones, drafts kept per tab, and a prompt before discarding.
+- Creation and notification dialogs now show an icon beside their title and a faint accent-colour glow.
+- The assistant has a fresh look: its own sigil icon, softer replies, a roomier composer and a jump-to-latest button.
+- The assistant's lookups now show in the order they happened, above the reply they led to.
+
+### Fixed
+- On your phone, tapping a tag no longer sends you back to Capture.
+- Cadence no longer gets stuck loading when the assistant's last conversation was deleted; it starts a new one.
+- Section and control tabs in a narrow window now scroll with a mouse wheel or drag.
+- Tasks in a deleted section move to Unsectioned right away instead of disappearing until a refresh.
+- Reminders now show as notifications in the Home Screen app on iPhone and iPad.
+- Headers and the dock stay clear of the notch, status bar and home indicator.
+- Assistant message buttons no longer overlap the lookup chip or crowd the next message.
+- Assistant read receipts now show read only once it actually starts on your message, not the moment you send.
+
 ## [0.16.0] - 2026-09-22
 
 Schedule on your phone opens on your day, keeps the month out of the way, and puts everything within reach.

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChipScroller } from "./ChipScroller";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -149,7 +150,7 @@ export function ControlsSheet({
                     </Dialog.DialogHeader>
 
                     {sections.length > 1 ? (
-                        <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hidden">
+                        <ChipScroller className="mt-4 pb-1">
                             {sections.map((section) => (
                                 <button
                                     key={section.id}
@@ -164,7 +165,7 @@ export function ControlsSheet({
                                     {section.label}
                                 </button>
                             ))}
-                        </div>
+                        </ChipScroller>
                     ) : null}
                 </div>
 

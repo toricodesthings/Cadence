@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { AssistantSigil } from "./AssistantSigil";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useSettings } from "../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
 
 /**
- * Floating Sparkles button that opens the Cadence assistant on non-wide shells,
+ * Floating sigil button that opens the Cadence assistant on non-wide shells,
  * where the icon rail's "Ask Assistant" button isn't mounted. Mirrors the visual
  * language of `ContextualAddOrb` so the bottom-right action cluster reads as one
  * family. Hidden once the panel is open — the drawer covers this spot anyway.
@@ -39,7 +39,7 @@ export function AssistantLauncher({ besideOrb = false }: { besideOrb?: boolean }
                         aria-label={`Ask ${assistantName}`}
                         className="glow-accent pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/25 bg-twilight-deep/96 text-accent-primary shadow-[0_24px_54px_rgba(0,0,0,0.34)] backdrop-blur-xl transition-transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                        <Sparkles size={20} aria-hidden="true" />
+                        <AssistantSigil size={26} />
                     </motion.button>
                 ) : null}
             </AnimatePresence>

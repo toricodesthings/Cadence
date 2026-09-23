@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { Bell, Calendar, Flame, Inbox, LayoutGrid, Search, Sparkles } from "lucide-react";
+import { Bell, Calendar, Flame, Inbox, LayoutGrid, Search } from "lucide-react";
+import { AssistantSigil } from "../assistant/AssistantSigil";
 import { Tip } from "../primitives/Tooltip";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 
@@ -23,7 +24,7 @@ export function MobileTabBar() {
     return <nav aria-label="Primary navigation" className="mobile-tab-bar safe-bottom layer-shell-header shrink-0 pt-2">
         <div className="mobile-dock glass mx-auto flex w-full max-w-sm items-stretch gap-1 rounded-full p-1.5">
             {[...TABS.slice(0, 2), null, ...TABS.slice(2)].map((tab) => {
-                if (!tab) return <div key="assistant" className="flex flex-1 items-center justify-center"><Tip label="Ask assistant" side="top"><button type="button" aria-label="Ask assistant" aria-haspopup="dialog" aria-expanded={assistantPanelOpen} onClick={toggleAssistantPanel} className="mobile-dock-assistant flex size-13 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent-primary text-midnight transition-transform active:scale-95"><Sparkles size={24} aria-hidden="true" /></button></Tip></div>;
+                if (!tab) return <div key="assistant" className="flex flex-1 items-center justify-center"><Tip label="Ask assistant" side="top"><button type="button" aria-label="Ask assistant" aria-haspopup="dialog" aria-expanded={assistantPanelOpen} onClick={toggleAssistantPanel} className="mobile-dock-assistant flex size-13 shrink-0 cursor-pointer items-center justify-center rounded-full bg-accent-primary text-midnight transition-transform active:scale-95"><AssistantSigil size={30} /></button></Tip></div>;
                 const { to, label, icon: Icon } = tab;
                 const active = pathname === to || (to === "/browse" && !primary);
                 return <Tip key={to} label={label} side="top"><Link to={to} aria-current={active ? "page" : undefined} aria-label={label}

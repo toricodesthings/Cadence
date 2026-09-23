@@ -72,6 +72,8 @@ import type { AuthVariables } from "../../platform/auth";
 
 /** Hard wall-clock ceiling for a single streamed turn (improves on the old blunt 12s). */
 const STREAM_TIMEOUT_MS = 45_000;
+/** Max wait for a model call's first chunk — each step restarts it. */
+const FIRST_CHUNK_TIMEOUT_MS = 15_000;
 
 // ── Utility ───────────────────────────────────────────────────────────
 
@@ -267,9 +269,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         queryText: extractText(incoming.parts),
     });
 
-    // Hard ceiling: abort cancels the upstream model call (no zombie spend, doc 09 §3.1).
+    // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
     const abortController = new AbortController();
-    const timer = setTimeout(() => abortController.abort(new Error("AI_TIMEOUT")), STREAM_TIMEOUT_MS);
 
     // Fallback watcher covers SILENT stretches (long tool calls, no flushes); the
     // flush path (consumeSseStream below) is the PRIMARY abort signal (§7.4/§15.6).
@@ -281,6 +282,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         agent,
         uiMessages,
         abortSignal: abortController.signal,
+        // Hard ceilings cancel the upstream model call (no zombie spend, doc 09 §3.1);
+        // firstChunkMs fails a hung provider fast instead of waiting out the whole turn.
+        timeout: { totalMs: STREAM_TIMEOUT_MS, firstChunkMs: FIRST_CHUNK_TIMEOUT_MS },
         originalMessages: uiMessages as any,
         generateMessageId: () => assistantMessageId,
         messageMetadata: ({ part }) =>
@@ -292,8 +296,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             logger.warn("ai", "ai_stream_error", { requestId, userHash, code: streamError.code });
             return streamErrorToText(streamError);
         },
-        onFinish: async ({ responseMessage, isAborted, finishReason }) => {
-            clearTimeout(timer);
+        onEnd: async ({ responseMessage, isAborted, finishReason }) => {
             abortController.abort(); // stop the fallback watcher loop
             // Terminal status drives the client's Retry affordance after reload (doc 09 §3.3).
             const status = isAborted ? "aborted" : finishReason === "error" ? "failed" : "complete";

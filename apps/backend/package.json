@@ -24,11 +24,11 @@
 		"db:studio": "drizzle-kit studio"
 	},
 	"dependencies": {
-		"@ai-sdk/openai": "^4.0.72",
 		"@cadence/contracts": "workspace:*",
 		"@cadence/domain": "workspace:*",
 		"@cadence/nlp": "workspace:*",
 		"@hono/zod-validator": "^0.9.1",
+		"@openrouter/ai-sdk-provider": "^3.1.0",
 		"@upstash/redis": "^1.39.0",
 		"ai": "^7.0.108",
 		"date-fns": "^4.4.0",

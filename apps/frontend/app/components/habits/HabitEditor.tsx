@@ -14,9 +14,10 @@ import { CadencePicker } from "./CadencePicker";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { Switch } from "../primitives/Switch";
+import { TimePicker } from "../primitives/TimePicker";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
-import { toISODate } from "../../lib/utils/date-format";
+import { formatTime, fromTimeValue, toISODate } from "../../lib/utils/date-format";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { RoutineMark } from "./RoutineMark";
 import { useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
@@ -41,14 +42,14 @@ function DayTimes({ habit, onChange }: { habit: Habit; onChange: (targetTimes: R
                 return (
                     <div key={day} className="flex items-center gap-2">
                         <span className="w-9 shrink-0 text-xs text-twilight-text-muted">{DAY_LABELS[day]}</span>
-                        <input
-                            type="time"
-                            aria-label={`${DAY_LABELS[day]} time`}
+                        <TimePicker
+                            label={`${DAY_LABELS[day]} time`}
                             value={override || ""}
-                            placeholder={habit.targetTime ?? ""}
+                            placeholder={habit.targetTime ? formatTime(fromTimeValue(toISODate(new Date()), habit.targetTime)) : undefined}
                             disabled={anyTime}
-                            onChange={(e) => set(day, e.target.value || undefined)}
-                            className={`${FIELD} min-h-10 py-1.5 disabled:opacity-40`}
+                            clearable
+                            onChange={(value) => set(day, value || undefined)}
+                            className="min-w-0 flex-1"
                         />
                         <button
                             type="button"
@@ -135,11 +136,11 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                             <p className="text-sm text-twilight-text-muted">Cadence</p>
                             <CadencePicker value={habit.recurrenceRule} onChange={(recurrenceRule) => updateHabit.mutate({ id: habit.id, recurrenceRule })} />
                         </div>
-                        <label className="block space-y-2 text-sm text-twilight-text-muted">
+                        <div className="space-y-2 text-sm text-twilight-text-muted">
                             <span>Usual time</span>
-                            <input type="time" aria-label="Routine usual time" value={habit.targetTime ?? ""} className={FIELD}
-                                onChange={(e) => updateHabit.mutate({ id: habit.id, targetTime: e.target.value || null })} />
-                        </label>
+                            <TimePicker label="Routine usual time" value={habit.targetTime ?? ""} placeholder="Any time" clearable
+                                onChange={(value) => updateHabit.mutate({ id: habit.id, targetTime: value || null })} />
+                        </div>
                         <div className="flex flex-wrap gap-2">
                             {habit.targetTime ? <Button variant="ghost" size="sm" onClick={() => updateHabit.mutate({ id: habit.id, targetTime: null })}>Clear time</Button> : null}
                             <Button variant="ghost" size="sm" aria-expanded={dayTimesOpen} onClick={() => setDayTimesOpen((open) => !open)}>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Clock3, FolderOpen, Repeat, StickyNote, Tag } from "lucide-react";
+import { Bell, Clock3, Flame, FolderOpen, Repeat, StickyNote, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { TimePicker } from "../primitives";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -8,10 +8,11 @@ import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { CadencePicker } from "./CadencePicker";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
-import { Composer, ComposerSubmit, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
+import { Composer, type ComposerDraft, ComposerSubmit, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { toISODate } from "../../lib/utils/date-format";
+import type { Habit } from "@cadence/contracts/habit";
 import { createHabitSchema } from "../../lib/validations/habit-schemas";
 
 const IDEAS = [
@@ -23,15 +24,16 @@ const IDEAS = [
 
 const DEFAULT_TIME = "09:00";
 
-interface Props {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+/** New routine, alone in the composer (the Routines page). */
+export function CreateHabitDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+    const { reset, ...draft } = useRoutineComposer({ onSaved: () => onOpenChange(false) });
+    return <Composer open={open} onClose={() => { reset(); onOpenChange(false); }} {...draft} />;
 }
 
-/** New routine, in the same composer as schedule creation: name, which days, when, then everything optional. */
-export function CreateHabitDialog({ open, onOpenChange }: Props) {
+/** The routine composer: name, which days, when, then everything optional. */
+export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | null | undefined) => void }): ComposerDraft {
     const shell = useShellMode();
-    const { mutate: createHabit } = useCreateHabit();
+    const { mutate: createHabit, isPending } = useCreateHabit();
     const { data: projects = [] } = useProjects();
     const { data: tags = [] } = useTags();
 
@@ -46,7 +48,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
 
     const isDirty = Boolean(title.trim() || emoji || recurrenceRule !== "FREQ=DAILY" || targetTime || description.trim() || projectId || tagIds.length);
 
-    const close = () => {
+    const reset = () => {
         setTitle("");
         setEmoji(null);
         setRecurrenceRule("FREQ=DAILY");
@@ -55,7 +57,6 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
         setDescription("");
         setProjectId(null);
         setTagIds([]);
-        onOpenChange(false);
     };
 
     const submit = () => {
@@ -74,8 +75,12 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
             toast.error(parsed.error.issues[0]?.message ?? "Couldn't create routine");
             return;
         }
-        createHabit(parsed.data);
-        close();
+        createHabit(parsed.data, {
+            onSuccess: (created) => {
+                reset();
+                onSaved(created);
+            },
+        });
     };
 
     const summary = getTaskRecurrenceSummary({
@@ -90,16 +95,17 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
         .filter(Boolean)
         .join(" · ");
 
-    return (
-        <Composer
-            open={open}
-            title="New routine"
-            subtitle={subtitle}
-            isDirty={isDirty}
-            discardTitle="Discard this routine?"
-            onClose={close}
-            footer={<ComposerSubmit onSubmit={submit} submitLabel="Create routine" icon={Repeat} disabled={!title.trim()} />}
-        >
+    return {
+        title: "New routine",
+        icon: Flame,
+        tone: "habits",
+        subtitle,
+        isDirty,
+        discardTitle: "Discard this routine?",
+        footer: <ComposerSubmit onSubmit={submit} submitLabel={isPending ? "Creating…" : "Create routine"} icon={Repeat} tone="habits" disabled={!title.trim() || isPending} />,
+        reset,
+        children: (
+            <>
             <div className="space-y-3">
                 <ComposerTitle
                     autoFocus={!shell.isCompact}
@@ -220,6 +226,7 @@ export function CreateHabitDialog({ open, onOpenChange }: Props) {
                     </div>
                 ) : null}
             </ComposerMore>
-        </Composer>
-    );
+            </>
+        ),
+    };
 }

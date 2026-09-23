@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
+import { ChipScroller } from "./ChipScroller";
 
 export interface BoardColumn {
     id: string;
@@ -23,6 +24,11 @@ interface BoardCanvasProps {
     emptyState?: React.ReactNode;
     className?: string;
     desktopColumnScroll?: boolean;
+    /** Compact shells: control the chosen column from outside. */
+    activeColumnId?: string;
+    onActiveColumnChange?: (id: string) => void;
+    /** Compact shells: extra chip after the column chooser, e.g. add section. */
+    compactTrailing?: React.ReactNode;
 }
 
 function BoardColumnShell({
@@ -93,10 +99,15 @@ export function BoardCanvas({
     emptyState = null,
     className = "",
     desktopColumnScroll = false,
+    activeColumnId: controlledId,
+    onActiveColumnChange,
+    compactTrailing,
 }: BoardCanvasProps) {
     const shell = useShellMode();
     const dragScroll = useDragScroll();
-    const [activeColumnId, setActiveColumnId] = useState(columns[0]?.id ?? "");
+    const [localId, setLocalId] = useState(columns[0]?.id ?? "");
+    const activeColumnId = controlledId ?? localId;
+    const setActiveColumnId = (id: string) => { setLocalId(id); onActiveColumnChange?.(id); };
 
     useEffect(() => {
         if (!columns.length) {
@@ -118,7 +129,7 @@ export function BoardCanvas({
 
         return (
             <div className={["flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4", className].join(" ").trim()}>
-                <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 scrollbar-hidden">
+                <ChipScroller className="-mx-4 px-4 pb-1">
                     {columns.map((column) => (
                         <button
                             key={column.id}
@@ -137,7 +148,8 @@ export function BoardCanvas({
                             </span>
                         </button>
                     ))}
-                </div>
+                    {compactTrailing}
+                </ChipScroller>
 
                 <div className="min-h-0 flex-1">
                     <BoardColumnShell {...activeColumn} titleHidden />

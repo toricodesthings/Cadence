@@ -4,33 +4,27 @@ import { PersonalEventEditorDialog } from "../events/PersonalEventEditorDialog";
 import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
 import type { PersonalEvent } from "../../types/settings";
 
-interface AddPersonalEventDialogProps {
-    open: boolean;
-    onClose: () => void;
-}
-
-export function AddPersonalEventDialog({ open, onClose }: AddPersonalEventDialogProps) {
+/** Saves a new personal event and confirms with a link to the Events page. */
+export function useAddPersonalEvent() {
     const navigate = useNavigate();
     const { addEvent } = usePersonalEvents(new Date().getFullYear());
-
-    const handleSubmit = (value: Omit<PersonalEvent, "id">) => {
+    return (value: Omit<PersonalEvent, "id">) => {
         addEvent(value);
         toast.success("Event added", {
-            action: {
-                label: "View all events",
-                onClick: () => navigate("/events"),
-            },
+            action: { label: "View all events", onClick: () => navigate("/events") },
         });
-        onClose();
     };
+}
 
+export function AddPersonalEventDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const addEvent = useAddPersonalEvent();
     return (
         <PersonalEventEditorDialog
             open={open}
             onClose={onClose}
             title="Add personal event"
             submitLabel="Add event"
-            onSubmit={handleSubmit}
+            onSubmit={(value) => { addEvent(value); onClose(); }}
         />
     );
 }

@@ -28,7 +28,10 @@ export const links: LinksFunction = () => [
   { rel: "stylesheet", href: appStylesHref },
   ...(RUNTIME_TARGET === "desktop"
     ? []
-    : [{ rel: "manifest" as const, href: "/manifest.webmanifest" }]),
+    : [
+        { rel: "manifest" as const, href: "/manifest.webmanifest" },
+        { rel: "apple-touch-icon" as const, href: "/apple-touch-icon.png" },
+      ]),
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -37,10 +40,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* viewport-fit=cover makes env(safe-area-inset-*) report the notch,
+            status bar and home indicator; the .safe-* utilities rely on it. */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#0d0f14" />
         {RUNTIME_TARGET !== "desktop" && (
-          <meta name="mobile-web-app-capable" content="yes" />
+          <>
+            <meta name="mobile-web-app-capable" content="yes" />
+            {/* Home-screen app on iOS: content runs under a transparent status
+                bar, so top-edge surfaces pad with env(safe-area-inset-top). */}
+            <meta name="apple-mobile-web-app-capable" content="yes" />
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+            <meta name="apple-mobile-web-app-title" content="Cadence" />
+            {/* iOS zooms into any focused field under 16px and stays zoomed in
+                the home-screen app. maximum-scale stops that without blocking
+                pinch zoom on iOS; other platforms would lose pinch zoom, so iOS only. */}
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `(function(){if(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.userAgent))){var v=document.querySelector('meta[name=viewport]');v&&v.setAttribute('content',v.content+', maximum-scale=1');}})()`,
+              }}
+            />
+          </>
         )}
         <title>Cadence</title>
         <meta

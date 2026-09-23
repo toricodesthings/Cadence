@@ -2,14 +2,14 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
-import { X, Send, Sparkles, History, SquarePen } from "lucide-react";
+import { X, ArrowUp, ArrowDown, History, SquarePen, Plus, Zap, ShieldCheck, ChevronDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ResizableSidePanel } from "../shared/ResizableSidePanel";
-import { Tip } from "../primitives";
+import { Tip, DropdownMenu } from "../primitives";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { useAssistantStore } from "../../stores/assistant-store";
-import { useAuthState } from "../../hooks/auth/use-auth-state";
-import { MessageBubble, ChatAvatar } from "./MessageBubble";
+import { ChatMessage, ChatAvatar, AssistantText } from "./MessageBubble";
+import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt, type ReceiptState } from "./ReadReceipt";
 import { ConversationList } from "./ConversationList";
 import { ChatErrorBubble } from "./ChatErrorBubble";
@@ -27,6 +27,7 @@ import {
     type ConversationSummary,
     type ConversationDetail,
 } from "../../hooks/ai/use-conversations";
+import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useAiUsage } from "../../hooks/ai/use-ai-usage";
 import { describeUsage } from "../../lib/ai/usage";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -39,6 +40,7 @@ import { deriveFallbackTitle } from "@cadence/domain/ai-title";
 import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData } from "@cadence/contracts/ai";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
+import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 
 /** Three soft bouncing dots — the "assistant is typing…" affordance. */
 function TypingDots({ name }: { name: string }) {
@@ -54,6 +56,55 @@ function TypingDots({ name }: { name: string }) {
         </span>
     );
 }
+
+/** One step of an assistant turn, in the order it happened. */
+type Segment =
+    | { kind: "text"; text: string }
+    | { kind: "reads"; labels: string[]; pending: boolean }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    | { kind: "card"; part: any };
+
+/**
+ * Walk a turn's parts in stream order: adjacent text runs merge into one card,
+ * adjacent read tools into one activity chip, and proposal/write tools stand
+ * alone. So a lookup that happened before the reply sits above it.
+ */
+function buildSegments(parts: UIMessage["parts"]): Segment[] {
+    const out: Segment[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const part of parts as any[]) {
+        const last = out.at(-1);
+        if (part.type === "text") {
+            if (!part.text) continue;
+            if (last?.kind === "text") last.text += `\n\n${part.text}`;
+            else out.push({ kind: "text", text: part.text });
+        } else if (typeof part.type === "string" && part.type.startsWith("tool-")) {
+            if (!isReadToolPart(part)) {
+                out.push({ kind: "card", part });
+                continue;
+            }
+            const name = safeToolName(part);
+            const label = (name && getToolDescriptor(name)?.label) || "Looked something up";
+            const pending = part.state !== "output-available";
+            if (last?.kind === "reads") {
+                last.labels.push(label);
+                last.pending ||= pending;
+            } else {
+                out.push({ kind: "reads", labels: [label], pending });
+            }
+        }
+    }
+    return out;
+}
+
+const STARTERS = [
+    { prompt: "Plan my morning", icon: Sunrise },
+    { prompt: "What’s overdue?", icon: AlarmClock },
+    { prompt: "Tidy my inbox", icon: Inbox },
+];
+
+const MAX_ATTACHMENTS = 4;
+type Attachment = { id: string; name: string; url: string };
 
 /** The `status` metadata a persisted assistant turn may carry (§8.3). */
 function messageStatus(message: UIMessage): string | undefined {
@@ -78,8 +129,13 @@ export function AssistantSidePanel({
         setHistoryOpen,
         startNewConversation,
         setActiveConversation,
+        autoApprove,
+        setAutoApprove,
     } = useAssistantStore();
+    const coarse = useIsCoarsePointer();
     const { session } = useAuthState();
+    const userImage = session?.user?.image;
+    const userInitial = (session?.user?.name || session?.user?.email || "U")[0]!.toUpperCase();
     const reduceMotion = useReducedMotion();
     const online = useOnlineStatus();
     const queryClient = useQueryClient();
@@ -108,9 +164,11 @@ export function AssistantSidePanel({
     // follows the stream when true, so scrolling up to re-read history mid-stream
     // is never yanked back down.
     const isNearBottomRef = useRef(true);
-
-    const userImage = session?.user?.image;
-    const userInitial = (session?.user?.name || session?.user?.email || "U")[0]!.toUpperCase();
+    // Offer a jump back down once the reader has scrolled well up.
+    const [showJump, setShowJump] = useState(false);
+    // Composer-only image attachments (not sent yet — no backend wiring).
+    const [attachments, setAttachments] = useState<Attachment[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Ensure a thread id exists before the first send. The store persists it, but
     // a brand-new install starts with `null` — mint one lazily on open.
@@ -181,6 +239,11 @@ export function AssistantSidePanel({
 
     const isStreaming = status === "submitted" || status === "streaming";
 
+    // Assistant turns that streamed live from a turn THIS tab sent. Only these may
+    // auto-approve — never a reloaded thread's old proposal, nor a peer tab's turn
+    // mirrored here (that tab commits its own). Filled below, once localTurnRef exists.
+    const liveMessageIdsRef = useRef(new Set<string>());
+
     // The live stream id for the active thread, hydrated from the conversation
     // read (`GET /conversations/:id` → `conversation.activeStreamId`). The Stop
     // control sends it so the server can guard against aborting a newer turn.
@@ -203,6 +266,10 @@ export function AssistantSidePanel({
     // re-seed, so the reply never appeared). Genuine (re)loads — refresh / reconnect /
     // thread-switch — leave this false and still resume to catch a live stream.
     const skipResumeOnNextLoadRef = useRef(false);
+    if (isStreaming && localTurnRef.current) {
+        const last = messages.at(-1);
+        if (last?.role === "assistant") liveMessageIdsRef.current.add(last.id);
+    }
 
     // ── Cross-tab signalling (two-tab fix, doc Update 4) ─────────────────────
     // When another tab on THIS thread starts/finishes a turn, re-sync from the server:
@@ -275,9 +342,16 @@ export function AssistantSidePanel({
     // When the active thread changes, pull its persisted messages and hand them
     // to setMessages so reloaded proposals re-render in their settled state.
     // A freshly-minted thread (no server row yet) is NOT fetched — avoids a 404.
-    const { data: history } = useConversationMessages(
+    const { data: history, error: historyError } = useConversationMessages(
         assistantPanelOpen && !isFreshThread ? activeConversationId : null,
     );
+    // The persisted thread is gone server-side (deleted elsewhere, DB reset) — start fresh
+    // instead of leaving the panel stuck on a 404.
+    useEffect(() => {
+        if ((historyError as { status?: number } | null)?.status !== 404) return;
+        startNewConversation();
+        setIsFreshThread(true);
+    }, [historyError, startNewConversation]);
     const loadedThreadRef = useRef<string | null>(null);
     useEffect(() => {
         if (!activeConversationId) return;
@@ -421,6 +495,7 @@ export function AssistantSidePanel({
         const onScroll = () => {
             const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
             isNearBottomRef.current = distanceFromBottom < 120;
+            setShowJump(distanceFromBottom > 320);
         };
         el.addEventListener("scroll", onScroll, { passive: true });
         return () => el.removeEventListener("scroll", onScroll);
@@ -453,6 +528,10 @@ export function AssistantSidePanel({
         }
         sendLocal({ text });
         setInput("");
+        if (attachments.length > 0) {
+            clearAttachments();
+            setInputNotice(`Sent your text — ${assistantName} can’t see images just yet.`);
+        }
         requestAnimationFrame(() => scrollToBottom());
     };
 
@@ -506,12 +585,44 @@ export function AssistantSidePanel({
         requestAnimationFrame(() => scrollToBottom());
     }, [online, regenerateLocal]);
 
+    const addImages = (files: Iterable<File>) => {
+        const images = [...files].filter((f) => f.type.startsWith("image/"));
+        if (images.length === 0) return;
+        setAttachments((prev) => {
+            const room = MAX_ATTACHMENTS - prev.length;
+            if (images.length > room) setInputNotice(`Up to ${MAX_ATTACHMENTS} images per message.`);
+            return [
+                ...prev,
+                ...images.slice(0, Math.max(room, 0)).map((f) => ({
+                    id: crypto.randomUUID(),
+                    name: f.name,
+                    url: URL.createObjectURL(f),
+                })),
+            ];
+        });
+    };
+    const removeAttachment = (id: string) =>
+        setAttachments((prev) => {
+            const gone = prev.find((a) => a.id === id);
+            if (gone) URL.revokeObjectURL(gone.url);
+            return prev.filter((a) => a.id !== id);
+        });
+    const clearAttachments = () =>
+        setAttachments((prev) => {
+            prev.forEach((a) => URL.revokeObjectURL(a.url));
+            return [];
+        });
+    // Release preview blobs when the panel unmounts.
+    const attachmentsRef = useRef(attachments);
+    attachmentsRef.current = attachments;
+    useEffect(() => () => attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.url)), []);
+
     // Auto-grow the textarea up to a comfortable cap.
     useEffect(() => {
         const el = textareaRef.current;
         if (!el) return;
         el.style.height = "auto";
-        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+        el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
     }, [input]);
 
     // Clear a stale notice once the user is back online / edits the draft.
@@ -582,11 +693,28 @@ export function AssistantSidePanel({
 
     const awaitingReply = isStreaming && !lastUserSeen;
 
-    const receiptState: ReceiptState = useMemo(() => {
-        if (lastUserSeen || awaitingReply) return "read";
-        if (status === "submitted" || status === "streaming") return "delivered";
-        return "sent";
-    }, [lastUserSeen, awaitingReply, status]);
+    // Receipts track the real turn, never a guess:
+    //   sent      → the request is out, the server hasn't answered yet (`submitted`)
+    //   delivered → the server accepted it and opened the stream, nothing produced yet
+    //   read      → the assistant has actually started working on it (any text,
+    //               lookup or proposal part after the latest user turn)
+    const replyStarted = useMemo(() => {
+        if (lastUserIndex === -1) return false;
+        return messages
+            .slice(lastUserIndex + 1)
+            .some(
+                (m) =>
+                    m.role === "assistant" &&
+                    m.parts?.some(
+                        (p) =>
+                            (p.type === "text" && Boolean(p.text)) ||
+                            p.type === "reasoning" ||
+                            p.type.startsWith("tool-"),
+                    ),
+            );
+    }, [messages, lastUserIndex]);
+
+    const receiptState: ReceiptState = replyStarted ? "read" : status === "streaming" ? "delivered" : "sent";
 
     // ── Stream / pre-stream error → one StreamError ──────────────────────────
     // `useChat().error` carries both pre-stream HTTP failures and the mid-stream
@@ -615,8 +743,8 @@ export function AssistantSidePanel({
             <header className="flex h-(--shell-header-h) shrink-0 items-center justify-between border-b border-twilight-border px-4">
                 <div className="flex items-center gap-3">
                     <div className="relative">
-                        <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">
-                            <Sparkles size={17} />
+                        <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/12 text-accent-primary ring-1 ring-accent-primary/20 glow-accent">
+                            <AssistantSigil size={24} />
                         </div>
                         <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-feedback-success ring-2 ring-twilight-deep" />
                     </div>
@@ -681,36 +809,36 @@ export function AssistantSidePanel({
             </div>
 
             {/* Message thread */}
+            <div className="relative flex min-h-0 flex-1 flex-col">
             <ScrollArea.Root className="flex-1 min-h-0">
-                <ScrollArea.Viewport ref={scrollViewportRef} className="px-4 py-5">
-                    <div className="flex flex-col gap-3">
+                <ScrollArea.Viewport ref={scrollViewportRef} className={coarse ? "px-3 py-5" : "px-4 py-6"}>
+                    <div className="flex flex-col gap-5">
                         {messages.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-14 text-center">
-                                <div className="mb-4 flex h-12 w-12 min-w-12 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">
-                                    <Sparkles size={22} />
+                            <div className="flex flex-col items-center justify-center px-2 py-12 text-center">
+                                <div className="mb-5 flex h-16 w-16 min-w-16 items-center justify-center rounded-full bg-accent-primary/12 text-accent-primary ring-1 ring-accent-primary/20 glow-accent">
+                                    <AssistantSigil size={44} />
                                 </div>
-                                <p className="text-sm font-medium text-twilight-text">
+                                <p className="font-display text-xl font-semibold tracking-tight text-twilight-text">
                                     Say hey to {assistantName}
                                 </p>
-                                <p className="mt-2 max-w-[240px] text-[13px] leading-relaxed text-twilight-text-muted">
+                                <p className="mt-2 max-w-[260px] text-[13px] leading-relaxed text-twilight-text-muted">
                                     Drop a messy thought, ask to clear overdue items, or plan your
                                     morning into tiny frictionless steps.
                                 </p>
                                 {/* Starter prompts — the empty screen invites the first act
                                     (manifesto §0.2 law 1). Each maps to a real capability. */}
-                                <div className="mt-5 flex flex-wrap justify-center gap-1.5">
-                                    {["Plan my morning", "What’s overdue?", "Tidy my inbox"].map(
-                                        (prompt) => (
-                                            <button
-                                                key={prompt}
-                                                type="button"
-                                                onClick={() => submitText(prompt)}
-                                                className="rounded-full border border-twilight-border bg-twilight-surface px-3 py-1.5 text-[12px] text-twilight-text-soft transition-colors hover:border-accent-primary/30 hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
-                                            >
-                                                {prompt}
-                                            </button>
-                                        ),
-                                    )}
+                                <div className="mt-6 grid w-full max-w-[300px] gap-2">
+                                    {STARTERS.map(({ prompt, icon: Icon }) => (
+                                        <button
+                                            key={prompt}
+                                            type="button"
+                                            onClick={() => submitText(prompt)}
+                                            className="flex min-h-11 items-center gap-3 rounded-2xl border border-white/[0.06] bg-panel-raised/60 px-4 py-2.5 text-left text-[13px] text-twilight-text-soft transition-colors hover:border-accent-primary/30 hover:bg-accent-primary/8 hover:text-twilight-text active:scale-[0.99] cursor-pointer"
+                                        >
+                                            <Icon size={16} className="shrink-0 text-accent-primary" aria-hidden />
+                                            {prompt}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         ) : null}
@@ -718,98 +846,70 @@ export function AssistantSidePanel({
                         <AnimatePresence initial={false}>
                             {messages.map((message, index) => {
                                 const isUser = message.role === "user";
-                                const parts = message.parts ?? [];
-                                const textParts = parts.filter(
-                                    (p): p is { type: "text"; text: string } =>
-                                        p.type === "text" && Boolean((p as { text?: string }).text),
-                                );
-                                // Tool parts split into read (grouped chip) and proposal/write (cards).
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const toolParts = parts.filter((p: any) =>
-                                    typeof p.type === "string" && p.type.startsWith("tool-"),
-                                );
-                                const readLabels: string[] = [];
-                                let readPending = false;
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                const cardParts: any[] = [];
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                for (const part of toolParts as any[]) {
-                                    if (isReadToolPart(part)) {
-                                        const name = safeToolName(part);
-                                        const label = name
-                                            ? getToolDescriptor(name)?.label ?? "Looked something up"
-                                            : "Looked something up";
-                                        readLabels.push(label);
-                                        if (part.state !== "output-available") readPending = true;
-                                    } else {
-                                        cardParts.push(part);
-                                    }
-                                }
-
-                                const prevRole = index > 0 ? messages[index - 1].role : null;
-                                const grouped = prevRole === message.role;
-                                const combinedText = textParts.map((p) => p.text).join("\n\n");
+                                const segments = buildSegments(message.parts ?? []);
+                                if (!isUser && segments.length === 0) return null;
+                                const text = segments
+                                    .flatMap((seg) => (seg.kind === "text" ? [seg.text] : []))
+                                    .join("\n\n");
+                                const grouped = index > 0 && messages[index - 1].role === message.role;
                                 const isLastAssistant = index === lastAssistantIndex;
                                 const failed = messageStatus(message) === "failed";
+                                const autoApproveHere =
+                                    autoApprove && !isStreaming && liveMessageIdsRef.current.has(message.id);
+
+                                // Failed-turn recovery after reload (§8.3); otherwise the latest
+                                // user turn carries the read receipt under its avatar.
+                                const meta = isUser && failed ? (
+                                    <span className="text-[11px] text-twilight-text-muted">
+                                        Didn’t send ·{" "}
+                                        <button
+                                            type="button"
+                                            onClick={handleRetry}
+                                            className="text-accent-primary hover:underline cursor-pointer"
+                                        >
+                                            Retry
+                                        </button>
+                                    </span>
+                                ) : null;
+                                const receipt =
+                                    isUser && !failed && index === lastUserIndex ? (
+                                        <ReadReceipt state={receiptState} />
+                                    ) : null;
 
                                 return (
-                                    <div key={message.id} className={grouped ? "-mt-1.5" : ""}>
-                                        {textParts.length > 0 ? (
-                                            <MessageBubble
-                                                text={combinedText}
-                                                isUser={isUser}
-                                                userImage={userImage}
-                                                userInitial={userInitial}
-                                                showAvatar={!grouped}
-                                                canRegenerate={!isUser && isLastAssistant && !isStreaming}
-                                                canEdit={isUser && !isStreaming}
-                                                // Touch has no hover: keep the LATEST reply's actions
-                                                // visible there so Copy/Regenerate stay reachable.
-                                                touchReveal={!isUser && isLastAssistant && !isStreaming}
-                                                onRegenerate={() => regenerateLocal({ messageId: message.id })}
-                                                onSaveEdit={(next) => handleEdit(index, next)}
-                                            />
-                                        ) : null}
-
-                                        {/* Grouped read-tool activity chip (design §5) */}
-                                        {readLabels.length > 0 ? (
-                                            <div className="pl-9 pt-1.5">
-                                                <ToolActivityChip labels={readLabels} pending={readPending} />
-                                            </div>
-                                        ) : null}
-
-                                        {/* Proposal / write tool cards via the registry dispatcher */}
-                                        {cardParts.map((part, i) => (
-                                            <div key={part.toolCallId || i} className="pl-9 pt-1.5">
-                                                <ToolPart
-                                                    part={part}
-                                                    addToolResult={reportToolResult}
-                                                    conversationId={activeConversationId}
-                                                    messageId={message.id}
-                                                />
-                                            </div>
-                                        ))}
-
-                                        {/* Failed-turn recovery after reload (§8.3) */}
-                                        {isUser && failed ? (
-                                            <div className="flex justify-end pr-9 pt-1">
-                                                <span className="text-[11px] text-twilight-text-muted">
-                                                    Didn’t send ·{" "}
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleRetry}
-                                                        className="text-accent-primary hover:underline cursor-pointer"
-                                                    >
-                                                        Retry
-                                                    </button>
-                                                </span>
-                                            </div>
-                                        ) : null}
-
-                                        {/* Checkmark read receipt under the most recent user message */}
-                                        {isUser && index === lastUserIndex && !failed ? (
-                                            <ReadReceipt state={receiptState} />
-                                        ) : null}
+                                    <div key={message.id} className={grouped ? "-mt-3" : ""}>
+                                        <ChatMessage
+                                            isUser={isUser}
+                                            text={text}
+                                            showAvatar={!grouped}
+                                            latest={isUser ? index === lastUserIndex : isLastAssistant}
+                                            canRegenerate={!isUser && isLastAssistant && !isStreaming}
+                                            canEdit={isUser && !isStreaming}
+                                            onRegenerate={() => regenerateLocal({ messageId: message.id })}
+                                            onSaveEdit={(next) => handleEdit(index, next)}
+                                            meta={meta}
+                                            receipt={receipt}
+                                            userImage={userImage}
+                                            userInitial={userInitial}
+                                        >
+                                            {segments.map((seg, i) =>
+                                                seg.kind === "text" ? (
+                                                    <AssistantText key={i} text={seg.text} />
+                                                ) : seg.kind === "reads" ? (
+                                                    <ToolActivityChip key={i} labels={seg.labels} pending={seg.pending} />
+                                                ) : (
+                                                    <div key={seg.part.toolCallId || i} className="w-full">
+                                                        <ToolPart
+                                                            part={seg.part}
+                                                            addToolResult={reportToolResult}
+                                                            conversationId={activeConversationId}
+                                                            messageId={message.id}
+                                                            autoApprove={autoApproveHere}
+                                                        />
+                                                    </div>
+                                                ),
+                                            )}
+                                        </ChatMessage>
                                     </div>
                                 );
                             })}
@@ -831,10 +931,10 @@ export function AssistantSidePanel({
                                     animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.22, ease: EASE_OUT_EXPO }}
-                                    className="flex items-end gap-2"
+                                    className="flex items-start gap-2.5"
                                 >
-                                    <ChatAvatar isUser={false} userInitial={userInitial} />
-                                    <div className="rounded-2xl rounded-bl-md border border-twilight-border bg-twilight-surface px-3.5 py-3">
+                                    <ChatAvatar />
+                                    <div className="rounded-[20px] rounded-tl-md border border-white/[0.06] bg-panel-raised/70 px-4 py-3.5">
                                         <TypingDots name={assistantName} />
                                     </div>
                                 </motion.div>
@@ -847,10 +947,28 @@ export function AssistantSidePanel({
                 </ScrollArea.Scrollbar>
             </ScrollArea.Root>
 
+            <AnimatePresence>
+                {showJump ? (
+                    <motion.button
+                        type="button"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        transition={{ duration: 0.18, ease: EASE_OUT_EXPO }}
+                        onClick={() => scrollToBottom()}
+                        aria-label="Jump to latest"
+                        className="glass-surface absolute bottom-3 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full text-twilight-text-soft shadow-lg transition-colors hover:text-twilight-text cursor-pointer"
+                    >
+                        <ArrowDown size={16} aria-hidden />
+                    </motion.button>
+                ) : null}
+            </AnimatePresence>
+            </div>
+
             {/* Composer */}
             <form
                 onSubmit={handleSubmit}
-                className="shrink-0 border-t border-twilight-border bg-panel/40 px-3 pt-2.5"
+                className="shrink-0 px-3 pt-2"
                 style={{
                     paddingBottom: isMobile
                         ? "max(0.75rem, env(safe-area-inset-bottom))"
@@ -859,28 +977,51 @@ export function AssistantSidePanel({
             >
                 {/* Offline / input-cap notice (design §8.4 / §9.4) */}
                 <AnimatePresence>
-                    {!online ? (
+                    {!online || inputNotice ? (
                         <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="mb-1.5 text-center text-[11px] text-twilight-text-muted"
                         >
-                            You’re offline — I’ll be here when you’re back.
-                        </motion.p>
-                    ) : inputNotice ? (
-                        <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="mb-1.5 text-center text-[11px] text-twilight-text-muted"
-                        >
-                            {inputNotice}
+                            {!online ? "You’re offline — I’ll be here when you’re back." : inputNotice}
                         </motion.p>
                     ) : null}
                 </AnimatePresence>
 
-                <div className="flex items-end gap-2 rounded-2xl border border-twilight-border bg-twilight-surface px-3 py-2 transition-colors focus-within:border-accent-primary/40 focus-within:bg-twilight-surface-hover">
+                <div
+                    className="rounded-[24px] border border-white/[0.08] bg-panel-raised/85 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.7)] transition-colors focus-within:border-accent-primary/35"
+                    onDragOver={(e) => {
+                        if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                        if (e.dataTransfer.files.length === 0) return;
+                        e.preventDefault();
+                        addImages(e.dataTransfer.files);
+                    }}
+                >
+                    {attachments.length > 0 ? (
+                        <div className="flex gap-2 overflow-x-auto px-3 pt-3">
+                            {attachments.map((a) => (
+                                <div key={a.id} className="relative shrink-0">
+                                    <img
+                                        src={a.url}
+                                        alt={a.name}
+                                        className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/10"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeAttachment(a.id)}
+                                        aria-label={`Remove ${a.name}`}
+                                        className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-twilight-deep text-twilight-text-soft ring-1 ring-white/15 transition-colors hover:text-twilight-text cursor-pointer"
+                                    >
+                                        <X size={12} aria-hidden />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+
                     <textarea
                         ref={textareaRef}
                         value={input}
@@ -889,39 +1030,116 @@ export function AssistantSidePanel({
                             if (inputNotice) setInputNotice(null);
                         }}
                         onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
+                            // Touch keyboards: Return is a newline; the send button sends.
+                            if (e.key === "Enter" && !e.shiftKey && !coarse) {
                                 e.preventDefault();
                                 handleSubmit();
                             }
                         }}
+                        onPaste={(e) => {
+                            if (e.clipboardData.files.length === 0) return;
+                            e.preventDefault();
+                            addImages(e.clipboardData.files);
+                        }}
                         rows={1}
                         placeholder={`Message ${assistantName}…`}
-                        // ≥16px on mobile prevents iOS Safari from zooming on focus.
-                        className={`max-h-[120px] flex-1 resize-none bg-transparent py-1 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${isMobile ? "text-base" : "text-[14px]"}`}
+                        aria-label={`Message ${assistantName}`}
+                        // ≥16px on touch prevents iOS Safari from zooming on focus.
+                        className={`block max-h-[140px] w-full resize-none bg-transparent px-4 pb-1 pt-3 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${coarse || isMobile ? "text-base" : "text-[14px]"}`}
                     />
-                    {isStreaming ? (
-                        <Tip label="Stop generating" side="top">
+
+                    <div className="flex items-center gap-1 px-2 pb-2">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            hidden
+                            onChange={(e) => {
+                                if (e.target.files) addImages(e.target.files);
+                                e.target.value = "";
+                            }}
+                        />
+                        <Tip label="Add images" side="top">
                             <button
                                 type="button"
-                                onClick={() => void handleStop()}
-                                className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error transition-all hover:scale-[1.04] active:scale-[0.97] cursor-pointer"
-                                aria-label="Stop generating"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={attachments.length >= MAX_ATTACHMENTS}
+                                aria-label="Add images"
+                                className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text disabled:opacity-40 cursor-pointer"
                             >
-                                <span className="h-2.5 w-2.5 rounded-sm bg-feedback-error" />
+                                <Plus size={18} aria-hidden />
                             </button>
                         </Tip>
-                    ) : (
-                        <Tip label="Send message" side="top">
-                            <button
-                                type="submit"
-                                disabled={!input.trim() || !online}
-                                className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary/20 text-accent-primary transition-all hover:scale-[1.04] hover:bg-accent-primary/30 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-30 cursor-pointer"
-                                aria-label="Send message"
-                            >
-                                <Send size={15} className="translate-x-px" />
-                            </button>
-                        </Tip>
-                    )}
+
+                        {/* Approval mode — Ask first (default) or Auto: proposals commit themselves. */}
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                                <button
+                                    type="button"
+                                    aria-label={`Approval mode: ${autoApprove ? "Auto" : "Ask first"}`}
+                                    className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors cursor-pointer ${
+                                        autoApprove
+                                            ? "bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/22"
+                                            : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                                    }`}
+                                >
+                                    {autoApprove ? <Zap size={13} aria-hidden /> : <ShieldCheck size={13} aria-hidden />}
+                                    {autoApprove ? "Auto" : "Ask first"}
+                                    <ChevronDown size={12} className="opacity-60" aria-hidden />
+                                </button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content side="top" align="start" className="w-[260px]">
+                                <DropdownMenu.RadioGroup
+                                    value={autoApprove ? "auto" : "ask"}
+                                    onValueChange={(v) => setAutoApprove(v === "auto")}
+                                >
+                                    <DropdownMenu.RadioItem value="ask">
+                                        <span className="flex flex-col">
+                                            <span>Ask first</span>
+                                            <span className="text-[11px] font-normal text-twilight-text-muted">
+                                                Confirm every create, change or delete
+                                            </span>
+                                        </span>
+                                    </DropdownMenu.RadioItem>
+                                    <DropdownMenu.RadioItem value="auto">
+                                        <span className="flex flex-col">
+                                            <span>Auto</span>
+                                            <span className="text-[11px] font-normal text-twilight-text-muted">
+                                                {assistantName} applies changes without asking
+                                            </span>
+                                        </span>
+                                    </DropdownMenu.RadioItem>
+                                </DropdownMenu.RadioGroup>
+                            </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+
+                        <div className="flex-1" />
+
+                        {isStreaming ? (
+                            <Tip label="Stop generating" side="top">
+                                <button
+                                    type="button"
+                                    onClick={() => void handleStop()}
+                                    className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-feedback-error/30 bg-feedback-error/15 text-feedback-error transition-all hover:scale-[1.04] active:scale-[0.97] cursor-pointer"
+                                    aria-label="Stop generating"
+                                >
+                                    <span className="h-2.5 w-2.5 rounded-sm bg-feedback-error" />
+                                </button>
+                            </Tip>
+                        ) : (
+                            <Tip label="Send message" side="top">
+                                <button
+                                    type="submit"
+                                    disabled={!input.trim() || !online}
+                                    className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-midnight shadow-[0_6px_18px_-6px_var(--accent-primary)] transition-all hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
+                                    aria-label="Send message"
+                                >
+                                    <ArrowUp size={18} strokeWidth={2.4} aria-hidden />
+                                </button>
+                            </Tip>
+                        )}
+                    </div>
                 </div>
                 {/* Footer: the low-budget hint takes the line over the AI disclaimer
                     only while a usage window is actually running low (§9.4). */}

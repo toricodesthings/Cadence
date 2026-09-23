@@ -20,8 +20,8 @@ describe("generateConversationTitle (fallback path — no LLM call)", () => {
 });
 
 describe("getTitleModelId", () => {
-    it("defaults to a cheap flash-lite model", () => {
-        expect(getTitleModelId(env())).toBe("google/gemini-2.5-flash-lite");
+    it("defaults to a small, cheap model", () => {
+        expect(getTitleModelId(env())).toBe("google/gemma-3-27b-it");
     });
 
     it("honors the AI_TITLE_MODEL override", () => {

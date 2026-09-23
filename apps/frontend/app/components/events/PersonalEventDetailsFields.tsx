@@ -1,7 +1,9 @@
-import { Switch } from "../primitives/Switch";
-import { EventDatePicker } from "./EventDatePicker";
+import { Bell, Milestone } from "lucide-react";
+import { ComposerToggle } from "../shared/Composer";
+import { FIELD_LABEL } from "../tasks/task-choice-options";
+import { DatePicker } from "../shared/DatePicker";
 
-/** Shared event fields for creation and in-place editing. */
+/** Shared event fields for creation (Events, Schedule) and in-place editing. */
 export function PersonalEventDetailsFields({ eventDate, setEventDate, trackMilestone, setTrackMilestone, startedOn, setStartedOn, notify, setNotify }: {
     eventDate: string;
     setEventDate: (date: string) => void;
@@ -14,51 +16,40 @@ export function PersonalEventDetailsFields({ eventDate, setEventDate, trackMiles
 }) {
     return <div className="space-y-5">
         <div className="space-y-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">Date</span>
-            <EventDatePicker value={eventDate} onChange={setEventDate} />
+            <span className={FIELD_LABEL}>Date</span>
+            <DatePicker label="Event date" yearNav value={eventDate} onChange={(date) => date && setEventDate(date)} />
         </div>
 
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-            <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                    <p className="text-sm font-medium text-twilight-text">Milestone tracking</p>
-                </div>
-                <Switch
-                    checked={trackMilestone}
-                    onCheckedChange={(checked) => {
-                        setTrackMilestone(checked);
-                        if (checked && !startedOn) {
-                            setStartedOn(eventDate);
-                        }
-                    }}
-                    aria-label="Enable milestone tracking for this personal event"
-                />
-            </div>
-
+        <ComposerToggle
+            icon={Milestone}
+            iconClassName="text-accent-nav-schedule"
+            label="Milestone tracking"
+            description="Count the days since it began"
+            checked={trackMilestone}
+            onCheckedChange={(checked) => {
+                setTrackMilestone(checked);
+                if (checked && !startedOn) setStartedOn(eventDate);
+            }}
+            ariaLabel="Enable milestone tracking for this personal event"
+        >
             {trackMilestone ? (
-                <div className="mt-3 flex items-center gap-3 border-t border-white/[0.05] pt-3">
-                    <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-twilight-text-muted">
-                        Started on
-                    </span>
+                <div className="flex items-center gap-3">
+                    <span className={`shrink-0 ${FIELD_LABEL}`}>Started on</span>
                     <div className="min-w-0 flex-1">
-                        <EventDatePicker compact value={startedOn} onChange={setStartedOn} />
+                        <DatePicker label="Started on" yearNav value={startedOn} onChange={(date) => date && setStartedOn(date)} />
                     </div>
                 </div>
             ) : null}
-        </div>
+        </ComposerToggle>
 
-        <div className="rounded-[28px] border border-white/[0.06] bg-white/[0.03] px-4 py-4">
-            <div className="flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                    <p className="text-sm font-medium text-twilight-text">Notifications</p>
-                    <p className="text-xs text-twilight-text-soft">Show a reminder dot</p>
-                </div>
-                <Switch
-                    checked={notify}
-                    onCheckedChange={setNotify}
-                    aria-label="Enable notifications for this personal event"
-                />
-            </div>
-        </div>
+        <ComposerToggle
+            icon={Bell}
+            iconClassName="text-accent-nav-schedule"
+            label="Notifications"
+            description="Show a reminder dot"
+            checked={notify}
+            onCheckedChange={setNotify}
+            ariaLabel="Enable notifications for this personal event"
+        />
     </div>;
 }

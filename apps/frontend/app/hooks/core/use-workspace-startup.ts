@@ -4,8 +4,8 @@ import { useIsRestoring, useQueryClient, type Query } from "@tanstack/react-quer
 const SLOW_START_MS = 4_000;
 export const StartupRenderContext = createContext<(change: number) => void>(() => {});
 
-// External decoration can fall back independently; workspace data must be present.
-const OPTIONAL_DOMAINS = new Set(["weather", "location", "holidays", "holiday-subdivisions", "appearance"]);
+// External decoration and the assistant can fall back independently; workspace data must be present.
+const OPTIONAL_DOMAINS = new Set(["weather", "location", "holidays", "holiday-subdivisions", "appearance", "ai"]);
 
 function needsInitialData(query: Query) {
     return query.isActive() && query.state.data === undefined;

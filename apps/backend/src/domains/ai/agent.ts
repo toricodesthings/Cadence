@@ -1,5 +1,5 @@
 import { ToolLoopAgent, isStepCount } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { eq } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { users, userMetrics } from "../../db/schema";
@@ -22,18 +22,20 @@ import type { Env } from "../../types/env";
 import { resolveTimeZone, toLocalDateStr, toZonedIso } from "../../platform/date-utils";
 
 /** Default chat model: cost-effective, low-latency. Overridable via AI_CHAT_MODEL. */
-const DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
+const DEFAULT_CHAT_MODEL = "google/gemini-3.8-flash";
 
 /** The model id used for the current request (config, never hard-coded in prose). */
 export function getModelId(env: Env): string {
     return env.AI_CHAT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
 }
 
-/** OpenAI-compatible language model via OpenRouter (existing routing). */
+/** Served by OpenRouter when the chat model is unavailable or rate-limited. */
+const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
+
+/** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
 function getModel(env: Env) {
-    const apiKey = env.OPENROUTER_API_KEY || "dummy";
-    const openrouter = createOpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey });
-    return openrouter(getModelId(env));
+    const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
+    return openrouter(getModelId(env), { models: [getModelId(env), FALLBACK_CHAT_MODEL] });
 }
 
 /** Options resolved by the route before assembling the agent for one turn. */

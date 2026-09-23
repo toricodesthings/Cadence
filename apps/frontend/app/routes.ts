@@ -13,6 +13,7 @@ export default [
     route("changelog", "routes/changelog.tsx"),
     route("privacy-policy", "routes/privacy-policy.tsx"),
     route("project/:projectId", "routes/project.tsx"),
+    route("tag/:tagId", "routes/tag.tsx"),
     route("terms", "routes/terms.tsx"),
     route("auth/:pathname", "routes/auth.tsx"),
     route("routines", "routes/routines.tsx"),

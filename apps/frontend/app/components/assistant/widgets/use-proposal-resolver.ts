@@ -12,7 +12,7 @@
  * a confirmed proposal renders locked and never re-offers the write (the REST
  * idempotency key is the backstop against a double-write).
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { hardRefreshWorkspaceCaches } from "../../../lib/api/workspace-cache";
 import { useApiClient } from "../../../hooks/auth/use-api-client";
@@ -36,6 +36,8 @@ export interface ToolRenderContext {
     /** Thread + message hosting this part — used to persist the decision server-side. */
     conversationId?: string | null;
     messageId?: string;
+    /** Auto-approve mode is on AND this part streamed live in this tab: commit without asking. */
+    autoApprove?: boolean;
 }
 
 /** Map an AI SDK tool-part `state` to the ProposalCard's render state. */
@@ -122,6 +124,15 @@ export function useProposalResolver(
         persistDecision({ decision: "discard" });
         setLocalDecision("discard");
     }, [addToolResult, toolName, part?.toolCallId, persistDecision]);
+
+    // Auto-approve: commit once, the moment the proposal is ready. Never retries on
+    // its own — a failed write falls back to the card's normal "Try again".
+    const autoTried = useRef(false);
+    useEffect(() => {
+        if (!ctx.autoApprove || autoTried.current || decision || part?.state !== "input-available") return;
+        autoTried.current = true;
+        void confirm();
+    }, [ctx.autoApprove, decision, part?.state, confirm]);
 
     return { resolving, writeError, decision, confirm, discard };
 }

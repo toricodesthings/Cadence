@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Check, CheckCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Tip } from "../primitives";
@@ -19,14 +20,32 @@ const LABELS: Record<ReceiptState, string> = {
  *
  * The icon cross-fades + lifts slightly between states for a tactile feel.
  */
-export function ReadReceipt({ state }: { state: ReceiptState }) {
+const ORDER: ReceiptState[] = ["sent", "delivered", "read"];
+/** Each forward step holds at least this long, so no stage is ever skipped. */
+const STEP_MS = 450;
+
+export function ReadReceipt({ state: target }: { state: ReceiptState }) {
+    // The shown state walks forward one stage at a time toward the real one: a
+    // reply that starts the instant the server accepts still reads sent →
+    // delivered → read. It only reaches a stage the real turn has reached (read
+    // implies the server accepted), and a first render shows the real state as-is.
+    const [state, setState] = useState(target);
+    useEffect(() => {
+        const at = ORDER.indexOf(state);
+        const to = ORDER.indexOf(target);
+        if (to < at) setState(target);
+        if (to <= at) return;
+        const t = window.setTimeout(() => setState(ORDER[at + 1]!), STEP_MS);
+        return () => window.clearTimeout(t);
+    }, [state, target]);
+
     const Icon = state === "sent" ? Check : CheckCheck;
     const tint = state === "read" ? "text-accent-primary" : "text-twilight-text-muted";
 
     return (
         <Tip label={LABELS[state]} side="top">
             <div
-                className="mt-1 flex justify-end pr-1"
+                className="flex items-center justify-center"
                 aria-label={LABELS[state]}
                 role="status"
             >

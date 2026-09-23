@@ -13,6 +13,7 @@ import { BackgroundLayer } from "./components/settings/appearance/BackgroundLaye
 import { Toaster } from "./components/feedback/Toaster";
 import { WorkspaceStartup } from "./components/layout/WorkspaceStartup";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
+import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
 import { initWal } from "./lib/api/offline-wal";
 import { replayWal } from "./lib/api/mutation-executor";
 import {
@@ -342,7 +343,10 @@ function AccountProviders({ children }: { children: ReactNode }) {
                 >
                     {authReady && session?.user.id && <BackgroundLayer key={session.user.id} />}
                     <div className="relative">
-                        <WorkspaceStartup>{children}</WorkspaceStartup>
+                        {/* App-wide so sheets and overlays mounted beside MainLayout can use `Tip`. */}
+                        <TooltipProvider delayDuration={300}>
+                            <WorkspaceStartup>{children}</WorkspaceStartup>
+                        </TooltipProvider>
                     </div>
                     <Toaster />
                     <OfflineBanner />

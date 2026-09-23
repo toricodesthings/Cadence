@@ -3,15 +3,13 @@ import {
     Sun,
     Sunset,
     CalendarClock,
-    ChevronLeft,
-    ChevronRight,
     X,
     Clock,
     Calendar as CalendarIcon,
     CalendarRange,
 } from "lucide-react";
 import { Tip, TimePicker } from "../primitives";
-import { CalendarGrid } from "../calendar/CalendarGrid";
+import { MonthCalendar } from "../shared/DatePicker";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { addDays, fromTimeValue, parseLocalDate, toISODate, toTimeValue } from "../../lib/utils/date-format";
 
@@ -98,13 +96,7 @@ export function QuickScheduleSurface({
     const startTimeValue = scheduledStart ? toTimeValue(scheduledStart) : DEFAULT_TIME;
     const startIsoFor = (dateOnly: string) => fromTimeValue(dateOnly, startTimeValue);
 
-    const handleMonthChange = (offset: number) => {
-        setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1));
-    };
-
-    const handleSelectDate = (day: number) => {
-        const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-        const iso = toISODate(newDate);
+    const handleSelectDate = (iso: string) => {
 
         if (mode === "duration") {
             // Duration is always an all-day date span — times live on Deadline.
@@ -364,45 +356,18 @@ export function QuickScheduleSurface({
                 })}
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-[12px] font-semibold text-twilight-text">
-                    {viewDate.toLocaleString("default", { month: "long", year: "numeric" })}
-                </span>
-                <div className="flex items-center gap-0.5">
-                    <button
-                        type="button"
-                        onClick={() => handleMonthChange(-1)}
-                        aria-label="Previous month"
-                        className="rounded-lg p-1.5 text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                    >
-                        <ChevronLeft size={15} aria-hidden="true" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleMonthChange(1)}
-                        aria-label="Next month"
-                        className="rounded-lg p-1.5 text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                    >
-                        <ChevronRight size={15} aria-hidden="true" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="px-3 pb-2">
-                <CalendarGrid
-                    year={viewDate.getFullYear()}
-                    month={viewDate.getMonth()}
-                    selectedDate={selectedDate}
-                    datesWithTasks={datesWithRange}
-                    onSelectDate={handleSelectDate}
-                    variant="compact"
-                />
-                {mode === "duration" ? (
-                    <p className="mt-1.5 text-center text-[10px] text-twilight-text-muted/90">
-                        {rangeClickStep === "start" ? "Pick a start date" : "Pick an end date"}
-                    </p>
-                ) : null}
-            </div>
+            <MonthCalendar
+                viewDate={viewDate}
+                onViewDateChange={setViewDate}
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDate}
+                marked={datesWithRange}
+            />
+            {mode === "duration" ? (
+                <p className="-mt-1.5 px-3 pb-2 text-center text-[10px] text-twilight-text-muted/90">
+                    {rangeClickStep === "start" ? "Pick a start date" : "Pick an end date"}
+                </p>
+            ) : null}
 
             <div className="space-y-2 border-t border-twilight-border/40 px-3 pb-3 pt-2">
                 {mode === "deadline" ? (

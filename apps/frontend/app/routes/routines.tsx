@@ -148,7 +148,7 @@ export default function Habits() {
             <div className="flex h-full overflow-hidden">
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {shell.isPhone ? (
-                        <header className={`${PAGE_HEADER_SURFACE} px-4 pt-2.5 pb-3`}>
+                        <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-3`}>
                             {/* Same two rows as Schedule: identity + period nav +
                                 overflow on top, view switcher + Today below. */}
                             <div className="flex items-center gap-2 min-h-[44px]">

@@ -18,20 +18,27 @@ import { UtilitySheet } from "./UtilitySheet";
 const BAND = "shrink-0 overflow-y-auto [scrollbar-gutter:stable]";
 const TILE = "rounded-2xl border border-white/[0.06] bg-white/[0.03]";
 
-export function Composer({
-    open,
-    title,
-    subtitle,
-    band,
-    footer,
-    isDirty,
-    discardTitle = "Discard this draft?",
-    discardDescription = "This closes the composer and loses what you've typed.",
-    onClose,
-    children,
-}: {
+type ComposerIcon = ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>;
+/** The nav wayfinding shade a creator belongs to: events the schedule's, routines the routines'. */
+export type ComposerTone = "primary" | "schedule" | "habits";
+const TONE_VAR: Record<ComposerTone, string> = {
+    primary: "var(--accent-primary)",
+    schedule: "var(--accent-nav-schedule)",
+    habits: "var(--accent-nav-habits)",
+};
+const SUBMIT_TONE: Record<ComposerTone, string> = {
+    primary: "bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/26",
+    schedule: "bg-accent-nav-schedule/18 text-accent-nav-schedule hover:bg-accent-nav-schedule/26",
+    habits: "bg-accent-nav-habits/18 text-accent-nav-habits hover:bg-accent-nav-habits/26",
+};
+
+export interface ComposerProps {
     open: boolean;
     title: string;
+    /** Sits before the title at its size, so each creator reads at a glance. */
+    icon?: ComposerIcon;
+    /** Colours the icon and the dialog's glow. */
+    tone?: ComposerTone;
     subtitle?: ReactNode;
     /** Sits between the header and the body, e.g. a type switcher. */
     band?: ReactNode;
@@ -41,8 +48,35 @@ export function Composer({
     discardTitle?: string;
     discardDescription?: string;
     onClose: () => void;
+    /** Renders in place instead of in a dialog, e.g. the desktop quick-capture window. */
+    inline?: boolean;
     children: ReactNode;
-}) {
+}
+
+/**
+ * One creator's contents for `Composer`, from its `use…Composer` hook, so a host
+ * can hold several drafts in one shell (Quick Add's tabs) or wrap one alone.
+ */
+export type ComposerDraft = Pick<ComposerProps, "title" | "icon" | "tone" | "subtitle" | "band" | "footer" | "isDirty" | "discardTitle" | "discardDescription" | "children"> & {
+    /** Empties the draft; hosts call it on close. */
+    reset: () => void;
+};
+
+export function Composer({
+    open,
+    title,
+    icon: Icon,
+    tone = "primary",
+    subtitle,
+    band,
+    footer,
+    isDirty,
+    discardTitle = "Discard this draft?",
+    discardDescription = "This closes the composer and loses what you've typed.",
+    onClose,
+    inline = false,
+    children,
+}: ComposerProps) {
     const shell = useShellMode();
     const [discardOpen, setDiscardOpen] = useState(false);
     const requestClose = () => (isDirty ? setDiscardOpen(true) : onClose());
@@ -60,28 +94,43 @@ export function Composer({
         </div>
     );
 
+    const toneStyle = { "--glow-tone": TONE_VAR[tone] } as React.CSSProperties;
+    const Title = inline ? "h2" : DialogTitle;
+    const Description = inline ? "p" : DialogDescription;
+    const frame = (
+        <>
+            <div className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}>
+                <div className="min-w-0 space-y-1.5">
+                    <Title className="flex items-center gap-2.5 font-display text-xl tracking-tight text-twilight-text">
+                        {Icon ? <Icon size={20} className="dialog-glow-icon shrink-0" aria-hidden /> : null}
+                        {title}
+                    </Title>
+                    <Description className="text-sm text-twilight-text-soft">{subtitle}</Description>
+                </div>
+                {inline ? null : <DialogCloseButton className="-mt-2" />}
+            </div>
+            {bandNode}
+            {body}
+            {footerNode}
+        </>
+    );
+
     return (
         <>
-            {shell.isCompact ? (
+            {inline ? (
+                <section aria-label={title} style={toneStyle} className="surface-dialog dialog-glow relative flex max-h-[90dvh] flex-col overflow-hidden rounded-[30px]">{frame}</section>
+            ) : shell.isCompact ? (
                 <UtilitySheet title={title} subtitle={subtitle} open={open} onClose={requestClose} band={bandNode} footer={footerNode} scrollable={false} flush>
                     {body}
                 </UtilitySheet>
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
                     <DialogContent
-                        className="flex w-[min(calc(100vw-1.5rem),40rem)] flex-col gap-0 overflow-hidden rounded-[30px] p-0 sm:max-h-[90dvh] sm:max-w-2xl"
+                        style={toneStyle}
+                        className="dialog-glow flex w-[min(calc(100vw-1.5rem),40rem)] flex-col gap-0 overflow-hidden rounded-[30px] p-0 sm:max-h-[90dvh] sm:max-w-2xl"
                         hideCloseButton
                     >
-                        <div className={`${BAND} flex items-start justify-between gap-4 border-b border-white/[0.06] px-5 pb-4 pt-5 text-left sm:px-6 sm:pb-5 sm:pt-6`}>
-                            <div className="min-w-0 space-y-1.5">
-                                <DialogTitle className="font-display text-xl tracking-tight text-twilight-text">{title}</DialogTitle>
-                                <DialogDescription className="text-sm text-twilight-text-soft">{subtitle}</DialogDescription>
-                            </div>
-                            <DialogCloseButton className="-mt-2" />
-                        </div>
-                        {bandNode}
-                        {body}
-                        {footerNode}
+                        {frame}
                     </DialogContent>
                 </Dialog>
             )}
@@ -118,8 +167,7 @@ export function ComposerSubmit({
     submitLabel: string;
     icon: ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
     disabled?: boolean;
-    /** Events use the schedule accent; everything else the primary accent. */
-    tone?: "primary" | "schedule";
+    tone?: ComposerTone;
 }) {
     return (
         <Button
@@ -127,9 +175,7 @@ export function ComposerSubmit({
             size="md"
             onClick={onSubmit}
             disabled={disabled}
-            className={tone === "schedule"
-                ? "bg-accent-nav-schedule/18 text-accent-nav-schedule hover:bg-accent-nav-schedule/26 disabled:opacity-40"
-                : "bg-accent-primary/18 text-accent-primary hover:bg-accent-primary/26 disabled:opacity-40"}
+            className={`${SUBMIT_TONE[tone]} disabled:opacity-40`}
         >
             <Icon size={14} aria-hidden />
             {submitLabel}
@@ -309,4 +355,4 @@ export function ComposerMore({ summary, children }: { summary?: string | null; c
 }
 
 /** Class for plain fields (date, select, textarea) inside a composer. */
-export const COMPOSER_FIELD = "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus-visible:ring-2 focus-visible:ring-accent-primary/50 [color-scheme:dark]";
+export const COMPOSER_FIELD = "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus-visible:ring-2 focus-visible:ring-accent-primary/50";

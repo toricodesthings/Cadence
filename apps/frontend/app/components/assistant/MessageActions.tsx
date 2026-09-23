@@ -19,7 +19,7 @@ function ActionButton({
                 type="button"
                 onClick={onClick}
                 aria-label={label}
-                className="flex h-6 w-6 items-center justify-center rounded-lg border border-twilight-border bg-twilight-elevated/80 text-twilight-text-muted shadow-sm backdrop-blur-sm transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text [@media(hover:none)]:h-9 [@media(hover:none)]:w-9 cursor-pointer"
             >
                 {children}
             </button>
@@ -28,11 +28,11 @@ function ActionButton({
 }
 
 /**
- * Action cluster for a message bubble. Always mounted (so the buttons stay in
- * the keyboard tab order) but visually revealed by the parent row's hover OR
- * focus-within via `group/msg` utilities — keyboard and touch users can reach
- * Copy / Edit / Regenerate, not just mouse users. The reveal is a CSS
- * transition, so it's silenced under the app's reduced-motion setting.
+ * Action row under a chat turn. Always mounted and in flow (so the buttons stay
+ * in the keyboard tab order and never overlap what follows) but revealed by the
+ * turn's hover OR focus-within via `group/msg` utilities; `pinned` keeps it
+ * visible (the latest reply). The reveal is a CSS transition, so it's silenced
+ * under the app's reduced-motion setting.
  *
  * Copy gives a transient check swap + sonner toast; Regenerate (assistant) and
  * Edit (user) are wired through from the parent.
@@ -40,14 +40,14 @@ function ActionButton({
 export function MessageActions({
     isUser,
     text,
-    touchReveal,
+    pinned,
     onRegenerate,
     onEdit,
 }: {
     isUser: boolean;
     text: string;
-    /** Keep the cluster visible + interactive on touch-only devices (no hover there). */
-    touchReveal?: boolean;
+    /** Always visible, not just on hover. */
+    pinned?: boolean;
     onRegenerate?: () => void;
     onEdit?: () => void;
 }) {
@@ -66,10 +66,10 @@ export function MessageActions({
 
     return (
         <div
-            className={`flex items-center gap-1 opacity-0 translate-y-0.5 pointer-events-none transition-[opacity,transform] duration-150 group-hover/msg:pointer-events-auto group-hover/msg:translate-y-0 group-hover/msg:opacity-100 group-focus-within/msg:pointer-events-auto group-focus-within/msg:translate-y-0 group-focus-within/msg:opacity-100 ${
-                touchReveal
-                    ? "touch-reveal [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:translate-y-0"
-                    : ""
+            className={`flex items-center gap-0.5 transition-[opacity,transform] duration-150 ${
+                pinned
+                    ? ""
+                    : "opacity-0 translate-y-0.5 pointer-events-none group-hover/msg:pointer-events-auto group-hover/msg:translate-y-0 group-hover/msg:opacity-100 group-focus-within/msg:pointer-events-auto group-focus-within/msg:translate-y-0 group-focus-within/msg:opacity-100"
             } ${isUser ? "flex-row-reverse" : "flex-row"}`}
         >
             <ActionButton label="Copy message" onClick={handleCopy}>
@@ -83,7 +83,7 @@ export function MessageActions({
                             transition={{ duration: 0.14 }}
                             className="text-feedback-success"
                         >
-                            <Check size={13} strokeWidth={2.5} />
+                            <Check size={14} strokeWidth={2.5} />
                         </motion.span>
                     ) : (
                         <motion.span
@@ -93,7 +93,7 @@ export function MessageActions({
                             exit={{ opacity: 0, scale: 0.6 }}
                             transition={{ duration: 0.14 }}
                         >
-                            <Copy size={12.5} />
+                            <Copy size={14} />
                         </motion.span>
                     )}
                 </AnimatePresence>
@@ -101,13 +101,13 @@ export function MessageActions({
 
             {!isUser && onRegenerate ? (
                 <ActionButton label="Regenerate response" onClick={onRegenerate}>
-                    <RotateCcw size={12.5} />
+                    <RotateCcw size={14} />
                 </ActionButton>
             ) : null}
 
             {isUser && onEdit ? (
                 <ActionButton label="Edit message" onClick={onEdit}>
-                    <Pencil size={12.5} />
+                    <Pencil size={14} />
                 </ActionButton>
             ) : null}
         </div>

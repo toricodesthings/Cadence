@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
-import { Bell, CalendarHeart, CalendarRange, Clock3, Flag, Gauge, Milestone, StickyNote } from "lucide-react";
-import { toast } from "sonner";
+import { CalendarHeart, CalendarRange, Clock3, StickyNote } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
-import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
-import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
-import { formatShortDateLabel, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { FIELD_LABEL } from "../tasks/task-choice-options";
+import { EffortField, PriorityField } from "../tasks/TaskWeightFields";
+import { addMinutesToTime, formatShortDateLabel } from "../../lib/utils/date-format";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useTypedWhen } from "../../hooks/use-typed-when";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
-import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { TimePicker } from "../primitives";
+import { DatePicker } from "../shared/DatePicker";
 import {
     Composer,
     ComposerSubmit,
@@ -24,7 +23,8 @@ import {
     WEEKDAY_ORDER,
     type WeekdayCode,
 } from "../shared/Composer";
-import { EventDatePicker } from "../events/EventDatePicker";
+import { usePersonalEventComposer } from "../events/PersonalEventEditorDialog";
+import { useAddPersonalEvent } from "./AddPersonalEventDialog";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
 
 export interface CalendarEventInfo {
@@ -66,20 +66,6 @@ function formatTimeRange(startTime: string, endTime: string) {
     return `${fmt(startTime)} – ${fmt(endTime)}`;
 }
 
-function addMinutes(timeValue: string, delta: number) {
-    const [hours, minutes] = timeValue.split(":").map(Number);
-    const end = new Date();
-    end.setHours(hours, minutes + delta, 0, 0);
-    return formatTimeValue(end.getHours(), end.getMinutes());
-}
-
-function minutesBetween(start: string, end: string) {
-    const [sh, sm] = start.split(":").map(Number);
-    const [eh, em] = end.split(":").map(Number);
-    const diff = eh * 60 + em - (sh * 60 + sm);
-    return diff > 0 ? diff : diff + 24 * 60;
-}
-
 function buildUntilValue(date: string) {
     const end = new Date(`${date}T23:59:59`);
     return end.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -92,11 +78,9 @@ function buildWeeklyRule(days: WeekdayCode[], endDate: string | null) {
 }
 
 export function CalendarEventPopover({ info, initialTab = "task", onClose }: CalendarEventPopoverProps) {
-    const navigate = useNavigate();
     const taskTitleRef = useRef<HTMLInputElement>(null);
-    const eventTitleRef = useRef<HTMLInputElement>(null);
     const { mutate: createTask, isPending } = useCreateTask();
-    const personalEvents = usePersonalEvents(new Date(`${info.date}T00:00:00`).getFullYear());
+    const addPersonalEvent = useAddPersonalEvent();
 
     const [tab, setTab] = useState<ScheduleCreateTab>(initialTab);
     // Phones lead with one line to type; the exact times wait under More.
@@ -105,24 +89,19 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [mode, setMode] = useState<ComposerMode>("once");
-    const [startDate, setStartDate] = useState(info.date);
     const [endDate, setEndDate] = useState<string>("");
     const [hasEndDate, setHasEndDate] = useState(false);
     const [weekdays, setWeekdays] = useState<WeekdayCode[]>([toWeekdayCode(info.date)]);
-    const [startTime, setStartTime] = useState(formatTimeValue(info.startHour, info.startMinute));
-    const [endTime, setEndTime] = useState(addMinutes(formatTimeValue(info.startHour, info.startMinute), info.durationMinutes ?? 60));
-    /** Once a time or date field is touched, typed dates stop steering them. */
-    const [whenTouched, setWhenTouched] = useState(false);
     const [priority, setPriority] = useState<TaskPriority>(0);
     const [effort, setEffort] = useState<EffortLevel>(null);
     const [interactionMode, setInteractionMode] = useState<TaskInteractionMode>("timetable");
 
-    const [eventLabel, setEventLabel] = useState("");
-    const [eventDate, setEventDate] = useState(info.date);
-    const [eventEmoji, setEventEmoji] = useState("");
-    const [eventTrackMilestone, setEventTrackMilestone] = useState(false);
-    const [eventStartedOn, setEventStartedOn] = useState(info.date);
-    const [eventNotify, setEventNotify] = useState(true);
+    const event = usePersonalEventComposer({
+        open: true,
+        initialDate: info.date,
+        autoFocus: false,
+        onSubmit: (value) => { addPersonalEvent(value); onClose(); },
+    });
 
     useEffect(() => {
         setTab(initialTab);
@@ -133,52 +112,33 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             if (tab === "task") {
                 taskTitleRef.current?.focus();
             } else {
-                eventTitleRef.current?.focus();
+                event.titleRef.current?.focus();
             }
         });
         return () => cancelAnimationFrame(id);
-    }, [tab]);
+    }, [tab, event.titleRef]);
 
     // "Dinner with Sam Fri 7pm": a typed day and time fill the when, until a field is touched.
     const { data: userSettings } = useSettings();
     const intelligence = userSettings?.tasks?.intelligence;
+    const startTime = formatTimeValue(info.startHour, info.startMinute);
+    const nlpOn = isPhone && tab === "task" && mode === "once" && intelligence?.nlpEnabled !== false;
     const nlp = useNlpParse({
         input: title,
         projects: [],
         tags: [],
-        enabled: isPhone && tab === "task" && mode === "once" && !whenTouched && intelligence?.nlpEnabled !== false,
+        enabled: nlpOn,
         sourceSurface: "quick_add",
         dateStyle: userSettings?.dateTime?.dateStyle ?? "mdy",
         confidenceThreshold: intelligence?.confidenceThreshold ?? "medium",
         lowStimulationMode: intelligence?.lowStimulationMode ?? false,
     });
-    const parsedStart = !whenTouched && mode === "once" && nlp.scheduledStart ? new Date(nlp.scheduledStart) : null;
-    const parsedDate = !whenTouched && mode === "once" && nlp.dueDate ? toISODate(parseLocalDate(nlp.dueDate.slice(0, 10))) : null;
-    const whenStartDate = parsedStart ? toISODate(parsedStart) : parsedDate ?? startDate;
-    const whenStartTime = parsedStart ? formatTimeValue(parsedStart.getHours(), parsedStart.getMinutes()) : startTime;
-    const whenEndTime = parsedStart ? addMinutes(whenStartTime, nlp.durationMinutes ?? minutesBetween(startTime, endTime)) : endTime;
-    const parsedWhen = Boolean(parsedStart || parsedDate);
-    const submitTitle = (parsedWhen && nlp.cleanedTitle.trim()) || title.trim();
-
-    /** Hand the typed when to the fields before the user edits one of them. */
-    const touchWhen = () => {
-        if (whenTouched) return;
-        setStartDate(whenStartDate);
-        setStartTime(whenStartTime);
-        setEndTime(whenEndTime);
-        setWhenTouched(true);
-    };
+    const typed = useTypedWhen(nlp, { date: info.date, allDay: false, start: startTime, end: addMinutesToTime(startTime, info.durationMinutes ?? 60) }, nlpOn);
+    const { date: whenStartDate, start: whenStartTime, end: whenEndTime } = typed.when;
+    const submitTitle = (typed.parsed && nlp.cleanedTitle.trim()) || title.trim();
 
     const taskDirty = Boolean(title.trim() || notes.trim() || mode === "weekly" || hasEndDate || priority > 0 || effort !== null);
-    const eventDirty = Boolean(
-        eventLabel.trim()
-        || eventEmoji.trim()
-        || eventDate !== info.date
-        || eventTrackMilestone
-        || eventStartedOn !== info.date
-        || !eventNotify,
-    );
-    const isDirty = taskDirty || eventDirty;
+    const isDirty = taskDirty || event.isDirty;
 
     const recurrenceRule = mode === "weekly" ? buildWeeklyRule(weekdays, hasEndDate ? endDate : null) : null;
     const summary = useMemo(
@@ -221,29 +181,9 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         );
     }, [createTask, effort, interactionMode, mode, notes, onClose, priority, recurrenceRule, submitTitle, whenEndTime, whenStartDate, whenStartTime]);
 
-    const handleEventSubmit = useCallback(() => {
-        if (!eventLabel.trim() || !eventDate) return;
-
-        personalEvents.addEvent({
-            label: eventLabel.trim(),
-            monthDay: eventDate.slice(5),
-            emoji: eventEmoji.trim() || null,
-            notify: eventNotify,
-            startedOn: eventTrackMilestone ? eventStartedOn : null,
-        });
-        toast.success("Event added", {
-            action: {
-                label: "View all events",
-                onClick: () => navigate("/events"),
-            },
-        });
-        onClose();
-    }, [eventDate, eventEmoji, eventLabel, eventNotify, eventStartedOn, eventTrackMilestone, navigate, onClose, personalEvents]);
-
-    const eventDateLabel = useMemo(() => formatShortDateLabel(eventDate), [eventDate]);
     const taskSubtitle = mode === "weekly" ? (summary?.label ?? "Repeats every week") : formatTimeRange(whenStartTime, whenEndTime);
 
-    const composerTitle = `Create on ${tab === "task" ? formatShortDateLabel(whenStartDate) : eventDateLabel}`;
+    const composerTitle = tab === "task" ? `Create on ${formatShortDateLabel(whenStartDate)}` : "Add event";
     const composerSubtitle = tab === "task" ? taskSubtitle : "Yearly personal event";
 
     const typeTabs = (
@@ -264,28 +204,27 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-1.5">
                     <span className={FIELD_LABEL}>Start</span>
-                    <TimePicker value={whenStartTime} onChange={(value) => { touchWhen(); setStartTime(value); }} icon={<Clock3 size={14} className="text-moonlit" />} />
+                    <TimePicker value={whenStartTime} onChange={(start) => typed.edit({ start })} icon={<Clock3 size={14} className="text-moonlit" />} />
                 </label>
                 <label className="space-y-1.5">
                     <span className={FIELD_LABEL}>End</span>
-                    <TimePicker value={whenEndTime} onChange={(value) => { touchWhen(); setEndTime(value); }} icon={<Clock3 size={14} className="text-moonlit" />} />
+                    <TimePicker value={whenEndTime} onChange={(end) => typed.edit({ end })} icon={<Clock3 size={14} className="text-moonlit" />} />
                 </label>
             </div>
 
             <div className={`grid gap-3 ${mode === "weekly" ? "grid-cols-2" : "grid-cols-1"}`}>
-                <label className="space-y-1.5">
+                <div className="space-y-1.5">
                     <span className={`flex h-6 items-center ${FIELD_LABEL}`}>{mode === "weekly" ? "From" : "Date"}</span>
-                    <input
-                        type="date"
+                    <DatePicker
+                        label={mode === "weekly" ? "From" : "Date"}
                         value={whenStartDate}
-                        onChange={(event) => {
-                            touchWhen();
-                            setStartDate(event.target.value);
-                            if (mode === "weekly") setWeekdays([toWeekdayCode(event.target.value)]);
+                        onChange={(date) => {
+                            if (!date) return;
+                            typed.edit({ date });
+                            if (mode === "weekly") setWeekdays([toWeekdayCode(date)]);
                         }}
-                        className={`${COMPOSER_FIELD} cursor-pointer`}
                     />
-                </label>
+                </div>
 
                 {mode === "weekly" ? <div className="space-y-1.5">
                     <div className="flex h-6 items-center justify-between">
@@ -294,20 +233,18 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                             type="button"
                             onClick={() => {
                                 setHasEndDate((value) => !value);
-                                setEndDate(hasEndDate ? "" : startDate);
+                                setEndDate(hasEndDate ? "" : whenStartDate);
                             }}
                             className={`flex min-h-9 cursor-pointer items-center rounded-lg px-2 text-[11px] font-medium transition-colors sm:-mr-2 ${hasEndDate ? "text-accent-primary" : "text-twilight-text-soft hover:text-twilight-text"}`}
                         >
                             {hasEndDate ? "Remove" : "Add end date"}
                         </button>
                     </div>
-                    <input
-                        type="date"
+                    <DatePicker
+                        label="Until"
                         value={endDate}
-                        onChange={(event) => setEndDate(event.target.value)}
+                        onChange={(date) => date && setEndDate(date)}
                         disabled={!hasEndDate}
-                        aria-label="Until"
-                        className={`${COMPOSER_FIELD} cursor-pointer disabled:cursor-not-allowed disabled:opacity-30`}
                     />
                 </div> : null}
             </div>
@@ -318,6 +255,8 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
         <Composer
             open
             title={composerTitle}
+            icon={tab === "task" ? CalendarRange : event.icon}
+            tone={tab === "task" ? "primary" : event.tone}
             subtitle={composerSubtitle}
             band={typeTabs}
             isDirty={isDirty}
@@ -331,15 +270,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                     icon={CalendarRange}
                     disabled={!submitTitle || isPending}
                 />
-            ) : (
-                <ComposerSubmit
-                    onSubmit={handleEventSubmit}
-                    submitLabel="Add event"
-                    icon={CalendarHeart}
-                    tone="schedule"
-                    disabled={!eventLabel.trim()}
-                />
-            )}
+            ) : event.footer}
         >
             {tab === "task" ? (
                 <>
@@ -383,106 +314,11 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
                             />
                         </label>
 
-                        <div role="group" aria-label="Priority">
-                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                                <Flag size={12} aria-hidden="true" />
-                                Priority
-                            </span>
-                            <div className="grid grid-cols-5 gap-1.5">
-                                {PRIORITY_OPTIONS.map((item) => {
-                                    const Icon = item.icon;
-                                    return (
-                                        <button
-                                            key={item.value}
-                                            type="button"
-                                            aria-label={`Priority: ${item.label}`}
-                                            aria-pressed={priority === item.value}
-                                            onClick={() => setPriority(item.value)}
-                                            className={`${CHIP_BASE} min-h-12 flex-col gap-0.5 sm:min-h-10 sm:flex-row sm:gap-1.5 ${priority === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
-                                        >
-                                            <Icon size={14} aria-hidden="true" />
-                                            <span className="text-[10px] leading-none sm:text-xs sm:leading-normal">{item.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div role="group" aria-label="Effort">
-                            <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                                <Gauge size={12} aria-hidden="true" />
-                                Effort
-                            </span>
-                            <div className="grid grid-cols-3 gap-1.5">
-                                {EFFORT_OPTIONS.map((item) => {
-                                    const Icon = item.icon;
-                                    return (
-                                        <button
-                                            key={item.value}
-                                            type="button"
-                                            aria-pressed={effort === item.value}
-                                            onClick={() => setEffort(effort === item.value ? null : item.value)}
-                                            className={`${CHIP_BASE} ${effort === item.value ? CHIP_ACTIVE : CHIP_IDLE}`}
-                                        >
-                                            <Icon size={13} aria-hidden="true" />
-                                            {item.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                        <PriorityField value={priority} onChange={setPriority} />
+                        <EffortField value={effort} onChange={setEffort} />
                     </ComposerMore>
                 </>
-            ) : (
-                <>
-                    <ComposerTitle
-                        inputRef={eventTitleRef}
-                        value={eventLabel}
-                        onChange={(event) => setEventLabel(event.target.value)}
-                        placeholder="Birthday, retreat, launch day…"
-                        maxLength={80}
-                        aria-label="Event name"
-                        leading={<EmojiMarkButton emoji={eventEmoji || null} onChange={(next) => setEventEmoji(next ?? "")} fallback={<CalendarHeart size={18} className="text-accent-nav-schedule" aria-hidden="true" />} />}
-                    />
-
-                    <div className="space-y-2">
-                        <span className={FIELD_LABEL}>Date</span>
-                        <EventDatePicker value={eventDate} onChange={setEventDate} />
-                    </div>
-
-                    <ComposerToggle
-                        icon={Milestone}
-                        iconClassName="text-accent-nav-schedule"
-                        label="Milestone tracking"
-                        description="Count the days since it began"
-                        checked={eventTrackMilestone}
-                        onCheckedChange={(checked) => {
-                            setEventTrackMilestone(checked);
-                            if (checked) setEventStartedOn((current) => current || eventDate);
-                        }}
-                        ariaLabel="Enable milestone tracking for this personal event"
-                    >
-                        {eventTrackMilestone ? (
-                            <div className="flex items-center gap-3">
-                                <span className={`shrink-0 ${FIELD_LABEL}`}>Started on</span>
-                                <div className="min-w-0 flex-1">
-                                    <EventDatePicker compact value={eventStartedOn} onChange={setEventStartedOn} />
-                                </div>
-                            </div>
-                        ) : null}
-                    </ComposerToggle>
-
-                    <ComposerToggle
-                        icon={Bell}
-                        iconClassName="text-accent-nav-schedule"
-                        label="Notifications"
-                        description="Show a reminder dot"
-                        checked={eventNotify}
-                        onCheckedChange={setEventNotify}
-                        ariaLabel="Enable notifications for this personal event"
-                    />
-                </>
-            )}
+            ) : event.children}
         </Composer>
     );
 }

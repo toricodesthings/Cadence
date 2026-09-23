@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { TaskSection } from "@cadence/contracts/section";
+import type { Task } from "@cadence/contracts/task";
+import { queryKeys } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { invalidateEverywhere } from "../../lib/api/workspace-cache";
@@ -125,16 +127,24 @@ export function useDeleteSection(projectId?: string | null) {
             queryClient.setQueryData<TaskSection[]>(key, (old) => {
                 return transformListCache(old, (items) => items.filter((s) => s.id !== id));
             });
+            // The server sets the section's tasks to unsectioned; mirror it so they stay visible.
+            await queryClient.cancelQueries({ queryKey: queryKeys.tasks.all });
+            const previousTasks = queryClient.getQueriesData({ queryKey: queryKeys.tasks.all });
+            queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
+                transformListCache(old, (items) => items.map((t) => (t.sectionId === id ? { ...t, sectionId: null } : t))),
+            );
 
-            return { previous };
+            return { previous, previousTasks };
         },
         onError: (_err, _id, context) => {
             if (context?.previous) {
                 queryClient.setQueryData(key, context.previous);
             }
+            for (const [taskKey, data] of context?.previousTasks ?? []) queryClient.setQueryData(taskKey, data);
         },
         onSettled: () => {
             invalidateEverywhere(queryClient, key);
+            invalidateEverywhere(queryClient, queryKeys.tasks.all);
         },
     });
 }

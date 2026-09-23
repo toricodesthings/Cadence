@@ -14,7 +14,7 @@ Standalone Cloudflare Worker API (Hono v4 + Neon Postgres via Hyperdrive). Share
 | ORM | Drizzle ORM (`drizzle-orm/postgres-js`) |
 | DB | Neon Postgres via Cloudflare Hyperdrive |
 | Auth | Neon Auth JWTs, verified via `jose` against JWKS |
-| AI | Vercel AI SDK (`ai` v7) + `@ai-sdk/openai`; Upstash Redis (`@upstash/redis/cloudflare`) for stream resumption |
+| AI | Vercel AI SDK (`ai` v7); `@openrouter/ai-sdk-provider` for chat, titles and embeddings; Upstash Redis (`@upstash/redis/cloudflare`) for stream resumption |
 | Scheduling | Cloudflare cron triggers |
 | Recurrence | `rrule`; dates via `date-fns` |
 | NLP | `@cadence/nlp` (workspace dep) |

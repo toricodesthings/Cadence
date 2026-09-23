@@ -7,9 +7,10 @@ import { PlannerHeader } from "../components/layout/PlannerHeader";
 import { LocationNotice } from "../components/location/LocationNotice";
 import { PageContent } from "../components/layout/PageLayout";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
-import { UtilitySheet } from "../components/shared/UtilitySheet";
+import { Composer } from "../components/shared/Composer";
+import { toast } from "sonner";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
-import { CaptureInput } from "../components/holding/CaptureInput";
+import { CaptureInput, useCaptureComposer } from "../components/holding/CaptureInput";
 import { HoldingFeed } from "../components/holding/HoldingFeed";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -30,7 +31,13 @@ import { useRouteFocus } from "../hooks/search/use-route-focus";
 export default function HomeRoute() {
     const shell = useShellMode();
     const [captureOpen, setCaptureOpen] = useState(false);
-    const [captureDraft, setCaptureDraft] = useState("");
+    // The draft lives with the page, so closing the sheet keeps it and needs no discard prompt.
+    const { reset: _resetCapture, ...captureComposer } = useCaptureComposer({
+        onSaved: () => {
+            toast.success("Captured");
+            setCaptureOpen(false);
+        },
+    });
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
@@ -214,9 +221,7 @@ export default function HomeRoute() {
 
             {shell.isCompact && <>
                 <ContextualAddOrb directCapture onOpen={() => setCaptureOpen(true)} />
-                <UtilitySheet title="What's on your mind?" open={captureOpen} onClose={() => setCaptureOpen(false)}>
-                    <CaptureInput mobile draft={captureDraft} onDraftChange={setCaptureDraft} onCaptured={() => setCaptureOpen(false)} />
-                </UtilitySheet>
+                <Composer open={captureOpen} onClose={() => setCaptureOpen(false)} {...captureComposer} isDirty={false} />
             </>}
             <PlaceSheet open={placeOpen} task={placeTask} onClose={() => setPlaceOpen(false)} onOpenTask={handleSelectTask} />
 

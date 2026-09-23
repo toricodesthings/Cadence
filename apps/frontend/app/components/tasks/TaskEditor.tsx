@@ -16,7 +16,9 @@ import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
-import { TagPickerList } from "./TagPickerSubmenu";
+import { useNavigate } from "react-router";
+import { TagPickerList, TagPickerSheet } from "./TagPickerSubmenu";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { TagBubble } from "../sidebar/TagBubble";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
@@ -26,7 +28,7 @@ import { TaskNoteSaveStatus } from "./TaskNoteSaveStatus";
 import { TimetableBlockEditor } from "./TimetableBlockEditor";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { getTaskRepeatKind, useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
-import { DateOnlyPickerPopover } from "./DateOnlyPickerPopover";
+import { DatePicker } from "../shared/DatePicker";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
@@ -120,6 +122,9 @@ export function TaskEditor({
     const { data: tags } = useTags();
     const addTagAssoc = useAddTaskTag();
     const removeTagAssoc = useRemoveTaskTag();
+    const { isCompact } = useShellMode();
+    const navigate = useNavigate();
+    const [tagSheetOpen, setTagSheetOpen] = useState(false);
     const openNoteRoom = useNoteRoomStore((s) => s.open);
 
     // Find the task across all caches
@@ -561,7 +566,7 @@ export function TaskEditor({
 
                                         {!isTimetableBlock ? (
                                             <FieldRow icon={EyeOff} label="Hide until">
-                                                <DateOnlyPickerPopover
+                                                <DatePicker
                                                     value={task.notBefore ? toISODate(new Date(task.notBefore)) : null}
                                                     onChange={(date) => {
                                                         if (!task) return;
@@ -575,7 +580,7 @@ export function TaskEditor({
                                                     <button type="button" className={`${VALUE_BTN}${task.notBefore ? "" : "text-twilight-text-muted"}`}>
                                                         {task.notBefore ? formatShortDate(task.notBefore) : "Always shown"}
                                                     </button>
-                                                </DateOnlyPickerPopover>
+                                                </DatePicker>
                                             </FieldRow>
                                         ) : null}
 
@@ -676,26 +681,42 @@ export function TaskEditor({
                                                             key={tag.id}
                                                             tag={tag}
                                                             isActive={false}
-                                                            onClick={() => { }}
+                                                            onClick={() => { if (isCompact) navigate(`/tag/${tag.id}`); }}
                                                         />
                                                     );
                                                 })}
-                                                <DropdownMenu.Root>
-                                                    <DropdownMenu.Trigger asChild>
-                                                        <Button variant="ghost" size="sm" className="min-h-9 cursor-pointer rounded-full border border-dashed border-twilight-border px-3 text-[12px]">
-                                                            <Plus size={12} aria-hidden="true" />
-                                                            Add tag
+                                                {isCompact ? (
+                                                    <>
+                                                        <Button variant="ghost" size="sm" onClick={() => setTagSheetOpen(true)} className="min-h-11 cursor-pointer rounded-full border border-dashed border-twilight-border px-4 text-[13px]">
+                                                            <Plus size={14} aria-hidden="true" />
+                                                            Tags
                                                         </Button>
-                                                    </DropdownMenu.Trigger>
-                                                    <DropdownMenu.Content align="start" className="w-56 p-2">
-                                                        <TagPickerList
+                                                        <TagPickerSheet
+                                                            open={tagSheetOpen}
+                                                            onClose={() => setTagSheetOpen(false)}
                                                             activeTagIds={task.tagIds ?? []}
                                                             onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
                                                             onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                                                            MenuComponents={DropdownMenu}
                                                         />
-                                                    </DropdownMenu.Content>
-                                                </DropdownMenu.Root>
+                                                    </>
+                                                ) : (
+                                                    <DropdownMenu.Root>
+                                                        <DropdownMenu.Trigger asChild>
+                                                            <Button variant="ghost" size="sm" className="min-h-9 cursor-pointer rounded-full border border-dashed border-twilight-border px-3 text-[12px]">
+                                                                <Plus size={12} aria-hidden="true" />
+                                                                Add tag
+                                                            </Button>
+                                                        </DropdownMenu.Trigger>
+                                                        <DropdownMenu.Content align="start" className="w-56 p-2">
+                                                            <TagPickerList
+                                                                activeTagIds={task.tagIds ?? []}
+                                                                onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                                                                onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                                                                MenuComponents={DropdownMenu}
+                                                            />
+                                                        </DropdownMenu.Content>
+                                                    </DropdownMenu.Root>
+                                                )}
                                             </div>
                                         </FieldBlock>
 

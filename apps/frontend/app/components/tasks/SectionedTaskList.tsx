@@ -40,6 +40,8 @@ export function SectionedTaskList({
     const updateSection = useUpdateSection(projectId);
     const deleteSection = useDeleteSection(projectId);
     const shell = useShellMode();
+    // Compact shells add through the route's orb and sections sheet instead of inline fields.
+    const inlineAdd = !shell.isCompact;
 
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
     const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export function SectionedTaskList({
                     rationaleByTaskId={rationaleByTaskId}
                 />
 
-                <div className="mt-4">
+                {inlineAdd && <div className="mt-4">
                     {isAddingSection ? (
                         <div className="flex items-center gap-2 px-4">
                             <input
@@ -140,7 +142,7 @@ export function SectionedTaskList({
                             Add section
                         </button>
                     )}
-                </div>
+                </div>}
 
                 {footer}
             </div>
@@ -175,7 +177,7 @@ export function SectionedTaskList({
                         onSelectTask={onSelectTask}
                         rationaleByTaskId={rationaleByTaskId}
                     />
-                    {showUngroupedAddTask ? (
+                    {showUngroupedAddTask && inlineAdd ? (
                         <div className={inlineAddClass}>
                             <AddTaskInput
                                 projectId={projectId ?? undefined}
@@ -285,7 +287,7 @@ export function SectionedTaskList({
                                             No tasks in this section
                                         </div>
                                     )}
-                                    <div className={inlineAddClass}>
+                                    {inlineAdd && <div className={inlineAddClass}>
                                         <AddTaskInput
                                             projectId={projectId ?? undefined}
                                             sectionId={section.id}
@@ -293,7 +295,7 @@ export function SectionedTaskList({
                                             compact
                                             placeholder={`Add task to ${section.name}...`}
                                         />
-                                    </div>
+                                    </div>}
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -302,7 +304,7 @@ export function SectionedTaskList({
             })}
 
             {/* Add section button */}
-            <div className="mt-4">
+            {inlineAdd && <div className="mt-4">
                 {isAddingSection ? (
                     <div className="flex items-center gap-2 px-4">
                         <input
@@ -339,7 +341,7 @@ export function SectionedTaskList({
                         Add section
                     </button>
                 )}
-            </div>
+            </div>}
 
             {footer}
         </div>

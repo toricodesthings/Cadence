@@ -10,6 +10,11 @@ interface TimePickerProps {
     className?: string;
     /** Accessible name for the field, e.g. "Start time". Defaults to "Time". */
     label?: string;
+    disabled?: boolean;
+    /** Shown while the value is "" (desktop; native time fields ignore it). */
+    placeholder?: string;
+    /** Emptying the field commits "" instead of reverting. */
+    clearable?: boolean;
 }
 
 /** Suggestion list: every 30 minutes across the day. */
@@ -107,19 +112,22 @@ export function TimePicker(props: TimePickerProps) {
  * `type="time"` speaks "HH:mm" natively and follows the device's 12h/24h
  * locale automatically.
  */
-function NativeTimeField({ value, onChange, icon, className, label }: TimePickerProps) {
+const FIELD_SHELL = "flex items-center gap-0.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 has-[:disabled]:opacity-40";
+
+function NativeTimeField({ value, onChange, icon, className, label, disabled, clearable }: TimePickerProps) {
     return (
-        <div className={`flex items-center gap-0.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 ${className ?? ""}`}>
+        <div className={`${FIELD_SHELL} ${className ?? ""}`}>
             {icon && <span className="mr-1 shrink-0">{icon}</span>}
             <input
                 type="time"
                 aria-label={label ?? "Time"}
                 step={60}
                 value={value}
+                disabled={disabled}
                 onChange={(e) => {
-                    if (e.target.value) onChange(e.target.value);
+                    if (e.target.value || clearable) onChange(e.target.value);
                 }}
-                className="min-h-9 cursor-pointer bg-transparent px-1.5 py-1 text-sm text-twilight-text outline-none [color-scheme:dark]"
+                className="min-h-9 cursor-pointer bg-transparent px-1.5 py-1 text-sm text-twilight-text outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed"
             />
         </div>
     );
@@ -131,7 +139,7 @@ function NativeTimeField({ value, onChange, icon, className, label }: TimePicker
  * the current value highlighted and scrolled into view. Commits on Enter,
  * blur, or picking; invalid input silently reverts.
  */
-function DesktopTimePicker({ value, onChange, icon, className, label }: TimePickerProps) {
+function DesktopTimePicker({ value, onChange, icon, className, label, disabled, placeholder, clearable }: TimePickerProps) {
     const is24h = getDateFormatConfig().timeDisplay === "24h";
     const listId = React.useId();
 
@@ -149,7 +157,7 @@ function DesktopTimePicker({ value, onChange, icon, className, label }: TimePick
 
     // Ensure the current value always appears in the list, even off-step.
     const items = React.useMemo(() => {
-        if (SUGGESTIONS.includes(value)) return SUGGESTIONS;
+        if (!value || SUGGESTIONS.includes(value)) return SUGGESTIONS;
         const list = SUGGESTIONS.slice();
         const at = list.findIndex((v) => v > value);
         list.splice(at === -1 ? list.length : at, 0, value);
@@ -170,6 +178,7 @@ function DesktopTimePicker({ value, onChange, icon, className, label }: TimePick
     const commitTyped = React.useCallback(() => {
         const parsed = parseTimeInput(text, value, is24h);
         if (parsed) commit(parsed);
+        else if (clearable && !text.trim()) commit("");
         else setText(formatTime(value, is24h));
     }, [text, value, is24h, commit]);
 
@@ -209,7 +218,7 @@ function DesktopTimePicker({ value, onChange, icon, className, label }: TimePick
     return (
         <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Anchor asChild>
-                <div className={`flex items-center gap-0.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 ${className ?? ""}`}>
+                <div className={`${FIELD_SHELL} ${className ?? ""}`}>
                     {icon && <span className="mr-1 shrink-0">{icon}</span>}
                     <input
                         role="combobox"
@@ -223,6 +232,8 @@ function DesktopTimePicker({ value, onChange, icon, className, label }: TimePick
                         spellCheck={false}
                         inputMode="numeric"
                         value={text}
+                        disabled={disabled}
+                        placeholder={placeholder}
                         onChange={(e) => {
                             setText(e.target.value);
                             if (!open) openList();
@@ -241,7 +252,7 @@ function DesktopTimePicker({ value, onChange, icon, className, label }: TimePick
                             setOpen(false);
                         }}
                         onKeyDown={onKeyDown}
-                        className="min-h-9 w-[4.75rem] bg-transparent px-1.5 py-1 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        className="min-h-9 w-[4.75rem] bg-transparent px-1.5 py-1 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-not-allowed"
                     />
                 </div>
             </Popover.Anchor>

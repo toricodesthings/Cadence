@@ -39,11 +39,16 @@ export const webRuntime = {
             return;
         }
 
-        const browserNotification = new Notification(notification.title, {
-            body: notification.body,
-            icon: notification.icon,
-        });
+        const options = { body: notification.body, icon: notification.icon };
+        // iOS home-screen apps have no Notification constructor; they only
+        // notify through the service worker (sw.js handles the click).
+        const registration = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+        if (registration) {
+            await registration.showNotification(notification.title, options);
+            return;
+        }
 
+        const browserNotification = new Notification(notification.title, options);
         window.setTimeout(() => browserNotification.close(), 8_000);
     },
     async openExternalUrl(url: string): Promise<void> {

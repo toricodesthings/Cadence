@@ -1,4 +1,5 @@
-import { Check, Loader2, Inbox, Sparkles } from "lucide-react";
+import { Check, Loader2, Inbox } from "lucide-react";
+import { AssistantSigil } from "./AssistantSigil";
 import { motion, useReducedMotion } from "framer-motion";
 import { Tip } from "../primitives";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
@@ -22,6 +23,8 @@ export function ToolActivityChip({
     pending?: boolean;
 }) {
     const reduceMotion = useReducedMotion();
+    // Three task lookups in a row still read as one "Checked your tasks".
+    labels = [...new Set(labels)];
     const count = labels.length;
     const summary =
         count <= 1 ? (labels[0] ?? "Looked something up") : `Looked a few things up`;
@@ -43,8 +46,8 @@ export function ToolActivityChip({
             aria-live="polite"
             aria-label={ariaLabel}
         >
-            {/* Attribution: a faint Sparkles marks this as something Cadence ran. */}
-            <Sparkles size={10} className={pending ? "text-accent-primary" : "text-accent-primary/50"} />
+            {/* Attribution: a faint sigil marks this as something Cadence ran. */}
+            <AssistantSigil size={12} className={pending ? "text-accent-primary" : "text-accent-primary/60"} />
             {pending ? (
                 <Loader2 size={11} className="animate-spin text-accent-primary" />
             ) : (

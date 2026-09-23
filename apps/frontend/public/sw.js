@@ -34,6 +34,17 @@ self.addEventListener("activate", (event) => {
     })());
 });
 
+// Reminders are shown through the registration (the only way on iOS), so a
+// tap has to bring the app forward here.
+self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    event.waitUntil((async () => {
+        const [client] = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        if (client) return client.focus();
+        return self.clients.openWindow("/");
+    })());
+});
+
 self.addEventListener("fetch", (event) => {
     const { request } = event;
     const url = new URL(request.url);

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import { UtilitySheet } from "../shared/UtilitySheet";
+import { DatePicker } from "../shared/DatePicker";
 import { TaskCard } from "../tasks/TaskCard";
 import { Button } from "../primitives/Button";
 import { useTasks } from "../../hooks/tasks/use-tasks";
@@ -120,12 +121,12 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
     const band = (
         <div className="shrink-0 space-y-3 border-b border-twilight-border px-4 py-3">
             <div className="flex items-center gap-2">
-                {/* Transparent native date input over the label: the OS picker handles far-off dates. */}
-                <label className="relative min-w-0 flex-1 cursor-pointer">
-                    <span className="block truncate font-display text-lg font-semibold text-twilight-text">{dayLabel(selected)}</span>
-                    <span className="text-sm text-twilight-text-soft">{loadWord(loads.get(selected) ?? 0)} day · tap to pick a date</span>
-                    <input type="date" value={selected} onChange={(e) => e.target.value && jump(e.target.value)} aria-label="Pick a date" className="absolute inset-0 opacity-0" />
-                </label>
+                <DatePicker label="Pick a date" value={selected} onChange={(date) => date && jump(date)} className="min-w-0 flex-1">
+                    <button type="button" className="min-w-0 flex-1 cursor-pointer rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                        <span className="block truncate font-display text-lg font-semibold text-twilight-text">{dayLabel(selected)}</span>
+                        <span className="text-sm text-twilight-text-soft">{loadWord(loads.get(selected) ?? 0)} day · tap to pick a date</span>
+                    </button>
+                </DatePicker>
                 {selected !== todayIso && <button type="button" onClick={() => jump(todayIso)} className={`${CHIP} ${CHIP_IDLE}`}>Today</button>}
             </div>
 

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useMatch, useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarRange, Check, LayoutDashboard, Plus } from "lucide-react";
+import { CalendarRange, LayoutDashboard, Plus } from "lucide-react";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
 import { NavigationRow } from "./NavigationRow";
@@ -13,8 +13,8 @@ import { useCreateProject } from "../../hooks/projects/use-create-project";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useCreateTag } from "../../hooks/tags/use-create-tag";
 import { useTags } from "../../hooks/tags/use-tags";
-import { PROJECT_ACCENT_OPTIONS, TAG_PALETTE } from "../../lib/constants/colors";
-import { useTagFilterStore } from "../../stores/tag-filter-store";
+import { PROJECT_ACCENT_OPTIONS } from "../../lib/constants/colors";
+import { Swatches, TAG_SWATCHES } from "../shared/Swatches";
 import { resolveAccentColor } from "../../lib/utils/color-resolver";
 
 const GROUP = "rounded-2xl border border-twilight-border bg-twilight-surface/40";
@@ -22,21 +22,6 @@ const SECTION_LABEL = "text-[12px] font-semibold uppercase tracking-[0.12em] tex
 const INPUT = "min-h-12 w-full min-w-0 flex-1 rounded-2xl border border-twilight-border bg-white/[0.04] px-4 text-base text-twilight-text outline-none placeholder:text-twilight-text-muted/80 focus:border-accent-primary/40";
 
 type View = "menu" | "project" | "tag";
-
-/** Colour swatches sized for a thumb — shared by the project and tag forms. */
-function Swatches({ options, value, onChange }: { options: Array<{ value: string; color: string; label: string }>; value: string; onChange: (value: string) => void }) {
-    return (
-        <div role="radiogroup" aria-label="Colour" className="grid grid-cols-8 gap-2">
-            {options.map((o) => (
-                <button key={o.value} type="button" role="radio" aria-checked={value === o.value} aria-label={o.label} onClick={() => onChange(o.value)}
-                    className="flex aspect-square items-center justify-center rounded-full transition-transform active:scale-95"
-                    style={{ backgroundColor: o.color }}>
-                    {value === o.value ? <Check size={16} className="text-midnight" aria-hidden="true" /> : null}
-                </button>
-            ))}
-        </div>
-    );
-}
 
 function CreateForm({ onSubmit, disabled, label, children }: { onSubmit: () => void; disabled: boolean; label: string; children: ReactNode }) {
     return (
@@ -55,10 +40,9 @@ function CreateForm({ onSubmit, disabled, label, children }: { onSubmit: () => v
  */
 export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
     const { data: projects, isLoading: projectsLoading } = useProjects();
     const { data: tags = [] } = useTags();
-    const { activeTagId, setActiveTag } = useTagFilterStore();
+    const activeTagId = useMatch("/tag/:tagId")?.params.tagId;
     const [view, setView] = useState<View>("menu");
     const reduceMotion = useReducedMotion();
     const createProject = useCreateProject();
@@ -75,14 +59,8 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
     };
     const close = () => { setView("menu"); onClose(); };
 
-    const handleToggleTag = (tagId: string) => {
-        const nextTagId = activeTagId === tagId ? null : tagId;
-        setActiveTag(nextTagId);
-
-        const next = new URLSearchParams(searchParams);
-        if (nextTagId) next.set("tag", nextTagId);
-        else next.delete("tag");
-        navigate(next.size ? `/?${next}` : "/", { preventScrollReset: true });
+    const openTag = (tagId: string) => {
+        navigate(`/tag/${tagId}`);
         close();
     };
 
@@ -99,7 +77,7 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
         tag: (
             <CreateForm label="Create tag" disabled={!name.trim()} onSubmit={() => { createTag.mutate({ name: name.trim(), color }); setView("menu"); }}>
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tag name" aria-label="Tag name" enterKeyHint="done" className={INPUT} />
-                <Swatches value={color} onChange={setColor} options={TAG_PALETTE.map((c) => ({ value: c, color: c === "default" ? "var(--color-twilight-text-muted)" : c, label: c === "default" ? "Default" : c }))} />
+                <Swatches value={color} onChange={setColor} options={TAG_SWATCHES} />
             </CreateForm>
         ),
     };
@@ -169,7 +147,7 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
                 </div>
                 {tags.length === 0 ? (
                     <p className="px-1 pb-1 text-[13px] leading-relaxed text-twilight-text-muted/90">
-                        No tags yet. Tags filter your capture feed.
+                        No tags yet. Each tag gets a page of its tasks.
                     </p>
                 ) : (
                     <div className="flex min-w-0 flex-wrap gap-2 px-1">
@@ -178,7 +156,7 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
                                 key={tag.id}
                                 tag={tag}
                                 isActive={activeTagId === tag.id}
-                                onClick={() => handleToggleTag(tag.id)}
+                                onClick={() => openTag(tag.id)}
                             />
                         ))}
                     </div>

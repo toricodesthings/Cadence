@@ -7,6 +7,7 @@ import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
+import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
 import type { Task } from "@cadence/contracts/task";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { QuickAddActionTray } from "./QuickAddActionTray";
@@ -108,36 +109,20 @@ export function AddTaskInput({
         const title = didApplyNlp && parsedInput.cleanedTitle ? parsedInput.cleanedTitle : rawTitle;
 
         trackUsageEvent("task.create", { surface: "inline_add", object_type: "task" });
-        createTask.mutate({
+        createTask.mutate(buildTypedTaskInput({
+            rawInput: value,
             title,
-            orderIndex,
+            schedule: resolvedDeadline,
+            priority: resolvedPriority,
+            projectId: resolvedProjectId,
             tagIds: resolvedTagIds,
-            dueDate: resolvedDeadline.dueDate ?? undefined,
-            scheduledStart: resolvedDeadline.scheduledStart ?? undefined,
-            scheduledEnd: resolvedDeadline.scheduledEnd ?? undefined,
-            recurrenceRule: resolvedDeadline.recurrenceRule ?? undefined,
-            isAllDay: resolvedDeadline.isAllDay,
-            ...(resolvedPriority && resolvedPriority > 0 && { priority: resolvedPriority as 1 | 2 | 3 | 4 }),
-            ...(resolvedProjectId && { projectId: resolvedProjectId }),
-            ...(sectionId && { sectionId }),
-            ...(parsedInput.waitingOn && { waitingOn: parsedInput.waitingOn }),
-            ...(parsedInput.durationMinutes && { durationEstimate: parsedInput.durationMinutes }),
-            nlp: {
-                rawInput: value,
-                sourceSurface: "inline_add",
-                dateStyle,
-                dismissedEntityIds: ignoredTokenIds,
-                userOverrides: {
-                    title,
-                    projectId: resolvedProjectId,
-                    tagIds: resolvedTagIds,
-                    dueDate: resolvedDeadline.dueDate ?? null,
-                    scheduledStart: resolvedDeadline.scheduledStart ?? null,
-                    scheduledEnd: resolvedDeadline.scheduledEnd ?? null,
-                    recurrenceRule: resolvedDeadline.recurrenceRule ?? null,
-                },
-            },
-        });
+            waitingOn: parsedInput.waitingOn,
+            durationMinutes: parsedInput.durationMinutes,
+            surface: "inline_add",
+            dateStyle,
+            dismissedEntityIds: ignoredTokenIds,
+            extra: { orderIndex, ...(sectionId && { sectionId }) },
+        }));
 
         setValue("");
         setIsTrayOpen(false);

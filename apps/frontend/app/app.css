@@ -922,6 +922,11 @@
     background: var(--color-twilight-void);
   }
 
+  /* Installed app: the shell never rubber-bands; inner scrollers still do. */
+  @media (display-mode: standalone) {
+    html, body { overscroll-behavior: none; }
+  }
+
   /* Tailwind v4 Preflight no longer sets cursor:pointer on buttons. Restore it
      for all interaction surfaces so every clickable affordance feels clickable.
      Disabled controls keep the not-allowed cursor; utilities still override. */
@@ -1121,6 +1126,11 @@
 
   .safe-bottom {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  /* Compact page headers: their surface runs under the iOS status bar. */
+  .safe-header-top {
+    padding-top: max(0.625rem, env(safe-area-inset-top));
   }
 
   .mobile-sheet-shell {
@@ -1900,6 +1910,38 @@ a:active {
 /* Daylight runs brighter — pull the aurora back so it stays a whisper. */
 [data-theme="daylight"] .aurora-accent::before {
   opacity: 0.5;
+}
+
+/* Dialogs (composers, notifications): the aurora's idea, keyed to a tone (`--glow-tone`) —
+   one soft pool behind the header, a fainter one off the bottom corner. The host is
+   already positioned (fixed dialog or `relative`), so this only isolates it. */
+@utility dialog-glow {
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle 360px at 12% -8%,
+        color-mix(in srgb, var(--glow-tone, var(--accent-primary)) 9%, transparent),
+        transparent 72%),
+      radial-gradient(circle 280px at 100% 110%,
+        color-mix(in srgb, var(--glow-tone, var(--accent-primary)) 4%, transparent),
+        transparent 74%);
+  }
+
+  & .dialog-glow-icon {
+    color: var(--glow-tone, var(--accent-primary));
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--glow-tone, var(--accent-primary)) 45%, transparent));
+  }
+}
+
+[data-theme="daylight"] .dialog-glow::before {
+  opacity: 0.6;
 }
 
 @utility scrollbar-hide {

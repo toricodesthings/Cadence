@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Switch } from "../../primitives";
+import { Switch, TimePicker } from "../../primitives";
 import { Button } from "../../primitives/Button";
-import { Input } from "../../primitives/Input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
@@ -231,12 +230,10 @@ export function NotificationsTab() {
                             description="Notifications pause at this time each day."
                         >
                             <div className="w-full sm:max-w-[10rem]">
-                                <Input
-                                    type="time"
+                                <TimePicker
+                                    label="Quiet hours start"
                                     value={notif.quietHoursStart ?? "22:00"}
-                                    onChange={(e) =>
-                                        updateSettings.mutate({ notifications: { quietHoursStart: e.target.value } })
-                                    }
+                                    onChange={(value) => updateSettings.mutate({ notifications: { quietHoursStart: value } })}
                                 />
                             </div>
                         </SettingsRow>
@@ -245,12 +242,10 @@ export function NotificationsTab() {
                             description="Notifications resume at this time."
                         >
                             <div className="w-full sm:max-w-[10rem]">
-                                <Input
-                                    type="time"
+                                <TimePicker
+                                    label="Quiet hours end"
                                     value={notif.quietHoursEnd ?? "07:00"}
-                                    onChange={(e) =>
-                                        updateSettings.mutate({ notifications: { quietHoursEnd: e.target.value } })
-                                    }
+                                    onChange={(value) => updateSettings.mutate({ notifications: { quietHoursEnd: value } })}
                                 />
                             </div>
                         </SettingsRow>

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronLeft, Plus, Sparkles, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronLeft, Plus, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
+import { AssistantSigil } from "./AssistantSigil";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { Tip } from "../primitives";
@@ -106,7 +107,7 @@ export function ConversationList({
                     ) : active.length === 0 && archived.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-14 text-center">
                             <div className="mb-4 flex h-12 w-12 min-w-12 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-accent">
-                                <Sparkles size={22} />
+                                <AssistantSigil size={28} />
                             </div>
                             <p className="text-sm font-medium text-twilight-text">No conversations yet</p>
                             <p className="mt-2 max-w-[240px] text-[13px] leading-relaxed text-twilight-text-muted">

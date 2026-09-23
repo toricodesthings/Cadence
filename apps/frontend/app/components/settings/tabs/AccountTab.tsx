@@ -7,6 +7,7 @@ import { beginSocialLink, getAuthCallbackUrl } from "../../../platform/runtime";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useAuthState } from "../../../hooks/auth/use-auth-state";
 import * as Dialog from "../../primitives/Dialog";
+import { DatePicker } from "../../shared/DatePicker";
 import { toast } from "sonner";
 import { compressImageToBase64 } from "../../../lib/utils/image";
 
@@ -96,12 +97,7 @@ function BirthdayEditorModal({
                 </Dialog.DialogHeader>
                 <div className="py-4 flex flex-col gap-3">
                     <p className="text-sm text-warm-white/70">Your birthday will appear as an overlay on the Schedule calendar. You can clear it at any time.</p>
-                    <Input
-                        type="date"
-                        value={val}
-                        onChange={(e) => setVal(e.target.value)}
-                        autoFocus
-                    />
+                    <DatePicker label="Birthday" yearNav value={val} onChange={(date) => date && setVal(date)} />
                 </div>
                 <Dialog.DialogFooter>
                     {initialValue && (

@@ -126,6 +126,7 @@ export function ToolPart({
     addToolResult,
     conversationId,
     messageId,
+    autoApprove,
 }: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     part: any;
@@ -133,6 +134,7 @@ export function ToolPart({
     /** Thread + message hosting this part — lets proposals persist their decision. */
     conversationId?: string | null;
     messageId?: string;
+    autoApprove?: boolean;
 }) {
     const toolName = safeToolName(part);
     const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
@@ -153,7 +155,7 @@ export function ToolPart({
 
     // proposal
     const state = partRenderState(part);
-    const ctx: ToolRenderContext = { part, addToolResult, toolName: toolName!, conversationId, messageId };
+    const ctx: ToolRenderContext = { part, addToolResult, toolName: toolName!, conversationId, messageId, autoApprove };
     return <>{descriptor.render?.(ctx, state)}</>;
 }
 

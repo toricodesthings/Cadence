@@ -34,6 +34,8 @@ interface TaskListProps {
     onSelectTask?: (id: string) => void;
     cardVariant?: "list" | "board";
     rationaleByTaskId?: Record<string, string | null | undefined>;
+    /** False for filtered views (a tag page) where a manual order means nothing. */
+    reorderable?: boolean;
 }
 
 function mergeTasksPreservingLocalOrder(current: Task[], incoming: Task[]) {
@@ -65,6 +67,7 @@ export function TaskList({
     onSelectTask,
     cardVariant = "list",
     rationaleByTaskId,
+    reorderable = true,
 }: TaskListProps) {
     const [tasks, setTasks] = useState(initialTasks);
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -145,7 +148,7 @@ export function TaskList({
 
     return (
         <DndContext
-            sensors={sensors}
+            sensors={reorderable ? sensors : []}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}

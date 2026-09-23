@@ -1,10 +1,64 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Sparkles } from "lucide-react";
+import { Inbox, MessageSquare, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { ComposerSubmit, COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
+import type { InboxItem } from "@cadence/contracts/inbox";
 
 /**
- * Universal capture composer for the Holding page.
+ * Capture in the composer (Quick Add's Thought tab, the Holding orb on phones).
+ * Enter is a new line; ⌘/Ctrl+Enter or the button saves. A failed save keeps the draft.
+ */
+export function useCaptureComposer({ onSaved }: { onSaved: (created: InboxItem | null | undefined) => void }): ComposerDraft {
+    const [value, setValue] = useState("");
+    const createInboxItem = useCreateInboxItem();
+    const isCompact = useShellMode().isCompact;
+
+    const submit = () => {
+        const text = value.trim();
+        if (!text || createInboxItem.isPending) return;
+        createInboxItem.mutate(text, {
+            onSuccess: (created) => {
+                setValue("");
+                onSaved(created);
+            },
+        });
+    };
+
+    return {
+        title: "What's on your mind?",
+        icon: MessageSquare,
+        subtitle: "A thought, a task, a reminder. Get it out of your head; place it later.",
+        isDirty: Boolean(value.trim()),
+        discardTitle: "Discard this thought?",
+        footer: <ComposerSubmit onSubmit={submit} submitLabel={createInboxItem.isPending ? "Capturing…" : "Capture"} icon={Inbox} disabled={!value.trim() || createInboxItem.isPending} />,
+        reset: () => setValue(""),
+        children: (
+            <>
+                <textarea
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                            event.preventDefault();
+                            submit();
+                        }
+                    }}
+                    aria-label="What's on your mind?"
+                    placeholder="A thought, link, or note…"
+                    rows={5}
+                    autoFocus={!isCompact}
+                    className={`${COMPOSER_FIELD} resize-none text-base`}
+                />
+                {createInboxItem.isError ? <p role="alert" className="text-sm text-twilight-text-soft">Couldn’t save your capture. Your draft is still here. Try again.</p> : null}
+            </>
+        ),
+    };
+}
+
+/**
+ * Universal capture field for the Holding page (wide shells; phones use `useCaptureComposer`).
  *
  * §9.1 enhancements:
  * - `mod+enter` for forced task capture
@@ -12,32 +66,22 @@ import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
  * - "Captured" confirmation via the app-wide toast
  * - `Esc` clears input but does not blur if non-empty
  */
-export function CaptureInput({ mobile = false, draft, onDraftChange, onCaptured }: {
-    mobile?: boolean; draft?: string; onDraftChange?: (value: string) => void; onCaptured?: () => void;
-}) {
-    const [localValue, setLocalValue] = useState("");
-    const value = draft ?? localValue;
-    const setValue = onDraftChange ?? setLocalValue;
+export function CaptureInput() {
+    const [value, setValue] = useState("");
     const [isFocused, setIsFocused] = useState(false);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const createInboxItem = useCreateInboxItem();
 
     const handleSubmit = useCallback(() => {
         const text = value.trim();
-        if (!text || (mobile && createInboxItem.isPending)) return;
-        createInboxItem.mutate(text, {
-            onSuccess: () => {
-                toast.success("Captured");
-                if (mobile) { setValue(""); onCaptured?.(); }
-            },
-        });
-        if (!mobile) setValue("");
+        if (!text) return;
+        createInboxItem.mutate(text, { onSuccess: () => toast.success("Captured") });
+        setValue("");
         // Re-focus for rapid capture flow
         inputRef.current?.focus();
-    }, [value, createInboxItem, mobile, setValue, onCaptured]);
+    }, [value, createInboxItem]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (mobile && !(e.key === "Enter" && (e.metaKey || e.ctrlKey))) return;
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
             handleSubmit();
@@ -71,21 +115,6 @@ export function CaptureInput({ mobile = false, draft, onDraftChange, onCaptured 
         el.style.height = "auto";
         el.style.height = `${Math.max(singleLineHeight, Math.min(el.scrollHeight, 160))}px`;
     }, [value]);
-
-    if (mobile) return (
-        <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); handleSubmit(); }}>
-            <p className="text-sm text-twilight-text-soft">A thought, a task, a reminder. Get it out of your head; place it later.</p>
-            <textarea value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={handleKeyDown}
-                aria-label="What's on your mind?" placeholder="What's on your mind?" rows={5}
-                disabled={createInboxItem.isPending}
-                className="w-full resize-none rounded-2xl border border-twilight-border bg-twilight-surface/40 p-4 text-base text-twilight-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary" />
-            {createInboxItem.isError && <p role="alert" className="text-sm text-twilight-text-soft">Couldn’t save your capture. Your draft is still here. Try again.</p>}
-            <button type="submit" disabled={!value.trim() || createInboxItem.isPending}
-                className="min-h-12 rounded-2xl bg-accent-primary px-5 font-medium text-midnight disabled:opacity-50 active:opacity-80">
-                {createInboxItem.isPending ? "Capturing…" : "Capture"}
-            </button>
-        </form>
-    );
 
     return (
         <div

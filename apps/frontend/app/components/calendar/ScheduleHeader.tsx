@@ -205,7 +205,7 @@ export function ScheduleHeader({
         );
 
         return (
-            <header className={`${PAGE_HEADER_SURFACE} px-4 pb-2 pt-2.5`}>
+            <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-2`}>
                 <div className="flex min-h-[52px] items-center gap-2">
                     <h1 className="min-w-0 flex-1">
                         {phone.backLabel && phone.onZoomOut ? (
@@ -243,7 +243,7 @@ export function ScheduleHeader({
     if (compact) {
         // ── Phone: two tight rows ──────────────────────────────────────────
         return (
-            <header className={`${PAGE_HEADER_SURFACE} px-4 pt-2.5 pb-3 sm:px-6 sm:pt-3 sm:pb-3`}>
+            <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-3 sm:px-6`}>
                 {/* Row 1: page identity + heading + nav + overflow. Browse is a
                     dock tab now, and creation lives in the floating orb. */}
                 <div className="flex items-center gap-2 min-h-[44px]">

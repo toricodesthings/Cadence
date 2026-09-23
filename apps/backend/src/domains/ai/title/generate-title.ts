@@ -9,14 +9,16 @@
  * untitled. The system prompt itself is DB-backed (see title-prompt.ts).
  */
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { deriveFallbackTitle, normalizeTitle } from "@cadence/domain/ai-title";
 import { logger } from "../../../platform/log";
 import type { Env } from "../../../types/env";
 import { getTitlePrompt } from "./title-prompt";
 
 /** Cheaper/faster than the chat model — titles are tiny. Overridable via AI_TITLE_MODEL. */
-const DEFAULT_TITLE_MODEL = "google/gemini-2.5-flash-lite";
+const DEFAULT_TITLE_MODEL = "google/gemma-3-27b-it";
+/** Served by OpenRouter when the title model is unavailable or rate-limited. */
+const TITLE_FALLBACK_MODEL = "mistralai/ministral-14b-2512";
 /** Hard ceiling so a slow/hung title call can never extend the chat stream. */
 const TITLE_TIMEOUT_MS = 4_000;
 /** Titling never needs more than the opening line(s) of the first message. */
@@ -39,13 +41,16 @@ export async function generateConversationTitle(env: Env, userText: string, loca
 
     try {
         const system = await getTitlePrompt(env, locale);
-        const openrouter = createOpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey });
+        const openrouter = createOpenRouter({ apiKey });
+        // OpenRouter fails over server-side when the primary is rate-limited (small free-tier
+        // models often are); SDK retries would only burn the 4s budget in backoff.
         const { text } = await generateText({
-            model: openrouter(getTitleModelId(env)),
-            system,
+            model: openrouter(getTitleModelId(env), { models: [getTitleModelId(env), TITLE_FALLBACK_MODEL] }),
+            instructions: system,
             prompt: userText.slice(0, INPUT_CHAR_CAP),
             temperature: 0.3,
             maxOutputTokens: 16,
+            maxRetries: 0,
             abortSignal: AbortSignal.timeout(TITLE_TIMEOUT_MS),
         });
         return normalizeTitle(text) || fallback;
