@@ -16,12 +16,12 @@ export function CreateProjectCard({
     const name = input.name ?? "this project";
 
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
-        await createProject.mutateAsync({
+        const created = await createProject.mutateAsync({
             name: input.name,
             ...(input.emoji && { emoji: input.emoji }),
             ...(input.colorAccent && { colorAccent: input.colorAccent }),
         });
-        return { name };
+        return { name, projectId: created?.id };
     });
 
     if (state === "output-available" || decision) {

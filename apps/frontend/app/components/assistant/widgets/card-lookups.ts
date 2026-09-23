@@ -8,6 +8,7 @@ import { queryKeys } from "../../../lib/api/query-keys";
 import { formatShortDate, formatShortDateTime, parseLocalDate } from "../../../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
+import type { Tag } from "@cadence/contracts/tag";
 
 export function useTaskTitleLookup() {
     const queryClient = useQueryClient();
@@ -19,6 +20,29 @@ export function useTaskTitleLookup() {
             if (found) return found.title;
         }
         return `Task ${id.slice(0, 6)}`;
+    };
+}
+
+/** The task's current tag ids from the cache (undefined when the task isn't cached). */
+export function useTaskTagIdsLookup() {
+    const queryClient = useQueryClient();
+    return (id: string): string[] | undefined => {
+        const caches = queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all });
+        for (const [, tasks] of caches) {
+            if (!Array.isArray(tasks)) continue;
+            const found = tasks.find((t) => t.id === id);
+            if (found) return found.tagIds ?? [];
+        }
+        return undefined;
+    };
+}
+
+/** Tags for ids, from the tags cache; unknown ids are skipped. */
+export function useTagsLookup() {
+    const queryClient = useQueryClient();
+    return (ids: string[]): Tag[] => {
+        const all = queryClient.getQueryData<Tag[]>(queryKeys.tags.all) ?? [];
+        return ids.flatMap((id) => all.find((t) => t.id === id) ?? []);
     };
 }
 

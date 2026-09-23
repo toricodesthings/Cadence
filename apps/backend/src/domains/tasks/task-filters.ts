@@ -1,5 +1,6 @@
 import type { TaskFilters } from "./tasks.schema";
 import { normalizeStartBoundary, normalizeEndBoundary } from "@cadence/domain/task-temporal";
+import { addDaysToDateStr } from "../../platform/date-utils";
 
 export type NormalizedTaskFilters = Omit<TaskFilters, "scheduledRangeStart" | "scheduledRangeEnd"> & {
     scheduledRangeStart?: string;
@@ -14,8 +15,10 @@ export function normalizeTaskFilters(filters: TaskFilters): NormalizedTaskFilter
         ...filters,
         scheduledRangeStart: filters.scheduledRangeStart ? normalizeStartBoundary(filters.scheduledRangeStart) : undefined,
         scheduledRangeEnd: filters.scheduledRangeEnd ? normalizeEndBoundary(filters.scheduledRangeEnd) : undefined,
+        // The date is the caller's local day; a timed task late that evening is already
+        // tomorrow in UTC. Pad a day so it's included; callers keep exact local days.
         effectiveOnOrBeforeDateTime: filters.effectiveOnOrBeforeDate
-            ? normalizeEndBoundary(filters.effectiveOnOrBeforeDate)
+            ? normalizeEndBoundary(addDaysToDateStr(filters.effectiveOnOrBeforeDate, 1))
             : undefined,
     };
 }

@@ -63,6 +63,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             scheduledEnd: tasks.scheduledEnd,
                             durationEstimate: tasks.durationEstimate,
                             priority: tasks.priority,
+                            effort: tasks.effort,
                             projectId: tasks.projectId,
                             waitingOn: tasks.waitingOn,
                         })

@@ -20,6 +20,7 @@ export interface MinimalTask {
     scheduledEnd: string | null;
     durationEstimate: number | null;
     priority: number;
+    effort: number | null;
     projectId: string | null;
     waitingOn: string | null;
 }
@@ -34,6 +35,7 @@ export interface TaskRow {
     scheduledEnd: string | null;
     durationEstimate: number | null;
     priority: number;
+    effort: number | null;
     projectId: string | null;
     waitingOn: string | null;
     // content/notes intentionally accepted but DROPPED by the projection.
@@ -59,6 +61,7 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         scheduledEnd: show(row.scheduledEnd),
         durationEstimate: row.durationEstimate,
         priority: row.priority,
+        effort: row.effort,
         projectId: row.projectId,
         waitingOn: row.waitingOn,
     };

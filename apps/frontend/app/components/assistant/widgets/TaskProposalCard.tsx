@@ -1,10 +1,14 @@
-import { Sparkles, Calendar, Clock, Check, Pencil } from "lucide-react";
+import { Sparkles, Calendar, Clock, Check, Pencil, TagIcon, Plus, Minus } from "lucide-react";
 import { ProposalCard, IdentityBlock, MetaPill, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";
-import { formatWhen } from "./card-lookups";
+import { formatWhen, useTagsLookup, useTaskTagIdsLookup, useTaskTitleLookup } from "./card-lookups";
+import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
+import { PRIORITY_CONFIG } from "../../../lib/constants/priority";
+import { resolveTagColor } from "../../../lib/utils/color-resolver";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useCreateTask } from "../../../hooks/tasks/use-create-task";
 import { useUpdateTask } from "../../../hooks/tasks/use-update-task";
+import { useAddTaskTag, useRemoveTaskTag } from "../../../hooks/tags/use-task-tags";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 import type { CreateTaskInput, UpdateTaskInput } from "@cadence/contracts/task";
 
@@ -41,11 +45,18 @@ export function TaskProposalCard({
     const persona = useAssistantPersona();
     const createTask = useCreateTask();
     const updateTask = useUpdateTask();
+    const lookupTitle = useTaskTitleLookup();
+    const lookupTagIds = useTaskTagIdsLookup();
+    const lookupTags = useTagsLookup();
+    const addTag = useAddTaskTag();
+    const removeTag = useRemoveTaskTag();
     const input = normalizeTaskWriteTemporalInput((ctx.part?.input ?? {}) as TaskProposalInput);
+    // An update only carries the changed fields — name the task from the cached list.
+    const title = input.title ?? (input.taskId ? lookupTitle(input.taskId) : "this task");
 
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
         if (mode === "create") {
-            await createTask.mutateAsync({
+            const created = await createTask.mutateAsync({
                 title: input.title ?? "",
                 orderIndex: Date.now(),
                 ...(input.content !== undefined && { content: input.content }),
@@ -57,8 +68,10 @@ export function TaskProposalCard({
                 ...(input.projectId && { projectId: input.projectId }),
                 ...(input.tagIds?.length ? { tagIds: input.tagIds } : {}),
                 ...(input.priority != null && { priority: input.priority }),
+                ...(input.effort != null && { effort: input.effort }),
             });
-            return { title: input.title };
+            // The id lets a follow-up ("make it 6pm") update this task instead of re-creating it.
+            return { title, taskId: created?.id };
         }
         await updateTask.mutateAsync({
             id: input.taskId ?? "",
@@ -71,13 +84,31 @@ export function TaskProposalCard({
             ...(input.durationEstimate !== undefined && { durationEstimate: input.durationEstimate }),
             ...(input.projectId !== undefined && { projectId: input.projectId }),
             ...(input.priority !== undefined && { priority: input.priority }),
+            ...(input.effort !== undefined && { effort: input.effort }),
             ...(input.waitingOn !== undefined && { waitingOn: input.waitingOn }),
         });
-        return { title: input.title };
+        // Tags live on their own endpoints: diff the proposed full set against the cache.
+        if (input.tagIds && input.taskId) {
+            const taskId = input.taskId;
+            const current = lookupTagIds(taskId) ?? [];
+            const next = input.tagIds;
+            for (const tagId of next.filter((id) => !current.includes(id))) await addTag.mutateAsync({ taskId, tagId });
+            for (const tagId of current.filter((id) => !next.includes(id))) await removeTag.mutateAsync({ taskId, tagId });
+        }
+        return { title };
     });
 
-    const title = input.title ?? "this task";
     const dateLabel = formatWhen(input.scheduledStart ?? input.dueDate);
+    const effortOption = input.effort != null ? EFFORT_OPTIONS.find((o) => o.value === input.effort) : undefined;
+    // Updates diff against the task's current tags: + added, − removed, plain = kept.
+    const currentTagIds = mode === "update" && input.taskId ? lookupTagIds(input.taskId) : undefined;
+    const nextTagIds = input.tagIds ?? [];
+    const shownTags = input.tagIds ? lookupTags([...new Set([...nextTagIds, ...(currentTagIds ?? [])])]) : [];
+    const tagChange = (id: string) =>
+        !currentTagIds ? "kept" : !nextTagIds.includes(id) ? "removed" : currentTagIds.includes(id) ? "kept" : "added";
+    // Only shown when the model explicitly set it — mirrors the left-edge bar TaskCard
+    // uses to mark priority, so the same visual language carries into the proposal.
+    const priorityOption = input.priority != null ? PRIORITY_OPTIONS.find((o) => o.value === input.priority) : undefined;
     const eyebrow = mode === "create" ? "SUGGESTED TASK" : "TASK UPDATE";
     const primaryLabel = mode === "update" ? "Update" : dateLabel ? "Schedule" : "Save";
 
@@ -123,12 +154,31 @@ export function TaskProposalCard({
             <IdentityBlock
                 title={title}
                 subtitle={!persona.terse && input.content ? input.content : undefined}
+                icon={priorityOption?.icon}
+                iconClassName={input.priority != null ? PRIORITY_CONFIG[input.priority].color : undefined}
             />
             <div className="flex flex-wrap gap-1.5">
                 {dateLabel ? <MetaPill icon={Calendar}>{dateLabel}</MetaPill> : null}
                 {input.durationEstimate ? (
                     <MetaPill icon={Clock}>{input.durationEstimate}m block</MetaPill>
                 ) : null}
+                {effortOption ? <MetaPill icon={effortOption.icon}>{effortOption.label} effort</MetaPill> : null}
+                {shownTags.map((tag) => {
+                    const color = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");
+                    const change = tagChange(tag.id);
+                    const MarkIcon = change === "added" ? Plus : change === "removed" ? Minus : TagIcon;
+                    return (
+                        <span
+                            key={tag.id}
+                            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] ${change === "removed" ? "line-through opacity-60" : ""}`}
+                            style={{ color, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
+                            aria-label={change === "kept" ? `Tag ${tag.name}` : `${change === "added" ? "Add" : "Remove"} tag ${tag.name}`}
+                        >
+                            <MarkIcon size={10} aria-hidden="true" />
+                            {tag.name}
+                        </span>
+                    );
+                })}
             </div>
         </ProposalCard>
     );

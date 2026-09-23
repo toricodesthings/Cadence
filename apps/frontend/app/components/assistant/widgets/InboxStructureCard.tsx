@@ -27,7 +27,7 @@ export function InboxStructureCard({
     const dateLabel = formatWhen(input.scheduledStart ?? input.dueDate);
 
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
-        await processInbox.mutateAsync({
+        const created = await processInbox.mutateAsync({
             inboxItemId: input.inboxItemId,
             rawText: title,
             title,
@@ -37,7 +37,7 @@ export function InboxStructureCard({
             ...(input.projectId && { projectId: input.projectId }),
             ...(input.tagIds?.length ? { tagIds: input.tagIds } : {}),
         });
-        return { title };
+        return { title, taskId: created?.id };
     });
 
     if (state === "output-available" || decision) {

@@ -13,7 +13,7 @@ import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt, type ReceiptState } from "./ReadReceipt";
 import { ConversationList } from "./ConversationList";
 import { ChatErrorBubble } from "./ChatErrorBubble";
-import { ToolActivityChip } from "./ToolActivityChip";
+import { ToolActivityChip, type ToolCall } from "./ToolActivityChip";
 import { ToolPart, isReadToolPart, safeToolName, getToolDescriptor } from "./tool-registry";
 import { makeChatTransport } from "../../lib/ai/chat-transport";
 import { checkMessageText } from "../../lib/ai/input-guard";
@@ -60,7 +60,7 @@ function TypingDots({ name }: { name: string }) {
 /** One step of an assistant turn, in the order it happened. */
 type Segment =
     | { kind: "text"; text: string }
-    | { kind: "reads"; labels: string[]; pending: boolean }
+    | { kind: "reads"; calls: ToolCall[]; pending: boolean }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     | { kind: "card"; part: any };
 
@@ -86,11 +86,12 @@ function buildSegments(parts: UIMessage["parts"]): Segment[] {
             const name = safeToolName(part);
             const label = (name && getToolDescriptor(name)?.label) || "Looked something up";
             const pending = part.state !== "output-available";
+            const call: ToolCall = { label, tool: name ?? undefined, input: part.input, pending };
             if (last?.kind === "reads") {
-                last.labels.push(label);
+                last.calls.push(call);
                 last.pending ||= pending;
             } else {
-                out.push({ kind: "reads", labels: [label], pending });
+                out.push({ kind: "reads", calls: [call], pending });
             }
         }
     }
@@ -896,7 +897,7 @@ export function AssistantSidePanel({
                                                 seg.kind === "text" ? (
                                                     <AssistantText key={i} text={seg.text} />
                                                 ) : seg.kind === "reads" ? (
-                                                    <ToolActivityChip key={i} labels={seg.labels} pending={seg.pending} />
+                                                    <ToolActivityChip key={i} calls={seg.calls} pending={seg.pending} />
                                                 ) : (
                                                     <div key={seg.part.toolCallId || i} className="w-full">
                                                         <ToolPart

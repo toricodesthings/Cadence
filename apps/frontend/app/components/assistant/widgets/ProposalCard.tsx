@@ -208,10 +208,15 @@ export function IdentityBlock({
     title,
     subtitle,
     tone = "accent",
+    icon: Icon,
+    iconClassName,
 }: {
     title: string;
     subtitle?: React.ReactNode;
     tone?: CardTone;
+    /** Small glyph before the title (e.g. priority level) — same spot TaskCard marks it. */
+    icon?: LucideIcon;
+    iconClassName?: string;
 }) {
     const rule =
         tone === "danger"
@@ -221,7 +226,10 @@ export function IdentityBlock({
               : "border-accent-primary";
     return (
         <div className={`rounded-lg border-l-2 bg-twilight-deep/40 px-2.5 py-1.5 ${rule}`}>
-            <p className="text-[13px] font-medium text-twilight-text">{title}</p>
+            <p className="flex items-start gap-1.5 text-[13px] font-medium text-twilight-text">
+                {Icon ? <Icon size={13} className={`mt-0.5 shrink-0 ${iconClassName ?? ""}`} aria-hidden="true" /> : null}
+                <span>{title}</span>
+            </p>
             {subtitle ? <div className="mt-1 text-[11px] text-twilight-text-muted">{subtitle}</div> : null}
         </div>
     );

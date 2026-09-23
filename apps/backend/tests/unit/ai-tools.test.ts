@@ -21,6 +21,7 @@ const baseTask: TaskRow = {
     scheduledEnd: null,
     durationEstimate: 30,
     priority: 2,
+    effort: 3,
     projectId: "p1",
     waitingOn: null,
     content: "SECRET full markdown body that must never be projected",
@@ -29,7 +30,7 @@ const baseTask: TaskRow = {
 describe("toMinimalTask", () => {
     it("projects only the token-frugal fields and DROPS content", () => {
         expect(Object.keys(toMinimalTask(baseTask, "UTC")).sort()).toEqual(
-            ["dueDate", "durationEstimate", "id", "isAllDay", "priority", "projectId", "scheduledEnd", "scheduledStart", "state", "title", "waitingOn"],
+            ["dueDate", "durationEstimate", "effort", "id", "isAllDay", "priority", "projectId", "scheduledEnd", "scheduledStart", "state", "title", "waitingOn"],
         );
     });
 

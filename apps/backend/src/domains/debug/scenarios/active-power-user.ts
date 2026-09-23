@@ -18,6 +18,7 @@
  * - Notification-exercising tasks (reminder, due-today, overdue)
  * - Unmanaged tasks for backlog testing
  * - Full user settings with all notification channels enabled
+ * - An AI conversation firing every assistant tool (see ai-showcase-conversation.ts)
  */
 
 import type { Tx } from "../../../types/db";
@@ -58,8 +59,9 @@ import {
     users,
 } from "../../../db/schema";
 import { eq } from "drizzle-orm";
+import { seedAiShowcaseConversation } from "./ai-showcase-conversation";
 
-export const SCENARIO_VERSION = "2.3.0";
+export const SCENARIO_VERSION = "2.4.0";
 
 function getRequiredRow<T>(map: Map<string, T>, key: string, label: string): T {
     const row = map.get(key);
@@ -321,7 +323,7 @@ export async function seed(db: Tx, userId: string) {
     const taskByTitle = new Map(seededTasks.map((task) => [task.title, task] as const));
 
     // ── Subtasks ─────────────────────────────────────────────────────
-    await db.insert(subtasks).values([
+    const seededSubtasks = await db.insert(subtasks).values([
         createSeedSubtask(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
             title: "Pull retention numbers",
             isComplete: true,
@@ -352,7 +354,7 @@ export async function seed(db: Tx, userId: string) {
             isComplete: false,
             orderIndex: 3,
         }),
-    ]);
+    ]).returning();
 
     // ── Task metrics ─────────────────────────────────────────────────
     await db.insert(taskMetrics).values([
@@ -550,7 +552,7 @@ export async function seed(db: Tx, userId: string) {
     ]);
 
     // ── Inbox items ──────────────────────────────────────────────────
-    await db.insert(inboxItems).values([
+    const seededInboxItems = await db.insert(inboxItems).values([
         createSeedInboxItem(userId, {
             sectionId: getRequiredRow(inboxSectionByName, "Capture", "inbox section").id,
             orderIndex: 0,
@@ -570,7 +572,7 @@ export async function seed(db: Tx, userId: string) {
             orderIndex: 3,
             rawText: "Ask Maya whether the onboarding checklist needs legal review",
         }),
-    ]);
+    ]).returning();
 
     // ── AI memories ──────────────────────────────────────────────────
     await db.insert(aiMemories).values([
@@ -735,6 +737,18 @@ export async function seed(db: Tx, userId: string) {
             tagId: getRequiredRow(tagByName, "Follow-up", "tag").id,
         },
     ]);
+
+    // ── AI showcase conversation ─────────────────────────────────────
+    await seedAiShowcaseConversation(db, userId, {
+        anchor,
+        tasks: [...seededTasks, ...notifTasks],
+        habits: seededHabits,
+        inboxItems: seededInboxItems,
+        projects: seededProjects,
+        sections: seededSections,
+        tags: seededTags,
+        subtasks: seededSubtasks,
+    });
 
     // ── Usage diagnostics seed data ──────────────────────────────────
     await db.insert(usageEvents).values([

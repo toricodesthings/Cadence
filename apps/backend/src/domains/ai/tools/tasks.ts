@@ -29,6 +29,7 @@ const minimalTaskColumns = {
     scheduledEnd: tasks.scheduledEnd,
     durationEstimate: tasks.durationEstimate,
     priority: tasks.priority,
+    effort: tasks.effort,
     projectId: tasks.projectId,
     waitingOn: tasks.waitingOn,
 } as const;
@@ -89,7 +90,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     filterInput.scheduledRangeStart = addDaysToDateStr(window.from, -1);
                     filterInput.scheduledRangeEnd = addDaysToDateStr(window.to, 1);
                 } else if (window) {
-                    filterInput.effectiveOnOrBeforeDate = addDaysToDateStr(window.to, 1);
+                    filterInput.effectiveOnOrBeforeDate = window.to;
                 }
                 const normalized = normalizeTaskFilters(filterInput as never);
                 const conditions = buildTaskWhereClause(userId, normalized);
@@ -206,6 +207,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
         description:
             "PROPOSAL ONLY — does NOT create anything. Drafts a task for the user to confirm; " +
             "the actual task is created later via the REST API after explicit approval. " +
+            "Never use it to change a task that already exists, including one created earlier in this chat " +
+            "(its taskId is in that proposal's result) — use propose_update_task. " +
             "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset from the runtime context (e.g. 2026-09-22T14:00:00-04:00), never Z. " +
             "Duration is in minutes.",
         inputSchema: z.object({
@@ -218,7 +221,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
             durationEstimate: z.number().int().min(1).max(1440).optional().describe("Minutes."),
             projectId: z.string().uuid().optional().describe("Target project (re-validated on confirm)."),
             tagIds: z.array(z.string().uuid()).max(20).optional().describe("Tags (re-validated on confirm)."),
-            priority: z.number().int().min(0).max(3).optional().describe("0=none..3=high."),
+            priority: z.number().int().min(0).max(4).optional().describe("0=none, 1=low, 2=medium, 3=high, 4=urgent."),
+            effort: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional().describe("1=low, 2=medium, 3=high effort. Omit for none."),
         }),
     }),
 
@@ -239,8 +243,50 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
             scheduledEnd: z.string().nullable().optional().describe("The user's local time with their UTC offset (e.g. 2026-09-22T14:00:00-04:00), or null to clear."),
             durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
             projectId: z.string().uuid().nullable().optional(),
-            priority: z.number().int().min(0).max(3).optional(),
+            priority: z.number().int().min(0).max(4).optional().describe("0=none, 1=low, 2=medium, 3=high, 4=urgent."),
+            effort: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable().optional().describe("1=low, 2=medium, 3=high effort, or null to clear."),
             waitingOn: z.string().max(500).nullable().optional().describe("Who/what it's blocked on."),
+            tagIds: z
+                .array(z.string().uuid())
+                .max(20)
+                .optional()
+                .describe("The task's FULL tag set after the change (current tags from get_task_detail plus/minus yours). [] removes all."),
+        }),
+    }),
+
+    // ── P ────────────────────────────────────────────────────────────────────
+    propose_add_subtask: tool({
+        description:
+            "PROPOSAL ONLY — does NOT create anything. Drafts a checklist subtask under an existing task " +
+            "(by id) for the user to confirm; created later via REST. One subtask per call.",
+        inputSchema: z.object({
+            taskId: z.string().uuid().describe("Parent task."),
+            title: z.string().min(1).max(500).describe("Subtask title."),
+        }),
+    }),
+
+    // ── P ────────────────────────────────────────────────────────────────────
+    propose_update_subtask: tool({
+        description:
+            "PROPOSAL ONLY — does NOT modify anything. Renames a subtask and/or ticks it done/undone " +
+            "(ids from get_task_detail); applied later via REST after approval.",
+        inputSchema: z.object({
+            taskId: z.string().uuid().describe("Parent task."),
+            subtaskId: z.string().uuid().describe("Subtask to change."),
+            title: z.string().min(1).max(500).optional().describe("New title."),
+            isComplete: z.boolean().optional().describe("true = done, false = not done."),
+        }),
+    }),
+
+    // ── P (destructive) ──────────────────────────────────────────────────────
+    propose_delete_subtask: tool({
+        description:
+            "PROPOSAL ONLY — does NOT delete anything. Removes a subtask (ids from get_task_detail) " +
+            "after explicit confirmation. Always echo the title so the user can verify.",
+        inputSchema: z.object({
+            taskId: z.string().uuid().describe("Parent task."),
+            subtaskId: z.string().uuid().describe("Subtask to delete."),
+            title: z.string().describe("Title of the subtask being deleted, for confirmation."),
         }),
     }),
 

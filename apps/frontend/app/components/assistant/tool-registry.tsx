@@ -7,6 +7,7 @@ import { BatchRescheduleCard } from "./widgets/BatchRescheduleCard";
 import { CompleteTasksCard } from "./widgets/CompleteTasksCard";
 import { CreateProjectCard } from "./widgets/CreateProjectCard";
 import { CreateTagCard } from "./widgets/CreateTagCard";
+import { SubtaskCard } from "./widgets/SubtaskCard";
 import { LogHabitCard } from "./widgets/LogHabitCard";
 import { InboxStructureCard } from "./widgets/InboxStructureCard";
 import { InboxClusterCard } from "./widgets/InboxClusterCard";
@@ -85,6 +86,21 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
         label: "Suggested a tag",
         render: (ctx, state) => <CreateTagCard ctx={ctx} state={state} />,
     },
+    propose_add_subtask: {
+        class: "proposal",
+        label: "Suggested a subtask",
+        render: (ctx, state) => <SubtaskCard ctx={ctx} state={state} mode="add" />,
+    },
+    propose_update_subtask: {
+        class: "proposal",
+        label: "Suggested a subtask change",
+        render: (ctx, state) => <SubtaskCard ctx={ctx} state={state} mode="update" />,
+    },
+    propose_delete_subtask: {
+        class: "proposal",
+        label: "Asked to delete a subtask",
+        render: (ctx, state) => <SubtaskCard ctx={ctx} state={state} mode="delete" />,
+    },
     propose_log_habit: {
         class: "proposal",
         label: "Proposed a routine check-in",
@@ -141,7 +157,10 @@ export function ToolPart({
 
     if (!descriptor) {
         // Unknown / future tool → neutral chip.
-        return <ToolActivityChip labels={["Working…"]} pending={part?.state !== "output-available"} />;
+        return <ToolActivityChip
+                calls={[{ label: "Working…", tool: toolName, input: part?.input, pending: part?.state !== "output-available" }]}
+                pending={part?.state !== "output-available"}
+            />;
     }
 
     if (descriptor.class === "read") {

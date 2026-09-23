@@ -16,11 +16,11 @@ export function CreateTagCard({
     const name = input.name ?? "this tag";
 
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
-        await createTag.mutateAsync({
+        const created = await createTag.mutateAsync({
             name: input.name,
             ...(input.color && { color: input.color }),
         });
-        return { name };
+        return { name, tagId: created?.id };
     });
 
     if (state === "output-available" || decision) {

@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+- Tap the assistant's "Looked a few things up" chip to see exactly which lookups it ran and with what.
+- The assistant can add, edit, tick off or delete subtasks, and add, remove or swap tags, after you confirm.
+- Assistant task cards mark tags being added (+) or removed (−), each in the tag's own colour.
+
+### Fixed
+- Assistant suggestion cards no longer squeeze to a narrow box when they arrive without a reply above them.
+- Correcting the assistant right after it adds something ("wait, 6pm") now updates that item instead of adding a copy.
+- The assistant now knows Urgent is a priority level above High, instead of treating High as the ceiling.
+- The assistant can now see and set a task's effort level (Low/Medium/High); it had no access to it before.
+- Saying a task is "hard" or "very easy" now sets its effort level, shown as a chip on the suggestion card.
+- A task suggestion or update now shows its priority as a small colored icon by the title, matching the task list.
+- Tasks timed for late evening now show on Today instead of going missing when that time is past midnight UTC.
+
 ## [0.17.0] - 2026-09-23
 
 Tags are now a real place to visit on your phone.
@@ -32,6 +46,8 @@ Tags are now a real place to visit on your phone.
 ### Fixed
 - On your phone, tapping a tag no longer sends you back to Capture.
 - Cadence no longer gets stuck loading when the assistant's last conversation was deleted; it starts a new one.
+- After a reload, the assistant shows its latest replies instead of an older saved copy of the conversation.
+- The assistant's task-update suggestions now name the task instead of saying “this task”.
 - Section and control tabs in a narrow window now scroll with a mouse wheel or drag.
 - Tasks in a deleted section move to Unsectioned right away instead of disappearing until a refresh.
 - Reminders now show as notifications in the Home Screen app on iPhone and iPad.

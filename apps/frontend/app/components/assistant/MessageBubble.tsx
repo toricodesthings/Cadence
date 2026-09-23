@@ -132,7 +132,7 @@ export function ChatMessage({
             {text}
         </div>
     ) : (
-        <div className="flex min-w-0 flex-col items-start gap-2">{children}</div>
+        <div className="flex w-full min-w-0 flex-col items-start gap-2">{children}</div>
     );
 
     const editor = (

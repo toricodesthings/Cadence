@@ -28,7 +28,7 @@ import { installDesktopE2EBridge } from "./platform/desktop-e2e";
 import { publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
 
 /** v2: API timestamps unified to strict ISO; drop caches holding Postgres-text timestamps. */
-const QUERY_CACHE_VERSION = "v2";
+const QUERY_CACHE_VERSION = "v3";
 
 // Adapter for react-router-dom Link (using react-router v7)
 function Link({
@@ -259,7 +259,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
             maxAge: 1000 * 60 * 60 * 24, // 24 hours
             // Bump QUERY_CACHE_VERSION when cached server data changes shape; old caches are dropped.
             buster: `${QUERY_CACHE_VERSION}:${session?.user.id ?? ""}`,
-            // Queries marked `meta: { persist: false }` (location, weather) stay in memory only.
+            // Queries marked `meta: { persist: false }` (location, weather, AI thread history) stay in memory only.
             dehydrateOptions: {
                 shouldDehydrateQuery: (query: Parameters<typeof defaultShouldDehydrateQuery>[0]) =>
                     defaultShouldDehydrateQuery(query) && query.meta?.persist !== false,
