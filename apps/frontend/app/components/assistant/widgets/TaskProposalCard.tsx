@@ -109,8 +109,10 @@ export function TaskProposalCard({
     // Only shown when the model explicitly set it — mirrors the left-edge bar TaskCard
     // uses to mark priority, so the same visual language carries into the proposal.
     const priorityOption = input.priority != null ? PRIORITY_OPTIONS.find((o) => o.value === input.priority) : undefined;
-    const eyebrow = mode === "create" ? "SUGGESTED TASK" : "TASK UPDATE";
-    const primaryLabel = mode === "update" ? "Update" : dateLabel ? "Schedule" : "Save";
+    // "Delete X" from the assistant means Trash (restorable), sent as a state update.
+    const toTrash = mode === "update" && input.state === "ARCHIVED";
+    const eyebrow = mode === "create" ? "SUGGESTED TASK" : toTrash ? "MOVE TO TRASH" : "TASK UPDATE";
+    const primaryLabel = toTrash ? "Move to Trash" : mode === "update" ? "Update" : dateLabel ? "Schedule" : "Save";
 
     if (state === "output-available" || decision) {
         const committed = decision === "commit";
@@ -119,7 +121,9 @@ export function TaskProposalCard({
                 ? dateLabel
                     ? `Scheduled “${title}” for ${dateLabel}.`
                     : `Saved “${title}”.`
-                : `Updated “${title}”.`
+                : toTrash
+                  ? `Moved “${title}” to Trash.`
+                  : `Updated “${title}”.`
             : mode === "create"
               ? "Left as-is."
               : "Kept it as it was.";

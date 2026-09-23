@@ -1,0 +1,14 @@
+# Settings
+- [About Cadence](?settings=about): version and product info.
+- [Profile & Security](?settings=account): name, email, password, two-factor, devices.
+- [Appearance](?settings=appearance): theme, accent, background, motion, density.
+- [Notifications](?settings=notifications): reminders, daily summary, routine prompts, quiet hours.
+- [Calendar & Time](?settings=datetime): formats, timezone, first day of week, calendar view, holidays, personal events.
+- [Tasks & Workflow](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features.
+- [Keyboard Shortcuts](?settings=shortcuts): key bindings and navigation shortcuts.
+- [Cadence Assistant](?settings=assistant): the assistant's name, voice and behavior.
+- [Integrations](?settings=integrations): coming soon.
+- [Intelligence & Privacy](?settings=ai): AI privacy, natural-language parsing, smart sort, focus views.
+- [Location & Weather](?settings=location): weather and holidays for your area.
+- [Data & Export](?settings=privacy): privacy preferences, data export, desktop updates.
+- [All settings](?settings=menu).

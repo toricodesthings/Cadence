@@ -8,13 +8,10 @@ import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { SETTINGS_DEFAULTS } from "@cadence/contracts/settings";
 import { buildToolRegistry, type AgentContext } from "./tools/index";
 import { PROMPT_BLOCKS } from "./prompt/prompt-blocks";
-import { composePrompt, selectToneBlock } from "./prompt/prompt-composer";
-import type {
-    AssistantPersona,
-    CompiledPromptBlocks,
-    HumanMetrics,
-    PromptRuntimeContext,
-} from "./prompt/prompt-blocks.schema";
+import { composePrompt, isWorkloadHigh } from "./prompt/prompt-composer";
+import type { AssistantPersona, PromptRuntimeContext } from "./prompt/prompt-blocks.schema";
+import { HELP_TOPICS } from "./tools/help";
+import type { ApprovalMode } from "@cadence/contracts/ai";
 import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
 import { isMemoryEnabled, embedText } from "./memory/embedding";
 import { retrieveMemories, type RetrievedMemory } from "./memory/memory-retrieval";
@@ -52,26 +49,23 @@ export interface AgentBuildOptions {
     timezone: string;
     currentDate: string;     // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
+    approvalMode: ApprovalMode;
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // latest user message text — used for memory retrieval
 }
 
 /**
- * Load the user's live metrics + assistant settings inside RLS. These drive tone
- * morphing and persona customization — replacing the old hard-coded prompt branch.
+ * Load the user's burnout index + assistant settings inside RLS. They pick the
+ * voice, the workload modifier and the Environment values.
  */
 async function loadUserContext(
     env: Env,
     userId: string,
-): Promise<{ metrics: HumanMetrics; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"] }> {
+): Promise<{ burnoutIndex: number; persona: AssistantPersona; weekStart: PromptRuntimeContext["weekStart"] }> {
     const db = getDbClient(env);
     return withRls(db, userId, async (tx) => {
         const [metricsRow] = await tx
-            .select({
-                rescheduleVelocity: userMetrics.rescheduleVelocity,
-                currentBurnoutIndex: userMetrics.currentBurnoutIndex,
-                overdueCarryLoad: userMetrics.overdueCarryLoad,
-            })
+            .select({ currentBurnoutIndex: userMetrics.currentBurnoutIndex })
             .from(userMetrics)
             .where(eq(userMetrics.userId, userId))
             .limit(1);
@@ -82,18 +76,12 @@ async function loadUserContext(
             .where(eq(users.id, userId))
             .limit(1);
 
-        const metrics: HumanMetrics = {
-            burnoutIndex: metricsRow?.currentBurnoutIndex ?? 10,
-            rescheduleVelocity: metricsRow?.rescheduleVelocity ?? 0,
-            overdueCarryLoad: metricsRow?.overdueCarryLoad ?? 0,
-        };
-
         // Merge stored assistant settings over defaults → a complete persona.
         const stored = (userRow?.settings as Record<string, any> | undefined)?.assistant ?? {};
         const persona = { ...SETTINGS_DEFAULTS.assistant, ...stored } as AssistantPersona;
         const weekStart = ((userRow?.settings as any)?.dateTime?.weekStart ?? "Sunday") as PromptRuntimeContext["weekStart"];
 
-        return { metrics, persona, weekStart };
+        return { burnoutIndex: metricsRow?.currentBurnoutIndex ?? 10, persona, weekStart };
     });
 }
 
@@ -122,28 +110,11 @@ async function maybeRetrieveMemories(
     }
 }
 
-/**
- * Filter the compiled auxiliary blocks for this turn: keep only the selected tone
- * block, and drop data blocks with nothing to say (no memories / no snapshot).
- */
-function selectAuxiliary(
-    compiled: CompiledPromptBlocks,
-    tone: "tone_neutral" | "tone_protective",
-    hasMemories: boolean,
-): CompiledPromptBlocks["auxiliary"] {
-    return compiled.auxiliary.filter((block) => {
-        if (block.kind === "tone_neutral" || block.kind === "tone_protective") return block.kind === tone;
-        if (block.kind === "retrieved_memory") return hasMemories;
-        if (block.kind === "workspace_snapshot") return false; // snapshot pre-fetch not wired in v1
-        return true;
-    });
-}
-
 let promptHash: Promise<string> | undefined;
 
 /**
  * Fingerprint of everything the model sees besides the conversation: the prompt
- * blocks plus each tool's name, description and input schema. Stamped on every
+ * blocks, the Cadence guide, and each tool's name, description and input schema. Stamped on every
  * assistant message so a behavior change can be traced to a prompt or tool edit.
  * Static per deploy, so computed once per isolate.
  */
@@ -151,22 +122,25 @@ function getPromptHash(tools: ToolSet): Promise<string> {
     promptHash ??= (async () => {
         const toolDefs = await Promise.all(Object.entries(tools).map(async ([name, t]) =>
             [name, t.description, await asSchema(t.inputSchema).jsonSchema]));
-        return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, toolDefs]));
+        return hashIdentifier(JSON.stringify([PROMPT_BLOCKS, HELP_TOPICS, toolDefs]));
     })();
     return promptHash;
 }
 
 /**
- * The user's clock for this turn. The model is shown local wall-clock time with
- * its offset and weekday ("2026-09-21T22:30:00-04:00 (Monday)"), never a UTC "Z"
- * instant it would misread as local; tools get the same zone and local date.
+ * The user's clock for this turn. The model is shown local wall-clock time to the
+ * minute with its offset and weekday ("2026-09-21 22:30 -04:00 (Monday)"), never a
+ * UTC "Z" instant it would misread as local. Minute precision keeps the prompt
+ * byte-identical within a minute (provider caching). Tools get the zone + local date.
  */
 export function userClock(timezone: string | undefined, currentDate: string) {
     const tz = resolveTimeZone(timezone);
     const parsed = new Date(currentDate);
     const now = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
     const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(now);
-    return { timezone: tz, now, today: toLocalDateStr(now, tz), localTime: `${toZonedIso(now, tz)} (${weekday})` };
+    const iso = toZonedIso(now, tz); // 2026-09-21T22:30:00-04:00
+    const localTime = `${iso.slice(0, 10)} ${iso.slice(11, 16)} ${iso.slice(19)} (${weekday})`;
+    return { timezone: tz, now, today: toLocalDateStr(now, tz), localTime };
 }
 
 /**
@@ -181,23 +155,21 @@ export async function getAgentInstance(
 ): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string }> {
     const locale = opts.locale ?? "en";
     const clock = userClock(opts.timezone, opts.currentDate);
-    const { metrics, persona, weekStart } = await loadUserContext(env, userId);
+    const { burnoutIndex, persona, weekStart } = await loadUserContext(env, userId);
     const memories = await maybeRetrieveMemories(env, userId, persona, opts.queryText);
 
-    const ctx: PromptRuntimeContext = {
-        timezone: clock.timezone,
-        currentDateISO: clock.localTime,
-        locale,
-        weekStart,
-        metrics,
-        persona,
-        memories,
-    };
-
-    const tone = selectToneBlock(metrics, persona.adaptiveTone);
     const instructions = composePrompt(
-        { base: PROMPT_BLOCKS.base, auxiliary: selectAuxiliary(PROMPT_BLOCKS, tone, memories.length > 0) },
-        ctx,
+        PROMPT_BLOCKS,
+        {
+            timezone: clock.timezone,
+            now: clock.localTime,
+            locale,
+            weekStart,
+            approvalMode: opts.approvalMode,
+            workloadHigh: isWorkloadHigh(burnoutIndex, persona.adaptiveTone),
+            persona,
+            memories,
+        },
         opts.nonce,
     );
 
@@ -215,7 +187,6 @@ export async function getAgentInstance(
         instructions,
         tools,
         stopWhen: isStepCount(MAX_TOOL_STEPS),
-        temperature: 0.4,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
 

@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+The assistant gets to the point, sounds like the voice you picked, and can explain any part of Cadence.
+
+### Added
+- Ask the assistant how anything in Cadence works or where it lives, and it explains and links you there.
+- A new Full approval mode lets the assistant apply every change, permanent deletes included, without asking.
+
+### Changed
+- The assistant's four voices (Secretary, Coach, Minimalist, Companion) now each sound clearly different.
+- The assistant talks more like a friend: short, relaxed replies unless you ask for more.
+- The assistant no longer asks in chat before showing a suggestion card.
+- Asking the assistant to delete a task now moves it to Trash unless you say permanently.
+
+### Fixed
+- Auto mode now waits for your tap before permanently deleting anything.
+
 ## [0.18.0] - 2026-09-23
 
 ### Added

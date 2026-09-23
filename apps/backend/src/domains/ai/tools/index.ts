@@ -9,6 +9,7 @@ import { inboxTools } from "./inbox";
 import { suggestionTools } from "./suggestions";
 import { calendarTools } from "./calendar";
 import { metricTools } from "./metrics";
+import { helpTools } from "./help";
 
 /**
  * Runtime context captured per request when the tool registry is built.
@@ -98,5 +99,6 @@ export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
         ...suggestionTools(env, userId, ctx),
         ...calendarTools(env, userId, ctx),
         ...metricTools(env, userId, ctx),
+        ...helpTools(),
     };
 }

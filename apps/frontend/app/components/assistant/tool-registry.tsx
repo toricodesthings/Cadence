@@ -49,6 +49,7 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     get_suggestions: { class: "read", label: "Took a look around" },
     get_user_metrics: { class: "read", label: "Took a look around" },
     get_schedule_window: { class: "read", label: "Scanned your schedule" },
+    get_cadence_help: { class: "read", label: "Checked the Cadence guide" },
 
     // ── proposal → interactive cards ──────────────────────────────────────
     propose_create_task: {
@@ -142,7 +143,7 @@ export function ToolPart({
     addToolResult,
     conversationId,
     messageId,
-    autoApprove,
+    approvalMode,
 }: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     part: any;
@@ -150,7 +151,7 @@ export function ToolPart({
     /** Thread + message hosting this part — lets proposals persist their decision. */
     conversationId?: string | null;
     messageId?: string;
-    autoApprove?: boolean;
+    approvalMode?: ToolRenderContext["approvalMode"];
 }) {
     const toolName = safeToolName(part);
     const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
@@ -174,7 +175,7 @@ export function ToolPart({
 
     // proposal
     const state = partRenderState(part);
-    const ctx: ToolRenderContext = { part, addToolResult, toolName: toolName!, conversationId, messageId, autoApprove };
+    const ctx: ToolRenderContext = { part, addToolResult, toolName: toolName!, conversationId, messageId, approvalMode };
     return <>{descriptor.render?.(ctx, state)}</>;
 }
 

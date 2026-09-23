@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { hardRefreshWorkspaceCaches } from "../../../lib/api/workspace-cache";
 import { useApiClient } from "../../../hooks/auth/use-api-client";
+import type { ApprovalMode } from "@cadence/contracts/ai";
 import type { ProposalCardState } from "./ProposalCard";
 
 /** Typed-enough context every proposal renderer receives (tool parts stay `any`). */
@@ -36,8 +37,8 @@ export interface ToolRenderContext {
     /** Thread + message hosting this part — used to persist the decision server-side. */
     conversationId?: string | null;
     messageId?: string;
-    /** Auto-approve mode is on AND this part streamed live in this tab: commit without asking. */
-    autoApprove?: boolean;
+    /** The approval mode for this part: "ask" unless it streamed live from a turn this tab sent. */
+    approvalMode?: ApprovalMode;
 }
 
 /** Map an AI SDK tool-part `state` to the ProposalCard's render state. */
@@ -53,15 +54,22 @@ export function partRenderState(part: { state?: string }): ProposalCardState {
     }
 }
 
+/** Whether a proposal commits itself: Full applies everything, Auto all but permanent deletes. */
+export function shouldAutoApply(mode: ApprovalMode | undefined, destructive: boolean): boolean {
+    return mode === "full" || (mode === "auto" && !destructive);
+}
+
 /**
  * Drive a proposal card's confirm/decline lifecycle.
  *
  * @param ctx           the render context (part + addToolResult + toolName)
  * @param performWrite  the REST write; resolves with a small result echoed to the model
+ * @param destructive   a permanent delete: Auto mode leaves it for a tap, only Full applies it
  */
 export function useProposalResolver(
     ctx: ToolRenderContext,
     performWrite: () => Promise<Record<string, unknown> | void>,
+    { destructive = false }: { destructive?: boolean } = {},
 ) {
     const queryClient = useQueryClient();
     const client = useApiClient();
@@ -125,14 +133,15 @@ export function useProposalResolver(
         setLocalDecision("discard");
     }, [addToolResult, toolName, part?.toolCallId, persistDecision]);
 
-    // Auto-approve: commit once, the moment the proposal is ready. Never retries on
+    // Auto/Full: commit once, the moment the proposal is ready. Never retries on
     // its own — a failed write falls back to the card's normal "Try again".
+    const autoApply = shouldAutoApply(ctx.approvalMode, destructive);
     const autoTried = useRef(false);
     useEffect(() => {
-        if (!ctx.autoApprove || autoTried.current || decision || part?.state !== "input-available") return;
+        if (!autoApply || autoTried.current || decision || part?.state !== "input-available") return;
         autoTried.current = true;
         void confirm();
-    }, [ctx.autoApprove, decision, part?.state, confirm]);
+    }, [autoApply, decision, part?.state, confirm]);
 
     return { resolving, writeError, decision, confirm, discard };
 }

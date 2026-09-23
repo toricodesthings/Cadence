@@ -9,8 +9,6 @@ import { cn } from "../../../lib/utils";
 const CUSTOM_INSTRUCTIONS_MAX = 600;
 
 type Persona = UserSettings["assistant"]["persona"];
-type Tone = UserSettings["assistant"]["tone"];
-type Verbosity = UserSettings["assistant"]["verbosity"];
 
 const personaOptions: ReadonlyArray<{
     value: Persona;
@@ -18,24 +16,11 @@ const personaOptions: ReadonlyArray<{
     description: string;
     icon: LucideIcon;
 }> = [
-    { value: "secretary", label: "Secretary", description: "Efficient, low-friction planning partner", icon: ClipboardList },
-    { value: "coach", label: "Coach", description: "Warmer and momentum-focused", icon: Goal },
-    { value: "minimalist", label: "Minimalist", description: "Lists only, near-zero prose", icon: Feather },
-    { value: "companion", label: "Companion", description: "Gentle, high-empathy company", icon: Heart },
+    { value: "secretary", label: "Secretary", description: "Friendly and to the point", icon: ClipboardList },
+    { value: "coach", label: "Coach", description: "Keeps you moving", icon: Goal },
+    { value: "minimalist", label: "Minimalist", description: "The fewest words", icon: Feather },
+    { value: "companion", label: "Companion", description: "Gentle when things feel heavy", icon: Heart },
 ];
-
-/**
- * Persona is the single voice control. Selecting one also sets a coherent base
- * tone + length under the hood, so we never expose redundant Tone / Response-length
- * pickers (the Minimalist persona already *is* "terse"). Adaptive tone then shifts
- * delivery under load on top of this.
- */
-const PERSONA_REGISTER: Record<Persona, { tone: Tone; verbosity: Verbosity }> = {
-    secretary: { tone: "neutral", verbosity: "balanced" },
-    coach: { tone: "warm", verbosity: "balanced" },
-    minimalist: { tone: "neutral", verbosity: "terse" },
-    companion: { tone: "warm", verbosity: "detailed" },
-};
 
 export function AssistantTab() {
     const { data: settings } = useSettings();
@@ -49,8 +34,8 @@ export function AssistantTab() {
         updateSettings.mutate({ assistant: patch });
     };
 
-    const selectPersona = (value: Persona) =>
-        updateAssistant({ persona: value, ...PERSONA_REGISTER[value] });
+    // Persona is the one voice setting (tone and length are part of it).
+    const selectPersona = (value: Persona) => updateAssistant({ persona: value });
 
     return (
         <div className="flex flex-col gap-10">

@@ -1,42 +1,28 @@
 /**
- * Prompt-block types shared by the block set (prompt-blocks.ts), the composer,
- * persona directives and agent.ts. Keep names stable.
+ * Prompt types shared by the block set (prompt-blocks.ts), the composer and
+ * agent.ts. Keep names stable.
  */
+import type { ApprovalMode } from "@cadence/contracts/ai";
 
-/** The 12 canonical block kinds. */
-export type PromptBlockKind =
-    | "identity" | "safety" | "operating_principles" | "output_contract" | "tool_policy"
-    | "runtime_context" | "human_metrics" | "persona_customization"
-    | "retrieved_memory" | "workspace_snapshot" | "tone_neutral" | "tone_protective";
+export type Voice = "secretary" | "coach" | "minimalist" | "companion";
 
-/** Composition layer. Base is highest authority and always precedes Auxiliary. */
-export type PromptLayer = "base" | "auxiliary";
-
-/** A single modular prompt fragment (one markdown file in ./blocks). */
-export interface PromptBlock {
-    kind: PromptBlockKind;
-    layer: PromptLayer;
-    /** May contain {{placeholders}} resolved by the composer. */
-    template: string;
-}
-
-/** The block set, partitioned by layer; each array is in composition order. */
-export interface CompiledPromptBlocks {
-    base: PromptBlock[];
-    auxiliary: PromptBlock[];
-}
-
-/** Live psychological-load metrics that drive tone morphing (from user_metrics). */
-export interface HumanMetrics {
-    burnoutIndex: number;
-    rescheduleVelocity: number;
-    overdueCarryLoad: number;
+/** The block set: static base sections in order, then the per-user/per-turn templates. */
+export interface PromptBlocks {
+    base: string[];
+    voices: Record<Voice, string>;
+    /** Appended to the voice when the workload is high (adaptive tone). */
+    workloadHigh: string;
+    /** Templates with {{placeholders}} resolved by the composer. */
+    customInstructions: string;
+    environment: string;
+    memory: string;
 }
 
 /**
- * User-chosen assistant personality (from users.settings.assistant — doc 07).
- * `customInstructions` is free text and UNTRUSTED; the composer sanitizes + fences
- * it separately, the persona mapper never inlines it.
+ * User-chosen assistant settings (users.settings.assistant). `persona` is the one
+ * voice setting; `tone` and `verbosity` stay in the settings contract for
+ * back-compat but no longer reach the prompt. Names and `customInstructions` are
+ * free text and UNTRUSTED: the composer sanitizes and fences them.
  */
 export interface AssistantPersona {
     persona: string;
@@ -59,24 +45,19 @@ export interface RetrievedMemory {
     salience: number;
 }
 
-/** Token-bounded counts-only workspace summary to reduce first-turn tool calls. */
-export interface WorkspaceSnapshot {
-    activeTasks: number;
-    overdue: number;
-    projects: number;
-}
-
 /**
- * Everything the composer needs at request time. All async (DB block load,
- * metrics fetch, RAG) happens before this is built, so the composer stays pure.
+ * Everything the composer needs at request time. All async (settings, metrics,
+ * RAG) happens before this is built, so the composer stays pure.
  */
 export interface PromptRuntimeContext {
     timezone: string;
-    currentDateISO: string;
+    /** The user's local clock, minute precision: "2026-09-23 14:05 -04:00 (Wednesday)". */
+    now: string;
     locale: string;
     weekStart: "Sunday" | "Monday" | "Saturday";
-    metrics: HumanMetrics;
-    persona?: AssistantPersona;
+    approvalMode: ApprovalMode;
+    /** Adaptive tone is on and the user's burnout index is above the threshold. */
+    workloadHigh: boolean;
+    persona: AssistantPersona;
     memories?: RetrievedMemory[];
-    snapshot?: WorkspaceSnapshot;
 }

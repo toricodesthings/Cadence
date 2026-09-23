@@ -44,6 +44,10 @@ export const userMessageSchema = uiMessageSchema.extend({ role: z.literal("user"
 export const assistantMessageSchema = uiMessageSchema.extend({ role: z.literal("assistant") });
 
 /** Chat request — load-by-id: client sends the latest user message + conversationId. */
+/** Composer approval mode: ask first · auto (all but permanent deletes) · full (everything). */
+export const approvalModeSchema = z.enum(["ask", "auto", "full"]);
+export type ApprovalMode = z.infer<typeof approvalModeSchema>;
+
 export const chatRequestSchema = z.object({
     conversationId: z.string().uuid().optional(),
     message: userMessageSchema,
@@ -52,6 +56,8 @@ export const chatRequestSchema = z.object({
     /** BCP-47 locale of the client (e.g. "en-CA") — feeds runtime prompt context. */
     locale: z.string().min(2).max(35).optional(),
     clientMessageId: z.string().max(64).optional(),
+    /** The composer's approval mode, rendered into the prompt's Environment. */
+    approvalMode: approvalModeSchema.default("ask"),
     /**
      * Edit-truncation anchor. Sent ONLY on an explicit message edit: the id of
      * the last message the client kept (rows after it are dropped server-side

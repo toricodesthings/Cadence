@@ -42,7 +42,7 @@ export function SubtaskCard({ ctx, state, mode }: { ctx: ToolRenderContext; stat
         }
         await deleteSubtask.mutateAsync(input.subtaskId);
         return { title };
-    });
+    }, { destructive: mode === "delete" });
 
     const { eyebrow, primary } = COPY[mode];
     const glyph = mode === "add" ? ListChecks : mode === "update" ? Pencil : AlertCircle;

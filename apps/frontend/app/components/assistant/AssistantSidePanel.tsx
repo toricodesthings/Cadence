@@ -2,12 +2,13 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
-import { X, ArrowUp, ArrowDown, History, SquarePen, Plus, Zap, ShieldCheck, ChevronDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
+import { X, ArrowUp, ArrowDown, History, SquarePen, Plus, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ResizableSidePanel } from "../shared/ResizableSidePanel";
 import { Tip, DropdownMenu } from "../primitives";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { useAssistantStore } from "../../stores/assistant-store";
+import type { ApprovalMode } from "@cadence/contracts/ai";
 import { ChatMessage, ChatAvatar, AssistantText } from "./MessageBubble";
 import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt, type ReceiptState } from "./ReadReceipt";
@@ -105,6 +106,12 @@ const STARTERS = [
 ];
 
 const MAX_ATTACHMENTS = 4;
+
+const APPROVAL_MODES: Record<ApprovalMode, { label: string; icon: React.ReactNode; hint: (name: string) => string }> = {
+    ask: { label: "Ask first", icon: <ShieldCheck size={13} aria-hidden />, hint: () => "Confirm every create, change or delete" },
+    auto: { label: "Auto", icon: <Zap size={13} aria-hidden />, hint: (name) => `${name} applies changes, but asks before deleting for good` },
+    full: { label: "Full", icon: <ShieldOff size={13} aria-hidden />, hint: (name) => `${name} applies every change, deletes included` },
+};
 type Attachment = { id: string; name: string; url: string };
 
 /** The `status` metadata a persisted assistant turn may carry (§8.3). */
@@ -130,8 +137,8 @@ export function AssistantSidePanel({
         setHistoryOpen,
         startNewConversation,
         setActiveConversation,
-        autoApprove,
-        setAutoApprove,
+        approvalMode,
+        setApprovalMode,
     } = useAssistantStore();
     const coarse = useIsCoarsePointer();
     const { session } = useAuthState();
@@ -855,8 +862,8 @@ export function AssistantSidePanel({
                                 const grouped = index > 0 && messages[index - 1].role === message.role;
                                 const isLastAssistant = index === lastAssistantIndex;
                                 const failed = messageStatus(message) === "failed";
-                                const autoApproveHere =
-                                    autoApprove && !isStreaming && liveMessageIdsRef.current.has(message.id);
+                                const approvalModeHere =
+                                    !isStreaming && liveMessageIdsRef.current.has(message.id) ? approvalMode : "ask";
 
                                 // Failed-turn recovery after reload (§8.3); otherwise the latest
                                 // user turn carries the read receipt under its avatar.
@@ -905,7 +912,7 @@ export function AssistantSidePanel({
                                                             addToolResult={reportToolResult}
                                                             conversationId={activeConversationId}
                                                             messageId={message.id}
-                                                            autoApprove={autoApproveHere}
+                                                            approvalMode={approvalModeHere}
                                                         />
                                                     </div>
                                                 ),
@@ -1073,44 +1080,38 @@ export function AssistantSidePanel({
                             </button>
                         </Tip>
 
-                        {/* Approval mode — Ask first (default) or Auto: proposals commit themselves. */}
+                        {/* Approval mode — Ask first (default), Auto (all but permanent deletes) or Full. */}
                         <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
                                 <button
                                     type="button"
-                                    aria-label={`Approval mode: ${autoApprove ? "Auto" : "Ask first"}`}
+                                    aria-label={`Approval mode: ${APPROVAL_MODES[approvalMode].label}`}
                                     className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors cursor-pointer ${
-                                        autoApprove
+                                        approvalMode !== "ask"
                                             ? "bg-accent-primary/15 text-accent-primary hover:bg-accent-primary/22"
                                             : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
                                     }`}
                                 >
-                                    {autoApprove ? <Zap size={13} aria-hidden /> : <ShieldCheck size={13} aria-hidden />}
-                                    {autoApprove ? "Auto" : "Ask first"}
+                                    {APPROVAL_MODES[approvalMode].icon}
+                                    {APPROVAL_MODES[approvalMode].label}
                                     <ChevronDown size={12} className="opacity-60" aria-hidden />
                                 </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content side="top" align="start" className="w-[260px]">
                                 <DropdownMenu.RadioGroup
-                                    value={autoApprove ? "auto" : "ask"}
-                                    onValueChange={(v) => setAutoApprove(v === "auto")}
+                                    value={approvalMode}
+                                    onValueChange={(v) => setApprovalMode(v as ApprovalMode)}
                                 >
-                                    <DropdownMenu.RadioItem value="ask">
-                                        <span className="flex flex-col">
-                                            <span>Ask first</span>
-                                            <span className="text-[11px] font-normal text-twilight-text-muted">
-                                                Confirm every create, change or delete
+                                    {(Object.keys(APPROVAL_MODES) as ApprovalMode[]).map((mode) => (
+                                        <DropdownMenu.RadioItem key={mode} value={mode}>
+                                            <span className="flex flex-col">
+                                                <span>{APPROVAL_MODES[mode].label}</span>
+                                                <span className="text-[11px] font-normal text-twilight-text-muted">
+                                                    {APPROVAL_MODES[mode].hint(assistantName)}
+                                                </span>
                                             </span>
-                                        </span>
-                                    </DropdownMenu.RadioItem>
-                                    <DropdownMenu.RadioItem value="auto">
-                                        <span className="flex flex-col">
-                                            <span>Auto</span>
-                                            <span className="text-[11px] font-normal text-twilight-text-muted">
-                                                {assistantName} applies changes without asking
-                                            </span>
-                                        </span>
-                                    </DropdownMenu.RadioItem>
+                                        </DropdownMenu.RadioItem>
+                                    ))}
                                 </DropdownMenu.RadioGroup>
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>

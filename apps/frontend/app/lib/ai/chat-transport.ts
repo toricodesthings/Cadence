@@ -16,6 +16,7 @@
  */
 import { DefaultChatTransport } from "ai";
 import { API_BASE_URL } from "../env";
+import { useAssistantStore } from "../../stores/assistant-store";
 
 /**
  * Build a load-by-id transport. The getters are read lazily on every send so the
@@ -50,6 +51,8 @@ export function makeChatTransport(
                     currentDate: new Date().toISOString(),
                     // BCP-47 client locale → runtime prompt context ({{locale}}).
                     locale: typeof navigator !== "undefined" ? navigator.language : undefined,
+                    // The composer's approval mode → the prompt's Environment.
+                    approvalMode: useAssistantStore.getState().approvalMode,
                 },
                 headers: { "Idempotency-Key": clientMessageId },
             };

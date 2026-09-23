@@ -264,6 +264,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         timezone: body.timezone,
         currentDate: body.currentDate,
         locale: body.locale,
+        approvalMode: body.approvalMode,
         nonce,
         queryText: extractText(incoming.parts),
     });

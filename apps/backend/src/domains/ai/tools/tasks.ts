@@ -214,7 +214,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "the actual task is created later via the REST API after explicit approval. " +
             "Never use it to change a task that already exists, including one created earlier in this chat " +
             "(its taskId is in that proposal's result) — use propose_update_task. " +
-            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset from the runtime context (e.g. 2026-09-22T14:00:00-04:00), never Z. " +
+            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset (the offset in Environment, e.g. 2026-09-22T14:00:00-04:00), never Z. " +
             "Duration is in minutes.",
         inputSchema: z.object({
             title: z.string().min(1).max(500).describe("Task title."),
@@ -236,7 +236,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
         description:
             "PROPOSAL ONLY — does NOT modify anything. Validates a field change/reschedule on " +
             "an existing task (by id) and returns it for confirmation. Applied later via REST. " +
-            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset from the runtime context (e.g. 2026-09-22T14:00:00-04:00), never Z. " +
+            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset (the offset in Environment, e.g. 2026-09-22T14:00:00-04:00), never Z. " +
             "Duration is in minutes.",
         inputSchema: z.object({
             taskId: z.string().uuid().describe("Task to change."),

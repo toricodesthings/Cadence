@@ -55,7 +55,7 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
         description:
             "PROPOSAL ONLY — does NOT write anything. Turns a messy capture into a structured task " +
             "draft for confirmation; the task is created (and the capture placed) later via REST. " +
-            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset from the runtime context (e.g. 2026-09-22T14:00:00-04:00), never Z. " +
+            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset (the offset in Environment, e.g. 2026-09-22T14:00:00-04:00), never Z. " +
             "Duration is in minutes.",
         inputSchema: z.object({
             inboxItemId: z.string().uuid().describe("Source capture id."),

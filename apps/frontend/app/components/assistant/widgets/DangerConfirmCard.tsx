@@ -27,7 +27,7 @@ export function DangerConfirmCard({
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
         await deleteTask.mutateAsync(input.taskId);
         return { title };
-    });
+    }, { destructive: true });
 
     if (state === "output-available" || decision) {
         const committed = decision === "commit";
