@@ -5,6 +5,8 @@ import { Switch } from "../../primitives";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS, type UserSettings } from "../../../types/settings";
 import { cn } from "../../../lib/utils";
+import { useAiUsage } from "../../../hooks/ai/use-ai-usage";
+import { formatReset } from "../../../lib/ai/usage";
 
 const CUSTOM_INSTRUCTIONS_MAX = 600;
 
@@ -29,6 +31,9 @@ export function AssistantTab() {
     const customInstructions = assistant.customInstructions ?? "";
     const assistantName = assistant.assistantName?.trim() || SETTINGS_DEFAULTS.assistant.assistantName;
     const charsNearLimit = customInstructions.length > CUSTOM_INSTRUCTIONS_MAX * 0.9;
+    const { data: usage } = useAiUsage(true);
+    const images = usage?.enabled ? usage.images : undefined;
+    const imagesReset = images ? formatReset(images.resetEpoch, Date.now()) : null;
 
     const updateAssistant = (patch: Partial<UserSettings["assistant"]>) => {
         updateSettings.mutate({ assistant: patch });
@@ -176,6 +181,18 @@ export function AssistantTab() {
                         onCheckedChange={(value) => updateAssistant({ memoryEnabled: value })}
                     />
                 </SettingsRow>
+
+                {images ? (
+                    <SettingsRow
+                        title="Photos"
+                        description={`Send up to ${images.perMessage} per message. Photos are kept 30 days after you last send them.`}
+                    >
+                        <p className="text-sm tabular-nums text-twilight-text-soft">
+                            Images today: {images.used} of {images.limit}
+                            {images.used > 0 && imagesReset ? ` · resets ${imagesReset}` : ""}
+                        </p>
+                    </SettingsRow>
+                ) : null}
             </SettingsSection>
 
             {/* ── Custom Guidance ── full-width, never a SettingsRow (which caps width) */}

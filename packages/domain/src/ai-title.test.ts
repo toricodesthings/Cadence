@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     deriveFallbackTitle,
     normalizeTitle,
+    PHOTO_CONVERSATION,
     UNTITLED_CONVERSATION,
     TITLE_MAX_CHARS,
 } from "./ai-title";
@@ -10,6 +11,11 @@ describe("deriveFallbackTitle", () => {
     it("returns the placeholder for empty/whitespace input", () => {
         expect(deriveFallbackTitle("")).toBe(UNTITLED_CONVERSATION);
         expect(deriveFallbackTitle("   \n\t ")).toBe(UNTITLED_CONVERSATION);
+    });
+
+    it("titles a photo-only first message", () => {
+        expect(deriveFallbackTitle("", true)).toBe(PHOTO_CONVERSATION);
+        expect(deriveFallbackTitle("whiteboard", true)).toBe("Whiteboard");
     });
 
     it("capitalizes the first character and collapses whitespace", () => {

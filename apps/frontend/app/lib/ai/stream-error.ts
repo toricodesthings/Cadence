@@ -27,6 +27,14 @@ const ERROR_COPY: Record<string, { line: string; isRetryable: boolean }> = {
         line: "A lot going on right now. Give it a moment, then try again.",
         isRetryable: true,
     },
+    AI_IMAGE_LIMITED: {
+        line: "That’s all the images for today. Your words can still go on their own.",
+        isRetryable: false,
+    },
+    IMAGE_NOT_FOUND: {
+        line: "That image expired. Attach it again, or send without it.",
+        isRetryable: false,
+    },
     AI_TIMEOUT: {
         line: "I lost the thread for a second. Want me to try that again?",
         isRetryable: true,
@@ -73,7 +81,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseStreamErrorText(text: string | undefined | null): StreamError {
     if (typeof text === "string" && text.trim()) {
         try {
-            const parsed: unknown = JSON.parse(text);
+            const json: unknown = JSON.parse(text);
+            // A pre-stream HTTP failure arrives as the whole `{ error: {...} }` envelope.
+            const parsed = isRecord(json) && isRecord(json.error) ? json.error : json;
             if (isRecord(parsed)) {
                 const code = typeof parsed.code === "string" ? parsed.code : undefined;
                 const known = code ? ERROR_COPY[code] : undefined;

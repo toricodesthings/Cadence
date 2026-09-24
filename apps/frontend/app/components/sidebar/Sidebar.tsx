@@ -86,63 +86,30 @@ export function Sidebar({
         };
     }, [isResizing, resize, stopResizing]);
 
-    if (mode === "wide") {
-        return (
-            <aside className="layer-shell-base relative flex h-full shrink-0" aria-label="Application navigation">
+    if (mode === "phone" || mode === "tablet") return null;
+
+    const panelOpen = showPersistentPanel && !isCollapsed;
+
+    // Laptop nav lives in the panel, so the rail only stands in while the panel is
+    // hidden (collapsed, or a full-bleed route); otherwise there'd be no way to navigate.
+    return (
+        <aside className="layer-shell-base relative flex h-full shrink-0" aria-label="Application navigation">
+            {(mode === "wide" || !panelOpen) && (
                 <IconRail onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
-                <AnimatePresence initial={false}>
-                    {showPersistentPanel && !isCollapsed && (
-                        <motion.div
-                            id="sidebar-panel"
-                            key="sidebar-panel"
-                            initial={{ width: 0 }}
-                            animate={{ width }}
-                            exit={{ width: 0 }}
-                            transition={sidebarMotionTransition}
-                            style={{ overflow: "hidden", willChange: "width" }}
-                            className="relative shrink-0 group/sidebar"
-                        >
-                            <motion.div
-                                initial={{ x: -32, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                exit={{ x: -24, opacity: 0 }}
-                                transition={sidebarMotionTransition}
-                                className="relative h-full w-full"
-                                style={{ willChange: "transform, opacity" }}
-                            >
-                                <SidebarPanel onSearchOpen={onSearchOpen} />
-
-                                <div
-                                    onMouseDown={startResizing}
-                                    className={`
-                                        absolute top-0 right-0 h-full w-1 cursor-col-resize z-50
-                                        transition-colors duration-200
-                                        ${isResizing ? "bg-accent-primary/40" : "hover:bg-accent-primary/20"}
-                                    `}
-                                />
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </aside>
-        );
-    }
-
-    if (mode === "laptop") {
-        const laptopWidth = Math.max(SIDEBAR_MIN_WIDTH, width);
-
-        return (
+            )}
             <AnimatePresence initial={false}>
-                {showPersistentPanel && !isCollapsed && (
-                    <motion.aside
+                {panelOpen && (
+                    <motion.div
                         id="sidebar-panel"
-                        key="laptop-sidebar"
+                        key="sidebar-panel"
                         initial={{ width: 0 }}
-                        animate={{ width: laptopWidth }}
+                        animate={{ width: Math.max(SIDEBAR_MIN_WIDTH, width) }}
                         exit={{ width: 0 }}
                         transition={sidebarMotionTransition}
-                        className="photo-shell-surface sticky top-0 relative h-full shrink-0 self-start overflow-hidden border-r border-twilight-border bg-twilight-surface/35 backdrop-blur-xl"
-                        aria-label="Application navigation"
+                        style={{ overflow: "hidden", willChange: "width" }}
+                        className={mode === "wide"
+                            ? "relative shrink-0 group/sidebar"
+                            : "photo-shell-surface sticky top-0 relative h-full shrink-0 self-start border-r border-twilight-border bg-twilight-surface/35 backdrop-blur-xl"}
                     >
                         <motion.div
                             initial={{ x: -32, opacity: 0 }}
@@ -163,11 +130,9 @@ export function Sidebar({
                                 `}
                             />
                         </motion.div>
-                    </motion.aside>
+                    </motion.div>
                 )}
             </AnimatePresence>
-        );
-    }
-
-    return null;
+        </aside>
+    );
 }

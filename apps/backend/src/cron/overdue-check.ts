@@ -1,6 +1,7 @@
-import { eq, and, lt, sql, inArray } from "drizzle-orm";
+import { eq, and, lt, sql, inArray, isNull, or } from "drizzle-orm";
 import { getDbClient } from "../platform/db";
-import { tasks, taskMetrics, mutationDedup, aiMemories } from "../db/schema";
+import { tasks, taskMetrics, mutationDedup, aiMemories, aiImages } from "../db/schema";
+import { aiImageKey, deleteImageObjects, IMAGE_RETENTION_DAYS, ORPHAN_HOURS } from "../domains/ai/images/chat-images";
 import { withRls } from "../platform/rls";
 import { computeWorkloadSignals } from "../platform/metrics";
 import { logger, hashIdentifier, issuesFromError } from "../platform/log";
@@ -100,4 +101,45 @@ export async function pruneAiMemories(env: Env) {
         .returning({ id: aiMemories.id });
 
     logger.info("cron", "memory_prune_summary", { pruned: deleted.length });
+}
+
+/**
+ * Chat image retention: deletes images attached but never sent (older than a
+ * day) and images unused for 30 days. R2 lifecycle rules count from upload, not
+ * last use, so this sweep is the rule. Storage goes before rows, so a failed
+ * delete leaves the row for the next run. Cron runs as table owner (sweeps all users).
+ */
+export async function pruneAiImages(env: Env) {
+    const bucket = env.USER_ASSETS;
+    if (!bucket) return;
+    const db = getDbClient(env);
+    const BATCH = 1000;
+    const orphanCutoff = new Date(Date.now() - ORPHAN_HOURS * 60 * 60 * 1000).toISOString();
+    const idleCutoff = new Date(Date.now() - IMAGE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    let pruned = 0;
+    for (;;) {
+        const rows = await db
+            .select({ id: aiImages.id, userId: aiImages.userId })
+            .from(aiImages)
+            .where(
+                or(
+                    and(isNull(aiImages.sentAt), lt(aiImages.createdAt, orphanCutoff)),
+                    lt(aiImages.lastUsedAt, idleCutoff),
+                ),
+            )
+            .limit(BATCH);
+        if (rows.length === 0) break;
+
+        const userKeys = new Map<string, string>();
+        for (const { userId } of rows) {
+            if (!userKeys.has(userId)) userKeys.set(userId, await hashIdentifier(userId));
+        }
+        await deleteImageObjects(bucket, rows.map((row) => aiImageKey(userKeys.get(row.userId)!, row.id)));
+        await db.delete(aiImages).where(inArray(aiImages.id, rows.map((row) => row.id)));
+        pruned += rows.length;
+        if (rows.length < BATCH) break;
+    }
+
+    if (pruned > 0) logger.info("cron", "ai_image_prune_summary", { pruned });
 }

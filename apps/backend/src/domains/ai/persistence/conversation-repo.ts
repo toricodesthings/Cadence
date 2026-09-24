@@ -11,7 +11,7 @@
  * ModelMessages. See docs/ai_upgrade/08.
  */
 import { and, asc, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
-import { aiConversations, aiMessages } from "../../../db/schema";
+import { aiConversations, aiImages, aiMessages } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 import { AppError } from "../../../platform/errors";
 import { logger } from "../../../platform/log";
@@ -387,6 +387,15 @@ export async function getConversation(
     return row ?? null;
 }
 
+/** Ids of the images attached in a thread (to delete their stored bytes first). */
+export async function listConversationImageIds(tx: Tx, userId: string, conversationId: string): Promise<string[]> {
+    const rows = await tx
+        .select({ id: aiImages.id })
+        .from(aiImages)
+        .where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
+    return rows.map((row) => row.id);
+}
+
 /**
  * Mark a conversation as having a live producing stream. Set when production
  * starts so the resume GET can find the in-flight chunk-log (doc Update 4 §7.6).
@@ -451,11 +460,15 @@ export async function renameOrArchiveConversation(
 }
 
 /** Delete a conversation (messages cascade via FK). Throws 404 if not owned/found. */
+/** Delete a thread, its messages (cascade) and its image rows. Storage is the caller's job, before this. */
 export async function deleteConversation(
     tx: Tx,
     userId: string,
     conversationId: string,
 ): Promise<void> {
+    await tx
+        .delete(aiImages)
+        .where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
     const deleted = await tx
         .delete(aiConversations)
         .where(and(eq(aiConversations.id, conversationId), eq(aiConversations.userId, userId)))

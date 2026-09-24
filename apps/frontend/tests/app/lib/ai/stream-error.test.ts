@@ -6,6 +6,11 @@ import {
 } from "../../../../app/lib/ai/stream-error";
 
 describe("parseStreamErrorText", () => {
+    it("reads a pre-stream HTTP error envelope (the chat transport's error text)", () => {
+        const text = JSON.stringify({ error: { code: "AI_IMAGE_LIMITED", message: "raw", status: 429, isRetryable: false, requestId: "req_9" } });
+        expect(parseStreamErrorText(text)).toMatchObject({ code: "AI_IMAGE_LIMITED", isRetryable: false, requestId: "req_9" });
+    });
+
     it("parses a typed mid-stream error part and prefers the calm copy line", () => {
         const text = JSON.stringify({
             code: "AI_TIMEOUT",

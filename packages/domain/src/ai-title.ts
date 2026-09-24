@@ -18,6 +18,9 @@ export const TITLE_MAX_WORDS = 6;
 /** The string shown when there is genuinely nothing to title (empty input). */
 export const UNTITLED_CONVERSATION = "New conversation";
 
+/** The title of a thread that opened with a photo and no words. */
+export const PHOTO_CONVERSATION = "Photo";
+
 /** Capitalize the first character without touching the rest. */
 function upperFirst(s: string): string {
     return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
@@ -34,11 +37,12 @@ function clamp(text: string): string {
 
 /**
  * Deterministic fallback title derived from the user's first message. Never
- * throws; an empty/whitespace message yields {@link UNTITLED_CONVERSATION}.
+ * throws; an empty/whitespace message yields {@link PHOTO_CONVERSATION} when it
+ * carried images, else {@link UNTITLED_CONVERSATION}.
  */
-export function deriveFallbackTitle(text: string): string {
+export function deriveFallbackTitle(text: string, hasImages = false): string {
     const clean = text.replace(/\s+/g, " ").trim();
-    if (!clean) return UNTITLED_CONVERSATION;
+    if (!clean) return hasImages ? PHOTO_CONVERSATION : UNTITLED_CONVERSATION;
     return upperFirst(clamp(clean));
 }
 

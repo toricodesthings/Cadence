@@ -62,7 +62,8 @@ export interface TaskRow {
 export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
     const show = (value: string | null) =>
         value === null ? undefined : row.isAllDay ? value.slice(0, 10) : toZonedIso(new Date(value), timezone);
-    const task: MinimalTask = {
+    // Unset fields are undefined, which JSON leaves out, so they cost nothing on the wire.
+    return {
         // An expanded occurrence's id is "<series>::<start>"; the model acts on the series.
         id: row.seriesId ?? row.id,
         title: row.title,
@@ -78,8 +79,6 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         fixedBlock: row.interactionMode === "timetable" || undefined,
         repeats: !!row.recurrenceRule || undefined,
     };
-    // Drop the undefined keys so they cost nothing on the wire.
-    return Object.fromEntries(Object.entries(task).filter(([, v]) => v !== undefined)) as MinimalTask;
 }
 
 export interface MinimalSubtask {

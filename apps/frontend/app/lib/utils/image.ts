@@ -1,4 +1,5 @@
 import { BACKGROUND_IMAGE_LIMITS } from "@cadence/contracts/settings";
+import { CHAT_IMAGE_LIMITS } from "@cadence/contracts/ai";
 
 /**
  * Re-encode an image as WebP, no larger than `maxDimension` on its long side.
@@ -53,6 +54,24 @@ export async function compressImageToBase64(file: File): Promise<string> {
 export async function compressBackgroundImage(file: File): Promise<File> {
     const blob = await encodeWebp(file, BACKGROUND_IMAGE_LIMITS.maxDimension, [0.86, 0.72, 0.58], BACKGROUND_IMAGE_LIMITS.maxBytes);
     return new File([blob], "background.webp", { type: "image/webp" });
+}
+
+/**
+ * Compress a photo for the assistant: 1600px long edge, WebP, stepping quality
+ * down until it fits the API's 1MB. Small print on screenshots stays legible; more
+ * pixels would cost bandwidth, not tokens. The canvas pass bakes in EXIF rotation
+ * and drops EXIF/GPS; the server strips again.
+ */
+export async function compressChatImage(file: File): Promise<File> {
+    if (file.size > CHAT_IMAGE_LIMITS.maxOriginalBytes) throw new Error("That image is too large (25 MB at most).");
+    let blob: Blob;
+    try {
+        blob = await encodeWebp(file, CHAT_IMAGE_LIMITS.maxDimension, [0.82, 0.7, 0.55], CHAT_IMAGE_LIMITS.maxBytes);
+    } catch {
+        throw new Error("Couldn’t read that image.");
+    }
+    if (blob.size > CHAT_IMAGE_LIMITS.maxBytes) throw new Error("That image is too detailed to send. Try a crop.");
+    return new File([blob], "image.webp", { type: "image/webp" });
 }
 
 /**

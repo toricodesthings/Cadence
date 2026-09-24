@@ -35,7 +35,7 @@ const baseTask: TaskRow = {
 
 describe("toMinimalTask", () => {
     it("projects only the set fields: DROPS content, nulls, defaults and isAllDay", () => {
-        expect(Object.keys(toMinimalTask(baseTask, "UTC")).sort()).toEqual(
+        expect(Object.keys(JSON.parse(JSON.stringify(toMinimalTask(baseTask, "UTC")))).sort()).toEqual(
             ["dueDate", "durationEstimate", "effort", "id", "priority", "projectId", "state", "title"],
         );
         expect(toMinimalTask({ ...baseTask, priority: 0, effort: null, projectId: null, durationEstimate: null, dueDate: null }, "UTC"))
@@ -51,8 +51,8 @@ describe("toMinimalTask", () => {
             recurrenceRule: "FREQ=WEEKLY",
         };
         expect(toMinimalTask(occurrence, "UTC")).toMatchObject({ id: "t1", fixedBlock: true, repeats: true });
-        expect(toMinimalTask(baseTask, "UTC")).not.toHaveProperty("fixedBlock");
-        expect(toMinimalTask(baseTask, "UTC")).not.toHaveProperty("repeats");
+        expect(toMinimalTask(baseTask, "UTC").fixedBlock).toBeUndefined();
+        expect(toMinimalTask(baseTask, "UTC").repeats).toBeUndefined();
     });
 
     it("writes timed values as the user's wall clock with offset, so the model never converts", () => {
@@ -70,7 +70,7 @@ describe("toMinimalTask", () => {
 
         for (const tz of ["Pacific/Auckland", "America/Los_Angeles"]) {
             expect(toMinimalTask(task, tz)).toMatchObject({ dueDate: "2026-06-10", scheduledEnd: "2026-06-12" });
-            expect(toMinimalTask(task, tz)).not.toHaveProperty("scheduledStart");
+            expect(toMinimalTask(task, tz).scheduledStart).toBeUndefined();
         }
     });
 });
@@ -206,10 +206,11 @@ describe("task drafts", () => {
         expect(tasksSchema.safeParse([{ ...draft, subtasks: [...draft.subtasks, "One more"] }]).success).toBe(false);
     });
 
-    it("quote only known fields, briefly", () => {
-        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "pay by 9/30" } }).success).toBe(true);
-        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { project: "Home" } }).success).toBe(false);
-        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "x".repeat(61) } }).success).toBe(false);
+    it("keep quotes for known fields and drop others without failing the call", () => {
+        const parsed = taskDraftSchema.parse({ title: "Pay rent", note: "Amouage", fromImage: { note: "Amouage", project: "Home" } });
+        expect(parsed.fromImage).toEqual({ note: "Amouage" });
+        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { subtasks: "x".repeat(300) } }).success).toBe(true);
+        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "x".repeat(301) } }).success).toBe(false);
     });
 });
 

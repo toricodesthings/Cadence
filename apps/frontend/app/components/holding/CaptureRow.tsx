@@ -1,10 +1,11 @@
 import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_TITLE } from "../tasks/task-row-styles";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useId } from "react";
 import {
     CalendarClock,
     CalendarDays,
     CalendarPlus,
     CheckSquare,
+    ListChecks,
     Inbox,
     MoreVertical,
     Moon,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Task } from "@cadence/contracts/task";
+import type { Subtask } from "@cadence/contracts/subtask";
 import { useThoughtParse } from "../../hooks/inbox/use-thought-parse";
 import { useProcessInboxToTask, todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
@@ -31,6 +33,7 @@ import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { TAG_DRAG_TYPE } from "../sidebar/TagBubble";
 import { TaskCheckbox } from "../tasks/TaskCheckbox";
+import { InlineSubtaskPanel, SubtaskChip, useInlineSubtasks } from "../tasks/InlineSubtasks";
 import { Button } from "../primitives/Button";
 import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
@@ -41,6 +44,7 @@ import { toast } from "sonner";
 export function CaptureRow({
     item,
     task,
+    subtasks = [],
     lightest,
     onOpen,
     selected,
@@ -51,6 +55,7 @@ export function CaptureRow({
 }: {
     item?: InboxItem;
     task?: Task;
+    subtasks?: Subtask[];
     lightest: string;
     onOpen: () => void;
     selected?: boolean;
@@ -76,6 +81,8 @@ export function CaptureRow({
     const quiet = settings?.tasks.intelligence?.lowStimulationMode;
     const { data: allTags = [] } = useTags();
     const [menuOpen, setMenuOpen] = useState(false);
+    const subtaskUi = useInlineSubtasks();
+    const subtaskPanelId = useId();
     const [pickerMonth, setPickerMonth] = useState(() => new Date());
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(
@@ -289,9 +296,17 @@ export function CaptureRow({
                         >
                             <span className="line-clamp-2 break-words">{title}</span>
                         </Button>
-                        {(rowTags.length > 0 || (stacked && detected)) && (
+                        {(rowTags.length > 0 || subtasks.length > 0 || (stacked && detected)) && (
                             <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
                                 {stacked && detected && pill(detected, true)}
+                                {task && (
+                                    <SubtaskChip
+                                        subtasks={subtasks}
+                                        open={subtaskUi.open}
+                                        onToggle={subtaskUi.toggle}
+                                        controls={subtaskPanelId}
+                                    />
+                                )}
                                 <TagSignal tags={rowTags} />
                             </div>
                         )}
@@ -310,7 +325,7 @@ export function CaptureRow({
                     </div>
                     {!quiet && !stacked && (
                         <time
-                            className="w-9 shrink-0 text-right text-xs leading-[2.75rem] tabular-nums text-twilight-text-muted"
+                            className="min-w-9 shrink-0 whitespace-nowrap text-right text-xs leading-[2.75rem] tabular-nums text-twilight-text-muted"
                             dateTime={object.createdAt}
                         >
                             {relativeTime(object.createdAt)}
@@ -329,7 +344,11 @@ export function CaptureRow({
                                 </Button>
                             </Menu.Trigger>
                         </Tip>
-                        <Menu.Content align="end">
+                        <Menu.Content
+                            align="end"
+                            // "Add subtask" focuses its input; handing focus back to ⋮ would blur and close it.
+                            onCloseAutoFocus={(e) => subtaskUi.adding && e.preventDefault()}
+                        >
                             {item?.captureStatus !== "kept" && (
                                 <>
                                     <Menu.Item
@@ -392,6 +411,12 @@ export function CaptureRow({
                                     </Menu.Item>
                                 </>
                             )}
+                            {task && (
+                                <Menu.Item className="gap-2.5" disabled={disabled} onSelect={subtaskUi.startAdding}>
+                                    <ListChecks size={16} aria-hidden />
+                                    Add subtask
+                                </Menu.Item>
+                            )}
                             <Menu.Item className="gap-2.5" onSelect={() => onToggleSelection?.()}>
                                 <CheckSquare size={16} aria-hidden />
                                 Select
@@ -403,6 +428,24 @@ export function CaptureRow({
                         </Menu.Content>
                     </Menu.Root>
                 </div>
+                {task && (
+                    // Below the whole row so it spans past the day pill and time; indented to the title (checkbox
+                    // w-8 + gap-2, plus the 14px ThoughtMark + gap-2). Stops row drag and row shortcuts in the list.
+                    <div
+                        className={task.origin === "thought" ? "pl-[3.875rem]" : "pl-10"}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                    >
+                        <InlineSubtaskPanel
+                            id={subtaskPanelId}
+                            taskId={task.id}
+                            subtasks={subtasks}
+                            open={subtaskUi.open}
+                            adding={subtaskUi.adding}
+                            onAddingChange={subtaskUi.setAdding}
+                        />
+                    </div>
+                )}
             </article>
         </PlaceDraggable>
     );

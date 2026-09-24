@@ -2,13 +2,21 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
-import { X, ArrowUp, ArrowDown, History, SquarePen, Plus, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
+import { X, ArrowUp, ArrowDown, History, SquarePen, Plus, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox, Loader2, AlertCircle } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ResizableSidePanel } from "../shared/ResizableSidePanel";
 import { Tip, DropdownMenu } from "../primitives";
 import * as ScrollArea from "../primitives/ScrollArea";
 import { useAssistantStore } from "../../stores/assistant-store";
-import type { ApprovalMode } from "@cadence/contracts/ai";
+import {
+    CHAT_IMAGE_LIMITS,
+    CHAT_IMAGE_MEDIA_TYPE,
+    chatImageUrl,
+    parseChatImageUrl,
+    type AiUsage,
+    type ApprovalMode,
+    type ChatImageUpload,
+} from "@cadence/contracts/ai";
 import { ChatMessage, ChatAvatar, AssistantText } from "./MessageBubble";
 import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt, type ReceiptState } from "./ReadReceipt";
@@ -31,7 +39,11 @@ import {
 } from "../../hooks/ai/use-conversations";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useAiUsage } from "../../hooks/ai/use-ai-usage";
-import { describeUsage } from "../../lib/ai/usage";
+import { describeImageAllowance, describeUsage } from "../../lib/ai/usage";
+import { compressChatImage } from "../../lib/utils/image";
+import { ImageViewer } from "../shared/ImageViewer";
+import { useApiClient } from "../../hooks/auth/use-api-client";
+import { unwrapResponse } from "../../lib/api/helpers";
 import { useSettings } from "../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { useConversationBroadcast, type ChatBroadcastType } from "../../hooks/ai/use-conversation-broadcast";
@@ -106,14 +118,40 @@ const STARTERS = [
     { prompt: "Tidy my inbox", icon: Inbox },
 ];
 
-const MAX_ATTACHMENTS = 4;
-
 const APPROVAL_MODES: Record<ApprovalMode, { label: string; icon: React.ReactNode; hint: (name: string) => string }> = {
     ask: { label: "Ask first", icon: <ShieldCheck size={13} aria-hidden />, hint: () => "Confirm every create, change or delete" },
     auto: { label: "Auto", icon: <Zap size={13} aria-hidden />, hint: (name) => `${name} applies changes, but asks before deleting for good` },
     full: { label: "Full", icon: <ShieldOff size={13} aria-hidden />, hint: (name) => `${name} applies every change, deletes included` },
 };
-type Attachment = { id: string; name: string; url: string };
+/** A photo on the composer. It uploads as soon as it's attached; Send waits for it. */
+type Attachment = {
+    id: string;
+    /** Local preview (object URL of the original). */
+    url: string;
+    /** The picked file's name; it stays on this device. */
+    name: string;
+    /** Original size, then the compressed size that's actually sent. */
+    bytes: number;
+    status: "uploading" | "ready" | "failed";
+    /** Server id once uploaded. */
+    imageId?: string;
+    /** The compressed bytes, seeded into the image cache on send so the bubble never downloads them. */
+    blob?: Blob;
+};
+
+/** Image ids a message's file parts reference. */
+function imageIdsOf(message: UIMessage): string[] {
+    return message.parts.flatMap((part) => {
+        const id = part.type === "file" ? parseChatImageUrl(part.url) : null;
+        return id ? [id] : [];
+    });
+}
+
+/** The file part a chat turn carries for an uploaded image: a reference, never bytes or a filename. */
+const imageFilePart = (id: string) => ({ type: "file" as const, mediaType: CHAT_IMAGE_MEDIA_TYPE, url: chatImageUrl(id) });
+
+/** Errors where the same turn can go again without its images. */
+const IMAGE_BLOCKED_CODES = new Set(["AI_IMAGE_LIMITED", "IMAGE_NOT_FOUND"]);
 
 /** The `status` metadata a persisted assistant turn may carry (§8.3). */
 function messageStatus(message: UIMessage): string | undefined {
@@ -148,6 +186,7 @@ export function AssistantSidePanel({
     const reduceMotion = useReducedMotion();
     const online = useOnlineStatus();
     const queryClient = useQueryClient();
+    const client = useApiClient();
     // The assistant's (renameable) name — the same identity the model speaks
     // with (settings.assistant.assistantName), so the panel chrome and the
     // model's self-reference never disagree.
@@ -158,6 +197,9 @@ export function AssistantSidePanel({
     // composer footer only when a window is running low (never a meter otherwise).
     const { data: usage } = useAiUsage(assistantPanelOpen);
     const usageNotice = useMemo(() => describeUsage(usage, Date.now()), [usage]);
+    const imageAllowance = useMemo(() => describeImageAllowance(usage, Date.now()), [usage]);
+    // The server's per-message cap wins, so raising or lowering it needs no frontend deploy.
+    const perMessage = usage?.images?.perMessage ?? CHAT_IMAGE_LIMITS.perMessage;
     const [input, setInput] = useState("");
     const pendingMessage = useAssistantStore(s => s.pendingMessage);
     const clearPendingMessage = useAssistantStore(s => s.clearPendingMessage);
@@ -178,9 +220,28 @@ export function AssistantSidePanel({
     const isNearBottomRef = useRef(true);
     // Offer a jump back down once the reader has scrolled well up.
     const [showJump, setShowJump] = useState(false);
-    // Composer-only image attachments (not sent yet — no backend wiring).
     const [attachments, setAttachments] = useState<Attachment[]>([]);
+    /** Which attachment is open in the viewer. */
+    const [viewing, setViewing] = useState<number | null>(null);
+    const attachmentsRef = useRef(attachments);
+    attachmentsRef.current = attachments;
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Remove an unsent upload from the server (frees its pending slot). Best-effort:
+    // anything missed is swept after a day.
+    const discardImage = useCallback(
+        (imageId: string) => void client.api.ai.images[":id"].$delete({ param: { id: imageId } }).catch(() => {}),
+        [client],
+    );
+    const clearAttachments = useCallback(
+        (discard: boolean) => {
+            const current = attachmentsRef.current;
+            current.forEach((a) => URL.revokeObjectURL(a.url));
+            if (discard) new Set(current.flatMap((a) => (a.imageId ? [a.imageId] : []))).forEach(discardImage);
+            setAttachments([]);
+        },
+        [discardImage],
+    );
 
     // Ensure a thread id exists before the first send. The store persists it, but
     // a brand-new install starts with `null` — mint one lazily on open.
@@ -484,25 +545,28 @@ export function AssistantSidePanel({
         (id: string) => {
             const outgoing = conversationIdRef.current;
             if (outgoing && outgoing !== id) syncMessagesToCache(outgoing, messages);
+            // Attached images belong to the thread they were attached in.
+            if (outgoing !== id) clearAttachments(true);
             loadedThreadRef.current = null;
             setIsFreshThread(false);
             setMessages([]);
             setThreadTitle(null); // re-seeded from the chosen thread's history load
             setActiveConversation(id);
         },
-        [messages, syncMessagesToCache, setActiveConversation, setMessages],
+        [messages, syncMessagesToCache, setActiveConversation, setMessages, clearAttachments],
     );
 
     const handleNewChat = useCallback(() => {
         const outgoing = conversationIdRef.current;
         if (outgoing) syncMessagesToCache(outgoing, messages);
+        clearAttachments(true);
         loadedThreadRef.current = null;
         clientMessageIdRef.current = crypto.randomUUID();
         setIsFreshThread(true);
         setMessages([]);
         setThreadTitle(null);
         startNewConversation();
-    }, [messages, syncMessagesToCache, setMessages, startNewConversation]);
+    }, [messages, syncMessagesToCache, setMessages, startNewConversation, clearAttachments]);
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         const el = scrollViewportRef.current;
@@ -525,9 +589,12 @@ export function AssistantSidePanel({
 
     // ── Send (input guard + offline guard) ───────────────────────────────────
     // Shared by the composer submit and the empty-state starter chips.
+    const uploading = attachments.some((a) => a.status === "uploading");
+    const readyImages = attachments.filter((a) => a.status === "ready" && a.imageId);
+
     const submitText = (raw: string) => {
         const text = raw.trim();
-        if (!text || isStreaming) return;
+        if ((!text && readyImages.length === 0) || isStreaming || uploading) return;
 
         if (!online) {
             setInputNotice("You’re offline — I’ll be here when you’re back.");
@@ -544,16 +611,17 @@ export function AssistantSidePanel({
         setInputNotice(null);
         // Optimistic instant title for a brand-new thread so the header/sidebar never
         // sit blank — replaced by the AI title when its data part streams back (~300ms).
+        const imageIds = [...new Set(readyImages.map((a) => a.imageId!))];
+        // The bubble shows the bytes we already have instead of downloading them again.
+        for (const a of readyImages) if (a.blob) queryClient.setQueryData(queryKeys.ai.image(a.imageId!), a.blob);
         const convId = conversationIdRef.current;
         if (convId && isFreshThread && messages.length === 0) {
-            applyTitle(convId, deriveFallbackTitle(text));
+            applyTitle(convId, deriveFallbackTitle(text, imageIds.length > 0));
         }
-        sendLocal({ text });
+        const files = imageIds.map(imageFilePart);
+        sendLocal(text ? { text, files } : { files });
         setInput("");
-        if (attachments.length > 0) {
-            clearAttachments();
-            setInputNotice(`Sent your text — ${assistantName} can’t see images just yet.`);
-        }
+        clearAttachments(false);
         requestAnimationFrame(() => scrollToBottom());
     };
 
@@ -592,8 +660,10 @@ export function AssistantSidePanel({
         if (isStreaming) void handleStop();
         clientMessageIdRef.current = crypto.randomUUID();
         const editAnchorId = index > 0 ? (messages[index - 1]?.id ?? null) : null;
+        // The edited turn keeps its photos (already sent, so they cost nothing again).
+        const files = imageIdsOf(messages[index]).map(imageFilePart);
         setMessages((prev) => prev.slice(0, index));
-        sendLocal({ text: nextText }, { body: { editAnchorId } });
+        sendLocal({ text: nextText, files }, { body: { editAnchorId } });
         requestAnimationFrame(() => scrollToBottom());
     };
 
@@ -607,36 +677,74 @@ export function AssistantSidePanel({
         requestAnimationFrame(() => scrollToBottom());
     }, [online, regenerateLocal]);
 
+    const updateAttachment = (id: string, patch: Partial<Attachment>) =>
+        setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+
+    // Compress and upload right away, so the upload hides behind typing.
+    const uploadAttachment = async (localId: string, file: File) => {
+        try {
+            const compressed = await compressChatImage(file);
+            const res = await client.api.ai.images.$post({
+                form: { file: compressed, conversationId: conversationIdRef.current! },
+            });
+            const data = await unwrapResponse<ChatImageUpload>(res);
+            queryClient.setQueryData<AiUsage>(queryKeys.ai.usage, (prev) =>
+                prev?.images ? { ...prev, images: { ...prev.images, ...data.images } } : prev,
+            );
+            const current = attachmentsRef.current;
+            const self = current.find((a) => a.id === localId);
+            const duplicate = current.some((a) => a.id !== localId && a.imageId === data.id);
+            if (!self || duplicate) {
+                // Taken off while uploading, or the same photo twice: keep one copy.
+                if (self) {
+                    URL.revokeObjectURL(self.url);
+                    setAttachments((prev) => prev.filter((a) => a.id !== localId));
+                    setInputNotice("That image is already attached.");
+                } else if (!duplicate && !data.reused) {
+                    discardImage(data.id);
+                }
+                return;
+            }
+            updateAttachment(localId, { status: "ready", imageId: data.id, blob: compressed, bytes: compressed.size });
+        } catch (error) {
+            updateAttachment(localId, { status: "failed" });
+            setInputNotice(error instanceof Error && error.message ? error.message : "Couldn’t attach that image.");
+        }
+    };
+
     const addImages = (files: Iterable<File>) => {
         const images = [...files].filter((f) => f.type.startsWith("image/"));
         if (images.length === 0) return;
-        setAttachments((prev) => {
-            const room = MAX_ATTACHMENTS - prev.length;
-            if (images.length > room) setInputNotice(`Up to ${MAX_ATTACHMENTS} images per message.`);
-            return [
-                ...prev,
-                ...images.slice(0, Math.max(room, 0)).map((f) => ({
-                    id: crypto.randomUUID(),
-                    name: f.name,
-                    url: URL.createObjectURL(f),
-                })),
-            ];
-        });
+        if (imageAllowance.blocked) {
+            setInputNotice(imageAllowance.label);
+            return;
+        }
+        const cap = Math.min(perMessage, imageAllowance.left);
+        const room = Math.max(0, cap - attachments.length);
+        if (images.length > room) {
+            setInputNotice(cap < perMessage ? imageAllowance.label : `Up to ${perMessage} images per message.`);
+        }
+        const added = images.slice(0, room).map((file) => ({ file, id: crypto.randomUUID() }));
+        setAttachments((prev) => [
+            ...prev,
+            ...added.map(({ file, id }) => ({
+                id,
+                url: URL.createObjectURL(file),
+                name: file.name || "Pasted image",
+                bytes: file.size,
+                status: "uploading" as const,
+            })),
+        ]);
+        added.forEach(({ file, id }) => void uploadAttachment(id, file));
     };
-    const removeAttachment = (id: string) =>
-        setAttachments((prev) => {
-            const gone = prev.find((a) => a.id === id);
-            if (gone) URL.revokeObjectURL(gone.url);
-            return prev.filter((a) => a.id !== id);
-        });
-    const clearAttachments = () =>
-        setAttachments((prev) => {
-            prev.forEach((a) => URL.revokeObjectURL(a.url));
-            return [];
-        });
-    // Release preview blobs when the panel unmounts.
-    const attachmentsRef = useRef(attachments);
-    attachmentsRef.current = attachments;
+    const removeAttachment = (id: string) => {
+        const gone = attachments.find((a) => a.id === id);
+        if (!gone) return;
+        URL.revokeObjectURL(gone.url);
+        if (gone.imageId && !attachments.some((a) => a.id !== id && a.imageId === gone.imageId)) discardImage(gone.imageId);
+        setAttachments((prev) => prev.filter((a) => a.id !== id));
+    };
+    // Release preview blobs when the panel unmounts (unsent uploads are swept server-side).
     useEffect(() => () => attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.url)), []);
 
     // Auto-grow the textarea up to a comfortable cap.
@@ -747,6 +855,38 @@ export function AssistantSidePanel({
         if (msg.trim().startsWith("{")) return parseStreamErrorText(msg);
         return streamErrorFromError(error);
     }, [error]);
+
+    // A failed turn with photos: send it again without them, or share them with the report.
+    const lastUserMessage = lastUserIndex >= 0 ? messages[lastUserIndex] : undefined;
+    const lastUserImages = useMemo(() => (lastUserMessage ? imageIdsOf(lastUserMessage) : []), [lastUserMessage]);
+    const sendWithoutImages = () => {
+        if (!lastUserMessage) return;
+        const text = lastUserMessage.parts
+            .flatMap((part) => (part.type === "text" ? [part.text] : []))
+            .join("\n")
+            .trim();
+        setMessages((prev) => prev.slice(0, lastUserIndex));
+        if (!text) {
+            setInputNotice("There were only images in that message.");
+            return;
+        }
+        clientMessageIdRef.current = crypto.randomUUID();
+        sendLocal({ text });
+        requestAnimationFrame(() => scrollToBottom());
+    };
+    const shareImages = async () => {
+        await Promise.all(
+            lastUserImages.map(async (id) =>
+                unwrapResponse(
+                    await client.api.ai.images[":id"].report.$post({
+                        param: { id },
+                        json: { requestId: streamError?.requestId },
+                    }),
+                ),
+            ),
+        );
+    };
+    const imageError = streamError && lastUserImages.length > 0 ? streamError.code : null;
 
     const panelContent = (
         <div
@@ -906,6 +1046,7 @@ export function AssistantSidePanel({
                                             receipt={receipt}
                                             userImage={userImage}
                                             userInitial={userInitial}
+                                            images={isUser ? imageIdsOf(message) : undefined}
                                         >
                                             {segments.map((seg, i) =>
                                                 seg.kind === "text" ? (
@@ -937,6 +1078,12 @@ export function AssistantSidePanel({
                             <ChatErrorBubble
                                 error={streamError}
                                 onRetry={streamError.isRetryable ? handleRetry : undefined}
+                                onSendWithoutImages={imageError && IMAGE_BLOCKED_CODES.has(imageError) ? sendWithoutImages : undefined}
+                                onShareImages={
+                                    imageError && !IMAGE_BLOCKED_CODES.has(imageError) && imageError !== "AI_RATE_LIMITED"
+                                        ? shareImages
+                                        : undefined
+                                }
                             />
                         ) : null}
 
@@ -1019,23 +1166,48 @@ export function AssistantSidePanel({
                 >
                     {attachments.length > 0 ? (
                         <div className="flex gap-2 overflow-x-auto px-3 pt-3">
-                            {attachments.map((a) => (
+                            {attachments.map((a, i) => (
                                 <div key={a.id} className="relative shrink-0">
-                                    <img
-                                        src={a.url}
-                                        alt={a.name}
-                                        className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/10"
-                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewing(i)}
+                                        aria-label={`View attached image ${i + 1}`}
+                                        className="block cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                    >
+                                        <img
+                                            src={a.url}
+                                            alt={`Attached image ${i + 1}`}
+                                            className={`h-16 w-16 rounded-xl object-cover ring-1 ${a.status === "failed" ? "ring-feedback-error/60 opacity-50" : "ring-white/10"}`}
+                                        />
+                                    </button>
+                                    {a.status !== "ready" ? (
+                                        <span
+                                            className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-twilight-deep/45"
+                                            role="status"
+                                            aria-label={a.status === "uploading" ? "Uploading image" : "Image didn’t attach"}
+                                        >
+                                            {a.status === "uploading" ? (
+                                                <Loader2 size={18} className="animate-spin text-twilight-text" aria-hidden />
+                                            ) : (
+                                                <AlertCircle size={18} className="text-feedback-error" aria-hidden />
+                                            )}
+                                        </span>
+                                    ) : null}
                                     <button
                                         type="button"
                                         onClick={() => removeAttachment(a.id)}
-                                        aria-label={`Remove ${a.name}`}
+                                        aria-label={`Remove attached image ${i + 1}`}
                                         className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-twilight-deep text-twilight-text-soft ring-1 ring-white/15 transition-colors hover:text-twilight-text cursor-pointer"
                                     >
                                         <X size={12} aria-hidden />
                                     </button>
                                 </div>
                             ))}
+                            <ImageViewer
+                                images={attachments.map((a) => ({ key: a.id, title: a.name, src: a.url, bytes: a.bytes }))}
+                                index={viewing !== null && viewing < attachments.length ? viewing : null}
+                                onIndexChange={setViewing}
+                            />
                         </div>
                     ) : null}
 
@@ -1054,7 +1226,9 @@ export function AssistantSidePanel({
                             }
                         }}
                         onPaste={(e) => {
-                            if (e.clipboardData.files.length === 0) return;
+                            // Office apps put the text and a picture of it on the clipboard: keep the text.
+                            const data = e.clipboardData;
+                            if (data.getData("text/plain") || ![...data.files].some((f) => f.type.startsWith("image/"))) return;
                             e.preventDefault();
                             addImages(e.clipboardData.files);
                         }}
@@ -1077,12 +1251,12 @@ export function AssistantSidePanel({
                                 e.target.value = "";
                             }}
                         />
-                        <Tip label="Add images" side="top">
+                        <Tip label={imageAllowance.label} side="top">
                             <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                disabled={attachments.length >= MAX_ATTACHMENTS}
-                                aria-label="Add images"
+                                disabled={imageAllowance.blocked || attachments.length >= Math.min(perMessage, imageAllowance.left)}
+                                aria-label={imageAllowance.label}
                                 className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text disabled:opacity-40 cursor-pointer"
                             >
                                 <Plus size={18} aria-hidden />
@@ -1139,10 +1313,10 @@ export function AssistantSidePanel({
                                 </button>
                             </Tip>
                         ) : (
-                            <Tip label="Send message" side="top">
+                            <Tip label={uploading ? "Waiting for images to attach" : "Send message"} side="top">
                                 <button
                                     type="submit"
-                                    disabled={!input.trim() || !online}
+                                    disabled={(!input.trim() && readyImages.length === 0) || !online || uploading}
                                     className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[var(--primary-foreground)] shadow-[0_6px_18px_-6px_var(--accent-primary)] transition-all hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
                                     aria-label="Send message"
                                 >

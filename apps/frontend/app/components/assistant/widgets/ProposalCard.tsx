@@ -1,5 +1,7 @@
 import React from "react";
-import { Check, X, AlertCircle, Loader2, type LucideIcon } from "lucide-react";
+import { Check, X, AlertCircle, Loader2, Plus, Minus, type LucideIcon } from "lucide-react";
+import type { Tag } from "@cadence/contracts/tag";
+import { resolveTagColor } from "../../../lib/utils/color-resolver";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Button, type ButtonVariant } from "../../primitives/Button";
 import { Skeleton } from "../../primitives/Skeleton";
@@ -241,6 +243,22 @@ export function MetaPill({ icon: Icon, children }: { icon: LucideIcon; children:
         <span className="flex items-center gap-1 rounded bg-twilight-elevated px-1.5 py-0.5 text-[11px] text-twilight-text-soft">
             <Icon size={10} />
             {children}
+        </span>
+    );
+}
+
+/** A tag in its own colour; `mark` shows it being added or removed. */
+export function TagPill({ tag, mark }: { tag: Tag; mark?: "add" | "remove" }) {
+    const color = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");
+    const Mark = mark === "remove" ? Minus : Plus;
+    return (
+        <span
+            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] ${mark === "remove" ? "line-through opacity-60" : ""}`}
+            style={{ color, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
+            aria-label={mark ? `${mark === "add" ? "Add" : "Remove"} tag ${tag.name}` : `Tag ${tag.name}`}
+        >
+            {mark ? <Mark size={10} aria-hidden="true" /> : null}
+            {tag.name}
         </span>
     );
 }

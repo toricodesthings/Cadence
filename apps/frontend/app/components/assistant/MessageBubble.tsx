@@ -6,6 +6,7 @@ import * as ContextMenu from "../primitives/ContextMenu";
 import { Markdown } from "./Markdown";
 import { MessageActions } from "./MessageActions";
 import { AssistantSigil } from "./AssistantSigil";
+import { ChatImages } from "./ChatImage";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 
@@ -73,6 +74,7 @@ export function ChatMessage({
     receipt,
     userImage,
     userInitial = "U",
+    images = [],
 }: {
     isUser: boolean;
     /** Plain text of the turn — what Copy copies and Edit starts from. */
@@ -92,6 +94,8 @@ export function ChatMessage({
     receipt?: React.ReactNode;
     userImage?: string | null;
     userInitial?: string;
+    /** Ids of the photos the user sent with this turn. */
+    images?: string[];
 }) {
     const reduceMotion = useReducedMotion();
     const coarse = useIsCoarsePointer();
@@ -128,8 +132,13 @@ export function ChatMessage({
     const showRow = !editing && (!coarse || (latest && !isUser)) && (text.length > 0 || meta);
 
     const body = isUser ? (
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[20px] rounded-br-md border border-accent-primary/20 bg-accent-primary/18 px-4 py-2.5 text-[14px] leading-relaxed text-twilight-text shadow-[0_10px_30px_-18px_color-mix(in_srgb,var(--accent-primary)_60%,transparent)]">
-            {text}
+        <div className="flex max-w-[85%] flex-col items-end gap-1.5">
+            {images.length > 0 ? <ChatImages ids={images} /> : null}
+            {text ? (
+                <div className="max-w-full whitespace-pre-wrap break-words rounded-[20px] rounded-br-md border border-accent-primary/20 bg-accent-primary/18 px-4 py-2.5 text-[14px] leading-relaxed text-twilight-text shadow-[0_10px_30px_-18px_color-mix(in_srgb,var(--accent-primary)_60%,transparent)]">
+                    {text}
+                </div>
+            ) : null}
         </div>
     ) : (
         <div className="flex w-full min-w-0 flex-col items-start gap-2">{children}</div>

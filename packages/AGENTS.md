@@ -59,7 +59,7 @@ families plus their inferred types:
 `xRowSchema` must be **structurally identical** to `typeof table.$inferSelect`.
 This is asserted at compile time in
 `apps/backend/tests/unit/contract-parity.test.ts` (one `expectTypeOf(...)
-.toEqualTypeOf(...)` per table — currently 11). A column rename/add/nullability
+.toEqualTypeOf(...)` per table — currently 12). A column rename/add/nullability
 change now fails `tsc` there instead of silently breaking a client. **When you
 touch `apps/backend/src/db/schema.ts`, update the matching `xRowSchema` in the
 same change.** Watch DB nullability: a Drizzle column with `.default()` but
@@ -106,7 +106,7 @@ interface** — the parity guard only covers the Row subset.
   `deepMerge` (defaults ⊕ stored/patch, used by both apps), and
   `personalEventSchema` live here.
 - **ai**: only the **wire-crossing** shapes belong here (UIMessage, chat request,
-  conversation/message Row+Entity, message role/status enums, and the
+  conversation/message/image Row+Entity, chat image limits + `cadence-image:` URL helpers, message role/status enums, and the
   `TaskProposalPart`/`DangerConfirmPart` widget payloads). Everything that
   composes prompts, runs tools, retrieves memory, or persists rows stays in
   `apps/backend/src/domains/ai` (server-only).

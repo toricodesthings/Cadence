@@ -20,11 +20,11 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         async (c) => {
             const userId = c.get("userId");
             const { taskId } = c.req.valid("param");
-            const { body, expectedUpdatedAt, expectedVersion } = c.req.valid("json");
+            const { body, expectedUpdatedAt } = c.req.valid("json");
             const db = getDbClient(c.env);
 
             const result = await withRls(db, userId, (tx) =>
-                writeNote(tx, userId, taskId, body, { expectedVersion, expectedUpdatedAt }),
+                writeNote(tx, userId, taskId, body, { expectedUpdatedAt }),
             );
 
             return c.json({ data: result });

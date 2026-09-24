@@ -12,6 +12,7 @@ export const NOTE_READ_LIMIT = 1_000;
 
 const priority = taskPrioritySchema.describe("0 none, 1 low, 2 medium, 3 high, 4 urgent.");
 const step = z.string().min(1).max(500);
+const quote = z.string().max(300).optional();
 
 export const taskDraftSchema = insertTaskSchema
     .pick({
@@ -25,8 +26,10 @@ export const taskDraftSchema = insertTaskSchema
         subtasks: z.array(step).max(30).optional().describe("Checklist steps, in order."),
         fixed: z.boolean().optional().describe("A class or shift that just passes (timetable)."),
         note: z.string().max(5_000).optional().describe("The new task's note."),
+        // Display-only (the card shows it; the write drops it), so an extra key is
+        // stripped rather than failing the whole call.
         fromImage: z
-            .partialRecord(z.enum(["title", "dueDate", "scheduledStart", "priority", "subtasks"]), z.string().max(60))
+            .object({ title: quote, dueDate: quote, scheduledStart: quote, priority: quote, subtasks: quote, note: quote })
             .optional()
             .describe("Field → the exact words the image shows for it."),
     });

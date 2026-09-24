@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+    chatImageUrl,
     chatRequestSchema,
+    parseChatImageUrl,
     conversationPatchSchema,
     MAX_PARTS_PER_MESSAGE,
     stopStreamSchema,
@@ -76,3 +78,14 @@ describe("conversationPatchSchema", () => {
     });
 });
 
+
+describe("chat image urls", () => {
+    const id = "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b";
+    it("round-trips an id and rejects anything else", () => {
+        expect(parseChatImageUrl(chatImageUrl(id))).toBe(id);
+        expect(parseChatImageUrl(`https://example.com/${id}.webp`)).toBeNull();
+        expect(parseChatImageUrl("data:image/webp;base64,AAAA")).toBeNull();
+        expect(parseChatImageUrl("cadence-image:../../etc")).toBeNull();
+        expect(parseChatImageUrl(undefined)).toBeNull();
+    });
+});

@@ -1,10 +1,9 @@
-import { Pencil, Check, Calendar, Clock, Folder, Hourglass, Pin, Repeat, Plus, Minus } from "lucide-react";
-import { IdentityBlock, MetaPill } from "./ProposalCard";
+import { Pencil, Check, Calendar, Clock, Folder, Hourglass, Pin, Repeat } from "lucide-react";
+import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useProjectNameLookup, useTagsLookup, useTaskTitleLookup } from "./card-lookups";
 import { NoteDiff, useNoteProposal, type NoteProposal } from "./note-proposal";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
-import { resolveTagColor } from "../../../lib/utils/color-resolver";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 import type { UpdateTaskInput } from "@cadence/contracts/task";
 
@@ -19,7 +18,7 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
     const lookupTitle = useTaskTitleLookup();
     const lookupList = useProjectNameLookup();
     const lookupTags = useTagsLookup();
-    const { off, toggle } = useUnticked();
+    const { off, onToggle, removed } = useUnticked(ctx);
     const taskIds: string[] = ctx.part?.input?.taskIds ?? [];
     const patch = normalizeTaskWriteTemporalInput((ctx.part?.input?.patch ?? {}) as TaskPatch);
     const count = taskIds.length;
@@ -45,7 +44,7 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
             ariaLabel={`Update ${title}`}
             primaryLabel={count > 1 && kept < count ? `Update ${kept}` : "Update"}
             primaryGlyph={Check}
-            removed={taskIds.flatMap((id, i) => (off.has(i) ? [lookupTitle(id)] : []))}
+            removed={removed(taskIds.map(lookupTitle))}
             doneText={count > 1 ? `Updated ${updated ?? count} tasks.` : `Updated “${title}”.`}
             declinedText="Kept it as it was."
         >
@@ -54,7 +53,7 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
             ) : (
                 <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
                     {taskIds.map((id, i) => (
-                        <TickRow key={id} on={!off.has(i)} onToggle={ctx.answer ? () => toggle(i) : undefined} label={`Update ${lookupTitle(id)}`}>
+                        <TickRow key={id} on={!off.has(i)} onToggle={onToggle(i)} label={`Update ${lookupTitle(id)}`}>
                             {lookupTitle(id)}
                         </TickRow>
                     ))}
@@ -69,21 +68,9 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
                 {patch.waitingOn ? <MetaPill icon={Hourglass}>Waiting on {patch.waitingOn}</MetaPill> : null}
                 {patch.isPinned !== undefined ? <MetaPill icon={Pin}>{patch.isPinned ? "Pin" : "Unpin"}</MetaPill> : null}
                 {patch.recurrenceRule !== undefined ? <MetaPill icon={Repeat}>{patch.recurrenceRule ? "Repeats" : "Stops repeating"}</MetaPill> : null}
-                {tags.map(({ tag, added }) => {
-                    const color = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");
-                    const Mark = added ? Plus : Minus;
-                    return (
-                        <span
-                            key={tag.id}
-                            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] ${added ? "" : "line-through opacity-60"}`}
-                            style={{ color, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
-                            aria-label={`${added ? "Add" : "Remove"} tag ${tag.name}`}
-                        >
-                            <Mark size={10} aria-hidden="true" />
-                            {tag.name}
-                        </span>
-                    );
-                })}
+                {tags.map(({ tag, added }) => (
+                    <TagPill key={tag.id} tag={tag} mark={added ? "add" : "remove"} />
+                ))}
             </div>
             <NoteDiff diff={notes.diff} />
         </ApprovalCard>

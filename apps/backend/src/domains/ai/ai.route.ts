@@ -35,6 +35,7 @@ import {
     getConversation,
     renameOrArchiveConversation,
     deleteConversation,
+    listConversationImageIds,
     setActiveStream,
     finalizeActiveStream,
     setTitleIfEmpty,
@@ -60,6 +61,7 @@ import {
     type RemainingByWindow,
 } from "./safety/rate-limit";
 import { extractAndStoreMemories } from "./memory/memory-write";
+import { aiImageKey, deleteImageObjects, hydrateImages, imageIdsIn, markSent, resolveTurnImages } from "./images/chat-images";
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
@@ -104,18 +106,24 @@ function stripNonceFromMessage(message: { parts?: unknown[]; [k: string]: unknow
  */
 function aiRateLimitResponse(
     c: Context<{ Bindings: Env; Variables: AuthVariables }>,
-    opts: { retryAfterS: number; limits: AiLimits; remaining?: RemainingByWindow },
+    opts: {
+        retryAfterS: number;
+        limits: AiLimits;
+        remaining?: RemainingByWindow;
+        code?: "AI_RATE_LIMITED" | "AI_IMAGE_LIMITED";
+    },
 ) {
-    setRequestErrorCode(c, "AI_RATE_LIMITED");
+    const code = opts.code ?? "AI_RATE_LIMITED";
+    setRequestErrorCode(c, code);
     const headers: Record<string, string> = { "Retry-After": String(Math.max(1, opts.retryAfterS)) };
     if (opts.remaining) Object.assign(headers, rateLimitHeaders(opts.remaining, opts.limits));
     return c.json(
         {
             error: {
-                code: "AI_RATE_LIMITED",
-                message: AI_ERROR_CODES.AI_RATE_LIMITED.message,
+                code,
+                message: AI_ERROR_CODES[code].message,
                 status: 429,
-                isRetryable: true,
+                isRetryable: AI_ERROR_CODES[code].isRetryable,
                 requestId: getRequestId(c),
             },
         },
@@ -131,13 +139,16 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const requestId = getRequestId(c);
     const userHash = await hashIdentifier(userId);
     const body = c.req.valid("json");
+    const limits = resolveLimits(c.env);
 
     // Latest user message (load-by-id). Role is pinned to "user" at the schema
     // level — a crafted request can never persist an assistant/system row here.
     // Absent when the request only answers approvals (the turn continues).
     const incoming = body.message as ChatMessage | undefined;
-    if (incoming) assertMessageWithinCaps(incoming); // AI-specific caps → 400 INVALID_REQUEST on oversize
+    if (incoming) assertMessageWithinCaps(incoming, limits.imagesPerMessage); // AI-specific caps → 400 INVALID_REQUEST
     const incomingText = incoming ? extractText(incoming.parts) : "";
+    // `cadence-image:` references (bytes were uploaded first, POST /ai/images).
+    const imageIds = incoming ? imageIdsIn(incoming.parts) : [];
 
     const db = getDbClient(c.env);
     const nonce = makeFenceNonce();
@@ -155,16 +166,20 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // so an over-budget user produces no orphan turn. Reserve a conservative token
     // hold now; reconcile to actual in onFinish. Layered on top of the per-turn caps
     // + CF short-window limiters — a Redis blip degrades, never bricks chat (§9.5).
+    // Images: ownership check (400 IMAGE_NOT_FOUND) + how many are new sends; a
+    // regenerate/retry/edit re-sends images already sent, which count zero.
+    const { newCount: newImages } = imageIds.length
+        ? await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, body.conversationId, imageIds))
+        : { newCount: 0 };
     const rlRedis = getRateLimitRedis(c.env);
-    const limits = resolveLimits(c.env);
-    const reserved = estimateReserve(incomingText.length, limits);
+    const reserved = estimateReserve(incomingText.length, limits, imageIds.length);
     let admitted = false;
     // Budget headers echoed on the SUCCESS response so the client holds its own
     // "remaining budget" view (display source of truth) without polling GET /ai/usage.
     let rlHeaders: Record<string, string> | undefined;
     if (rlRedis) {
         try {
-            const admission = await admit(rlRedis, userKey, reserved, limits);
+            const admission = await admit(rlRedis, userKey, reserved, limits, newImages);
             if (!admission.ok) {
                 logger.warn("ai", "ai_ratelimit_rejected", {
                     requestId,
@@ -174,6 +189,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     retryAfterS: admission.retryAfterS,
                 });
                 return aiRateLimitResponse(c, {
+                    code: admission.code,
                     retryAfterS: admission.retryAfterS,
                     limits,
                     remaining: admission.remaining,
@@ -221,6 +237,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const isRerun = await truncateMessagesAfter(tx, userId, id, incoming.id);
         const priorRows = await loadConversationMessages(tx, userId, id, { limit: MAX_HISTORY_TURNS });
         await appendUserMessage(tx, userId, id, incoming, { clientMessageId });
+        await markSent(tx, userId, imageIds);
         if (redis) await setActiveStream(tx, userId, id, streamId);
         // First user turn on a still-untitled thread → auto-title it. On a rerun
         // the anchor row itself is the only prior row.
@@ -234,7 +251,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // `execute` below can await it without risk of hanging the response.
     const titlePromise = needsTitle
         ? (async () => {
-              const title = await generateConversationTitle(c.env, incomingText);
+              const title = await generateConversationTitle(c.env, incomingText, imageIds.length > 0);
               c.executionCtx.waitUntil(
                   withRls(db, userId, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
               );
@@ -277,7 +294,11 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         : [...settleUnanswered(history.slice(0, -1)), history.at(-1)!];
     const uiMessages = compactOldReads(
         dropUnsignedReasoning(clampHistory(turn.filter((m) => m.role !== "system"))),
-    ) as unknown[];
+    ) as ChatMessage[];
+    // Recent `cadence-image:` references become data URLs for the model; older or
+    // expired ones a text stub. Memory extraction and the stored reply keep the
+    // references (never base64).
+    const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey);
 
     const { agent, promptHash } = await getAgentInstance(c.env, userId, {
         timezone: body.timezone,
@@ -300,7 +321,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     const agentStream = await createAgentUIStream({
         agent,
-        uiMessages,
+        uiMessages: modelMessages as unknown[],
         abortSignal: abortController.signal,
         // Hard ceilings cancel the upstream model call (no zombie spend, doc 09 §3.1);
         // firstChunkMs fails a hung provider fast instead of waiting out the whole turn.
@@ -319,6 +340,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 requestId,
                 userHash,
                 code: streamError.code,
+                images: imageCount || undefined,
                 upstreamStatus: upstream?.statusCode,
                 upstreamBody: typeof upstream?.responseBody === "string" ? shorten(upstream.responseBody) : undefined,
                 issues: issuesFromError(error),
@@ -609,6 +631,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const { id } = c.req.valid("param");
     const db = getDbClient(c.env);
 
+    // Its images go with it. Storage first: if that fails, the rows stay and the delete can be retried.
+    const imageIds = await withRls(db, userId, (tx) => listConversationImageIds(tx, userId, id));
+    if (imageIds.length > 0 && c.env.USER_ASSETS) {
+        const userKey = await hashIdentifier(userId);
+        await deleteImageObjects(c.env.USER_ASSETS, imageIds.map((imageId) => aiImageKey(userKey, imageId)));
+    }
     await withRls(db, userId, (tx) => deleteConversation(tx, userId, id));
 
     return c.json({ data: { id, deleted: true } });

@@ -23,6 +23,9 @@ const limits: AiLimits = {
     tokens7d: 100_000,
     maxConcurrent: 3,
     reserve: 1_000,
+    images24h: 3,
+    imagesPerMessage: 4,
+    imagesMaxPending: 8,
     failClosed: false,
 };
 
@@ -62,6 +65,12 @@ describe("resolveLimits", () => {
         expect(l.failClosed).toBe(true);
     });
 
+    it("reads the three image caps, with defaults", () => {
+        expect(resolveLimits({} as Env)).toMatchObject({ images24h: 20, imagesPerMessage: 4, imagesMaxPending: 8 });
+        const l = resolveLimits({ AI_RL_IMAGES_24H: "5", AI_IMAGES_PER_MESSAGE: "2", AI_IMAGES_MAX_PENDING: "3" } as Env);
+        expect(l).toMatchObject({ images24h: 5, imagesPerMessage: 2, imagesMaxPending: 3 });
+    });
+
     it("ignores non-positive / garbage values and keeps the default", () => {
         const l = resolveLimits({ AI_RL_REQUESTS_5H: "0", AI_RL_TOKENS_5H: "abc" } as Env);
         expect(l.requests5h).toBe(150);
@@ -72,6 +81,11 @@ describe("resolveLimits", () => {
 describe("estimateReserve", () => {
     it("floors at the configured reserve for small input", () => {
         expect(estimateReserve(0, { ...limits, reserve: 50_000 })).toBe(50_000);
+    });
+
+    it("holds tokens for each image", () => {
+        const big = { ...limits, reserve: 1 };
+        expect(estimateReserve(0, big, 2) - estimateReserve(0, big)).toBe(2_400);
     });
 
     it("scales above the floor with input size and never drops below the reserve", () => {
@@ -183,6 +197,42 @@ describe("admit — over each cap rejects and rolls back (budget-neutral)", () =
     });
 });
 
+describe("admit — image quota", () => {
+    let redis: FakeRedis;
+    beforeEach(() => (redis = new FakeRedis()));
+
+    it("counts new image sends and anchors the 24h window on the first one only", async () => {
+        const a = await admit(asRedis(redis), USER_KEY, limits.reserve, limits, 0);
+        expect(a.ok).toBe(true);
+        expect(redis.strings.has(k.img24h)).toBe(false); // n = 0 never touches the quota
+
+        await admit(asRedis(redis), USER_KEY, limits.reserve, limits, 2);
+        expect(redis.strings.get(k.img24h)).toBe("2");
+        redis.ttls.set(k.img24h, Date.now() + 5_000);
+        const b = await admit(asRedis(redis), USER_KEY, limits.reserve, limits, 1);
+        expect(redis.strings.get(k.img24h)).toBe("3");
+        expect(await redis.pttl(k.img24h)).toBeLessThanOrEqual(5_000);
+        if (b.ok) expect(b.remaining.img24h).toBe(0);
+    });
+
+    it("rejects past the cap without changing anything, as AI_IMAGE_LIMITED", async () => {
+        redis.strings.set(k.img24h, "2");
+        redis.ttls.set(k.img24h, Date.now() + 60_000);
+        const res = await admit(asRedis(redis), USER_KEY, limits.reserve, limits, 2);
+        if (res.ok) throw new Error("expected reject");
+        expect(res).toMatchObject({ code: "AI_IMAGE_LIMITED", window: "24h", dimension: "img" });
+        expect(res.retryAfterS).toBeLessThanOrEqual(60);
+        expect(redis.strings.get(k.img24h)).toBe("2");
+        expect(redis.strings.has(k.req5h)).toBe(false);
+        expect(redis.strings.has(k.inflight)).toBe(false);
+    });
+
+    it("never trips on a text-only turn at the cap", async () => {
+        redis.strings.set(k.img24h, String(limits.images24h));
+        expect((await admit(asRedis(redis), USER_KEY, limits.reserve, limits, 0)).ok).toBe(true);
+    });
+});
+
 describe("admit — anchor-on-first-write window TTL", () => {
     it("does not extend the window TTL on a later admit (EXPIRE … NX)", async () => {
         const redis = new FakeRedis();
@@ -240,6 +290,7 @@ describe("readUsage / emptyUsage", () => {
         expect(usage.windows["5h"].requests).toEqual({ used: 1, limit: limits.requests5h });
         expect(usage.windows["5h"].tokens).toEqual({ used: 1_500, limit: limits.tokens5h });
         expect(usage.windows["5h"].resetEpoch).toBeGreaterThan(Math.floor(Date.now() / 1000));
+        expect(usage.images).toEqual({ used: 0, limit: limits.images24h, perMessage: limits.imagesPerMessage, resetEpoch: null });
     });
 
     it("emptyUsage is a disabled, zero-used placeholder carrying the limits", () => {

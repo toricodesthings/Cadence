@@ -46,6 +46,25 @@ const minimalTaskColumns = {
 
 export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     const track = ctx.waitUntil ?? (() => {});
+    /** One write per tool call (`once`), then its metrics after commit; a replayed call tracks nothing. */
+    const write = <T>(
+        name: string,
+        toolCallId: string,
+        fn: (tx: Tx) => Promise<{ result: T; id: string; changes?: Parameters<typeof trackTaskChanges>[3] }>,
+    ) =>
+        safeExecute(name, userId, async () => {
+            const db = getDbClient(env);
+            let changes: Parameters<typeof trackTaskChanges>[3] | undefined;
+            const result = await withRls(db, userId, (tx) =>
+                once(tx, userId, toolCallId, async () => {
+                    const done = await fn(tx);
+                    changes = done.changes;
+                    return done;
+                }),
+            );
+            if (changes) trackTaskChanges(track, db, userId, changes);
+            return result;
+        });
     return {
         // ── R ──────────────────────────────────────────────────────────────────
         get_tasks: tool({
@@ -197,16 +216,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Never for a task that already exists: use update_tasks.",
             inputSchema: z.object({ tasks: z.array(taskDraftSchema).min(1).max(20) }),
             execute: async ({ tasks: drafts }, { toolCallId }) =>
-                safeExecute("create_tasks", userId, async () => {
-                    const db = getDbClient(env);
-                    const result = await withRls(db, userId, (tx) =>
-                        once(tx, userId, toolCallId, async () => {
-                            const created = await createTasks(tx, userId, drafts.map(({ fromImage: _quotes, ...draft }) => draft));
-                            return { result: { created }, id: created[0].taskId };
-                        }),
-                    );
-                    if ("created" in result) trackTaskChanges(track, db, userId, { created: result.created.map((task) => task.taskId) });
-                    return result;
+                write("create_tasks", toolCallId, async (tx) => {
+                    const created = await createTasks(tx, userId, drafts.map(({ fromImage: _quotes, ...draft }) => draft));
+                    return { result: { created }, id: created[0].taskId, changes: { created: created.map((task) => task.taskId) } };
                 }),
         }),
 
@@ -222,25 +234,18 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 )
                 .refine(({ patch }) => patch.note === undefined || patch.noteVersion !== undefined, "note needs noteVersion from get_task_detail"),
             execute: async ({ taskIds, patch }, { toolCallId }) =>
-                safeExecute("update_tasks", userId, async () => {
+                write("update_tasks", toolCallId, async (tx) => {
                     const { addTagIds, removeTagIds, note, appendNote, noteVersion, ...fields } = patch;
                     const isAllDay = inferIsAllDay(fields);
-                    const db = getDbClient(env);
-                    let rows: Awaited<ReturnType<typeof updateTasks>> = [];
-                    const result = await withRls(db, userId, (tx) =>
-                        once(tx, userId, toolCallId, async () => {
-                            rows = await updateTasks(tx, userId, {
-                                taskIds,
-                                patch: { ...fields, ...(isAllDay !== undefined && { isAllDay }) },
-                                addTagIds,
-                                removeTagIds,
-                            });
-                            if (note !== undefined || appendNote) await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion });
-                            return { result: { updated: rows.length }, id: taskIds[0] };
-                        }),
-                    );
-                    if (hasTaskTemporalMutation(fields)) trackTaskChanges(track, db, userId, { rescheduled: rows });
-                    return result;
+                    const rows = await updateTasks(tx, userId, {
+                        taskIds,
+                        patch: { ...fields, ...(isAllDay !== undefined && { isAllDay }) },
+                        addTagIds,
+                        removeTagIds,
+                    });
+                    if (note !== undefined || appendNote) await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion });
+                    const changes = hasTaskTemporalMutation(fields) ? { rescheduled: rows } : undefined;
+                    return { result: { updated: rows.length }, id: taskIds[0], changes };
                 }),
         }),
 
@@ -250,11 +255,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Added steps go at the end. Returns the new subtask ids and counts.",
             inputSchema: subtaskEditSchema,
             execute: async (input, { toolCallId }) =>
-                safeExecute("edit_subtasks", userId, async () =>
-                    withRls(getDbClient(env), userId, (tx) =>
-                        once(tx, userId, toolCallId, async () => ({ result: await editSubtasks(tx, userId, input), id: input.taskId })),
-                    ),
-                ),
+                write("edit_subtasks", toolCallId, async (tx) => ({ result: await editSubtasks(tx, userId, input), id: input.taskId })),
         }),
 
         set_task_state: tool({
@@ -267,18 +268,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 waitingOn: z.string().min(1).max(500).optional().describe("Who or what, with WAITING."),
             }),
             execute: async ({ taskIds, state, waitingOn }, { toolCallId }) =>
-                safeExecute("set_task_state", userId, async () => {
-                    const db = getDbClient(env);
-                    let done: string[] = [];
-                    const result = await withRls(db, userId, (tx) =>
-                        once(tx, userId, toolCallId, async () => {
-                            const rows = await setTaskState(tx, userId, taskIds, state, waitingOn);
-                            if (state === "COMPLETE") done = rows.map((row) => row.id);
-                            return { result: { updated: rows.length }, id: taskIds[0] };
-                        }),
-                    );
-                    trackTaskChanges(track, db, userId, { completed: done });
-                    return result;
+                write("set_task_state", toolCallId, async (tx) => {
+                    const rows = await setTaskState(tx, userId, taskIds, state, waitingOn);
+                    const changes = state === "COMPLETE" ? { completed: rows.map((row) => row.id) } : undefined;
+                    return { result: { updated: rows.length }, id: taskIds[0], changes };
                 }),
         }),
 
@@ -288,14 +281,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 tasks: z.array(z.object({ taskId: z.uuid(), title: z.string().max(500) })).min(1).max(20),
             }),
             execute: async ({ tasks: targets }, { toolCallId }) =>
-                safeExecute("delete_tasks", userId, async () =>
-                    withRls(getDbClient(env), userId, (tx) =>
-                        once(tx, userId, toolCallId, async () => {
-                            const rows = await deleteTasks(tx, userId, targets.map((target) => target.taskId));
-                            return { result: { deleted: rows.length }, id: targets[0].taskId };
-                        }),
-                    ),
-                ),
+                write("delete_tasks", toolCallId, async (tx) => {
+                    const rows = await deleteTasks(tx, userId, targets.map((target) => target.taskId));
+                    return { result: { deleted: rows.length }, id: targets[0].taskId };
+                }),
         }),
 
         reschedule_tasks: tool({
@@ -307,17 +296,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 targetDate: z.iso.date().describe("The new local day."),
             }),
             execute: async ({ taskIds, targetDate }, { toolCallId }) =>
-                safeExecute("reschedule_tasks", userId, async () => {
-                    const db = getDbClient(env);
-                    let rows: Awaited<ReturnType<typeof rescheduleTasks>> = [];
-                    const result = await withRls(db, userId, (tx) =>
-                        once(tx, userId, toolCallId, async () => {
-                            rows = await rescheduleTasks(tx, userId, { taskIds, date: targetDate, timezone: ctx.timezone, isAllDay: true });
-                            return { result: { moved: rows.length }, id: taskIds[0] };
-                        }),
-                    );
-                    trackTaskChanges(track, db, userId, { rescheduled: rows });
-                    return result;
+                write("reschedule_tasks", toolCallId, async (tx) => {
+                    const rows = await rescheduleTasks(tx, userId, { taskIds, date: targetDate, timezone: ctx.timezone, isAllDay: true });
+                    return { result: { moved: rows.length }, id: taskIds[0], changes: { rescheduled: rows } };
                 }),
         }),
     };

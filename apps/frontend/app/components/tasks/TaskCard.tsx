@@ -1,7 +1,7 @@
 import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_TITLE } from "./task-row-styles";
 import { ThoughtMark } from "./ThoughtMark";
 import { getTagTone } from "./TagSignal";
-import { useState, useRef, useEffect } from "react";
+import { useState, useId } from "react";
 import {
     Calendar,
     Pin,
@@ -11,21 +11,16 @@ import {
     AlertTriangle,
     Clock,
     ChevronRight,
-    ChevronDown,
     CalendarClock,
     Tag as TagIcon,
     Sparkles,
     GripVertical,
-    X,
-    Plus,
     type LucideIcon,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
 import { RenameTaskDialog } from "./RenameTaskDialog";
-import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
-import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
+import { InlineSubtaskPanel, SubtaskChip, useInlineSubtasks } from "./InlineSubtasks";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
@@ -95,63 +90,6 @@ type CollapsedSignal = {
     accentDots?: string[];
 };
 
-/** Inline subtask item — checkbox + title + delete */
-function InlineSubtaskItem({
-    subtask,
-    onDelete,
-    compact,
-    dragHandleProps,
-    isDragging,
-}: {
-    subtask: Subtask;
-    onDelete: (id: string) => void;
-    compact: boolean;
-    dragHandleProps: SortableSubtaskRenderProps["dragHandleProps"];
-    isDragging: boolean;
-}) {
-    return (
-        <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className={`group/sub flex items-center gap-1.5 rounded-xl px-1 py-1.5 transition-colors hover:bg-white/[0.03] ${
-                isDragging ? "opacity-50" : "opacity-100"
-            }`}
-        >
-            <div
-                ref={dragHandleProps.ref}
-                {...dragHandleProps.attributes}
-                {...dragHandleProps.listeners}
-                className={`shrink-0 rounded-lg p-0.5 text-twilight-text-soft transition-opacity ${
-                    compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 touch-reveal"
-                }`}
-                data-no-dnd="true"
-                data-no-open="true"
-                aria-label="Drag to reorder subtask"
-            >
-                <GripVertical size={14} aria-hidden="true" />
-            </div>
-            <TaskCheckbox subtask={subtask} compact />
-            <span
-                className={`flex-1 min-w-0 text-[14px] leading-6 transition-colors ${subtask.isComplete ? "text-twilight-text-muted/40 line-through" : "text-twilight-text-soft"
-                    }`}
-            >
-                {subtask.title}
-            </span>
-            <button
-                type="button"
-                onClick={() => onDelete(subtask.id)}
-                data-no-dnd="true"
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-red-400/70 transition-[opacity,color,background-color] hover:bg-red-500/10 hover:text-red-300 ${
-                    compact ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 touch-reveal"
-                }`}
-                aria-label="Delete subtask"
-            >
-                <X size={14} aria-hidden="true" />
-            </button>
-        </motion.div>
-    );
-}
-
 /** Presentational task card — composes TaskCheckbox + TaskContextMenu + inline subtasks */
 export function TaskCard({
     task,
@@ -170,44 +108,15 @@ export function TaskCard({
     const priorityConfig = PRIORITY_CONFIG[task.priority];
     const showUrgentIcon = task.priority >= 3;
 
-    const createSubtask = useCreateSubtask(task.id);
-    const deleteSubtask = useDeleteSubtask(task.id);
-    const reorderSubtask = useReorderSubtasks(task.id);
     const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
     const shell = useShellMode();
 
-    const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
-    const [isAddingSubtask, setIsAddingSubtask] = useState(false);
-    const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
-    const addInputRef = useRef<HTMLInputElement>(null);
+    const subtaskUi = useInlineSubtasks();
+    const subtaskPanelId = useId();
 
     // Override isSelected if managed by global store
     const isGloballySelected = selectedTaskIds.has(task.id);
     const isTaskSelected = isGloballySelected || isSelected;
-
-    // Focus input when adding subtask
-    useEffect(() => {
-        if (isAddingSubtask && addInputRef.current) {
-            addInputRef.current.focus();
-        }
-    }, [isAddingSubtask]);
-
-    const handleAddSubtask = () => {
-        setIsSubtasksExpanded(true);
-        setIsAddingSubtask(true);
-    };
-
-    const handleSubmitSubtask = () => {
-        const title = newSubtaskTitle.trim();
-        if (!title) {
-            setIsAddingSubtask(false);
-            return;
-        }
-        const orderIndex = orderedSubtasks.length > 0 ? orderedSubtasks[orderedSubtasks.length - 1].orderIndex + 1 : 0;
-        createSubtask.mutate({ title, orderIndex });
-        setNewSubtaskTitle("");
-        // Keep input focused for rapid entry
-    };
 
     const scheduleSummary = getTaskScheduleSummary(task);
     const scheduleLabel = scheduleSummary.primaryLabel;
@@ -219,13 +128,11 @@ export function TaskCard({
     );
     const isPassiveTimetable = isPassiveTimetableTask(task);
     const orderedSubtasks = [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
-    const completedCount = orderedSubtasks.filter((subtask) => subtask.isComplete).length;
     const tagSummary = tags.length === 1 ? tags[0]?.name ?? "1 tag" : `${tags.length} tags`;
     const primaryTagTone = getTagTone(tags[0]);
     const tagAccentDots = tags
         .slice(0, 2)
         .map((tag) => getTagTone(tag).accentColor);
-    const subtaskSummary = `${completedCount}/${orderedSubtasks.length}`;
     const primaryCue = scheduleLabel
         ? {
             icon: isPassiveTimetable ? CalendarClock : Calendar,
@@ -271,7 +178,7 @@ export function TaskCard({
             ? {
                 key: "subtasks",
                 icon: ChevronRight,
-                label: subtaskSummary,
+                label: "Subtasks",
                 className: "text-twilight-text-soft",
                 button: true,
             }
@@ -328,7 +235,7 @@ export function TaskCard({
 
     const visibleSignals = secondarySignals.slice(0, shell.isPhone ? 2 : 3);
     const hasCollapsedSupport = Boolean(primaryCue || visibleSignals.length > 0);
-    const isCompactCard = !hasCollapsedSupport && !isSubtasksExpanded && !isAddingSubtask;
+    const isCompactCard = !hasCollapsedSupport && !subtaskUi.open && !subtaskUi.adding;
     const isBoardCard = variant === "board";
     const effectiveRationaleLabel = rationaleLabel === OVERDUE_RATIONALE_LABEL ? null : rationaleLabel;
 
@@ -479,29 +386,13 @@ export function TaskCard({
                                         {visibleSignals.map((signal) => {
                                             if (signal.button) {
                                                 return (
-                                                    <button
+                                                    <SubtaskChip
                                                         key={signal.key}
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setIsSubtasksExpanded((expanded) => !expanded);
-                                                        }}
-                                                        data-no-dnd="true"
-                                                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text ${
-                                                            shell.isPhone ? "touch-target min-h-9 px-3.5" : ""
-                                                        }`}
-                                                        aria-expanded={isSubtasksExpanded}
-                                                        aria-label={isSubtasksExpanded ? "Collapse subtasks" : "Expand subtasks"}
-                                                    >
-                                                        {isSubtasksExpanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
-                                                        <span className="flex h-1.5 w-5 overflow-hidden rounded-full bg-white/[0.05]">
-                                                            <span
-                                                                className="h-full bg-feedback-success/60 transition-all duration-300"
-                                                                style={{ width: `${(completedCount / orderedSubtasks.length) * 100}%` }}
-                                                            />
-                                                        </span>
-                                                        <span>{signal.label}</span>
-                                                    </button>
+                                                        subtasks={orderedSubtasks}
+                                                        open={subtaskUi.open}
+                                                        onToggle={subtaskUi.toggle}
+                                                        controls={subtaskPanelId}
+                                                    />
                                                 );
                                             }
 
@@ -535,136 +426,20 @@ export function TaskCard({
                         </div>
                     </button>
 
-                    <AnimatePresence>
-                        {isSubtasksExpanded && orderedSubtasks.length > 0 ? (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                className="overflow-hidden"
-                            >
-                                <div className="mt-3 border-t border-white/[0.06] pt-3">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-muted">
-                                                Subtasks
-                                            </p>
-                                            <p className="mt-1 text-[12px] text-twilight-text-soft">
-                                                <span className="font-semibold text-twilight-text">{subtaskSummary}</span>
-                                            </p>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={handleAddSubtask}
-                                                data-no-dnd="true"
-                                                className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
-                                            >
-                                                <Plus size={12} aria-hidden="true" />
-                                                Add
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-3 space-y-1">
-                                        <SortableSubtaskList
-                                            subtasks={orderedSubtasks}
-                                            onReorder={(payload) => reorderSubtask.mutate(payload)}
-                                            renderItem={({ subtask, dragHandleProps, isDragging }) => (
-                                                <InlineSubtaskItem
-                                                    subtask={subtask}
-                                                    onDelete={(id) => deleteSubtask.mutate(id)}
-                                                    compact={shell.isPhone}
-                                                    dragHandleProps={dragHandleProps}
-                                                    isDragging={isDragging}
-                                                />
-                                            )}
-                                        />
-                                    </div>
-
-                                    {isAddingSubtask ? (
-                                        <div className="mt-3">
-                                            <div className="flex items-center gap-1.5 rounded-xl px-1 py-1.5">
-                                                <div className="h-6 w-6 shrink-0 rounded-full border-[1.5px] border-twilight-text-muted/70" />
-                                                <input
-                                                    ref={addInputRef}
-                                                    type="text"
-                                                    data-no-dnd="true"
-                                                    value={newSubtaskTitle}
-                                                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "Enter") handleSubmitSubtask();
-                                                        if (e.key === "Escape") {
-                                                            setIsAddingSubtask(false);
-                                                            setNewSubtaskTitle("");
-                                                        }
-                                                    }}
-                                                    onBlur={() => {
-                                                        if (newSubtaskTitle.trim()) handleSubmitSubtask();
-                                                        else {
-                                                            setIsAddingSubtask(false);
-                                                            setNewSubtaskTitle("");
-                                                        }
-                                                    }}
-                                                    placeholder="Add subtask..."
-                                                    className="flex-1 min-w-0 bg-transparent text-[14px] leading-6 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
-                                                />
-                                            </div>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </motion.div>
-                        ) : null}
-                    </AnimatePresence>
-
-                    <AnimatePresence>
-                        {isAddingSubtask && orderedSubtasks.length === 0 ? (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                className="overflow-hidden"
-                            >
-                                <div className="mt-3 border-t border-white/[0.06] pt-3">
-                                    <div className="flex items-center gap-2 rounded-xl px-1.5 py-1.5">
-                                        <div className="h-6 w-6 shrink-0 rounded-full border-[1.5px] border-twilight-text-muted/70" />
-                                        <input
-                                            ref={addInputRef}
-                                            type="text"
-                                            data-no-dnd="true"
-                                            value={newSubtaskTitle}
-                                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") handleSubmitSubtask();
-                                                if (e.key === "Escape") {
-                                                    setIsAddingSubtask(false);
-                                                    setNewSubtaskTitle("");
-                                                }
-                                            }}
-                                            onBlur={() => {
-                                                if (newSubtaskTitle.trim()) handleSubmitSubtask();
-                                                else {
-                                                    setIsAddingSubtask(false);
-                                                    setNewSubtaskTitle("");
-                                                }
-                                            }}
-                                            placeholder="Add subtask..."
-                                            className="flex-1 min-w-0 bg-transparent text-[14px] leading-6 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
-                                        />
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ) : null}
-                    </AnimatePresence>
+                    <InlineSubtaskPanel
+                        id={subtaskPanelId}
+                        taskId={task.id}
+                        subtasks={orderedSubtasks}
+                        open={subtaskUi.open}
+                        adding={subtaskUi.adding}
+                        onAddingChange={subtaskUi.setAdding}
+                    />
                 </div>
             </div>
 
             {/* Context menu — subtly visible, full opacity on hover */}
             <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
-                <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : handleAddSubtask} onRename={handleRename} holdingContext={holdingContext} />
+                <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding} onRename={handleRename} holdingContext={holdingContext} />
             </div>
 
             <RenameTaskDialog

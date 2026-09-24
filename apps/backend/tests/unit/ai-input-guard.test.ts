@@ -58,6 +58,28 @@ describe("assertMessageWithinCaps", () => {
     });
 });
 
+describe("assertMessageWithinCaps — image file parts", () => {
+    const id = "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b";
+    const image = (over: Record<string, unknown> = {}) => ({ type: "file", mediaType: "image/webp", url: `cadence-image:${id}`, ...over });
+    const send = (...parts: unknown[]) => () => assertMessageWithinCaps({ role: "user", parts });
+
+    it("accepts cadence-image references up to the cap", () => {
+        expect(send(image(), image(), image(), image(), { type: "text", text: "hi" })).not.toThrow();
+    });
+
+    it.each([
+        ["a data URL", image({ url: "data:image/webp;base64,AAAA" })],
+        ["an https URL", image({ url: "https://evil.example/x.webp" })],
+        ["another media type", image({ mediaType: "image/png" })],
+        ["a filename", image({ filename: "jane_passport.jpg" })],
+    ])("rejects %s", (_label, part) => expectInvalidRequest(send(part)));
+
+    it("rejects more images than the cap, which the server can lower", () => {
+        expectInvalidRequest(send(image(), image(), image(), image(), image()));
+        expectInvalidRequest(() => assertMessageWithinCaps({ role: "user", parts: [image(), image()] }, 1));
+    });
+});
+
 describe("clampHistory", () => {
     it("returns all items when under the limit", () => {
         const history = [1, 2, 3];

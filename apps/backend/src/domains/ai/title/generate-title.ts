@@ -33,8 +33,8 @@ export function getTitleModelId(env: Env): string {
  * Generate a short title for a new conversation from the user's first message.
  * Always returns a non-empty, length-clamped title.
  */
-export async function generateConversationTitle(env: Env, userText: string): Promise<string> {
-    const fallback = deriveFallbackTitle(userText);
+export async function generateConversationTitle(env: Env, userText: string, hasImages = false): Promise<string> {
+    const fallback = deriveFallbackTitle(userText, hasImages);
 
     const apiKey = env.OPENROUTER_API_KEY;
     if (!apiKey || !userText.trim()) return fallback;

@@ -45,8 +45,7 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                         .orderBy(desc(inboxItems.createdAt), desc(inboxItems.id))
                         .limit(cap + 1),
                 );
-                const more = rows.length > cap;
-                return { items: rows.slice(0, cap).map(toMinimalInboxItem), ...(more && { more }) };
+                return { items: rows.slice(0, cap).map(toMinimalInboxItem), more: rows.length > cap || undefined };
             }),
     }),
 

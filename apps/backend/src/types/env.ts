@@ -30,7 +30,7 @@ export interface Env {
     ADMIN_EMAILS?: string;
 
     // ── User file storage ──
-    /** Private R2 bucket for user photo backgrounds. When absent, background routes answer 503. */
+    /** Private R2 bucket for photo backgrounds and chat images. When absent, their upload routes answer 503. */
     USER_ASSETS?: R2Bucket;
 
     // ── Rate limiting ──
@@ -77,6 +77,12 @@ export interface Env {
     AI_RL_MAX_CONCURRENT?: string;
     /** Per-turn token hold at admission, reconciled to actual on finish. Default 6000. */
     AI_RL_RESERVE_TOKENS?: string;
+    /** Images sent per 24h window (sent, not uploaded; re-sends are free). Default 20. */
+    AI_RL_IMAGES_24H?: string;
+    /** Images per chat message. Default 4. */
+    AI_IMAGES_PER_MESSAGE?: string;
+    /** Attached-but-unsent image uploads a user may have waiting. Default 8. */
+    AI_IMAGES_MAX_PENDING?: string;
     /** "open" (allow on Redis outage, default) | "closed" (reject when the store is down). */
     AI_RATE_LIMIT_FAIL_MODE?: string;
 }

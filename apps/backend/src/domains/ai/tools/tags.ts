@@ -27,8 +27,7 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                         .orderBy(desc(tags.createdAt))
                         .limit(MAX_LIST_LIMIT + 1),
                 );
-                const more = rows.length > MAX_LIST_LIMIT;
-                return { tags: rows.slice(0, MAX_LIST_LIMIT).map(toMinimalTag), ...(more && { more }) };
+                return { tags: rows.slice(0, MAX_LIST_LIMIT).map(toMinimalTag), more: rows.length > MAX_LIST_LIMIT || undefined };
             }),
     }),
 

@@ -17,6 +17,11 @@ describe("generateConversationTitle (fallback path — no LLM call)", () => {
         const title = await generateConversationTitle(env(), "   ");
         expect(title).toBe("New conversation");
     });
+
+    it("titles an image-only first turn without calling the model", async () => {
+        const title = await generateConversationTitle(env({ OPENROUTER_API_KEY: "key" }), "", true);
+        expect(title).toBe("Photo");
+    });
 });
 
 describe("getTitleModelId", () => {

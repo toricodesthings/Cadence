@@ -64,22 +64,8 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
  * Proposals from before 0.19 (the client wrote them, then saved a decision). Old
  * threads still hold them, so they render settled and read-only: applied or not.
  */
-const RETIRED_PROPOSALS: Record<string, string> = {
-    propose_create_task: "Suggested a task",
-    propose_update_task: "Suggested a change",
-    propose_batch_reschedule: "Proposed a reschedule",
-    propose_delete_task: "Asked to delete a task",
-    propose_complete_tasks: "Proposed marking done",
-    propose_create_project: "Suggested a list",
-    propose_create_tag: "Suggested a tag",
-    propose_add_subtask: "Suggested a subtask",
-    propose_update_subtask: "Suggested a subtask change",
-    propose_delete_subtask: "Asked to delete a subtask",
-    propose_log_habit: "Proposed a routine check-in",
-    propose_structure_inbox_item: "Proposed structuring a capture",
-};
-
-function RetiredProposal({ label, applied }: { label: string; applied: boolean }) {
+function RetiredProposal({ applied }: { applied: boolean }) {
+    const label = "Earlier suggestion";
     return (
         <ProposalCard
             state="output-available"
@@ -120,9 +106,7 @@ export function ToolPart({
 }) {
     const toolName = safeToolName(part);
     const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
-    const retired = toolName ? RETIRED_PROPOSALS[toolName] : undefined;
-
-    if (retired) return <RetiredProposal label={retired} applied={part?.output?.decision === "commit"} />;
+    if (toolName?.startsWith("propose_")) return <RetiredProposal applied={part?.output?.decision === "commit"} />;
 
     if (!descriptor) {
         // Unknown / future tool → neutral chip.

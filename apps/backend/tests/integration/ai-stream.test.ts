@@ -39,6 +39,7 @@ vi.mock("../../src/domains/ai/persistence/conversation-repo", () => ({
     listConversations: vi.fn(),
     renameOrArchiveConversation: vi.fn(),
     deleteConversation: vi.fn(),
+    listConversationImageIds: vi.fn().mockResolvedValue([]),
     setActiveStream: vi.fn(),
     finalizeActiveStream: vi.fn(),
 }));

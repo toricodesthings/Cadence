@@ -12,8 +12,8 @@ import {
     normalizeEndBoundary,
 } from "@cadence/domain/task-temporal";
 import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
-import { habitOccurrences } from "@cadence/domain/repeats";
 import { taskLocalDay, toMinimalTask } from "./projections";
+import { expandOccurrences } from "../../habits/habits.service";
 import { addDaysToDateStr, toLocalDateStr } from "../../../platform/date-utils";
 
 /** Hard cap on the span a single schedule-window read may cover. */
@@ -26,13 +26,8 @@ export function routinesDue(
     to: string,
 ) {
     return rows.flatMap((row) => {
-        let days: string[];
-        try {
-            days = habitOccurrences(row.recurrenceRule, row.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`));
-        } catch {
-            return []; // an unreadable rule has no due days
-        }
-        days = days.filter((day) => !row.pausedUntil || day > row.pausedUntil);
+        const days = expandOccurrences(row.recurrenceRule, row.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`))
+            .filter((day) => !row.pausedUntil || day > row.pausedUntil);
         return days.length ? [{ id: row.id, title: row.title, days, targetTime: row.targetTime }] : [];
     });
 }
@@ -130,11 +125,10 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         const day = taskLocalDay(row, ctx.timezone);
                         return day !== null && day >= from && day <= to;
                     });
-                    const more = inRange.length > cap;
                     return {
                         range: { start: from, end: to, timezone: ctx.timezone },
                         tasks: inRange.slice(0, cap).map((row) => toMinimalTask(row, ctx.timezone)),
-                        ...(more && { more }),
+                        more: inRange.length > cap || undefined,
                         routines: routinesDue(habitRows, from, to),
                     };
                 });

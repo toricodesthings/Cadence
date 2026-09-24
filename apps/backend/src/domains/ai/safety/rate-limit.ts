@@ -24,13 +24,14 @@
  * REST client the resumption path already uses.
  */
 import type { Redis } from "@upstash/redis/cloudflare";
-import type { AiUsage } from "@cadence/contracts/ai";
+import { CHAT_IMAGE_LIMITS, type AiImageUsage, type AiUsage } from "@cadence/contracts/ai";
 import type { Env } from "../../../types/env";
 import { MAX_OUTPUT_TOKENS } from "./input-guard";
 import {
     rlKeys,
     WINDOW_5H_S,
     WINDOW_7D_S,
+    WINDOW_24H_S,
     INFLIGHT_TTL_S,
     type Window,
     type Dimension,
@@ -38,6 +39,8 @@ import {
 
 /** Flat token allowance folded into the reserve for history + tool round-trips. */
 const HISTORY_TOOL_BUDGET = 3_000;
+/** Tokens one image costs at Gemini's default media resolution. */
+const TOKENS_PER_IMAGE = 1_200;
 
 // SECURITY NOTE: `redis.eval` runs Redis server-side Lua (NOT JavaScript eval). Both
 // scripts below are STATIC module constants — no value is ever interpolated into the
@@ -52,36 +55,47 @@ const HISTORY_TOOL_BUDGET = 3_000;
  * admits** — so a rejected turn touches nothing (no rollback round-trip, no TOCTOU
  * window). EXPIRE … NX anchors each window's TTL at its first write.
  *
- *   KEYS = [req5h, req7d, tok5h, tok7d, inflight]
- *   ARGV = [reserve, lim_req5h, lim_tok5h, lim_req7d, lim_tok7d, lim_conc, w5_s, w7_s, inflight_ttl_s]
- *   ⇒    [admitted(0|1), dimension, window, used_req5h, used_tok5h, used_req7d, used_tok7d, pttl5h_ms, pttl7d_ms]
+ *   KEYS = [req5h, req7d, tok5h, tok7d, inflight, img24h]
+ *   ARGV = [reserve, lim_req5h, lim_tok5h, lim_req7d, lim_tok7d, lim_conc, w5_s, w7_s, inflight_ttl_s, images, lim_img24h, w24_s]
+ *   ⇒    [admitted(0|1), dimension, window, used_req5h, used_tok5h, used_req7d, used_tok7d, pttl5h_ms, pttl7d_ms, used_img24h, pttl24h_ms]
+ *
+ * `images` is the turn's NEW image sends (re-sends count zero); 0 never trips the image cap.
  */
 const ADMIT_SCRIPT = `
--- @cadence:ai:rl:admit:v1
+-- @cadence:ai:rl:admit:v2
 local r5 = tonumber(redis.call('GET', KEYS[1]) or '0')
 local r7 = tonumber(redis.call('GET', KEYS[2]) or '0')
 local t5 = tonumber(redis.call('GET', KEYS[3]) or '0')
 local t7 = tonumber(redis.call('GET', KEYS[4]) or '0')
 local inf = tonumber(redis.call('GET', KEYS[5]) or '0')
+local i = tonumber(redis.call('GET', KEYS[6]) or '0')
 local reserve = tonumber(ARGV[1])
 local lr5, lt5, lr7, lt7, lc = tonumber(ARGV[2]), tonumber(ARGV[3]), tonumber(ARGV[4]), tonumber(ARGV[5]), tonumber(ARGV[6])
 local w5, w7, infttl = tonumber(ARGV[7]), tonumber(ARGV[8]), tonumber(ARGV[9])
+local n, li, w24 = tonumber(ARGV[10]), tonumber(ARGV[11]), tonumber(ARGV[12])
 local p5 = redis.call('PTTL', KEYS[1])
 local p7 = redis.call('PTTL', KEYS[2])
+local pi = redis.call('PTTL', KEYS[6])
 -- Reject WITHOUT mutating: report current usage so the caller can surface remaining.
-if inf + 1 > lc then return {0, 'concurrency', '5h', r5, t5, r7, t7, p5, p7} end
-if r5 + 1 > lr5 then return {0, 'req', '5h', r5, t5, r7, t7, p5, p7} end
-if t5 + reserve > lt5 then return {0, 'tok', '5h', r5, t5, r7, t7, p5, p7} end
-if r7 + 1 > lr7 then return {0, 'req', '7d', r5, t5, r7, t7, p5, p7} end
-if t7 + reserve > lt7 then return {0, 'tok', '7d', r5, t5, r7, t7, p5, p7} end
+if inf + 1 > lc then return {0, 'concurrency', '5h', r5, t5, r7, t7, p5, p7, i, pi} end
+if r5 + 1 > lr5 then return {0, 'req', '5h', r5, t5, r7, t7, p5, p7, i, pi} end
+if t5 + reserve > lt5 then return {0, 'tok', '5h', r5, t5, r7, t7, p5, p7, i, pi} end
+if r7 + 1 > lr7 then return {0, 'req', '7d', r5, t5, r7, t7, p5, p7, i, pi} end
+if t7 + reserve > lt7 then return {0, 'tok', '7d', r5, t5, r7, t7, p5, p7, i, pi} end
+if n > 0 and i + n > li then return {0, 'img', '24h', r5, t5, r7, t7, p5, p7, i, pi} end
 -- Admit: increment requests, reserve tokens, bump inflight; anchor window TTLs (NX).
 redis.call('INCR', KEYS[1]); redis.call('EXPIRE', KEYS[1], w5, 'NX')
 redis.call('INCR', KEYS[2]); redis.call('EXPIRE', KEYS[2], w7, 'NX')
 redis.call('INCRBY', KEYS[3], reserve); redis.call('EXPIRE', KEYS[3], w5, 'NX')
 redis.call('INCRBY', KEYS[4], reserve); redis.call('EXPIRE', KEYS[4], w7, 'NX')
 redis.call('INCR', KEYS[5]); redis.call('EXPIRE', KEYS[5], infttl)
+if n > 0 then
+    redis.call('INCRBY', KEYS[6], n); redis.call('EXPIRE', KEYS[6], w24, 'NX')
+    i = i + n
+    pi = redis.call('PTTL', KEYS[6])
+end
 p5 = redis.call('PTTL', KEYS[1]); p7 = redis.call('PTTL', KEYS[2])
-return {1, '', '', r5 + 1, t5 + reserve, r7 + 1, t7 + reserve, p5, p7}
+return {1, '', '', r5 + 1, t5 + reserve, r7 + 1, t7 + reserve, p5, p7, i, pi}
 `;
 
 /**
@@ -109,6 +123,12 @@ export interface AiLimits {
     tokens7d: number;
     maxConcurrent: number;
     reserve: number;
+    /** Images sent per 24h window. */
+    images24h: number;
+    /** Images per message (the client's chip limit follows it). */
+    imagesPerMessage: number;
+    /** Attached-but-unsent uploads a user may have waiting. */
+    imagesMaxPending: number;
     /** When Redis is unreachable: true → reject (429), false → admit (default). */
     failClosed: boolean;
 }
@@ -121,13 +141,16 @@ export interface RemainingByWindow {
     req7d: number;
     tok7d: number;
     reset7dEpoch: number;
+    img24h: number;
+    reset24hEpoch: number;
 }
 
 export type AdmitResult =
     | { ok: true; reserved: number; remaining: RemainingByWindow }
     | {
           ok: false;
-          code: "AI_RATE_LIMITED";
+          /** `AI_IMAGE_LIMITED` when only the image quota tripped: the text can still go. */
+          code: "AI_RATE_LIMITED" | "AI_IMAGE_LIMITED";
           window: Window;
           dimension: Dimension | "concurrency";
           retryAfterS: number;
@@ -147,7 +170,7 @@ function ttlSec(pttlMs: number, fallbackS: number): number {
 }
 
 /** Parse a positive integer env var, falling back to a default. */
-function intEnv(raw: string | undefined, fallback: number): number {
+export function intEnv(raw: string | undefined, fallback: number): number {
     const parsed = Number.parseInt((raw ?? "").trim(), 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
@@ -165,6 +188,9 @@ export function resolveLimits(env: Env): AiLimits {
         tokens7d: intEnv(env.AI_RL_TOKENS_7D, 6_000_000),
         maxConcurrent: intEnv(env.AI_RL_MAX_CONCURRENT, 3),
         reserve: intEnv(env.AI_RL_RESERVE_TOKENS, 6_000),
+        images24h: intEnv(env.AI_RL_IMAGES_24H, 20),
+        imagesPerMessage: intEnv(env.AI_IMAGES_PER_MESSAGE, CHAT_IMAGE_LIMITS.perMessage),
+        imagesMaxPending: intEnv(env.AI_IMAGES_MAX_PENDING, 8),
         failClosed: env.AI_RATE_LIMIT_FAIL_MODE?.trim().toLowerCase() === "closed",
     };
 }
@@ -173,9 +199,13 @@ export function resolveLimits(env: Env): AiLimits {
  * A deliberately conservative per-turn token HOLD (not a billing figure —
  * settlement trues it up). It only needs to be ≥ a typical turn so a concurrent
  * burst can't systematically under-reserve. Floors at the env reserve.
+ *
+ * ponytail: counts the incoming message's images, not every image the history
+ * window re-sends (that needs history, loaded after admission); the floor covers
+ * a few replayed images and settlement trues up the rest.
  */
-export function estimateReserve(incomingChars: number, limits: AiLimits): number {
-    const inputEst = Math.ceil(Math.max(0, incomingChars) / 4);
+export function estimateReserve(incomingChars: number, limits: AiLimits, imageCount = 0): number {
+    const inputEst = Math.ceil(Math.max(0, incomingChars) / 4) + TOKENS_PER_IMAGE * Math.max(0, imageCount);
     return Math.max(limits.reserve, inputEst + MAX_OUTPUT_TOKENS + HISTORY_TOOL_BUDGET);
 }
 
@@ -197,7 +227,16 @@ export function readTotalTokens(responseMessage: unknown): number {
 }
 
 function buildRemaining(
-    vals: { req5h: number; tok5h: number; req7d: number; tok7d: number; pttl5h: number; pttl7d: number },
+    vals: {
+        req5h: number;
+        tok5h: number;
+        req7d: number;
+        tok7d: number;
+        pttl5h: number;
+        pttl7d: number;
+        img24h: number;
+        pttl24h: number;
+    },
     limits: AiLimits,
 ): RemainingByWindow {
     const nowSec = Math.floor(Date.now() / 1000);
@@ -208,6 +247,8 @@ function buildRemaining(
         req7d: Math.max(0, limits.requests7d - vals.req7d),
         tok7d: Math.max(0, limits.tokens7d - vals.tok7d),
         reset7dEpoch: nowSec + ttlSec(vals.pttl7d, WINDOW_7D_S),
+        img24h: Math.max(0, limits.images24h - vals.img24h),
+        reset24hEpoch: nowSec + ttlSec(vals.pttl24h, WINDOW_24H_S),
     };
 }
 
@@ -222,11 +263,12 @@ export async function admit(
     userKey: string,
     reserve: number,
     limits: AiLimits,
+    imageCount = 0,
 ): Promise<AdmitResult> {
     const k = rlKeys(userKey);
     const out = (await redis.eval(
         ADMIT_SCRIPT,
-        [k.req5h, k.req7d, k.tok5h, k.tok7d, k.inflight],
+        [k.req5h, k.req7d, k.tok5h, k.tok7d, k.inflight, k.img24h],
         [
             String(reserve),
             String(limits.requests5h),
@@ -237,6 +279,9 @@ export async function admit(
             String(WINDOW_5H_S),
             String(WINDOW_7D_S),
             String(INFLIGHT_TTL_S),
+            String(imageCount),
+            String(limits.images24h),
+            String(WINDOW_24H_S),
         ],
     )) as unknown[];
 
@@ -249,16 +294,22 @@ export async function admit(
     const tok7d = num(out[6]);
     const pttl5h = num(out[7]);
     const pttl7d = num(out[8]);
+    const img24h = num(out[9]);
+    const pttl24h = num(out[10]);
 
-    const remaining = buildRemaining({ req5h, tok5h, req7d, tok7d, pttl5h, pttl7d }, limits);
+    const remaining = buildRemaining({ req5h, tok5h, req7d, tok7d, pttl5h, pttl7d, img24h, pttl24h }, limits);
     if (admitted) return { ok: true, reserved: reserve, remaining };
 
     const breachWindow = (window || "5h") as Window;
     const retryAfterS =
-        dimension === "concurrency" ? 5 : ttlSec(breachWindow === "5h" ? pttl5h : pttl7d, breachWindow === "5h" ? WINDOW_5H_S : WINDOW_7D_S);
+        dimension === "concurrency"
+            ? 5
+            : breachWindow === "24h"
+              ? ttlSec(pttl24h, WINDOW_24H_S)
+              : ttlSec(breachWindow === "5h" ? pttl5h : pttl7d, breachWindow === "5h" ? WINDOW_5H_S : WINDOW_7D_S);
     return {
         ok: false,
-        code: "AI_RATE_LIMITED",
+        code: dimension === "img" ? "AI_IMAGE_LIMITED" : "AI_RATE_LIMITED",
         window: breachWindow,
         dimension: (dimension || "req") as Dimension | "concurrency",
         retryAfterS,
@@ -305,6 +356,9 @@ export function rateLimitHeaders(remaining: RemainingByWindow, limits: AiLimits)
         "X-RateLimit-Limit-Tokens-7d": String(limits.tokens7d),
         "X-RateLimit-Remaining-Tokens-7d": String(remaining.tok7d),
         "X-RateLimit-Reset-7d": String(remaining.reset7dEpoch),
+        "X-RateLimit-Limit-Images-24h": String(limits.images24h),
+        "X-RateLimit-Remaining-Images-24h": String(remaining.img24h),
+        "X-RateLimit-Reset-Images-24h": String(remaining.reset24hEpoch),
     };
 }
 
@@ -324,11 +378,24 @@ export function emptyUsage(limits: AiLimits): AiUsage {
                 resetEpoch: null,
             },
         },
+        images: { used: 0, limit: limits.images24h, perMessage: limits.imagesPerMessage, resetEpoch: null },
     };
 }
 
+/** A PTTL (ms) as a reset epoch, or null when no window is armed. */
+function resetEpoch(pttlMs: number): number | null {
+    return pttlMs > 0 ? Math.floor(Date.now() / 1000) + Math.ceil(pttlMs / 1000) : null;
+}
+
+/** The caller's image quota alone (1×GET + 1×PTTL), for the upload response. */
+export async function readImageUsage(redis: Redis, userKey: string, limits: AiLimits): Promise<AiImageUsage> {
+    const k = rlKeys(userKey);
+    const res = (await redis.pipeline().get(k.img24h).pttl(k.img24h).exec()) as unknown[];
+    return { used: num(res[0]), limit: limits.images24h, perMessage: limits.imagesPerMessage, resetEpoch: resetEpoch(num(res[1])) };
+}
+
 /**
- * Read the caller's current budget usage in ONE pipeline (4×GET + 2×PTTL). Read-only
+ * Read the caller's current budget usage in ONE pipeline (5×GET + 3×PTTL). Read-only
  * and scoped to the caller's own `userKey` — never reveals another tenant's numbers.
  */
 export async function readUsage(redis: Redis, userKey: string, limits: AiLimits): Promise<AiUsage> {
@@ -341,9 +408,10 @@ export async function readUsage(redis: Redis, userKey: string, limits: AiLimits)
         .get(k.tok7d)
         .pttl(k.req5h)
         .pttl(k.req7d)
+        .get(k.img24h)
+        .pttl(k.img24h)
         .exec()) as unknown[];
 
-    const nowSec = Math.floor(Date.now() / 1000);
     const pttl5h = num(res[4]);
     const pttl7d = num(res[5]);
     return {
@@ -352,13 +420,19 @@ export async function readUsage(redis: Redis, userKey: string, limits: AiLimits)
             "5h": {
                 requests: { used: num(res[0]), limit: limits.requests5h },
                 tokens: { used: num(res[1]), limit: limits.tokens5h },
-                resetEpoch: pttl5h > 0 ? nowSec + Math.ceil(pttl5h / 1000) : null,
+                resetEpoch: resetEpoch(pttl5h),
             },
             "7d": {
                 requests: { used: num(res[2]), limit: limits.requests7d },
                 tokens: { used: num(res[3]), limit: limits.tokens7d },
-                resetEpoch: pttl7d > 0 ? nowSec + Math.ceil(pttl7d / 1000) : null,
+                resetEpoch: resetEpoch(pttl7d),
             },
+        },
+        images: {
+            used: num(res[6]),
+            limit: limits.images24h,
+            perMessage: limits.imagesPerMessage,
+            resetEpoch: resetEpoch(num(res[7])),
         },
     };
 }

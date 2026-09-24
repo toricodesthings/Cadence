@@ -44,6 +44,11 @@ export const AI_ERROR_CODES: Record<string, ErrorCodeSpec> = {
         isRetryable: true,
         message: "You're moving a little fast. Give it a moment, then try again.",
     },
+    AI_IMAGE_LIMITED: {
+        status: 429,
+        isRetryable: false,
+        message: "You've sent all the images you can for today. Your text can still go on its own.",
+    },
     AI_TIMEOUT: {
         status: 504,
         isRetryable: true,

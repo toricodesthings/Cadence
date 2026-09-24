@@ -12,6 +12,7 @@ import {
     taskNotes,
     aiConversations,
     aiMessages,
+    aiImages,
 } from "../../src/db/schema";
 import type { taskRowSchema } from "@cadence/contracts/task";
 import type { projectRowSchema } from "@cadence/contracts/project";
@@ -21,7 +22,7 @@ import type { habitRowSchema } from "@cadence/contracts/habit";
 import type { subtaskRowSchema } from "@cadence/contracts/subtask";
 import type { taskSectionRowSchema } from "@cadence/contracts/section";
 import type { taskNoteRowSchema } from "@cadence/contracts/note";
-import type { aiConversationRowSchema, aiMessageRowSchema } from "@cadence/contracts/ai";
+import type { aiConversationRowSchema, aiImageRowSchema, aiMessageRowSchema } from "@cadence/contracts/ai";
 
 // Compile-time guardrails, enforced by `tsc --noEmit` (vitest itself cannot fail
 // them): every contract Row schema must be structurally identical to its Drizzle
@@ -41,4 +42,5 @@ test("every contract row schema matches its Drizzle table", () => {
     expectTypeOf<z.infer<typeof taskNoteRowSchema>>().toEqualTypeOf<typeof taskNotes.$inferSelect>();
     expectTypeOf<z.infer<typeof aiConversationRowSchema>>().toEqualTypeOf<typeof aiConversations.$inferSelect>();
     expectTypeOf<z.infer<typeof aiMessageRowSchema>>().toEqualTypeOf<typeof aiMessages.$inferSelect>();
+    expectTypeOf<z.infer<typeof aiImageRowSchema>>().toEqualTypeOf<typeof aiImages.$inferSelect>();
 });

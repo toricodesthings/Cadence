@@ -18,11 +18,12 @@ import { withRls } from "../../platform/rls";
 import { apiValidator } from "../../platform/validation";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
+import { sanitizeStillWebp } from "../../platform/webp";
 import {
     BACKGROUND_CACHE_CONTROL,
+    BACKGROUND_MAX_DIMENSION,
     backgroundObjectKey,
     backgroundPrefix,
-    sanitizeBackgroundWebp,
 } from "./background-image";
 import { normalizeSettings } from "./settings.route";
 
@@ -92,7 +93,10 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
             if (file.size > BACKGROUND_IMAGE_LIMITS.maxBytes) {
                 throw new AppError(413, "IMAGE_TOO_LARGE", "Background image is too large");
             }
-            const bytes = sanitizeBackgroundWebp(new Uint8Array(await file.arrayBuffer()));
+            const { bytes } = sanitizeStillWebp(new Uint8Array(await file.arrayBuffer()), {
+                maxDimension: BACKGROUND_MAX_DIMENSION,
+                label: "Background image",
+            });
             const bucket = requireBucket(c.env);
             const idempotencyKey = getIdempotencyKey(c);
             const db = getDbClient(c.env);

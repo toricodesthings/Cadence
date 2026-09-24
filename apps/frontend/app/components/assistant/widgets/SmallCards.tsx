@@ -5,7 +5,7 @@
 import { FolderPlus, TagIcon, Repeat, Inbox, Check } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
 import { ApprovalCard, type ToolRenderContext } from "./ApprovalCard";
-import { DraftDetails, DraftSteps, type TaskDraft } from "./TaskBatchCard";
+import { DraftDetails, DraftNote, DraftQuotes, DraftSteps, type TaskDraft } from "./TaskBatchCard";
 import { useHabitTitleLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
@@ -83,9 +83,10 @@ export function InboxStructureCard({ ctx }: { ctx: ToolRenderContext }) {
             doneText="Turned it into a task."
             declinedText="Left it in Capture."
         >
-            <IdentityBlock title={title} subtitle={!persona.terse && draft.note ? draft.note : undefined} />
+            <IdentityBlock title={title} subtitle={!persona.terse && draft.note ? <DraftNote note={draft.note} /> : undefined} />
             <DraftDetails draft={draft} />
             <DraftSteps draft={draft} />
+            <DraftQuotes draft={draft} />
         </ApprovalCard>
     );
 }

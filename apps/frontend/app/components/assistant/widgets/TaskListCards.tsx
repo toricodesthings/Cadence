@@ -10,14 +10,14 @@ import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { parseLocalDate } from "../../../lib/utils/date-format";
 
 /** Up to four rows, then a "+ N more" reveal. */
-function TaskRows({ ctx, rows, off, toggle }: { ctx: ToolRenderContext; rows: string[]; off: ReadonlySet<number>; toggle: (i: number) => void }) {
+function TaskRows({ rows, off, onToggle }: { rows: string[]; off: ReadonlySet<number>; onToggle: (i: number) => (() => void) | undefined }) {
     const [expanded, setExpanded] = useState(false);
     const visible = expanded ? rows : rows.slice(0, 4);
     return (
         <>
             <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
                 {visible.map((title, i) => (
-                    <TickRow key={i} on={!off.has(i)} onToggle={ctx.answer ? () => toggle(i) : undefined} label={title}>
+                    <TickRow key={i} on={!off.has(i)} onToggle={onToggle(i)} label={title}>
                         <span className="text-truncate-safe">{title}</span>
                     </TickRow>
                 ))}
@@ -48,7 +48,7 @@ const STATE_COPY: Record<State, { eyebrow: string; glyph: LucideIcon; primary: (
 export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
     const persona = useAssistantPersona();
     const lookupTitle = useTaskTitleLookup();
-    const { off, toggle } = useUnticked();
+    const { off, onToggle, removed } = useUnticked(ctx);
     const input = ctx.part?.input ?? {};
     const taskIds: string[] = input.taskIds ?? [];
     const copy = STATE_COPY[(input.state as State) ?? "COMPLETE"] ?? STATE_COPY.COMPLETE;
@@ -65,7 +65,7 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
             primaryLabel={copy.primary(kept)}
             primaryGlyph={Check}
             declineLabel="Not yet"
-            removed={titles.filter((_, i) => off.has(i))}
+            removed={removed(titles)}
             doneText={copy.done(ctx.part?.output?.updated ?? titles.length, input.waitingOn)}
             declinedText="Left them as they were."
         >
@@ -75,7 +75,7 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
             {persona.terse && titles.length > 3 ? (
                 <p className="text-xs text-twilight-text-soft">{titles.length} tasks</p>
             ) : (
-                <TaskRows ctx={ctx} rows={titles} off={off} toggle={toggle} />
+                <TaskRows rows={titles} off={off} onToggle={onToggle} />
             )}
         </ApprovalCard>
     );
@@ -87,7 +87,7 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
  */
 export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext }) {
     const persona = useAssistantPersona();
-    const { off, toggle } = useUnticked();
+    const { off, onToggle, removed } = useUnticked(ctx);
     const targets: { taskId: string; title: string }[] = ctx.part?.input?.tasks ?? [];
     const titles = targets.map((t) => t.title);
     const kept = titles.length - off.size;
@@ -103,11 +103,11 @@ export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext }) {
             primaryGlyph={Trash2}
             primaryVariant="cardDanger"
             declineLabel="Keep it"
-            removed={titles.filter((_, i) => off.has(i))}
+            removed={removed(titles)}
             doneText={titles.length > 1 ? `Deleted ${ctx.part?.output?.deleted ?? titles.length}.` : `Deleted “${titles[0]}”.`}
             declinedText="Kept it."
         >
-            <TaskRows ctx={ctx} rows={titles} off={off} toggle={toggle} />
+            <TaskRows rows={titles} off={off} onToggle={onToggle} />
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">These won’t come back.</p>}
         </ApprovalCard>
     );
@@ -128,7 +128,7 @@ function dayLabel(iso?: string): string {
 export function RescheduleCard({ ctx }: { ctx: ToolRenderContext }) {
     const persona = useAssistantPersona();
     const lookupTitle = useTaskTitleLookup();
-    const { off, toggle } = useUnticked();
+    const { off, onToggle, removed } = useUnticked(ctx);
     const input = ctx.part?.input ?? {};
     const titles = ((input.taskIds ?? []) as string[]).map(lookupTitle);
     const day = dayLabel(input.targetDate?.slice(0, 10));
@@ -142,13 +142,13 @@ export function RescheduleCard({ ctx }: { ctx: ToolRenderContext }) {
             ariaLabel={`Move to ${day}: ${titles.join(", ")}`}
             primaryLabel={kept === titles.length ? `Move ${titles.length > 1 ? "all " : ""}to ${day}` : `Move ${kept} to ${day}`}
             primaryGlyph={Check}
-            removed={titles.filter((_, i) => off.has(i))}
+            removed={removed(titles)}
             // Fixed blocks stay put, so the server's count is the honest one.
             doneText={`Moved ${ctx.part?.output?.moved ?? titles.length} to ${day}.`}
             declinedText="Left them where they were."
         >
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Want me to push these to {day} so today’s lighter?</p>}
-            <TaskRows ctx={ctx} rows={titles.map((title) => `${title} → ${day}`)} off={off} toggle={toggle} />
+            <TaskRows rows={titles.map((title) => `${title} → ${day}`)} off={off} onToggle={onToggle} />
         </ApprovalCard>
     );
 }

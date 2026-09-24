@@ -253,6 +253,13 @@
       "when": 1790206259482,
       "tag": "0035_normal_morlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790261749782,
+      "tag": "0036_ai_images",
+      "breakpoints": true
     }
   ]
 }

@@ -49,8 +49,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .orderBy(habits.sortOrder)
                         .limit(cap + 1),
                 );
-                const more = rows.length > cap;
-                return { habits: rows.slice(0, cap).map((r) => toMinimalHabit(r, ctx.today)), ...(more && { more }) };
+                return { habits: rows.slice(0, cap).map((r) => toMinimalHabit(r, ctx.today)), more: rows.length > cap || undefined };
             }),
     }),
 

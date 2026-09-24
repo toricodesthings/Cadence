@@ -37,10 +37,9 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                         .orderBy(taskSections.orderIndex)
                         .limit(200),
                 }));
-                const more = rows.length > MAX_LIST_LIMIT;
                 return {
                     projects: rows.slice(0, MAX_LIST_LIMIT).map((row) => toMinimalProject(row, sections)),
-                    ...(more && { more }),
+                    more: rows.length > MAX_LIST_LIMIT || undefined,
                 };
             }),
     }),

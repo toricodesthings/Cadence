@@ -204,6 +204,29 @@ export const aiMessages = pgTable('ai_messages', {
     }),
 })).enableRLS();
 
+// 3e. AI Images — photos sent to the assistant. Bytes live in R2 (USER_ASSETS,
+// `ai-images/{userKey}/{id}.webp`); this row is the only link from a user to an
+// image. conversation_id has no FK: the client mints it before the thread exists.
+export const aiImages = pgTable('ai_images', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    conversationId: uuid('conversation_id').notNull(),
+    contentHash: text('content_hash').notNull(),                 // sha256 of the stored bytes; dedup only
+    bytes: integer('bytes').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    sentAt: timestamptz('sent_at'),                              // null = attached, not sent yet
+    lastUsedAt: timestamptz('last_used_at').default(sql`now()`).notNull(), // 30-day idle expiry
+    diagnosticsSharedAt: timestamptz('diagnostics_shared_at'),   // the user shared it with an error report
+}, (table) => ({
+    dedupUnique: uniqueIndex('ai_images_user_convo_hash_unique').on(table.userId, table.conversationId, table.contentHash),
+    lastUsedIdx: index('ai_images_last_used_idx').on(table.lastUsedAt),
+    rlsPolicy: pgPolicy('ai_images_owner_access', {
+        as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing,
+    }),
+})).enableRLS();
+
 // 4a. Task Sections (User-defined grouping headers, scoped to a project)
 // In kanban view each section becomes a column.
 export const taskSections = pgTable('task_sections', {

@@ -23,6 +23,7 @@ import { suggestionRoutes } from "./domains/suggestions/suggestions.route";
 import { proxyRoutes } from "./domains/proxy/proxy.route";
 import { noteRoutes } from "./domains/notes/notes.route";
 import { aiRoutes } from "./domains/ai/ai.route";
+import { aiImageRoutes } from "./domains/ai/images/images.route";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -64,14 +65,15 @@ app.use("*", createRequestContext());
 app.use("*", secureHeaders());
 
 // ── Request Body Size Limit (100KB) ──
-// Photo uploads are exempt here and enforce their own limit on the route.
+// Photo uploads (background, chat images) are exempt here and enforce their own limit on the route.
+const UPLOAD_PATHS = new Set(["/api/v1/settings/background", "/api/v1/ai/images"]);
 const limitBody = bodyLimit({
   maxSize: 100 * 1024,
   onError: (c) =>
     c.json(createErrorBody({ code: "PAYLOAD_TOO_LARGE", message: "Request body too large", status: 413 }), 413),
 });
 app.use("/api/v1/*", (c, next) =>
-  c.req.method === "POST" && c.req.path.replace(/\/$/, "") === "/api/v1/settings/background" ? next() : limitBody(c, next),
+  c.req.method === "POST" && UPLOAD_PATHS.has(c.req.path.replace(/\/$/, "")) ? next() : limitBody(c, next),
 );
 app.use(
   "*",
@@ -174,12 +176,13 @@ const apiApp = app
   .route("/api/v1/suggestions", suggestionRoutes)
   .route("/api/v1/proxy", proxyRoutes)
   .route("/api/v1/debug", debugRoutes)
+  .route("/api/v1/ai/images", aiImageRoutes)
   .route("/api/v1/ai", aiRoutes);
 
 // ── Type export for Hono RPC ──
 export type AppType = typeof apiApp;
 
-import { handleOverdueCheck, pruneStaleMutations, pruneAiMemories } from "./cron/overdue-check";
+import { handleOverdueCheck, pruneStaleMutations, pruneAiMemories, pruneAiImages } from "./cron/overdue-check";
 
 export default {
   fetch: app.fetch,
@@ -187,5 +190,6 @@ export default {
     ctx.waitUntil(handleOverdueCheck(env));
     ctx.waitUntil(pruneStaleMutations(env));
     ctx.waitUntil(pruneAiMemories(env));
+    ctx.waitUntil(pruneAiImages(env));
   },
 };

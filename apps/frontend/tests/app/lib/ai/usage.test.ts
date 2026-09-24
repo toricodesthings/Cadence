@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeUsage, formatReset } from "../../../../app/lib/ai/usage";
+import { describeImageAllowance, describeUsage, formatReset } from "../../../../app/lib/ai/usage";
 import type { AiUsage } from "@cadence/contracts/ai";
 
 const NOW = 1_760_000_000_000; // fixed clock (ms)
@@ -9,6 +9,7 @@ function usage(overrides?: {
     enabled?: boolean;
     fiveH?: Partial<AiUsage["windows"]["5h"]>;
     sevenD?: Partial<AiUsage["windows"]["7d"]>;
+    images?: Partial<AiUsage["images"]>;
 }): AiUsage {
     const base = (limit: number): AiUsage["windows"]["5h"] => ({
         requests: { used: 0, limit },
@@ -21,6 +22,7 @@ function usage(overrides?: {
             "5h": { ...base(50), ...overrides?.fiveH },
             "7d": { ...base(500), ...overrides?.sevenD },
         },
+        images: { used: 0, limit: 20, perMessage: 4, resetEpoch: null, ...overrides?.images },
     };
 }
 
@@ -94,5 +96,30 @@ describe("formatReset", () => {
 
     it("clamps a past epoch to the floor", () => {
         expect(formatReset(nowS - 100, NOW)).toBe("in a minute");
+    });
+});
+
+describe("describeImageAllowance", () => {
+    const reset = nowS + 7 * 3600;
+
+    it("stays quiet while there's plenty", () => {
+        expect(describeImageAllowance(usage({ images: { used: 10 } }), NOW)).toMatchObject({ blocked: false, label: "Attach an image" });
+        expect(describeImageAllowance(undefined, NOW).blocked).toBe(false);
+    });
+
+    it("shows the count and reset near the cap", () => {
+        expect(describeImageAllowance(usage({ images: { used: 17, resetEpoch: reset } }), NOW)).toEqual({
+            left: 3,
+            blocked: false,
+            label: "3 images left · resets in 7h",
+        });
+    });
+
+    it("blocks at the cap until the reset", () => {
+        expect(describeImageAllowance(usage({ images: { used: 20, resetEpoch: reset } }), NOW)).toEqual({
+            left: 0,
+            blocked: true,
+            label: "Image limit reached · resets in 7h",
+        });
     });
 });

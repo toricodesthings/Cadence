@@ -11,19 +11,6 @@ import type { Habit } from "@cadence/contracts/habit";
 import type { Tag } from "@cadence/contracts/tag";
 import type { Project } from "@cadence/contracts/project";
 
-export function useTaskTitleLookup() {
-    const queryClient = useQueryClient();
-    return (id: string): string => {
-        const caches = queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all });
-        for (const [, tasks] of caches) {
-            if (!Array.isArray(tasks)) continue;
-            const found = tasks.find((t) => t.id === id);
-            if (found) return found.title;
-        }
-        return `Task ${id.slice(0, 6)}`;
-    };
-}
-
 /** The cached task itself (undefined when it isn't cached). */
 export function useTaskLookup() {
     const queryClient = useQueryClient();
@@ -36,18 +23,9 @@ export function useTaskLookup() {
     };
 }
 
-/** The task's current tag ids from the cache (undefined when the task isn't cached). */
-export function useTaskTagIdsLookup() {
-    const queryClient = useQueryClient();
-    return (id: string): string[] | undefined => {
-        const caches = queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all });
-        for (const [, tasks] of caches) {
-            if (!Array.isArray(tasks)) continue;
-            const found = tasks.find((t) => t.id === id);
-            if (found) return found.tagIds ?? [];
-        }
-        return undefined;
-    };
+export function useTaskTitleLookup() {
+    const lookup = useTaskLookup();
+    return (id: string): string => lookup(id)?.title ?? `Task ${id.slice(0, 6)}`;
 }
 
 /** Tags for ids, from the tags cache; unknown ids are skipped. */

@@ -32,7 +32,7 @@ const USER_SCOPED_TABLES = [
     "projects", "tasks", "tags", "taskTags", "inboxItems", "inboxSections", "habits",
     "habitTags", "habitLogs", "subtasks", "taskNotes", "taskMetrics", "usageEvents",
     "notificationState", "suggestions", "mutationDedup", "taskNlpMetadata",
-    "taskNlpMetadataHistory", "savedFocusViews",
+    "taskNlpMetadataHistory", "savedFocusViews", "aiImages",
 ];
 
 /**
@@ -49,6 +49,7 @@ const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     { fragment: "eq(taskMetrics.id, existing[0].id", reason: "`existing` was fetched via a userId-scoped select in the same tx" },
     { fragment: "lt(mutationDedup.createdAt, cutoff", reason: "cron TTL prune; sweeps every user's expired dedup keys by design" },
     { fragment: "inArray(aiMemories.id, idsToDelete", reason: "cron prune; ids come from a deliberate cross-tenant EPHEMERAL/expired select" },
+    { fragment: "inArray(aiImages.id, rows.map", reason: "cron prune; ids come from a deliberate cross-tenant orphaned/expired select" },
 ];
 
 function collectSourceFiles(dir: string): string[] {

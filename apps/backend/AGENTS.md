@@ -60,7 +60,7 @@ src/
 
 ## 4. Request Lifecycle
 
-`createRequestContext` (request ID) → `secureHeaders()` → body size limit (100KB, `/api/v1/*`; the photo upload is exempt and capped on its own route) → CORS allowlist → debug-route guard (404 in production, or unless `ENABLE_DEBUG_ROUTES=true`) → Tier-1 IP rate limit (pre-auth) → JWT auth (`userId` attached) → Tier-2 user rate limit (read/write) → Tier-3 admin rate limit (`/api/v1/debug/*`) → `apiValidator()` → handler: `getDbClient(c.env)` → `withRls(db, userId, fn)` → `{ data: ... }`.
+`createRequestContext` (request ID) → `secureHeaders()` → body size limit (100KB, `/api/v1/*`; the two photo uploads, background and chat image, are exempt and capped on their own routes) → CORS allowlist → debug-route guard (404 in production, or unless `ENABLE_DEBUG_ROUTES=true`) → Tier-1 IP rate limit (pre-auth) → JWT auth (`userId` attached) → Tier-2 user rate limit (read/write) → Tier-3 admin rate limit (`/api/v1/debug/*`) → `apiValidator()` → handler: `getDbClient(c.env)` → `withRls(db, userId, fn)` → `{ data: ... }`.
 
 Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, attaches request ID, never leaks stack traces/SQL.
 
@@ -96,13 +96,13 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | suggestions | `/suggestions` | list + accept/dismiss |
 | proxy | `/proxy` | proxied external calls: weather, reverse/forward geocoding, approximate location (`GET /geo/approximate` from Cloudflare `request.cf`), holidays. Coordinates are rounded to 2 decimals before any upstream call. |
 | debug | `/debug` | clear + seed (non-prod only) |
-| ai | `/ai` | `POST /chat` (streamed, persisted; a new message or approval answers), conversation CRUD |
+| ai | `/ai`, `/ai/images` | `POST /chat` (streamed, persisted; a new message or approval answers), conversation CRUD (delete takes its images), `GET /usage`; images: `POST /` upload (WebP-only, 1MB, dedup per user + conversation), `POST /:id/report`, `GET /:id` own image, `DELETE /:id` while unsent |
 
 `AppType` (exported from `src/index.ts`) is the RPC contract the frontend types against — treat as a critical integration boundary.
 
 ## 8. Domain Model
 
-`src/db/schema.ts` is truth: **25 tables**, **14 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`) · infra (`mutationDedup`).
+`src/db/schema.ts` is truth: **26 tables**, **14 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · infra (`mutationDedup`).
 
 **Settings:** `UserSettingsSchema` lives in `settings.schema.ts`, re-exported from `db/schema.ts`. `settings.appearance.backgroundImage` is server-owned: `sanitizeBackgroundPatch` (`domains/settings/background-image.ts`) lets a PATCH change only accent/blur/brightness, never the photo's identity or existence. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant`: `persona` is the one voice setting (it picks `prompt/blocks/voice/<persona>.md`); `tone` and `verbosity` stay for back-compat but never reach the prompt; the rest (names, emoji, proactiveSuggestions, adaptiveTone) render into the prompt's Environment. Free-text fields (names, customInstructions) are sanitized + fenced before composition — never trust them raw in a prompt.
 
@@ -113,6 +113,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 - **Prompts are files, git is the only source:** system-prompt blocks are `prompt/blocks/{base,voice,user}/*.md` (order in `prompt/prompt-blocks.ts`), the title prompt is `title/title-prompt.md`. Edit and push; the deploy ships them. `.md` imports as text (wrangler `rules` + the vitest `md-text` plugin). `composePrompt` order is static → per-user → per-turn for caching: base sections · voice (+ `workload-high.md` when adaptive tone and burnout > 70) · custom instructions · Environment (names, emoji, approval mode from the chat request, workload, zone, minute-precision clock) · memory. Only raw user values (names, custom instructions, memory) are fenced; instructions never are. An unknown `{{placeholder}}` throws — the composer tests catch it.
 - **Cadence guide:** `help/*.md` (one file per topic) served by the read-only `get_cadence_help` tool (`tools/help.ts`, topic enum). Links are in-app only: routes, `?settings=<tab>`, or ids from tool results. The guide and primer call projects Lists and document Capture completion, notes, ordering and Undo. A user-visible change that makes a help file or the primer (`blocks/base/cadence-primer.md`) wrong edits it in the same change; `tests/unit/ai-help.test.ts` checks every link against the known routes and Settings tabs.
 - `tools/` — one file per callable surface: `tasks`, `projects` (lists with their sections), `tags`, `habits`, `inbox`, `calendar`, `metrics`, `help`, plus `projections` (compact rows: default and null keys dropped) and `drafts` (write-tool task schemas picked from the task contracts; no `isAllDay`, it follows from the values). Tools read/write real user data through the same RLS-scoped path as routes — never bypass `withRls`; writes call the domain services (`{domain}.service.ts`, shared with the routes) in one transaction, keyed by the tool call id (`once`), with metrics after commit. Reads return open tasks unless a state is asked for, hide the note body past 1,000 characters, fence note text, and set `more: true` when a cap cuts a list. `buildToolRegistry` strips regex `pattern`s from the schemas the model sees (validation still uses the zod schema). Descriptions say what a tool does, returns and its limits; when to use it belongs in the prompt. History replay shrinks older turns' read rows to `{count, ids}` (`compactOldReads`).
+- **Images (`images/`):** a turn carries `cadence-image:<uuid>` file parts only (`input-guard`: WebP references, ≤ `AI_IMAGES_PER_MESSAGE`, no filename), persisted as-is. Before `admit`, `resolveTurnImages` checks the ids are the caller's in this conversation (else 400 `IMAGE_NOT_FOUND`) and counts new sends; re-sends are free. After `compactOldReads`, `hydrateImages` turns images in the last 6 messages into data URLs (one R2 read each) and older or expired ones into a text stub; memory extraction and the saved reply keep the references. Objects live at `ai-images/{sha256(userId)}/{id}.webp` with no metadata; only the `ai_images` row links a user to one. The 24h image quota is one more dimension in the admit script (429 `AI_IMAGE_LIMITED`); 8 unsent uploads at most (429 `AI_IMAGE_PENDING_LIMIT`).
 - **Time:** `userClock` (`agent.ts`) turns the client's instant + IANA zone into the turn's clock: the prompt gets local wall-clock time to the minute with offset and weekday, tools get `ctx.timezone` + `ctx.today` (the user's local date). Tools speak local: `toMinimalTask(row, tz)` writes timed values as `…T14:00:00-04:00` and all-day values as `YYYY-MM-DD`; day windows are local dates matched with `taskLocalDay` (query a day wider, filter exactly). Never slice a UTC timestamp for "today". Zone helpers live in `platform/date-utils.ts`.
 - **Redis (`platform/redis.ts`, Upstash REST over HTTPS only):** `getRedis(env)` gates stream-resumption (in-flight SSE chunk log + abort flag) — returns `null` if unconfigured/insecure, and every resumption path must no-op gracefully on `null`. `getRateLimitRedis(env)` is a separate accessor for AI-specific rate limiting. Redis is a *cache*, never the source of truth — Postgres is. Built per-request (Workers rule), never a module global.
 
@@ -130,7 +131,7 @@ Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed c
 
 ## 13. Background Jobs
 
-Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` (overdue active tasks → `task_metrics.delay_count`) + `pruneStaleMutations(env)`. Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
+Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` (overdue active tasks → `task_metrics.delay_count`) + `pruneStaleMutations(env)` + `pruneAiMemories(env)` + `pruneAiImages(env)` (unsent chat images after a day, others 30 days after last use; storage before rows). Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
 
 ## 14. Environment & Bindings
 
@@ -139,8 +140,9 @@ Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` 
 | `HYPERDRIVE` | → Neon Postgres |
 | `NEON_AUTH_JWKS_URL` | JWT verification |
 | `RATE_LIMITER` / `_READ` / `_WRITE` / `_ADMIN` | Tier 1/2/2/3 limiters |
-| `USER_ASSETS` | Private R2 bucket for photo backgrounds (optional — absence answers 503) |
+| `USER_ASSETS` | Private R2 bucket for photo backgrounds and chat images (optional — absence answers 503 on upload). Deleting an account by hand also means deleting its `backgrounds/{userId}/` and `ai-images/{sha256(userId)}/` prefixes |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | AI stream resumption (optional — absence disables gracefully) |
+| `AI_RL_*` / `AI_IMAGES_*` | AI budget caps (5h/7d requests + tokens, concurrency; `AI_RL_IMAGES_24H` 20, `AI_IMAGES_PER_MESSAGE` 4, `AI_IMAGES_MAX_PENDING` 8), all optional |
 | `TOOL_APPROVAL_SECRET` | HMAC key for assistant tool approvals (required in production; unset = unsigned, dev only) |
 | `DEPLOYMENT_STAGE` | `"production"` / `"staging"` / `"development"` |
 | `ENABLE_DEBUG_ROUTES` | must be `"true"` to enable debug endpoints |

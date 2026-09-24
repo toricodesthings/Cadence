@@ -89,7 +89,6 @@ describe("useProcessInboxToTask", () => {
             scheduledEnd: "2026-03-27T16:00:00.000Z",
             isAllDay: false,
             priority: 2,
-            effort: 1,
         });
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -104,7 +103,6 @@ describe("useProcessInboxToTask", () => {
                 scheduledEnd: "2026-03-27T16:00:00.000Z",
                 isAllDay: false,
                 priority: 2,
-                effort: 1,
             }),
         });
     });

@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Show the assistant a photo, like a whiteboard, a syllabus or a screenshot, and it turns what it sees into tasks.
+
+### Added
+- Send the assistant photos — it reads them and turns what it sees into tasks.
+- Settings → Cadence Assistant shows how many photos you've sent today.
+
+### Changed
+- The subtask chip on a task turns green with a tick once every subtask is done.
+
+### Fixed
+- Assistant errors that happen before a reply starts now say what went wrong instead of a generic line.
+- On mid-size screens, the icon rail now shows when the sidebar is hidden, so you can always get around.
+- "No day yet" tasks in Capture show and expand their subtasks just like tasks in a list, with Add subtask in ⋮.
+- A Capture row's "just now" time no longer wraps and makes its row taller.
+
 ## [0.19.0] - 2026-09-24
 
 Hand the assistant a list and it sets everything up in one go, with one tap to approve.

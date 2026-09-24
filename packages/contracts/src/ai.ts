@@ -189,6 +189,73 @@ export const aiUsageWindowSchema = z.object({
 });
 export type AiUsageWindow = z.infer<typeof aiUsageWindowSchema>;
 
+
+// ── Chat images (photos sent to the assistant) ──
+// A photo is uploaded first (POST /ai/images) and the chat turn carries only a
+// `cadence-image:<uuid>` file part. The scheme never matches a URL the model
+// provider would fetch, so image bytes only reach the model through server code.
+export const CHAT_IMAGE_LIMITS = {
+    /** Default images per message; the server's env value wins (see `AiUsage.images.perMessage`). */
+    perMessage: 4,
+    /** Largest compressed file the API stores, in bytes. */
+    maxBytes: 1024 * 1024,
+    /** Longest edge the client resizes to before upload. */
+    maxDimension: 1600,
+    /** Longest edge the server accepts. */
+    serverMaxDimension: 2048,
+    /** Originals larger than this are refused before decoding (protects phone memory). */
+    maxOriginalBytes: 25 * 1024 * 1024,
+} as const;
+
+export const CHAT_IMAGE_SCHEME = "cadence-image:";
+export const CHAT_IMAGE_MEDIA_TYPE = "image/webp";
+
+export function chatImageUrl(id: string): string {
+    return `${CHAT_IMAGE_SCHEME}${id}`;
+}
+
+/** The image id in a `cadence-image:<uuid>` URL, or null when it isn't one. */
+export function parseChatImageUrl(url: unknown): string | null {
+    if (typeof url !== "string" || !url.startsWith(CHAT_IMAGE_SCHEME)) return null;
+    const id = url.slice(CHAT_IMAGE_SCHEME.length);
+    return z.uuid().safeParse(id).success ? id : null;
+}
+
+/** Images sent in the current 24h window (sent images count, dedup hits don't). */
+export const aiImageUsageSchema = z.object({
+    used: z.number(),
+    limit: z.number(),
+    perMessage: z.number(),
+    /** Unix epoch (seconds) when the window resets, or null when none is armed. */
+    resetEpoch: z.number().nullable(),
+});
+export type AiImageUsage = z.infer<typeof aiImageUsageSchema>;
+
+export const chatImageUploadResponseSchema = z.object({
+    id: z.uuid(),
+    /** True when this conversation already had the same image; nothing new was stored. */
+    reused: z.boolean(),
+    images: aiImageUsageSchema.omit({ perMessage: true }),
+});
+export type ChatImageUpload = z.infer<typeof chatImageUploadResponseSchema>;
+
+export const chatImageReportSchema = z.object({ requestId: z.string().max(128).optional() });
+
+export const aiImageRowSchema = z.object({
+    id: z.uuid(),
+    userId: z.uuid(),
+    conversationId: z.uuid(),
+    contentHash: z.string(),
+    bytes: z.number(),
+    width: z.number(),
+    height: z.number(),
+    createdAt: isoDateTimeSchema,
+    sentAt: isoDateTimeSchema.nullable(),
+    lastUsedAt: isoDateTimeSchema,
+    diagnosticsSharedAt: isoDateTimeSchema.nullable(),
+});
+export type AiImageRow = z.infer<typeof aiImageRowSchema>;
+
 export const aiUsageSchema = z.object({
     /** False when the budget is not configured/reachable (used:0 placeholders). */
     enabled: z.boolean(),
@@ -196,5 +263,6 @@ export const aiUsageSchema = z.object({
         "5h": aiUsageWindowSchema,
         "7d": aiUsageWindowSchema,
     }),
+    images: aiImageUsageSchema,
 });
 export type AiUsage = z.infer<typeof aiUsageSchema>;

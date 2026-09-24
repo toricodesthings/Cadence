@@ -20,7 +20,7 @@ export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext }) {
     const taskId = input.taskId ?? "";
     const lookupTitle = useTaskTitleLookup();
     const { data: current } = useSubtasks(input.update?.length ? taskId : "");
-    const { off, toggle } = useUnticked();
+    const { off, onToggle, removed } = useUnticked(ctx);
     const parent = taskId ? lookupTitle(taskId) : "this task";
     const nameOf = (id: string) => current?.find((s) => s.id === id)?.title ?? "a step";
 
@@ -50,7 +50,7 @@ export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext }) {
             primaryLabel={onlyAdds ? `Add ${kept === 1 ? "step" : `${kept} steps`}` : onlyRemoves ? `Remove ${kept}` : "Update checklist"}
             primaryGlyph={onlyRemoves ? Trash2 : Check}
             {...(onlyRemoves && { primaryVariant: "cardDanger" as const, declineLabel: "Keep them" })}
-            removed={rows.flatMap((row, i) => (off.has(i) ? [row.label] : []))}
+            removed={removed(rows.map((row) => row.label))}
             doneText={`Updated the checklist on “${parent}”.`}
         >
             <p className="text-xs text-twilight-text-soft">
@@ -58,7 +58,7 @@ export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext }) {
             </p>
             <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5">
                 {rows.map((row, i) => (
-                    <TickRow key={i} on={!off.has(i)} onToggle={ctx.answer ? () => toggle(i) : undefined} label={row.label}>
+                    <TickRow key={i} on={!off.has(i)} onToggle={onToggle(i)} label={row.label}>
                         <span className={row.remove ? "line-through" : undefined}>{row.text}</span>
                     </TickRow>
                 ))}

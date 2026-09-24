@@ -7,7 +7,6 @@
  * before upload, so the server never has to decode the image.
  */
 
-import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -24,27 +23,11 @@ import { extractPhotoPalette } from "../../lib/themes/image-palette";
 import { compressBackgroundImage, readImagePixels } from "../../lib/utils/image";
 import { useSettingsCache } from "../core/use-settings";
 import type { UserSettings } from "../../types/settings";
+import { useObjectUrl } from "./use-object-url";
 
 async function unwrapImageResponse(response: UnwrappableResponse & { blob(): Promise<Blob> }): Promise<Blob> {
     if (!response.ok) throw await parseApiError(response);
     return response.blob();
-}
-
-/** Keep an object URL alive for as long as the blob is on screen. */
-function useObjectUrl(blob: Blob | null | undefined): string | null {
-    const [url, setUrl] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (!blob) {
-            setUrl(null);
-            return;
-        }
-        const objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-        return () => URL.revokeObjectURL(objectUrl);
-    }, [blob]);
-
-    return url;
 }
 
 /** The current photo as an object URL, or null while it loads or if there is none. */

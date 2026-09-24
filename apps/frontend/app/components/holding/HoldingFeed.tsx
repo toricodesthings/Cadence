@@ -11,6 +11,7 @@ import { useFocusViewStore } from "../../stores/focus-view-store";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
 import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
+import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useSettings } from "../../hooks/core/use-settings";
 import { Button } from "../primitives/Button";
@@ -162,6 +163,7 @@ export function HoldingFeed({
     const available = [...ordered.thoughts, ...ordered.tasks, ...ordered.older, ...feed.notes];
     const activeId = available.some((item) => item.id === focusedId) ? focusedId : available[0]?.id;
     const board = view === "kanban";
+    const { data: subtasksByTaskId = {} } = useSubtasksByTaskIds(ordered.tasks.map((t) => t.id));
     const rows = (items: InboxItem[]) =>
         items.map((item) => (
             <CaptureRow
@@ -227,6 +229,7 @@ export function HoldingFeed({
                 <CaptureRow
                     key={task.id}
                     task={task}
+                    subtasks={subtasksByTaskId[task.id]}
                     lightest={lightest}
                     onOpen={() => onSelectTask(task.id)}
                     selected={selected.has(task.id)}
@@ -328,6 +331,7 @@ export function HoldingFeed({
                         <CaptureRow
                             key={task.id}
                             task={task}
+                            subtasks={subtasksByTaskId[task.id]}
                             lightest={lightest}
                             onOpen={() => onSelectTask(task.id)}
                             selected={selected.has(task.id)}

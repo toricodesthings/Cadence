@@ -4,8 +4,6 @@ import { isoDateTimeSchema } from "./common";
 export const upsertNoteSchema = z.object({
     body: z.string().max(50_000),
     expectedUpdatedAt: z.string().optional(),
-    /** The note version the writer last read; 0 = "there was no note". A mismatch is a 409. */
-    expectedVersion: z.number().int().min(0).optional(),
 });
 export type UpsertNote = z.infer<typeof upsertNoteSchema>;
 

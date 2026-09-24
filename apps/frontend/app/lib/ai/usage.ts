@@ -52,6 +52,34 @@ export function formatReset(resetEpoch: number | null, nowMs: number): string | 
     return `in ${Math.round(deltaS / 86400)}d`;
 }
 
+/** Show the remaining image count once this few are left. */
+const LOW_IMAGES = 5;
+
+export interface ImageAllowance {
+    /** Images that can still be sent in this 24h window. */
+    left: number;
+    /** At the cap: attaching is off until the window resets. */
+    blocked: boolean;
+    /** The attach button's tooltip. */
+    label: string;
+}
+
+/**
+ * The attach button's state. Quiet while there's plenty; the count and reset
+ * appear only near the cap, and at the cap attaching is blocked (never older
+ * images deleted to make room).
+ */
+export function describeImageAllowance(usage: AiUsage | undefined, nowMs: number): ImageAllowance {
+    const images = usage?.enabled ? usage.images : undefined;
+    if (!images) return { left: Infinity, blocked: false, label: "Attach an image" };
+    const left = Math.max(0, images.limit - images.used);
+    const reset = formatReset(images.resetEpoch, nowMs);
+    const suffix = reset ? ` · resets ${reset}` : "";
+    if (left === 0) return { left, blocked: true, label: `Image limit reached${suffix}` };
+    if (left <= LOW_IMAGES) return { left, blocked: false, label: `${left} image${left === 1 ? "" : "s"} left${suffix}` };
+    return { left, blocked: false, label: "Attach an image" };
+}
+
 /**
  * One calm footer line when the budget is running low, else null. The tighter
  * of the two windows wins (fewest remaining requests among the low ones).

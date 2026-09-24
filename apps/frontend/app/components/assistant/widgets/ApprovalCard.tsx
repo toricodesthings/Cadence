@@ -97,16 +97,23 @@ export function ApprovalCard({
     );
 }
 
-/** Which rows of a batch card are unticked (by index). */
-export function useUnticked() {
+/**
+ * Which rows of a batch card are unticked (by index). `onToggle(i)` is undefined
+ * once the card can't be answered; `removed(labels)` picks the unticked ones.
+ */
+export function useUnticked(ctx: ToolRenderContext) {
     const [off, setOff] = useState<ReadonlySet<number>>(new Set());
-    const toggle = (index: number) =>
-        setOff((prev) => {
-            const next = new Set(prev);
-            if (!next.delete(index)) next.add(index);
-            return next;
-        });
-    return { off, toggle };
+    const onToggle = (index: number) =>
+        ctx.answer
+            ? () =>
+                  setOff((prev) => {
+                      const next = new Set(prev);
+                      if (!next.delete(index)) next.add(index);
+                      return next;
+                  })
+            : undefined;
+    const removed = (labels: string[]) => labels.filter((_, i) => off.has(i));
+    return { off, onToggle, removed };
 }
 
 /** One row of a batch card, with a tick the user can clear before approving. */
