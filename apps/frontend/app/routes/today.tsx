@@ -23,7 +23,7 @@ import { SortMenu } from "../components/shared/SortMenu";
 import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useTasks } from "../hooks/tasks/use-tasks";
-import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
@@ -134,7 +134,7 @@ export default function TodayRoute() {
         effectiveOnOrBeforeDate: todayISO,
     });
     // Routines are today-only: a missed one lets go and never shows here again.
-    const { data: habits = [] } = useHabitsWeekly({
+    const { data: habits = [] } = useHabitsRange({
         start: todayISO,
         end: todayISO,
         enabled: !activeTagId,

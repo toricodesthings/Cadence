@@ -5,7 +5,7 @@ import { useTasks } from "../tasks/use-tasks";
 import { useUpdateTask } from "../tasks/use-update-task";
 import { useCreateTask } from "../tasks/use-create-task";
 import { useArchiveTask } from "../tasks/use-archive-task";
-import { useHabitsWeekly } from "../habits/use-habits";
+import { useHabitsRange } from "../habits/use-habits";
 import { usePauseHabit } from "../habits/use-pause-habit";
 import { toISODate } from "../../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
@@ -55,7 +55,7 @@ export function useWeeklyReviewActions(currentStep: number) {
     const today = new Date();
     const weekAgo = new Date();
     weekAgo.setDate(today.getDate() - 7);
-    const { data: habits = [] } = useHabitsWeekly({
+    const { data: habits = [] } = useHabitsRange({
         start: toISODate(weekAgo),
         end: toISODate(today),
         enabled: currentStep === 4,

@@ -5,7 +5,6 @@ import type { Habit } from "@cadence/contracts/habit";
 import type { Project } from "@cadence/contracts/project";
 import type { Tag } from "@cadence/contracts/tag";
 import type { InboxItem } from "@cadence/contracts/inbox";
-import type { HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
 import { transformListCache } from "./cache-guards";
 import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";
 import { toISODate } from "../utils/date-format";
@@ -117,32 +116,6 @@ export function removeHabitFromCaches(queryClient: QueryClient, habitId: string)
     );
     queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }, (old) =>
         transformListCache(old, (items) => items.filter((habit) => habit.id !== habitId)),
-    );
-    queryClient.removeQueries({ queryKey: ["habits", habitId, "monthly"] });
-}
-
-export function patchHabitMonthlyCache(
-    queryClient: QueryClient,
-    habitId: string,
-    targetDate: string,
-    status: string,
-) {
-    const date = new Date(targetDate);
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
-    queryClient.setQueryData<HabitMonthlyData>(
-        queryKeys.habits.monthly(habitId, year, month),
-        (old) => {
-            if (!old) return old;
-            return {
-                ...old,
-                logsByDay: {
-                    ...old.logsByDay,
-                    [day]: status,
-                },
-            };
-        },
     );
 }
 

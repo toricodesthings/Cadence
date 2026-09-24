@@ -56,7 +56,7 @@ export function usePagedTasks(state: "COMPLETE" | "ARCHIVED") {
     const [limit, setLimit] = useState(PAGE_SIZE);
     // ponytail: each page refetches the earlier ones; move to offset pages if people keep years of Done.
     const query = useTasks({ state, limit, keepPrevious: true });
-    const hasMore = (query.data?.length ?? 0) >= limit && limit < 1000;
+    const hasMore = (query.isPlaceholderData || (query.data?.length ?? 0) >= limit) && limit < 1000;
     return { ...query, loadMore: hasMore ? () => setLimit((current) => current + PAGE_SIZE) : undefined };
 }
 

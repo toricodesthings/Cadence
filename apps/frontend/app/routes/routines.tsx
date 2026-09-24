@@ -10,7 +10,7 @@ import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { CreateHabitDialog } from "../components/habits/CreateHabitDialog";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { useRightPanelStore } from "../stores/right-panel-store";
-import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useHabitsRange } from "../hooks/habits/use-habits";
 import { HabitToastResolver } from "../components/habits/HabitToastResolver";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { ChevronLeft, ChevronRight, Plus, Settings, Flame } from "lucide-react";
@@ -40,7 +40,7 @@ export default function Habits() {
     const startIso = toISODate(weekDates[0]);
     const endIso = toISODate(weekDates[6]);
 
-    const { data: habits = [] } = useHabitsWeekly({
+    const { data: habits = [] } = useHabitsRange({
         start: startIso,
         end: endIso,
         archived: viewMode === "archived",

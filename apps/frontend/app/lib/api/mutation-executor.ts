@@ -13,6 +13,7 @@ import {
     retryFailedEntries,
 } from "./offline-wal";
 import { hardRefreshWorkspaceCaches } from "./workspace-cache";
+import { chunk } from "../utils";
 import type { QueryClient } from "@tanstack/react-query";
 
 function createReplayClient(): ApiClient {
@@ -74,8 +75,9 @@ async function executeMutationOp(client: ApiClient, op: MutationOp): Promise<unk
             return unwrapResponse(res);
         }
         case "batch_delete": {
-            const res = await client.api.tasks.batch.delete.$post({ json: op.payload });
-            return unwrapResponse(res);
+            // Queued offline before the 50-id cap was split, so split it here too.
+            return Promise.all(chunk(op.payload.taskIds, 50).map(async (taskIds) =>
+                unwrapResponse(await client.api.tasks.batch.delete.$post({ json: { taskIds } }))));
         }
         case "create_inbox": {
             const res = await client.api.inbox.$post({ json: op.payload });

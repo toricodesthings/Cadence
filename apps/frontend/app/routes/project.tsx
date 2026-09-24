@@ -44,7 +44,7 @@ import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
-import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { toISODate } from "../lib/utils/date-format";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
@@ -146,7 +146,7 @@ export default function ProjectView() {
 
     const todayISO = toISODate(new Date());
     const weekAgoISO = toISODate(new Date(Date.now() - 7 * 86_400_000));
-    const { data: allHabits = [] } = useHabitsWeekly({ start: weekAgoISO, end: todayISO });
+    const { data: allHabits = [] } = useHabitsRange({ start: weekAgoISO, end: todayISO });
     const linkedHabits = useMemo(
         () => allHabits.filter((h) => h.projectId === projectId && !h.archived),
         [allHabits, projectId],

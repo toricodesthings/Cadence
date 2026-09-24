@@ -166,6 +166,7 @@ describe("filterByBehavior", () => {
             ...BASE_HABIT,
             reminderEnabled: true,
             targetTime: "22:00",
+            logs: [{ id: "virt", habitId: "h1", status: "PENDING", targetDate: "2026-03-26", completedAt: null }],
         };
         const candidates = deriveCandidates([], [habit], now);
         const filtered = filterByBehavior(candidates, now, {
@@ -187,7 +188,7 @@ describe("filterByBehavior", () => {
             title: `Habit ${i}`,
             reminderEnabled: true,
             targetTime: "14:00",
-            logs: [],
+            logs: [{ id: "virt", habitId: `h${i}`, status: "PENDING", targetDate: "2026-03-26", completedAt: null }],
         }));
         const candidates = deriveCandidates([], habits, now);
         expect(candidates.length).toBe(4); // All 4 habits generate candidates
@@ -200,6 +201,19 @@ describe("filterByBehavior", () => {
         const bundled = filtered.filter((n) => n.id.startsWith("habit-bundle"));
         expect(bundled.length).toBe(1);
         expect(bundled[0].body).toContain("4 routines");
+    });
+});
+
+describe("routine reminders", () => {
+    const now = new Date("2026-03-26T14:30:00");
+    const routine = (logs: Habit["logs"]): Habit => ({ ...BASE_HABIT, reminderEnabled: true, targetTime: "14:00", logs });
+    const log = (status: "PENDING" | "COMPLETED" | "SKIPPED") => [{ id: "l", habitId: "h1", status, targetDate: "2026-03-26", completedAt: null }];
+
+    it("remind only while today's check-in is open (not done, skipped, unscheduled or paused)", () => {
+        expect(deriveCandidates([], [routine(log("PENDING"))], now)).toHaveLength(1);
+        expect(deriveCandidates([], [routine(log("COMPLETED"))], now)).toHaveLength(0);
+        expect(deriveCandidates([], [routine(log("SKIPPED"))], now)).toHaveLength(0);
+        expect(deriveCandidates([], [routine([])], now)).toHaveLength(0); // not due today, or paused
     });
 });
 

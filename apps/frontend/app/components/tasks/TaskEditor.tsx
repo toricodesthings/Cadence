@@ -76,7 +76,6 @@ export function TaskEditor({
     const removeTagAssoc = useRemoveTaskTag();
     const openNoteRoom = useNoteRoomStore((s) => s.open);
 
-
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [activePanel, setActivePanel] = useState<"notes" | "subtasks" | "details">("notes");

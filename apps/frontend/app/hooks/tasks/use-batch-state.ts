@@ -7,12 +7,11 @@ import { toast } from "sonner";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { chunk } from "../../lib/utils";
 
 /** The batch routes take at most 50 ids, so larger selections go as several calls. */
 async function inBatches<T>(taskIds: string[], send: (ids: string[]) => Promise<T[]>): Promise<T[]> {
-    const batches: string[][] = [];
-    for (let i = 0; i < taskIds.length; i += 50) batches.push(taskIds.slice(i, i + 50));
-    return (await Promise.all(batches.map(send))).flat();
+    return (await Promise.all(chunk(taskIds, 50).map(send))).flat();
 }
 
 /** Batch-transition multiple tasks to a new state (COMPLETE, WAITING, ARCHIVED, ACTIVE) */

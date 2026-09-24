@@ -8,7 +8,7 @@ import { ThemeModeCard } from "../appearance/ThemeModeCard";
 import { PalettePicker } from "../appearance/PalettePicker";
 import { ThemeCarousel } from "../appearance/ThemeCarousel";
 import { BackgroundSettings } from "../appearance/BackgroundSettings";
-import { SegmentedControl } from "../appearance/SegmentedControl";
+import { SegmentedControl } from "../../primitives/SegmentedControl";
 import { THEME_PRESETS, type ThemePresetId } from "../../../lib/themes/theme-presets";
 import type { PaletteId } from "../../../lib/themes/accent-palettes";
 import type { BackgroundImage } from "@cadence/contracts/settings";

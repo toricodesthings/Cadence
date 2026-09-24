@@ -1,7 +1,8 @@
 import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTasks } from "../tasks/use-tasks";
-import { useAllHabits } from "../habits/use-habits";
+import { useHabitsRange } from "../habits/use-habits";
+import { toISODate } from "../../lib/utils/date-format";
 import { useSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -121,7 +122,10 @@ export function useNotificationCenter() {
     const { data: activeTasks } = useTasks({ state: "ACTIVE" });
     const { data: waitingTasks } = useTasks({ state: "WAITING" });
     const tasks = useMemo(() => [...(activeTasks ?? []), ...(waitingTasks ?? [])], [activeTasks, waitingTasks]);
-    const { data: habits = [] } = useAllHabits();
+    // Today's weekly data (shared with the due count): its logs say whether each
+    // routine is due, paused or already checked.
+    const today = toISODate(new Date());
+    const { data: habits = [] } = useHabitsRange({ start: today, end: today });
     const presentedRef = useRef<Set<string>>(new Set());
 
     const { authReady, isAuthenticated } = useAuthState();

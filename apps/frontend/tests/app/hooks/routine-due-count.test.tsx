@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({
     routines: [] as { logs?: { targetDate: string; status: string }[] }[],
     weekly: vi.fn(),
 }));
-vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsWeekly: (args: unknown) => { state.weekly(args); return { data: state.routines }; } }));
+vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: (args: unknown) => { state.weekly(args); return { data: state.routines }; } }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { notifications: { showHabitNavDueCount: state.enabled } } }) }));
 vi.mock("../../../app/hooks/ui/use-realtime-clock", () => ({ useMinuteClock: () => new Date(2026, 8, 23, 12) }));
 beforeEach(() => { state.enabled = true; state.routines = []; vi.clearAllMocks(); });

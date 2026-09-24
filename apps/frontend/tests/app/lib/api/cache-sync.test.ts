@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import {
-    patchHabitMonthlyCache,
     reconcileHabitInCaches,
     reconcileTaskInCaches,
     removeTaskFromCaches,
@@ -139,21 +138,16 @@ describe("api/cache-sync", () => {
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.tasks.all });
     });
 
-    it("replaces optimistic habits and patches monthly logs by day", () => {
+    it("replaces optimistic habits", () => {
         const queryClient = new QueryClient();
         const optimistic = createHabit({ id: "temp-1", title: "Optimistic habit" });
         const weekly = createHabit({ id: "temp-1", logs: [{ id: "virt", habitId: "temp-1", targetDate: "2026-03-09T00:00:00.000Z", status: "PENDING", completedAt: null }] });
 
         queryClient.setQueryData(queryKeys.habits.all, [optimistic]);
         queryClient.setQueryData(["habits", "weekly", { start: "2026-03-08", end: "2026-03-14" }, false], [weekly]);
-        queryClient.setQueryData(queryKeys.habits.monthly("habit-1", 2026, 2), {
-            scheduledDays: [9],
-            logsByDay: { 9: "PENDING" },
-        });
 
         const serverHabit = createHabit({ id: "habit-1", title: "Server habit" });
         reconcileHabitInCaches(queryClient, serverHabit, "temp-1");
-        patchHabitMonthlyCache(queryClient, "habit-1", "2026-03-09T00:00:00.000Z", "COMPLETED");
 
         expect(queryClient.getQueryData<Habit[]>(queryKeys.habits.all)).toEqual([serverHabit]);
         expect(
@@ -161,10 +155,6 @@ describe("api/cache-sync", () => {
         ).toEqual([
             expect.objectContaining({ id: "habit-1", title: "Server habit" }),
         ]);
-        expect(queryClient.getQueryData(queryKeys.habits.monthly("habit-1", 2026, 2))).toEqual({
-            scheduledDays: [9],
-            logsByDay: { 9: "COMPLETED" },
-        });
     });
 
     it("removes habits from the wrong weekly archive view during reconciliation", () => {

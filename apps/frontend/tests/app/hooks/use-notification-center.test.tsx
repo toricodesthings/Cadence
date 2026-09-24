@@ -12,7 +12,7 @@ const fixture = vi.hoisted(() => {
     } } } } };
 });
 vi.mock("../../../app/hooks/tasks/use-tasks", () => ({ useTasks: () => ({ data: fixture.empty }) }));
-vi.mock("../../../app/hooks/habits/use-habits", () => ({ useAllHabits: () => ({ data: fixture.empty }) }));
+vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: () => ({ data: fixture.empty }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ authReady: true, isAuthenticated: true }) }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => fixture.client }));

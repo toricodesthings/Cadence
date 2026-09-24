@@ -7,6 +7,7 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { toast } from "sonner";
 import { ApiErrorResponse } from "../../types/api";
 import { showRateLimitToast } from "../../lib/utils/rate-limit-toast";
+import { chunk } from "../../lib/utils";
 
 const SUBTASKS_KEY = (taskId: string) => ["tasks", taskId, "subtasks"] as const;
 const BULK_SUBTASKS_KEY = (taskIds: string[]) => ["subtasks", "bulk", taskIds] as const;
@@ -110,9 +111,7 @@ export function useSubtasksByTaskIds(taskIds: string[]) {
         placeholderData: keepPreviousData,
         queryFn: async () => {
             // The route takes 200 ids per call (about 7.5KB of URL).
-            const batches: string[][] = [];
-            for (let i = 0; i < uniqueTaskIds.length; i += 200) batches.push(uniqueTaskIds.slice(i, i + 200));
-            const maps = await Promise.all(batches.map(async (ids) =>
+            const maps = await Promise.all(chunk(uniqueTaskIds, 200).map(async (ids) =>
                 unwrapResponse<BulkSubtasksMap>(await api.api.subtasks.$get({ query: { taskIds: ids.join(",") } }))));
             return normalizeBulkSubtasksMap(uniqueTaskIds, Object.assign({}, ...maps));
         },

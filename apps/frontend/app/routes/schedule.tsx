@@ -62,7 +62,7 @@ import {
 import { getTaskSeriesId, isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task/task-scheduling";
 import { dayLoad, groupByDate, scheduleKind } from "../lib/utils/calendar/schedule-day";
 import { loadWord } from "../lib/utils/task/day-load";
-import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useTaskCompletionStore } from "../stores/task-completion-store";
 import { format } from "date-fns";
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
@@ -316,7 +316,7 @@ export default function Schedule() {
 
     const virtualHabitTasks = useVirtualHabitTasks(habitRange);
     // Same query as the virtual tasks (cached): the real routines, for their editor and emoji.
-    const { data: rawHabits = [] } = useHabitsWeekly(habitRange);
+    const { data: rawHabits = [] } = useHabitsRange(habitRange);
     const habitById = useMemo(() => new Map(rawHabits.map((habit) => [habit.id, habit])), [rawHabits]);
     const visibleMonthTasks = useMemo(() => applyCalendarClutterFilters(monthTasks, calendarClutter), [calendarClutter, monthTasks]);
     const visibleWeekTasks = useMemo(() => applyCalendarClutterFilters(weekTasks, calendarClutter), [calendarClutter, weekTasks]);

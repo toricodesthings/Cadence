@@ -28,7 +28,7 @@ import { ControlsSheet } from "../components/shared/ControlsSheet";
 import { SORT_MODE_OPTIONS, SortOptionList } from "../components/shared/SortOptionList";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useProjects } from "../hooks/projects/use-projects";
-import { useHabitsWeekly } from "../hooks/habits/use-habits";
+import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { routineTimeOn } from "@cadence/domain/repeats";
 import { useTagFilterStore } from "../stores/tag-filter-store";
@@ -200,7 +200,7 @@ export default function Upcoming() {
         return events;
     }, [personalEvents, today]);
 
-    const { data: habits = [], isLoading: habitsLoading } = useHabitsWeekly({
+    const { data: habits = [], isLoading: habitsLoading } = useHabitsRange({
         start: habitsRangeStart,
         end: nextWeekISO,
     });

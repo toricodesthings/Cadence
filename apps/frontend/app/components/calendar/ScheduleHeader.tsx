@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { SegmentedControl } from "../primitives/SegmentedControl";
 import { ChevronLeft, ChevronRight, Plus, Settings, SlidersHorizontal, CalendarHeart } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
@@ -124,30 +125,16 @@ function ContextualAddTrigger({
     return (
         <div className="flex items-center gap-0">
             {/* Segmented chooser */}
-            <div className="flex min-h-11 items-center rounded-l-xl border border-r-0 border-twilight-border/30 bg-twilight-base/35 p-0.5">
-                <button
-                    type="button"
-                    onClick={() => setMode("task")}
-                    className={`inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors cursor-pointer border ${
-                        mode === "task"
-                            ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
-                            : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"
-                    }`}
-                >
-                    Task
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setMode("event")}
-                    className={`inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-medium transition-colors cursor-pointer border ${
-                        mode === "event"
-                            ? "bg-accent-nav-schedule/18 text-accent-nav-schedule border-accent-nav-schedule/25"
-                            : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"
-                    }`}
-                >
-                    Event
-                </button>
-            </div>
+            <SegmentedControl
+                ariaLabel="Add what"
+                value={mode}
+                onChange={setMode}
+                options={[
+                    { value: "task", label: "Task" },
+                    { value: "event", label: "Event", tone: "var(--accent-nav-schedule)" },
+                ]}
+                className="rounded-r-none border-r-0"
+            />
             {/* Primary add button */}
             <button
                 type="button"
@@ -293,27 +280,13 @@ export function ScheduleHeader({
                 </div>
                 {/* Row 2: view switcher tabs */}
                 <div className="flex items-center gap-1 mt-1.5">
-                    <nav
-                        className="flex items-center gap-1 rounded-xl border border-twilight-border/30 bg-twilight-base/35 p-0.5"
-                        aria-label="Calendar view"
-                    >
-                        {(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => (
-                            <button
-                                key={mode}
-                                type="button"
-                                onClick={() => onViewMode(mode)}
-                                className={`
-                                    rounded-lg px-3 py-1 text-[13px] font-medium transition-colors cursor-pointer border
-                                    ${viewMode === mode
-                                        ? "bg-accent-primary/20 text-accent-primary border-accent-primary/25"
-                                        : "text-twilight-text-soft hover:text-twilight-text hover:bg-white/[0.04] border-transparent"}
-                                `}
-                                aria-current={viewMode === mode ? "true" : undefined}
-                            >
-                                {VIEW_LABELS[mode]}
-                            </button>
-                        ))}
-                    </nav>
+                    <SegmentedControl
+                        ariaLabel="Calendar view"
+                        size="sm"
+                        value={viewMode}
+                        onChange={onViewMode}
+                        options={(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => ({ value: mode, label: VIEW_LABELS[mode] }))}
+                    />
                     <button
                         type="button"
                         onClick={onToday}

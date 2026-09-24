@@ -5,7 +5,7 @@ import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { Habit } from "@cadence/contracts/habit";
 import { useAuthState } from "../auth/use-auth-state";
 
-interface UseHabitsWeeklyOptions {
+interface UseHabitsRangeOptions {
     start: string; // YYYY-MM-DD
     end: string;
     archived?: boolean;
@@ -13,8 +13,12 @@ interface UseHabitsWeeklyOptions {
     timezone?: string;
 }
 
-/** Fetch habits for the weekly grid, including their generated virtual instance logs. */
-export function useHabitsWeekly({ start, end, archived = false, enabled = true, timezone }: UseHabitsWeeklyOptions) {
+/**
+ * Routines with a log per scheduled day in [start, end] (a week, a month, or
+ * just today). Every range shares the `weeklyAll` key prefix, so each
+ * optimistic update covers them all.
+ */
+export function useHabitsRange({ start, end, archived = false, enabled = true, timezone }: UseHabitsRangeOptions) {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
     const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;

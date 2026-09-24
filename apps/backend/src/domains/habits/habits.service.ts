@@ -1,23 +1,21 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
-import { rrulestr } from "rrule";
+import { and, eq, inArray, min, sql } from "drizzle-orm";
 import type { ResolveHabitAction } from "@cadence/contracts/habit";
-import { habitOccurrences } from "@cadence/domain/repeats";
+import { habitOccurrences, habitRule, localDay } from "@cadence/domain/repeats";
 import { habits, habitLogs } from "../../db/schema";
 import { throwIfNotFound } from "../../platform/errors";
-import { toLocalDateStr } from "../../platform/date-utils";
+import { resolveTimeZone, toLocalDateStr } from "../../platform/date-utils";
 import { logger, shorten, issuesFromError } from "../../platform/log";
 import type { Tx } from "../../types/db";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
 /**
- * Shared recurrence expansion — single source of truth.
- * Anchors dtstart to midnight UTC of the habit's creation date, then expands
- * within the given [startDate, endDate] window returning YYYY-MM-DD strings.
+ * Shared recurrence expansion — single source of truth. The days (YYYY-MM-DD)
+ * a routine is due in [startDate, endDate]; see `habitRule` for the anchor.
  */
-export function expandOccurrences(recurrenceRule: string, createdAt: string, startDate: Date, endDate: Date): string[] {
+export function expandOccurrences(recurrenceRule: string, createdAt: string, startDate: Date, endDate: Date, timeZone = "UTC"): string[] {
     try {
-        return habitOccurrences(recurrenceRule, String(createdAt), startDate, endDate);
+        return habitOccurrences(recurrenceRule, String(createdAt), startDate, endDate, timeZone);
     } catch (e) {
         logger.warn("http", "recurrence_rule_invalid", {
             rule: shorten(recurrenceRule),
@@ -137,17 +135,21 @@ export function scanStreak(
  *
  * `loadCompleted` is injected (rather than taking a `tx`) so the streak logic is
  * pure of persistence concerns and unit-testable with real recurrence rules.
+ * `earliest` (the oldest completed day, when it predates the routine) lets the
+ * walk reach days logged before the routine was created.
  */
 export async function computeCurrentStreak(
     recurrenceRule: string,
     createdAt: string,
     asOfDateStr: string,
     loadCompleted: (dates: string[]) => Promise<ReadonlySet<string>>,
+    { timeZone = "UTC", earliest }: { timeZone?: string; earliest?: string | null } = {},
 ): Promise<number> {
-    let rule: ReturnType<typeof rrulestr>;
+    let rule: ReturnType<typeof habitRule>;
     try {
-        const dtstart = new Date(`${String(createdAt).substring(0, 10)}T00:00:00.000Z`);
-        rule = rrulestr(recurrenceRule, { dtstart });
+        const created = localDay(createdAt, timeZone);
+        const from = earliest && earliest < created ? earliest : created;
+        rule = habitRule(recurrenceRule, String(createdAt), new Date(`${from}T00:00:00.000Z`), timeZone);
     } catch (e) {
         logger.warn("http", "recurrence_rule_invalid", {
             rule: shorten(recurrenceRule),
@@ -189,7 +191,7 @@ export async function computeCurrentStreak(
  * Mark a routine done or skipped for a day (PENDING clears it), keeping its
  * totals and streaks in step.
  */
-export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, status }: ResolveHabitAction) {
+export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, status, timezone }: ResolveHabitAction) {
     const [habit] = await tx
         .select()
         .from(habits)
@@ -270,13 +272,14 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     const totalSkips = Math.max(0, habit.totalSkips + totalSkipsDelta);
 
     // Determine whether `datePrefix` is the most recent occurrence on or
-    // before today. The log mutation above is visible inside this tx, so
-    // both streak paths read the post-mutation state.
-    const todayUtcStr = toLocalDateStr(new Date(), "UTC");
-    const todayEnd = new Date(`${todayUtcStr}T23:59:59.999Z`);
+    // before the caller's today. The log mutation above is visible inside
+    // this tx, so both streak paths read the post-mutation state.
+    const tz = resolveTimeZone(timezone);
+    const todayStr = toLocalDateStr(new Date(), tz);
+    const todayEnd = new Date(`${todayStr}T23:59:59.999Z`);
     const targetEnd = new Date(`${datePrefix}T23:59:59.999Z`);
     const occurrencesAfter = targetEnd < todayEnd
-        ? expandOccurrences(habit.recurrenceRule, habit.createdAt, new Date(targetEnd.getTime() + 1000), todayEnd)
+        ? expandOccurrences(habit.recurrenceRule, habit.createdAt, new Date(targetEnd.getTime() + 1000), todayEnd, tz)
         : [];
     const isMostRecentActive = occurrencesAfter.length === 0;
 
@@ -286,11 +289,16 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     if (isMostRecentActive) {
         // Hot path: bounded backward walk from today (O(streak), not O(history)).
         // Correct for completes, un-completes, skips, and any recurrence cadence.
+        const [{ earliest }] = await tx
+            .select({ earliest: min(habitLogs.targetDate) })
+            .from(habitLogs)
+            .where(and(eq(habitLogs.userId, userId), eq(habitLogs.habitId, habit.id), eq(habitLogs.status, "COMPLETED")));
         currentStreak = await computeCurrentStreak(
             habit.recurrenceRule,
             habit.createdAt,
-            todayUtcStr,
+            todayStr,
             (dates) => loadCompletedOccurrenceDates(tx, habit.id, userId, dates),
+            { timeZone: tz, earliest },
         );
         // Longest streak is a monotonic high-water mark; it never shrinks.
         longestStreak = Math.max(habit.longestStreak, currentStreak);
@@ -302,8 +310,9 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
             .from(habitLogs)
             .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.userId, userId)));
 
-        const totalExpansionStart = new Date(`${String(habit.createdAt).substring(0, 10)}T00:00:00.000Z`);
-        const allOccurrences = expandOccurrences(habit.recurrenceRule, habit.createdAt, totalExpansionStart, todayEnd);
+        // From the creation day, or the oldest log when one predates it.
+        const firstDay = allLogs.reduce((first, log) => log.targetDate < first ? log.targetDate : first, localDay(habit.createdAt, tz));
+        const allOccurrences = expandOccurrences(habit.recurrenceRule, habit.createdAt, new Date(`${firstDay}T00:00:00.000Z`), todayEnd, tz);
 
         const streakData = recomputeStreaks(allLogs, allOccurrences);
         currentStreak = streakData.currentStreak;

@@ -154,11 +154,13 @@ export function deriveCandidates(
             const diffMs = targetToday.getTime() - now.getTime();
             if (Math.abs(diffMs) <= 2 * 60 * 60_000) {
                 const todayStr = toISODate(now);
-                const completedToday = habit.logs?.some(
-                    (log) => log.targetDate.startsWith(todayStr) && log.status === "COMPLETED",
+                // Today's log exists only when the routine is due and not paused;
+                // remind while it is still open.
+                const openToday = habit.logs?.some(
+                    (log) => log.targetDate.startsWith(todayStr) && log.status === "PENDING",
                 );
 
-                if (!completedToday) {
+                if (openToday) {
                     items.push({
                         id: `habit-reminder::${habit.id}::${todayStr}`,
                         kind: "habit-reminder",

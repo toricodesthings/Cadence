@@ -4,7 +4,7 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
-import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
+import { taskCache } from "./optimistic-helpers";
 
 /** Duplicate a task — server generates new ID, appends "(copy)" to title */
 export function useDuplicateTask() {
@@ -22,8 +22,9 @@ export function useDuplicateTask() {
             },
         ),
 
-        onSuccess: (task) => {
-            if (task) reconcileTaskInCaches(queryClient, task);
+        onSuccess: () => {
+            // The copy's tags are added server-side and aren't in the response.
+            taskCache.invalidate(queryClient);
             toast.success("Task duplicated");
         },
 

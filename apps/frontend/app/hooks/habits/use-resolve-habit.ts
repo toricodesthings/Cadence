@@ -5,7 +5,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { habitCache } from "./optimistic-helpers";
 import type { ResolveHabitAction, Habit } from "@cadence/contracts/habit";
 import { toast } from "sonner";
-import { patchHabitMonthlyCache, reconcileHabitInCaches } from "../../lib/api/cache-sync";
+import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
@@ -32,7 +32,7 @@ export function useResolveHabit(boundHabitId?: string) {
             (action) => ({
                 type: "resolve_habit",
                 id: idOf(action),
-                payload: { targetDate: action.targetDate, status: action.status },
+                payload: { targetDate: action.targetDate, status: action.status, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
             }),
             async (vars) => {
                 const habitId = idOf(vars);
@@ -42,7 +42,8 @@ export function useResolveHabit(boundHabitId?: string) {
                 latestResolveByCell.set(requestKey, requestId);
                 const res = await client.api.habits[":id"].resolve.$post({
                     param: { id: habitId },
-                    json: action,
+                    // The caller's zone makes "today" (and the streak) their day.
+                    json: { ...action, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
                 });
                 return {
                     ...(await unwrapResponse<{ habit: Habit }>(res)),
@@ -87,13 +88,12 @@ export function useResolveHabit(boundHabitId?: string) {
 
             return { snapshot, requestKey };
         },
-        onSuccess: (result, action) => {
+        onSuccess: (result) => {
             if (!result) return; // Queued offline
             if (latestResolveByCell.get(result.requestKey) !== result.requestId) {
                 return;
             }
             reconcileHabitInCaches(queryClient, result.habit);
-            patchHabitMonthlyCache(queryClient, idOf(action), action.targetDate, action.status);
             latestResolveByCell.delete(result.requestKey);
         },
         onError: (err, _action, context) => {

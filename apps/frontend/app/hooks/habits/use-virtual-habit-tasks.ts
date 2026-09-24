@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useHabitsWeekly } from "./use-habits";
+import { useHabitsRange } from "./use-habits";
 import type { Task } from "@cadence/contracts/task";
 import { routineTimeOn } from "@cadence/domain/repeats";
 
@@ -12,7 +12,7 @@ export function useVirtualHabitTasks(options: {
     end: string;
     enabled: boolean;
 }): Task[] {
-    const { data: rawHabits = [] } = useHabitsWeekly(options);
+    const { data: rawHabits = [] } = useHabitsRange(options);
 
     return useMemo<Task[]>(() => {
         return rawHabits.flatMap((h) =>

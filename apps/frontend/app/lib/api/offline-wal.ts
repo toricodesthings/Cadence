@@ -25,7 +25,7 @@ export type MutationOp =
     | { type: "create_habit"; payload: Record<string, unknown> & { clientMutationId: string } }
     | { type: "update_habit"; id: string; payload: Record<string, unknown> }
     | { type: "delete_habit"; id: string }
-    | { type: "resolve_habit"; id: string; payload: { targetDate: string; status: string } };
+    | { type: "resolve_habit"; id: string; payload: { targetDate: string; status: string; timezone?: string } };
 
 // ── WAL Entry ──
 
