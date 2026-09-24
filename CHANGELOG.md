@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-09-24
+
 Hand the assistant a list and it sets everything up in one go, with one tap to approve.
 
 ### Added
