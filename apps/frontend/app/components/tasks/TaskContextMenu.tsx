@@ -400,7 +400,13 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }
     return (
         <DropdownMenu.Root open={open} onOpenChange={setOpen}>
             <DropdownMenu.Trigger asChild>
-                <Button variant="ghost" size="icon" aria-label={`Open actions for ${task.title}`}>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    // Touch keeps the 44px target; a mouse gets a lighter 36px one.
+                    className="pointer-fine:h-9 pointer-fine:w-9"
+                    aria-label={`Open actions for ${task.title}`}
+                >
                     <MoreVertical size={16} />
                 </Button>
             </DropdownMenu.Trigger>

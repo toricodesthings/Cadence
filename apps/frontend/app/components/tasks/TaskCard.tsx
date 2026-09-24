@@ -8,9 +8,7 @@ import {
     Repeat,
     Bell,
     BellOff,
-    AlertTriangle,
     Clock,
-    ChevronRight,
     CalendarClock,
     Tag as TagIcon,
     Sparkles,
@@ -20,7 +18,8 @@ import {
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
 import { RenameTaskDialog } from "./RenameTaskDialog";
-import { InlineSubtaskPanel, SubtaskChip, useInlineSubtasks } from "./InlineSubtasks";
+import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "./task-choice-options";
+import { InlineSubtaskPanel, SUBTASK_RAIL, SubtaskChip, useInlineSubtasks } from "./InlineSubtasks";
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
@@ -85,7 +84,6 @@ type CollapsedSignal = {
     icon: LucideIcon;
     label: string;
     className: string;
-    button?: boolean;
     style?: React.CSSProperties;
     accentDots?: string[];
 };
@@ -111,7 +109,7 @@ export function TaskCard({
     const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
     const shell = useShellMode();
 
-    const subtaskUi = useInlineSubtasks();
+    const subtaskUi = useInlineSubtasks(task.id);
     const subtaskPanelId = useId();
 
     // Override isSelected if managed by global store
@@ -174,15 +172,6 @@ export function TaskCard({
                 className: "text-moonlit",
             }
             : null,
-        orderedSubtasks.length > 0
-            ? {
-                key: "subtasks",
-                icon: ChevronRight,
-                label: "Subtasks",
-                className: "text-twilight-text-soft",
-                button: true,
-            }
-            : null,
         tags.length > 0
             ? {
                 key: "tags",
@@ -200,7 +189,7 @@ export function TaskCard({
         task.effort
             ? {
                 key: "effort",
-                icon: Clock,
+                icon: EFFORT_OPTIONS.find((o) => o.value === task.effort)!.icon,
                 label: EFFORT_LABELS[task.effort],
                 className: "text-twilight-text-soft",
             }
@@ -234,8 +223,9 @@ export function TaskCard({
     const secondarySignals = secondarySignalCandidates.filter((signal): signal is CollapsedSignal => signal !== null);
 
     const visibleSignals = secondarySignals.slice(0, shell.isPhone ? 2 : 3);
-    const hasCollapsedSupport = Boolean(primaryCue || visibleSignals.length > 0);
+    const hasCollapsedSupport = Boolean(primaryCue || visibleSignals.length > 0 || orderedSubtasks.length > 0);
     const isCompactCard = !hasCollapsedSupport && !subtaskUi.open && !subtaskUi.adding;
+    const subtasksShown = (subtaskUi.open && orderedSubtasks.length > 0) || subtaskUi.adding;
     const isBoardCard = variant === "board";
     const effectiveRationaleLabel = rationaleLabel === OVERDUE_RATIONALE_LABEL ? null : rationaleLabel;
 
@@ -308,8 +298,9 @@ export function TaskCard({
                     {...(dragHandleProps.listeners ?? {})}
                     data-no-open="true"
                     data-dnd-handle="true"
-                    className={`shrink-0 cursor-grab touch-none rounded-md text-twilight-text-muted/40 transition-[opacity,color] hover:text-twilight-text-soft active:cursor-grabbing ${
-                        isBoardCard ? "-ml-1" : "-ml-2"
+                    // Same box as the checkbox so the grip centres on the title line; -mr pulls it in past the gap.
+                    className={`-mr-1.5 flex shrink-0 cursor-grab touch-none items-center rounded-md text-twilight-text-muted/40 transition-[opacity,color] hover:text-twilight-text-soft active:cursor-grabbing ${
+                        isBoardCard ? "-ml-1 h-8" : "-ml-2 mt-0.5 h-11 lg:h-8"
                     }`}
                     aria-label="Drag to reorder"
                 >
@@ -317,7 +308,15 @@ export function TaskCard({
                 </div>
             )}
 
-            <TaskCheckbox task={task} compact={isBoardCard} />
+            {subtasksShown ? (
+                // The checkbox column stretches so its rail runs down beside the open subtasks.
+                <div className="flex shrink-0 flex-col items-center self-stretch">
+                    <TaskCheckbox task={task} compact={isBoardCard} />
+                    <span aria-hidden="true" className={`mt-1 flex-1 ${SUBTASK_RAIL}`} />
+                </div>
+            ) : (
+                <TaskCheckbox task={task} compact={isBoardCard} />
+            )}
 
             {task.origin === "thought" && <ThoughtMark />}
 
@@ -334,26 +333,31 @@ export function TaskCard({
                         aria-pressed={isTaskSelected}
                         className={`w-full rounded-2xl text-left cursor-pointer ${isBoardCard ? "p-0" : "p-1 -m-1"}`}
                     >
-                        <div className="flex items-start gap-2">
+                        {/* Board titles (21px line) drop onto the 32px checkbox's centre line, with the grip. */}
+                        <div className={`flex items-start gap-2 ${isBoardCard ? "pt-[5px]" : ""}`}>
                             {(task.isPinned || showUrgentIcon) ? (
                                 <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
                                     {task.isPinned && (
                                         <Pin size={12} className="rotate-45 text-accent-primary" aria-label="Pinned" />
                                     )}
-                                    {showUrgentIcon && (
-                                        <AlertTriangle
+                                    {showUrgentIcon && (() => {
+                                        const PriorityIcon = PRIORITY_OPTIONS[task.priority].icon;
+                                        return (
+                                        <PriorityIcon
                                             size={13}
                                             style={{ color: task.priority === 4 ? "var(--color-priority-urgent)" : "var(--color-priority-high)" }}
                                             aria-hidden="true"
                                         />
-                                    )}
+                                        );
+                                    })()}
                                 </div>
                             ) : null}
 
                             <div className="min-w-0 flex-1">
                                 <span
                                     className={`block line-clamp-2 ${
-                                        isBoardCard ? "text-[15px] leading-[1.4]" : COLLECTION_ROW_TITLE
+                                        // Board cards float the ⋮ over the corner; keep the title clear of it.
+                                        isBoardCard ? "pr-5 pointer-coarse:pr-6 text-[15px] leading-[1.4]" : COLLECTION_ROW_TITLE
                                     } ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
                                 >
                                     {task.title}
@@ -384,18 +388,6 @@ export function TaskCard({
                                 {visibleSignals.length > 0 ? (
                                     <div className={`${primaryCue ? "mt-2" : "mt-1.5"} flex flex-wrap items-center gap-2`}>
                                         {visibleSignals.map((signal) => {
-                                            if (signal.button) {
-                                                return (
-                                                    <SubtaskChip
-                                                        key={signal.key}
-                                                        subtasks={orderedSubtasks}
-                                                        open={subtaskUi.open}
-                                                        onToggle={subtaskUi.toggle}
-                                                        controls={subtaskPanelId}
-                                                    />
-                                                );
-                                            }
-
                                             const SignalIcon = signal.icon;
                                             return (
                                                 <span
@@ -426,6 +418,17 @@ export function TaskCard({
                         </div>
                     </button>
 
+                    {orderedSubtasks.length > 0 ? (
+                        <div className="mt-1">
+                            <SubtaskChip
+                                subtasks={orderedSubtasks}
+                                open={subtaskUi.open}
+                                onToggle={subtaskUi.toggle}
+                                controls={subtaskPanelId}
+                            />
+                        </div>
+                    ) : null}
+
                     <InlineSubtaskPanel
                         id={subtaskPanelId}
                         taskId={task.id}
@@ -438,7 +441,7 @@ export function TaskCard({
             </div>
 
             {/* Context menu — subtly visible, full opacity on hover */}
-            <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-2 top-2 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
+            <div data-no-dnd="true" className={`${isBoardCard ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" : `pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`}`}>
                 <TaskContextMenu task={task} onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding} onRename={handleRename} holdingContext={holdingContext} />
             </div>
 

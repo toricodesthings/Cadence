@@ -6,6 +6,9 @@
   "compatibility_flags": ["nodejs_compat"],
   // Prompt markdown (domains/ai/prompt/blocks) bundles as text.
   "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
+  // Run next to Neon (aws-us-east-1): each request makes several sequential queries,
+  // so a nearby Worker turns ~20-100ms per round trip into ~1-3ms.
+  "placement": { "region": "aws:us-east-1" },
 
   "observability": {
     "enabled": true,
@@ -77,6 +80,7 @@
   "env": {
     "dev": {
       "name": "cadence-backend-dev",
+      "placement": { "region": "aws:us-east-2" },
       "hyperdrive": [
         {
           "binding": "HYPERDRIVE",

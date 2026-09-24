@@ -6,31 +6,39 @@ import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../ho
 import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
-import { Tip } from "../primitives/Tooltip";
+import { useSubtaskOpenStore } from "../../stores/subtask-open-store";
 
 /**
- * A row's subtasks, as on task cards: a progress chip that opens an inline panel under the title.
- * Rows own the open/adding state so a menu's "Add subtask" can open the panel straight into the input.
+ * A row's subtasks, as on task cards: a quiet toggle line that opens the subtasks as a tree beneath it.
+ * Rows own the adding state so a menu's "Add subtask" can open the panel straight into the input;
+ * open/closed is remembered per task across reloads.
  */
 
-export function useInlineSubtasks() {
-    const [open, setOpen] = useState(false);
+export function useInlineSubtasks(taskId: string) {
+    const open = useSubtaskOpenStore((state) => !!state.open[taskId]);
+    const setOpen = useSubtaskOpenStore((state) => state.setOpen);
     const [adding, setAdding] = useState(false);
     return {
         open,
         adding,
-        toggle: () => setOpen((o) => !o),
+        toggle: () => setOpen(taskId, !open),
         startAdding: () => {
-            setOpen(true);
+            setOpen(taskId, true);
             setAdding(true);
         },
         setAdding,
     };
 }
 
+/** The thread from a task's checkbox down past its open subtasks; rows place it under their own checkbox. */
+export const SUBTASK_RAIL = "pointer-events-none w-px bg-gradient-to-b from-white/[0.14] via-white/[0.08] to-transparent";
+
 const byOrder = (subtasks: Subtask[]) => [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
 
-/** Chevron, progress bar and "done/total". Turns green with a tick once every subtask is done. */
+/**
+ * Chevron, progress bar, "done/total subtasks" and the next open one — plain text, not a pill, so it
+ * never reads as metadata. Turns green with a tick once every subtask is done.
+ */
 export function SubtaskChip({
     subtasks,
     open,
@@ -46,45 +54,45 @@ export function SubtaskChip({
     if (!subtasks.length) return null;
     const done = subtasks.filter((s) => s.isComplete).length;
     const allDone = done === subtasks.length;
+    const next = open ? undefined : byOrder(subtasks).find((s) => !s.isComplete);
     return (
-        <Tip label={open ? "Hide subtasks" : "Show subtasks"}>
-            <button
-                type="button"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onToggle();
-                }}
-                data-no-dnd="true"
-                data-no-open="true"
-                aria-expanded={open}
-                aria-controls={controls}
-                aria-label={`Subtasks, ${done} of ${subtasks.length} done`}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary pointer-coarse:min-h-9 pointer-coarse:px-3.5 ${
-                    allDone
-                        ? "border-feedback-success/25 bg-feedback-success/10 text-feedback-success"
-                        : "border-white/[0.07] bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text"
-                } ${open ? "bg-white/[0.06]" : ""}`}
-            >
-                <ChevronRight
-                    size={12}
-                    aria-hidden="true"
-                    className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}
-                />
-                {allDone ? (
-                    <Check size={12} aria-hidden="true" />
-                ) : (
-                    <span className="flex h-1.5 w-5 overflow-hidden rounded-full bg-white/[0.05]" aria-hidden="true">
-                        <span
-                            className="h-full bg-feedback-success/60 transition-all duration-300"
-                            style={{ width: `${(done / subtasks.length) * 100}%` }}
-                        />
-                    </span>
-                )}
-                <span aria-hidden="true">
-                    {done}/{subtasks.length}
+        <button
+            type="button"
+            onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+            }}
+            data-no-dnd="true"
+            data-no-open="true"
+            aria-expanded={open}
+            aria-controls={controls}
+            aria-label={`${open ? "Hide" : "Show"} subtasks, ${done} of ${subtasks.length} done`}
+            className="-mx-1.5 flex min-h-9 w-[calc(100%+0.75rem)] min-w-0 cursor-pointer items-center gap-2 rounded-lg px-1.5 text-left text-[12px] font-medium tabular-nums text-twilight-text-soft transition-colors hover:bg-white/[0.03] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+        >
+            <ChevronRight
+                size={13}
+                aria-hidden="true"
+                className={`shrink-0 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+            />
+            {allDone ? (
+                <Check size={13} aria-hidden="true" className="shrink-0 text-feedback-success" />
+            ) : (
+                <span className="flex h-1.5 w-6 shrink-0 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden="true">
+                    <span
+                        className="h-full rounded-full bg-feedback-success/60 transition-all duration-300"
+                        style={{ width: `${(done / subtasks.length) * 100}%` }}
+                    />
                 </span>
-            </button>
-        </Tip>
+            )}
+            <span aria-hidden="true" className={`shrink-0 ${allDone ? "text-feedback-success" : ""}`}>
+                {done}/{subtasks.length} subtasks
+            </span>
+            {next ? (
+                <span aria-hidden="true" className="min-w-0 truncate font-normal text-twilight-text-muted">
+                    · Next: {next.title}
+                </span>
+            ) : null}
+        </button>
     );
 }
 
@@ -105,7 +113,7 @@ function InlineSubtaskItem({
         <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            className={`group/sub flex items-center gap-1.5 rounded-xl px-1 py-1.5 transition-colors hover:bg-white/[0.03] ${
+            className={`group/sub flex items-center gap-1.5 rounded-xl px-1 py-0.5 transition-colors hover:bg-white/[0.03] ${
                 isDragging ? "opacity-50" : "opacity-100"
             }`}
         >
@@ -113,7 +121,7 @@ function InlineSubtaskItem({
                 ref={dragHandleProps.ref}
                 {...dragHandleProps.attributes}
                 {...dragHandleProps.listeners}
-                className={`shrink-0 cursor-grab rounded-lg p-0.5 text-twilight-text-soft transition-opacity ${reveal}`}
+                className={`relative shrink-0 cursor-grab rounded-lg p-0.5 text-twilight-text-soft transition-opacity ${reveal}`}
                 data-no-dnd="true"
                 data-no-open="true"
                 aria-label="Drag to reorder subtask"
@@ -122,7 +130,7 @@ function InlineSubtaskItem({
             </div>
             <TaskCheckbox subtask={subtask} compact />
             <span
-                className={`min-w-0 flex-1 text-[14px] leading-6 transition-colors ${
+                className={`min-w-0 flex-1 text-[13px] leading-5 transition-colors ${
                     subtask.isComplete ? "text-twilight-text-muted/40 line-through" : "text-twilight-text-soft"
                 }`}
             >
@@ -164,7 +172,6 @@ export function InlineSubtaskPanel({
     const [title, setTitle] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
     const ordered = byOrder(subtasks);
-    const done = ordered.filter((s) => s.isComplete).length;
 
     useEffect(() => {
         if (adding) inputRef.current?.focus();
@@ -192,70 +199,64 @@ export function InlineSubtaskPanel({
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    className="overflow-hidden"
+                    // Rows pull left into the space under the task's checkbox so the grip costs no title width.
+                    className="-ml-7 overflow-hidden"
                 >
-                    <div className="mt-3 border-t border-white/[0.06] pt-3">
-                        {ordered.length > 0 && (
-                            <>
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-twilight-text-muted">
-                                            Subtasks
-                                        </p>
-                                        <p className="mt-1 text-[12px] font-semibold tabular-nums text-twilight-text">
-                                            {done}/{ordered.length}
-                                        </p>
-                                    </div>
-                                    {!adding && (
-                                        <button
-                                            type="button"
-                                            onClick={() => onAddingChange(true)}
-                                            data-no-dnd="true"
-                                            data-no-open="true"
-                                            className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-[11px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text"
-                                        >
-                                            <Plus size={12} aria-hidden="true" />
-                                            Add
-                                        </button>
+                    <div className="pt-0.5">
+                        <div>
+                            {ordered.length > 0 && (
+                                <SortableSubtaskList
+                                    subtasks={ordered}
+                                    onReorder={(payload) => reorderSubtask.mutate(payload)}
+                                    renderItem={({ subtask, dragHandleProps, isDragging }) => (
+                                        <InlineSubtaskItem
+                                            subtask={subtask}
+                                            onDelete={(subtaskId) => deleteSubtask.mutate(subtaskId)}
+                                            dragHandleProps={dragHandleProps}
+                                            isDragging={isDragging}
+                                        />
                                     )}
-                                </div>
-                                <div className="mt-3 space-y-1">
-                                    <SortableSubtaskList
-                                        subtasks={ordered}
-                                        onReorder={(payload) => reorderSubtask.mutate(payload)}
-                                        renderItem={({ subtask, dragHandleProps, isDragging }) => (
-                                            <InlineSubtaskItem
-                                                subtask={subtask}
-                                                onDelete={(subtaskId) => deleteSubtask.mutate(subtaskId)}
-                                                dragHandleProps={dragHandleProps}
-                                                isDragging={isDragging}
-                                            />
-                                        )}
+                                />
+                            )}
+                            {adding ? (
+                                <div className="flex items-center gap-1.5 rounded-xl px-1 py-0.5">
+                                    <span className="w-[18px] shrink-0" aria-hidden="true" />
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                                        <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70" />
+                                    </span>
+                                    <input
+                                        ref={inputRef}
+                                        type="text"
+                                        data-no-dnd="true"
+                                        data-no-open="true"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") submit();
+                                            if (e.key === "Escape") stopAdding();
+                                        }}
+                                        onBlur={() => (title.trim() ? submit() : stopAdding())}
+                                        placeholder="Add subtask..."
+                                        aria-label="New subtask"
+                                        className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
                                     />
                                 </div>
-                            </>
-                        )}
-                        {adding && (
-                            <div className={`${ordered.length ? "mt-3" : ""} flex items-center gap-1.5 rounded-xl px-1 py-1.5`}>
-                                <div className="h-6 w-6 shrink-0 rounded-full border-[1.5px] border-twilight-text-muted/70" />
-                                <input
-                                    ref={inputRef}
-                                    type="text"
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => onAddingChange(true)}
                                     data-no-dnd="true"
                                     data-no-open="true"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") submit();
-                                        if (e.key === "Escape") stopAdding();
-                                    }}
-                                    onBlur={() => (title.trim() ? submit() : stopAdding())}
-                                    placeholder="Add subtask..."
-                                    aria-label="New subtask"
-                                    className="min-w-0 flex-1 bg-transparent text-[14px] leading-6 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
-                                />
-                            </div>
-                        )}
+                                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                                >
+                                    <span className="w-[18px] shrink-0" aria-hidden="true" />
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                                        <Plus size={14} />
+                                    </span>
+                                    Add subtask
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </motion.div>
             ) : null}

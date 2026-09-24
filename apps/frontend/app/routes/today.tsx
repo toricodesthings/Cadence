@@ -2,6 +2,7 @@ import { StartupSuspense as Suspense } from "../components/shared/StartupSuspens
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useEffect, useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
+import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { ChevronDown, EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Repeat } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -112,6 +113,7 @@ export default function TodayRoute() {
     const todayDate = new Date();
     const personalEvents = usePersonalEvents(todayDate.getFullYear());
     const todayEvents = personalEvents.enabled ? personalEvents.getEventsForDate(todayISO) : [];
+    const todayDayEvents = todayEvents.map((evt) => ({ ...evt, dateStr: todayISO }));
 
     useDocumentMeta(
         "Today · Cadence",
@@ -353,6 +355,7 @@ export default function TodayRoute() {
                     selectedTaskId={selectedTaskId}
                     onSelectTask={handleSelectTask}
                     rationaleByTaskId={grouped.rationaleByTaskId}
+                    reorderable={false}
                     {...(cardVariant ? { cardVariant } : {})}
                 />
             );
@@ -431,8 +434,14 @@ export default function TodayRoute() {
             icon: Sunrise,
             accentClass: "text-accent-primary",
             count: grouped.today.length,
+            description: todayEvents.length > 0 ? <DayEventRows events={todayDayEvents} /> : undefined,
             listContent: renderTaskBucket(grouped.today, undefined, "Nothing planned for today yet."),
-            boardContent: renderTaskBucket(grouped.today, "board", "Nothing planned for today yet."),
+            boardContent: (
+                <>
+                    <DayEventRows events={todayDayEvents} className="mb-2.5" />
+                    {renderTaskBucket(grouped.today, "board", "Nothing planned for today yet.")}
+                </>
+            ),
         },
         ...(routinesCount > 0 ? [{
             key: "routines",
@@ -491,34 +500,7 @@ export default function TodayRoute() {
         >
             <PageContent width="default" className="shrink-0 empty:hidden">
                 <ActiveFilterBar placement="body" />
-                {todayEvents.length > 0 && (
-                    <div className="pb-2">
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/90">
-                                Events today
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => navigate("/events")}
-                                className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
-                            >
-                                Manage events
-                            </button>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {todayEvents.map((evt) => (
-                                <button
-                                    key={evt.id}
-                                    type="button"
-                                    onClick={() => navigate(`/schedule?date=${todayISO}&view=day`)}
-                                    className="inline-flex items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule transition-colors hover:bg-accent-nav-schedule/18"
-                                >
-                                    {evt.emoji ?? "🎉"} {evt.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {!isLoading && totalVisible === 0 ? <DayEventRows events={todayDayEvents} className="pb-2" /> : null}
                 {view === "kanban" ? spine : null}
             </PageContent>
             {view === "kanban" ? (

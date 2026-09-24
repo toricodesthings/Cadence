@@ -1,11 +1,11 @@
-import { Calendar, Flag, FolderOpen, Hash } from "lucide-react";
+import { Calendar, FolderOpen, Hash } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
 import type { TaskPriority } from "@cadence/contracts/task";
-import { PRIORITY_OPTIONS } from "./task-choice-options";
+import { PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
 import type { UserSettings } from "../../types/settings";
 
 type QuickAddAction = "date" | "priority" | "project" | "tag";
@@ -104,7 +104,10 @@ export function QuickAddActionTray({
                                         : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                                 }`}
                             >
-                                <Flag size={14} aria-hidden="true" />
+                                {(() => {
+                                    const Icon = priority ? PRIORITY_OPTIONS[priority].icon : PRIORITY_ICON;
+                                    return <Icon size={14} aria-hidden="true" />;
+                                })()}
                                 {!iconOnly ? <span>{priority ? `P${5 - priority}` : "Priority"}</span> : null}
                             </button>
                         </Popover.Trigger>

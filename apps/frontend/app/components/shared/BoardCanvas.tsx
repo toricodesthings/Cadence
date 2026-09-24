@@ -60,7 +60,7 @@ function BoardColumnShell({
     return (
         <section className="flex h-full min-h-0 flex-col rounded-[28px] border border-twilight-border/45 bg-twilight-surface/20 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl">
             {!titleHidden || description || headerAction ? (
-                <div className="flex items-start justify-between gap-3 border-b border-twilight-border/30 px-5 py-4">
+                <div className="flex items-start justify-between gap-3 px-5 pb-1 pt-4">
                     <div className="min-w-0">
                         {titleHidden ? null : (
                             <div className="flex items-center gap-2">
@@ -173,14 +173,14 @@ export function BoardCanvas({
                 }`}
             >
                 <div
-                    className={`flex items-stretch gap-4 ${desktopColumnScroll ? "h-full min-h-0" : "min-h-full"} ${
+                    className={`flex items-stretch gap-3 ${desktopColumnScroll ? "h-full min-h-0" : "min-h-full"} ${
                         mobileMode === "pager" ? "snap-x snap-mandatory" : ""
                     }`}
                 >
                     {columns.map((column) => (
                         <div
                             key={column.id}
-                            className={`${column.collapsed ? "w-[4.75rem]" : "w-[min(24rem,78vw)]"} shrink-0 ${desktopColumnScroll ? "h-full min-h-0" : ""} ${
+                            className={`${column.collapsed ? "w-[4.75rem]" : "w-[min(clamp(24rem,28vw,30rem),78vw)]"} shrink-0 ${desktopColumnScroll ? "h-full min-h-0" : ""} ${
                                 mobileMode === "pager" ? "snap-start" : ""
                             }`}
                         >

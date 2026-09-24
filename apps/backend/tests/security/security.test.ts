@@ -254,5 +254,7 @@ describe("CORS", () => {
         const response = await send(request);
 
         expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("idempotency-key");
+        // Browsers cache the preflight instead of re-asking before every request.
+        expect(response.headers.get("access-control-max-age")).toBe("7200");
     });
 });

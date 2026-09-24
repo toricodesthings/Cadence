@@ -34,7 +34,7 @@ interface TaskListProps {
     onSelectTask?: (id: string) => void;
     cardVariant?: "list" | "board";
     rationaleByTaskId?: Record<string, string | null | undefined>;
-    /** False for filtered views (a tag page) where a manual order means nothing. */
+    /** False where a manual order means nothing (Today, Upcoming, tag pages): no drag, no grip. */
     reorderable?: boolean;
 }
 
@@ -156,7 +156,7 @@ export function TaskList({
             onDragEnd={handleDragEnd}
         >
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col mt-4 gap-1">
+                <div className={`flex flex-col ${cardVariant === "board" ? "gap-2.5" : "mt-4 gap-2"}`}>
                     {tasks.map((task) => (
                         <TaskContextMenuWrapper key={task.id} task={task} onRename={() => {
                             onSelectTask?.(task.id);
@@ -171,6 +171,7 @@ export function TaskList({
                                 onSelect={onSelectTask}
                                 variant={cardVariant}
                                 rationaleLabel={rationaleByTaskId?.[task.id] ?? null}
+                                reorderable={reorderable}
                             />
                         </TaskContextMenuWrapper>
                     ))}

@@ -88,6 +88,9 @@ app.use(
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key"],
     credentials: true,
+    // Every Bearer request is preflighted; without this browsers re-ask every 5s per URL.
+    // Chrome caps at 2h.
+    maxAge: 7200,
   }),
 );
 

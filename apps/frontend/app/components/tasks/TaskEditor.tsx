@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import {
-    Calendar, Bell, Tag, FolderOpen, Flag,
+    Calendar, Bell, Tag, FolderOpen,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
-    CircleDot, Gauge, EyeOff, Clock, Columns3,
+    CircleDot, EyeOff, Clock, Columns3,
     ExternalLink, Check, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,7 +31,7 @@ import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
 import { formatShortDate, formatShortDateTime, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
-import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, PRIORITY_OPTIONS } from "./task-choice-options";
+import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_ICON, EFFORT_OPTIONS, PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
 import {
     getTaskRecurrenceSummary,
     getTaskScheduleSummary,
@@ -545,7 +545,7 @@ export function TaskEditor({
                                     </DetailGroup>
 
                                     <DetailGroup title="Weight">
-                                        <FieldBlock icon={Flag} label="Priority">
+                                        <FieldBlock icon={PRIORITY_ICON} label="Priority">
                                             <div className="grid grid-cols-5 gap-1.5">
                                                 {PRIORITY_OPTIONS.map((item) => {
                                                     const Icon = item.icon;
@@ -567,7 +567,7 @@ export function TaskEditor({
                                             </div>
                                         </FieldBlock>
 
-                                        <FieldBlock icon={Gauge} label="Effort">
+                                        <FieldBlock icon={EFFORT_ICON} label="Effort">
                                             <div className="grid grid-cols-3 gap-1.5">
                                                 {EFFORT_OPTIONS.map((item) => {
                                                     const Icon = item.icon;

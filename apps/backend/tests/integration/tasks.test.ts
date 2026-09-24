@@ -214,6 +214,18 @@ describe("batch operations", () => {
         const counts = await asOwner(async (pg) => (await pg.query("SELECT reschedule_count FROM task_metrics WHERE task_id = ANY($1)", [[a.id, b.id]])).rows);
         expect(counts).toEqual([{ reschedule_count: 1 }, { reschedule_count: 1 }]);
         expect((await otherTasks("GET", `/${theirs.id}`)).body.data.dueDate).toBe("2026-01-01T12:00:00.000Z");
+
+        // Later writes update each task's one metrics row instead of adding another.
+        await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id], scheduledStart: "2026-03-11", isAllDay: true });
+        await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
+        const rows = await asOwner(async (pg) => (await pg.query(
+            "SELECT reschedule_count, first_scheduled IS NOT NULL AS has_first, completed_at IS NOT NULL AS done FROM task_metrics WHERE task_id = ANY($1) ORDER BY done DESC",
+            [[a.id, b.id]],
+        )).rows);
+        expect(rows).toEqual([
+            { reschedule_count: 2, has_first: true, done: true },
+            { reschedule_count: 2, has_first: true, done: false },
+        ]);
     });
 
     it("moves tasks to a local date keeping each one's time: timed stays 2 PM local, all-day stays all-day", async () => {

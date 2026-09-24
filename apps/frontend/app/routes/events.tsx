@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { CalendarHeart, CalendarPlus, ArrowDownUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
@@ -46,7 +46,9 @@ export default function EventsRoute() {
     const personalEvents = usePersonalEvents(currentYear);
 
     const [editorOpen, setEditorOpen] = useState(false);
-    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+    const [searchParams] = useSearchParams();
+    // ?event=<id> (from Today/Upcoming) opens that event's details.
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(() => searchParams.get("event"));
     const [detailMode, setDetailMode] = useState<"peek" | "focus">("peek");
     const editingEvent = personalEvents.items.find((event) => event.id === selectedEventId);
     const [deletingEvent, setDeletingEvent] = useState<PersonalEvent | null>(null);
@@ -58,6 +60,10 @@ export default function EventsRoute() {
     );
 
     useRouteFocus();
+
+    useEffect(() => {
+        if (searchParams.get("event")) setRailView("context");
+    }, [searchParams, setRailView]);
 
     const events = useMemo(
         () => sortPersonalEventViewModels(personalEvents.items.map((event) => toPersonalEventViewModel(event, today)), sortMode),

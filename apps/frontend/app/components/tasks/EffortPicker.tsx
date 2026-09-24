@@ -1,5 +1,5 @@
 import React from "react";
-import { Minus } from "lucide-react";
+import { Minus, type LucideIcon } from "lucide-react";
 import { Tip } from "../primitives";
 import type { EffortLevel } from "@cadence/contracts/task";
 import { EFFORT_OPTIONS } from "./task-choice-options";
@@ -9,16 +9,10 @@ interface EffortPickerProps {
     onSelect: (effort: EffortLevel) => void;
 }
 
-const EFFORT_CHOICES: { value: EffortLevel; label: string; dots: number }[] = [
-    { value: null, label: "None", dots: 0 },
-    ...EFFORT_OPTIONS.map((o) => ({ value: o.value, label: `${o.label} effort`, dots: o.value })),
+const EFFORT_CHOICES: { value: EffortLevel; label: string; icon: LucideIcon }[] = [
+    { value: null, label: "None", icon: Minus },
+    ...EFFORT_OPTIONS.map((o) => ({ value: o.value, label: `${o.label} effort`, icon: o.icon })),
 ];
-
-const DOT_COLORS: Record<number, string> = {
-    1: "bg-twilight-text-muted/60",
-    2: "bg-accent-primary/50",
-    3: "bg-accent-primary/80",
-};
 
 export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSelect }) => {
     return (
@@ -45,25 +39,11 @@ export const EffortPicker: React.FC<EffortPickerProps> = ({ currentEffort, onSel
                                     `}
                                 aria-label={opt.label}
                             >
-                                {opt.dots === 0 ? (
-                                    <Minus
-                                        size={16}
-                                        className={`transition-colors ${isActive ? "text-twilight-text" : "text-twilight-text-muted group-hover:text-twilight-text"}`}
-                                    />
-                                ) : (
-                                    <span className="flex items-center gap-[3px]">
-                                        {Array.from({ length: opt.dots }, (_, i) => (
-                                            <span
-                                                key={i}
-                                                className={`w-[5px] h-[5px] rounded-full transition-colors ${
-                                                    isActive
-                                                        ? DOT_COLORS[opt.dots]
-                                                        : "bg-twilight-text-muted/40 group-hover:bg-twilight-text-muted/70"
-                                                }`}
-                                            />
-                                        ))}
-                                    </span>
-                                )}
+                                <opt.icon
+                                    size={16}
+                                    aria-hidden="true"
+                                    className={`transition-colors ${isActive ? (opt.value ? "text-accent-primary" : "text-twilight-text") : "text-twilight-text-muted group-hover:text-twilight-text"}`}
+                                />
                             </button>
                         </Tip>
                     );

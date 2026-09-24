@@ -1,4 +1,5 @@
-import { EllipsisVertical, ArrowUpDown, Sparkles, ArrowDownWideNarrow, GripVertical, Check } from "lucide-react";
+import { EllipsisVertical, ArrowUpDown, Sparkles, GripVertical, Check } from "lucide-react";
+import { PRIORITY_ICON } from "../tasks/task-choice-options";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
@@ -22,7 +23,7 @@ interface SortMenuProps {
 
 const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof Sparkles }[] = [
     { value: "smart", label: "Smart order", icon: Sparkles },
-    { value: "priority", label: "Priority", icon: ArrowDownWideNarrow },
+    { value: "priority", label: "Priority", icon: PRIORITY_ICON },
     { value: "manual", label: "Manual", icon: GripVertical },
 ];
 

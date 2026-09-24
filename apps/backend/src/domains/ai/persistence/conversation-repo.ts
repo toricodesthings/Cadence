@@ -459,8 +459,7 @@ export async function renameOrArchiveConversation(
     if (updated.length === 0) throw new AppError(404, "NOT_FOUND", "Conversation not found");
 }
 
-/** Delete a conversation (messages cascade via FK). Throws 404 if not owned/found. */
-/** Delete a thread, its messages (cascade) and its image rows. Storage is the caller's job, before this. */
+/** Delete a thread, its messages (cascade) and its image rows; 404 if not theirs. Storage is the caller's job, before this. */
 export async function deleteConversation(
     tx: Tx,
     userId: string,

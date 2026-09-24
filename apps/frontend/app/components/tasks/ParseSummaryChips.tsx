@@ -11,7 +11,8 @@
  * - Low-stimulation mode: collapse to one summary row, hide medium-confidence
  */
 import { useState } from "react";
-import { X, Calendar, Repeat, Flag, FolderOpen, Hash, Clock, UserCheck, ChevronDown } from "lucide-react";
+import { X, Calendar, Repeat, FolderOpen, Hash, Clock, UserCheck, ChevronDown } from "lucide-react";
+import { PRIORITY_ICON } from "./task-choice-options";
 import type { ParsedEntity } from "@cadence/nlp/core";
 import { motion, AnimatePresence } from "framer-motion";
 import { trackUsageEvent } from "../../lib/api/track-event";
@@ -50,7 +51,7 @@ const ENTITY_ICON_MAP: Record<string, React.ReactNode> = {
     scheduled_start: <Calendar size={11} aria-hidden="true" />,
     due_date: <Calendar size={11} aria-hidden="true" />,
     recurrence: <Repeat size={11} aria-hidden="true" />,
-    priority: <Flag size={11} aria-hidden="true" />,
+    priority: <PRIORITY_ICON size={11} aria-hidden="true" />,
     project: <FolderOpen size={11} aria-hidden="true" />,
     tag: <Hash size={11} aria-hidden="true" />,
     duration: <Clock size={11} aria-hidden="true" />,

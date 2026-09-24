@@ -2,6 +2,7 @@ import { StartupSuspense as Suspense } from "../components/shared/StartupSuspens
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
 import { useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
+import { DayEventRows, type DayEvent } from "../components/events/DayEventRows";
 import {
     Inbox,
     CalendarRange,
@@ -99,7 +100,7 @@ const UPCOMING_SECTIONS: Array<{
     },
     {
         key: "nextWeek",
-        title: "Next Week",
+        title: "Next 7 Days",
         icon: Layers3,
         accentClass: "text-moonlit",
     },
@@ -397,6 +398,7 @@ export default function Upcoming() {
                         selectedTaskId={selectedTaskId}
                         onSelectTask={handleSelectTask}
                         rationaleByTaskId={rationaleByTaskId}
+                        reorderable={false}
                         {...(cardVariant ? { cardVariant } : {})}
                     />
                 ) : null}
@@ -425,14 +427,27 @@ export default function Upcoming() {
         );
     };
 
+    // Each event sits in its day's section or column.
+    const dayEvents: Record<UpcomingBucketKey, DayEvent[]> = { overdue: [], today: [], tomorrow: [], nextWeek: [] };
+    for (const { event, dateStr } of upcomingEvents) {
+        const bucket = classifyUpcomingBucket(dateStr, todayISO, tomorrowISO, nextWeekISO);
+        if (bucket) dayEvents[bucket].push({ ...event, dateStr, dateLabel: bucket === "nextWeek" ? formatShortDate(dateStr) : null });
+    }
+
     const sections = UPCOMING_SECTIONS.map((section) => ({
         key: section.key,
         title: section.title,
         icon: section.icon,
         accentClass: section.accentClass,
         count: groupedItems[section.key].length,
+        description: dayEvents[section.key].length > 0 ? <DayEventRows events={dayEvents[section.key]} /> : undefined,
         listContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key]),
-        boardContent: renderUpcomingBucket(section.title, section.key, groupedItems[section.key], "board"),
+        boardContent: (
+            <>
+                <DayEventRows events={dayEvents[section.key]} className="mb-2.5" />
+                {renderUpcomingBucket(section.title, section.key, groupedItems[section.key], "board")}
+            </>
+        ),
     }));
 
     return (
@@ -495,35 +510,12 @@ export default function Upcoming() {
         >
             <PageContent width="default" className="shrink-0 empty:hidden">
                 <ActiveFilterBar placement="body" />
-                {upcomingEvents.length > 0 && (
-                    <div className="pb-2">
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-nav-schedule/80">
-                                Upcoming events
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => navigate("/events")}
-                                className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
-                            >
-                                Manage events
-                            </button>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {upcomingEvents.map(({ event: evt, dateStr }) => (
-                                <button
-                                    key={`${evt.id}-${dateStr}`}
-                                    type="button"
-                                    onClick={() => navigate(`/schedule?date=${dateStr}&view=day`)}
-                                    className="inline-flex items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule transition-colors hover:bg-accent-nav-schedule/18"
-                                >
-                                    {evt.emoji ?? "🎉"} {evt.label}
-                                    <span className="text-accent-nav-schedule/60">{formatShortDate(dateStr)}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {!isLoading && totalVisible === 0 ? (
+                    <DayEventRows
+                        events={upcomingEvents.map(({ event, dateStr }) => ({ ...event, dateStr, dateLabel: formatShortDate(dateStr) }))}
+                        className="pb-2"
+                    />
+                ) : null}
             </PageContent>
             {view === "kanban" ? (
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">

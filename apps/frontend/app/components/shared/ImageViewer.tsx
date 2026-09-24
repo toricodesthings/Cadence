@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight, ImageOff, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
-import { Tip } from "../primitives/Tooltip";
 
 export type ViewerImage = {
     key: string;
@@ -57,11 +56,9 @@ export function ImageViewer({
                                     {formatBytes(current.bytes)}
                                 </span>
                             ) : null}
-                            <Tip label="Close">
-                                <button type="button" onClick={() => onIndexChange(null)} className={NAV_BUTTON} aria-label="Close">
-                                    <X size={18} aria-hidden />
-                                </button>
-                            </Tip>
+                            <button type="button" onClick={() => onIndexChange(null)} className={NAV_BUTTON} aria-label="Close">
+                                <X size={18} aria-hidden />
+                            </button>
                         </div>
 
                         <div className="flex min-h-48 items-center justify-center">

@@ -1,5 +1,4 @@
-import { Flag, Gauge } from "lucide-react";
-import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "./task-choice-options";
+import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_ICON, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
 import type { EffortLevel, TaskPriority } from "@cadence/contracts/task";
 
 /** Labelled priority chips for a composer's More fold. */
@@ -7,7 +6,7 @@ export function PriorityField({ value, onChange }: { value: TaskPriority; onChan
     return (
         <div role="group" aria-label="Priority">
             <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                <Flag size={12} aria-hidden="true" />
+                <PRIORITY_ICON size={12} aria-hidden="true" />
                 Priority
             </span>
             <div className="grid grid-cols-5 gap-1.5">
@@ -37,7 +36,7 @@ export function EffortField({ value, onChange }: { value: EffortLevel; onChange:
     return (
         <div role="group" aria-label="Effort">
             <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                <Gauge size={12} aria-hidden="true" />
+                <EFFORT_ICON size={12} aria-hidden="true" />
                 Effort
             </span>
             <div className="grid grid-cols-3 gap-1.5">

@@ -3,6 +3,7 @@ import { queryKeys } from "./query-keys";
 
 const WORKSPACE_QUERY_PREFIXES: readonly QueryKey[] = [
     queryKeys.tasks.all,
+    ["subtasks"], // board/list bulk subtask maps live outside ["tasks"]
     queryKeys.habits.all,
     queryKeys.projects.all,
     queryKeys.tags.all,

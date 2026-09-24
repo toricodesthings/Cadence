@@ -38,10 +38,13 @@ export async function editSubtasks(
         if (found.length !== ids.length) throw new AppError(404, "NOT_FOUND", "Subtask not found on this task");
     }
 
-    for (const { subtaskId, ...change } of update) {
-        if (change.title === undefined && change.isComplete === undefined) continue;
-        await tx.update(subtasks).set(change).where(and(eq(subtasks.id, subtaskId), eq(subtasks.userId, userId)));
-    }
+    // Pipelined on the transaction's connection, not one round trip per subtask.
+    await Promise.all(
+        update
+            .filter(({ title, isComplete }) => title !== undefined || isComplete !== undefined)
+            .map(({ subtaskId, ...change }) =>
+                tx.update(subtasks).set(change).where(and(eq(subtasks.id, subtaskId), eq(subtasks.userId, userId)))),
+    );
     if (remove.length) {
         await tx.delete(subtasks).where(and(eq(subtasks.userId, userId), inArray(subtasks.id, remove.map((item) => item.subtaskId))));
     }

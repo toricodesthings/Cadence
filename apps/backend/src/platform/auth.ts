@@ -85,15 +85,23 @@ function respondWithError(c: Context<any>, error: AppError) {
 }
 
 /**
- * Synchronously ensures a `users` row exists for the authenticated subject.
- * Called on every write request BEFORE the route handler runs, preventing
- * FK violations from racing against a background upsert.
+ * Users whose row this isolate already ensured. Rows are never deleted by the app,
+ * so a hit skips a whole transaction on every later write.
+ */
+const ensuredUsers = new Set<string>();
+
+/**
+ * Ensures a `users` row exists for the authenticated subject before a write's
+ * handler runs, preventing FK violations. Once per user per isolate.
  */
 async function ensureUserExists(env: Env, userId: string) {
+    if (ensuredUsers.has(userId)) return;
     const db = getDbClient(env);
     await withRls(db, userId, async (tx) => {
         await tx.insert(users).values({ id: userId }).onConflictDoNothing();
     });
+    if (ensuredUsers.size >= 10_000) ensuredUsers.clear();
+    ensuredUsers.add(userId);
 }
 
 export const authMiddleware = createMiddleware<{

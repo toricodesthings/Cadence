@@ -6,8 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+- Pages load and changes save faster, especially for people far from the US East Coast.
+- Tasks on Today, Upcoming and Lists sit a little further apart, so each one reads on its own.
+- Effort always shows as a battery and priority as rising signal bars, wherever they appear.
+- Subtasks open from a clear line showing progress and what's next, and stay open after a reload.
+- Open subtasks hang under their task as a tree that's easier to read, with Add subtask at the end.
+- Events on Today and Upcoming sit at the top of their day, in list and board, and open on the Events page.
+
 ### Fixed
+- Today, Upcoming and tag pages no longer show drag handles that did nothing.
+- Subtasks the assistant adds now show on the task right away, without reloading the page.
 - The assistant finds matching list sections in larger workspaces and shows the destination before approval.
+- Upcoming labels its later group "Next 7 Days" instead of "Next Week", since it covers the coming seven days.
+- Notifications with two buttons show them side by side under the message, without a close X on top.
 
 ## [0.20.0] - 2026-09-24
 

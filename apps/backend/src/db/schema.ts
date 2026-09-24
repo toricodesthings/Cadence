@@ -27,8 +27,14 @@ const timestamptz = customType<{ data: string; driverData: string | Date }>({
     fromDriver: (value) => new Date(value).toISOString(),
 });
 
+/**
+ * The JWT user's id. Wrapped in a sub-select so Postgres reads and parses the claim
+ * once per query (an InitPlan), not once per row.
+ */
+const rlsUserId = sql`(select ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`;
+
 /** RLS condition: row belongs to the JWT-authenticated user */
-const rlsUsing = sql`(user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`;
+const rlsUsing = sql`(user_id = ${rlsUserId})`;
 
 // Settings schema is defined once in the settings domain and imported here.
 import { userSettingsSchema, type UserSettings } from "@cadence/contracts/settings";
@@ -92,8 +98,8 @@ export const users = pgTable('users', {
     rlsPolicy: pgPolicy("users_owner_access", {
         as: "permissive",
         for: "all",
-        using: sql`(id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
-        withCheck: sql`(id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
+        using: sql`(id = ${rlsUserId})`,
+        withCheck: sql`(id = ${rlsUserId})`,
     }),
 })).enableRLS();
 
@@ -366,8 +372,8 @@ export const taskTags = pgTable("task_tags", {
     rlsPolicy: pgPolicy("task_tags_owner_access", {
         as: "permissive",
         for: "all",
-        using: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
-        withCheck: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ((current_setting('request.jwt.claims', true))::jsonb ->> 'sub')::uuid)`,
+        using: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ${rlsUserId})`,
+        withCheck: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ${rlsUserId})`,
     }),
 })).enableRLS();
 
@@ -665,7 +671,8 @@ export const taskMetrics = pgTable(
     },
     (table) => ({
         userIdIdx: index("task_metrics_user_id_idx").on(table.userId),
-        taskIdIdx: index("task_metrics_task_id_idx").on(table.taskId),
+        // One metrics row per task, so metric writes are single upserts.
+        taskIdUnique: uniqueIndex("task_metrics_task_id_unique").on(table.taskId),
         rlsPolicy: pgPolicy("task_metrics_owner_access", {
             as: "permissive",
             for: "all",

@@ -33,19 +33,16 @@ export async function handleOverdueCheck(env: Env) {
     });
 
     for (const [userId, taskIds] of tasksByUser) {
-        await withRls(db, userId, async (tx) => {
-            // Batch insert: ensure all metric rows exist in one statement
-            await tx
+        // One upsert: a first delay creates the metrics row, later ones count up.
+        await withRls(db, userId, (tx) =>
+            tx
                 .insert(taskMetrics)
-                .values(taskIds.map((taskId) => ({ taskId, userId, delayCount: 0 })))
-                .onConflictDoNothing();
-
-            // Batch update: increment delay count for all overdue tasks at once
-            await tx
-                .update(taskMetrics)
-                .set({ delayCount: sql`${taskMetrics.delayCount} + 1` })
-                .where(and(eq(taskMetrics.userId, userId), inArray(taskMetrics.taskId, taskIds)));
-        });
+                .values(taskIds.map((taskId) => ({ taskId, userId, delayCount: 1 })))
+                .onConflictDoUpdate({
+                    target: taskMetrics.taskId,
+                    set: { delayCount: sql`${taskMetrics.delayCount} + 1` },
+                }),
+        );
 
         try {
             await computeWorkloadSignals(db, userId);

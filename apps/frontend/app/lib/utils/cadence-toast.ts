@@ -37,7 +37,9 @@ function withCadenceToastOptions(
     fallbackDuration = CADENCE_TOAST_DURATION,
 ): ExternalToast {
     const duration = options?.duration ?? fallbackDuration;
-    const shouldShowCloseButton = options?.closeButton ?? Boolean(options?.description);
+    // The close button and a lone action share the top-right grid cell, so buttoned toasts skip it.
+    const shouldShowCloseButton =
+        options?.closeButton ?? (Boolean(options?.description) && !options?.action && !options?.cancel);
 
     return {
         ...options,

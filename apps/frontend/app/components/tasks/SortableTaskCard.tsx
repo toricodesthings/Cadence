@@ -15,6 +15,8 @@ interface SortableTaskCardProps {
     onSelect?: (id: string) => void;
     variant?: "list" | "board";
     rationaleLabel?: string | null;
+    /** False hides the grip where the list can't be reordered. */
+    reorderable?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export function SortableTaskCard({
     onSelect,
     variant = "list",
     rationaleLabel,
+    reorderable = true,
 }: SortableTaskCardProps) {
     const {
         attributes,
@@ -88,11 +91,15 @@ export function SortableTaskCard({
                 onSelect={onSelect}
                 variant={variant}
                 rationaleLabel={rationaleLabel}
-                dragHandleProps={{
-                    ref: setActivatorNodeRef,
-                    listeners,
-                    attributes,
-                }}
+                dragHandleProps={
+                    reorderable
+                        ? {
+                              ref: setActivatorNodeRef,
+                              listeners,
+                              attributes,
+                          }
+                        : undefined
+                }
             />
         </motion.div>
     );

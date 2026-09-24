@@ -33,7 +33,7 @@ import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { TAG_DRAG_TYPE } from "../sidebar/TagBubble";
 import { TaskCheckbox } from "../tasks/TaskCheckbox";
-import { InlineSubtaskPanel, SubtaskChip, useInlineSubtasks } from "../tasks/InlineSubtasks";
+import { InlineSubtaskPanel, SUBTASK_RAIL, SubtaskChip, useInlineSubtasks } from "../tasks/InlineSubtasks";
 import { Button } from "../primitives/Button";
 import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
@@ -81,7 +81,7 @@ export function CaptureRow({
     const quiet = settings?.tasks.intelligence?.lowStimulationMode;
     const { data: allTags = [] } = useTags();
     const [menuOpen, setMenuOpen] = useState(false);
-    const subtaskUi = useInlineSubtasks();
+    const subtaskUi = useInlineSubtasks(task?.id ?? "");
     const subtaskPanelId = useId();
     const [pickerMonth, setPickerMonth] = useState(() => new Date());
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -296,18 +296,20 @@ export function CaptureRow({
                         >
                             <span className="line-clamp-2 break-words">{title}</span>
                         </Button>
-                        {(rowTags.length > 0 || subtasks.length > 0 || (stacked && detected)) && (
+                        {(rowTags.length > 0 || (stacked && detected)) && (
                             <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">
                                 {stacked && detected && pill(detected, true)}
-                                {task && (
-                                    <SubtaskChip
-                                        subtasks={subtasks}
-                                        open={subtaskUi.open}
-                                        onToggle={subtaskUi.toggle}
-                                        controls={subtaskPanelId}
-                                    />
-                                )}
                                 <TagSignal tags={rowTags} />
+                            </div>
+                        )}
+                        {task && subtasks.length > 0 && (
+                            <div className="px-1">
+                                <SubtaskChip
+                                    subtasks={subtasks}
+                                    open={subtaskUi.open}
+                                    onToggle={subtaskUi.toggle}
+                                    controls={subtaskPanelId}
+                                />
                             </div>
                         )}
                     </div>
@@ -428,6 +430,10 @@ export function CaptureRow({
                         </Menu.Content>
                     </Menu.Root>
                 </div>
+                {task && ((subtaskUi.open && subtasks.length > 0) || subtaskUi.adding) && (
+                    // Under the checkbox (w-8 at the px-4/sm:px-5 edge, centred on the 44px title line), down past the subtasks.
+                    <span aria-hidden="true" className={`absolute bottom-3.5 left-8 top-[3.25rem] sm:left-9 ${SUBTASK_RAIL}`} />
+                )}
                 {task && (
                     // Below the whole row so it spans past the day pill and time; indented to the title (checkbox
                     // w-8 + gap-2, plus the 14px ThoughtMark + gap-2). Stops row drag and row shortcuts in the list.

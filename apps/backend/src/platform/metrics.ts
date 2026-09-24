@@ -5,43 +5,27 @@ import { withRls } from "./rls";
 import { tasks, taskMetrics, usageEvents, userMetrics, habitLogs } from "../db/schema";
 import { logger, hashIdentifier, issuesFromError } from "./log";
 
-export async function trackReschedule(
+/** Count one reschedule per task, in one upsert. `at` is the task's new date. */
+export async function trackReschedules(
     db: DbClient,
-    taskId: string,
     userId: string,
-    newScheduledStart: string | null,
+    rescheduled: { taskId: string; at: string | null }[],
 ) {
-    await withRls(db, userId, async (tx) => {
-        const existing = await tx
-            .select()
-            .from(taskMetrics)
-            .where(and(eq(taskMetrics.taskId, taskId), eq(taskMetrics.userId, userId)))
-            .limit(1);
-
-        if (existing.length === 0) {
-            await tx.insert(taskMetrics).values({
-                taskId,
-                userId,
-                rescheduleCount: 1,
-                firstScheduled: newScheduledStart,
-            });
-            return;
-        }
-
-        await tx
-            .update(taskMetrics)
-            .set({
-                rescheduleCount: sql`${taskMetrics.rescheduleCount} + 1`,
-                firstScheduled: existing[0].firstScheduled ?? newScheduledStart,
-            })
-            .where(eq(taskMetrics.id, existing[0].id));
-    });
+    await withRls(db, userId, (tx) =>
+        tx
+            .insert(taskMetrics)
+            .values(rescheduled.map(({ taskId, at }) => ({ taskId, userId, rescheduleCount: 1, firstScheduled: at })))
+            .onConflictDoUpdate({
+                target: taskMetrics.taskId,
+                set: {
+                    rescheduleCount: sql`${taskMetrics.rescheduleCount} + 1`,
+                    firstScheduled: sql`coalesce(${taskMetrics.firstScheduled}, excluded.first_scheduled)`,
+                },
+            }),
+    );
 }
 
-/**
- * Batch-track completion for multiple tasks in a single RLS transaction.
- * Reduces N DB connections + N transactions → 1 of each.
- */
+/** Record completion for several tasks in one RLS transaction: one read, one upsert. */
 export async function trackBatchCompletion(db: DbClient, taskIds: string[], userId: string) {
     await withRls(db, userId, async (tx) => {
         const foundTasks = await tx
@@ -52,21 +36,18 @@ export async function trackBatchCompletion(db: DbClient, taskIds: string[], user
         if (foundTasks.length === 0) return;
 
         const now = new Date().toISOString();
-        const values = foundTasks.map((t) => ({
-            taskId: t.id,
-            userId,
-            completedAt: now,
-            createdToDone: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 1000),
-        }));
-
-        await tx.insert(taskMetrics).values(values).onConflictDoNothing();
-
-        for (const v of values) {
-            await tx
-                .update(taskMetrics)
-                .set({ completedAt: v.completedAt, createdToDone: v.createdToDone })
-                .where(and(eq(taskMetrics.taskId, v.taskId), eq(taskMetrics.userId, userId)));
-        }
+        await tx
+            .insert(taskMetrics)
+            .values(foundTasks.map((t) => ({
+                taskId: t.id,
+                userId,
+                completedAt: now,
+                createdToDone: Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 1000),
+            })))
+            .onConflictDoUpdate({
+                target: taskMetrics.taskId,
+                set: { completedAt: sql`excluded.completed_at`, createdToDone: sql`excluded.created_to_done` },
+            });
     });
 }
 

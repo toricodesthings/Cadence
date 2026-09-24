@@ -8,7 +8,7 @@ Standalone Cloudflare Worker API (Hono v4 + Neon Postgres via Hyperdrive). Share
 
 | Concern | Technology |
 |---|---|
-| Runtime | Cloudflare Workers (`nodejs_compat`) |
+| Runtime | Cloudflare Workers (`nodejs_compat`), placed next to Neon (`placement.region`: `aws:us-east-1`, dev `aws:us-east-2`; move it with the database) |
 | HTTP | Hono v4 |
 | Validation | Zod v4 (pinned via root `pnpm.overrides.zod` — one instance workspace-wide) + `@hono/zod-validator` wrapped by `apiValidator()` |
 | ORM | Drizzle ORM (`drizzle-orm/postgres-js`) |
@@ -68,7 +68,7 @@ Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, a
 
 - **Timestamps:** every `timestamp with time zone` column is declared with the `timestamptz()` helper in `schema.ts`, which reads values as strict ISO (`2026-03-09T12:00:00.000Z`). Never use drizzle's `timestamp()` directly, or that column goes out as Postgres text. Integration tests fail on any non-ISO date-time in a response.
 - **Per-request clients only.** `const db = getDbClient(c.env)`. Never a module-scope singleton — Hyperdrive pools connections, Workers don't hold them.
-- **RLS is mandatory** for user-scoped work: `withRls(db, userId, async (tx) => { ... })`. Sets `request.jwt.claims`; guarantees same connection for config+query.
+- **RLS is mandatory** for user-scoped work: `withRls(db, userId, async (tx) => { ... })`. Sets `request.jwt.claims`; guarantees same connection for config+query. Policies compare against `rlsUserId` in `schema.ts` (a `(select …)` Postgres evaluates once per query, not per row); never inline `current_setting` in a policy.
 - **Type aliases:** import `DbClient`/`Tx` from `src/types/db.ts` — never redefine `Parameters<Parameters<DbClient["transaction"]>[0]>[0]` inline.
 - **Ownership:** `assertProjectOwnership`/`assertSectionOwnership`/`assertTagsOwnership`/`assertOwnership` in `platform/ownership.ts`. Another user's row is invisible under RLS, so it resolves as 404 (existence never leaks); the 403 branch only fires if RLS is bypassed. Task writes validate the section against the effective list; moving lists without a section clears the old section.
 - **Migrations:** update `schema.ts` → `pnpm db:generate` → `pnpm db:check` → `pnpm db:migrate`. Never `drizzle-kit push`. `drizzle.config.ts` reads `.dev.vars`; migrations output to `apps/backend/drizzle/`.
@@ -127,7 +127,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 ## 12. Auth (`platform/auth.ts`)
 
-Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed cache, retries transient failures), attaches `userId` from JWT `sub`, async-syncs user row via `executionCtx.waitUntil()`. Never introduce cookies/sessions/non-JWT auth without explicit design sign-off.
+Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed cache, retries transient failures), attaches `userId` from JWT `sub`, and before a write ensures the `users` row exists (once per user per isolate). Never introduce cookies/sessions/non-JWT auth without explicit design sign-off.
 
 ## 13. Background Jobs
 

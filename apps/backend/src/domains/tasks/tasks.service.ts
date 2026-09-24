@@ -12,7 +12,7 @@ import { subtasks, tasks, taskTags } from "../../db/schema";
 import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { assertOwnership } from "../../platform/ownership";
 import { atLocalDate } from "../../platform/date-utils";
-import { trackBatchCompletion, trackBatchEvents, trackReschedule } from "../../platform/metrics";
+import { trackBatchCompletion, trackBatchEvents, trackReschedules } from "../../platform/metrics";
 import type { DbClient, Tx } from "../../types/db";
 import { writeNote } from "../notes/notes.service";
 
@@ -70,7 +70,9 @@ export function trackTaskChanges(
     },
 ) {
     const { created = [], rescheduled = [], completed = [] } = changes;
-    for (const task of rescheduled) waitUntil(trackReschedule(db, task.id, userId, task.scheduledStart ?? task.dueDate));
+    if (rescheduled.length) {
+        waitUntil(trackReschedules(db, userId, rescheduled.map((task) => ({ taskId: task.id, at: task.scheduledStart ?? task.dueDate }))));
+    }
     if (completed.length) waitUntil(trackBatchCompletion(db, completed, userId));
     const events = [
         ...created.map((taskId) => ({ event: "task.create", metadata: { taskId } })),
@@ -179,8 +181,9 @@ export async function updateTasks(
     { taskIds, patch, addTagIds = [], removeTagIds = [] }: { taskIds: string[]; patch: TaskPatch; addTagIds?: string[]; removeTagIds?: string[] },
 ) {
     await assertOwnership(tx, userId, { tagIds: addTagIds });
-    const rows = [];
-    for (const id of taskIds) rows.push(await updateTask(tx, userId, id, patch));
+    // Issued together: postgres.js pipelines them on the transaction's connection, so the
+    // batch costs a couple of round trips instead of two per task.
+    const rows = await Promise.all(taskIds.map((id) => updateTask(tx, userId, id, patch)));
     if (addTagIds.length) {
         await tx
             .insert(taskTags)
@@ -226,17 +229,19 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
         .from(tasks)
         .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
     const onlyFixed = rows.every((row) => row.interactionMode === "timetable");
-    const moved = [];
-    for (const row of rows) {
-        if (row.interactionMode === "timetable" && !onlyFixed) continue;
-        const [updated] = await tx
-            .update(tasks)
-            .set({ ...rescheduleToDate(row, date, timezone!), updatedAt: sql`NOW()` })
-            .where(and(eq(tasks.id, row.id), eq(tasks.userId, userId)))
-            .returning();
-        moved.push(updated);
-    }
-    return moved;
+    // Each task gets its own values; the updates are pipelined like `updateTasks`.
+    return Promise.all(
+        rows
+            .filter((row) => row.interactionMode !== "timetable" || onlyFixed)
+            .map(async (row) => {
+                const [updated] = await tx
+                    .update(tasks)
+                    .set({ ...rescheduleToDate(row, date, timezone!), updatedAt: sql`NOW()` })
+                    .where(and(eq(tasks.id, row.id), eq(tasks.userId, userId)))
+                    .returning();
+                return updated;
+            }),
+    );
 }
 
 // ── Delete ────────────────────────────────────────────────────────────

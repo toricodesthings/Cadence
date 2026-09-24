@@ -180,7 +180,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
                         : { scale: 1, boxShadow: "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)" }
                 }
                 transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-                className={`relative z-10 flex items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 ${compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"} ${showsConfirmedState
+                className={`relative z-10 flex items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 ${subtask ? "h-5 w-5" : compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"} ${showsConfirmedState
                     ? "bg-accent-primary/20 border-accent-primary text-accent-primary"
                     : isWaiting
                         ? "border-moonlit/80 text-moonlit/80 group-hover:border-moonlit"

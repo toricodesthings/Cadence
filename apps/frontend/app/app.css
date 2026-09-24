@@ -1608,6 +1608,17 @@ a:active {
   grid-row: 1;
 }
 
+/* Cancel + action sit together on a row under the text, right-aligned. */
+.cadence-toast:has(> .cadence-toast__cancel) > .cadence-toast__action {
+  grid-row: 2;
+}
+
+.cadence-toast > .cadence-toast__cancel {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+}
+
 .cadence-toast:has(.cadence-toast__description),
 .cadence-toast:has(.cadence-toast__buttonRow) {
   align-items: start;

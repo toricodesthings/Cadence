@@ -1,6 +1,6 @@
 import React from "react";
-import { Minus, ArrowDown, ArrowRight, ArrowUp, AlertCircle } from "lucide-react";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
+import { PRIORITY_OPTIONS } from "./task-choice-options";
 import type { TaskPriority } from "@cadence/contracts/task";
 import { Tip } from "../primitives";
 
@@ -9,14 +9,6 @@ interface PriorityPickerProps {
     onSelect: (priority: TaskPriority) => void;
     compact?: boolean;
 }
-
-const icons = {
-    0: Minus,
-    1: ArrowDown,
-    2: ArrowRight,
-    3: ArrowUp,
-    4: AlertCircle,
-};
 
 export const PriorityPicker: React.FC<PriorityPickerProps> = ({
     currentPriority,
@@ -35,7 +27,7 @@ export const PriorityPicker: React.FC<PriorityPickerProps> = ({
             <div className="grid w-full grid-cols-5 gap-1">
                 {priorities.map((p) => {
                     const config = PRIORITY_CONFIG[p];
-                    const Icon = icons[p];
+                    const Icon = PRIORITY_OPTIONS[p].icon;
                     const isActive = currentPriority === p;
 
                     return (
