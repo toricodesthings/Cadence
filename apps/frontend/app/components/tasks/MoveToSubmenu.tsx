@@ -20,7 +20,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
         <Menu.Sub>
             <Menu.SubTrigger className="flex items-center gap-2">
                 <Folder size={16} />
-                <span>Move to project</span>
+                <span>Move to list</span>
                 <ChevronRight size={14} className="ml-auto text-twilight-text-muted" />
             </Menu.SubTrigger>
             <Menu.Portal>
@@ -29,7 +29,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
                         onClick={() => onSelect(null)}
                         className={!currentProjectId ? "bg-white/[0.04] text-accent-primary" : ""}
                     >
-                        No Project (Holding)
+                        No List (Capture)
                     </Menu.Item>
                     <Menu.Separator />
                     {projects.map((project) => (

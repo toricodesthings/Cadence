@@ -1,5 +1,5 @@
 # Organizing
-- **Projects** group related tasks. Each project has its own page (`/project/<id>`) and can be a list or a board.
-- **Sections** are the columns of a project's board.
-- **Tags** cut across projects; each tag has a page (`/tag/<id>`) with everything tagged.
-- Default view (list or board), new task placement and default priority live in [Tasks & Workflow](?settings=tasks).
+- **Lists** group related tasks, from groceries to a semester. Each has its own page (`/project/<id>`) and can show **Rows** or **Board**.
+- **Sections** group tasks within a list and become columns on its board.
+- **Tags** cut across lists; each tag has a page (`/tag/<id>`) with everything tagged. On desktop, drag a sidebar tag onto a Capture row to tag it.
+- Default view (rows or board), new task placement and default priority live in [Tasks & Workflow](?settings=tasks).

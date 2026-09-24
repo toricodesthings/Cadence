@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "rea
 import {
     Calendar, Bell, Tag, FolderOpen, Flag,
     Pin, Repeat, CalendarRange, Trash2, SlidersHorizontal,
-    CircleDot, Gauge, EyeOff, Clock, Plus, Columns3,
+    CircleDot, Gauge, EyeOff, Clock, Columns3,
     ExternalLink, Check, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,11 +16,7 @@ import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
-import { useNavigate } from "react-router";
-import { TagPickerList, TagPickerSheet } from "./TagPickerSubmenu";
-import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { TagBubble } from "../sidebar/TagBubble";
-import { useTags } from "../../hooks/tags/use-tags";
+import { TagField } from "./TagField";
 import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { SubtaskList } from "./SubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
@@ -30,7 +26,6 @@ import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { getTaskRepeatKind, useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
 import { DatePicker } from "../shared/DatePicker";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
-import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
@@ -119,12 +114,8 @@ export function TaskEditor({
     const convertRepeat = useConvertRepeat();
     const archiveTask = useArchiveTask();
     const createSubtask = useCreateSubtask(taskId);
-    const { data: tags } = useTags();
     const addTagAssoc = useAddTaskTag();
     const removeTagAssoc = useRemoveTaskTag();
-    const { isCompact } = useShellMode();
-    const navigate = useNavigate();
-    const [tagSheetOpen, setTagSheetOpen] = useState(false);
     const openNoteRoom = useNoteRoomStore((s) => s.open);
 
     // Find the task across all caches
@@ -645,9 +636,9 @@ export function TaskEditor({
                                     </DetailGroup>
 
                                     <DetailGroup title="Organize">
-                                        <FieldRow icon={FolderOpen} label="Project">
+                                        <FieldRow icon={FolderOpen} label="List">
                                             <select
-                                                aria-label="Project"
+                                                aria-label="List"
                                                 value={task.projectId ?? ""}
                                                 onChange={(e) => updateTask.mutate({ id: task.id, projectId: e.target.value || null, sectionId: null })}
                                                 className={`${VALUE_SELECT} ${project ? "" : "text-twilight-text-muted"}`}
@@ -672,52 +663,11 @@ export function TaskEditor({
                                         ) : null}
 
                                         <FieldBlock icon={Tag} label="Tags">
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                                {task.tagIds?.map(tagId => {
-                                                    const tag = tags?.find(t => t.id === tagId);
-                                                    if (!tag) return null;
-                                                    return (
-                                                        <TagBubble
-                                                            key={tag.id}
-                                                            tag={tag}
-                                                            isActive={false}
-                                                            onClick={() => { if (isCompact) navigate(`/tag/${tag.id}`); }}
-                                                        />
-                                                    );
-                                                })}
-                                                {isCompact ? (
-                                                    <>
-                                                        <Button variant="ghost" size="sm" onClick={() => setTagSheetOpen(true)} className="min-h-11 cursor-pointer rounded-full border border-dashed border-twilight-border px-4 text-[13px]">
-                                                            <Plus size={14} aria-hidden="true" />
-                                                            Tags
-                                                        </Button>
-                                                        <TagPickerSheet
-                                                            open={tagSheetOpen}
-                                                            onClose={() => setTagSheetOpen(false)}
-                                                            activeTagIds={task.tagIds ?? []}
-                                                            onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                                                            onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                                                        />
-                                                    </>
-                                                ) : (
-                                                    <DropdownMenu.Root>
-                                                        <DropdownMenu.Trigger asChild>
-                                                            <Button variant="ghost" size="sm" className="min-h-9 cursor-pointer rounded-full border border-dashed border-twilight-border px-3 text-[12px]">
-                                                                <Plus size={12} aria-hidden="true" />
-                                                                Add tag
-                                                            </Button>
-                                                        </DropdownMenu.Trigger>
-                                                        <DropdownMenu.Content align="start" className="w-56 p-2">
-                                                            <TagPickerList
-                                                                activeTagIds={task.tagIds ?? []}
-                                                                onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                                                                onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                                                                MenuComponents={DropdownMenu}
-                                                            />
-                                                        </DropdownMenu.Content>
-                                                    </DropdownMenu.Root>
-                                                )}
-                                            </div>
+                                            <TagField
+                                                tagIds={task.tagIds ?? []}
+                                                onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                                                onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                                            />
                                         </FieldBlock>
 
                                         <FieldRow icon={Pin} label="Pin to top">

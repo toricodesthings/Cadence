@@ -1,5 +1,11 @@
 # Capture
-- [Capture](/) holds raw thoughts with zero decisions. Type anything; sort it later.
-- Quick Add (`T`) has a Thought tab for the same thing from anywhere.
-- On the desktop app, Ctrl/Cmd+Shift+C opens quick capture from anywhere (turn it on in [Keyboard Shortcuts](?settings=shortcuts)).
-- **Sorting:** open a capture to clarify it into a task; Cadence suggests a title and when to place it.
+- [Capture](/) holds thoughts with zero decisions. New shows recent thoughts; No day yet shows tasks without a day or list. Older folds thoughts after two weeks; Notes holds kept notes. Older and Notes aren't in the badge.
+- Enter saves and starts the next thought everywhere, including Quick Add's Thought tab (`T`). Shift+Enter adds a newline. Ctrl/Cmd+Enter makes a task, using a typed day if present. Escape blurs without erasing the draft.
+- On phones, the orb opens the keyboard; the sheet stays open after each save. Done closes it. Pasting several lines offers to add separate thoughts.
+- Tick the circle to finish a thought: it appears in [Completed](/completed) with a Thought mark. Undo brings it back to Capture; reopening later makes it a task in No day yet and keeps the mark.
+- Tap the text for details. Title edits, List and Tags are saved there. Choose the detected day and time, Today, Tomorrow, the lightest day or Pick day. Keep with no day never infers a day from the words.
+- The details menu has Make it a task (no day, opens task details), Keep as a note, and Discard. Placing, ticking, keeping and discarding offer Undo. Notes stay notes unless you ask to turn them into tasks.
+- Focus contains Order: Newest (default), Oldest or Priority, plus presets and a natural-language filter. Thoughts get priority from their words; Waiting and list-specific filters exclude thoughts.
+- Shift-click or Space selects rows; on phones long-press. The bulk bar gives selected items a day or discards them.
+- With five new thoughts, Sort these with Cadence opens a request in the assistant. Send it for group and task suggestions; in Ask first every proposal waits for your tap.
+- Ctrl/Cmd+K searches thoughts too. On the desktop app Ctrl/Cmd+Shift+C opens quick capture (enable it in [Keyboard Shortcuts](?settings=shortcuts)).

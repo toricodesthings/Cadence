@@ -49,7 +49,7 @@ export function useCreateProject() {
                     queryClient.setQueryData(key, data);
                 }
             }
-            toast.error(err.message || "Failed to create project");
+            toast.error(err.message || "Failed to create list");
         },
 
         onSettled: () => invalidateEverywhere(queryClient, queryKeys.projects.all),

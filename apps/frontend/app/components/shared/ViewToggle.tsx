@@ -31,7 +31,7 @@ export function ViewToggle({ view, onViewChange, compact = false }: ViewTogglePr
                 aria-pressed={view === "list"}
             >
                 <LayoutList size={14} />
-                List
+                Rows
             </button>
             <button
                 type="button"

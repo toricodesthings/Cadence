@@ -40,7 +40,7 @@ export function useDeleteProject() {
                     queryClient.setQueryData(key, data);
                 }
             }
-            toast.error(err.message || "Failed to delete project");
+            toast.error(err.message || "Failed to delete list");
         },
 
         onSettled: () => invalidateEverywhere(queryClient, queryKeys.projects.all),

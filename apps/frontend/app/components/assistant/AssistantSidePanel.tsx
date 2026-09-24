@@ -158,6 +158,9 @@ export function AssistantSidePanel({
     const { data: usage } = useAiUsage(assistantPanelOpen);
     const usageNotice = useMemo(() => describeUsage(usage, Date.now()), [usage]);
     const [input, setInput] = useState("");
+    const pendingMessage = useAssistantStore(s => s.pendingMessage);
+    const clearPendingMessage = useAssistantStore(s => s.clearPendingMessage);
+    useEffect(() => { if (pendingMessage) { setInput(pendingMessage); clearPendingMessage(); } }, [pendingMessage, clearPendingMessage]);
     const [inputNotice, setInputNotice] = useState<string | null>(null);
     // A brand-new (client-minted) thread has no server row yet — skip the
     // load-by-id fetch for it so we don't 404 before its first turn is sent.
@@ -1134,7 +1137,7 @@ export function AssistantSidePanel({
                                 <button
                                     type="submit"
                                     disabled={!input.trim() || !online}
-                                    className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-midnight shadow-[0_6px_18px_-6px_var(--accent-primary)] transition-all hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
+                                    className="flex h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[var(--primary-foreground)] shadow-[0_6px_18px_-6px_var(--accent-primary)] transition-all hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:bg-white/[0.06] disabled:text-twilight-text-muted disabled:shadow-none cursor-pointer"
                                     aria-label="Send message"
                                 >
                                     <ArrowUp size={18} strokeWidth={2.4} aria-hidden />

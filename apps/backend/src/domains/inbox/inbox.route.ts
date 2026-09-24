@@ -1,12 +1,12 @@
 import { Hono } from "hono";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
 import { inboxItems, inboxSections, tasks, taskTags } from "../../db/schema";
-import { insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
+import { inboxQuerySchema, insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
@@ -48,7 +48,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             }
 
             // Verify inbox item exists and belongs to user
-            const [item] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)));
+            const [item] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).for("update");
             throwIfNotFound(item, "Inbox item");
             // Already placed (double submit, second device): return that task, never a duplicate.
             if (item.processed && item.placedTaskId) {
@@ -88,10 +88,10 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             let temporalFields: ReturnType<typeof normalizeTaskTemporalFields>;
             if (
-                dueDate !== undefined
-                || scheduledStart !== undefined
-                || scheduledEnd !== undefined
-                || isAllDay !== undefined
+                "dueDate" in body
+                || "scheduledStart" in body
+                || "scheduledEnd" in body
+                || "isAllDay" in body
             ) {
                 temporalFields = normalizeTaskTemporalFields({
                     dueDate,
@@ -127,18 +127,20 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 temporalFields = normalizeTaskTemporalFields({ isAllDay: true });
             }
 
-            const taskTagIds = Array.from(new Set([...(tagIds ?? []), ...(inferred.tagIds ?? [])]));
+            const taskTagIds = Array.from(new Set(tagIds ?? inferred.tagIds ?? []));
             const taskValues = {
                 userId,
                 title,
                 orderIndex: 0,
-                state: "ACTIVE" as const,
-                projectId: inferred.projectId !== undefined ? inferred.projectId : projectId,
+                state: body.complete ? "COMPLETE" as const : "ACTIVE" as const,
+                origin: body.complete ? "thought" as const : null,
+                projectId: "projectId" in body ? body.projectId : inferred.projectId,
                 priority: inferred.priority ?? priority ?? 0,
                 durationEstimate: inferred.durationEstimate ?? durationEstimate ?? null,
                 recurrenceRule: inferred.recurrenceRule ?? recurrenceRule ?? null,
                 waitingOn: inferred.waitingOn ?? waitingOn ?? null,
                 ...temporalFields,
+                ...(body.complete ? { dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true, projectId: null, recurrenceRule: null } : {}),
             };
 
             validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.scheduledStart ?? null);
@@ -183,6 +185,25 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         });
 
         return c.json({ data: result.task }, result.alreadyProcessed ? 200 : 201);
+    })
+    .post("/:id/unprocess", apiValidator("param", uuidParamSchema), async (c) => {
+        const userId = c.get("userId");
+        const { id } = c.req.valid("param");
+        const db = getDbClient(c.env);
+        const item = await withRls(db, userId, async (tx) => {
+            const [capture] = await tx.select().from(inboxItems)
+                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).for("update");
+            throwIfNotFound(capture, "Inbox item");
+            if (capture.placedTaskId) {
+                await tx.update(tasks).set({ state: "ARCHIVED", updatedAt: new Date().toISOString() })
+                    .where(and(eq(tasks.id, capture.placedTaskId), eq(tasks.userId, userId)));
+            }
+            const [restored] = await tx.update(inboxItems)
+                .set({ processed: false, captureStatus: "clarifying", placedTaskId: null })
+                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).returning();
+            return restored;
+        });
+        return c.json({ data: item });
     })
     .post("/", apiValidator("json", insertInboxItemSchema), async (c) => {
         const userId = c.get("userId");
@@ -271,7 +292,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         return c.json({ data: updated });
     })
-    .get("/", async (c) => {
+    .get("/", apiValidator("query", inboxQuerySchema), async (c) => {
         const userId = c.get("userId");
         const db = getDbClient(c.env);
 
@@ -279,8 +300,8 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             tx
                 .select()
                 .from(inboxItems)
-                .where(and(eq(inboxItems.userId, userId), eq(inboxItems.processed, false)))
-                .orderBy(inboxItems.createdAt),
+                .where(and(eq(inboxItems.userId, userId), eq(inboxItems.captureStatus, c.req.valid("query").status)))
+                .orderBy(desc(inboxItems.createdAt), desc(inboxItems.id)),
         );
 
         return c.json({ data: items });

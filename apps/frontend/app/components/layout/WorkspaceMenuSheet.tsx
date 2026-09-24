@@ -1,3 +1,4 @@
+import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import { useState, type ReactNode } from "react";
 import { useMatch, useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
@@ -40,6 +41,7 @@ function CreateForm({ onSubmit, disabled, label, children }: { onSubmit: () => v
  */
 export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     const navigate = useNavigate();
+    const { count: captureCount } = useCaptureFeed();
     const { data: projects, isLoading: projectsLoading } = useProjects();
     const { data: tags = [] } = useTags();
     const activeTagId = useMatch("/tag/:tagId")?.params.tagId;
@@ -66,10 +68,10 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
 
     const forms: Record<Exclude<View, "menu">, ReactNode> = {
         project: (
-            <CreateForm label="Create project" disabled={!name.trim()} onSubmit={() => { createProject.mutate({ name: name.trim(), colorAccent: color, emoji }); setView("menu"); }}>
+            <CreateForm label="Create list" disabled={!name.trim()} onSubmit={() => { createProject.mutate({ name: name.trim(), colorAccent: color, emoji }); setView("menu"); }}>
                 <div className="flex items-center gap-3">
                     <EmojiPickerPopover emoji={emoji} onSelect={setEmoji} />
-                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" aria-label="Project name" enterKeyHint="done" className={INPUT} />
+                    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="List name" aria-label="List name" enterKeyHint="done" className={INPUT} />
                 </div>
                 <Swatches value={color} onChange={setColor} options={PROJECT_ACCENT_OPTIONS.map((o) => ({ value: o.value, color: o.varName, label: o.label }))} />
             </CreateForm>
@@ -84,7 +86,7 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
 
     return (
         <UtilitySheet
-            title={view === "project" ? "New project" : view === "tag" ? "New tag" : "Workspace"}
+            title={view === "project" ? "New list" : view === "tag" ? "New tag" : "Workspace"}
             open={open}
             onClose={close}
             onBack={view === "menu" ? undefined : () => setView("menu")}
@@ -95,26 +97,27 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
                 transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }} className="space-y-5">
             {view !== "menu" ? forms[view] : <>
             <nav aria-label="Task views" className={GROUP}>
+                <NavigationRow to="/" icon={LayoutDashboard} onClick={close}>Capture · {captureCount}</NavigationRow>
                 <NavigationRow to="/today" icon={LayoutDashboard} onClick={close}>Today</NavigationRow>
                 <NavigationRow to="/upcoming" icon={CalendarRange} onClick={close}>Upcoming</NavigationRow>
             </nav>
 
-            <section aria-label="Projects" className={`${GROUP} px-3 py-3`}>
+            <section aria-label="Lists" className={`${GROUP} px-3 py-3`}>
                 <div className="mb-1 flex items-center justify-between gap-2 px-1">
-                    <h3 className={SECTION_LABEL}>Projects</h3>
-                    <Button variant="ghost" size="icon" onClick={() => openForm("project")} aria-label="Create project"
+                    <h3 className={SECTION_LABEL}>Lists</h3>
+                    <Button variant="ghost" size="icon" onClick={() => openForm("project")} aria-label="Create list"
                         className="rounded-2xl text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text">
                         <Plus size={16} aria-hidden="true" />
                     </Button>
                 </div>
                 {projectsLoading ? (
-                    <div className="flex flex-col gap-3 px-1 py-2" aria-label="Loading projects">
+                    <div className="flex flex-col gap-3 px-1 py-2" aria-label="Loading lists">
                         <Skeleton className="h-4 w-3/4 rounded-xl" />
                         <Skeleton className="h-4 w-1/2 rounded-xl" />
                     </div>
                 ) : !projects || projects.length === 0 ? (
                     <p className="px-1 py-2 text-[13px] leading-relaxed text-twilight-text-muted/90">
-                        No projects yet. Create one to organize your tasks.
+                        No lists yet. Create one to organize your tasks.
                     </p>
                 ) : (
                     <div className="flex flex-col gap-0.5" onClick={close}>

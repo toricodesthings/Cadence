@@ -47,7 +47,7 @@ export function UtilitySheet({
     const heading = useRef<HTMLHeadingElement>(null);
     useEffect(() => {
         if (scroll.current) scroll.current.scrollTop = 0;
-        if (open && !header) heading.current?.focus({ preventScroll: true });
+        if (open && !header) (scroll.current?.querySelector<HTMLElement>("[data-initial-focus]") ?? heading.current)?.focus({ preventScroll: true });
     }, [title, open, header]);
 
     return <ResponsiveOverlayPanel open={open} onClose={onClose} ariaLabel={title} mode={mode} fill>

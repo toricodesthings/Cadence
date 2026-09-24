@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { inboxItems } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
@@ -16,7 +16,7 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
         description:
             "READ-ONLY. Fetch unprocessed inbox captures (rawText, captureKind, captureStatus, " +
             "processed). These are the user's raw, unstructured thoughts awaiting triage. " +
-            "Hard-capped server-side.",
+            "Kept captures are notes. Do not propose turning notes into tasks unless asked. Hard-capped server-side.",
         inputSchema: z.object({
             includeProcessed: z
                 .boolean()
@@ -41,9 +41,9 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                         .where(
                             includeProcessed
                                 ? eq(inboxItems.userId, userId)
-                                : and(eq(inboxItems.userId, userId), eq(inboxItems.processed, false)),
+                                : and(eq(inboxItems.userId, userId), inArray(inboxItems.captureStatus, ["clarifying", "kept"])),
                         )
-                        .orderBy(desc(inboxItems.createdAt))
+                        .orderBy(desc(inboxItems.createdAt), desc(inboxItems.id))
                         .limit(cap),
                 );
                 return { items: rows.map(toMinimalInboxItem) };
@@ -73,15 +73,15 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     propose_cluster_inbox: tool({
         description:
             "PROPOSAL ONLY — does NOT write anything. Suggests grouping related captures into a " +
-            "(possibly new) project; returns the cluster plan for confirmation. Real grouping " +
+            "(possibly new) list; returns the cluster plan for confirmation. Real grouping " +
             "happens later via REST.",
         inputSchema: z.object({
-            projectName: z.string().min(1).max(200).describe("Proposed/target project name."),
+            projectName: z.string().min(1).max(200).describe("Proposed/target list name."),
             existingProjectId: z
                 .string()
                 .uuid()
                 .optional()
-                .describe("If clustering into an existing project, its id (re-validated on confirm)."),
+                .describe("If clustering into an existing list, its id (re-validated on confirm)."),
             inboxItemIds: z
                 .array(z.string().uuid())
                 .min(1)

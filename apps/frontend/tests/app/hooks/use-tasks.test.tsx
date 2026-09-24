@@ -79,6 +79,18 @@ describe("useTasks", () => {
         });
     });
 
+    it("fetches every page for list counts instead of truncating at the API limit", async () => {
+        useAuthStateMock.mockReturnValue({ authReady: true, isAuthenticated: true });
+        const firstPage = Array.from({ length: 100 }, (_, i) => ({ id: `task-${i}` }));
+        taskGetMock
+            .mockResolvedValueOnce(Response.json({ data: firstPage }))
+            .mockResolvedValueOnce(Response.json({ data: [{ id: "task-100" }] }));
+        const { result } = renderHook(() => useTasks({ state: "ACTIVE", allPages: true }), { wrapper: createWrapper() });
+        await waitFor(() => expect(result.current.data).toHaveLength(101));
+        expect(taskGetMock).toHaveBeenNthCalledWith(1, { query: { state: "ACTIVE", limit: "100", offset: "0" } });
+        expect(taskGetMock).toHaveBeenNthCalledWith(2, { query: { state: "ACTIVE", limit: "100", offset: "100" } });
+    });
+
     it("serializes extended filters for holding and today views", async () => {
         useAuthStateMock.mockReturnValue({
             authReady: true,

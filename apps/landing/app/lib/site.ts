@@ -56,10 +56,10 @@ export const CHAPTERS = {
     id: "plan",
     season: "summer",
     panel: "left",
-    eyebrow: "II · Planner & Projects",
+    eyebrow: "II · Planner & Lists",
     title: "As deep as the day allows.",
-    body: "Lists or boards, projects and sections, subtasks and notes. A task can hold everything, and it is still a task when it holds only a name.",
-    glints: ["Holding, for what belongs nowhere yet", "Drag to reorder, defer, plan", "Nothing is gone for good"],
+    body: "Rows or boards, lists and sections, subtasks and notes. A task can hold everything, and it is still a task when it holds only a name.",
+    glints: ["Capture, for what belongs nowhere yet", "Drag to reorder, defer, plan", "Nothing is gone for good"],
   },
   time: {
     id: "time",
@@ -95,7 +95,7 @@ export const CONSTELLATION = {
   stars: [
     { name: "Search", gloss: "⌘K finds anything" },
     { name: "Quick Add", gloss: "⇧Q, from anywhere" },
-    { name: "Holding", gloss: "For the unplaced" },
+    { name: "Capture", gloss: "For the unplaced" },
     { name: "Today", gloss: "Just this day" },
     { name: "Undo", gloss: "One tap back" },
     { name: "Reminders", gloss: "Quiet hours, kept" },

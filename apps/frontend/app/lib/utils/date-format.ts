@@ -263,3 +263,13 @@ export function getYearDateRange(year: number) {
         end: toISODate(end),
     };
 }
+
+/** A placement destination, in the user's local date and time format. */
+export function placementLabel(iso: string): string {
+    const date = parseLocalDate(iso);
+    const day = toISODate(date);
+    const label = day === toISODate(new Date()) ? "Today"
+        : day === toISODate(addDays(new Date(), 1)) ? "Tomorrow"
+        : date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    return iso.includes("T") ? `${label} · ${formatTime(iso)}` : label;
+}

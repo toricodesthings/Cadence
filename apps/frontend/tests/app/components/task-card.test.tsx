@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Provider } from "../../../app/components/primitives/Tooltip";
 import { TaskCard } from "../../../app/components/tasks/TaskCard";
 
 vi.mock("../../../app/components/tasks/TaskCheckbox", () => ({
@@ -85,4 +86,11 @@ describe("TaskCard overdue presentation", () => {
         expect(screen.getByText("(Past Due)")).toBeTruthy();
         expect(screen.queryByText("This task is past its due date")).toBeNull();
     });
+});
+
+
+it("labels a completed thought without corrupting the task action name", () => {
+    render(<Provider><TaskCard task={{ ...baseTask, origin: "thought", state: "COMPLETE" }} /></Provider>);
+    expect(screen.getByRole("img", { name: "Thought" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Call landlord about hallway leak" })).toBeTruthy();
 });

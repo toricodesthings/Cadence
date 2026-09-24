@@ -67,7 +67,7 @@ export function resolveProjectsAndTags(
           normalizedValue: { id: best.item.id, resolvedId: best.item.id, name: best.item.name },
           explanation:
             confidence === "high"
-              ? `Project: ${best.item.name}`
+              ? `List: ${best.item.name}`
               : `Suggested project: ${best.item.name}`,
         });
       }

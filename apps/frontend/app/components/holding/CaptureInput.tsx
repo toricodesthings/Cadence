@@ -1,176 +1,207 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Inbox, MessageSquare, Sparkles } from "lucide-react";
-import { toast } from "sonner";
+import { useState, useRef, type KeyboardEvent } from "react";
+import { Inbox, MessageSquare } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
-import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
 import { ComposerSubmit, COMPOSER_FIELD, type ComposerDraft } from "../shared/Composer";
+import { Button } from "../primitives/Button";
 import type { InboxItem } from "@cadence/contracts/inbox";
 
-/**
- * Capture in the composer (Quick Add's Thought tab, the Holding orb on phones).
- * Enter is a new line; ⌘/Ctrl+Enter or the button saves. A failed save keeps the draft.
- */
-export function useCaptureComposer({ onSaved }: { onSaved: (created: InboxItem | null | undefined) => void }): ComposerDraft {
+/** Shared draft semantics for the page, phone composer and Quick Add. */
+function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void) {
     const [value, setValue] = useState("");
-    const createInboxItem = useCreateInboxItem();
-    const isCompact = useShellMode().isCompact;
-
-    const submit = () => {
-        const text = value.trim();
-        if (!text || createInboxItem.isPending) return;
-        createInboxItem.mutate(text, {
-            onSuccess: (created) => {
-                setValue("");
-                onSaved(created);
-            },
-        });
+    const [count, setCount] = useState(0);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState(false);
+    const [pasted, setPasted] = useState(false);
+    const input = useRef<HTMLTextAreaElement>(null);
+    const create = useCreateInboxItem();
+    const process = useProcessInboxToTask();
+    const savedCapture = useRef<InboxItem | undefined>(undefined);
+    const lines = value
+        .split(/\r?\n/)
+        .map((s) => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
+        .filter(Boolean);
+    const save = async (asTask = false, split = false) => {
+        if (!value.trim() || busy) return;
+        setBusy(true);
+        setError(false);
+        const original = value;
+        let remaining = split ? lines : [value.trim()];
+        try {
+            while (remaining.length) {
+                const text = remaining[0];
+                const item = savedCapture.current ?? (await create.mutateAsync(text));
+                if (asTask && item) {
+                    savedCapture.current = item;
+                    const { parse } = await import("@cadence/nlp/parse");
+                    const parsed = parse({ input: text, sourceSurface: "inbox" });
+                    await process.mutateAsync({
+                        inboxItemId: item.id,
+                        rawText: text,
+                        title: parsed.cleanedTitle || text,
+                    });
+                }
+                savedCapture.current = undefined;
+                remaining = remaining.slice(1);
+                setCount((c) => c + 1);
+                if (!split || !remaining.length) onSaved?.(item);
+            }
+            setValue((current) => (current === original ? "" : current));
+            setPasted(false);
+            input.current?.focus();
+        } catch {
+            setError(true);
+            if (split) setValue(remaining.join("\n"));
+        } finally {
+            setBusy(false);
+        }
     };
-
+    const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            void save(event.metaKey || event.ctrlKey);
+        }
+        if (event.key === "Escape") {
+            event.stopPropagation();
+            input.current?.blur();
+        }
+    };
+    const field = (rows: number, inline = false) => (
+        <textarea
+            ref={input}
+            value={value}
+            rows={rows}
+            enterKeyHint="done"
+            autoFocus
+            data-initial-focus
+            aria-label="What's on your mind?"
+            placeholder="What's on your mind?"
+            readOnly={busy}
+            onChange={(e) => {
+                setValue(e.target.value);
+                savedCapture.current = undefined;
+            }}
+            onKeyDown={keyDown}
+            onPaste={(e) => setPasted(e.clipboardData.getData("text").includes("\n"))}
+            className={inline
+                ? "w-full min-w-0 resize-none bg-transparent pt-1.5 font-display text-xl leading-8 tracking-[-0.01em] text-twilight-text outline-none placeholder:text-twilight-text-soft"
+                : `${COMPOSER_FIELD} resize-none text-base placeholder:text-twilight-text-muted`}
+        />
+    );
+    const feedback = (
+        <>
+            {pasted && lines.length > 1 && (
+                <Button variant="secondary" size="md" disabled={busy} onClick={() => void save(false, true)}>
+                    Add as {lines.length} thoughts?
+                </Button>
+            )}
+            {error && (
+                <p role="alert" className="text-sm text-twilight-text-muted">
+                    Couldn't save. Your draft is still here.
+                </p>
+            )}
+        </>
+    );
     return {
-        title: "What's on your mind?",
+        value,
+        count,
+        busy,
+        field,
+        feedback,
+        save,
+        reset: () => {
+            setValue("");
+            setCount(0);
+            setPasted(false);
+        },
+    };
+}
+
+export function useCaptureComposer({
+    onSaved,
+}: {
+    onSaved: (created: InboxItem | null | undefined) => void;
+}): ComposerDraft {
+    const draft = useCaptureDraft(onSaved);
+    return {
+        title: "Add a thought",
         icon: MessageSquare,
-        subtitle: "A thought, a task, a reminder. Get it out of your head; place it later.",
-        isDirty: Boolean(value.trim()),
+        subtitle: "Get it out of your head.",
+        isDirty: Boolean(draft.value.trim()),
         discardTitle: "Discard this thought?",
-        footer: <ComposerSubmit onSubmit={submit} submitLabel={createInboxItem.isPending ? "Capturing…" : "Capture"} icon={Inbox} disabled={!value.trim() || createInboxItem.isPending} />,
-        reset: () => setValue(""),
+        reset: draft.reset,
+        footer: (
+            <ComposerSubmit
+                onSubmit={() => void draft.save()}
+                submitLabel={draft.busy ? "Capturing…" : "Capture"}
+                icon={Inbox}
+                disabled={!draft.value.trim() || draft.busy}
+            />
+        ),
         children: (
             <>
-                <textarea
-                    value={value}
-                    onChange={(event) => setValue(event.target.value)}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                            event.preventDefault();
-                            submit();
-                        }
-                    }}
-                    aria-label="What's on your mind?"
-                    placeholder="A thought, link, or note…"
-                    rows={5}
-                    autoFocus={!isCompact}
-                    className={`${COMPOSER_FIELD} resize-none text-base`}
-                />
-                {createInboxItem.isError ? <p role="alert" className="text-sm text-twilight-text-soft">Couldn’t save your capture. Your draft is still here. Try again.</p> : null}
+                {draft.field(5)}
+                {draft.feedback}
+                {draft.count > 0 && (
+                    <p role="status" className="text-sm text-twilight-text-muted">
+                        {draft.count} captured
+                    </p>
+                )}
             </>
         ),
     };
 }
 
-/**
- * Universal capture field for the Holding page (wide shells; phones use `useCaptureComposer`).
- *
- * §9.1 enhancements:
- * - `mod+enter` for forced task capture
- * - `shift+enter` for multiline note capture
- * - "Captured" confirmation via the app-wide toast
- * - `Esc` clears input but does not blur if non-empty
- */
+/** Keycap for shortcut hints, shared with the feed's shortcut line. */
+export const KBD =
+    "inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-twilight-border/60 bg-white/[0.04] px-1.5 font-sans text-[10px] font-medium text-twilight-text-soft";
+
+const HINTS = [
+    [["↵"], "save"],
+    [["⌘", "↵"], "as task"],
+    [["⇧", "↵"], "new line"],
+] as const;
+
 export function CaptureInput() {
-    const [value, setValue] = useState("");
-    const [isFocused, setIsFocused] = useState(false);
-    const inputRef = useRef<HTMLTextAreaElement>(null);
-    const createInboxItem = useCreateInboxItem();
-
-    const handleSubmit = useCallback(() => {
-        const text = value.trim();
-        if (!text) return;
-        createInboxItem.mutate(text, { onSuccess: () => toast.success("Captured") });
-        setValue("");
-        // Re-focus for rapid capture flow
-        inputRef.current?.focus();
-    }, [value, createInboxItem]);
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            handleSubmit();
-            return;
-        }
-        // shift+enter → newline (default textarea behavior)
-        if (e.key === "Enter" && e.shiftKey) {
-            return;
-        }
-        // enter → capture
-        if (e.key === "Enter") {
-            e.preventDefault();
-            handleSubmit();
-            return;
-        }
-        // esc → clear input, blur only if empty
-        if (e.key === "Escape") {
-            if (value.trim()) {
-                setValue("");
-            } else {
-                inputRef.current?.blur();
-            }
-        }
-    };
-
-    // Auto-resize textarea
-    useEffect(() => {
-        const el = inputRef.current;
-        if (!el) return;
-        const singleLineHeight = 24;
-        el.style.height = "auto";
-        el.style.height = `${Math.max(singleLineHeight, Math.min(el.scrollHeight, 160))}px`;
-    }, [value]);
-
+    const draft = useCaptureDraft();
+    const ready = Boolean(draft.value.trim()) && !draft.busy;
     return (
-        <div
-            data-focus-container
-            className={`
-                group relative overflow-hidden rounded-[1.65rem] border
-                transition-[color,background-color,border-color,box-shadow,transform] duration-200
-                ${isFocused
-                    ? "border-accent-primary/18 bg-white/[0.035] shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent-primary)_5%,transparent),0_18px_46px_rgba(3,8,18,0.22),inset_0_1px_0_rgba(255,255,255,0.03)]"
-                    : "border-white/[0.06] bg-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] hover:border-white/[0.08] hover:bg-white/[0.028]"
-                }
-                backdrop-blur-md
-            `}
-        >
-            <div className="flex items-center gap-3 px-4 py-3 lg:px-5 lg:py-2.5">
-                <Sparkles
-                    size={17}
-                    aria-hidden="true"
-                    className={`shrink-0 transition-colors duration-200 ${isFocused ? "text-accent-primary" : "text-twilight-text-muted/70"}`}
-                />
+        <div data-focus-container className="capture-surface px-5 pb-4 pt-5">
+            <div className="flex items-start gap-4">
                 <div
-                    className={`
-                        flex min-h-[3.9rem] lg:min-h-[2.85rem] flex-1 items-center rounded-[1.2rem] border px-4 transition-[background-color,border-color,box-shadow] duration-200
-                        ${isFocused
-                            ? "border-white/[0.08] bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]"
-                            : "border-white/[0.05] bg-white/[0.018]"
-                        }
-                    `}
+                    aria-hidden="true"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-lantern"
                 >
-                    <textarea
-                        ref={inputRef}
-                        value={value}
-                        onChange={(e) => setValue(e.target.value)}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="What's on your mind?"
-                        rows={1}
-                        aria-label="Capture anything — thoughts, tasks, ideas"
-                        className="block max-h-[160px] w-full appearance-none resize-none border-0 bg-transparent p-0 text-[15px] leading-6 text-twilight-text shadow-none outline-none ring-0 placeholder:text-twilight-text-muted/60 focus:border-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-                    />
+                    <MessageSquare size={18} strokeWidth={1.75} />
                 </div>
+                {draft.field(2, true)}
             </div>
-
-            {/* Subtle hint row — only visible when focused and empty */}
-            {isFocused && !value.trim() && (
-                <div className="border-t border-white/[0.05] px-5 pb-4 pt-2.5 lg:px-6">
-                    <p className="text-[12px] text-twilight-text-muted/78">
-                        Press <kbd className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-twilight-text-soft">Enter</kbd> to capture
-                        <span className="mx-1.5 text-twilight-border">·</span>
-                        <kbd className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-twilight-text-soft">⌘ Enter</kbd> as task
-                        <span className="mx-1.5 text-twilight-border">·</span>
-                        <kbd className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-twilight-text-soft">Shift + Enter</kbd> for new line
-                    </p>
-                </div>
-            )}
+            <div className="mt-3 flex items-center justify-between gap-3 pl-14">
+                <p aria-hidden="true" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-twilight-text-muted">
+                    {HINTS.map(([keys, label]) => (
+                        <span key={label} className="inline-flex items-center gap-1">
+                            {keys.map((key) => (
+                                <kbd key={key} className={KBD}>
+                                    {key}
+                                </kbd>
+                            ))}
+                            <span className="ml-0.5">{label}</span>
+                        </span>
+                    ))}
+                </p>
+                <Button
+                    variant={ready ? "primary" : "ghost"}
+                    size="sm"
+                    disabled={!ready}
+                    onClick={() => void draft.save()}
+                    className="shrink-0 rounded-full px-4"
+                >
+                    <Inbox size={14} aria-hidden />
+                    {draft.busy ? "Capturing…" : "Capture"}
+                </Button>
+            </div>
+            {draft.feedback}
         </div>
     );
 }

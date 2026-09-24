@@ -6,11 +6,13 @@ import { SignOutButton } from "../../../app/components/settings/SignOutButton";
 import { NotificationCenter } from "../../../app/components/notifications/NotificationCenter";
 import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
 
+vi.mock("../../../app/hooks/habits/use-routine-due-count", () => ({ useRoutineDueCount: () => 0 }));
+
 const state = vi.hoisted(() => ({ signOut: vi.fn(), error: vi.fn() }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({
     session: { user: { name: "Sam", email: "sam@example.com" } }, completeSignOut: state.signOut,
 }) }));
-vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({ useNotificationCenter: () => ({ hasUnread: true }) }));
+vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({ useNotificationCenter: () => ({ hasUnread: true, unreadCount: 5 }) }));
 vi.mock("sonner", () => ({ toast: { error: state.error } }));
 
 function Location() { const location = useLocation(); return <output aria-label="Current location">{location.pathname}{location.search}</output>; }
@@ -45,7 +47,7 @@ describe("Compact navigation", () => {
         expect(screen.queryByRole("button", { name: "Profile" })).toBeNull();
         expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
         expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
-        fireEvent.click(screen.getByRole("button", { name: "Notifications, unread activity" }));
+        fireEvent.click(screen.getByRole("button", { name: "Notifications, 5 unread" }));
         expect(screen.getByRole("status", { name: "Current location" }).textContent).toBe("/today?tag=work&notifications=true");
     });
 

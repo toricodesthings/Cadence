@@ -262,15 +262,15 @@ export default function ProjectView() {
     /* ── Project not-found state ── */
     if (projects && !project) {
         return (
-            <MainLayout requireAuth pageTitle="Project not found">
+            <MainLayout requireAuth pageTitle="List not found">
                 <PageContent width="default">
                     <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
                         <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
                             <X size={24} className="text-twilight-text-muted" />
                         </div>
-                        <h3 className="text-lg font-medium text-twilight-text mb-2">Project not found</h3>
+                        <h3 className="text-lg font-medium text-twilight-text mb-2">List not found</h3>
                         <p className="text-twilight-text-muted text-sm max-w-sm mb-6">
-                            This project may have been deleted or the link is incorrect.
+                            This list may have been deleted or the link is incorrect.
                         </p>
                         <button
                             type="button"
@@ -291,7 +291,7 @@ export default function ProjectView() {
             <Dialog.Dialog open={renameOpen} onOpenChange={setRenameOpen}>
                 <Dialog.DialogContent className="sm:max-w-sm" hideCloseButton>
                     <Dialog.DialogHeader>
-                        <Dialog.DialogTitle>Rename project</Dialog.DialogTitle>
+                        <Dialog.DialogTitle>Rename list</Dialog.DialogTitle>
                         <Dialog.DialogDescription>
                             Enter a new name for <span className="text-twilight-text">{project?.name}</span>.
                         </Dialog.DialogDescription>
@@ -303,7 +303,7 @@ export default function ProjectView() {
                                 autoFocus
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
-                                placeholder="Project name"
+                                placeholder="List name"
                                 className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-accent-primary/40 transition-colors"
                                 onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
                             />
@@ -364,7 +364,7 @@ export default function ProjectView() {
                     <AlertDialog.Header>
                         <AlertDialog.Title>Delete "{project?.name}"?</AlertDialog.Title>
                         <AlertDialog.Description>
-                            This will permanently delete the project and all its tasks. This action cannot be undone.
+                            This will permanently delete the list and all its tasks. This action cannot be undone.
                         </AlertDialog.Description>
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
@@ -379,7 +379,7 @@ export default function ProjectView() {
                                 size="md"
                                 onClick={handleDelete}
                             >
-                                Delete project
+                                Delete list
                             </Button>
                         </AlertDialog.Action>
                     </AlertDialog.Footer>
@@ -419,7 +419,7 @@ export default function ProjectView() {
                             },
                             {
                                 id: "project",
-                                label: "Project",
+                                label: "List",
                                 content: (
                                     <div className="space-y-2">
                                         <button
@@ -444,7 +444,7 @@ export default function ProjectView() {
                                             className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
                                         >
                                             <Pencil size={15} aria-hidden="true" />
-                                            Rename / edit project
+                                            Rename / edit list
                                         </button>
                                         <button
                                             type="button"
@@ -452,7 +452,7 @@ export default function ProjectView() {
                                             className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-medium text-red-400"
                                         >
                                             <Trash2 size={15} aria-hidden="true" />
-                                            Delete project
+                                            Delete list
                                         </button>
                                     </div>
                                 ),
@@ -481,12 +481,12 @@ export default function ProjectView() {
                                     onSelect: triggerAddSection,
                                 },
                                 {
-                                    label: "Rename / Edit project",
+                                    label: "Rename / Edit list",
                                     icon: Pencil,
                                     onSelect: handleRenameOpen,
                                 },
                                 {
-                                    label: "Delete project",
+                                    label: "Delete list",
                                     icon: Trash2,
                                     onSelect: () => setDeleteOpen(true),
                                     danger: true,
@@ -496,11 +496,11 @@ export default function ProjectView() {
                     </div>
                 )
                 ) : undefined}
-                pageTitle={project?.name ?? "Project"}
-                pageDescription="Work through a focused project view without leaving the Cadence shell."
+                pageTitle={project?.name ?? "List"}
+                pageDescription="Work through a focused list view without leaving the Cadence shell."
                 shellHeader={{
-                    title: project?.name ?? "Project",
-                    eyebrow: "Project",
+                    title: project?.name ?? "List",
+                    eyebrow: "List",
                     icon: project?.emoji ? (
                         <span className="text-xl leading-none">{project.emoji}</span>
                     ) : (
@@ -552,9 +552,9 @@ export default function ProjectView() {
                                     <div className="w-16 h-16 rounded-full bg-twilight-surface ring-1 ring-twilight-border flex items-center justify-center mb-6">
                                         <FolderKanban size={24} className="text-twilight-text-muted" />
                                     </div>
-                                    <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this project</h3>
+                                    <h3 className="text-lg font-medium text-twilight-text mb-2">No tasks in this list</h3>
                                     <p className="text-twilight-text-muted text-sm max-w-sm">
-                                        Add some tasks to get started with {project?.name || "this project"}.
+                                        Add some tasks to get started with {project?.name || "this list"}.
                                     </p>
                                 </div>
                             )}
@@ -563,7 +563,7 @@ export default function ProjectView() {
                                 <div className="mt-8 rounded-[28px] border border-moonlit/20 bg-moonlit/[0.04] px-5 py-5">
                                     <div className="mb-3 inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
                                         <Repeat size={11} aria-hidden="true" />
-                                        <span>Routines linked to this project</span>
+                                        <span>Routines linked to this list</span>
                                     </div>
                                     <div className="flex flex-col divide-y divide-moonlit/10">
                                         {dueLinkedHabits.map((habit) => {
@@ -608,7 +608,7 @@ export default function ProjectView() {
 
             {!shell.isWide && selectedTaskId && (
                 <ResponsiveOverlayPanel
-                    ariaLabel="Project task details"
+                    ariaLabel="List task details"
                     open={mobilePanelOpen}
                     onClose={() => setMobilePanelOpen(false)}
                     mode={mobileDetailMode}

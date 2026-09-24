@@ -143,7 +143,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                         autoFocus
                         value={rawQuery}
                         onChange={(e) => setRawQuery(e.target.value)}
-                        placeholder="Search tasks, routines, captures, pages…"
+                        placeholder="Search tasks, routines, thoughts, pages…"
                         className="w-full bg-transparent text-lg text-twilight-text outline-none placeholder:text-twilight-text-muted"
                         aria-label="Search workspace"
                     />
@@ -163,7 +163,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                                     <Search size={28} className="mb-1 text-accent-primary" aria-hidden="true" />
                                     <p className="text-sm">Start typing to search your workspace</p>
                                     <p className="text-xs text-twilight-text-muted">
-                                        Tasks, habits, captures, projects, and pages
+                                        Tasks, habits, captures, lists, and pages
                                     </p>
                                 </div>
                             )}

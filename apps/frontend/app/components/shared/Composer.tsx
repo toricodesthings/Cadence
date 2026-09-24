@@ -44,6 +44,8 @@ export interface ComposerProps {
     band?: ReactNode;
     /** The primary action (`ComposerSubmit`); Cancel is built in and asks before discarding. */
     footer: ReactNode;
+    /** The built-in close button's label; "Done" when every entry is already saved. */
+    closeLabel?: string;
     isDirty: boolean;
     discardTitle?: string;
     discardDescription?: string;
@@ -57,7 +59,7 @@ export interface ComposerProps {
  * One creator's contents for `Composer`, from its `use…Composer` hook, so a host
  * can hold several drafts in one shell (Quick Add's tabs) or wrap one alone.
  */
-export type ComposerDraft = Pick<ComposerProps, "title" | "icon" | "tone" | "subtitle" | "band" | "footer" | "isDirty" | "discardTitle" | "discardDescription" | "children"> & {
+export type ComposerDraft = Pick<ComposerProps, "title" | "icon" | "tone" | "subtitle" | "band" | "footer" | "closeLabel" | "isDirty" | "discardTitle" | "discardDescription" | "children"> & {
     /** Empties the draft; hosts call it on close. */
     reset: () => void;
 };
@@ -70,6 +72,7 @@ export function Composer({
     subtitle,
     band,
     footer,
+    closeLabel = "Cancel",
     isDirty,
     discardTitle = "Discard this draft?",
     discardDescription = "This closes the composer and loses what you've typed.",
@@ -89,7 +92,7 @@ export function Composer({
     );
     const footerNode = (
         <div className={`${BAND} flex items-center justify-end gap-2 border-t border-white/[0.06] px-5 py-4 sm:px-6`}>
-            <Button variant="ghost" size="md" onClick={requestClose}>Cancel</Button>
+            <Button variant="ghost" size="md" onClick={requestClose}>{closeLabel}</Button>
             {footer}
         </div>
     );

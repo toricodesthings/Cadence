@@ -5,13 +5,16 @@ import { useDeleteTag } from "../../hooks/tags/use-delete-tag";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { resolveTagColor } from "../../lib/utils/color-resolver";
 
+/** Drag payload for a tag chip; capture rows accept it to add the tag. */
+export const TAG_DRAG_TYPE = "application/x-cadence-tag";
+
 interface TagBubbleProps {
     tag: Tag;
     isActive: boolean;
     onClick: () => void;
 }
 
-/** A tag chip. Desktop filters by it (right-click deletes); compact opens its tag page, which owns delete. */
+/** A tag chip. Desktop filters by it (right-click deletes, drag onto a capture row tags it); compact opens its tag page, which owns delete. */
 export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
     const bgColor =
         !tag.color || tag.color === "default" ? "rgba(255,255,255,0.06)" : `${tag.color}15`;
@@ -23,6 +26,11 @@ export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
     const bubble = (
         <button
             onClick={onClick}
+            draggable={!isCompact}
+            onDragStart={(e) => {
+                e.dataTransfer.setData(TAG_DRAG_TYPE, tag.id);
+                e.dataTransfer.effectAllowed = "copy";
+            }}
             className={`
                 inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium
                 transition-all duration-200 cursor-pointer shrink-0

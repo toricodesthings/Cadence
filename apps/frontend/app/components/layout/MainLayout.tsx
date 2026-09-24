@@ -545,8 +545,8 @@ export function MainLayout({
     const pageMeta = useMemo(() => {
         if (location.pathname.startsWith("/project/")) {
             return {
-                title: "Project",
-                description: "Work through a focused project view without leaving the Cadence shell.",
+                title: "List",
+                description: "Work through a focused list view without leaving the Cadence shell.",
             };
         }
 

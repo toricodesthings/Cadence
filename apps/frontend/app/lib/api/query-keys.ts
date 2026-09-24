@@ -11,6 +11,7 @@ export const queryKeys = {
     },
     inbox: {
         all: ["inbox"] as const,
+        notes: ["inbox", "kept"] as const,
     },
     tags: {
         all: ["tags"] as const,

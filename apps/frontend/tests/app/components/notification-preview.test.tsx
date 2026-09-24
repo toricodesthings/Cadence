@@ -12,7 +12,7 @@ vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({ use
 function Location() { const location = useLocation(); return <output aria-label="Current route">{location.pathname}{location.search}</output>; }
 function setup() {
     render(<MemoryRouter initialEntries={["/today?tag=work"]}><TooltipProvider><Location /><NotificationPreview /></TooltipProvider></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: "Notifications, unread activity" }));
+    fireEvent.click(screen.getByRole("button", { name: "Notifications, 5 unread" }));
 }
 beforeEach(() => {
     vi.clearAllMocks();

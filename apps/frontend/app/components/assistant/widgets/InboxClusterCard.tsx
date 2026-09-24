@@ -25,7 +25,7 @@ export function InboxClusterCard({
     const persona = useAssistantPersona();
     const createProject = useCreateProject();
     const input = ctx.part?.input ?? {};
-    const projectName: string = input.projectName ?? "a project";
+    const projectName: string = input.projectName ?? "a list";
     const existingProjectId: string | undefined = input.existingProjectId;
     const inboxItemIds: string[] = input.inboxItemIds ?? [];
     const count = inboxItemIds.length;

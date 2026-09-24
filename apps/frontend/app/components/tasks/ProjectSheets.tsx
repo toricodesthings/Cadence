@@ -113,7 +113,7 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks }: {
         <>
             <UtilitySheet
                 title="Sections"
-                subtitle="Group this project's tasks"
+                subtitle="Group this list's tasks"
                 open={open}
                 onClose={onClose}
                 footer={
@@ -125,7 +125,7 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks }: {
                             aria-label="New section name"
                             className="min-h-12 min-w-0 flex-1 rounded-2xl border border-twilight-border bg-twilight-surface/40 px-4 text-base text-twilight-text placeholder:text-twilight-text-muted/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
                         />
-                        <button type="submit" disabled={!newName.trim()} className="min-h-12 shrink-0 cursor-pointer rounded-2xl bg-accent-primary px-5 font-medium text-midnight disabled:opacity-50 active:opacity-80">
+                        <button type="submit" disabled={!newName.trim()} className="min-h-12 shrink-0 cursor-pointer rounded-2xl bg-accent-primary px-5 font-medium text-[var(--primary-foreground)] disabled:opacity-50 active:opacity-80">
                             Add
                         </button>
                     </form>

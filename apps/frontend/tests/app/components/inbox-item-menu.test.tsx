@@ -1,47 +1,37 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { CaptureRow } from "../../../app/components/holding/CaptureRow";
 import type { InboxItem } from "@cadence/contracts/inbox";
-import { InboxItemCard } from "../../../app/components/inbox/InboxItemCard";
-
-const mocks = vi.hoisted(() => ({ process: vi.fn(), update: vi.fn() }));
-vi.mock("../../../app/hooks/inbox/use-update-inbox-item", () => ({ useUpdateInboxItem: () => ({ mutate: mocks.update, isPending: false }) }));
-vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({
-    useProcessInboxToTask: () => ({ mutate: mocks.process, isPending: false }),
-    todayISO: () => "2026-09-16", tomorrowISO: () => "2026-09-17",
-}));
+const mocks = vi.hoisted(() => ({ process: vi.fn(), status: vi.fn() }));
+vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({ useProcessInboxToTask: () => ({ mutate: mocks.process }), todayISO: () => "2026-09-23", tomorrowISO: () => "2026-09-24" }));
+vi.mock("../../../app/hooks/inbox/use-capture-actions", () => ({ useCaptureActions: () => ({ setStatus: mocks.status }) }));
+vi.mock("../../../app/hooks/inbox/use-thought-parse", () => ({ useThoughtParse: () => ({ cleanedTitle: "Dentist", tagIds: [], scheduledStart: "2026-09-24T15:00:00.000Z" }) }));
+vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate: vi.fn() }) }));
+vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: null }) }));
-vi.mock("../../../app/lib/api/track-event", () => ({ trackUsageEvent: vi.fn() }));
-const item: InboxItem = {
-    id: "11111111-1111-4111-8111-111111111111", userId: "22222222-2222-4222-8222-222222222222",
-    rawText: "Review notes", createdAt: "2026-09-16T12:00:00Z", sectionId: null,
-    orderIndex: 0, processed: false, captureKind: "task", captureStatus: "clarifying", placedTaskId: null,
-    aiSuggestion: null, analysis: null, analysisStatus: null, analysisVersion: null, analysisSummary: null, sourceSurface: null,
-};
-beforeEach(() => {
-    vi.clearAllMocks();
-    vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => false }));
+vi.mock("../../../app/components/holding/PlaceSheet", () => ({ PlaceDraggable: ({ children }: any) => children, usePlaceTask: () => vi.fn() }));
+vi.mock("../../../app/components/primitives/Tooltip", () => ({ Tip: ({ children }: any) => children }));
+const item = { id: "10000000-0000-4000-8000-000000000001", rawText: "Dentist tomorrow at 3pm", captureStatus: "clarifying", createdAt: new Date().toISOString() } as InboxItem;
+beforeEach(() => { vi.clearAllMocks(); mocks.status.mockResolvedValue(undefined); });
+it("runs focused row shortcuts, with explicit no-day fields and completion", () => {
+    const open = vi.fn(), select = vi.fn();
+    render(<CaptureRow item={item} lightest="2026-09-25" onOpen={open} onToggleSelection={select} />);
+    const row = screen.getByRole("article");
+    row.focus();
+    fireEvent.keyDown(row, { key: "2" });
+    expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ scheduledDate: "2026-09-24" }));
+    fireEvent.keyDown(row, { key: "3" });
+    expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ isAllDay: true, dueDate: null, scheduledStart: null }));
+    fireEvent.keyDown(row, { key: "x" });
+    expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ complete: true }));
+    fireEvent.keyDown(row, { key: "Enter" }); expect(open).toHaveBeenCalledOnce();
+    fireEvent.keyDown(row, { key: " " }); expect(select).toHaveBeenCalledOnce();
+    fireEvent.keyDown(row, { key: "Backspace" }); expect(mocks.status).toHaveBeenCalledWith(item, "discarded");
 });
-afterEach(() => vi.unstubAllGlobals());
-
-it("uses the menu's Enter action without also running the focused card shortcut", async () => {
-    const clarify = vi.fn();
-    render(<InboxItemCard item={item} isFocused onClarify={clarify} />);
-    fireEvent.keyDown(screen.getByRole("button", { name: "More actions" }), { key: "Enter" });
-    const tomorrow = await screen.findByRole("menuitem", { name: /^Tomorrow/ });
-    fireEvent.keyDown(tomorrow, { key: "Enter" });
-    expect(mocks.process).toHaveBeenCalledOnce();
-    expect(mocks.process).toHaveBeenCalledWith(expect.objectContaining({ inboxItemId: item.id, scheduledDate: "2026-09-17" }));
-    expect(clarify).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-});
-
-it("closes with Escape and returns focus to the overflow trigger", async () => {
-    render(<InboxItemCard item={item} />);
-    const trigger = screen.getByRole("button", { name: "More actions" });
-    fireEvent.keyDown(trigger, { key: "ArrowDown" });
-    fireEvent.keyDown(await screen.findByRole("menuitem", { name: /^Tomorrow/ }), { key: "Escape" });
-    await waitFor(() => expect(document.activeElement).toBe(trigger));
-    expect(screen.queryByRole("menu")).toBeNull();
-    expect(mocks.process).not.toHaveBeenCalled();
-    expect(mocks.update).not.toHaveBeenCalled();
+it("lets Enter activate a nested button without opening details too", () => {
+    const open = vi.fn();
+    render(<CaptureRow item={item} lightest="2026-09-25" onOpen={open} />);
+    fireEvent.keyDown(screen.getByRole("button", { name: "Tick off thought" }), { key: "Enter" });
+    expect(open).not.toHaveBeenCalled();
 });

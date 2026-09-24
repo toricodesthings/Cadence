@@ -13,7 +13,7 @@ export function CreateProjectCard({
 }) {
     const createProject = useCreateProject();
     const input = ctx.part?.input ?? {};
-    const name = input.name ?? "this project";
+    const name = input.name ?? "this list";
 
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
         const created = await createProject.mutateAsync({
@@ -29,9 +29,9 @@ export function CreateProjectCard({
         return (
             <ProposalCard
                 state="output-available"
-                eyebrow="NEW PROJECT"
+                eyebrow="NEW LIST"
                 eyebrowGlyph={FolderPlus}
-                ariaLabel={`New project: ${name}`}
+                ariaLabel={`New list: ${name}`}
                 primaryLabel="Create"
                 resolvedCommitted={committed}
                 resolvedText={committed ? `Created “${name}”.` : "Left as-is."}
@@ -44,9 +44,9 @@ export function CreateProjectCard({
     return (
         <ProposalCard
             state={state}
-            eyebrow="NEW PROJECT"
+            eyebrow="NEW LIST"
             eyebrowGlyph={FolderPlus}
-            ariaLabel={`New project: ${name}`}
+            ariaLabel={`New list: ${name}`}
             primaryLabel="Create"
             primaryGlyph={Check}
             resolving={resolving}

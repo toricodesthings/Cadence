@@ -165,7 +165,13 @@ export function parseDates(
 
     // Check for "by/before/due at" language → needs review (Section 5.8)
     const beforeText = input.slice(Math.max(0, start - 10), start).toLowerCase();
-    const hasDueLanguage = /\b(by|before|due\s+(at|by)?)\s*$/i.test(beforeText);
+    const dueMatch = /\b(by|before|due\s+(at|by)?)\s*$/i.exec(beforeText);
+    const hasDueLanguage = Boolean(dueMatch);
+    // "by Friday" includes Friday; "before Friday" / "before March" ends the day before.
+    // A time keeps its own boundary ("before 6 PM" is due at 6 PM).
+    if (!hasTime && /\bbefore\s*$/i.test(beforeText)) {
+      parsedDate.setDate(parsedDate.getDate() - 1);
+    }
 
     let confidence: ConfidenceTier;
     if (hasDueLanguage && hasTime) {
@@ -200,7 +206,9 @@ export function parseDates(
         : `Detected date: ${dateValue.humanLabel}`,
     });
 
-    consumedRanges.push({ start, end });
+    // The deadline word goes with the date, so the title doesn't end in a dangling "before".
+    const consumedStart = dueMatch ? start - (beforeText.length - dueMatch.index) : start;
+    consumedRanges.push({ start: consumedStart, end });
   }
 
   return { entities, consumedRanges };

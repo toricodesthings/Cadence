@@ -48,7 +48,7 @@ describe("HabitEditor", () => {
         expect(update).toHaveBeenCalledWith({ id: habit.id, targetTime: "10:30" });
         fireEvent.click(screen.getByRole("switch", { name: "Routine reminder" }));
         expect(update).toHaveBeenCalledWith({ id: habit.id, reminderEnabled: false });
-        fireEvent.change(screen.getByLabelText("Routine project"), { target: { value: "project-1" } });
+        fireEvent.change(screen.getByLabelText("Routine list"), { target: { value: "project-1" } });
         expect(update).toHaveBeenCalledWith({ id: habit.id, projectId: "project-1" });
         expect(screen.getByText("Daily")).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: "Pause for 7 days" }));

@@ -4,7 +4,7 @@ import { DndContext, DragOverlay, useDraggable, useSensor, useSensors } from "@d
 import { MouseSensor } from "../../lib/utils/dnd";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { DatePicker } from "../shared/DatePicker";
@@ -12,7 +12,7 @@ import { TaskCard } from "../tasks/TaskCard";
 import { Button } from "../primitives/Button";
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
-import { addDays, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { addDays, parseLocalDate, toISODate, placementLabel } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
 import { dayLoads, lightestDay, loadWord } from "../../lib/utils/task/day-load";
 
@@ -59,37 +59,15 @@ export function PlaceDraggable({ id, title, onPlace, className = "", children }:
 /** Gives a task a deadline on `iso`, with Undo — placing should never feel final. */
 export function usePlaceTask() {
     const updateTask = useUpdateTask();
-    return (task: Task, iso: string) => {
+    return async (task: Task, iso: string) => {
         const clear = { scheduledStart: null, scheduledEnd: null, isAllDay: true };
-        updateTask.mutate({ id: task.id, dueDate: iso, ...clear });
-        toast(`Placed on ${dayLabel(iso)}`, { action: { label: "Undo", onClick: () => updateTask.mutate({ id: task.id, dueDate: null, ...clear }) } });
+        await updateTask.mutateAsync({ id: task.id, dueDate: iso, ...clear });
+        toast(placementLabel(iso), { action: { label: "Undo", onClick: () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd, isAllDay: task.isAllDay }) } });
     };
 }
 
 const CHIP = "touch-target inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium";
 const CHIP_IDLE = "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft";
-const CHIP_HINT = "border-accent-primary/30 bg-accent-primary/14 text-accent-primary";
-
-/** One-tap placement under a Ready task: Today · Tomorrow · lightest day (accented) · Pick day. */
-export function PlaceChips({ task, lightest, onPick, className = "" }: { task: Task; lightest: string; onPick: () => void; className?: string }) {
-    const place = usePlaceTask();
-    const today = toISODate(new Date());
-    const tomorrow = toISODate(addDays(new Date(), 1));
-    const chip = (iso: string, label: string) => (
-        <button key={iso} type="button" onClick={() => place(task, iso)} className={`${CHIP} ${iso === lightest ? CHIP_HINT : CHIP_IDLE}`}
-            aria-label={`Place ${task.title} on ${dayLabel(iso)}${iso === lightest ? ", lightest day" : ""}`} title={iso === lightest ? "Lightest day this week" : undefined}>
-            {label}
-        </button>
-    );
-    return (
-        <div data-no-dnd="true" className={`-mt-1 mb-2 flex gap-2 overflow-x-auto px-3 pb-1 scrollbar-hidden ${className}`}>
-            {chip(today, "Today")}
-            {chip(tomorrow, "Tomorrow")}
-            {lightest !== today && lightest !== tomorrow && chip(lightest, dayLabel(lightest))}
-            <button type="button" onClick={onPick} className={`${CHIP} ${CHIP_IDLE}`}><CalendarDays size={12} aria-hidden="true" />Pick day…</button>
-        </div>
-    );
-}
 
 /**
  * "Pick a day" sheet (a bottom sheet on compact, a side panel on desktop). With a task it places that task; without one it
@@ -122,16 +100,16 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
         <div className="shrink-0 space-y-3 border-b border-twilight-border px-4 py-3">
             <div className="flex items-center gap-2">
                 <DatePicker label="Pick a date" value={selected} onChange={(date) => date && jump(date)} className="min-w-0 flex-1">
-                    <button type="button" className="min-w-0 flex-1 cursor-pointer rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                    <Button variant="ghost" size="none" type="button" className="min-w-0 flex-1 flex-col items-start gap-0 rounded-xl text-left font-normal hover:bg-transparent">
                         <span className="block truncate font-display text-lg font-semibold text-twilight-text">{dayLabel(selected)}</span>
                         <span className="text-sm text-twilight-text-soft">{loadWord(loads.get(selected) ?? 0)} day · tap to pick a date</span>
-                    </button>
+                    </Button>
                 </DatePicker>
-                {selected !== todayIso && <button type="button" onClick={() => jump(todayIso)} className={`${CHIP} ${CHIP_IDLE}`}>Today</button>}
+                {selected !== todayIso && <Button variant="ghost" size="none" type="button" onClick={() => jump(todayIso)} className={`${CHIP} ${CHIP_IDLE} font-sans`}>Today</Button>}
             </div>
 
             <div className="flex items-center gap-1">
-                <button type="button" onClick={() => shift(-7)} aria-label="Previous week" className="mobile-icon-button shrink-0"><ChevronLeft size={18} aria-hidden="true" /></button>
+                <Button variant="ghost" size="none" type="button" onClick={() => shift(-7)} aria-label="Previous week" className="mobile-icon-button shrink-0"><ChevronLeft size={18} aria-hidden="true" /></Button>
                 <motion.div drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.2}
                     onDragEnd={(_, info) => { if (Math.abs(info.offset.x) > 50) shift(info.offset.x < 0 ? 7 : -7); }}
                     className="grid flex-1 grid-cols-7 gap-1 touch-pan-y">
@@ -139,19 +117,19 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
                         const d = parseLocalDate(iso);
                         const isSel = iso === selected;
                         return (
-                            <button key={iso} type="button" onClick={() => setPicked(iso)} aria-pressed={isSel}
+                            <Button variant="ghost" size="none" key={iso} type="button" onClick={() => setPicked(iso)} aria-pressed={isSel}
                                 aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
                                 className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl text-twilight-text transition-colors ${
-                                    isSel ? "bg-accent-primary text-twilight-void" : iso === todayIso ? "ring-1 ring-accent-primary/50" : "hover:bg-white/[0.05]"}`}>
+                                    isSel ? "bg-accent-primary text-twilight-void hover:bg-accent-primary hover:text-twilight-void" : iso === todayIso ? "ring-1 ring-accent-primary/50 hover:text-twilight-text" : "hover:bg-white/[0.05] hover:text-twilight-text"}`}>
                                 <span className={`text-[10px] font-semibold uppercase ${isSel ? "" : "text-twilight-text-muted"}`}>{d.toLocaleDateString(undefined, { weekday: "narrow" })}</span>
                                 <span className="text-base font-semibold">{d.getDate()}</span>
                                 <span aria-hidden="true" className={`h-1 rounded-full ${isSel ? "bg-twilight-void/60" : "bg-accent-primary/70"}`}
                                     style={{ width: `${Math.min(load, 6) * 3}px` }} />
-                            </button>
+                            </Button>
                         );
                     })}
                 </motion.div>
-                <button type="button" onClick={() => shift(7)} aria-label="Next week" className="mobile-icon-button shrink-0"><ChevronRight size={18} aria-hidden="true" /></button>
+                <Button variant="ghost" size="none" type="button" onClick={() => shift(7)} aria-label="Next week" className="mobile-icon-button shrink-0"><ChevronRight size={18} aria-hidden="true" /></Button>
             </div>
         </div>
     );
@@ -159,7 +137,7 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
     const footer = (
         <div className="border-t border-twilight-border px-4 pb-4 pt-3">
             {task
-                ? <Button type="button" className="min-h-12 w-full" onClick={() => { place(task, selected); close(); }}>Place on {dayLabel(selected)}</Button>
+                ? <Button type="button" className="min-h-12 w-full" onClick={() => { void Promise.resolve(place(task, selected)).then(close).catch(() => {}); }}>Place on {dayLabel(selected)}</Button>
                 : <Button type="button" variant="secondary" className="min-h-12 w-full" onClick={() => { close(); navigate(`/schedule?date=${selected}`); }}>Open in Schedule</Button>}
         </div>
     );

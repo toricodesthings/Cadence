@@ -155,7 +155,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                     <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
                         <Search size={28} className="text-twilight-text-muted/40" aria-hidden="true" />
                         <p className="text-sm text-twilight-text-soft">No matches for &ldquo;{query}&rdquo;</p>
-                        <p className="text-xs text-twilight-text-muted/70">Try a task name, project, routine, or page.</p>
+                        <p className="text-xs text-twilight-text-muted/70">Try a task name, list, routine, or page.</p>
                     </div>
                 ) : (
                     <div className="px-2 py-3">
@@ -190,7 +190,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                             </div>
                             <p className="text-sm font-medium text-twilight-text">Search your workspace</p>
                             <p className="mx-auto mt-1.5 max-w-[260px] text-[13px] leading-relaxed text-twilight-text-muted">
-                                Find tasks, projects, captures, habits, and pages — all in one place.
+                                Find tasks, lists, captures, habits, and pages — all in one place.
                             </p>
                             <div className="mt-4 flex flex-wrap justify-center gap-2">
                                 {EXAMPLE_CHIPS.map((chip) => (

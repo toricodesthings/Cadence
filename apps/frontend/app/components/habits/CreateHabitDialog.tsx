@@ -16,7 +16,7 @@ import type { Habit } from "@cadence/contracts/habit";
 import { createHabitSchema } from "../../lib/validations/habit-schemas";
 
 const IDEAS = [
-    { emoji: "🌅", title: "Morning review", description: "Check Today, clear Holding, and start with intention.", recurrenceRule: "FREQ=DAILY" },
+    { emoji: "🌅", title: "Morning review", description: "Check Today, clear Capture, and start with intention.", recurrenceRule: "FREQ=DAILY" },
     { emoji: "🏋️", title: "Workout", description: "Keep a steady training rhythm across the week.", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR" },
     { emoji: "💧", title: "Hydration", description: "A small daily reset that keeps the baseline healthy.", recurrenceRule: "FREQ=DAILY" },
     { emoji: "📚", title: "Reading", description: "A calm evening reading routine.", recurrenceRule: "FREQ=DAILY" },
@@ -186,7 +186,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     <label className="block">
                         <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
                             <FolderOpen size={12} aria-hidden="true" />
-                            Project
+                            List
                         </span>
                         <select
                             value={projectId ?? ""}

@@ -254,7 +254,7 @@ function parseShorthand(
       end,
       confidence: "high",
       normalizedValue: { id: project.id, resolvedId: project.id, name: project.name },
-      explanation: `Project: ${project.name}`,
+      explanation: `List: ${project.name}`,
     });
     break; // Only one project
   }

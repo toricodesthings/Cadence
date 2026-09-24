@@ -33,7 +33,7 @@ export function CreateProjectPopover() {
             <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Create project"
+                aria-label="Create list"
                 className="rounded-2xl text-twilight-text-muted hover:bg-accent-primary-dim hover:text-accent-primary"
                 onClick={() => setOpen(true)}
             >
@@ -41,7 +41,7 @@ export function CreateProjectPopover() {
             </Button>
             <DialogContent className="sm:max-w-md p-6 sm:p-7 gap-5">
                 <DialogHeader className="space-y-0">
-                    <DialogTitle>New Project</DialogTitle>
+                    <DialogTitle>New List</DialogTitle>
                 </DialogHeader>
                 <div className="flex items-center gap-4">
                     <EmojiPickerPopover emoji={emoji} onSelect={setEmoji} />
@@ -50,7 +50,7 @@ export function CreateProjectPopover() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                        placeholder="Project name…"
+                        placeholder="List name…"
                         autoFocus
                         className="flex-1 rounded-xl border border-twilight-border bg-white/[0.04] px-4 py-2.5 text-[14px] text-twilight-text outline-none transition-colors placeholder:text-twilight-text-muted/80 focus:border-accent-primary/30"
                     />
@@ -97,7 +97,7 @@ export function CreateProjectPopover() {
                     disabled={!name.trim()}
                     className="mt-1 w-full bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                    Create Project
+                    Create List
                 </Button>
             </DialogContent>
         </Dialog>

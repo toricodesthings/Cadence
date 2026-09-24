@@ -99,7 +99,7 @@ async function executeMutationOp(client: ApiClient, op: MutationOp): Promise<unk
             return unwrapResponse(res);
         }
         case "process_inbox_to_task": {
-            const { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp } = op.payload;
+            const { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete } = op.payload;
             const taskTitle = title?.trim() || rawText;
             const taskRes = await (client.api.inbox[":id"] as any).process.$post({
                 param: { id: inboxItemId },
@@ -118,6 +118,7 @@ async function executeMutationOp(client: ApiClient, op: MutationOp): Promise<unk
                     recurrenceRule,
                     waitingOn,
                     nlp,
+                    complete,
                 },
             });
             const task = await unwrapResponse(taskRes);

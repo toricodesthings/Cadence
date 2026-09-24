@@ -153,9 +153,9 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                             <Switch checked={habit.reminderEnabled} aria-label="Routine reminder" onCheckedChange={(reminderEnabled) => updateHabit.mutate({ id: habit.id, reminderEnabled })} />
                         </div>
                         <label className="block space-y-2 text-sm text-twilight-text-muted">
-                            <span>Project</span>
-                            <select aria-label="Routine project" value={habit.projectId ?? ""} onChange={(e) => updateHabit.mutate({ id: habit.id, projectId: e.target.value || null })} className={`${FIELD} cursor-pointer`}>
-                                <option value="">No project</option>
+                            <span>List</span>
+                            <select aria-label="Routine list" value={habit.projectId ?? ""} onChange={(e) => updateHabit.mutate({ id: habit.id, projectId: e.target.value || null })} className={`${FIELD} cursor-pointer`}>
+                                <option value="">No list</option>
                                 {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
                             </select>
                         </label>

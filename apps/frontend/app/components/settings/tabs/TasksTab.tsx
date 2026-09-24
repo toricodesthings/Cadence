@@ -137,7 +137,7 @@ export function TasksTab() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="list">List</SelectItem>
+                                <SelectItem value="list">Rows</SelectItem>
                                 <SelectItem value="kanban">Kanban</SelectItem>
                             </SelectContent>
                         </Select>
@@ -271,7 +271,7 @@ export function TasksTab() {
                         {[
                             { value: "date", label: "Date" },
                             { value: "priority", label: "Priority" },
-                            { value: "project", label: "Project" },
+                            { value: "project", label: "List" },
                             { value: "tag", label: "Tag" },
                         ].map((action) => {
                             const active = quickAddActions.includes(action.value as any);
@@ -303,7 +303,7 @@ export function TasksTab() {
             <SettingsSection title="Intelligence">
                 <SettingsRow
                     title="Smart features"
-                    description="Enable Cadence's built-in intelligence for parsing dates, projects, tags, and more from natural language."
+                    description="Enable Cadence's built-in intelligence for parsing dates, lists, tags, and more from natural language."
                 >
                     <Switch
                         checked={intelligence.nlpEnabled}
@@ -317,7 +317,7 @@ export function TasksTab() {
                     <>
                         <SettingsRow
                             title="Smart Capture"
-                            description="Automatically recognize dates, priorities, projects, and tags as you type."
+                            description="Automatically recognize dates, priorities, lists, and tags as you type."
                         >
                             <Switch
                                 checked={intelligence.autoParseOnCapture}

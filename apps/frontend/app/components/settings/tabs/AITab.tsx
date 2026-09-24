@@ -111,7 +111,7 @@ export function AITab() {
             <SettingsSection title="Natural Language Parsing">
                 <SettingsRow
                     title="Enable NLP parsing"
-                    description="Parse dates, priorities, tags, and project names from your capture and task input."
+                    description="Parse dates, priorities, tags, and list names from your capture and task input."
                 >
                     <Switch
                         checked={intelligence.nlpEnabled}

@@ -1,3 +1,4 @@
+import { Button } from "../primitives/Button";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { FOCUS_VIEW_PRESETS, composeFocusView } from "@cadence/nlp/focus-views";
 import { useFocusViewStore } from "../../stores/focus-view-store";
@@ -28,7 +29,7 @@ const PRESET_ICONS: Record<string, React.ReactNode> = {
  * On click: opens a popover containing preset pills, pinned views, and NL composer.
  * Auto-collapses after applying a filter.
  */
-export function FocusViewBar() {
+export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     const shell = useShellMode();
     const { data: userSettings } = useSettings();
     useFocusViews();
@@ -40,6 +41,7 @@ export function FocusViewBar() {
     const deleteFocusViewMutation = useDeleteFocusView();
 
     const {
+        captureOrder, setCaptureOrder,
         activePresetId,
         activeSavedViewId,
         activeDefinition,
@@ -137,12 +139,35 @@ export function FocusViewBar() {
         return null;
     }, [activePresetId, activeSavedViewId, activeDefinition, savedViews]);
 
-    if (!intelligenceEnabled || !focusViewsEnabled) return null;
+    if ((!intelligenceEnabled || !focusViewsEnabled) && !capture) return null;
 
     const content = <div className={shell.isCompact ? "mobile-focus-options" : undefined}>
+                    {capture && (
+                        <div className="mb-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted mb-2">Order</p>
+                            <div role="group" aria-label="Order" className="flex gap-1.5">
+                                {(["newest", "oldest", "priority"] as const).map((order) => (
+                                    <Button
+                                        key={order}
+                                        variant="ghost"
+                                        size="none"
+                                        aria-pressed={captureOrder === order}
+                                        onClick={() => { setCaptureOrder(order); setOpen(false); }}
+                                        className={`min-h-9 flex-1 rounded-lg px-2.5 font-sans text-[12px] font-medium capitalize active:scale-100 ${
+                                            captureOrder === order
+                                                ? "bg-accent-primary/15 text-accent-primary border border-accent-primary/25 hover:bg-accent-primary/20 hover:text-accent-primary"
+                                                : "bg-white/[0.04] text-twilight-text-soft border border-twilight-border/20 hover:bg-white/[0.08]"
+                                        }`}
+                                    >
+                                        {order}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     {/* Section: Presets */}
                     <div className="mb-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted/60 mb-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted mb-2">
                             Presets
                         </p>
                         <div className={shell.isCompact ? "flex flex-col gap-2" : "flex flex-wrap gap-1.5"}>
@@ -169,7 +194,7 @@ export function FocusViewBar() {
                     {/* Section: Pinned views */}
                     {pinnedViews.length > 0 && (
                         <div className="mb-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted/60 mb-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-twilight-text-muted mb-2">
                                 Saved
                             </p>
                             <div className="flex flex-col gap-1">
@@ -238,8 +263,8 @@ export function FocusViewBar() {
                                                 setComposerInput("");
                                             }
                                         }}
-                                        placeholder="e.g. overdue tasks with no project"
-                                        className="w-full rounded-lg border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-[12px] text-twilight-text placeholder:text-twilight-text-muted/50 outline-none focus:border-accent-primary/30 focus:ring-1 focus:ring-accent-primary/20 transition-colors"
+                                        placeholder="e.g. overdue tasks with no list"
+                                        className="w-full rounded-lg border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-[12px] text-twilight-text placeholder:text-twilight-text-muted outline-none focus:border-accent-primary/30 focus:ring-1 focus:ring-accent-primary/20 transition-colors"
                                         autoFocus
                                         aria-label="Describe a Focus View"
                                     />
@@ -311,9 +336,13 @@ export function FocusViewBar() {
 
     </div>;
 
+    const orderLabel = capture && captureOrder !== "newest" ? (captureOrder === "oldest" ? "Oldest" : "Priority") : null;
+    const triggerLabel = [orderLabel, activeLabel].filter(Boolean).join(" · ") || "Focus";
+
     if (shell.isCompact) return <>
-        <Tip label={activeLabel ? `Focus: ${activeLabel}` : "Focus"}><button type="button" aria-label={activeLabel ? `Focus: ${activeLabel}` : "Focus"} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} className={`mobile-icon-button relative ${activeDefinition ? "bg-accent-primary/15 text-accent-primary" : ""}`}>
+        <Tip label={triggerLabel === "Focus" ? "Focus" : `Focus: ${triggerLabel}`}><button type="button" aria-label={triggerLabel === "Focus" ? "Focus" : `Focus: ${triggerLabel}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} className={`mobile-icon-button relative ${orderLabel ? "!w-auto gap-1 px-2" : ""} ${activeDefinition || orderLabel ? "bg-accent-primary/15 text-accent-primary" : ""}`}>
             <Zap size={20} aria-hidden="true" />
+            {orderLabel && <span className="text-xs">{orderLabel}</span>}
             {activeDefinition && <span className="absolute right-2 top-2 size-1.5 rounded-full bg-accent-primary" />}
         </button></Tip>
         <UtilitySheet title="Focus" open={open} onClose={() => setOpen(false)}>
@@ -333,17 +362,7 @@ export function FocusViewBar() {
                 }`}
             >
                 <Zap size={14} aria-hidden="true" />
-                {activeLabel ?? "Focus"}
-                {activeLabel && (
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); clear(); }}
-                        className="rounded-full p-0.5 hover:bg-accent-primary/20 transition-colors cursor-pointer"
-                        aria-label="Clear focus view"
-                    >
-                        <X size={11} />
-                    </button>
-                )}
+                {triggerLabel}
             </Popover.Trigger>
 
                 <Popover.Content

@@ -6,16 +6,16 @@ import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useAuthState } from "../auth/use-auth-state";
 
-export function useInbox() {
+export function useInbox(status: "clarifying" | "kept" = "clarifying") {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
 
     const query = useQuery({
-        queryKey: queryKeys.inbox.all,
+        queryKey: status === "kept" ? queryKeys.inbox.notes : queryKeys.inbox.all,
         staleTime: STALE_TIMES.INBOX,
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
-            const res = await client.api.inbox.$get();
+            const res = await client.api.inbox.$get({ query: { status } });
             return unwrapResponse<InboxItem[]>(res);
         },
     });

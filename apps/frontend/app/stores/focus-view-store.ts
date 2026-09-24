@@ -11,7 +11,11 @@ export interface SavedFocusView {
     orderIndex: number;
 }
 
+export type CaptureOrder = "newest" | "oldest" | "priority";
+
 interface FocusViewState {
+    captureOrder: CaptureOrder;
+    setCaptureOrder: (order: CaptureOrder) => void;
     activePresetId: string | null;
     activeSavedViewId: string | null;
     customDefinition: FocusViewDefinition | null;
@@ -44,6 +48,8 @@ function cloneDefinition(definition: FocusViewDefinition): FocusViewDefinition {
 export const useFocusViewStore = create<FocusViewState>()(
     persist(
         (set, get) => ({
+            captureOrder: "newest",
+            setCaptureOrder: (captureOrder) => set({ captureOrder }),
             activePresetId: null,
             activeSavedViewId: null,
             customDefinition: null,
@@ -184,6 +190,7 @@ export const useFocusViewStore = create<FocusViewState>()(
         {
             name: "cadence-focus-view-state",
             partialize: (state) => ({
+                captureOrder: state.captureOrder,
                 activePresetId: state.activePresetId,
                 activeSavedViewId: state.activeSavedViewId,
                 customDefinition: state.customDefinition,

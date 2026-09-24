@@ -4,6 +4,7 @@ import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { DatePicker } from "../shared/DatePicker";
+import { Button } from "../primitives/Button";
 import { PLACE_DROP, dayLabel, useWeekLoad } from "./PlaceSheet";
 import { formatTime, getWeekStart, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
@@ -40,13 +41,13 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
         <div className="photo-shell-surface surface-shell flex h-full flex-col">
             {/* Header — mirrors the Cadence panel header so the two rail panes read
                 as siblings (same height, font-display title, lantern-glow icon). */}
-            <header className="flex h-(--shell-header-h) shrink-0 items-center gap-3 border-b border-twilight-border px-4">
+            <header className="flex h-(--shell-header-h) shrink-0 items-center gap-3 border-b border-twilight-border pl-4 pr-[calc(1rem+var(--rail-toggle-reserve,0px))]">
                 <div className="flex h-9 w-9 min-w-9 items-center justify-center rounded-full bg-accent-primary/15 text-accent-primary ring-1 ring-accent-primary/25 glow-lantern">
                     <CalendarDays size={17} />
                 </div>
-                <div className="leading-tight">
+                <div className="min-w-0 leading-tight">
                     <h2 className="font-display text-lg font-semibold leading-tight tracking-tight text-twilight-text">Place</h2>
-                    <span className="mt-0.5 block text-[11px] font-medium leading-none text-twilight-text-muted">
+                    <span className="mt-0.5 block truncate text-[11px] font-medium leading-none text-twilight-text-muted">
                         {dragging ? "Drop on a day" : "Drag a capture or task onto a day"}
                     </span>
                 </div>
@@ -69,12 +70,12 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                             <ul className="mt-3 space-y-0.5">
                                 {dayTasks.map((task) => (
                                     <li key={task.id}>
-                                        <button type="button" onClick={() => onSelectTask?.(task.id)}
-                                            className="flex min-h-9 w-full items-center gap-2.5 rounded-xl px-2 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text">
+                                        <Button variant="ghost" size="none" type="button" onClick={() => onSelectTask?.(task.id)}
+                                            className="flex min-h-9 w-full justify-start gap-2.5 rounded-xl px-2 text-left font-sans text-sm font-normal text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text">
                                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/70" aria-hidden="true" />
                                             <span className="min-w-0 flex-1 truncate">{task.title}</span>
                                             {task.scheduledStart && !task.isAllDay && <span className="shrink-0 text-xs text-twilight-text-muted">{formatTime(task.scheduledStart)}</span>}
-                                        </button>
+                                        </Button>
                                     </li>
                                 ))}
                             </ul>
@@ -82,15 +83,15 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                     </section>
 
                     <div className="mt-auto flex gap-2">
-                        <DatePicker label="Pick a date" value={null} onChange={(date) => date && navigate(`/schedule?date=${date}`)} className="flex-1">
-                            <button type="button" className="flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-2xl border border-twilight-border/40 bg-white/[0.03] text-sm font-medium text-twilight-text-soft hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                        <DatePicker label="Pick a date" value={null} onChange={(date) => date && navigate(`/schedule?date=${date}`)} className="min-w-0 flex-1">
+                            <Button type="button" variant="secondary" size="md" className="min-w-0 flex-1 rounded-2xl px-3 font-sans font-medium">
                                 Pick a date…
-                            </button>
+                            </Button>
                         </DatePicker>
-                        <button type="button" onClick={() => navigate(`/schedule?date=${selected}&view=week`)}
-                            className="flex min-h-10 flex-1 items-center justify-center gap-1 rounded-2xl border border-twilight-border/40 bg-white/[0.03] text-sm font-medium text-twilight-text-soft hover:bg-white/[0.06]">
-                            Open in Schedule <ChevronRight size={14} aria-hidden="true" />
-                        </button>
+                        <Button type="button" variant="secondary" size="md" onClick={() => navigate(`/schedule?date=${selected}&view=week`)}
+                            className="min-w-0 flex-1 gap-1 whitespace-nowrap rounded-2xl px-3 font-sans font-medium">
+                            Schedule <ChevronRight size={14} aria-hidden="true" />
+                        </Button>
                     </div>
                 </div>
             </ScrollAreaWrapper>
@@ -105,16 +106,16 @@ function DayTile({ iso, load, isToday, isPast, isSelected, dragging, onSelect }:
     const date = parseLocalDate(iso);
     const dots = loadDots(load);
     const tone = isOver
-        ? "scale-105 border-accent-primary bg-accent-primary/25"
+        ? "scale-105 border-accent-primary bg-accent-primary/25 hover:bg-accent-primary/25"
         : isSelected
-            ? "border-accent-primary/50 bg-accent-primary/15"
+            ? "border-accent-primary/50 bg-accent-primary/15 hover:bg-accent-primary/20"
             : dragging && !isPast
                 ? "border-dashed border-accent-primary/35 bg-white/[0.04]"
                 : "border-twilight-border/30 bg-white/[0.02] hover:bg-white/[0.05]";
     return (
-        <button ref={setNodeRef} type="button" onClick={onSelect} aria-pressed={isSelected}
+        <Button variant="ghost" size="none" ref={setNodeRef} type="button" onClick={onSelect} aria-pressed={isSelected}
             aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
-            className={`flex aspect-[4/5] min-h-14 flex-col items-center justify-center gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 ${tone} ${isPast ? "opacity-40" : ""}`}>
+            className={`flex aspect-[4/5] min-h-14 flex-col gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 active:scale-100 ${tone} ${isPast ? "opacity-40" : ""}`}>
             <span className={`text-[10px] font-semibold uppercase tracking-wider ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
                 {date.toLocaleDateString(undefined, { weekday: "narrow" })}
             </span>
@@ -122,6 +123,6 @@ function DayTile({ iso, load, isToday, isPast, isSelected, dragging, onSelect }:
             <span className="flex h-1.5 gap-0.5" aria-hidden="true">
                 {Array.from({ length: dots }, (_, i) => <span key={i} className="h-1.5 w-1.5 rounded-full bg-accent-primary/75" />)}
             </span>
-        </button>
+        </Button>
     );
 }

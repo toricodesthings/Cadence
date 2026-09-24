@@ -67,7 +67,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                                 <button
                                     key={color}
                                     onClick={() => setSelectedColor(color)}
-                                    className={`w-4 h-4 rounded-full transition-transform ${selectedColor === color ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight ring-accent-primary" : "hover:scale-110"}`}
+                                    className={`w-4 h-4 rounded-full transition-transform ${selectedColor === color ? "scale-125 ring-1 ring-offset-1 ring-offset-twilight-base ring-accent-primary" : "hover:scale-110"}`}
                                     style={{ backgroundColor: color === "default" ? "var(--color-twilight-text-muted)" : color }}
                                     aria-label={`Select color ${color}`}
                                 />

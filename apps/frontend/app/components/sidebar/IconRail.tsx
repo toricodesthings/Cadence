@@ -1,6 +1,8 @@
+import { ActivityBadge } from "../primitives/ActivityBadge";
+import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import {
     Search, Plus, Settings, Database, Flame,
-    Calendar, CalendarHeart, LayoutDashboard, Sprout,
+    Calendar, CalendarHeart, Inbox, Sprout,
     LogOut, LifeBuoy, ChevronDown, Sparkles, Trash2, RefreshCw,
     BellRing, CheckCircle2, Info, TriangleAlert, CircleAlert, LoaderCircle,
     ShieldCheck, FileText, History, ChevronRight, CalendarClock, Flower2, Sun, Leaf, Snowflake,
@@ -27,8 +29,7 @@ import { useState } from "react";
 import { Button } from "../primitives/Button";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
-import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
-import { useSettings } from "../../hooks/core/use-settings";
+import { useRoutineDueCount } from "../../hooks/habits/use-routine-due-count";
 import { NotificationPreview } from "../notifications/NotificationPreview";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
@@ -40,7 +41,7 @@ import { useAssistantStore } from "../../stores/assistant-store";
 const NAV_LINKS = [
     {
         to: "/",
-        icon: LayoutDashboard,
+        icon: Inbox,
         label: "Capture",
         activeColor: "text-accent-nav-capture",
         activeBg: "bg-accent-nav-capture/15 glow-accent",
@@ -111,6 +112,7 @@ export function IconRail({
     onSearchOpen?: () => void;
     onQuickAddOpen?: () => void;
 }) {
+    const { count: captureCount } = useCaptureFeed();
     const location = useLocation();
     const navigate = useNavigate();
     const api = useApiClient();
@@ -126,11 +128,7 @@ export function IconRail({
 
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
 
-    // Habit due indicator
-    const { data: unresolvedHabits } = useHabitUnresolvedSummary();
-    const { data: railSettings } = useSettings();
-    const showHabitDot = railSettings?.notifications?.showHabitNavDueCount !== false;
-    const hasHabitsDue = showHabitDot && (unresolvedHabits?.length ?? 0) > 0;
+    const routineDueCount = useRoutineDueCount();
 
     const handleSeedData = async () => {
         setIsLoading(true);
@@ -326,12 +324,13 @@ export function IconRail({
             <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1 w-full px-2">
                 {NAV_LINKS.map(({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
                     const isActive = location.pathname === to;
-                    const showDot = to === "/routines" ? hasHabitsDue : notificationFn && notificationFn();
+                    const showDot = to !== "/routines" && notificationFn && notificationFn();
+                    const count = to === "/" ? captureCount : to === "/routines" ? routineDueCount : 0;
                     return (
                         <Tip key={to} label={label} side="right">
                             <Link
                                 to={to}
-                                aria-label={label}
+                                aria-label={to === "/routines" && count > 0 ? `${label}, ${count} due today` : to === "/" ? `${label}, ${count} items` : label}
                                 aria-current={isActive ? "page" : undefined}
                                 className={`
                                     btn-icon relative rounded-2xl transition-colors outline-none
@@ -342,8 +341,9 @@ export function IconRail({
                                 `}
                             >
                                 <Icon size={18} aria-hidden="true" />
+                                {count > 0 && <ActivityBadge count={count} className="absolute -right-1 -top-1" />}
                                 {showDot && !isActive && (
-                                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent-primary border-2 border-twilight" />
+                                    <ActivityBadge className="absolute right-1 top-1" />
                                 )}
                             </Link>
                         </Tip>
@@ -541,7 +541,7 @@ export function IconRail({
                                 <AlertDialog.Title>Wipe all test workspace data?</AlertDialog.Title>
                                 <AlertDialog.Description>
                                     This deletes every user-scoped record except the `users` table entry and its saved settings.
-                                    Projects, tasks, habits, inbox items, sections, tags, metrics, and AI memory will all be removed.
+                                    Lists, tasks, habits, inbox items, sections, tags, metrics, and AI memory will all be removed.
                                 </AlertDialog.Description>
                             </AlertDialog.Header>
                             <AlertDialog.Footer>

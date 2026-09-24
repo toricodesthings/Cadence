@@ -5,7 +5,7 @@
  * Domain components import from here — never from @radix-ui/react-tooltip directly.
  */
 import * as RadixTooltip from "@radix-ui/react-tooltip";
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, useState, useRef, type ReactNode } from "react";
 import { FLOATING_SURFACE } from "./menu-styles";
 
 /* ── Re-exports ─────────────────────────────────────────────────── */
@@ -51,10 +51,18 @@ export interface TipProps {
     children: ReactNode;
 }
 
+/** Touch screens have no hover: a tip only follows keyboard focus, never a sheet's initial focus. */
+const focusedWithoutKeyboard = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(hover: none)").matches &&
+    !document.activeElement?.matches(":focus-visible");
+
 export function Tip({ label, side = "right", children }: TipProps) {
+    const [open, setOpen] = useState(false);
+    const touch = useRef(false);
     return (
-        <Root>
-            <Trigger asChild>{children}</Trigger>
+        <Root open={open} onOpenChange={(next) => setOpen(next && !touch.current && !focusedWithoutKeyboard())}>
+            <Trigger asChild onPointerDown={(event) => { touch.current = event.pointerType === "touch"; if (touch.current) setOpen(false); }} onPointerMove={(event) => { if (event.pointerType === "mouse") touch.current = false; }}>{children}</Trigger>
             <Portal>
                 <Content side={side}>
                     {label}

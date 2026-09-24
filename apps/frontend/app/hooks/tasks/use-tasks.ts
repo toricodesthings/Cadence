@@ -12,6 +12,8 @@ interface UseTasksOptions {
     projectId?: string;
     scheduledDate?: string;
     scheduledRange?: { start: string; end: string };
+    /** Fetch every page for workspace-wide summaries. */
+    allPages?: boolean;
     limit?: number;
     offset?: number;
     hasNoProject?: boolean;
@@ -25,21 +27,30 @@ interface UseTasksOptions {
 export function useTasks(options: UseTasksOptions = {}) {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
-    const { enabled = true, ...filterOptions } = options;
+    const { enabled = true, allPages, ...filterOptions } = options;
 
     const query = useQuery({
-        queryKey: queryKeys.tasks.list(filterOptions as Record<string, unknown>),
+        queryKey: queryKeys.tasks.list({ ...filterOptions, ...(allPages ? { allPages: true } : {}) }),
         enabled: enabled && authReady && isAuthenticated,
         staleTime: STALE_TIMES.TASKS,
         queryFn: async () => {
-            const res = await client.api.tasks.$get({
-                // Query params are wire strings the route coerces/enum-validates; the
-                // builder's string map satisfies that contract at runtime.
-                query: buildTasksQuery(filterOptions) as NonNullable<
-                    Parameters<typeof client.api.tasks.$get>[0]
-                >["query"],
-            });
-            return unwrapResponse<Task[]>(res);
+            const items: Task[] = [];
+            const pageSize = 100;
+            let offset = 0;
+            do {
+                const res = await client.api.tasks.$get({
+                    query: buildTasksQuery({
+                        ...filterOptions,
+                        ...(allPages ? { limit: pageSize, offset } : {}),
+                    }) as NonNullable<Parameters<typeof client.api.tasks.$get>[0]>["query"],
+                });
+                const page = await unwrapResponse<Task[]>(res);
+                items.push(...page);
+                // Schedule queries already return all expanded occurrences without pagination.
+                if (!allPages || filterOptions.scheduledDate || filterOptions.scheduledRange || page.length < pageSize) break;
+                offset += pageSize;
+            } while (true);
+            return items;
         },
     });
 

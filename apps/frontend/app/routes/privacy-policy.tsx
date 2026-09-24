@@ -102,7 +102,7 @@ export default function PrivacyPolicyRoute() {
                                     and related auth state needed to sign you in and protect your workspace.
                                 </li>
                                 <li>
-                                    <strong>Workspace content:</strong> projects, sections, tasks, subtasks, tags, inbox
+                                    <strong>Workspace content:</strong> lists, sections, tasks, subtasks, tags, inbox
                                     items, habits, habit logs, reminders, recurrence rules, schedule fields, and notes you
                                     create inside the product.
                                 </li>

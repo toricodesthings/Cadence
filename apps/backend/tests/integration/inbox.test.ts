@@ -32,7 +32,7 @@ async function capture(rawText: string, client = inbox) {
 }
 
 describe("capturing", () => {
-    it("captures an item as unprocessed and lists it, oldest first, for its owner only", async () => {
+    it("captures an item as unprocessed and lists it, newest first, for its owner only", async () => {
         const first = await capture("Buy groceries");
         await capture("Call the dentist");
         await capture("Theirs", otherInbox);
@@ -40,7 +40,7 @@ describe("capturing", () => {
         const { body } = await inbox("GET", "");
 
         expect(first).toMatchObject({ rawText: "Buy groceries", processed: false });
-        expect(body.data.map((i: any) => i.rawText)).toEqual(["Buy groceries", "Call the dentist"]);
+        expect(body.data.map((i: any) => i.rawText)).toEqual(["Call the dentist", "Buy groceries"]);
     });
 
     it("rejects an invalid body with 400", async () => {
@@ -180,5 +180,49 @@ describe("inbox sections", () => {
         expect((await inbox("PATCH", `/sections/${theirs.data.id}`, { name: "hijacked" })).status).toBe(404);
         expect((await inbox("DELETE", `/sections/${theirs.data.id}`)).status).toBe(404);
         expect((await otherInbox("GET", "/sections")).body.data.map((s: any) => s.name)).toEqual(["Theirs"]);
+    });
+});
+
+
+describe("Capture exits", () => {
+    it("keeps explicit no-day fields even when text has a date", async () => {
+        const item = await capture("Water plants tomorrow at 3pm");
+        const result = await inbox("POST", `/${item.id}/process`, { title: "Water plants", isAllDay: true, dueDate: null, scheduledStart: null, scheduledEnd: null });
+        expect(result.status).toBe(201);
+        expect(result.body.data).toMatchObject({ dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true });
+    });
+    it("ticks a thought off and atomically undoes it", async () => {
+        const item = await capture("Buy milk tomorrow");
+        const result = await inbox("POST", `/${item.id}/process`, { title: "Buy milk", complete: true });
+        expect(result.status).toBe(201);
+        expect(result.body.data).toMatchObject({ state: "COMPLETE", origin: "thought", dueDate: null });
+        expect((await otherInbox("POST", `/${item.id}/unprocess`)).status).toBe(404);
+        const restored = await inbox("POST", `/${item.id}/unprocess`);
+        expect(restored.body.data).toMatchObject({ captureStatus: "clarifying", processed: false, placedTaskId: null });
+        expect((await tasks("GET", `/${result.body.data.id}`)).body.data.state).toBe("ARCHIVED");
+        expect((await inbox("GET", "")).body.data.map((row: any) => row.id)).toContain(item.id);
+        expect((await inbox("POST", `/${item.id}/unprocess`)).status).toBe(200);
+    });
+    it("excludes discarded and kept items from the queue, with a separate notes read", async () => {
+        const discarded = await capture("discard me");
+        const kept = await capture("a note");
+        const active = await capture("still new");
+        await inbox("PATCH", `/${discarded.id}`, { captureStatus: "discarded" });
+        await inbox("PATCH", `/${kept.id}`, { captureStatus: "kept" });
+        expect((await inbox("GET", "")).body.data.map((i: any) => i.id)).toEqual([active.id]);
+        expect((await inbox("GET", "?status=kept")).body.data.map((i: any) => i.id)).toEqual([kept.id]);
+    });
+    it("keeps a detected timestamp when the user chooses that suggestion", async () => {
+        const item = await capture("Call the dentist tomorrow at 3pm");
+        const result = await inbox("POST", `/${item.id}/process`, { title: "Call the dentist", scheduledDate: "2026-09-24T15:00:00-04:00" });
+        expect(result.status).toBe(201);
+        expect(new Date(result.body.data.scheduledStart).toISOString()).toBe("2026-09-24T19:00:00.000Z");
+        expect(result.body.data.isAllDay).toBe(false);
+    });
+
+    it("orders equal timestamps by descending id", async () => {
+        const a = await capture("A"); const b = await capture("B");
+        await asOwner(async pg => { await pg.query("UPDATE inbox_items SET created_at = '2026-01-01' WHERE id IN ($1, $2)", [a.id, b.id]); });
+        expect((await inbox("GET", "")).body.data.map((i: any) => i.id)).toEqual([a.id, b.id].sort().reverse());
     });
 });

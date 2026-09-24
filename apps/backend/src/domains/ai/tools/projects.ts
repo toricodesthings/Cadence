@@ -13,7 +13,7 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
     // ── R ──────────────────────────────────────────────────────────────────
     get_projects: tool({
         description:
-            "READ-ONLY. List the user's projects (id, name, emoji, accent) for grouping/labeling " +
+            "READ-ONLY. List the user's lists (id, name, emoji, accent) for grouping/labeling " +
             "context. No task contents returned.",
         inputSchema: z.object({}),
         execute: async () =>
@@ -39,11 +39,11 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
     // ── P (proposal — NO DB WRITE) ──────────────────────────────────────────
     propose_create_project: tool({
         description:
-            "PROPOSAL ONLY — does NOT create anything. Validates a drafted project (e.g. when " +
-            "clustering related inbox captures) and returns it for confirmation; the project is " +
+            "PROPOSAL ONLY — does NOT create anything. Validates a drafted list (e.g. when " +
+            "clustering related inbox captures) and returns it for confirmation; the list is " +
             "created later via the REST API after explicit approval.",
         inputSchema: z.object({
-            name: z.string().min(1).max(200).describe("Project name."),
+            name: z.string().min(1).max(200).describe("List name."),
             emoji: z.string().max(8).optional().describe("Optional emoji icon."),
             colorAccent: z
                 .string()

@@ -58,15 +58,16 @@ export function QuickAddSurface({
         open: open && tab === "task",
         tasks,
         onSaved: (created) => finish(
-            created ? "Task added to Holding" : "Task queued for sync",
+            created ? "Task added to Capture" : "Task queued for sync",
             focusRoute("/", { focusKind: "task", focusId: created?.id ?? "", focusScope: "holding-unmanaged", focusSource: "quick-add" }),
         ),
     });
     const capture = useCaptureComposer({
         onSaved: (created) => {
             trackUsageEvent("capture.submitted", { surface: "quick_add", object_type: "capture" });
-            finish(
-                created ? "Thought saved to Holding" : "Thought queued for sync",
+            if (mode !== "standalone") toast.success(created ? "Thought saved to Capture" : "Thought queued for sync");
+            if (mode === "standalone") finish(
+                created ? "Thought saved to Capture" : "Thought queued for sync",
                 focusRoute("/", { focusKind: "inbox", focusId: created?.id ?? "", focusScope: "holding-captures", focusSource: "quick-add" }),
             );
         },
@@ -86,6 +87,8 @@ export function QuickAddSurface({
             open={open}
             inline={mode === "standalone"}
             {...active}
+            // Thoughts save on each return and the tab stays open, so leaving is "Done".
+            closeLabel={tab === "capture" && mode !== "standalone" ? "Done" : undefined}
             band={<ComposerTabs role="tablist" ariaLabel="What to add" value={tab} onChange={setTab} options={TABS} />}
             isDirty={task.isDirty || capture.isDirty || routine.isDirty}
             discardDescription="This closes Quick Add and loses what you've typed in any tab."

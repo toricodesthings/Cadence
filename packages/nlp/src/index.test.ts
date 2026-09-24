@@ -39,6 +39,7 @@ describe("@cadence/nlp canonical behavior", () => {
         const composed = composeFocusView("due today and no project");
         expect(composed.definition.dueWindow).toBe("today");
         expect(composed.definition.needsProject).toBe(true);
+        expect(composeFocusView("due today and no list").definition).toEqual(composed.definition);
 
         const filtered = applyFocusView(
             [
@@ -81,6 +82,18 @@ describe("Parser test matrix", () => {
 
     // ── ADHD-style shorthand ──
     describe("ADHD-style shorthand", () => {
+        it("treats a standalone !! as Urgent and removes it from the task title", () => {
+            const result = parse({ input: "Call the plumber !!", sourceSurface: "holding_capture" });
+            expect(result.entities.find(e => e.type === "priority")?.normalizedValue).toBe(4);
+            expect(result.cleanedTitle).toBe("Call the plumber");
+        });
+
+        it.each(["Wonderful!!!", "Remember wow!!", 'Remember "!!"'])
+            ("preserves literal punctuation in %s", input => {
+                expect(parse({ input, sourceSurface: "holding_capture" }).entities
+                    .some(e => e.type === "priority")).toBe(false);
+            });
+
         it("parses brain dump with loose date", () => {
             const result = parse({
                 input: "Ask Maya if legal needs this before launch maybe sometime soon",
@@ -411,6 +424,19 @@ describe("Parser test matrix", () => {
             const dateEntity = result.entities.find(e => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
             expect(dateEntity!.confidence).toBe("high");
+        });
+
+        it("ends a 'before' deadline the day before, and keeps 'by' inclusive", () => {
+            const referenceDate = new Date("2026-09-23T12:00:00");
+            const due = (input: string) =>
+                (parse({ input, sourceSurface: "inbox", referenceDate }).entities.find((e) => e.type === "due_date")
+                    ?.normalizedValue as { date: string } | undefined)?.date;
+            expect(due("Renew passport before March")).toBe("2027-02-28");
+            expect(due("Send it before Friday")).toBe("2026-09-24");
+            expect(due("Send it by Friday")).toBe("2026-09-25");
+            expect(parse({ input: "Renew passport before March", sourceSurface: "inbox", referenceDate }).cleanedTitle).toBe(
+                "Renew passport",
+            );
         });
 
         it("detects due_date type with 'by' prefix", () => {

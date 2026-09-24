@@ -46,7 +46,7 @@ export function useUpdateProject() {
                     queryClient.setQueryData(key, data);
                 }
             }
-            toast.error(err.message || "Failed to update project");
+            toast.error(err.message || "Failed to update list");
         },
 
         onSettled: () => invalidateEverywhere(queryClient, queryKeys.projects.all),

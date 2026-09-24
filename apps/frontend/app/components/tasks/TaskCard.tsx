@@ -1,3 +1,6 @@
+import { COLLECTION_ROW_SURFACE, COLLECTION_ROW_HOVER, COLLECTION_ROW_TITLE } from "./task-row-styles";
+import { ThoughtMark } from "./ThoughtMark";
+import { getTagTone } from "./TagSignal";
 import { useState, useRef, useEffect } from "react";
 import {
     Calendar,
@@ -91,24 +94,6 @@ type CollapsedSignal = {
     style?: React.CSSProperties;
     accentDots?: string[];
 };
-
-function getTagTone(tag?: Tag) {
-    if (!tag || !tag.color || tag.color === "default") {
-        return {
-            backgroundColor: "rgba(255,255,255,0.04)",
-            borderColor: "rgba(255,255,255,0.08)",
-            color: "var(--color-twilight-text-soft)",
-            accentColor: "rgba(201,209,223,0.8)",
-        };
-    }
-
-    return {
-        backgroundColor: `${tag.color}16`,
-        borderColor: `${tag.color}33`,
-        color: tag.color,
-        accentColor: tag.color,
-    };
-}
 
 /** Inline subtask item — checkbox + title + delete */
 function InlineSubtaskItem({
@@ -381,7 +366,7 @@ export function TaskCard({
                 handleSelect(e);
             }}
             className={`
-                group relative flex cursor-pointer rounded-[26px] ring-1 ring-white/[0.06] transition-[background-color,border-color,box-shadow,opacity,transform,padding] duration-200
+                ${COLLECTION_ROW_SURFACE} flex cursor-pointer
                 ${isBoardCard
                     ? `${isCompactCard ? "items-center gap-2 px-3.5 py-3" : "items-start gap-2 px-3.5 py-3.5"}`
                     : `${isCompactCard ? "items-center gap-2.5 px-4 py-3.5 sm:px-5 sm:py-3.5" : "items-start gap-2.5 px-4 py-4 sm:px-5 sm:py-5"}`
@@ -391,7 +376,7 @@ export function TaskCard({
                 ${isComplete ? "opacity-45" : ""}
                 ${isTaskSelected
                     ? "bg-white/[0.04] ring-1 ring-accent-primary/15"
-                    : `hover:bg-white/[0.035] hover:glow-lantern ${PRIORITY_BG_CLASS[task.priority]}`
+                    : `${COLLECTION_ROW_HOVER} ${PRIORITY_BG_CLASS[task.priority]}`
                 }
                 ${isDropTarget ? "ring-1 ring-moonlit/30 border-moonlit/35 bg-moonlit/[0.035]" : ""}
                 ${isDragging ? "shadow-[0_18px_46px_rgba(0,0,0,0.32),0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]" : ""}
@@ -427,6 +412,8 @@ export function TaskCard({
 
             <TaskCheckbox task={task} compact={isBoardCard} />
 
+            {task.origin === "thought" && <ThoughtMark />}
+
             {/* Content */}
             <div className={`min-w-0 flex-1 ${isCompactCard ? "flex min-h-[2.75rem] items-center" : ""}`}>
                 <div className="flex-1">
@@ -459,7 +446,7 @@ export function TaskCard({
                             <div className="min-w-0 flex-1">
                                 <span
                                     className={`block line-clamp-2 ${
-                                        isBoardCard ? "text-[15px] leading-[1.4]" : "text-[15px] leading-snug sm:text-base"
+                                        isBoardCard ? "text-[15px] leading-[1.4]" : COLLECTION_ROW_TITLE
                                     } ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
                                 >
                                     {task.title}

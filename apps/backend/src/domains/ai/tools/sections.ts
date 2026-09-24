@@ -14,13 +14,13 @@ export const sectionTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     get_sections: tool({
         description:
             "READ-ONLY. List the user's task sections (kanban column headers), optionally scoped " +
-            "to one project. Returns id, name, projectId only.",
+            "to one list. Returns id, name, projectId only.",
         inputSchema: z.object({
             projectId: z
                 .string()
                 .uuid()
                 .optional()
-                .describe("Restrict to sections within one project."),
+                .describe("Restrict to sections within one list."),
         }),
         execute: async ({ projectId }) =>
             safeExecute("get_sections", userId, async () => {

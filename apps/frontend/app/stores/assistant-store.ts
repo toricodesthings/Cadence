@@ -3,6 +3,9 @@ import { persist } from "zustand/middleware";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 
 interface AssistantState {
+    pendingMessage: string | null;
+    requestMessage: (message: string) => void;
+    clearPendingMessage: () => void;
     assistantPanelOpen: boolean;
     assistantPanelWidth: number;
     /**
@@ -33,6 +36,9 @@ interface AssistantState {
 export const useAssistantStore = create<AssistantState>()(
     persist(
         (set) => ({
+            pendingMessage: null,
+            requestMessage: (pendingMessage) => set({ pendingMessage, assistantPanelOpen: true }),
+            clearPendingMessage: () => set({ pendingMessage: null }),
             assistantPanelOpen: false,
             assistantPanelWidth: 340, // default wider panel to fit interactive cards
             activeConversationId: null,

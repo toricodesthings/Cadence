@@ -194,6 +194,7 @@ export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit
 }
 
 export interface MinimalInboxItem {
+    isNote: boolean;
     id: string;
     rawText: string;
     captureKind: string;
@@ -212,6 +213,7 @@ export interface InboxItemRow {
 /** Project an inbox capture. `rawText` is the user's own short capture, kept verbatim. */
 export function toMinimalInboxItem(row: InboxItemRow): MinimalInboxItem {
     return {
+        isNote: row.captureStatus === "kept",
         id: row.id,
         rawText: row.rawText,
         captureKind: row.captureKind,

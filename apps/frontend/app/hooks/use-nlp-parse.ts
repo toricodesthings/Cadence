@@ -246,8 +246,8 @@ export function useNlpParse({
                     break;
                 }
                 case "priority": {
-                    const val = entity.normalizedValue as { priority?: number };
-                    if (!priority && val?.priority && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) priority = val.priority as TaskPriority;
+                    const val = entity.normalizedValue as TaskPriority;
+                    if (!priority && val && confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) priority = val;
                     break;
                 }
                 case "project": {
@@ -312,6 +312,7 @@ export function useNlpParse({
 
     // Debounced parse on input change (Section 16.2)
     // §11.5: Low-stimulation mode uses longer debounce to reduce visual churn
+    const dismissedKey = [...ignoredTokenIds, ...dismissedEntityIds].join("|");
     const debounceMs = lowStimulationMode ? PARSE_DEBOUNCE_LOW_STIM_MS : PARSE_DEBOUNCE_MS;
     useEffect(() => {
         if (!enabled) return;
@@ -322,7 +323,7 @@ export function useNlpParse({
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [input, enabled, runParse]);
+    }, [input, enabled, runParse, dismissedKey]);
 
     return output;
 }

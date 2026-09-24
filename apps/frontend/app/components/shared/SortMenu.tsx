@@ -12,8 +12,9 @@ interface SortMenuAction {
 }
 
 interface SortMenuProps {
-    mode: SortMode;
-    onModeChange: (mode: SortMode) => void;
+    /** Omit on routes that sort elsewhere (Capture orders from its Focus menu). */
+    mode?: SortMode;
+    onModeChange?: (mode: SortMode) => void;
     view?: ViewMode;
     onViewChange?: (view: ViewMode) => void;
     actions?: SortMenuAction[];
@@ -30,7 +31,7 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
         <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
                 <button
-                    aria-label="Sort & display options"
+                    aria-label={onModeChange ? "Sort & display options" : "Display options"}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-twilight-border/35 text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text cursor-pointer"
                 >
                     <EllipsisVertical size={18} aria-hidden="true" />
@@ -42,28 +43,32 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
                         <div className="px-3 pt-2 pb-2.5">
                             <ViewToggle view={view} onViewChange={onViewChange} compact />
                         </div>
-                        <DropdownMenu.Separator />
+                        {onModeChange && <DropdownMenu.Separator />}
                     </>
                 )}
-                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted">
-                    <div className="flex items-center gap-1.5">
-                        <ArrowUpDown size={11} aria-hidden="true" />
-                        Sort by
-                    </div>
-                </div>
-                {SORT_OPTIONS.map(({ value, label, icon: Icon }) => (
-                    <DropdownMenu.Item
-                        key={value}
-                        onSelect={() => onModeChange(value)}
-                        className="flex items-center gap-2"
-                    >
-                        <Icon size={14} aria-hidden="true" />
-                        <span className="flex-1">{label}</span>
-                        {mode === value && (
-                            <Check size={14} className="text-accent-primary" aria-hidden="true" />
-                        )}
-                    </DropdownMenu.Item>
-                ))}
+                {onModeChange && (
+                    <>
+                        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-twilight-text-muted">
+                            <div className="flex items-center gap-1.5">
+                                <ArrowUpDown size={11} aria-hidden="true" />
+                                Sort by
+                            </div>
+                        </div>
+                        {SORT_OPTIONS.map(({ value, label, icon: Icon }) => (
+                            <DropdownMenu.Item
+                                key={value}
+                                onSelect={() => onModeChange(value)}
+                                className="flex items-center gap-2"
+                            >
+                                <Icon size={14} aria-hidden="true" />
+                                <span className="flex-1">{label}</span>
+                                {mode === value && (
+                                    <Check size={14} className="text-accent-primary" aria-hidden="true" />
+                                )}
+                            </DropdownMenu.Item>
+                        ))}
+                    </>
+                )}
                 {actions.length > 0 && (
                     <>
                         <DropdownMenu.Separator />

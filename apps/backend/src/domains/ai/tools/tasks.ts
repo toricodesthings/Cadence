@@ -40,7 +40,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_tasks: tool({
         description:
-            "READ-ONLY. Fetch the user's tasks filtered by state, project, due window, " +
+            "READ-ONLY. Fetch the user's tasks filtered by state, list, due window, " +
             "waiting status, or missing-structure. Returns ids + minimal fields (title, " +
             "dates, state) only — never note bodies. Excludes fixed timetable blocks (classes, shifts); " +
             "use get_schedule_window for those. Results are hard-capped server-side.",
@@ -56,7 +56,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     "Coarse due/scheduled window relative to the user's current local date. " +
                         "'overdue' = anything dated before today.",
                 ),
-            projectId: z.string().uuid().optional().describe("Restrict to one project."),
+            projectId: z.string().uuid().optional().describe("Restrict to one list."),
             waiting: z
                 .boolean()
                 .optional()
@@ -64,7 +64,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
             missingStructure: z
                 .boolean()
                 .optional()
-                .describe("If true, only tasks with no date AND no project (need triage)."),
+                .describe("If true, only tasks with no date AND no list (need triage)."),
             limit: z
                 .number()
                 .int()
@@ -224,7 +224,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
             scheduledStart: z.string().optional().describe("Block start: the user's local time with their UTC offset, e.g. 2026-09-22T14:00:00-04:00."),
             scheduledEnd: z.string().optional().describe("Block end: the user's local time with their UTC offset."),
             durationEstimate: z.number().int().min(1).max(1440).optional().describe("Minutes."),
-            projectId: z.string().uuid().optional().describe("Target project (re-validated on confirm)."),
+            projectId: z.string().uuid().optional().describe("Target list (re-validated on confirm)."),
             tagIds: z.array(z.string().uuid()).max(20).optional().describe("Tags (re-validated on confirm)."),
             priority: z.number().int().min(0).max(4).optional().describe("0=none, 1=low, 2=medium, 3=high, 4=urgent."),
             effort: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional().describe("1=low, 2=medium, 3=high effort. Omit for none."),

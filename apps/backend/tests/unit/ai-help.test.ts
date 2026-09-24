@@ -15,6 +15,15 @@ describe("get_cadence_help", () => {
         expect(out).toEqual({ topic: "repeats", text: HELP_TOPICS.repeats });
     });
 
+    it("uses current List names and describes the reversible Capture lifecycle", () => {
+        expect(HELP_TOPICS.organizing).toContain("**Lists**");
+        expect(HELP_TOPICS.organizing).toContain("**Rows**");
+        expect(HELP_TOPICS.capture).toContain("Keep with no day never infers a day");
+        expect(HELP_TOPICS.capture).toContain("Notes stay notes");
+        expect(HELP_TOPICS.capture).toContain("Undo brings it back to Capture");
+        expect(PROMPT_BLOCKS.base.join("\n")).toContain("called `project` in tools");
+    });
+
     it("links only to real in-app places (guide + primer)", () => {
         const all = [...Object.values(HELP_TOPICS), PROMPT_BLOCKS.base.join("\n")].flatMap(links);
         expect(all.length).toBeGreaterThan(20);

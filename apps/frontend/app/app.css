@@ -1041,7 +1041,7 @@
   }
 
   .glass-surface {
-    background: color-mix(in srgb, var(--color-twilight-surface) var(--glass-surface-tint, 85%), transparent);
+    background: var(--glass-surface-lighting, none), color-mix(in srgb, var(--color-twilight-surface) var(--glass-surface-tint, 85%), transparent);
     -webkit-backdrop-filter: blur(var(--glass-surface-blur, 24px));
     backdrop-filter: blur(var(--glass-surface-blur, 24px));
     border: 1px solid var(--color-twilight-border-light);
@@ -1597,8 +1597,15 @@ a:active {
   opacity: 0;
 }
 
-.cadence-toast:has(.cadence-toast__close) {
+.cadence-toast:has(.cadence-toast__close),
+.cadence-toast:has(> .cadence-toast__action) {
   grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+/* A lone action (Undo) ends the title row instead of wrapping under the icon. */
+.cadence-toast > .cadence-toast__action {
+  grid-column: 3;
+  grid-row: 1;
 }
 
 .cadence-toast:has(.cadence-toast__description),
@@ -1926,11 +1933,11 @@ a:active {
     pointer-events: none;
     border-radius: inherit;
     background:
-      radial-gradient(circle 360px at 12% -8%,
-        color-mix(in srgb, var(--glow-tone, var(--accent-primary)) 9%, transparent),
+      radial-gradient(circle var(--glow-primary-size, 360px) at var(--glow-primary-position, 12% -8%),
+        color-mix(in srgb, var(--glow-tone, var(--accent-primary)) var(--glow-primary-strength, 9%), transparent),
         transparent 72%),
-      radial-gradient(circle 280px at 100% 110%,
-        color-mix(in srgb, var(--glow-tone, var(--accent-primary)) 4%, transparent),
+      radial-gradient(circle var(--glow-secondary-size, 280px) at var(--glow-secondary-position, 100% 110%),
+        color-mix(in srgb, var(--glow-tone, var(--accent-primary)) var(--glow-secondary-strength, 4%), transparent),
         transparent 74%);
   }
 
@@ -1942,6 +1949,69 @@ a:active {
 
 [data-theme="daylight"] .dialog-glow::before {
   opacity: 0.6;
+}
+
+/* Capture's hero field: a lantern in the dark. Deeper than the rows beneath it, with the
+   accent pooled inside and a gradient hairline that fully lights when you start typing. */
+@utility capture-surface {
+  position: relative;
+  isolation: isolate;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle 420px at 0% 0%,
+      color-mix(in srgb, var(--accent-primary) 11%, transparent), transparent 70%),
+    radial-gradient(circle 340px at 100% 130%,
+      color-mix(in srgb, var(--accent-primary) 6%, transparent), transparent 72%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--color-twilight-surface) 62%, transparent),
+      color-mix(in srgb, var(--color-twilight-deep) 88%, transparent));
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 9%, transparent),
+    0 28px 64px -28px rgb(0 0 0 / 0.6),
+    0 0 48px -16px color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  transition: box-shadow var(--duration-smooth, 300ms) var(--ease-out-expo, ease-out);
+
+  /* Gradient hairline: accent at the lit corners, fading through soft white. */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--accent-primary) 60%, transparent),
+      color-mix(in srgb, var(--color-twilight-text) 14%, transparent) 32%,
+      color-mix(in srgb, var(--color-twilight-text) 5%, transparent) 64%,
+      color-mix(in srgb, var(--accent-primary) 35%, transparent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.6;
+    transition: opacity var(--duration-smooth, 300ms) var(--ease-out-expo, ease-out);
+  }
+
+  /* Focus is the visible focus style: the hairline lights and the lantern blooms. */
+  &:focus-within {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 12%, transparent),
+      0 28px 64px -28px rgb(0 0 0 / 0.6),
+      0 0 0 4px color-mix(in srgb, var(--accent-primary) 10%, transparent),
+      0 0 72px -12px color-mix(in srgb, var(--accent-primary) 28%, transparent);
+  }
+
+  &:focus-within::after {
+    opacity: 1;
+  }
+}
+
+[data-theme="daylight"] .capture-surface {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 20px 48px -28px rgb(0 0 0 / 0.25),
+    0 0 48px -16px color-mix(in srgb, var(--accent-primary) 14%, transparent);
 }
 
 @utility scrollbar-hide {
@@ -2463,3 +2533,20 @@ body:has(.compact-navigation-shell) .mobile-floating-action {
 .mobile-capture-board > div:last-child > section > div:last-child { padding-bottom: 6.5rem; }
 
 .mobile-capture-board button { min-width: 44px; min-height: 44px; }
+
+/* One finish for navigation counts and unread/due indicators. */
+@utility activity-badge {
+  color: var(--color-twilight-text);
+  background: linear-gradient(150deg,
+    color-mix(in srgb, var(--accent-primary) 24%, var(--color-panel)),
+    color-mix(in srgb, var(--accent-primary) 16%, var(--color-panel)) 70%);
+  box-shadow:
+    0 0 0 2px var(--color-panel),
+    inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 12%, transparent),
+    0 2px 6px color-mix(in srgb, var(--color-panel) 20%, transparent);
+}
+
+/* Bulk selection takes over the bottom of the screen; the add orb steps aside. */
+body:has([data-capture-selection]) .mobile-floating-action:not([data-capture-selection]) {
+  visibility: hidden;
+}

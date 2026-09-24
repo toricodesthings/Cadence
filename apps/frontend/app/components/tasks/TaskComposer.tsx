@@ -171,7 +171,7 @@ export function useTaskComposer({
         icon: CheckSquare,
         subtitle: project
             ? (projectSections.length > 0 ? `${project.name} · ${targetName}` : project.name)
-            : lockedTag ? `Tagged #${lockedTag.name}` : "Lands in Holding unless you pick a project",
+            : lockedTag ? `Tagged #${lockedTag.name}` : "Lands in Capture unless you pick a list",
         band,
         isDirty: Boolean(title.trim() || notes.trim() || typed.touched || priority > 0 || effort !== null || projectId || tagIds.length),
         discardTitle: "Discard this task?",

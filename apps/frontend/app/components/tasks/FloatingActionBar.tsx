@@ -101,7 +101,7 @@ export function FloatingActionBar() {
                 updateTask.mutateAsync({ id: taskId, projectId, sectionId: null }),
             ),
         );
-        toast.success(projectId ? `Moved ${count} tasks` : `Returned ${count} tasks to Holding`);
+        toast.success(projectId ? `Moved ${count} tasks` : `Returned ${count} tasks to Capture`);
         clearSelection();
     };
 
@@ -204,7 +204,7 @@ export function FloatingActionBar() {
                                 onClick={() => void handleMove(null)}
                                 className="flex min-h-10 w-full items-center rounded-xl px-3 text-left text-sm text-twilight-text-soft hover:bg-white/[0.05]"
                             >
-                                Holding
+                                Capture
                             </button>
                             {projects.map((project) => (
                                 <button

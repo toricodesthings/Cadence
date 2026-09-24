@@ -44,7 +44,7 @@ export const helpTools = () => ({
             "READ-ONLY. The Cadence guide: how a feature works, where it lives, and in-app links to copy. " +
             "Topics: tasks (create, edit, Waiting, done, Trash, Undo) · dates-and-times (due vs scheduled, typing dates, dragging, overdue) · " +
             "repeats (Fixed vs Routine vs repeating task, making each) · routines (done/skip, pause, archive, streaks) · " +
-            "capture (thoughts, quick capture, sorting) · organizing (projects, sections, tags) · " +
+            "capture (thoughts, quick capture, sorting) · organizing (lists, sections, tags) · " +
             "planning (Today, Schedule, Upcoming, Weekly Reset) · events (personal events) · " +
             "assistant (what you can do, approval modes, voices, memory) · settings (every Settings tab) · " +
             "shortcuts (keyboard) · devices (desktop, Home Screen, offline) · privacy-and-data (export, account deletion, AI data). " +

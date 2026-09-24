@@ -18,18 +18,22 @@ const base = [
     "inline-flex items-center justify-center gap-2",
     "font-display font-semibold cursor-pointer",
     "transition-all duration-200 outline-none",
-    "focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight",
+    "focus-visible:ring-2 focus-visible:ring-accent-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-base",
     "disabled:pointer-events-none disabled:opacity-50",
     "active:scale-[0.97]",
 ].join(" ");
 
 const variants = {
     primary:
-        "bg-accent-primary text-twilight hover:bg-accent-primary/90 shadow-[0_0_24px_color-mix(in_srgb,var(--accent-primary)_25%,transparent)] glow-lantern",
+        "bg-accent-primary text-[var(--primary-foreground)] hover:bg-accent-primary/90 shadow-[0_0_24px_color-mix(in_srgb,var(--accent-primary)_25%,transparent)] glow-lantern",
     secondary:
-        "bg-twilight-surface/80 border border-twilight-border text-twilight-text hover:bg-white/5",
+        "bg-twilight-surface/80 border border-twilight-border text-twilight-text hover:bg-twilight-surface-hover hover:border-twilight-border-interactive",
     ghost:
         "text-twilight-text-muted hover:text-twilight-text hover:bg-white/5",
+    text:
+        "text-twilight-text hover:text-accent-primary",
+    subtle:
+        "text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary/10",
     danger:
         "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20",
     card:

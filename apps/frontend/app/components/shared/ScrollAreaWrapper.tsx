@@ -11,7 +11,7 @@ interface ScrollAreaWrapperProps {
 export function ScrollAreaWrapper({ children, className }: ScrollAreaWrapperProps) {
     return (
         <ScrollArea.Root className={`mobile-scroll-region h-full min-h-0 flex-1 ${className ?? ""}`}>
-            <ScrollArea.Viewport className="scrollbar-thin">
+            <ScrollArea.Viewport className="scrollbar-thin [&>div]:!block">
                 {children}
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar orientation="vertical">

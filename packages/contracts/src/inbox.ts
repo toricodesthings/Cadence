@@ -2,6 +2,8 @@ import { z } from "zod";
 import { flexibleDateTimeSchema, isoDateTimeSchema } from "./common";
 import { canonicalNlpEnvelopeSchema, sourceSurfaceSchema } from "./task";
 
+export const inboxQuerySchema = z.object({ status: z.enum(["clarifying", "kept"]).default("clarifying") });
+
 export const captureKindSchema = z.enum(["task", "thought", "reference", "unknown"]);
 export type CaptureKind = z.infer<typeof captureKindSchema>;
 export const captureStatusSchema = z.enum(["clarifying", "placed", "kept", "discarded"]);
@@ -38,6 +40,7 @@ export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
 /** Schema for the atomic inbox→task processing endpoint */
 export const processInboxItemSchema = z.object({
     title: z.string().min(1).max(2_000),
+    complete: z.boolean().optional(),
     scheduledDate: flexibleDateTimeSchema.nullish(),
     dueDate: z.iso.date().nullish(),
     scheduledStart: isoDateTimeSchema.nullish(),

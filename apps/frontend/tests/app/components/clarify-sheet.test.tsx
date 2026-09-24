@@ -1,65 +1,47 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { ClarifySheet } from "../../../app/components/holding/ClarifySheet";
 import { Provider } from "../../../app/components/primitives/Tooltip";
-
-const { process, update, parse } = vi.hoisted(() => ({ process: vi.fn(), update: vi.fn(), parse: vi.fn() }));
-vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({ useProcessInboxToTask: () => ({ mutate: process, isPending: false }), todayISO: () => "2026-09-16", tomorrowISO: () => "2026-09-17" }));
+import { placementLabel } from "../../../app/lib/utils/date-format";
+const { process, update, parse, status } = vi.hoisted(() => ({ process: vi.fn(), update: vi.fn(), parse: vi.fn(), status: vi.fn() }));
+vi.mock("../../../app/hooks/inbox/use-process-inbox-to-task", () => ({ useProcessInboxToTask: () => ({ mutateAsync: process, isPending: false }), todayISO: () => "2026-09-16", tomorrowISO: () => "2026-09-17" }));
 vi.mock("../../../app/hooks/inbox/use-update-inbox-item", () => ({ useUpdateInboxItem: () => ({ mutate: update, isPending: false }) }));
-vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: {} }) }));
+vi.mock("../../../app/hooks/inbox/use-capture-actions", () => ({ useCaptureActions: () => ({ setStatus: status }) }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { tasks: { intelligence: {} }, dateTime: { dateStyle: "mdy" } } }) }));
 vi.mock("../../../app/hooks/projects/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
 vi.mock("../../../app/hooks/use-nlp-parse", () => ({ useNlpParse: parse }));
-vi.mock("../../../app/lib/api/track-event", () => ({ trackUsageEvent: vi.fn() }));
-vi.mock("../../../app/components/tasks/ParseSummaryChips", () => ({ ParseSummaryChips: ({ onDismiss }: { onDismiss: (id: string) => void }) => <button onClick={() => onDismiss("date-1")}>Dismiss detected date</button> }));
-vi.mock("../../../app/components/tasks/QuickScheduleSurface", () => ({ QuickScheduleSurface: ({ onChange }: { onChange: (value: unknown) => void }) => <button onClick={() => onChange({ dueDate: "2026-09-20", recurrenceRule: "FREQ=WEEKLY", isAllDay: true })}>Pick custom schedule</button> }));
-const item = { id: "capture-1", rawText: "Call Sam tomorrow", createdAt: "2026-09-15T12:00:00Z", aiSuggestion: "Keep it brief" } as InboxItem;
+vi.mock("../../../app/components/holding/PlaceSheet", () => ({ useWeekLoad: () => ({ lightest: "2026-09-18" }) }));
+vi.mock("../../../app/components/tasks/TagField", () => ({ TagField: () => null }));
+vi.mock("../../../app/components/tasks/ParseSummaryChips", () => ({ ParseSummaryChips: () => null }));
+vi.mock("../../../app/components/tasks/QuickScheduleSurface", () => ({ QuickScheduleSurface: ({ scheduledStart }: { scheduledStart: string }) => <div data-testid="custom-time">{scheduledStart}</div> }));
+const item = { id: "capture-1", rawText: "Call Sam tomorrow at 3pm", createdAt: "2026-09-15T12:00:00Z" } as InboxItem;
 const close = vi.fn();
-const openEditor = vi.fn();
-const parsed = { cleanedTitle: "Call Sam", dueDate: "2026-09-17", dueHumanLabel: "Tomorrow", tagIds: ["tag-1"], projectId: "project-1", priority: 2, recurrenceRule: null };
-function setup() { return render(<Provider><ClarifySheet item={item} onClose={close} onOpenFullEditor={openEditor} /></Provider>); }
-beforeEach(() => { vi.clearAllMocks(); parse.mockReturnValue(parsed); vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} }); });
+const parsed = { cleanedTitle: "Call Sam", dueDate: "2026-09-17", scheduledStart: "2026-09-17T15:00:00-04:00", tagIds: [], projectId: null, priority: 2, recurrenceRule: null, parseResult: { entities: [] } };
+function setup() { return render(<Provider><ClarifySheet item={item} onClose={close} /></Provider>); }
+beforeEach(() => { vi.clearAllMocks(); parse.mockReturnValue(parsed); process.mockResolvedValue({ id: "task-1" }); vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} }); });
 afterEach(() => vi.unstubAllGlobals());
 describe("Shared capture editor", () => {
-    it("keeps suggestions and the edited title when placing a capture", () => {
+    it("saves edited titles on blur without converting the thought", () => {
         setup();
-        expect(screen.getByRole("heading", { name: "Capture" })).toBeTruthy();
-        expect(screen.getByText("Keep it brief")).toBeTruthy();
-        fireEvent.change(screen.getByRole("textbox", { name: "Edit task title" }), { target: { value: "Call Sam about the project" } });
-        fireEvent.click(screen.getByRole("button", { name: "Dismiss detected date" }));
-        fireEvent.click(screen.getByRole("button", { name: /Today Schedule/ }));
-        expect(process).toHaveBeenCalledWith(expect.objectContaining({ title: "Call Sam about the project", scheduledDate: "2026-09-16", projectId: "project-1", tagIds: ["tag-1"], nlp: expect.objectContaining({ dismissedEntityIds: ["date-1"] }) }), expect.any(Object));
+        const input = screen.getByRole("textbox", { name: "Edit thought title" });
+        fireEvent.change(input, { target: { value: "Call Sam about the list" } });
+        fireEvent.blur(input);
+        expect(update).toHaveBeenCalledWith({ id: item.id, analysis: { userOverrides: { title: "Call Sam about the list" } } });
+        expect(process).not.toHaveBeenCalled();
     });
-    it("preserves detected, tomorrow and custom schedule placement", () => {
+    it("keeps the detected time and pre-fills custom scheduling with it", async () => {
         setup();
-        fireEvent.click(screen.getByRole("button", { name: /Use detected date/ }));
-        expect(process.mock.calls.at(-1)?.[0].scheduledDate).toBe("2026-09-17");
-        fireEvent.click(screen.getByRole("button", { name: "Tomorrow" }));
-        expect(process.mock.calls.at(-1)?.[0].scheduledDate).toBe("2026-09-17");
-        fireEvent.click(screen.getByRole("button", { name: "Custom" }));
-        fireEvent.click(screen.getByRole("button", { name: "Pick custom schedule" }));
-        fireEvent.click(screen.getByRole("button", { name: "Place with this schedule" }));
-        expect(process.mock.calls.at(-1)?.[0]).toMatchObject({ dueDate: "2026-09-20", recurrenceRule: "FREQ=WEEKLY", isAllDay: true });
+        fireEvent.click(screen.getByRole("button", { name: "Pick day…" }));
+        expect(screen.getByTestId("custom-time").textContent).toBe(parsed.scheduledStart);
+        await act(async () => fireEvent.click(screen.getByRole("button", { name: placementLabel(parsed.scheduledStart) })));
+        expect(process).toHaveBeenCalledWith(expect.objectContaining({ scheduledDate: parsed.scheduledStart }));
     });
-    it("hands the created task to the full editor only after placement succeeds", () => {
+    it("keeps a dated thought with no day only through an explicit null schedule", async () => {
         setup();
-        fireEvent.click(screen.getByRole("button", { name: /Open full task editor/ }));
-        expect(process.mock.calls[0][0].skipOptimisticRemoval).toBe(true);
-        expect(openEditor).not.toHaveBeenCalled();
-        process.mock.calls[0][1].onSuccess({ id: "task-1" });
-        expect(openEditor).toHaveBeenCalledWith("task-1");
-        expect(close).not.toHaveBeenCalled();
-    });
-    it("keeps close, collapse and discard separate", () => {
-        setup();
-        fireEvent.click(screen.getByRole("button", { name: "Done" }));
-        fireEvent.click(screen.getByRole("button", { name: /When.*Tomorrow/ }));
-        expect(screen.getByRole("button", { name: "Custom" })).toBeTruthy();
-        fireEvent.click(screen.getByRole("button", { name: "Close clarify sheet" }));
+        await act(async () => fireEvent.click(screen.getByRole("button", { name: "Keep with no day" })));
+        expect(process).toHaveBeenCalledWith(expect.objectContaining({ dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true }));
         expect(close).toHaveBeenCalledOnce();
-        expect(update).not.toHaveBeenCalled();
-        fireEvent.click(screen.getByRole("button", { name: /Discard capture/ }));
-        expect(update).toHaveBeenCalledWith({ id: "capture-1", captureStatus: "discarded" }, expect.any(Object));
     });
 });

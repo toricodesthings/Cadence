@@ -101,6 +101,7 @@ export const batchRescheduleSchema = z.object({
 
 // ── Row schema — exactly the DB columns (wire-shaped, timestamps as ISO strings) ──
 export const taskRowSchema = z.object({
+    origin: z.enum(["thought"]).nullable(),
     id: z.uuid(),
     userId: z.uuid(),
     projectId: z.uuid().nullable(),
@@ -133,6 +134,7 @@ export type TaskRow = z.infer<typeof taskRowSchema>;
 // ── Entity schema — row + API enrichment (joins/derived). Narrows priority/effort
 //    to the canonical literal unions that the client consumes. ──
 export const taskSchema = taskRowSchema.extend({
+    origin: z.enum(["thought"]).nullable().optional(),
     priority: taskPrioritySchema,
     effort: effortLevelSchema.nullable(),
     // The client treats these nullable columns as optional (matches the prior FE

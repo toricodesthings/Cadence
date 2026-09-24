@@ -16,7 +16,7 @@ const VARIANTS: Record<EmptyStateVariant, {
     today: {
         icon: Feather,
         title: "Nothing pressing today.",
-        description: "Pull tasks from Holding, or schedule something from Upcoming.",
+        description: "Pull tasks from Capture, or schedule something from Upcoming.",
         cta: { label: "Go to Capture", to: "/" },
     },
     upcoming: {

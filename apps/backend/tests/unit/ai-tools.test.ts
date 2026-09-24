@@ -130,6 +130,7 @@ describe("toMinimalInboxItem", () => {
                 processed: false,
             }),
         ).toEqual({
+            isNote: false,
             id: "i1",
             rawText: "call mom tmrw",
             captureKind: "task",

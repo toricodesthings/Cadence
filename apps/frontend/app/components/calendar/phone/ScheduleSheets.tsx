@@ -9,7 +9,7 @@ import { dayLabel, usePlaceTask } from "../../holding/PlaceSheet";
 export function ReadyToPlaceSheet({ open, dateIso, tasks, onClose }: { open: boolean; dateIso: string; tasks: Task[]; onClose: () => void }) {
     const place = usePlaceTask();
     return (
-        <UtilitySheet title={`Place on ${dayLabel(dateIso)}`} subtitle="Ready tasks from Holding" open={open} onClose={onClose}>
+        <UtilitySheet title={`Place on ${dayLabel(dateIso)}`} subtitle="Ready tasks from Capture" open={open} onClose={onClose}>
             {tasks.length === 0 ? (
                 <p className="px-1 py-6 text-sm text-twilight-text-soft">Nothing is waiting to be placed.</p>
             ) : (

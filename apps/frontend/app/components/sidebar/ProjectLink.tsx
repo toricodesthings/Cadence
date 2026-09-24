@@ -1,3 +1,4 @@
+import { PlainNavCount } from "./PlainNavCount";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -70,7 +71,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
             <Dialog.Dialog open={renameOpen} onOpenChange={setRenameOpen}>
                 <Dialog.DialogContent className="sm:max-w-sm" hideCloseButton>
                     <Dialog.DialogHeader>
-                        <Dialog.DialogTitle>Rename / Edit project</Dialog.DialogTitle>
+                        <Dialog.DialogTitle>Rename / Edit list</Dialog.DialogTitle>
                         <Dialog.DialogDescription>
                             Enter a new name or style for <span className="text-twilight-text">{label}</span>.
                         </Dialog.DialogDescription>
@@ -82,7 +83,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                                 autoFocus
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
-                                placeholder="Project name"
+                                placeholder="List name"
                                 className="flex-1 w-full rounded-xl bg-white/[0.06] border border-twilight-border px-4 py-2.5 text-sm text-twilight-text placeholder:text-twilight-text-muted/80 outline-none focus:border-accent-primary/40 transition-colors"
                                 onKeyDown={(e) => e.key === "Escape" && setRenameOpen(false)}
                             />
@@ -139,7 +140,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                     <AlertDialog.Header>
                         <AlertDialog.Title>Delete "{label}"?</AlertDialog.Title>
                         <AlertDialog.Description>
-                            This will permanently delete the project and all its tasks. This action cannot be undone.
+                            This will permanently delete the list and all its tasks. This action cannot be undone.
                         </AlertDialog.Description>
                     </AlertDialog.Header>
                     <AlertDialog.Footer>
@@ -154,7 +155,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                                 size="md"
                                 onClick={handleDelete}
                             >
-                                Delete project
+                                Delete list
                             </Button>
                         </AlertDialog.Action>
                     </AlertDialog.Footer>
@@ -176,7 +177,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                     }
                 `}
             >
-                <Link to={href} className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                <Link to={href} aria-label={count === undefined ? label : `${label}, ${count} ${count === 1 ? "task" : "tasks"}`} aria-current={active ? "page" : undefined} className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
                     {emoji ? (
                         <span className="text-[14px] shrink-0 w-4 pl-0.5">{emoji}</span>
                     ) : (
@@ -186,15 +187,13 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                         />
                     )}
                     <span className="flex-1 truncate">{label}</span>
-                    {count !== undefined && count > 0 && (
-                        <span className="text-[13px] tabular-nums text-twilight-text-muted">{count}</span>
-                    )}
+                    <PlainNavCount count={count} />
                 </Link>
 
                 <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
                         <button
-                            aria-label={`Open actions for project ${label}`}
+                            aria-label={`Open actions for list ${label}`}
                             className="btn-icon -my-2 -mr-2 shrink-0 text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
                             onClick={(e) => e.preventDefault()}
                         >
@@ -233,7 +232,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                 <ContextMenu.Item variant="danger" onSelect={() => setDeleteOpen(true)}>
                     <div className="flex items-center gap-2">
                         <Trash2 size={16} />
-                        <span>Delete project</span>
+                        <span>Delete list</span>
                     </div>
                 </ContextMenu.Item>
             </ContextMenu.Content>

@@ -6,6 +6,52 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Capture keeps up with you, and Projects are now Lists: jot it, tick it off or give it a day in one move.
+
+### Added
+- Tick off anything in Capture straight away; it shows in Completed marked as a thought.
+- Sort Capture by newest, oldest or priority, and use Focus views there like on Today.
+- Paste several lines into Capture and add them as separate thoughts in one go.
+- Keep a thought as a note in Capture, so ideas don't have to become tasks.
+- Pick a list and tags for a thought before giving it a day.
+- Select several things in Capture and give them a day, or discard them, together.
+- "Sort these with Cadence" asks the assistant to group your thoughts; you approve each suggestion.
+- Thoughts older than two weeks fold into Older, out of the way but still there.
+- Search now finds thoughts in Capture too.
+- Capture on desktop can show rows or a board, like Today and Upcoming.
+- On desktop, drag a tag from the sidebar onto a Capture row to tag it.
+### Changed
+- Lists show a plain task count in the sidebar, matching Capture.
+- The notification bell shows your unread count on desktop and mobile, hiding it when everything is read.
+- Routines shows how many are still due today, clearing as you complete or skip them.
+- Capture counts, Routine indicators, and notification bells share a softly highlighted badge design.
+- Capture's input is a lantern-lit field that glows when you type, with a Capture button and key hints.
+- Tags on a thought or task show right on its Capture row, no need to open it.
+- Projects are now called Lists, in the app and in the assistant; a list shows as rows or a board.
+- Capture uses Today and Upcoming's card styling, with New and No day yet groups and shared day buttons.
+- On your phone, the Capture sheet stays open after each thought so you can add several in a row.
+- "Open full task editor" is now "Make it a task": no day is set and you can undo it.
+- Capture suggests the day you typed or your lightest day, instead of always Today.
+### Fixed
+- Notification and Routine counts use softer badge backgrounds with clearer, higher-contrast numbers.
+- Capture rows are more compact, with one suggested day, shared button typography, and clearer spacing.
+- The Capture count in the sidebar now matches what's on the page.
+- New thoughts stay at the top of Capture instead of jumping to the bottom once saved.
+- "Later" no longer puts a thought on a day it spotted in the text; it keeps it with no day.
+- Picking a detected date like "tomorrow at 3pm" now keeps the time.
+- "Before March" or "before Friday" now means the day before, and the word leaves the title with the date.
+- Keyboard shortcuts on Capture (1, 2, 3, Enter, Backspace) now work, and the hints only show on the focused row.
+- ⌘ Enter in the Capture field now adds the line straight as a task, as the hint says.
+- Esc in the Capture field no longer erases what you typed.
+- Discarding or placing a thought can now be undone from the toast.
+- Title edits in a thought's details are kept when you close them.
+- The Place panel no longer cuts off the weekend and its buttons.
+- On your phone, the Capture sheet opens with the keyboard ready.
+- The assistant no longer treats thoughts you discarded as still waiting in Capture.
+- Text on main amber buttons is dark again, so labels are readable everywhere.
+- Undo in toasts sits beside the message instead of wrapping underneath it.
+- The Place panel's title and hint are no longer hidden behind the panel switcher.
+
 ## [0.18.1] - 2026-09-23
 
 The assistant gets to the point, sounds like the voice you picked, and can explain any part of Cadence.

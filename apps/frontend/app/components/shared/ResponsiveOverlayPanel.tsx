@@ -108,7 +108,7 @@ export function ResponsiveOverlayPanel({
         const frame = window.requestAnimationFrame(() => {
             const focusables = getFocusableElements(panelRef.current);
             const heading = panelRef.current?.querySelector<HTMLElement>("[data-sheet-heading]");
-            (heading ?? focusables[0] ?? panelRef.current)?.focus();
+            (panelRef.current?.querySelector<HTMLElement>("[data-initial-focus]") ?? heading ?? focusables[0] ?? panelRef.current)?.focus();
         });
 
         return () => {

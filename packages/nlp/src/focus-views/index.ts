@@ -109,7 +109,7 @@ export const FOCUS_VIEW_PRESETS: FocusViewPreset[] = [
   {
     id: "clear-the-fog",
     name: "Clear the Fog",
-    description: "Tasks missing dates, projects, or structure",
+    description: "Tasks missing dates, lists, or structure",
     icon: "CloudFog",
     definition: {
       ...DEFAULT_DEFINITION,
@@ -143,7 +143,7 @@ const PHRASE_RULES: PhraseRule[] = [
     apply: (def) => { def.needsDate = true; },
   },
   {
-    pattern: /\bno\s+project\b/i,
+    pattern: /\bno\s+(?:project|list)\b/i,
     apply: (def) => { def.needsProject = true; },
   },
   {
@@ -223,7 +223,7 @@ export function composeFocusView(
       const results = projectFuse.search(projectMatch[1].trim());
       if (results.length > 0 && results[0].score !== undefined && results[0].score < 0.2) {
         definition.projectIds = [results[0].item.id];
-        matchedRules.push(`Project: ${results[0].item.name}`);
+        matchedRules.push(`List: ${results[0].item.name}`);
       }
     }
   }

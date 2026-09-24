@@ -65,7 +65,7 @@ const ALIAS_MAP: Record<string, string[]> = {
 // ── Static pages ──────────────────────────────────────────────────
 
 const STATIC_PAGES: SearchResult[] = [
-    { id: "page-capture", kind: "page", focusKind: "section", title: "Capture", context: "Inbox & captured work", route: "/", score: 0 },
+    { id: "page-capture", kind: "page", focusKind: "section", title: "Capture", context: "Thoughts & tasks with no day", route: "/", score: 0 },
     { id: "page-today", kind: "page", focusKind: "section", title: "Today", context: "Overdue & today's tasks", route: "/today", score: 0 },
     { id: "page-upcoming", kind: "page", focusKind: "section", title: "Upcoming", context: "Tomorrow & next week", route: "/upcoming", score: 0 },
     { id: "page-schedule", kind: "page", focusKind: "section", title: "Schedule", context: "Calendar workspace", route: "/schedule", score: 0 },
@@ -102,7 +102,7 @@ function describeFocusView(definition: {
     }
     if (definition.waitingOnly) parts.push("Waiting");
     if (definition.needsDate) parts.push("Needs a date");
-    if (definition.needsProject) parts.push("Needs a project");
+    if (definition.needsProject) parts.push("Needs a list");
     if (definition.priorityMin !== null) parts.push(`P${definition.priorityMin}+`);
     if (definition.effortMax !== null) parts.push(`Effort ≤ ${definition.effortMax}`);
     if (definition.missingStructureOnly) parts.push("Missing structure");
@@ -159,14 +159,14 @@ function resolveTaskRoute(task: {
     if (task.state === "ARCHIVED") return { route: "/trash", context: "Trash" };
 
     if (isPassiveTimetableTask(task)) {
-        if (task.projectId) return { route: `/project/${task.projectId}`, context: "Project · Schedule anchor" };
+        if (task.projectId) return { route: `/project/${task.projectId}`, context: "List · Schedule anchor" };
         return { route: "/schedule", context: "Schedule anchor" };
     }
 
     const today = toISODate(new Date());
     const effectiveDate = getTaskTimelineAnchor(task) ?? task.dueDate ?? task.scheduledStart;
 
-    if (task.projectId) return { route: `/project/${task.projectId}`, context: "Project" };
+    if (task.projectId) return { route: `/project/${task.projectId}`, context: "List" };
     if (effectiveDate && effectiveDate <= today) return { route: "/today", context: "Today", scope: effectiveDate < today ? "today-overdue" : "today" };
     if (effectiveDate && effectiveDate > today) return { route: "/upcoming", context: "Upcoming" };
     return { route: "/", context: "Capture", scope: "holding-unmanaged" };
@@ -183,7 +183,9 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
     const taskIds = useMemo(() => tasks.map((task) => task.id), [tasks]);
     const { data: subtasksByTaskId = {} } = useSubtasksByTaskIds(taskIds);
     const { data: habits = [] } = useAllHabits();
-    const { data: inboxItems = [] } = useInbox();
+    const { data: activeCaptures = [] } = useInbox();
+    const { data: keptCaptures = [] } = useInbox("kept");
+    const inboxItems = useMemo(() => [...new Map([...activeCaptures, ...keptCaptures].map(item => [item.id, item])).values()], [activeCaptures, keptCaptures]);
     const { data: projects = [] } = useProjects();
     const { data: sections = [] } = useSections();
     const savedFocusViews = useFocusViewStore((state) => state.savedViews);
@@ -289,14 +291,16 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
         // Score captures
         const captureResults = inboxItems
             .map(item => {
-                const s = scoreMatch(query, item.rawText);
+                if (!["clarifying", "kept"].includes(item.captureStatus)) return null;
+                const thoughtTitle = (item.analysis?.userOverrides as { title?: string } | undefined)?.title ?? item.rawText;
+                const s = scoreItem(query, { title: thoughtTitle, meta: [item.rawText] });
                 if (s === 0) return null;
                 return {
                     id: `inbox-${item.id}`,
                     kind: "inbox" as const,
                     focusKind: "inbox" as const,
-                    title: item.rawText.length > 80 ? item.rawText.slice(0, 80) + "…" : item.rawText,
-                    context: "Holding · Needs processing",
+                    title: thoughtTitle.length > 80 ? thoughtTitle.slice(0, 80) + "…" : thoughtTitle,
+                    context: item.captureStatus === "kept" ? "Capture · Note" : "Capture · Thought",
                     route: "/",
                     focusScope: "holding-captures",
                     score: s,
@@ -316,7 +320,7 @@ export function useUniversalSearch(rawQuery: string, enabled: boolean) {
                     kind: "project" as const,
                     focusKind: "section" as const,
                     title: p.emoji ? `${p.emoji} ${p.name}` : p.name,
-                    context: "Project",
+                    context: "List",
                     route: `/project/${p.id}`,
                     score: s,
                 } satisfies SearchResult;

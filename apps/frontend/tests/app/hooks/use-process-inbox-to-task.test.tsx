@@ -56,14 +56,13 @@ describe("useProcessInboxToTask", () => {
             wrapper: createWrapper(),
         });
 
-        result.current.mutate({ inboxItemId: "inbox-1", rawText: "Buy groceries" });
+        result.current.mutate({ inboxItemId: "10000000-0000-4000-8000-000000000001", rawText: "Buy groceries" });
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
         expect(inboxProcessMock).toHaveBeenCalledWith({
-            param: { id: "inbox-1" },
+            param: { id: "10000000-0000-4000-8000-000000000001" },
             json: expect.objectContaining({
-                clientMutationId: expect.any(String),
                 title: "Buy groceries",
             }),
         });
@@ -83,7 +82,7 @@ describe("useProcessInboxToTask", () => {
         });
 
         result.current.mutate({
-            inboxItemId: "inbox-2",
+            inboxItemId: "10000000-0000-4000-8000-000000000002",
             rawText: "Meeting notes",
             dueDate: "2026-03-27",
             scheduledStart: "2026-03-27T15:30:00.000Z",
@@ -96,7 +95,7 @@ describe("useProcessInboxToTask", () => {
 
         expect(inboxProcessMock).toHaveBeenCalledOnce();
         expect(inboxProcessMock).toHaveBeenCalledWith({
-            param: { id: "inbox-2" },
+            param: { id: "10000000-0000-4000-8000-000000000002" },
             json: expect.objectContaining({
                 title: "Meeting notes",
                 dueDate: "2026-03-27",
@@ -120,7 +119,7 @@ describe("useProcessInboxToTask", () => {
             wrapper: createWrapper(),
         });
 
-        result.current.mutate({ inboxItemId: "inbox-3", rawText: "Broken" });
+        result.current.mutate({ inboxItemId: "10000000-0000-4000-8000-000000000003", rawText: "Broken" });
 
         await waitFor(() => expect(result.current.isError).toBe(true));
         expect(inboxProcessMock).toHaveBeenCalledOnce();

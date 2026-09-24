@@ -1,3 +1,5 @@
+import { PlainNavCount } from "./PlainNavCount";
+import { ActivityBadge } from "../primitives/ActivityBadge";
 import { Link, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
@@ -6,6 +8,8 @@ interface NavLinkProps {
     label: string;
     href: string;
     count?: React.ReactNode;
+    countLabel?: string;
+    countAppearance?: "plain" | "badge";
     /** Show a subtle dot indicator next to the icon */
     showDot?: boolean;
     /** Tailwind class for active icon/text color, e.g. "text-accent-primary" */
@@ -22,6 +26,8 @@ export function NavLink({
     label,
     href,
     count,
+    countLabel = "items",
+    countAppearance = "badge",
     showDot,
     activeColor = "text-accent-primary",
     activeBg = "bg-accent-primary/15",
@@ -34,7 +40,7 @@ export function NavLink({
         <Link
             to={href}
             aria-current={active ? "page" : undefined}
-            aria-label={label}
+            aria-label={typeof count === "number" ? `${label}, ${count} ${countLabel}` : label}
             className={`
                 group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px]
                 transition-colors duration-200 cursor-pointer
@@ -51,14 +57,15 @@ export function NavLink({
                     className={`transition-colors ${active ? activeColor : `text-twilight-text-muted ${hoverColor}`}`}
                 />
                 {showDot && (
-                    <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-accent-primary/70" aria-hidden="true" />
+                    <ActivityBadge className="absolute -right-0.5 -top-0.5" />
                 )}
             </span>
             <span className="flex-1 truncate">{label}</span>
             {count !== undefined && count !== 0 && (
-                <span className="text-[13px] tabular-nums text-twilight-text-muted" aria-label={`${count} items`}>{count}</span>
+                countAppearance === "plain"
+                    ? <PlainNavCount count={count} />
+                    : <ActivityBadge count={count} />
             )}
         </Link>
     );
 }
-

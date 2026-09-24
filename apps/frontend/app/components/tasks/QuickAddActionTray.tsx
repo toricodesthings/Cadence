@@ -141,7 +141,7 @@ export function QuickAddActionTray({
                                 }`}
                             >
                                 <FolderOpen size={14} aria-hidden="true" />
-                                {!iconOnly ? <span>{selectedProject?.name ?? "Project"}</span> : null}
+                                {!iconOnly ? <span>{selectedProject?.name ?? "List"}</span> : null}
                             </button>
                         </Popover.Trigger>
                         <Popover.Content className="w-56 p-1">
@@ -155,7 +155,7 @@ export function QuickAddActionTray({
                                             : "text-twilight-text-soft hover:bg-white/[0.05]"
                                     }`}
                                 >
-                                    No project
+                                    No list
                                 </button>
                                 {projects.map((project) => (
                                     <button

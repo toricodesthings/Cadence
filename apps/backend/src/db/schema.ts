@@ -244,6 +244,7 @@ export const projects = pgTable('projects', {
 
 // 5. Tasks (Unified Events & To-Dos)
 export const tasks = pgTable('tasks', {
+    origin: text('origin', { enum: ['thought'] }),
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),

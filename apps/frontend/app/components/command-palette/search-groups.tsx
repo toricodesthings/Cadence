@@ -14,8 +14,8 @@ export const GROUP_LABELS: Record<string, string> = {
     pages: "Pages",
     tasks: "Tasks",
     habits: "Routines",
-    captures: "Captures",
-    projects: "Projects",
+    captures: "Thoughts",
+    projects: "Lists",
     focusViews: "Focus Views",
 };
 

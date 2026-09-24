@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react";
+import { useTasks } from "../../hooks/tasks/use-tasks";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { CalendarRange, Inbox, CheckCircle2, Trash2, LayoutDashboard, Calendar, CalendarHeart, Flame, Sprout, Search, Plus } from "lucide-react";
-import * as ScrollArea from "../primitives/ScrollArea";
+import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import * as Separator from "../primitives/Separator";
 import * as Collapsible from "../primitives/Collapsible";
 import { NavLink } from "./NavLink";
 import { ProjectLink } from "./ProjectLink";
 import { CreateProjectPopover } from "./CreateProjectPopover";
 import { useProjects } from "../../hooks/projects/use-projects";
-import { useInbox } from "../../hooks/inbox/use-inbox";
-import { useTasks } from "../../hooks/tasks/use-tasks";
+import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import { resolveAccentColor } from "../../lib/utils/color-resolver";
 import { Skeleton } from "../primitives/Skeleton";
 import { Button } from "../primitives/Button";
@@ -18,7 +18,7 @@ import { CreateTagInline } from "./CreateTagInline";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useTagFilterStore } from "../../stores/tag-filter-store";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useHabitUnresolvedSummary } from "../../hooks/habits/use-habit-unresolved";
+import { useRoutineDueCount } from "../../hooks/habits/use-routine-due-count";
 
 /** Main sidebar panel with live projects and inbox count */
 export function SidebarPanel({
@@ -30,11 +30,17 @@ export function SidebarPanel({
 }) {
     const [listsOpen, setListsOpen] = useState(true);
     const { data: projects, isLoading: projectsLoading } = useProjects();
-    const { data: inboxItems, isLoading: inboxLoading } = useInbox();
-    const { data: holdingTasks = [], isLoading: holdingLoading } = useTasks({
-        state: "ACTIVE",
-        hasNoProject: true,
-    });
+    const { data: listTasks } = useTasks({ state: "ACTIVE", allPages: true, enabled: Boolean(projects?.length) });
+    const listCounts = useMemo(() => {
+        const counts = new Map<string, number>();
+        for (const task of listTasks ?? []) {
+            if (task.projectId && task.state === "ACTIVE") {
+                counts.set(task.projectId, (counts.get(task.projectId) ?? 0) + 1);
+            }
+        }
+        return counts;
+    }, [listTasks]);
+    const { count: captureCount, isLoading: captureLoading } = useCaptureFeed();
     const { data: tags = [], isLoading: tagsLoading } = useTags();
     const { activeTagId, setActiveTag } = useTagFilterStore();
     const { data: userSettings } = useSettings();
@@ -78,13 +84,11 @@ export function SidebarPanel({
 
     const filteredTags = tags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase()));
 
-    const inboxCount = inboxLoading || holdingLoading ? (
+    const inboxCount = captureLoading ? (
         <Skeleton className="h-4 w-6 rounded-xl bg-white/[0.04]" />
-    ) : (inboxItems?.length ?? 0) + holdingTasks.length;
+    ) : captureCount;
 
-    const { data: unresolvedHabits } = useHabitUnresolvedSummary();
-    const showHabitDot = userSettings?.notifications?.showHabitNavDueCount !== false;
-    const hasHabitsDue = showHabitDot && (unresolvedHabits?.length ?? 0) > 0;
+    const routineDueCount = useRoutineDueCount();
 
     return (
         <div
@@ -92,10 +96,6 @@ export function SidebarPanel({
             className="flex h-full w-full min-w-0 shrink-0 flex-col pb-4"
             aria-label="Navigation panel"
         >
-            {/* `[&>div]:!block` defeats Radix's `display:table` viewport wrapper,
-                which otherwise grows to its widest child and gets sliced by the
-                rail's overflow:hidden. Forcing a block context makes every row
-                reflow/truncate to the current rail width instead of clipping (§4.8). */}
             {/* Search bar — opens command palette for non-wide shells. Sits in a
                 header-height strip so its border lines up with the page header's. */}
             {onSearchOpen && (
@@ -110,8 +110,8 @@ export function SidebarPanel({
                     </button>
                 </div>
             )}
-            <ScrollArea.Root className="mobile-scroll-region flex-1">
-                <ScrollArea.Viewport className="h-full px-3 py-5 scrollbar-thin [&>div]:!block [&>div]:!min-w-0">
+            <ScrollAreaWrapper>
+                <div className="min-w-0 px-3 py-5">
                     {/* Primary nav */}
                     {showWorkspaceNav && (
                         <>
@@ -136,7 +136,8 @@ export function SidebarPanel({
                                     icon={Flame}
                                     label="Routines"
                                     href="/routines"
-                                    showDot={hasHabitsDue}
+                                    count={routineDueCount}
+                                    countLabel="due today"
                                     activeColor="text-accent-nav-habits"
                                     activeBg="bg-accent-nav-habits/15"
                                     hoverColor="group-hover:text-accent-nav-habits"
@@ -162,6 +163,7 @@ export function SidebarPanel({
                             label="Capture"
                             href="/"
                             count={inboxCount}
+                            countAppearance="plain"
                             activeColor="text-accent-nav-capture"
                             activeBg="bg-accent-nav-capture/15"
                             hoverColor="group-hover:text-accent-nav-capture/70"
@@ -195,21 +197,21 @@ export function SidebarPanel({
                                     aria-expanded={listsOpen}
                                     aria-controls="projects-list"
                                 >
-                                    Projects
+                                    Lists
                                 </button>
                             </Collapsible.Trigger>
                             <CreateProjectPopover />
                         </div>
                         <Collapsible.Content id="projects-list">
                             {projectsLoading ? (
-                                <div className="px-3 py-2 flex flex-col gap-3" aria-label="Loading projects">
+                                <div className="px-3 py-2 flex flex-col gap-3" aria-label="Loading lists">
                                     <Skeleton className="h-4 w-3/4 rounded-xl" />
                                     <Skeleton className="h-4 w-1/2 rounded-xl" />
                                     <Skeleton className="h-4 w-2/3 rounded-xl" />
                                 </div>
                             ) : !projects || projects.length === 0 ? (
                                 <p className="px-3 py-3 text-[13px] text-twilight-text-muted/90 leading-relaxed">
-                                    No projects yet. Create one to organize your tasks.
+                                    No lists yet. Create one to organize your tasks.
                                 </p>
                             ) : (
                                 <div className="flex flex-col gap-0.5">
@@ -218,6 +220,7 @@ export function SidebarPanel({
                                             key={project.id}
                                             id={project.id}
                                             label={project.name}
+                                            count={listTasks ? listCounts.get(project.id) ?? 0 : undefined}
                                             emoji={project.emoji}
                                             color={resolveAccentColor(project.colorAccent)}
                                             href={`/project/${project.id}`}
@@ -307,11 +310,8 @@ export function SidebarPanel({
                             />
                         )}
                     </nav>
-                </ScrollArea.Viewport>
-                <ScrollArea.Scrollbar orientation="vertical" className="w-1 p-px">
-                    <ScrollArea.Thumb className="rounded-full bg-white/8" />
-                </ScrollArea.Scrollbar>
-            </ScrollArea.Root>
+                </div>
+            </ScrollAreaWrapper>
         </div>
     );
 }

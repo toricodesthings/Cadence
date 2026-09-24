@@ -24,7 +24,7 @@ interface BucketedCollectionViewProps {
     desktopColumnScroll?: boolean;
 }
 
-function BucketedSectionHeader({
+export function BucketedSectionHeader({
     title,
     icon: Icon,
     accentClass,

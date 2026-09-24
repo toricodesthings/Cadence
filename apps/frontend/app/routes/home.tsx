@@ -1,14 +1,12 @@
 import { useTaskDetailsRequest } from "../hooks/ui/use-task-details-request";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { CalendarDays, Inbox, PanelRightClose, PanelRightOpen } from "lucide-react";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
-import { PlannerHeader } from "../components/layout/PlannerHeader";
 import { LocationNotice } from "../components/location/LocationNotice";
 import { PageContent } from "../components/layout/PageLayout";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { Composer } from "../components/shared/Composer";
-import { toast } from "sonner";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { CaptureInput, useCaptureComposer } from "../components/holding/CaptureInput";
 import { HoldingFeed } from "../components/holding/HoldingFeed";
@@ -17,33 +15,35 @@ import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { Button } from "../components/primitives/Button";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
-import { PlaceDndProvider, PlaceSheet } from "../components/holding/PlaceSheet";
-import type { Task } from "@cadence/contracts/task";
+import { PlaceDndProvider } from "../components/holding/PlaceSheet";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { useAssistantStore } from "../stores/assistant-store";
-import { useInbox } from "../hooks/inbox/use-inbox";
-import { useTasks } from "../hooks/tasks/use-tasks";
+import { useCaptureFeed } from "../hooks/inbox/use-capture-feed";
+import { useIsCoarsePointer } from "../hooks/ui/use-coarse-pointer";
+import { FocusViewBar } from "../components/focus-views/FocusViewBar";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
+import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
+import { SortMenu } from "../components/shared/SortMenu";
 
 export default function HomeRoute() {
     const shell = useShellMode();
+    const coarse = useIsCoarsePointer();
+    const { view, setView } = useRouteViewMode("capture");
+    // Board is a desktop layout; compact shells always get rows.
+    const board = !shell.isCompact && view === "kanban";
+    const focusProxy = useRef<HTMLInputElement>(null);
     const [captureOpen, setCaptureOpen] = useState(false);
     // The draft lives with the page, so closing the sheet keeps it and needs no discard prompt.
     const { reset: _resetCapture, ...captureComposer } = useCaptureComposer({
-        onSaved: () => {
-            toast.success("Captured");
-            setCaptureOpen(false);
-        },
+        onSaved: () => {},
     });
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [selectedInboxItemId, setSelectedInboxItemId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
-    const [placeOpen, setPlaceOpen] = useState(false);
-    const [placeTask, setPlaceTask] = useState<Task | null>(null);
 
     useTaskDetailsRequest((taskId) => {
         setSelectedTaskId(taskId);
@@ -52,12 +52,9 @@ export default function HomeRoute() {
         setSelectedInboxItemId(null);
     });
 
-    const { data: inboxItems = [], isLoading: inboxLoading } = useInbox();
-    const { data: holdingTasks = [], isLoading: tasksLoading } = useTasks({
-        state: "ACTIVE",
-        hasNoProject: true,
-        hasNoDate: true,
-    });
+    const captureFeed = useCaptureFeed();
+    const inboxItems = [...captureFeed.inboxItems, ...captureFeed.notes];
+    const tasksLoading = captureFeed.isLoading;
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } = useRightPanelStore();
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
 
@@ -66,7 +63,7 @@ export default function HomeRoute() {
         "Capture anything. Clarify later. Place when ready.",
     );
 
-    useRouteFocus();
+    useRouteFocus({ onFocusMatch: ({ focusKind, focusId }) => { if (focusKind === "inbox" && focusId) { setSelectedInboxItemId(focusId); setMobilePanelOpen(true); } } });
 
     // Find the selected inbox item for ClarifySheet
     const selectedInboxItem = useMemo(
@@ -85,7 +82,7 @@ export default function HomeRoute() {
 
     /* ── Side panel — ClarifySheet for captures, EditSidePanel for tasks, Overview fallback ── */
     const sidePanel = (
-        <EditSidePanelRail ariaLabel="Resize holding panel" width={holdingPanelWidth} onWidthChange={setHoldingPanelWidth}>
+        <EditSidePanelRail ariaLabel="Resize Place panel" width={holdingPanelWidth} onWidthChange={setHoldingPanelWidth}>
             {hasPanelContent ? (
                 selectedInboxItem ? (
                     <EditSidePanel kind="capture" item={selectedInboxItem} onClose={clearSelection}
@@ -100,15 +97,6 @@ export default function HomeRoute() {
     const handleSelectTask = (taskId: string) => {
         setSelectedInboxItemId(null);
         setSelectedTaskId((current) => (current === taskId ? null : taskId));
-        if (!shell.isWide) {
-            setMobileDetailMode("peek");
-            setMobilePanelOpen(true);
-        }
-    };
-
-    const handleSelectInboxItem = (itemId: string) => {
-        setSelectedTaskId(null);
-        setSelectedInboxItemId((current) => (current === itemId ? null : itemId));
         if (!shell.isWide) {
             setMobileDetailMode("peek");
             setMobilePanelOpen(true);
@@ -153,39 +141,33 @@ export default function HomeRoute() {
                 railShowsAssistant
                     ? "Hide Cadence"
                     : railOpen
-                        ? "Hide review panel"
-                        : "Show review panel"
+                        ? "Hide Place panel"
+                        : "Show Place panel"
             }
         >
             {railOpen ? <PanelRightClose size={18} aria-hidden="true" /> : <PanelRightOpen size={18} aria-hidden="true" />}
         </Button>
-    ) : (
+    ) : shell.isCompact ? null : (
         <Button variant="ghost" size="icon"
             type="button"
             onClick={() => {
-                if (shell.isCompact) { setPlaceTask(null); setPlaceOpen(true); return; }
                 clearSelection();
                 setMobilePanelOpen(true);
             }}
             className="btn-icon rounded-2xl"
-            aria-label={shell.isCompact ? "Pick a day" : "Open planner"}
+            aria-label="Place"
         >
             <CalendarDays size={16} aria-hidden="true" />
         </Button>
     );
 
-    const feed = tasksLoading || inboxLoading ? (
+    const feed = tasksLoading ? (
         <TaskListSkeleton />
     ) : (
         <HoldingFeed
-            inboxItems={inboxItems}
-            holdingTasks={holdingTasks}
-            selectedTaskId={selectedTaskId}
-            selectedInboxItemId={selectedInboxItemId}
             onSelectTask={handleSelectTask}
-            onSelectInboxItem={handleSelectInboxItem}
             onClarifyInboxItem={handleClarifyInboxItem}
-            onPlaceTask={(task) => { setPlaceTask(task); setPlaceOpen(true); }}
+            view={board ? "kanban" : "list"}
         />
     );
 
@@ -195,35 +177,33 @@ export default function HomeRoute() {
             hideContextualOrb
             sidePanel={sidePanel}
             sidePanelActive={Boolean(hasPanelContent)}
-            sidePanelLabel="Review"
-            headerRight={headerRight}
+            sidePanelLabel="Place"
+            headerRight={<div className="flex items-center gap-2"><FocusViewBar capture />{!shell.isCompact && <SortMenu view={view} onViewChange={setView} />}{headerRight}</div>}
             compactHeaderRightInline
             shellHeader={{
                 title: "Capture",
-                eyebrow: "Inbox",
+                eyebrow: "Unload",
                 icon: <Inbox size={18} aria-hidden="true" />,
                 accentColor: "var(--accent-nav-capture, var(--accent-primary))",
             }}
         >
-            {shell.isCompact ? <PageContent className="flex min-h-0 flex-1 flex-col pb-4">{feed}</PageContent> : <ScrollAreaWrapper>
+            {board ? <>
                 <PageContent width="default">
-                    {/* Greeting — demoted per M1: capture leads, warmth follows */}
-                    <PlannerHeader className="mb-4 lg:mb-5" />
                     <LocationNotice />
-
-                    {/* ── Universal capture composer — the ONE primary action (Law 1) ── */}
-                    <div className="mb-8 lg:mb-10"><CaptureInput /></div>
-
-                    {/* ── Unified Holding feed: To clarify → Ready to place ── */}
-                    {feed}
+                    {!coarse && <CaptureInput />}
                 </PageContent>
-            </ScrollAreaWrapper>}
-
-            {shell.isCompact && <>
-                <ContextualAddOrb directCapture onOpen={() => setCaptureOpen(true)} />
-                <Composer open={captureOpen} onClose={() => setCaptureOpen(false)} {...captureComposer} isDirty={false} />
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">{feed}</div>
+            </> : <ScrollAreaWrapper><PageContent width="default">
+                {!shell.isCompact && <LocationNotice />}
+                {!coarse && <div className="mb-5"><CaptureInput /></div>}
+                {feed}
+            </PageContent></ScrollAreaWrapper>}
+            {coarse && <>
+                <input ref={focusProxy} tabIndex={-1} aria-hidden="true" className="pointer-events-none fixed bottom-0 left-0 h-px w-px opacity-0" />
+                <ContextualAddOrb directCapture onOpen={() => { focusProxy.current?.focus(); setCaptureOpen(true); }} />
+                {/* Every return already saved, so closing is "Done", not a discard. */}
+                <Composer open={captureOpen} onClose={() => setCaptureOpen(false)} {...captureComposer} isDirty={false} closeLabel="Done" />
             </>}
-            <PlaceSheet open={placeOpen} task={placeTask} onClose={() => setPlaceOpen(false)} onOpenTask={handleSelectTask} />
 
             {/* ── Mobile overlay — ClarifySheet / EditSidePanel / Overview (C4 fix) ── */}
             {!shell.isWide && (
@@ -231,7 +211,7 @@ export default function HomeRoute() {
                     ariaLabel={
                         selectedInboxItem ? "Clarify capture"
                             : selectedTaskId ? "Task details"
-                            : "Holding context"
+                            : "Place"
                     }
                     open={mobilePanelOpen}
                     onClose={() => {
@@ -243,7 +223,7 @@ export default function HomeRoute() {
                     title={
                         selectedInboxItem ? "Clarify"
                             : selectedTaskId ? "Task details"
-                            : "Review"
+                            : "Place"
                     }
                     showHeader={!selectedInboxItem && !selectedTaskId}
                 >

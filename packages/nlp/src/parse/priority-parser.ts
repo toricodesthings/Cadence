@@ -5,6 +5,7 @@ const PRIORITY_KEYWORDS: Array<{
   value: TaskPriority;
   label: string;
 }> = [
+  { pattern: /(?<!\S)!!(?!\S)/, value: 4, label: "Urgent" },
   { pattern: /\bp1\b/i, value: 4, label: "P1 (Urgent)" },
   { pattern: /\bp2\b/i, value: 3, label: "P2 (High)" },
   { pattern: /\bp3\b/i, value: 2, label: "P3 (Medium)" },
