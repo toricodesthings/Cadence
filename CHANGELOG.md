@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.18.3] - 2026-09-23
+
 ### Changed
 - Remove a tag from a task or thought by clicking it; an × appears on hover.
 - List and Section in task details open a proper menu on desktop, and thought details match the task layout.
