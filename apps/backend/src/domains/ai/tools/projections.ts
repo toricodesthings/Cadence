@@ -25,6 +25,7 @@ export interface MinimalTask {
     priority?: number;
     effort?: number;
     projectId?: string;
+    sectionId?: string;
     waitingOn?: string;
     /** A timetable block (class, shift): occupies time, can't be checked off, never overdue. */
     fixedBlock?: true;
@@ -44,6 +45,7 @@ export interface TaskRow {
     priority: number;
     effort: number | null;
     projectId: string | null;
+    sectionId?: string | null;
     waitingOn: string | null;
     interactionMode: string;
     recurrenceRule: string | null;
@@ -75,6 +77,7 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         priority: row.priority || undefined,
         effort: row.effort ?? undefined,
         projectId: row.projectId ?? undefined,
+        sectionId: row.sectionId ?? undefined,
         waitingOn: row.waitingOn ?? undefined,
         fixedBlock: row.interactionMode === "timetable" || undefined,
         repeats: !!row.recurrenceRule || undefined,

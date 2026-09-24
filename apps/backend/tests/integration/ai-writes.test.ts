@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
-import { createUser, startTestDb } from "../helpers/db";
+import { createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { projectRoutes } from "../../src/domains/projects/projects.route";
@@ -8,6 +8,8 @@ import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
 import { noteRoutes } from "../../src/domains/notes/notes.route";
 import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
+import { withRls } from "../../src/platform/rls";
+import { projects, taskSections } from "../../src/db/schema";
 
 let userId: string;
 let call: (name: string, input: unknown, toolCallId?: string) => Promise<any>;
@@ -26,6 +28,94 @@ beforeEach(async () => {
 
 const allTasks = async () => (await api("GET", "?limit=100")).body.data as any[];
 const steps = async (taskId: string) => (await subApi("GET", `/tasks/${taskId}/subtasks`)).body.data as any[];
+
+describe("list destinations", () => {
+    it("finds and pages lists and empty sections beyond both caps, then places an image draft in the matching section", async () => {
+        const { university, course } = await withRls(getTestDb(), userId, async (tx) => {
+            const [university] = await tx.insert(projects).values({ userId, name: "University Deadline", createdAt: "2000-01-01T00:00:00Z" }).returning();
+            const others = await tx.insert(projects).values(Array.from({ length: 50 }, (_, i) => ({ userId, name: `List ${i}` }))).returning();
+            // Other lists must not consume a focused list's section budget.
+            await tx.insert(taskSections).values(Array.from({ length: 205 }, (_, i) => ({ userId, projectId: others[0].id, name: `Other ${i}`, orderIndex: -i - 1 })));
+            const sections = await tx.insert(taskSections).values(Array.from({ length: 205 }, (_, i) => ({
+                userId, projectId: university.id, name: i === 204 ? "COMP2000" : `Course ${i}`, orderIndex: i,
+            }))).returning();
+            return { university, course: sections[204] };
+        });
+        const otherUser = await createUser();
+        await apiAs(otherUser, "/projects", projectRoutes)("POST", "", { name: "University Private" });
+
+        const first = await call("get_projects", {});
+        expect(first).toMatchObject({ more: true, nextOffset: 50, sectionsMore: true });
+        const last = await call("get_projects", { offset: first.nextOffset });
+        expect(last.projects.map((p: any) => p.id)).toEqual([university.id]);
+        expect(last.more).toBeUndefined();
+        expect(new Set([...first.projects, ...last.projects].map((p: any) => p.id)).size).toBe(51);
+
+        const found = await call("get_projects", { query: "university" });
+        expect(found.projects).toHaveLength(1);
+        expect(found.projects[0].sections).toHaveLength(200);
+        expect(found.projects[0].sections[0].name).toBe("Course 0");
+        expect(found.sectionsMore).toBe(true);
+        const focused = await call("get_projects", { projectId: university.id });
+        expect(focused.nextSectionOffset).toBe(200);
+        const tail = await call("get_projects", { projectId: university.id, sectionOffset: focused.nextSectionOffset });
+        expect(tail.projects[0].sections).toHaveLength(5);
+        expect(tail.sectionsMore).toBeUndefined();
+        const matched = await call("get_projects", { projectId: university.id, sectionQuery: "comp2000" });
+        expect(matched.projects[0].sections).toEqual([{ id: course.id, name: "COMP2000" }]);
+        expect((await call("get_projects", { query: "%" })).projects).toEqual([]);
+        expect((await call("get_projects", { projectId: university.id, sectionQuery: "_" })).projects[0].sections).toEqual([]);
+
+        const { created } = await call("create_tasks", { tasks: [{
+            title: "Assignment", dueDate: "2026-10-22", projectId: university.id, sectionId: course.id,
+            fromImage: { title: "Assignment", dueDate: "Oct 22" },
+        }] });
+        expect((await api("GET", `/${created[0].taskId}`)).body.data).toMatchObject({
+            projectId: university.id, sectionId: course.id, isAllDay: true, dueDate: expect.stringContaining("2026-10-22"),
+        });
+        expect((await call("get_task_detail", { taskId: created[0].taskId })).task.sectionId).toBe(course.id);
+        expect((await call("get_tasks", { projectId: university.id })).tasks[0].sectionId).toBe(course.id);
+    });
+
+    it("rejects wrong-list sections atomically and keeps moves consistent", async () => {
+        const { a, b, section } = await withRls(getTestDb(), userId, async (tx) => {
+            const [a, b] = await tx.insert(projects).values([{ userId, name: "A" }, { userId, name: "B" }]).returning();
+            const [section] = await tx.insert(taskSections).values({ userId, projectId: a.id, name: "COMP2000", orderIndex: 0 }).returning();
+            return { a, b, section };
+        });
+        for (const projectId of [b.id, undefined, null]) {
+            expect(await call("create_tasks", { tasks: [{ title: "Fine" }, { title: "Wrong", projectId, sectionId: section.id }] }))
+                .toMatchObject({ ok: false, error: expect.stringContaining("Section does not belong") });
+            expect(await allTasks()).toEqual([]);
+        }
+        const { created } = await call("create_tasks", { tasks: [{ title: "Essay", projectId: a.id, sectionId: section.id }] });
+        const taskIds = [created[0].taskId];
+        expect(await call("update_tasks", { taskIds, patch: { projectId: a.id } })).toEqual({ updated: 1 });
+        expect((await allTasks())[0].sectionId).toBe(section.id);
+        expect(await call("update_tasks", { taskIds, patch: { projectId: b.id, sectionId: section.id } })).toMatchObject({ ok: false });
+        expect((await allTasks())[0]).toMatchObject({ projectId: a.id, sectionId: section.id });
+        expect(await call("update_tasks", { taskIds, patch: { projectId: b.id } })).toEqual({ updated: 1 });
+        expect((await allTasks())[0]).toMatchObject({ projectId: b.id, sectionId: null });
+        expect(await call("update_tasks", { taskIds, patch: { sectionId: section.id } })).toMatchObject({ ok: false });
+        expect(await call("update_tasks", { taskIds, patch: { projectId: a.id, sectionId: section.id } })).toEqual({ updated: 1 });
+        expect(await call("update_tasks", { taskIds, patch: { projectId: null } })).toEqual({ updated: 1 });
+        expect((await allTasks())[0]).toMatchObject({ projectId: null, sectionId: null });
+    });
+
+    it("allows unscoped sections only without a list and rejects another user's section", async () => {
+        const otherUser = await createUser();
+        const [foreign] = await withRls(getTestDb(), otherUser, (tx) => tx.insert(taskSections)
+            .values({ userId: otherUser, name: "Private", orderIndex: 0 }).returning());
+        const [unscoped] = await withRls(getTestDb(), userId, (tx) => tx.insert(taskSections)
+            .values({ userId, name: "General", orderIndex: 0 }).returning());
+        expect(await call("create_tasks", { tasks: [{ title: "Wrong", sectionId: foreign.id }] })).toMatchObject({ ok: false });
+        expect(await allTasks()).toEqual([]);
+        const { created } = await call("create_tasks", { tasks: [{ title: "General task", sectionId: unscoped.id }] });
+        expect((await api("GET", `/${created[0].taskId}`)).body.data).toMatchObject({ projectId: null, sectionId: unscoped.id });
+        const { projectId } = await call("create_project", { name: "New list" });
+        expect(await call("update_tasks", { taskIds: [created[0].taskId], patch: { projectId, sectionId: unscoped.id } })).toMatchObject({ ok: false });
+    });
+});
 
 describe("create_tasks", () => {
     it("creates 20 tasks of 30 steps each in one go, steps in order", async () => {

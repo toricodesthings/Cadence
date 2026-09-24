@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+- The assistant finds matching list sections in larger workspaces and shows the destination before approval.
+
 ## [0.20.0] - 2026-09-24
 
 Show the assistant a photo, like a whiteboard, a syllabus or a screenshot, and it turns what it sees into tasks.

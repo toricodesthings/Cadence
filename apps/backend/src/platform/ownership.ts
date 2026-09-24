@@ -33,6 +33,17 @@ export async function assertProjectOwnership(tx: Tx, userId: string, projectId: 
     await assertRowOwnership(tx, projects, userId, projectId, "Project");
 }
 
+/** An owned section must belong to the task's effective list (null = unscoped). */
+async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string, projectId?: string | null) {
+    const [row] = await tx.select({ userId: taskSections.userId, projectId: taskSections.projectId })
+        .from(taskSections).where(eq(taskSections.id, sectionId)).limit(1);
+    if (!row) throw new AppError(404, "NOT_FOUND", "Section not found");
+    if (row.userId !== userId) throw new AppError(403, "FORBIDDEN", "Section belongs to another user");
+    if (projectId !== undefined && row.projectId !== projectId) {
+        throw new AppError(400, "INVALID_SECTION", "Section does not belong to the selected list");
+    }
+}
+
 /**
  * Verify that all tag IDs belong to the given user.
  * Throws 403 if any tag belongs to another user.
@@ -64,7 +75,7 @@ export async function assertOwnership(
 ) {
     const checks: Promise<void>[] = [];
     if (refs.projectId) checks.push(assertProjectOwnership(tx, userId, refs.projectId));
-    if (refs.sectionId) checks.push(assertRowOwnership(tx, taskSections, userId, refs.sectionId, "Section"));
+    if (refs.sectionId) checks.push(assertSectionOwnership(tx, userId, refs.sectionId, refs.projectId));
     if (refs.inboxSectionId) checks.push(assertRowOwnership(tx, inboxSections, userId, refs.inboxSectionId, "Inbox section"));
     if (refs.tagIds?.length) checks.push(assertTagsOwnership(tx, userId, refs.tagIds));
     await Promise.all(checks);

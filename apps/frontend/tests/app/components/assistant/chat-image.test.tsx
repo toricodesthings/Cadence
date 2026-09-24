@@ -1,14 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "../../../../app/lib/api/query-keys";
+import { Provider as TooltipProvider } from "../../../../app/components/primitives/Tooltip";
 
 vi.mock("../../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({}) }));
 
-import { ChatImage } from "../../../../app/components/assistant/ChatImage";
+import { ChatImages } from "../../../../app/components/assistant/ChatImage";
 
-describe("ChatImage", () => {
+describe("ChatImages", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
     it("opens the sent photo full size and closes again", async () => {
+        vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
         URL.createObjectURL = () => "blob:x";
         URL.revokeObjectURL = () => undefined;
         const id = "33333333-3333-4333-8333-333333333333";
@@ -16,7 +20,7 @@ describe("ChatImage", () => {
         queryClient.setQueryData(queryKeys.ai.image(id), new Blob(["x"], { type: "image/webp" }));
         render(
             <QueryClientProvider client={queryClient}>
-                <ChatImage id={id} />
+                <TooltipProvider><ChatImages ids={[id]} /></TooltipProvider>
             </QueryClientProvider>,
         );
 

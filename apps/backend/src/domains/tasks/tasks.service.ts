@@ -85,7 +85,7 @@ export function trackTaskChanges(
 /** Insert one task (temporal fields already normalized) and link its tags. */
 export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds: string[] = []) {
     validateTaskRecurrenceRule(values.recurrenceRule, values.scheduledStart ?? null);
-    await assertOwnership(tx, userId, { projectId: values.projectId, sectionId: values.sectionId, tagIds });
+    await assertOwnership(tx, userId, { projectId: values.projectId ?? null, sectionId: values.sectionId, tagIds });
 
     const [row] = await tx
         .insert(tasks)
@@ -139,13 +139,20 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
             scheduledStart: tasks.scheduledStart,
             scheduledEnd: tasks.scheduledEnd,
             updatedAt: tasks.updatedAt,
+            projectId: tasks.projectId,
+            sectionId: tasks.sectionId,
         })
         .from(tasks)
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+        .for("update");
     throwIfNotFound(existing, "Task");
     assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
 
-    await assertOwnership(tx, userId, { projectId: body.projectId, sectionId: body.sectionId });
+    const projectId = body.projectId !== undefined ? body.projectId : existing.projectId;
+    const sectionId = body.sectionId !== undefined ? body.sectionId
+        : projectId !== existing.projectId ? null : existing.sectionId;
+    const placementChanged = body.projectId !== undefined || body.sectionId !== undefined;
+    if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
     validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
 
     const temporalPatch = hasTaskTemporalMutation(body)
@@ -159,7 +166,7 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
 
     const [row] = await tx
         .update(tasks)
-        .set({ ...body, ...temporalPatch, updatedAt: sql`NOW()` })
+        .set({ ...body, ...(placementChanged && { sectionId }), ...temporalPatch, updatedAt: sql`NOW()` })
         .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
         .returning();
     return row;

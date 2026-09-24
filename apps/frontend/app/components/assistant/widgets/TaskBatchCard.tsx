@@ -1,7 +1,8 @@
-import { Sparkles, Calendar, Clock, Check, ListChecks, Image as ImageIcon, Lock, Repeat, Folder } from "lucide-react";
+import { Sparkles, Calendar, Clock, Check, ListChecks, Image as ImageIcon, Lock, Repeat } from "lucide-react";
 import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
-import { formatWhen, useProjectNameLookup, useTagsLookup } from "./card-lookups";
+import { formatWhen, useTagsLookup } from "./card-lookups";
+import { TaskDestination } from "./TaskDestination";
 import { formatTime } from "../../../lib/utils/date-format";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
 import { PRIORITY_CONFIG } from "../../../lib/constants/priority";
@@ -12,7 +13,7 @@ import type { CreateTaskInput } from "@cadence/contracts/task";
 type Quoted = "title" | "dueDate" | "scheduledStart" | "priority" | "subtasks" | "note";
 
 /** A task as the assistant drafts it (`create_tasks`, `structure_inbox_item`). */
-export type TaskDraft = Partial<Pick<CreateTaskInput, "title" | "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "priority" | "effort" | "recurrenceRule" | "projectId" | "tagIds">> & {
+export type TaskDraft = Partial<Pick<CreateTaskInput, "title" | "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "priority" | "effort" | "recurrenceRule" | "projectId" | "sectionId" | "tagIds">> & {
     subtasks?: string[];
     fixed?: boolean;
     note?: string;
@@ -72,9 +73,8 @@ export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; comp
     );
 }
 
-/** Every field a draft sets, as pills: when (with its end), length, priority, effort, repeats, Fixed, list, tags. */
+/** Every field a draft sets, as pills: when, length, priority, effort, repeats, Fixed, destination, tags. */
 export function DraftDetails({ draft }: { draft: TaskDraft }) {
-    const lookupList = useProjectNameLookup();
     const lookupTags = useTagsLookup();
     const when = formatDraftWhen(draft);
     const priority = draft.priority ? PRIORITY_OPTIONS.find((o) => o.value === draft.priority) : undefined;
@@ -82,9 +82,8 @@ export function DraftDetails({ draft }: { draft: TaskDraft }) {
     const repeats = draft.recurrenceRule
         ? (getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats")
         : null;
-    const list = draft.projectId ? (lookupList(draft.projectId) ?? "A list") : null;
     const tags = lookupTags(draft.tagIds ?? []);
-    if (!when && !draft.durationEstimate && !priority && !effort && !repeats && !draft.fixed && !list && tags.length === 0) return null;
+    if (!when && !draft.durationEstimate && !priority && !effort && !repeats && !draft.fixed && !draft.projectId && !draft.sectionId && tags.length === 0) return null;
     return (
         <div className="flex flex-wrap gap-1.5">
             {when ? <MetaPill icon={Calendar}>{when}</MetaPill> : null}
@@ -97,7 +96,7 @@ export function DraftDetails({ draft }: { draft: TaskDraft }) {
             {effort ? <MetaPill icon={effort.icon}>{effort.label} effort</MetaPill> : null}
             {repeats ? <MetaPill icon={Repeat}>{repeats}</MetaPill> : null}
             {draft.fixed ? <MetaPill icon={Lock}>Fixed</MetaPill> : null}
-            {list ? <MetaPill icon={Folder}>{list}</MetaPill> : null}
+            <TaskDestination projectId={draft.projectId ?? undefined} sectionId={draft.sectionId ?? undefined} />
             {tags.map((tag) => (
                 <TagPill key={tag.id} tag={tag} />
             ))}

@@ -39,6 +39,7 @@ const minimalTaskColumns = {
     priority: tasks.priority,
     effort: tasks.effort,
     projectId: tasks.projectId,
+    sectionId: tasks.sectionId,
     waitingOn: tasks.waitingOn,
     interactionMode: tasks.interactionMode,
     recurrenceRule: tasks.recurrenceRule,

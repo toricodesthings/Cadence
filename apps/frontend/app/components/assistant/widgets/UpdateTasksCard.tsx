@@ -1,7 +1,8 @@
-import { Pencil, Check, Calendar, Clock, Folder, Hourglass, Pin, Repeat } from "lucide-react";
+import { Pencil, Check, Calendar, Clock, Hourglass, Pin, Repeat } from "lucide-react";
 import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
-import { formatWhen, useProjectNameLookup, useTagsLookup, useTaskTitleLookup } from "./card-lookups";
+import { formatWhen, useTagsLookup, useTaskTitleLookup, useTaskLookup } from "./card-lookups";
+import { TaskDestination } from "./TaskDestination";
 import { NoteDiff, useNoteProposal, type NoteProposal } from "./note-proposal";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
@@ -9,14 +10,14 @@ import type { UpdateTaskInput } from "@cadence/contracts/task";
 
 /** The change `update_tasks` applies to every listed task. */
 type TaskPatch = Partial<Pick<UpdateTaskInput,
-    "title" | "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "priority" | "effort" |
+    "title" | "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" | "priority" | "effort" |
     "waitingOn" | "isPinned" | "recurrenceRule">> &
     NoteProposal & { addTagIds?: string[]; removeTagIds?: string[] };
 
 /** Card for `update_tasks` (design §4.1): what changes, on one task or on rows the user can untick. */
 export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
     const lookupTitle = useTaskTitleLookup();
-    const lookupList = useProjectNameLookup();
+    const lookupTask = useTaskLookup();
     const lookupTags = useTagsLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
     const taskIds: string[] = ctx.part?.input?.taskIds ?? [];
@@ -29,7 +30,8 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
     const when = "scheduledStart" in patch || "dueDate" in patch ? (formatWhen(patch.scheduledStart ?? patch.dueDate) ?? "No date") : null;
     const priority = patch.priority != null ? PRIORITY_OPTIONS.find((o) => o.value === patch.priority) : undefined;
     const effort = patch.effort != null ? EFFORT_OPTIONS.find((o) => o.value === patch.effort) : undefined;
-    const list = patch.projectId !== undefined ? (patch.projectId ? (lookupList(patch.projectId) ?? "another list") : "No list") : null;
+    const changesDestination = patch.projectId !== undefined || patch.sectionId !== undefined;
+    const projectId = patch.projectId !== undefined ? patch.projectId : lookupTask(taskIds[0])?.projectId;
     const tags = [
         ...lookupTags(patch.addTagIds ?? []).map((tag) => ({ tag, added: true })),
         ...lookupTags(patch.removeTagIds ?? []).map((tag) => ({ tag, added: false })),
@@ -62,7 +64,7 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
             <div className="flex flex-wrap gap-1.5">
                 {when ? <MetaPill icon={Calendar}>{when}</MetaPill> : null}
                 {patch.durationEstimate != null ? <MetaPill icon={Clock}>{patch.durationEstimate}m block</MetaPill> : null}
-                {list ? <MetaPill icon={Folder}>{list}</MetaPill> : null}
+                {changesDestination ? <TaskDestination projectId={projectId} sectionId={patch.sectionId} /> : null}
                 {priority ? <MetaPill icon={priority.icon}>{priority.label} priority</MetaPill> : null}
                 {effort ? <MetaPill icon={effort.icon}>{effort.label} effort</MetaPill> : null}
                 {patch.waitingOn ? <MetaPill icon={Hourglass}>Waiting on {patch.waitingOn}</MetaPill> : null}
