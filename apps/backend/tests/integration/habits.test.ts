@@ -139,6 +139,29 @@ describe("resolving occurrences", () => {
         expect(body.data.habit.currentStreak).toBe(2);
     });
 
+    it("checking off today keeps a run logged before the routine was created (regression: streak fell to 1)", async () => {
+        const habit = await create();
+        for (const offset of [-3, -2, -1]) await resolve(habit.id, day(offset), "COMPLETED");
+
+        const { body } = await resolve(habit.id, day(), "COMPLETED");
+
+        expect(body.data.habit).toMatchObject({ currentStreak: 4, longestStreak: 4 });
+    });
+
+    it("counts today as the caller's day (regression: a morning check-in in Tokyo read as UTC's yesterday)", async () => {
+        vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-23T23:00:00.000Z") }); // 08:00 Sep 24 in Tokyo
+        try {
+            const habit = await create();
+            await asOwner((pg) => pg.query("UPDATE habits SET created_at = '2026-09-01T00:00:00Z' WHERE id = $1", [habit.id]));
+            const inTokyo = (targetDate: string) => habits("POST", `/${habit.id}/resolve`, { targetDate, status: "COMPLETED", timezone: "Asia/Tokyo" });
+            await inTokyo("2026-09-23");
+
+            expect((await inTokyo("2026-09-24")).body.data.habit.currentStreak).toBe(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("treats another user's habit as not found", async () => {
         const theirs = await create({}, otherHabits);
 
@@ -174,29 +197,32 @@ describe("views", () => {
         });
     });
 
-    it("unresolved: lists today's open occurrences, and drops them once resolved, paused, or archived", async () => {
-        const open = await create({ title: "Open" });
-        const done = await create({ title: "Done" });
-        await create({ title: "Paused", pausedUntil: day(3) });
-        const archived = await create({ title: "Archived" });
-        await habits("PATCH", `/${archived.id}`, { archived: true });
-        await resolve(done.id, day(), "COMPLETED");
+    it("weekly: a pause hides today onward, never the days already checked", async () => {
+        const habit = await create();
+        await backdate(habit.id, 3);
+        await resolve(habit.id, day(-2), "COMPLETED");
+        await habits("PATCH", `/${habit.id}`, { pausedUntil: day(3) });
 
-        const { body } = await habits("GET", "/unresolved?timezone=UTC");
+        const { body } = await habits("GET", `/weekly?start=${day(-2)}&end=${day(1)}&timezone=UTC`);
 
-        expect(body.data).toEqual([expect.objectContaining({ habitId: open.id, actionableDates: [day()], missedCount: 1 })]);
+        expect(body.data[0].logs.map((l: any) => [l.targetDate, l.status])).toEqual([
+            [day(-2), "COMPLETED"],
+            [day(-1), "PENDING"],
+        ]);
+        expect(body.data[0].isDueToday).toBe(false);
     });
 
-    it("monthly: returns the scheduled days and each resolved day's status", async () => {
-        const habit = await create({ recurrenceRule: "FREQ=DAILY" });
-        await resolve(habit.id, day(), "COMPLETED");
-        const today = new Date();
-        const dayOfMonth = today.getUTCDate();
+    it("weekly: shows the day before a routine was created, and earlier days only once logged", async () => {
+        const habit = await create();
+        await resolve(habit.id, day(-4), "COMPLETED");
 
-        const { body } = await habits("GET", `/${habit.id}/monthly?year=${today.getUTCFullYear()}&month=${today.getUTCMonth()}`);
+        const { body } = await habits("GET", `/weekly?start=${day(-5)}&end=${day(0)}&timezone=UTC`);
 
-        expect(body.data.scheduledDays).toContain(dayOfMonth);
-        expect(body.data.logsByDay).toEqual({ [dayOfMonth]: "COMPLETED" });
+        expect(body.data[0].logs.map((l: any) => [l.targetDate, l.status])).toEqual([
+            [day(-4), "COMPLETED"],
+            [day(-1), "PENDING"],
+            [day(0), "PENDING"],
+        ]);
     });
 });
 

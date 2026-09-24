@@ -6,7 +6,6 @@ import type { Project, CreateProjectInput } from "@cadence/contracts/project";
 import { toast } from "sonner";
 import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 
 export function useCreateProject() {
     const client = useApiClient();
@@ -52,6 +51,6 @@ export function useCreateProject() {
             toast.error(err.message || "Failed to create list");
         },
 
-        onSettled: () => invalidateEverywhere(queryClient, queryKeys.projects.all),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
     });
 }

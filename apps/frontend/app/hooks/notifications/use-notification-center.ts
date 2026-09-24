@@ -117,8 +117,10 @@ export function useNotificationCenter() {
     const quietHoursStart = settings?.notifications?.quietHoursStart ?? null;
     const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
 
-    // Fetch all active tasks and habits
-    const { data: tasks = [] } = useTasks({});
+    // Reminders skip Done and Trash, so open and waiting tasks are all it needs.
+    const { data: activeTasks } = useTasks({ state: "ACTIVE" });
+    const { data: waitingTasks } = useTasks({ state: "WAITING" });
+    const tasks = useMemo(() => [...(activeTasks ?? []), ...(waitingTasks ?? [])], [activeTasks, waitingTasks]);
     const { data: habits = [] } = useAllHabits();
     const presentedRef = useRef<Set<string>>(new Set());
 

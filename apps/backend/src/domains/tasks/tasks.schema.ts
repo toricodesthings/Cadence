@@ -56,4 +56,8 @@ function refineTaskFilters(value: z.infer<typeof taskFiltersSchemaBase>, ctx: z.
 export const taskFiltersSchema = taskFiltersSchemaBase.superRefine(refineTaskFilters);
 export type TaskFilters = z.infer<typeof taskFiltersSchema>;
 
-export const taskListQuerySchema = taskFiltersSchemaBase.extend(paginationSchema.shape).superRefine(refineTaskFilters);
+// No default limit: open lists are the working set and views need all of it.
+// Done and Trash grow forever, so their pages send a limit.
+export const taskListQuerySchema = taskFiltersSchemaBase
+    .extend({ limit: z.coerce.number().int().min(1).max(1000).optional(), offset: paginationSchema.shape.offset })
+    .superRefine(refineTaskFilters);

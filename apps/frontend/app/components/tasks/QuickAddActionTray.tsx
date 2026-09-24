@@ -67,6 +67,7 @@ export function QuickAddActionTray({
 
     const selectedProject = projectId ? projects.find((item) => item.id === projectId) : null;
     const selectedTags = tags.filter((item) => tagIds.includes(item.id));
+    const PriorityIcon = priority ? PRIORITY_OPTIONS[priority].icon : PRIORITY_ICON;
 
     const renderAction = (action: QuickAddAction) => {
         switch (action) {
@@ -104,10 +105,7 @@ export function QuickAddActionTray({
                                         : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]"
                                 }`}
                             >
-                                {(() => {
-                                    const Icon = priority ? PRIORITY_OPTIONS[priority].icon : PRIORITY_ICON;
-                                    return <Icon size={14} aria-hidden="true" />;
-                                })()}
+                                <PriorityIcon size={14} aria-hidden="true" />
                                 {!iconOnly ? <span>{priority ? `P${5 - priority}` : "Priority"}</span> : null}
                             </button>
                         </Popover.Trigger>

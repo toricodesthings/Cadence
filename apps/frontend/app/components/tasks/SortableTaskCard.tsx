@@ -91,15 +91,7 @@ export function SortableTaskCard({
                 onSelect={onSelect}
                 variant={variant}
                 rationaleLabel={rationaleLabel}
-                dragHandleProps={
-                    reorderable
-                        ? {
-                              ref: setActivatorNodeRef,
-                              listeners,
-                              attributes,
-                          }
-                        : undefined
-                }
+                dragHandleProps={reorderable ? { ref: setActivatorNodeRef, listeners, attributes } : undefined}
             />
         </motion.div>
     );

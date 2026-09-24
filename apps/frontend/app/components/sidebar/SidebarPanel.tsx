@@ -30,7 +30,7 @@ export function SidebarPanel({
 }) {
     const [listsOpen, setListsOpen] = useState(true);
     const { data: projects, isLoading: projectsLoading } = useProjects();
-    const { data: listTasks } = useTasks({ state: "ACTIVE", allPages: true, enabled: Boolean(projects?.length) });
+    const { data: listTasks } = useTasks({ state: "ACTIVE", enabled: Boolean(projects?.length) });
     const listCounts = useMemo(() => {
         const counts = new Map<string, number>();
         for (const task of listTasks ?? []) {

@@ -6,7 +6,6 @@ import type { Project } from "@cadence/contracts/project";
 import { toast } from "sonner";
 import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 
 export function useUpdateProject() {
     const client = useApiClient();
@@ -49,6 +48,6 @@ export function useUpdateProject() {
             toast.error(err.message || "Failed to update list");
         },
 
-        onSettled: () => invalidateEverywhere(queryClient, queryKeys.projects.all),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
     });
 }

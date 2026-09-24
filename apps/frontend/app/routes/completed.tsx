@@ -6,7 +6,8 @@ import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { CheckCircle2 } from "lucide-react";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
-import { useTasks } from "../hooks/tasks/use-tasks";
+import { usePagedTasks } from "../hooks/tasks/use-tasks";
+import { Button } from "../components/primitives/Button";
 import { TaskCard } from "../components/tasks/TaskCard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
@@ -15,7 +16,7 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 
 export default function CompletedView() {
     const shell = useShellMode();
-    const { data: tasks, isLoading } = useTasks({ state: "COMPLETE" });
+    const { data: tasks, isLoading, isFetching, loadMore } = usePagedTasks("COMPLETE");
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
@@ -76,6 +77,13 @@ export default function CompletedView() {
                         </div>
                     ) : (
                         <EmptyState variant="completed" />
+                    )}
+                    {loadMore && (
+                        <div className="mt-4 flex justify-center">
+                            <Button variant="ghost" size="sm" onClick={loadMore} disabled={isFetching}>
+                                {isFetching ? "Loading…" : "Show older"}
+                            </Button>
+                        </div>
                     )}
                 </PageContent>
             </ScrollAreaWrapper>

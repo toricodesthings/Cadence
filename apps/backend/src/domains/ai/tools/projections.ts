@@ -175,7 +175,7 @@ export interface HabitRow {
  * already maintained on the `habits` row (server tracks these iteratively to
  * avoid COUNT(*) — see schema comment). adherence = completions / (completions +
  * skips); 0 when there is no resolved history. `currentDate` (YYYY-MM-DD) is used
- * only to compute the `paused` flag, mirroring habits.route.ts `isHabitPaused`.
+ * only to compute the `paused` flag (paused from today through `pausedUntil`).
  */
 export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit {
     const resolved = row.totalCompletions + row.totalSkips;

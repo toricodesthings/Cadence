@@ -70,7 +70,7 @@ describe("bulk subtask read", () => {
         await api("POST", `/tasks/${a}/subtasks`, { title: "a2", orderIndex: 2 });
         await api("POST", `/tasks/${a}/subtasks`, { title: "a1", orderIndex: 1 });
 
-        const { body } = await api("POST", "/subtasks/bulk", { taskIds: [a, b, a] });
+        const { body } = await api("GET", `/subtasks?taskIds=${[a, b, a].join(",")}`);
 
         expect(Object.keys(body.data).sort()).toEqual([a, b].sort());
         expect(body.data[a].map((s: any) => s.title)).toEqual(["a1", "a2"]);
@@ -81,15 +81,20 @@ describe("bulk subtask read", () => {
         const theirs = await newTask(otherTasks);
         await otherApi("POST", `/tasks/${theirs}/subtasks`, { title: "private", orderIndex: 0 });
 
-        expect((await api("POST", "/subtasks/bulk", { taskIds: [theirs] })).body.data).toEqual({ [theirs]: [] });
+        expect((await api("GET", `/subtasks?taskIds=${theirs}`)).body.data).toEqual({ [theirs]: [] });
     });
 
     it("answers an empty request with an empty map", async () => {
-        expect((await api("POST", "/subtasks/bulk", { taskIds: [] })).body.data).toEqual({});
+        expect((await api("GET", "/subtasks?taskIds=")).body.data).toEqual({});
     });
 
     it("rejects malformed task ids with 400", async () => {
-        expect((await api("POST", "/subtasks/bulk", { taskIds: ["not-a-uuid"] })).status).toBe(400);
+        expect((await api("GET", "/subtasks?taskIds=not-a-uuid")).status).toBe(400);
+    });
+
+    it("still answers the POST older desktop builds send", async () => {
+        const task = await newTask();
+        expect((await api("POST", "/subtasks/bulk", { taskIds: [task] })).body.data).toEqual({ [task]: [] });
     });
 });
 

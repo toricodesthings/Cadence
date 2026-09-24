@@ -88,6 +88,10 @@ export const reorderTaskSchema = z.object({
     orderedTaskIds: z.array(z.string().uuid()).max(200).optional(),
 });
 
+export const batchDeleteSchema = z.object({
+    taskIds: z.array(z.uuid()).min(1).max(50),
+});
+
 export const batchStateSchema = z.object({
     taskIds: z.array(z.uuid()).min(1).max(50),
     state: taskStateSchema,

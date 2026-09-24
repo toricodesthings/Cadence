@@ -24,9 +24,10 @@ export function routinesDue(
     rows: { id: string; title: string; recurrenceRule: string; targetTime: string | null; createdAt: string; pausedUntil: string | null }[],
     from: string,
     to: string,
+    timeZone = "UTC",
 ) {
     return rows.flatMap((row) => {
-        const days = expandOccurrences(row.recurrenceRule, row.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`))
+        const days = expandOccurrences(row.recurrenceRule, row.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`), timeZone)
             .filter((day) => !row.pausedUntil || day > row.pausedUntil);
         return days.length ? [{ id: row.id, title: row.title, days, targetTime: row.targetTime }] : [];
     });
@@ -129,7 +130,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         range: { start: from, end: to, timezone: ctx.timezone },
                         tasks: inRange.slice(0, cap).map((row) => toMinimalTask(row, ctx.timezone)),
                         more: inRange.length > cap || undefined,
-                        routines: routinesDue(habitRows, from, to),
+                        routines: routinesDue(habitRows, from, to, ctx.timezone),
                     };
                 });
             }),

@@ -3,7 +3,6 @@ import {
     habitListQuerySchema,
     habitTargetTimesSchema,
     insertHabitSchema,
-    monthlyHabitsQuerySchema,
     resolveHabitActionSchema,
     weeklyHabitsQuerySchema,
 } from "./habit";
@@ -26,14 +25,6 @@ describe("habit list queries", () => {
         expect(habitListQuerySchema.parse({ archived: "yes" })).toEqual({ archived: false });
     });
 
-    it.each([
-        [{ year: "2026", month: "0" }, true],
-        [{ year: "2026", month: "11" }, true],
-        [{ year: "2026", month: "12" }, false], // month is 0-indexed
-        [{ year: "2019", month: "5" }, false],
-    ])("monthly query %j → %s", (query, ok) => {
-        expect(monthlyHabitsQuerySchema.safeParse(query).success).toBe(ok);
-    });
 });
 
 describe("insertHabitSchema", () => {
@@ -60,6 +51,7 @@ describe("resolveHabitActionSchema", () => {
     it.each([
         [{ targetDate: "2026-03-09", status: "COMPLETED" }, true],
         [{ targetDate: "2026-03-09T08:00:00.000Z", status: "SKIPPED" }, true],
+        [{ targetDate: "2026-03-09", status: "COMPLETED", timezone: "America/New_York" }, true],
         [{ targetDate: "03/09/2026", status: "COMPLETED" }, false],
         [{ targetDate: "2026-03-09", status: "DONE" }, false],
     ])("%j → %s", (body, ok) => {

@@ -34,7 +34,6 @@ export function useCreateTask() {
             if (error instanceof ApiErrorResponse && error.status === 429 && failureCount < 3) return true;
             return false;
         },
-        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
         mutationFn: withOfflineSupport<CreateTaskInput, Task>(
             (input) => ({
                 type: "create_task",

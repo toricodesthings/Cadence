@@ -71,6 +71,19 @@ function createHabit(overrides: Partial<Habit> = {}): Habit {
     };
 }
 
+describe("reconcileTaskInCaches with a bare write response", () => {
+    it("keeps the cached tagIds the response leaves out", () => {
+        const queryClient = new QueryClient();
+        const key = queryKeys.tasks.list({ state: "ACTIVE" });
+        queryClient.setQueryData(key, [createTask({ tagIds: ["tag-1"] })]);
+
+        const { tagIds: _omitted, ...bareRow } = createTask({ title: "Renamed" });
+        reconcileTaskInCaches(queryClient, bareRow as Task);
+
+        expect(queryClient.getQueryData<Task[]>(key)).toEqual([expect.objectContaining({ title: "Renamed", tagIds: ["tag-1"] })]);
+    });
+});
+
 describe("api/cache-sync", () => {
     it("reconciles task caches across matching and non-matching lists", () => {
         const queryClient = new QueryClient();

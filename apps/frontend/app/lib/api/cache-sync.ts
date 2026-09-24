@@ -42,10 +42,13 @@ export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, repl
         return;
     }
 
-    queryClient.setQueryData(queryKeys.tasks.detail(task.id), task);
     const taskLists = queryClient
         .getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })
         .filter(([key]) => typeof key[1] === "object");
+    // Write responses are bare rows: keep what only list reads carry (tagIds).
+    const cached = taskLists.flatMap(([, list]) => (Array.isArray(list) ? list : [])).find((entry) => entry.id === task.id || entry.id === replaceId);
+    if (cached) task = { ...cached, ...task, tagIds: task.tagIds ?? cached.tagIds };
+    queryClient.setQueryData(queryKeys.tasks.detail(task.id), task);
     taskLists.forEach(([key, old]) => {
         const filters = (key[1] as Record<string, unknown> | undefined) ?? {};
         const withoutOld = Array.isArray(old)

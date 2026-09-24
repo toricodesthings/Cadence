@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import type { InboxItem, UpdateInboxItem } from "@cadence/contracts/inbox";
 import { queryKeys } from "../../lib/api/query-keys";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { isPersistedId } from "../../lib/api/optimistic-id";
@@ -56,7 +55,7 @@ export function useUpdateInboxItem() {
             toast.error(err.message || "Failed to update capture");
         },
         onSettled: () => {
-            invalidateEverywhere(queryClient, queryKeys.inbox.all);
+            queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
         },
     });
 }

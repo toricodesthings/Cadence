@@ -15,6 +15,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Events on Today and Upcoming sit at the top of their day, in list and board, and open on the Events page.
 
 ### Fixed
+- Today, Upcoming, Lists and tags show every task instead of stopping at 50; Completed and Trash have Show older.
+- A task's tags no longer disappear for a moment after you edit or complete it.
+- Deleting a large selection of tasks no longer brings some of them back.
+- Subtasks show again in search and on large lists and boards.
 - Today, Upcoming and tag pages no longer show drag handles that did nothing.
 - Subtasks the assistant adds now show on the task right away, without reloading the page.
 - The assistant finds matching list sections in larger workspaces and shows the destination before approval.

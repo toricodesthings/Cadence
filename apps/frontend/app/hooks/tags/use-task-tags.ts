@@ -3,7 +3,6 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toast } from "sonner";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { taskCache } from "../tasks/optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
@@ -31,10 +30,7 @@ function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Pro
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || (adding ? "Failed to add tag" : "Failed to remove tag"));
-        },
-        onSettled: (_data, _err, { taskId }) => {
-            invalidateEverywhere(queryClient, queryKeys.tasks.all);
-            invalidateEverywhere(queryClient, ["tasks", taskId, "tags"]);
+            taskCache.invalidate(queryClient);
         },
     });
 }

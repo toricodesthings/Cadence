@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 
 /** Duplicate a task — server generates new ID, appends "(copy)" to title */
 export function useDuplicateTask() {
@@ -22,14 +22,13 @@ export function useDuplicateTask() {
             },
         ),
 
-        onSuccess: () => {
+        onSuccess: (task) => {
+            if (task) reconcileTaskInCaches(queryClient, task);
             toast.success("Task duplicated");
         },
 
         onError: (err) => {
             toast.error(err.message || "Failed to duplicate task");
         },
-
-        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

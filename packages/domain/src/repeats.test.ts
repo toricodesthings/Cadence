@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { habitOccurrences, routineTimeOn, suggestInteractionMode } from "./repeats";
+import { habitOccurrences, localDay, routineTimeOn, suggestInteractionMode } from "./repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
@@ -37,5 +37,27 @@ describe("habitOccurrences", () => {
             new Date("2026-09-23T23:59:59.999Z"),
         );
         expect(days).toEqual(["2026-09-21", "2026-09-23"]); // not Tuesday the 22nd
+    });
+
+    it("still lists days before the routine was created, whatever day that was", () => {
+        // Created on Wednesday the 23rd: the Monday before is still a Mon/Wed day.
+        const days = habitOccurrences(
+            "FREQ=WEEKLY;BYDAY=MO,WE",
+            "2026-09-23T10:00:00.000Z",
+            new Date("2026-09-21T00:00:00.000Z"),
+            new Date("2026-09-23T23:59:59.999Z"),
+        );
+        expect(days).toEqual(["2026-09-21", "2026-09-23"]);
+        // A plain monthly rule keeps its day of the month.
+        expect(habitOccurrences("FREQ=MONTHLY", "2026-09-15T10:00:00.000Z", new Date("2026-07-01T00:00:00.000Z"), new Date("2026-08-31T00:00:00.000Z")))
+            .toEqual(["2026-07-15", "2026-08-15"]);
+    });
+
+    it("counts an every-N rule from the creation day in the user's zone", () => {
+        // 9 pm in New York on the 21st is the 22nd in UTC.
+        const created = "2026-09-22T01:00:00.000Z";
+        const window = [new Date("2026-09-19T00:00:00.000Z"), new Date("2026-09-25T23:59:59.999Z")] as const;
+        expect(habitOccurrences("FREQ=DAILY;INTERVAL=2", created, ...window, "America/New_York")).toEqual(["2026-09-21", "2026-09-23", "2026-09-25"]);
+        expect(localDay(created, "America/New_York")).toBe("2026-09-21");
     });
 });

@@ -20,7 +20,7 @@ import {
 import { upsertNoteSchema } from "./note";
 import { insertProjectSchema, updateProjectSchema } from "./project";
 import { createSectionSchema, updateSectionSchema } from "./section";
-import { bulkSubtasksSchema, insertSubtaskSchema, updateSubtaskSchema } from "./subtask";
+import { bulkSubtasksSchema, insertSubtaskSchema, subtasksByTaskQuerySchema, updateSubtaskSchema } from "./subtask";
 import { insertTagSchema, updateTagSchema } from "./tag";
 import { updateTaskSchema } from "./task";
 
@@ -102,5 +102,14 @@ describe("bulkSubtasksSchema", () => {
         expect(ok(bulkSubtasksSchema, { taskIds: Array(200).fill(UUID) })).toBe(true);
         expect(ok(bulkSubtasksSchema, { taskIds: Array(201).fill(UUID) })).toBe(false);
         expect(ok(bulkSubtasksSchema, { taskIds: ["not-a-uuid"] })).toBe(false);
+    });
+});
+
+describe("subtasksByTaskQuerySchema", () => {
+    it("reads comma-separated ids with the same 200 cap", () => {
+        expect(subtasksByTaskQuerySchema.parse({ taskIds: `${UUID},${UUID}` })).toEqual({ taskIds: [UUID, UUID] });
+        expect(ok(subtasksByTaskQuerySchema, { taskIds: Array(200).fill(UUID).join(",") })).toBe(true);
+        expect(ok(subtasksByTaskQuerySchema, { taskIds: Array(201).fill(UUID).join(",") })).toBe(false);
+        expect(ok(subtasksByTaskQuerySchema, { taskIds: "not-a-uuid" })).toBe(false);
     });
 });

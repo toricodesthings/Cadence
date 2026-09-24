@@ -6,7 +6,6 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import { toast } from "sonner";
 import { reconcileInboxItemInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { createTempId } from "../../lib/api/optimistic-id";
 
@@ -71,6 +70,6 @@ export function useCreateInboxItem() {
             toast.error(err.message || "Failed to add inbox item");
         },
 
-        onSettled: () => invalidateEverywhere(queryClient, queryKeys.inbox.all),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
     });
 }

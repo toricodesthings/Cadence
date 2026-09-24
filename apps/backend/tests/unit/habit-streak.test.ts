@@ -109,4 +109,10 @@ describe("computeCurrentStreak (cadence-agnostic, bounded)", () => {
         const streak = await computeCurrentStreak("NOT A RULE", "2026-01-01", "2026-06-01", lookup([]));
         expect(streak).toBe(0);
     });
+
+    it("reaches days logged before the routine was created", async () => {
+        const completed = ["2026-09-20", "2026-09-21", "2026-09-22", "2026-09-23"];
+
+        expect(await computeCurrentStreak("FREQ=DAILY", "2026-09-23", "2026-09-23", lookup(completed), { earliest: "2026-09-20" })).toBe(4);
+    });
 });

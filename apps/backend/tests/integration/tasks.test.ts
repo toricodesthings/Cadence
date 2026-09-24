@@ -259,6 +259,34 @@ describe("batch operations", () => {
         expect(done).toBe(2);
         expect((await otherTasks("GET", `/${theirs.id}`)).body.data.state).toBe("ACTIVE");
     });
+
+    it("permanently deletes many tasks at once and skips other users' tasks", async () => {
+        const [a, b] = [await create({ title: "A" }), await create({ title: "B" })];
+        const theirs = await create({ title: "Theirs" }, otherTasks);
+
+        const { body } = await tasks("POST", "/batch/delete", { taskIds: [a.id, b.id, theirs.id] });
+
+        expect(titles(body.data).sort()).toEqual(["A", "B"]);
+        expect((await tasks("GET", `/${a.id}`)).status).toBe(404);
+        expect((await otherTasks("GET", `/${theirs.id}`)).status).toBe(200);
+    });
+});
+
+describe("listing tasks", () => {
+    it("returns every open task when no limit is sent", async () => {
+        await asOwner((pg) => pg.query(
+            "INSERT INTO tasks (user_id, title, order_index) SELECT $1, 'T' || n, n FROM generate_series(1, 60) n", [userId]));
+
+        expect((await tasks("GET", "?state=ACTIVE")).body.data).toHaveLength(60);
+    });
+
+    it("pages Done newest first", async () => {
+        const [a, b] = [await create({ title: "A" }), await create({ title: "B" })];
+        await tasks("PATCH", "/batch/state", { taskIds: [b.id], state: "COMPLETE" });
+        await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
+
+        expect(titles((await tasks("GET", "?state=COMPLETE&limit=1")).body.data)).toEqual(["A"]);
+    });
 });
 
 describe("duplicating tasks", () => {

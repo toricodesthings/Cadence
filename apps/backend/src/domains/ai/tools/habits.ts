@@ -83,7 +83,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .where(
                             and(eq(habitLogs.userId, userId), eq(habitLogs.targetDate, today)),
                         );
-                    const active = routinesDue(rows, today, today);
+                    const active = routinesDue(rows, today, today, ctx.timezone);
                     const byHabit = new Map(logs.map((l) => [l.habitId, l.status]));
 
                     return {
@@ -110,7 +110,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
             safeExecute("log_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const { habit } = await resolveHabit(tx, userId, input.habitId, input);
+                        const { habit } = await resolveHabit(tx, userId, input.habitId, { ...input, timezone: ctx.timezone });
                         return { result: { status: input.status, currentStreak: habit.currentStreak }, id: habit.id };
                     }),
                 ),

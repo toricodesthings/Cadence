@@ -1,12 +1,13 @@
 import { Hono } from "hono";
-import { eq, and, inArray, gte, lte, sql, desc, isNull, or } from "drizzle-orm";
+import { eq, and, inArray, gte, lte, sql, desc } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
-import { toLocalDateStr } from "../../platform/date-utils";
+import { addDaysToDateStr, resolveTimeZone, toLocalDateStr } from "../../platform/date-utils";
 import { habits, habitLogs, habitTags } from "../../db/schema";
-import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, monthlyHabitsQuerySchema, habitListQuerySchema, unresolvedQuerySchema } from "@cadence/contracts/habit";
+import { localDay } from "@cadence/domain/repeats";
+import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, habitListQuerySchema } from "@cadence/contracts/habit";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
@@ -14,10 +15,9 @@ import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { expandOccurrences, resolveHabit } from "./habits.service";
 
-/** Check if a habit is paused for a given date */
-function isHabitPaused(habit: { pausedUntil: string | null }, dateStr: string): boolean {
-    if (!habit.pausedUntil) return false;
-    return dateStr <= habit.pausedUntil;
+/** A pause covers today through `pausedUntil`; it never hides a day already past. */
+function isHabitPaused(habit: { pausedUntil: string | null }, dateStr: string, todayStr: string): boolean {
+    return Boolean(habit.pausedUntil) && dateStr >= todayStr && dateStr <= habit.pausedUntil!;
 }
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -136,83 +136,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: allHabits });
     })
-    .get("/unresolved", apiValidator("query", unresolvedQuerySchema), async (c) => {
-        const userId = c.get("userId");
-        const { timezone } = c.req.valid("query");
-        const db = getDbClient(c.env);
-
-        const result = await withRls(db, userId, async (tx) => {
-            // Compute today in the caller's local timezone so habits are not
-            // prematurely flagged or resolved due to UTC date drift.
-            const tz = timezone || "UTC";
-            const now = new Date();
-            const todayStr = toLocalDateStr(now, tz);
-
-            const activeHabits = await tx
-                .select()
-                .from(habits)
-                .where(and(
-                    eq(habits.userId, userId),
-                    eq(habits.archived, false),
-                    or(isNull(habits.pausedUntil), lte(habits.pausedUntil, todayStr))
-                ));
-
-            if (activeHabits.length === 0) return [];
-
-            // Today only: a missed routine lets go, it is never carried over.
-            const windowStart = new Date(`${todayStr}T00:00:00.000Z`);
-            const windowEnd = new Date(`${todayStr}T23:59:59.999Z`);
-
-            // Fetch existing logs in the window
-            const habitIds = activeHabits.map(h => h.id);
-            const logs = await tx
-                .select()
-                .from(habitLogs)
-                .where(and(
-                    eq(habitLogs.userId, userId),
-                    inArray(habitLogs.habitId, habitIds),
-                    gte(habitLogs.targetDate, todayStr),
-                    lte(habitLogs.targetDate, todayStr),
-                ));
-
-            const resolvedSet = new Set(
-                logs
-                    .filter(l => l.status === "COMPLETED" || l.status === "SKIPPED")
-                    .map(l => `${l.habitId}_${l.targetDate}`)
-            );
-
-            // For each habit, expand occurrences in the window and find unresolved ones
-            const unresolvedItems: Array<{
-                habitId: string;
-                title: string;
-                targetTime: string | null;
-                latestTargetDate: string;
-                missedCount: number;
-                actionableDates: string[];
-            }> = [];
-
-            for (const habit of activeHabits) {
-                const dates = expandOccurrences(habit.recurrenceRule, habit.createdAt, windowStart, windowEnd);
-                const actionableDates = dates.filter(d => !resolvedSet.has(`${habit.id}_${d}`) && !isHabitPaused(habit, d));
-
-                if (actionableDates.length > 0) {
-                    unresolvedItems.push({
-                        habitId: habit.id,
-                        title: habit.title,
-                        targetTime: habit.targetTime,
-                        latestTargetDate: actionableDates[actionableDates.length - 1],
-                        missedCount: actionableDates.length,
-                        actionableDates,
-                    });
-                }
-            }
-
-            return unresolvedItems;
-        });
-
-        c.header("Cache-Control", "private, no-store");
-        return c.json({ data: result });
-    })
     .get("/weekly", apiValidator("query", weeklyHabitsQuerySchema), async (c) => {
         const userId = c.get("userId");
         const { start, end, archived, timezone } = c.req.valid("query");
@@ -220,7 +143,8 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         const startDate = new Date(`${start}T00:00:00.000Z`);
         const endDate = new Date(`${end}T23:59:59.999Z`);
-        const todayStr = toLocalDateStr(new Date(), timezone);
+        const tz = resolveTimeZone(timezone);
+        const todayStr = toLocalDateStr(new Date(), tz);
 
         const result = await withRls(db, userId, async (tx) => {
             const userHabits = await tx
@@ -266,11 +190,15 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             }
 
             return userHabits.map((habit) => {
-                const dates = expandOccurrences(habit.recurrenceRule, habit.createdAt, startDate, endDate);
+                // Shown from the day before the routine was created ("I did it
+                // yesterday too"); earlier days only when they were logged.
+                const firstDay = addDaysToDateStr(localDay(habit.createdAt, tz), -1);
+                const dates = expandOccurrences(habit.recurrenceRule, habit.createdAt, startDate, endDate, tz)
+                    .filter((dateKey) => dateKey >= firstDay || logsByHabitDate[`${habit.id}_${dateKey}`]);
 
                 // Expand instances, respecting pause state
                 const logsHydrated = dates
-                    .filter(dateKey => !isHabitPaused(habit, dateKey))
+                    .filter(dateKey => !isHabitPaused(habit, dateKey, todayStr))
                     .map((dateKey) => {
                         const logKey = `${habit.id}_${dateKey}`;
                         const existingLog = logsByHabitDate[logKey];
@@ -291,7 +219,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
 
                 // Determine due-today and overdue status
-                const isDueToday = dates.includes(todayStr) && !isHabitPaused(habit, todayStr);
+                const isDueToday = dates.includes(todayStr) && !isHabitPaused(habit, todayStr, todayStr);
                 const isOverdue = logsHydrated.some(l =>
                     l.status === "PENDING" && l.targetDate < todayStr
                 );
@@ -329,55 +257,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         throwIfNotFound(habit, "Habit");
 
         return c.json({ data: habit });
-    })
-    /** Return all habit logs for a given calendar month (for the heatmap calendar). */
-    .get("/:id/monthly", apiValidator("param", uuidParamSchema), apiValidator("query", monthlyHabitsQuerySchema), async (c) => {
-        const userId = c.get("userId");
-        const { id } = c.req.valid("param");
-        const { year, month } = c.req.valid("query");
-        const db = getDbClient(c.env);
-
-        const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-        const startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
-        const endDate = new Date(Date.UTC(year, month, daysInMonth, 23, 59, 59, 999));
-        const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
-
-        const result = await withRls(db, userId, async (tx) => {
-            const [habit] = await tx
-                .select()
-                .from(habits)
-                .where(and(eq(habits.id, id), eq(habits.userId, userId)));
-
-            throwIfNotFound(habit, "Habit");
-
-            const logs = await tx
-                .select()
-                .from(habitLogs)
-                .where(
-                    and(
-                        eq(habitLogs.habitId, id),
-                        eq(habitLogs.userId, userId),
-                        gte(habitLogs.targetDate, startStr),
-                        lte(habitLogs.targetDate, endStr)
-                    )
-                );
-
-            // Use shared recurrence expansion
-            const scheduledDates = expandOccurrences(habit.recurrenceRule, habit.createdAt, startDate, endDate);
-            const scheduledDays = scheduledDates.map((d) => parseInt(d.substring(8, 10), 10));
-
-            const logsByDay: Record<number, string> = {};
-            for (const log of logs) {
-                const day = parseInt(log.targetDate.substring(8, 10), 10);
-                logsByDay[day] = log.status;
-            }
-
-            return { scheduledDays, logsByDay };
-        });
-
-        c.header("Cache-Control", "private, no-store");
-        return c.json({ data: result });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");

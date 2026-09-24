@@ -105,6 +105,7 @@ export function TaskCard({
     const isComplete = task.state === "COMPLETE";
     const priorityConfig = PRIORITY_CONFIG[task.priority];
     const showUrgentIcon = task.priority >= 3;
+    const PriorityIcon = PRIORITY_OPTIONS[task.priority].icon;
 
     const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
     const shell = useShellMode();
@@ -189,7 +190,7 @@ export function TaskCard({
         task.effort
             ? {
                 key: "effort",
-                icon: EFFORT_OPTIONS.find((o) => o.value === task.effort)!.icon,
+                icon: EFFORT_OPTIONS[task.effort - 1].icon,
                 label: EFFORT_LABELS[task.effort],
                 className: "text-twilight-text-soft",
             }
@@ -308,15 +309,11 @@ export function TaskCard({
                 </div>
             )}
 
-            {subtasksShown ? (
-                // The checkbox column stretches so its rail runs down beside the open subtasks.
-                <div className="flex shrink-0 flex-col items-center self-stretch">
-                    <TaskCheckbox task={task} compact={isBoardCard} />
-                    <span aria-hidden="true" className={`mt-1 flex-1 ${SUBTASK_RAIL}`} />
-                </div>
-            ) : (
+            {/* With subtasks open the checkbox column stretches so its rail runs down beside them. */}
+            <div className={`flex shrink-0 flex-col items-center ${subtasksShown ? "self-stretch" : ""}`}>
                 <TaskCheckbox task={task} compact={isBoardCard} />
-            )}
+                {subtasksShown && <span aria-hidden="true" className={`mt-1 flex-1 ${SUBTASK_RAIL}`} />}
+            </div>
 
             {task.origin === "thought" && <ThoughtMark />}
 
@@ -340,16 +337,13 @@ export function TaskCard({
                                     {task.isPinned && (
                                         <Pin size={12} className="rotate-45 text-accent-primary" aria-label="Pinned" />
                                     )}
-                                    {showUrgentIcon && (() => {
-                                        const PriorityIcon = PRIORITY_OPTIONS[task.priority].icon;
-                                        return (
+                                    {showUrgentIcon && (
                                         <PriorityIcon
                                             size={13}
                                             style={{ color: task.priority === 4 ? "var(--color-priority-urgent)" : "var(--color-priority-high)" }}
                                             aria-hidden="true"
                                         />
-                                        );
-                                    })()}
+                                    )}
                                 </div>
                             ) : null}
 

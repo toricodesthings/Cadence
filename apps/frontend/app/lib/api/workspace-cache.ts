@@ -13,10 +13,6 @@ const WORKSPACE_QUERY_PREFIXES: readonly QueryKey[] = [
     ["sections"],
 ] as const;
 
-export function invalidateEverywhere(queryClient: QueryClient, queryKey: QueryKey) {
-    return queryClient.invalidateQueries({ queryKey, refetchType: "all" });
-}
-
 export async function hardRefreshWorkspaceCaches(queryClient: QueryClient) {
     // Drop inactive route caches first so hidden pages cannot surface stale lists on next navigation.
     await Promise.all(

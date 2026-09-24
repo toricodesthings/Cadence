@@ -233,14 +233,13 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
     return Promise.all(
         rows
             .filter((row) => row.interactionMode !== "timetable" || onlyFixed)
-            .map(async (row) => {
-                const [updated] = await tx
+            .map((row) =>
+                tx
                     .update(tasks)
                     .set({ ...rescheduleToDate(row, date, timezone!), updatedAt: sql`NOW()` })
                     .where(and(eq(tasks.id, row.id), eq(tasks.userId, userId)))
-                    .returning();
-                return updated;
-            }),
+                    .returning()
+                    .then(([updated]) => updated)),
     );
 }
 

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { Tag } from "@cadence/contracts/tag";
 import { removeTagFromCaches } from "../../lib/api/cache-sync";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 
 export function useDeleteTag() {
     const api = useApiClient();
@@ -20,7 +19,7 @@ export function useDeleteTag() {
         },
         onSuccess: (_tag, id) => {
             removeTagFromCaches(queryClient, id);
-            invalidateEverywhere(queryClient, queryKeys.tags.all);
+            queryClient.invalidateQueries({ queryKey: queryKeys.tags.all });
         },
         onError: (err) => {
             toast.error(err.message || "Failed to delete tag");

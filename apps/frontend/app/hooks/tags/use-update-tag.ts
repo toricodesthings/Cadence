@@ -4,7 +4,6 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { Tag, UpdateTag } from "@cadence/contracts/tag";
 import { toast } from "sonner";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 
 /** Rename or recolour a tag, optimistically in place */
 export function useUpdateTag() {
@@ -31,6 +30,6 @@ export function useUpdateTag() {
             toast.error(err.message || "Failed to update tag");
         },
 
-        onSettled: () => invalidateEverywhere(queryClient, queryKeys.tags.all),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.tags.all }),
     });
 }

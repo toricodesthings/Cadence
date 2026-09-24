@@ -75,17 +75,20 @@ function AccountProviders({ children }: { children: ReactNode }) {
     const retriedAfterRecovery = useRef(new Set<string>());
 
     // Only retry errors the backend marks as retryable (429, 5xx).
-    // Auth errors and validation errors are never retried.
-    const shouldRetry = (failureCount: number, error: Error, maxRetries: number) => {
+    // Auth errors and validation errors are never retried. A rate-limited read
+    // isn't either: retrying inside the window only extends it, and the next
+    // focus or visit refetches anyway.
+    const shouldRetry = (failureCount: number, error: Error, maxRetries: number, retryRateLimited: boolean) => {
         if (!(error instanceof ApiErrorResponse)) return failureCount < maxRetries;
         if (error.isAuthError) return false;
+        if (error.isRateLimited && !retryRateLimited) return false;
         return error.isRetryable && failureCount < maxRetries;
     };
 
-    // Exponential backoff — rate-limited requests back off more aggressively.
+    // Exponential backoff; a rate-limited write waits as long as the server asked.
     const retryDelay = (attempt: number, error: Error) => {
         if (error instanceof ApiErrorResponse && error.isRateLimited) {
-            return Math.min(2000 * 2 ** attempt, 16000);
+            return (error.retryAfterSeconds ?? 60) * 1000;
         }
         return Math.min(1000 * 2 ** attempt, 8000);
     };
@@ -138,11 +141,11 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         staleTime: STALE_TIMES.TASKS,
                         gcTime: 1000 * 60 * 10, // 10 minutes — keep for back-nav
                         refetchOnWindowFocus: true, // Sync on tab return
-                        retry: (failureCount, error) => shouldRetry(failureCount, error, 3),
+                        retry: (failureCount, error) => shouldRetry(failureCount, error, 3, false),
                         retryDelay,
                     },
                     mutations: {
-                        retry: (failureCount, error) => shouldRetry(failureCount, error, 2),
+                        retry: (failureCount, error) => shouldRetry(failureCount, error, 2, true),
                         retryDelay,
                     },
                 },

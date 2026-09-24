@@ -88,6 +88,8 @@ app.use(
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key"],
     credentials: true,
+    // Lets the client read how long a 429 asks it to wait.
+    exposeHeaders: ["Retry-After"],
     // Every Bearer request is preflighted; without this browsers re-ask every 5s per URL.
     // Chrome caps at 2h.
     maxAge: 7200,

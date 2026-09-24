@@ -42,8 +42,7 @@ export function useDeleteTask() {
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to delete task");
+            taskCache.invalidate(queryClient);
         },
-
-        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

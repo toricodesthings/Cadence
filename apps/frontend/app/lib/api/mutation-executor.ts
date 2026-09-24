@@ -74,12 +74,8 @@ async function executeMutationOp(client: ApiClient, op: MutationOp): Promise<unk
             return unwrapResponse(res);
         }
         case "batch_delete": {
-            const results = await Promise.all(
-                op.payload.taskIds.map((id) =>
-                    client.api.tasks[":id"].$delete({ param: { id } }),
-                ),
-            );
-            return results;
+            const res = await client.api.tasks.batch.delete.$post({ json: op.payload });
+            return unwrapResponse(res);
         }
         case "create_inbox": {
             const res = await client.api.inbox.$post({ json: op.payload });

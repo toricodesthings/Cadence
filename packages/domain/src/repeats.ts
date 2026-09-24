@@ -1,6 +1,6 @@
 // Repeating things come in three kinds (Fixed · Routine · Task). These helpers
 // hold the rules shared by every client.
-import { rrulestr } from "rrule";
+import { RRule, rrulestr } from "rrule";
 
 const RRULE_DAY_KEYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
@@ -19,14 +19,49 @@ export function routineTimeOn(
     return routine.targetTime;
 }
 
+const DAY_MS = 86_400_000;
+
+/** The calendar day (`YYYY-MM-DD`) an instant falls on in `timeZone`; an unknown zone reads as UTC. */
+export function localDay(instant: string | Date, timeZone = "UTC"): string {
+    const date = new Date(instant);
+    try {
+        return new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+    } catch {
+        return date.toISOString().slice(0, 10);
+    }
+}
+
 /**
- * The days (`YYYY-MM-DD`) a routine is due between two instants, inclusive. The
- * rule is anchored at midnight UTC of the routine's creation day, so each
- * occurrence is a plain calendar date. Throws on an invalid rule.
+ * A routine's rule, anchored so its days never depend on when it was created.
+ * A rule without INTERVAL or COUNT repeats every day/week/month/year the same
+ * way, so its anchor (the creation day in `timeZone`) is moved back by whole
+ * periods to on or before `from`: earlier days follow the same pattern and can
+ * be logged. "Every N" rules keep the creation day, which they count from.
  */
-export function habitOccurrences(recurrenceRule: string, createdAt: string, start: Date, end: Date): string[] {
-    const dtstart = new Date(`${createdAt.slice(0, 10)}T00:00:00.000Z`);
-    return rrulestr(recurrenceRule, { dtstart })
+export function habitRule(recurrenceRule: string, createdAt: string, from: Date, timeZone = "UTC") {
+    const { freq, interval = 1, count } = RRule.parseString(recurrenceRule);
+    let anchor = Date.parse(`${localDay(createdAt, timeZone)}T00:00:00.000Z`);
+    const floor = Date.parse(`${from.toISOString().slice(0, 10)}T00:00:00.000Z`);
+    if (anchor > floor && interval <= 1 && !count) {
+        if (freq === RRule.DAILY || freq === RRule.WEEKLY) {
+            const period = (freq === RRule.DAILY ? 1 : 7) * DAY_MS;
+            anchor -= Math.ceil((anchor - floor) / period) * period;
+        } else {
+            // Months and years: step back whole years so the day of the month stays.
+            const date = new Date(anchor);
+            date.setUTCFullYear(date.getUTCFullYear() - (date.getUTCFullYear() - new Date(floor).getUTCFullYear() + 1));
+            anchor = date.getTime();
+        }
+    }
+    return rrulestr(recurrenceRule, { dtstart: new Date(anchor) });
+}
+
+/**
+ * The days (`YYYY-MM-DD`) a routine is due between two instants, inclusive,
+ * each a plain calendar date (see {@link habitRule}). Throws on an invalid rule.
+ */
+export function habitOccurrences(recurrenceRule: string, createdAt: string, start: Date, end: Date, timeZone = "UTC"): string[] {
+    return habitRule(recurrenceRule, createdAt, start, timeZone)
         .between(start, end, true)
         .map((d) => d.toISOString().slice(0, 10));
 }

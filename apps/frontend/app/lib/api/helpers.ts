@@ -8,11 +8,14 @@ import { ApiErrorResponse, type ApiError } from "../../types/api";
 export interface UnwrappableResponse {
     ok: boolean;
     status: number;
+    headers?: Headers;
     json(): Promise<unknown>;
 }
 
 /** Extract a structured error message from a failed API response */
 export async function parseApiError(response: UnwrappableResponse): Promise<ApiErrorResponse> {
+    const retryAfter = Number(response.headers?.get("retry-after"));
+    const retryAfterSeconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined;
     try {
         const body = (await response.json()) as ApiError;
         return new ApiErrorResponse({
@@ -21,6 +24,7 @@ export async function parseApiError(response: UnwrappableResponse): Promise<ApiE
             message: body.error?.message ?? "An unexpected error occurred",
             isRetryable: body.error?.isRetryable ?? (response.status >= 500 || response.status === 429),
             details: body.error?.details,
+            retryAfterSeconds,
         });
     } catch {
         return new ApiErrorResponse({
@@ -28,6 +32,7 @@ export async function parseApiError(response: UnwrappableResponse): Promise<ApiE
             code: "UNPARSEABLE_ERROR",
             message: `Request failed with status ${response.status}`,
             isRetryable: response.status >= 500 || response.status === 429,
+            retryAfterSeconds,
         });
     }
 }

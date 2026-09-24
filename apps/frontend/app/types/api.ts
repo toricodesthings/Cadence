@@ -8,6 +8,8 @@ export class ApiErrorResponse extends Error {
     isAuthError: boolean;
     isRetryable: boolean;
     details?: unknown;
+    /** From a 429's `Retry-After`: how long the server wants us to wait. */
+    retryAfterSeconds?: number;
 
     constructor({
         status,
@@ -15,12 +17,14 @@ export class ApiErrorResponse extends Error {
         message,
         isRetryable = false,
         details,
+        retryAfterSeconds,
     }: {
         status: number;
         code: string;
         message: string;
         isRetryable?: boolean;
         details?: unknown;
+        retryAfterSeconds?: number;
     }) {
         super(message);
         this.name = "ApiErrorResponse";
@@ -29,6 +33,7 @@ export class ApiErrorResponse extends Error {
         this.isAuthError = status === 401 || code === "UNAUTHORIZED" || code === "TOKEN_EXPIRED";
         this.isRetryable = isRetryable;
         this.details = details;
+        this.retryAfterSeconds = retryAfterSeconds;
     }
 
     get isRateLimited(): boolean {

@@ -39,7 +39,7 @@ export function QuickAddSurface({
 }) {
     const [tab, setTab] = useState<QuickAddTab>(initialTab);
     const navigate = useNavigate();
-    const { data: tasks = [] } = useTasks({});
+    const { data: tasks = [] } = useTasks({ state: "ACTIVE" });
 
     useEffect(() => {
         if (open) setTab(initialTab);

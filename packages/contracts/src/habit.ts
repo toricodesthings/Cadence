@@ -40,6 +40,8 @@ export type UpdateHabit = z.input<typeof updateHabitSchema>;
 export const resolveHabitActionSchema = z.object({
     targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/), // YYYY-MM-DD or full ISO datetime — server truncates to date
     status: habitStatusSchema,
+    /** The caller's IANA zone, so "today" (and the streak) is their day, not UTC's. */
+    timezone: z.string().max(64).optional(),
 });
 export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;
 
@@ -52,15 +54,6 @@ export const weeklyHabitsQuerySchema = z.object({
 
 export const habitListQuerySchema = z.object({
     archived: z.string().optional().default("false").transform(v => v === "true"),
-});
-
-export const monthlyHabitsQuerySchema = z.object({
-    year: z.coerce.number().int().min(2020).max(2100),
-    month: z.coerce.number().int().min(0).max(11), // 0-indexed (JS Date convention)
-});
-
-export const unresolvedQuerySchema = z.object({
-    timezone: z.string().optional().default("UTC"),
 });
 
 // ── Row schema (exact DB columns) ──
@@ -114,13 +107,3 @@ export const habitSchema = habitRowSchema.extend({
     adherenceRateInWindow: z.number().optional(),
 });
 export type Habit = z.infer<typeof habitSchema>;
-
-export const unresolvedHabitSummarySchema = z.object({
-    habitId: z.uuid(),
-    title: z.string(),
-    targetTime: z.string().nullable(),
-    latestTargetDate: z.string(),
-    missedCount: z.number(),
-    actionableDates: z.array(z.string()),
-});
-export type UnresolvedHabitSummary = z.infer<typeof unresolvedHabitSummarySchema>;

@@ -43,10 +43,12 @@
   ],
 
   "ratelimits": [
+    // Per IP, before auth. Offices and mobile carriers put many people behind one IP,
+    // so this only stops floods; the per-user limits below do the real work.
     {
       "name": "RATE_LIMITER",
       "namespace_id": "2026031501",
-      "simple": { "limit": 500, "period": 60 }
+      "simple": { "limit": 2000, "period": 60 }
     },
     {
       "name": "RATE_LIMITER_READ",
@@ -97,7 +99,7 @@
         {
           "name": "RATE_LIMITER",
           "namespace_id": "2026031511",
-          "simple": { "limit": 500, "period": 60 }
+          "simple": { "limit": 2000, "period": 60 }
         },
         {
           "name": "RATE_LIMITER_READ",

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import type { Subtask } from "@cadence/contracts/subtask";
@@ -106,12 +106,15 @@ export function useSubtasksByTaskIds(taskIds: string[]) {
     return useQuery({
         queryKey: BULK_SUBTASKS_KEY(uniqueTaskIds),
         enabled: uniqueTaskIds.length > 0 && authReady && isAuthenticated,
+        // Keep showing the last map while a changed list loads, so rows don't flicker.
+        placeholderData: keepPreviousData,
         queryFn: async () => {
-            const res = await (api.api.subtasks as any).bulk.$post({
-                json: { taskIds: uniqueTaskIds },
-            });
-            const data = await unwrapResponse<BulkSubtasksMap>(res);
-            return normalizeBulkSubtasksMap(uniqueTaskIds, data);
+            // The route takes 200 ids per call (about 7.5KB of URL).
+            const batches: string[][] = [];
+            for (let i = 0; i < uniqueTaskIds.length; i += 200) batches.push(uniqueTaskIds.slice(i, i + 200));
+            const maps = await Promise.all(batches.map(async (ids) =>
+                unwrapResponse<BulkSubtasksMap>(await api.api.subtasks.$get({ query: { taskIds: ids.join(",") } }))));
+            return normalizeBulkSubtasksMap(uniqueTaskIds, Object.assign({}, ...maps));
         },
     });
 }

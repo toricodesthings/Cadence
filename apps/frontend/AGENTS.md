@@ -55,7 +55,7 @@ app/
 ## 7. Data & State
 
 - `useQuery`/`useMutation` only for server state — no `useEffect`-fetch-into-local-state without a specific non-caching reason.
-- Optimistic pattern (see `app/hooks/tasks/optimistic-helpers.ts`, `habits/optimistic-helpers.ts`): cancel in-flight queries → snapshot cache → update immediately → rollback on error → invalidate on settle.
+- Optimistic pattern (see `app/hooks/tasks/optimistic-helpers.ts`, `habits/optimistic-helpers.ts`): cancel in-flight queries → snapshot cache → update immediately → write the server's answer into every list (`reconcileTaskInCaches`) → rollback and invalidate on error. Task writes don't refetch on success, and invalidation only refetches what's on screen; hidden lists refetch when visited. Read one task with `useTask(id)`, never by loading whole state lists. Rate-limited reads are not retried; writes wait out `Retry-After`.
 - Query keys centralized in `app/lib/api/query-keys.ts` (domains: tasks, projects, inbox, tags, habits, ai) with differentiated `STALE_TIMES` — don't invent arbitrary per-hook caching windows.
 - Global query errors sign the user out on 401-ish failures and redirect to `/auth` — do not break this.
 - Local UI state: Zustand (`app/stores/`, see §5). `useSettings()` seeds from account-local storage only when cached data exists; query persistence waits for account identity before restoring. Startup reuses cached data, waits for missing workspace data, and gives optional weather/location/holiday/photo queries four seconds before falling back; failures stay recoverable. Keep durable preferences in Query, Zustand, or local cache.

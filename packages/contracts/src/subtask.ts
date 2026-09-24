@@ -6,9 +6,15 @@ export const insertSubtaskSchema = z.object({
     orderIndex: z.number(),
 });
 
-export const bulkSubtasksSchema = z.object({
-    taskIds: z.array(z.string().uuid()).max(200),
+const subtaskTaskIdsSchema = z.array(z.string().uuid()).max(200);
+
+/** `GET /subtasks?taskIds=a,b`: at most 200 ids (about 7.5KB of URL). */
+export const subtasksByTaskQuerySchema = z.object({
+    taskIds: z.string().transform((ids) => ids.split(",").filter(Boolean)).pipe(subtaskTaskIdsSchema),
 });
+
+/** Body of the legacy `POST /subtasks/bulk`, still called by older desktop builds. */
+export const bulkSubtasksSchema = z.object({ taskIds: subtaskTaskIdsSchema });
 
 export const updateSubtaskSchema = z.object({
     title: z.string().min(1).max(500).optional(),

@@ -3,15 +3,13 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSubtasksByTaskIds } from "../../../app/hooks/tasks/use-subtasks";
 
-const bulkPostMock = vi.fn();
+const bulkGetMock = vi.fn();
 
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => ({
         api: {
             subtasks: {
-                bulk: {
-                    $post: bulkPostMock,
-                },
+                $get: bulkGetMock,
             },
         },
     }),
@@ -39,11 +37,11 @@ function createWrapper() {
 
 describe("useSubtasksByTaskIds", () => {
     beforeEach(() => {
-        bulkPostMock.mockReset();
+        bulkGetMock.mockReset();
     });
 
     it("fetches subtasks for many tasks with a single bulk request", async () => {
-        bulkPostMock.mockResolvedValue(
+        bulkGetMock.mockResolvedValue(
             new Response(
                 JSON.stringify({
                     data: {
@@ -80,8 +78,8 @@ describe("useSubtasksByTaskIds", () => {
 
         await waitFor(() => expect(result.current.data).toBeDefined());
 
-        expect(bulkPostMock).toHaveBeenCalledWith({
-            json: { taskIds: ["task-1", "task-2"] },
+        expect(bulkGetMock).toHaveBeenCalledWith({
+            query: { taskIds: "task-1,task-2" },
         });
         expect(result.current.data).toEqual({
             "task-1": [
@@ -90,5 +88,16 @@ describe("useSubtasksByTaskIds", () => {
             ],
             "task-2": [],
         });
+    });
+
+    it("splits more than 200 tasks into several requests", async () => {
+        bulkGetMock.mockImplementation(async () => Response.json({ data: {} }));
+        const ids = Array.from({ length: 250 }, (_, i) => `task-${String(i).padStart(3, "0")}`);
+
+        const { result } = renderHook(() => useSubtasksByTaskIds(ids), { wrapper: createWrapper() });
+
+        await waitFor(() => expect(result.current.data).toBeDefined());
+        expect(bulkGetMock.mock.calls.map(([{ query }]) => query.taskIds.split(",").length)).toEqual([200, 50]);
+        expect(Object.keys(result.current.data!)).toHaveLength(250);
     });
 });

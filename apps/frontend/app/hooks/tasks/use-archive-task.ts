@@ -5,7 +5,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
-import { removeTaskFromCaches } from "../../lib/api/cache-sync";
+import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { useRestoreTask } from "./use-restore-task";
 
@@ -36,8 +36,8 @@ export function useArchiveTask() {
             return { snapshot };
         },
 
-        onSuccess: (_task, id) => {
-            removeTaskFromCaches(queryClient, id);
+        onSuccess: (task, id) => {
+            reconcileTaskInCaches(queryClient, task);
             toast("Task moved to trash", {
                 action: { label: "Undo", onClick: () => restoreTask.mutate(id) },
             });
@@ -46,8 +46,7 @@ export function useArchiveTask() {
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to move task to trash");
+            taskCache.invalidate(queryClient);
         },
-
-        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

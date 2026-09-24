@@ -1,5 +1,4 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
-import { invalidateEverywhere } from "./workspace-cache";
 
 type CacheSnapshot = Array<[QueryKey, unknown]>;
 
@@ -30,7 +29,7 @@ export function createOptimisticHelpers(cacheKeys: readonly QueryKey[]) {
 
     invalidate(qc: QueryClient) {
       return Promise.all(
-        cacheKeys.map((key) => invalidateEverywhere(qc, key)),
+        cacheKeys.map((key) => qc.invalidateQueries({ queryKey: key })),
       );
     },
 

@@ -8,6 +8,13 @@ import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
+/** The batch routes take at most 50 ids, so larger selections go as several calls. */
+async function inBatches<T>(taskIds: string[], send: (ids: string[]) => Promise<T[]>): Promise<T[]> {
+    const batches: string[][] = [];
+    for (let i = 0; i < taskIds.length; i += 50) batches.push(taskIds.slice(i, i + 50));
+    return (await Promise.all(batches.map(send))).flat();
+}
+
 /** Batch-transition multiple tasks to a new state (COMPLETE, WAITING, ARCHIVED, ACTIVE) */
 export function useBatchStateTransition() {
     const client = useApiClient();
@@ -19,12 +26,8 @@ export function useBatchStateTransition() {
             Task[]
         >(
             ({ taskIds, state }) => ({ type: "batch_state", payload: { taskIds, state } }),
-            async ({ taskIds, state }) => {
-                const res = await client.api.tasks.batch.state.$patch({
-                    json: { taskIds, state },
-                });
-                return unwrapResponse<Task[]>(res);
-            },
+            ({ taskIds, state }) => inBatches(taskIds, async (ids) =>
+                unwrapResponse<Task[]>(await client.api.tasks.batch.state.$patch({ json: { taskIds: ids, state } }))),
         ),
         onMutate: async ({ taskIds, state }) => {
             await taskCache.cancel(queryClient);
@@ -43,8 +46,8 @@ export function useBatchStateTransition() {
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to update tasks");
+            taskCache.invalidate(queryClient);
         },
-        onSettled: () => taskCache.invalidate(queryClient),
     });
 }
 
@@ -58,12 +61,8 @@ export function useBatchRescheduleTasks() {
             Task[]
         >(
             ({ taskIds, scheduledStart, isAllDay }) => ({ type: "batch_reschedule", payload: { taskIds, scheduledStart, isAllDay } }),
-            async ({ taskIds, scheduledStart, isAllDay }) => {
-                const res = await client.api.tasks.batch.reschedule.$post({
-                    json: { taskIds, scheduledStart, isAllDay },
-                });
-                return unwrapResponse<Task[]>(res);
-            },
+            ({ taskIds, scheduledStart, isAllDay }) => inBatches(taskIds, async (ids) =>
+                unwrapResponse<Task[]>(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, scheduledStart, isAllDay } }))),
         ),
         onMutate: async ({ taskIds, scheduledStart, isAllDay }) => {
             await taskCache.cancel(queryClient);
@@ -84,8 +83,8 @@ export function useBatchRescheduleTasks() {
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to reschedule tasks");
+            taskCache.invalidate(queryClient);
         },
-        onSettled: () => taskCache.invalidate(queryClient),
     });
 }
 
@@ -96,15 +95,11 @@ export function useBatchDeleteTasks() {
     return useMutation({
         mutationFn: withOfflineSupport<
             { taskIds: string[] },
-            unknown[]
+            Task[]
         >(
             ({ taskIds }) => ({ type: "batch_delete", payload: { taskIds } }),
-            async ({ taskIds }) => {
-                const results = await Promise.all(taskIds.map(id =>
-                    client.api.tasks[":id"].$delete({ param: { id } })
-                ));
-                return results;
-            },
+            ({ taskIds }) => inBatches(taskIds, async (ids) =>
+                unwrapResponse<Task[]>(await client.api.tasks.batch.delete.$post({ json: { taskIds: ids } }))),
         ),
         onMutate: async ({ taskIds }) => {
             await taskCache.cancel(queryClient);
@@ -122,7 +117,7 @@ export function useBatchDeleteTasks() {
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to delete tasks");
+            taskCache.invalidate(queryClient);
         },
-        onSettled: () => taskCache.invalidate(queryClient),
     });
 }

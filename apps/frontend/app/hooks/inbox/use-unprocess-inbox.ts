@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { removeTaskFromCaches } from "../../lib/api/cache-sync";
 import type { Task } from "@cadence/contracts/task";
 import type { InboxItem } from "@cadence/contracts/inbox";
@@ -41,8 +40,8 @@ export function useUnprocessInbox() {
             toast.error("Couldn't undo. Try again.");
         },
         onSettled: () => {
-            invalidateEverywhere(cache, queryKeys.inbox.all);
-            invalidateEverywhere(cache, queryKeys.tasks.all);
+            cache.invalidateQueries({ queryKey: queryKeys.inbox.all });
+            cache.invalidateQueries({ queryKey: queryKeys.tasks.all });
         },
     });
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { Trash2, RotateCcw, AlertTriangle } from "lucide-react";
-import { useTasks } from "../hooks/tasks/use-tasks";
+import { usePagedTasks } from "../hooks/tasks/use-tasks";
 import { useRestoreTask } from "../hooks/tasks/use-restore-task";
 import { useDeleteTask } from "../hooks/tasks/use-delete-task";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
@@ -72,7 +72,7 @@ function TrashTaskRow({ task }: { task: Task }) {
 }
 
 export default function TrashView() {
-    const { data: tasks, isLoading } = useTasks({ state: "ARCHIVED" });
+    const { data: tasks, isLoading, isFetching, loadMore } = usePagedTasks("ARCHIVED");
 
     return (
         <MainLayout
@@ -110,6 +110,13 @@ export default function TrashView() {
                             <p className="text-twilight-text-muted text-sm max-w-sm">
                                 When you move tasks to trash, they&apos;ll appear here for recovery.
                             </p>
+                        </div>
+                    )}
+                    {loadMore && (
+                        <div className="mt-4 flex justify-center">
+                            <Button variant="ghost" size="sm" onClick={loadMore} disabled={isFetching}>
+                                {isFetching ? "Loading…" : "Show older"}
+                            </Button>
                         </div>
                     )}
                 </PageContent>

@@ -6,7 +6,7 @@ import {
     ExternalLink, Check, ListChecks, StickyNote
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTasks } from "../../hooks/tasks/use-tasks";
+import { useTask } from "../../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
 import { useCreateSubtask } from "../../hooks/tasks/use-subtasks";
@@ -66,10 +66,7 @@ export function TaskEditor({
     detailMode = "peek",
     onDetailModeChange,
 }: TaskEditorProps) {
-    const { data: activeTasks } = useTasks({ state: "ACTIVE" });
-    const { data: waitingTasks } = useTasks({ state: "WAITING" });
-    const { data: archiveTasks } = useTasks({ state: "ARCHIVED" });
-    const { data: doneTasks } = useTasks({ state: "COMPLETE" });
+    const task = useTask(taskId);
     const { data: projects } = useProjects();
     const updateTask = useUpdateTask();
     const convertRepeat = useConvertRepeat();
@@ -79,13 +76,6 @@ export function TaskEditor({
     const removeTagAssoc = useRemoveTaskTag();
     const openNoteRoom = useNoteRoomStore((s) => s.open);
 
-    // Find the task across all caches
-    const task = useMemo(
-        () => [...(activeTasks ?? []), ...(waitingTasks ?? []), ...(archiveTasks ?? []), ...(doneTasks ?? [])].find(
-            (t) => t.id === taskId
-        ),
-        [activeTasks, waitingTasks, archiveTasks, doneTasks, taskId],
-    );
 
     const [waitingOn, setWaitingOn] = useState(task?.waitingOn ?? "");
     const [isEditingNotes, setIsEditingNotes] = useState(false);

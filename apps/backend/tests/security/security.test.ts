@@ -241,6 +241,12 @@ describe("CORS", () => {
         expect(response.headers.get("access-control-allow-origin")).toBe(expected);
     });
 
+    it("exposes Retry-After so the client can wait out a 429", async () => {
+        const response = await send(new Request("http://localhost/health", { headers: { Origin: "http://localhost:8788" } }));
+
+        expect(response.headers.get("access-control-expose-headers")).toBe("Retry-After");
+    });
+
     it("lets preflight requests send Idempotency-Key", async () => {
         const request = new Request("http://localhost/api/v1/tasks/test/subtasks", {
             method: "OPTIONS",

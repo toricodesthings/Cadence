@@ -5,7 +5,6 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { Tag, CreateTagInput } from "@cadence/contracts/tag";
 import { toast } from "sonner";
 import { reconcileTagInCaches } from "../../lib/api/cache-sync";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 
 /** Create a tag with optimistic insertion */
 export function useCreateTag() {
@@ -49,6 +48,6 @@ export function useCreateTag() {
         },
 
         onSettled: () =>
-            invalidateEverywhere(queryClient, queryKeys.tags.all),
+            queryClient.invalidateQueries({ queryKey: queryKeys.tags.all }),
     });
 }

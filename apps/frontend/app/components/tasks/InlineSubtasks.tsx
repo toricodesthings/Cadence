@@ -150,7 +150,7 @@ function InlineSubtaskItem({
     );
 }
 
-/** The panel the chip opens: header with count and Add, the sortable list, and the add input. */
+/** The panel the chip opens: the sortable list, then the add input or an "Add subtask" row. */
 export function InlineSubtaskPanel({
     id,
     taskId,
@@ -203,60 +203,58 @@ export function InlineSubtaskPanel({
                     className="-ml-7 overflow-hidden"
                 >
                     <div className="pt-0.5">
-                        <div>
-                            {ordered.length > 0 && (
-                                <SortableSubtaskList
-                                    subtasks={ordered}
-                                    onReorder={(payload) => reorderSubtask.mutate(payload)}
-                                    renderItem={({ subtask, dragHandleProps, isDragging }) => (
-                                        <InlineSubtaskItem
-                                            subtask={subtask}
-                                            onDelete={(subtaskId) => deleteSubtask.mutate(subtaskId)}
-                                            dragHandleProps={dragHandleProps}
-                                            isDragging={isDragging}
-                                        />
-                                    )}
-                                />
-                            )}
-                            {adding ? (
-                                <div className="flex items-center gap-1.5 rounded-xl px-1 py-0.5">
-                                    <span className="w-[18px] shrink-0" aria-hidden="true" />
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                                        <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70" />
-                                    </span>
-                                    <input
-                                        ref={inputRef}
-                                        type="text"
-                                        data-no-dnd="true"
-                                        data-no-open="true"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") submit();
-                                            if (e.key === "Escape") stopAdding();
-                                        }}
-                                        onBlur={() => (title.trim() ? submit() : stopAdding())}
-                                        placeholder="Add subtask..."
-                                        aria-label="New subtask"
-                                        className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
+                        {ordered.length > 0 && (
+                            <SortableSubtaskList
+                                subtasks={ordered}
+                                onReorder={(payload) => reorderSubtask.mutate(payload)}
+                                renderItem={({ subtask, dragHandleProps, isDragging }) => (
+                                    <InlineSubtaskItem
+                                        subtask={subtask}
+                                        onDelete={(subtaskId) => deleteSubtask.mutate(subtaskId)}
+                                        dragHandleProps={dragHandleProps}
+                                        isDragging={isDragging}
                                     />
-                                </div>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => onAddingChange(true)}
+                                )}
+                            />
+                        )}
+                        {adding ? (
+                            <div className="flex items-center gap-1.5 rounded-xl px-1 py-0.5">
+                                <span className="w-[18px] shrink-0" aria-hidden="true" />
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                                    <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70" />
+                                </span>
+                                <input
+                                    ref={inputRef}
+                                    type="text"
                                     data-no-dnd="true"
                                     data-no-open="true"
-                                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
-                                >
-                                    <span className="w-[18px] shrink-0" aria-hidden="true" />
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                                        <Plus size={14} />
-                                    </span>
-                                    Add subtask
-                                </button>
-                            )}
-                        </div>
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") submit();
+                                        if (e.key === "Escape") stopAdding();
+                                    }}
+                                    onBlur={() => (title.trim() ? submit() : stopAdding())}
+                                    placeholder="Add subtask..."
+                                    aria-label="New subtask"
+                                    className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
+                                />
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => onAddingChange(true)}
+                                data-no-dnd="true"
+                                data-no-open="true"
+                                className="flex w-full cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                            >
+                                <span className="w-[18px] shrink-0" aria-hidden="true" />
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                                    <Plus size={14} />
+                                </span>
+                                Add subtask
+                            </button>
+                        )}
                     </div>
                 </motion.div>
             ) : null}

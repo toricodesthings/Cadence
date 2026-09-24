@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
 import type { Task } from "@cadence/contracts/task";
 import type { InboxItem } from "@cadence/contracts/inbox";
@@ -104,8 +103,8 @@ export function useProcessInboxToTask() {
         },
         onSuccess: (_data, variables, context) => {
             if (!_data) return; // Queued offline
-            invalidateEverywhere(queryClient, queryKeys.inbox.all);
-            invalidateEverywhere(queryClient, queryKeys.tasks.all);
+            queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
+            queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
             const scheduledLabel = _data.scheduledStart ?? _data.dueDate?.slice(0, 10) ?? variables.scheduledStart ?? variables.dueDate ?? variables.scheduledDate;
             const label = variables.successLabel ?? (variables.complete ? "Ticked off" : scheduledLabel ? placementLabel(scheduledLabel) : "No day yet");
             toast.success(label, { action: { label: "Undo", onClick: () => unprocess.mutate({ id: variables.inboxItemId, taskId: _data.id, item: context?.snapshot.flatMap(([, items]) => items ?? []).find(item => item.id === variables.inboxItemId) }) } });

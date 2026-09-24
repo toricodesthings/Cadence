@@ -22,7 +22,7 @@ import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
-import { sourceSurfaceSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "./tasks.schema";
+import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "./tasks.schema";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { createTask, deleteTasks, rescheduleTasks, setTaskState, trackTaskChanges, updateTask } from "./tasks.service";
@@ -495,9 +495,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     }
                     : query,
             );
+            // Done and Trash page newest first; open lists keep their manual order.
+            const newestFirst = query.state === "COMPLETE" || query.state === "ARCHIVED";
             const returnedTasks = await tx.query.tasks.findMany({
                 where: and(...conditions),
-                orderBy: (taskTable, { asc, desc }) => [desc(taskTable.isPinned), asc(taskTable.orderIndex)],
+                orderBy: (taskTable, { asc, desc }) => newestFirst
+                    ? [desc(taskTable.updatedAt), desc(taskTable.id)]
+                    : [desc(taskTable.isPinned), asc(taskTable.orderIndex)],
                 ...(scheduleScoped
                     ? {}
                     : {
@@ -571,6 +575,14 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: associations });
+    })
+    .post("/batch/delete", apiValidator("json", batchDeleteSchema), async (c) => {
+        const userId = c.get("userId");
+        const { taskIds } = c.req.valid("json");
+        const db = getDbClient(c.env);
+
+        const deleted = await withRls(db, userId, (tx) => deleteTasks(tx, userId, taskIds));
+        return c.json({ data: deleted });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");

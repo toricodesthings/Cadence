@@ -6,7 +6,6 @@ import type { Task } from "@cadence/contracts/task";
 import { queryKeys } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 
 function sectionsKey(projectId?: string | null) {
     return ["sections", projectId ?? "__none__"] as const;
@@ -65,7 +64,7 @@ export function useCreateSection(projectId?: string | null) {
             }
         },
         onSettled: () => {
-            invalidateEverywhere(queryClient, key);
+            queryClient.invalidateQueries({ queryKey: key });
         },
     });
 }
@@ -103,7 +102,7 @@ export function useUpdateSection(projectId?: string | null) {
             }
         },
         onSettled: () => {
-            invalidateEverywhere(queryClient, key);
+            queryClient.invalidateQueries({ queryKey: key });
         },
     });
 }
@@ -143,8 +142,8 @@ export function useDeleteSection(projectId?: string | null) {
             for (const [taskKey, data] of context?.previousTasks ?? []) queryClient.setQueryData(taskKey, data);
         },
         onSettled: () => {
-            invalidateEverywhere(queryClient, key);
-            invalidateEverywhere(queryClient, queryKeys.tasks.all);
+            queryClient.invalidateQueries({ queryKey: key });
+            queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
         },
     });
 }

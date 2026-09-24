@@ -6,7 +6,6 @@ import type { Project } from "@cadence/contracts/project";
 import { toast } from "sonner";
 import { removeProjectFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 
 export function useDeleteProject() {
     const client = useApiClient();
@@ -43,6 +42,6 @@ export function useDeleteProject() {
             toast.error(err.message || "Failed to delete list");
         },
 
-        onSettled: () => invalidateEverywhere(queryClient, queryKeys.projects.all),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
     });
 }

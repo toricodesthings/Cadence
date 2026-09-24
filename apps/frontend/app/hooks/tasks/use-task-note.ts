@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useTasks } from "./use-tasks";
+import { useTask } from "./use-tasks";
 import { useDebouncedCallback } from "../core/use-debounced-callback";
 import type { SaveStatus } from "../../components/tasks/TaskNoteSaveStatus";
 import { getNoteOwnerTaskId } from "../../lib/notes/recurring-note-scope";
@@ -14,26 +14,12 @@ import { useTaskNoteQuery, useUpsertTaskNote } from "./use-task-note-api";
  * - Save status tracking
  */
 export function useTaskNote(taskId: string | null) {
-    const { data: activeTasks } = useTasks({ state: "ACTIVE" });
-    const { data: waitingTasks } = useTasks({ state: "WAITING" });
-    const { data: archiveTasks } = useTasks({ state: "ARCHIVED" });
-    const { data: doneTasks } = useTasks({ state: "COMPLETE" });
-
-    // Find the task across all caches
-    const allTasks = [
-        ...(activeTasks ?? []),
-        ...(waitingTasks ?? []),
-        ...(archiveTasks ?? []),
-        ...(doneTasks ?? []),
-    ];
-    const task = allTasks.find((t) => t.id === taskId) ?? null;
+    const task = useTask(taskId) ?? null;
 
     // Resolve note owner for recurring tasks
     const noteOwnerId = task ? getNoteOwnerTaskId(task) : taskId;
-    const noteOwnerTask =
-        noteOwnerId !== taskId
-            ? allTasks.find((t) => t.id === noteOwnerId) ?? task
-            : task;
+    const ownerTask = useTask(noteOwnerId !== taskId ? noteOwnerId : null);
+    const noteOwnerTask = ownerTask ?? task;
 
     // Lazy-load dedicated note for the owner task
     const { data: noteData, isLoading: noteLoading } = useTaskNoteQuery(noteOwnerId);

@@ -6,7 +6,6 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import { toast } from "sonner";
 import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { invalidateEverywhere } from "../../lib/api/workspace-cache";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useDeleteInboxItem() {
@@ -47,6 +46,6 @@ export function useDeleteInboxItem() {
             toast.error(err.message || "Failed to delete inbox item");
         },
 
-        onSettled: () => invalidateEverywhere(queryClient, queryKeys.inbox.all),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
     });
 }
