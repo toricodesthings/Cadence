@@ -13,6 +13,7 @@ import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
 import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
+import { useSections } from "../hooks/sections/use-sections";
 import { KanbanBoard } from "../components/kanban/KanbanBoard";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
@@ -121,7 +122,8 @@ export default function ProjectView() {
     const [emojiValue, setEmojiValue] = useState("");
     const [isCustomColor, setIsCustomColor] = useState(false);
     const [addOpen, setAddOpen] = useState(false);
-    const [sectionsOpen, setSectionsOpen] = useState(false);
+    const [sectionsFocus, setSectionsFocus] = useState<string | null>(null);
+    const { data: sections = [] } = useSections(projectId);
     const [activeSectionId, setActiveSectionId] = useState(UNSECTIONED_ID);
 
     const project = projects?.find(p => p.id === projectId);
@@ -432,7 +434,7 @@ export default function ProjectView() {
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setSectionsOpen(true)}
+                                            onClick={() => setSectionsFocus("")}
                                             className="touch-target flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] px-4 text-sm font-medium text-twilight-text-soft"
                                         >
                                             <LayoutList size={15} aria-hidden="true" />
@@ -524,7 +526,7 @@ export default function ProjectView() {
                                 onSelectTask={handleSelectTask}
                                 activeSectionId={activeSectionId}
                                 onActiveSectionChange={setActiveSectionId}
-                                onManageSections={() => setSectionsOpen(true)}
+                                onManageSections={() => setSectionsFocus("")}
                             />
                         )}
                     </div>
@@ -539,13 +541,14 @@ export default function ProjectView() {
 
                             {isLoading ? (
                                 <TaskListSkeleton />
-                            ) : tasks && tasks.length > 0 ? (
+                            ) : (tasks?.length || sections.length) ? (
                                 <SectionedTaskList
-                                    tasks={tasks}
+                                    tasks={tasks ?? []}
                                     projectId={projectId}
                                     selectedTaskId={selectedTaskId}
                                     onSelectTask={handleSelectTask}
                                     rationaleByTaskId={rationaleByTaskId}
+                                    onManageSections={setSectionsFocus}
                                 />
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
@@ -598,8 +601,9 @@ export default function ProjectView() {
                         onSectionChange={setActiveSectionId}
                     />
                     <ProjectSectionsSheet
-                        open={sectionsOpen}
-                        onClose={() => setSectionsOpen(false)}
+                        open={sectionsFocus !== null}
+                        onClose={() => setSectionsFocus(null)}
+                        focus={sectionsFocus}
                         projectId={projectId}
                         tasks={rawTasks ?? []}
                     />

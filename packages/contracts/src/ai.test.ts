@@ -4,7 +4,6 @@ import {
     conversationPatchSchema,
     MAX_PARTS_PER_MESSAGE,
     stopStreamSchema,
-    toolOutputRequestSchema,
     uiMessageSchema,
 } from "./ai";
 
@@ -27,6 +26,16 @@ describe("chatRequestSchema", () => {
         expect(chatRequestSchema.safeParse({ ...base, editAnchorId: null }).success).toBe(true);
         expect(chatRequestSchema.safeParse({ ...base, editAnchorId: "m0" }).success).toBe(true);
         expect(chatRequestSchema.parse(base)).not.toHaveProperty("editAnchorId");
+    });
+
+    it("takes approval answers instead of a message, for a known thread", () => {
+        const conversationId = "22222222-2222-4222-8222-222222222222";
+        const approvals = [{ id: "a1", approved: false, reason: "user removed Buy milk" }];
+        const answer = { conversationId, approvals, currentDate: "2026-09-23T12:00:00.000Z" };
+        expect(chatRequestSchema.safeParse(answer).success).toBe(true);
+        expect(chatRequestSchema.safeParse({ ...answer, conversationId: undefined }).success).toBe(false);
+        expect(chatRequestSchema.safeParse({ ...answer, message: { id: "m1", role: "user", parts: [text("hi")] } }).success).toBe(false);
+        expect(chatRequestSchema.safeParse({ conversationId, currentDate: answer.currentDate }).success).toBe(false);
     });
 });
 
@@ -67,10 +76,3 @@ describe("conversationPatchSchema", () => {
     });
 });
 
-describe("toolOutputRequestSchema", () => {
-    it("requires a toolCallId and an object output", () => {
-        expect(toolOutputRequestSchema.safeParse({ toolCallId: "c1", output: { decision: "commit" } }).success).toBe(true);
-        expect(toolOutputRequestSchema.safeParse({ output: { decision: "commit" } }).success).toBe(false);
-        expect(toolOutputRequestSchema.safeParse({ toolCallId: "c1", output: "commit" }).success).toBe(false);
-    });
-});

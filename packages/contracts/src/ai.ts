@@ -43,14 +43,26 @@ export const userMessageSchema = uiMessageSchema.extend({ role: z.literal("user"
 /** An assistant-role message snapshot (stop-endpoint partial persistence). */
 export const assistantMessageSchema = uiMessageSchema.extend({ role: z.literal("assistant") });
 
-/** Chat request — load-by-id: client sends the latest user message + conversationId. */
+/** Chat request — load-by-id: the latest user message (or approval answers) + conversationId. */
 /** Composer approval mode: ask first · auto (all but permanent deletes) · full (everything). */
 export const approvalModeSchema = z.enum(["ask", "auto", "full"]);
 export type ApprovalMode = z.infer<typeof approvalModeSchema>;
 
+/** The user's answer to one tool approval the assistant is waiting on. */
+export const toolApprovalDecisionSchema = z.object({
+    id: z.string().min(1).max(128),
+    approved: z.boolean(),
+    /** Why it was declined, for the model (e.g. "user removed Buy milk"). */
+    reason: z.string().max(300).optional(),
+});
+export type ToolApprovalDecision = z.infer<typeof toolApprovalDecisionSchema>;
+
 export const chatRequestSchema = z.object({
     conversationId: z.string().uuid().optional(),
-    message: userMessageSchema,
+    /** The new user turn. Omitted when the request only answers approvals. */
+    message: userMessageSchema.optional(),
+    /** Answers to the approvals the last assistant message waits on; the turn then continues. */
+    approvals: z.array(toolApprovalDecisionSchema).min(1).max(50).optional(),
     timezone: z.string().default("UTC"),
     currentDate: z.string().describe("ISO timestamp representing user's current clock time"),
     /** BCP-47 locale of the client (e.g. "en-CA") — feeds runtime prompt context. */
@@ -66,7 +78,9 @@ export const chatRequestSchema = z.object({
      * sends/regenerates — regeneration anchors on the re-sent message id itself.
      */
     editAnchorId: z.string().min(1).max(128).nullable().optional(),
-});
+})
+    .refine((v) => !v.message !== !v.approvals, "Send a message or approvals, not both")
+    .refine((v) => !v.approvals || v.conversationId, "Approvals need a conversationId");
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
 // ── Conversation management endpoints ──
@@ -107,22 +121,6 @@ export const stopStreamSchema = z.object({
 });
 export type StopStreamRequest = z.infer<typeof stopStreamSchema>;
 
-// ── Tool-output persistence (HITL proposal decisions) ──
-// Proposal cards resolve client-side (`addToolResult` is local state only), so the
-// decision must be persisted explicitly or a reload re-offers an already-committed
-// write. The client may ONLY attach an output to an EXISTING tool part on an
-// assistant message it owns — it can never rewrite text or add parts.
-export const toolOutputParamSchema = z.object({
-    id: z.string().uuid(),
-    messageId: z.string().min(1).max(128),
-});
-
-export const toolOutputRequestSchema = z.object({
-    toolCallId: z.string().min(1).max(128),
-    /** Small structured outcome (e.g. { decision: "commit" }). Size-capped server-side. */
-    output: z.record(z.string(), z.unknown()),
-});
-export type ToolOutputRequest = z.infer<typeof toolOutputRequestSchema>;
 
 // ── Conversation entity (Row + entity) ──
 export const aiConversationRowSchema = z.object({

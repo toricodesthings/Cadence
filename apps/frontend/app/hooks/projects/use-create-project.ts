@@ -13,11 +13,8 @@ export function useCreateProject() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ idempotencyKey, ...input }: CreateProjectInput & { idempotencyKey?: string }) => {
-            const res = await client.api.projects.$post(
-                { json: input },
-                idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined,
-            );
+        mutationFn: async (input: CreateProjectInput) => {
+            const res = await client.api.projects.$post({ json: input });
             return unwrapResponse<Project>(res);
         },
 

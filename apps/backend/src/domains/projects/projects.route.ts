@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
-import { getIdempotencyKey, checkIdempotency, recordMutation } from "../../platform/idempotency";
+import { getIdempotencyKey } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { projects } from "../../db/schema";
 import { insertProjectSchema, updateProjectSchema } from "@cadence/contracts/project";
@@ -10,6 +10,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
+import { createProject } from "./projects.service";
 
 export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertProjectSchema), async (c) => {
@@ -18,21 +19,7 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const idempotencyKey = getIdempotencyKey(c);
         const db = getDbClient(c.env);
 
-        const project = await withRls(db, userId, async (tx) => {
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(projects).where(and(eq(projects.id, existingId), eq(projects.userId, userId)));
-                if (existing) return existing;
-            }
-
-            const [row] = await tx
-                .insert(projects)
-                .values({ ...body, userId })
-                .returning();
-
-            await recordMutation(tx, userId, idempotencyKey, row.id);
-            return row;
-        });
+        const project = await withRls(db, userId, (tx) => createProject(tx, userId, body, idempotencyKey));
 
         return c.json({ data: project }, 201);
     })

@@ -6,9 +6,10 @@ import { habits, habitLogs } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
-import { safeExecute, clampLimit } from "./index";
+import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalHabit } from "./projections";
 import { routinesDue } from "./calendar";
+import { resolveHabit } from "../../habits/habits.service";
 
 export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -98,17 +99,22 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
             }),
     }),
 
-    // ── P (proposal — NO DB WRITE) ──────────────────────────────────────────
-    propose_log_habit: tool({
-        description:
-            "Drafts marking a routine done or skipped for a day (PENDING clears it).",
+    // ── W ──────────────────────────────────────────────────────────────────
+    log_habit: tool({
+        description: "Marks a routine done or skipped for a day (PENDING clears it). Returns the routine's streak.",
         inputSchema: z.object({
-            habitId: z.string().uuid().describe("Habit to log."),
-            status: z.enum(["COMPLETED", "SKIPPED", "PENDING"]).describe("Resolution to apply."),
-            targetDate: z
-                .string()
-                .regex(/^\d{4}-\d{2}-\d{2}/, "YYYY-MM-DD")
-                .describe("Calendar day, YYYY-MM-DD."),
+            habitId: z.uuid(),
+            status: z.enum(["COMPLETED", "SKIPPED", "PENDING"]),
+            targetDate: z.iso.date().describe("The local day."),
         }),
+        execute: async (input, { toolCallId }) =>
+            safeExecute("log_habit", userId, async () =>
+                withRls(getDbClient(env), userId, (tx) =>
+                    once(tx, userId, toolCallId, async () => {
+                        const { habit } = await resolveHabit(tx, userId, input.habitId, input);
+                        return { result: { status: input.status, currentStreak: habit.currentStreak }, id: habit.id };
+                    }),
+                ),
+            ),
     }),
 });

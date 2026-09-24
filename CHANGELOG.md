@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Hand the assistant a list and it sets everything up in one go, with one tap to approve.
+
+### Added
+- On phones, manage sections from a Sections button beside the board chips, under the list, or a section's ⋯.
+- The assistant can add several tasks at once, with their checklists, repeats and Fixed blocks, in one card.
+- The assistant can add, tick off or remove many subtasks, or change many tasks, in one card.
+
+### Changed
+- After you approve, the assistant keeps going, so "make a list and put these in it" happens in one go.
+- Untick rows on an assistant card to leave them out; it offers the rest again.
+
+### Fixed
+- A list whose sections are all empty now shows its sections instead of "No tasks in this list".
+
 ## [0.18.3] - 2026-09-23
 
 ### Changed

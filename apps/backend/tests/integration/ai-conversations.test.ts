@@ -5,7 +5,6 @@ import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
 import { aiRoutes } from "../../src/domains/ai/ai.route";
-import { MAX_PART_BYTES } from "../../src/domains/ai/safety/input-guard";
 import {
     appendUserMessage,
     resolveOrCreateConversation,
@@ -101,43 +100,26 @@ describe("rename, archive, delete", () => {
     });
 });
 
-describe("tool output (proposal decisions)", () => {
-    const TOOL_PART = { type: "tool-proposeTask", toolCallId: "call-1", state: "input-available", input: { title: "x" } };
-    const post = (conv: string, msg: string, body: unknown) => ai("POST", `/conversations/${conv}/messages/${msg}/tool-output`, body);
-
-    it("records the decision on the pending tool part, exactly once", async () => {
-        const id = await seedThread(userId, { assistantParts: [{ type: "text", text: "Want me to add it?" }, TOOL_PART] });
-
-        expect((await post(id, `a-${id}`, { toolCallId: "call-1", output: { decision: "commit" } })).body.data).toEqual({ updated: true });
-        expect((await post(id, `a-${id}`, { toolCallId: "call-1", output: { decision: "dismiss" } })).body.data).toEqual({ updated: false });
-
-        const { body } = await ai("GET", `/conversations/${id}`);
-        expect(body.data.messages[1].parts).toEqual([
-            { type: "text", text: "Want me to add it?" },
-            { ...TOOL_PART, state: "output-available", output: { decision: "commit" } },
-        ]);
+describe("answering approvals", () => {
+    const WAITING = { type: "tool-create_tag", toolCallId: "call-1", state: "approval-requested", input: { name: "Errands" }, approval: { id: "ap-1" } };
+    const answer = (conversationId: string, id = "ap-1") => ({
+        conversationId,
+        approvals: [{ id, approved: true }],
+        currentDate: "2026-09-23T12:00:00.000Z",
     });
 
-    it.each([
-        ["an unknown toolCallId", (id: string) => [`a-${id}`, { toolCallId: "nope", output: { decision: "commit" } }]],
-        ["a user message", (id: string) => [`u-${id}`, { toolCallId: "call-1", output: { decision: "commit" } }]],
-    ] as const)("changes nothing for %s", async (_label, args) => {
-        const id = await seedThread(userId, { assistantParts: [TOOL_PART] });
-        const [messageId, body] = args(id) as [string, unknown];
+    it("refuses when the thread's last reply isn't waiting on that approval", async () => {
+        const settled = await seedThread(userId);
+        const waiting = await seedThread(userId, { assistantParts: [WAITING] });
 
-        expect((await post(id, messageId, body)).body.data).toEqual({ updated: false });
+        expect((await ai("POST", "/chat", answer(settled))).status).toBe(409);
+        expect((await ai("POST", "/chat", answer(waiting, "ap-other"))).status).toBe(409);
     });
 
-    it("rejects an oversized output with 400", async () => {
-        const id = await seedThread(userId, { assistantParts: [TOOL_PART] });
+    it("treats another user's thread as not found and leaves its approval waiting", async () => {
+        const theirs = await seedThread(otherId, { assistantParts: [WAITING] });
 
-        expect((await post(id, `a-${id}`, { toolCallId: "call-1", output: { blob: "x".repeat(MAX_PART_BYTES + 1) } })).status).toBe(400);
-    });
-
-    it("treats another user's thread as not found and never writes to it", async () => {
-        const theirs = await seedThread(otherId, { assistantParts: [TOOL_PART] });
-
-        expect((await post(theirs, `a-${theirs}`, { toolCallId: "call-1", output: { decision: "commit" } })).status).toBe(404);
-        expect((await otherAi("GET", `/conversations/${theirs}`)).body.data.messages[1].parts[0].state).toBe("input-available");
+        expect((await ai("POST", "/chat", answer(theirs))).status).toBe(404);
+        expect((await otherAi("GET", `/conversations/${theirs}`)).body.data.messages[1].parts[0].state).toBe("approval-requested");
     });
 });

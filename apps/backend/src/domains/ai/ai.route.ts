@@ -21,8 +21,6 @@ import {
     conversationMessagesQuerySchema,
     conversationPatchSchema,
     stopStreamSchema,
-    toolOutputParamSchema,
-    toolOutputRequestSchema,
 } from "./ai.schema";
 import { getAgentInstance, getModelId } from "./agent";
 import {
@@ -31,7 +29,6 @@ import {
     appendUserMessage,
     truncateMessagesAfter,
     deleteAllMessages,
-    attachToolOutput,
     saveAssistantMessage,
     touchConversation,
     listConversations,
@@ -46,9 +43,9 @@ import { generateConversationTitle } from "./title/generate-title";
 import { openStream, closeStream, flushChunks, requestAbort, readMeta } from "./streaming/resume-store";
 import { startAbortWatcher } from "./streaming/abort-watcher";
 import { buildResumeStream } from "./streaming/replay";
-import { compactOldReads, dropUnsignedReasoning, rowToUIMessage } from "./persistence/message-mapper";
+import { applyApprovals, compactOldReads, dropUnsignedReasoning, rowToUIMessage, settleUnanswered } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
-import { assertMessageWithinCaps, clampHistory, MAX_HISTORY_TURNS, MAX_PART_BYTES } from "./safety/input-guard";
+import { assertMessageWithinCaps, clampHistory, MAX_HISTORY_TURNS } from "./safety/input-guard";
 import { buildStreamError, streamErrorToText, AI_ERROR_CODES } from "./safety/stream-error";
 import {
     resolveLimits,
@@ -137,8 +134,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // Latest user message (load-by-id). Role is pinned to "user" at the schema
     // level — a crafted request can never persist an assistant/system row here.
-    const incoming = body.message as ChatMessage;
-    assertMessageWithinCaps(incoming); // AI-specific caps → 400 INVALID_REQUEST on oversize
+    // Absent when the request only answers approvals (the turn continues).
+    const incoming = body.message as ChatMessage | undefined;
+    if (incoming) assertMessageWithinCaps(incoming); // AI-specific caps → 400 INVALID_REQUEST on oversize
+    const incomingText = incoming ? extractText(incoming.parts) : "";
 
     const db = getDbClient(c.env);
     const nonce = makeFenceNonce();
@@ -150,9 +149,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const redis = getRedis(c.env);
     const userKey = userHash; // = sha256(userId); the tenant key for Redis (§15.1)
     const streamId = generateId();
-    // Mint the assistant id up-front so the streamed `start` frame, the persisted
-    // row PK, and any resume all reference ONE id (PK-upsert stays idempotent, §7.7).
-    const assistantMessageId = generateId();
 
     // ── AI usage budget (5h + 1week × requests + tokens) ──────────────────
     // Always-on guardrail (no enable flag): admit BEFORE persisting the user turn,
@@ -161,7 +157,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // + CF short-window limiters — a Redis blip degrades, never bricks chat (§9.5).
     const rlRedis = getRateLimitRedis(c.env);
     const limits = resolveLimits(c.env);
-    const reserved = estimateReserve(extractText(incoming.parts).length, limits);
+    const reserved = estimateReserve(incomingText.length, limits);
     let admitted = false;
     // Budget headers echoed on the SUCCESS response so the client holds its own
     // "remaining budget" view (display source of truth) without polling GET /ai/usage.
@@ -198,6 +194,18 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // a refreshing client can read the user message it can also resume — closing the
     // window that made a *fast* refresh (right after send) miss the live stream.
     const { conversationId, history, needsTitle } = await withRls(db, userId, async (tx) => {
+        if (!incoming) {
+            // Approval answers land on the stored assistant message, never on one the
+            // client sends: only its waiting parts change, signatures stay the server's.
+            const conversation = await getConversation(tx, userId, body.conversationId!);
+            throwIfNotFound(conversation, "Conversation");
+            const rows = await loadConversationMessages(tx, userId, conversation!.id, { limit: MAX_HISTORY_TURNS });
+            const last = rows.at(-1);
+            const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
+            if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
+            if (redis) await setActiveStream(tx, userId, conversation!.id, streamId);
+            return { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], needsTitle: false };
+        }
         const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
         // Explicit message EDIT: the client kept rows up to the anchor and
         // rewrote everything after it — mirror that server-side or the edited-
@@ -226,13 +234,18 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // `execute` below can await it without risk of hanging the response.
     const titlePromise = needsTitle
         ? (async () => {
-              const title = await generateConversationTitle(c.env, extractText(incoming.parts));
+              const title = await generateConversationTitle(c.env, incomingText);
               c.executionCtx.waitUntil(
                   withRls(db, userId, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
               );
               return title;
           })()
         : null;
+
+    // Mint the assistant id up-front so the streamed `start` frame, the persisted
+    // row PK, and any resume all reference ONE id (PK-upsert stays idempotent, §7.7).
+    // An approval answer continues the waiting assistant message under its own id.
+    const assistantMessageId = incoming ? generateId() : history.at(-1)!.id;
 
     if (redis) {
         // Open the chunk-log immediately (before the slower agent build) so a quick
@@ -257,8 +270,13 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // there) and system-role rows are dropped defensively — no persisted row may
     // ever re-enter model context with system authority. Older turns' read rows
     // shrink to ids (compactOldReads).
+    // Open calls in earlier turns replay as declined; an approval answer keeps the
+    // message it answers as is, so the SDK runs what was approved.
+    const turn = incoming
+        ? [...settleUnanswered(history.filter((m) => m.id !== incoming.id)), incoming]
+        : [...settleUnanswered(history.slice(0, -1)), history.at(-1)!];
     const uiMessages = compactOldReads(
-        dropUnsignedReasoning(clampHistory([...history.filter((m) => m.id !== incoming.id && m.role !== "system"), incoming])),
+        dropUnsignedReasoning(clampHistory(turn.filter((m) => m.role !== "system"))),
     ) as unknown[];
 
     const { agent, promptHash } = await getAgentInstance(c.env, userId, {
@@ -267,7 +285,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         locale: body.locale,
         approvalMode: body.approvalMode,
         nonce,
-        queryText: extractText(incoming.parts),
+        queryText: incomingText || undefined,
+        waitUntil: (promise) => c.executionCtx.waitUntil(promise),
     });
 
     // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
@@ -518,36 +537,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 }
             }
             return c.json({ data: { success: true } });
-        },
-    )
-    // ── Update: persist a client-resolved proposal decision (HITL tool output) ──
-    // `addToolResult` is client-local; without this write a reload re-offers an
-    // already-committed proposal (double-write risk) and the model never learns
-    // the decision on later turns. The repo helper only fills `output` on an
-    // EXISTING unresolved tool part of an owned assistant message — it can never
-    // rewrite text, add parts, or flip a settled decision.
-    .post(
-        "/conversations/:id/messages/:messageId/tool-output",
-        apiValidator("param", toolOutputParamSchema),
-        apiValidator("json", toolOutputRequestSchema),
-        async (c) => {
-            const userId = c.get("userId");
-            const { id, messageId } = c.req.valid("param");
-            const body = c.req.valid("json");
-
-            // Bound the payload like any message part.
-            if (new TextEncoder().encode(JSON.stringify(body.output)).length > MAX_PART_BYTES) {
-                throw new AppError(400, "INVALID_REQUEST", "Tool output too large.");
-            }
-
-            const db = getDbClient(c.env);
-            const updated = await withRls(db, userId, async (tx) => {
-                const conversation = await getConversation(tx, userId, id);
-                throwIfNotFound(conversation, "Conversation");
-                return attachToolOutput(tx, userId, id, messageId, body);
-            });
-
-            return c.json({ data: { updated } });
         },
     )
     // ── Update: rename / archive a thread ────────────────────────────────

@@ -3,6 +3,8 @@ import {
     rowToUIMessage,
     dropUnsignedReasoning,
     compactOldReads,
+    applyApprovals,
+    settleUnanswered,
     uiMessageToRow,
     type StoredMessage,
 } from "../../src/domains/ai/persistence/message-mapper";
@@ -125,5 +127,33 @@ describe("compactOldReads", () => {
         expect(older.parts[1]).toBe(proposal);
         expect(latest.parts[0]).toBe(read);
         expect(user.parts).toEqual([{ type: "text", text: "hi" }]);
+    });
+});
+
+describe("approval answers", () => {
+    const waiting = { type: "tool-create_tag", toolCallId: "c1", state: "approval-requested", input: { name: "x" }, approval: { id: "ap1", signature: "sig" } };
+    const done = { type: "tool-create_tag", toolCallId: "c0", state: "output-available", input: { name: "y" }, output: { tagId: "t" } };
+    const reply = { id: "a1", role: "assistant" as const, parts: [done, waiting], metadata: {} };
+
+    it("answer only a waiting part, keeping the server's approval id and signature", () => {
+        const answered = applyApprovals(reply, [{ id: "ap1", approved: false, reason: "no" }, { id: "c0", approved: true }])!;
+
+        expect(answered.parts).toEqual([done, { ...waiting, state: "approval-responded", approval: { id: "ap1", signature: "sig", approved: false, reason: "no" } }]);
+    });
+
+    it("are refused when nothing on the reply waits for them", () => {
+        expect(applyApprovals(reply, [{ id: "other", approved: true }])).toBeNull();
+    });
+
+    it("left unanswered replay as declined, and half-streamed calls are dropped", () => {
+        const streaming = { type: "tool-create_tag", toolCallId: "c2", state: "input-streaming", input: {} };
+        const legacy = { type: "tool-propose_create_task", toolCallId: "c3", state: "input-available", input: { title: "X" } };
+        const [settled] = settleUnanswered([{ ...reply, parts: [done, waiting, streaming, legacy] }]);
+
+        expect(settled.parts).toEqual([
+            done,
+            { ...waiting, state: "output-denied", approval: { id: "ap1", signature: "sig", approved: false, reason: "Not answered" } },
+            { ...legacy, state: "output-denied", approval: { id: "unanswered-c3", approved: false, reason: "Not answered" } },
+        ]);
     });
 });

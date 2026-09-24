@@ -11,6 +11,7 @@ import { PROMPT_BLOCKS } from "./prompt/prompt-blocks";
 import { composePrompt, isWorkloadHigh } from "./prompt/prompt-composer";
 import type { AssistantPersona, PromptRuntimeContext } from "./prompt/prompt-blocks.schema";
 import { HELP_TOPICS } from "./tools/help";
+import { approvalFor } from "./safety/approval";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
 import { isMemoryEnabled, embedText } from "./memory/embedding";
@@ -52,6 +53,7 @@ export interface AgentBuildOptions {
     approvalMode: ApprovalMode;
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // latest user message text — used for memory retrieval
+    waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
 
 /**
@@ -180,6 +182,7 @@ export async function getAgentInstance(
         weekStart,
         locale,
         nonce: opts.nonce,
+        waitUntil: opts.waitUntil,
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
 
@@ -189,6 +192,10 @@ export async function getAgentInstance(
         tools,
         stopWhen: isStepCount(MAX_TOOL_STEPS),
         maxOutputTokens: MAX_OUTPUT_TOKENS,
+        // Writes run here on the server; this decides which wait for the user's tap.
+        // Approvals are HMAC-signed at issue, so an edited or forged one fails closed.
+        toolApproval: approvalFor(opts.approvalMode),
+        experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
     });
 
     return { agent, modelId: getModelId(env), promptHash: await getPromptHash(tools) };

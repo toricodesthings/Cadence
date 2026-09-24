@@ -43,6 +43,8 @@ export interface Env {
     OPENROUTER_API_KEY?: string;
     /** Chat model id (OpenAI-compatible via OpenRouter). Defaults to google/gemini-2.5-flash. */
     AI_CHAT_MODEL?: string;
+    /** HMAC key that signs tool approval requests (AI SDK `experimental_toolApprovalSecret`). Required in production. */
+    TOOL_APPROVAL_SECRET?: string;
     /** Conversation auto-title model id. Defaults to google/gemini-2.5-flash-lite (cheaper/faster). */
     AI_TITLE_MODEL?: string;
     /** Master switch for the memory (pgvector RAG) layer. "true" enables retrieval/extraction. */

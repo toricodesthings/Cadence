@@ -25,7 +25,7 @@ import type { Subtask } from "@cadence/contracts/subtask";
 import type { Task } from "@cadence/contracts/task";
 import type { Tag } from "@cadence/contracts/tag";
 import { BoardCanvas } from "../shared/BoardCanvas";
-import { AddSectionChip } from "../tasks/ProjectSheets";
+import { ManageSectionsButton } from "../tasks/ProjectSheets";
 
 interface KanbanBoardProps {
     tasks: Task[];
@@ -370,7 +370,7 @@ export function KanbanBoard({
                 <BoardCanvas
                     activeColumnId={activeSectionId}
                     onActiveColumnChange={onActiveSectionChange}
-                    compactTrailing={onManageSections ? <AddSectionChip onClick={onManageSections} /> : null}
+                    compactTrailing={onManageSections ? <ManageSectionsButton onClick={onManageSections} /> : null}
                     columns={visibleColumns.map((column) => ({
                         id: column.id,
                         title: column.name,

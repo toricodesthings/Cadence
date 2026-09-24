@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
-import { getIdempotencyKey, checkIdempotency, recordMutation } from "../../platform/idempotency";
+import { getIdempotencyKey } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { tags } from "../../db/schema";
 import { insertTagSchema, updateTagSchema } from "@cadence/contracts/tag";
@@ -10,6 +10,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
+import { createTag } from "./tags.service";
 
 export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -20,21 +21,7 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const idempotencyKey = getIdempotencyKey(c);
         const db = getDbClient(c.env);
 
-        const tag = await withRls(db, userId, async (tx) => {
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(tags).where(and(eq(tags.id, existingId), eq(tags.userId, userId)));
-                if (existing) return existing;
-            }
-
-            const [row] = await tx
-                .insert(tags)
-                .values({ ...body, userId })
-                .returning();
-
-            await recordMutation(tx, userId, idempotencyKey, row.id);
-            return row;
-        });
+        const tag = await withRls(db, userId, (tx) => createTag(tx, userId, body, idempotencyKey));
 
         return c.json({ data: tag }, 201);
     })

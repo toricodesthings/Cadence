@@ -8,6 +8,7 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, MAX_LIST_LIMIT } from "./index";
 import { toMinimalProject } from "./projections";
+import { createProject } from "../../projects/projects.service";
 
 export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -44,9 +45,9 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
             }),
     }),
 
-    // ── P (proposal — NO DB WRITE) ──────────────────────────────────────────
-    propose_create_project: tool({
-        description: "Drafts a new list. Its id comes back once approved.",
+    // ── W ──────────────────────────────────────────────────────────────────
+    create_project: tool({
+        description: "Creates a list. Returns its projectId, for putting tasks in it.",
         inputSchema: z.object({
             name: z.string().min(1).max(200),
             emoji: z.string().max(8).optional(),
@@ -56,5 +57,10 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                 .optional()
                 .describe("Accent token, e.g. 'luminous-amber'."),
         }),
+        execute: async (input, { toolCallId }) =>
+            safeExecute("create_project", userId, async () => {
+                const row = await withRls(getDbClient(env), userId, (tx) => createProject(tx, userId, input, toolCallId));
+                return { projectId: row.id, name: row.name };
+            }),
     }),
 });

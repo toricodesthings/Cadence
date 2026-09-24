@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rrulestr } from "rrule";
-import { computeCurrentStreak, scanStreak } from "../../src/domains/habits/habits.route";
+import { computeCurrentStreak, scanStreak } from "../../src/domains/habits/habits.service";
 
 /** Expand all occurrence date-strings for a rule between creation and `asOf`, ascending. */
 function occurrences(recurrenceRule: string, createdAt: string, asOf: string): string[] {

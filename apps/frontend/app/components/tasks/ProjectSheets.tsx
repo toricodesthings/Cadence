@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, LayoutList, Pencil, Trash2 } from "lucide-react";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Composer } from "../shared/Composer";
 import { useTaskComposer, chipClass, tasksIn, UNSECTIONED_ID } from "./TaskComposer";
@@ -12,12 +12,18 @@ import type { Task } from "@cadence/contracts/task";
 
 export { UNSECTIONED_ID };
 
-/** Chip for the end of the compact section chooser — opens the sections sheet. */
-export function AddSectionChip({ onClick }: { onClick: () => void }) {
+/** Compact entry to the sections sheet: a chip pinned beside the board chooser, or a full-width row under the list. */
+export function ManageSectionsButton({ onClick, wide = false }: { onClick: () => void; wide?: boolean }) {
     return (
-        <button type="button" onClick={onClick} className={`${chipClass(false)} border-dashed`}>
-            <Plus size={15} aria-hidden="true" />
-            Section
+        <button
+            type="button"
+            onClick={onClick}
+            className={wide
+                ? "touch-target flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-twilight-border/60 bg-white/[0.02] px-4 text-sm font-medium text-twilight-text-soft active:opacity-80"
+                : `${chipClass(false)} shrink-0 border-dashed`}
+        >
+            <LayoutList size={15} aria-hidden="true" />
+            {wide ? "Add or edit sections" : "Sections"}
         </button>
     );
 }
@@ -41,40 +47,29 @@ export function ProjectTaskSheet({ open, onClose, projectId, projectName, tasks,
     return <Composer open={open} onClose={() => { reset(); onClose(); }} {...draft} />;
 }
 
-function SectionRow({ section, count, onRename, onDelete }: {
+function SectionRow({ section, count, editing, onEditingChange, onRename, onDelete }: {
     section: TaskSection;
     count: number;
+    editing: boolean;
+    onEditingChange: (editing: boolean) => void;
     onRename: (name: string) => void;
     onDelete: () => void;
 }) {
-    const [editing, setEditing] = useState(false);
-    const [name, setName] = useState(section.name);
-    const save = () => {
-        if (name.trim() && name.trim() !== section.name) onRename(name.trim());
-        setEditing(false);
-    };
-
     return (
         <li className="flex min-h-14 items-center gap-2 rounded-2xl border border-twilight-border/40 bg-white/[0.03] pl-4 pr-1">
             {editing ? (
-                <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={(e) => { e.preventDefault(); save(); }}>
-                    <input
-                        autoFocus
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        onKeyDown={(e) => e.key === "Escape" && (setName(section.name), setEditing(false))}
-                        aria-label={`Rename ${section.name}`}
-                        className="min-w-0 flex-1 border-b border-accent-primary/40 bg-transparent py-1 text-base text-twilight-text outline-none"
-                    />
-                    <Tip label="Save name"><button type="submit" className="mobile-icon-button text-accent-primary" aria-label="Save name">
-                        <Check size={18} aria-hidden="true" />
-                    </button></Tip>
-                </form>
+                <SectionNameForm
+                    section={section}
+                    onDone={(name) => {
+                        if (name && name !== section.name) onRename(name);
+                        onEditingChange(false);
+                    }}
+                />
             ) : (
                 <>
                     <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-twilight-text">{section.name}</span>
                     <span className="text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
-                    <Tip label="Rename section"><button type="button" onClick={() => setEditing(true)} className="mobile-icon-button" aria-label={`Rename ${section.name}`}>
+                    <Tip label="Rename section"><button type="button" onClick={() => onEditingChange(true)} className="mobile-icon-button" aria-label={`Rename ${section.name}`}>
                         <Pencil size={16} aria-hidden="true" />
                     </button></Tip>
                     <Tip label="Delete section"><button type="button" onClick={onDelete} className="mobile-icon-button text-red-400" aria-label={`Delete ${section.name}`}>
@@ -86,12 +81,37 @@ function SectionRow({ section, count, onRename, onDelete }: {
     );
 }
 
-/** Compact section management: add, rename and delete a project's sections. */
-export function ProjectSectionsSheet({ open, onClose, projectId, tasks }: {
+/** Mounts fresh per edit so the field always starts from the current name. */
+function SectionNameForm({ section, onDone }: { section: TaskSection; onDone: (name: string) => void }) {
+    const [name, setName] = useState(section.name);
+    return (
+        <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={(e) => { e.preventDefault(); onDone(name.trim()); }}>
+            <input
+                autoFocus
+                onFocus={(e) => e.currentTarget.select()}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && onDone(section.name)}
+                aria-label={`Rename ${section.name}`}
+                className="min-w-0 flex-1 border-b border-accent-primary/40 bg-transparent py-1 text-base text-twilight-text outline-none"
+            />
+            <Tip label="Save name"><button type="submit" className="mobile-icon-button text-accent-primary" aria-label="Save name">
+                <Check size={18} aria-hidden="true" />
+            </button></Tip>
+        </form>
+    );
+}
+
+/**
+ * Compact section management: add, rename and delete a project's sections.
+ * `focus` opens straight into renaming that section id.
+ */
+export function ProjectSectionsSheet({ open, onClose, projectId, tasks, focus }: {
     open: boolean;
     onClose: () => void;
     projectId: string;
     tasks: Task[];
+    focus?: string | null;
 }) {
     const { data: sections = [] } = useSections(projectId);
     const createSection = useCreateSection(projectId);
@@ -99,6 +119,12 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks }: {
     const deleteSection = useDeleteSection(projectId);
     const [newName, setNewName] = useState("");
     const [pendingDelete, setPendingDelete] = useState<TaskSection | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [wasOpen, setWasOpen] = useState(false);
+    if (open !== wasOpen) {
+        setWasOpen(open);
+        if (open) setEditingId(focus || null);
+    }
     const pendingCount = pendingDelete ? tasksIn(tasks, pendingDelete.id).length : 0;
 
     const add = () => {
@@ -138,6 +164,8 @@ export function ProjectSectionsSheet({ open, onClose, projectId, tasks }: {
                                 key={section.id}
                                 section={section}
                                 count={tasksIn(tasks, section.id).length}
+                                editing={editingId === section.id}
+                                onEditingChange={(value) => setEditingId(value ? section.id : null)}
                                 onRename={(name) => updateSection.mutate({ id: section.id, name })}
                                 onDelete={() => setPendingDelete(section)}
                             />

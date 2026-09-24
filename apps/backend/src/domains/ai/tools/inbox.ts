@@ -10,6 +10,8 @@ import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
 import { toMinimalInboxItem } from "./projections";
 import { taskDraftSchema } from "./drafts";
+import { inferIsAllDay } from "@cadence/domain/task-temporal";
+import { processCapture } from "../../inbox/inbox.service";
 
 export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -48,15 +50,36 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
             }),
     }),
 
-    // ── P (proposal — NO DB WRITE) ──────────────────────────────────────────
-    propose_structure_inbox_item: tool({
+    // ── W ──────────────────────────────────────────────────────────────────
+    structure_inbox_item: tool({
         description:
-            "Drafts turning a capture into a task; the capture leaves Capture when approved. " +
-            "No date given = the task has no date.",
-        inputSchema: taskDraftSchema.extend({ inboxItemId: z.uuid() }),
+            "Turns a capture into a task, with its checklist steps and note; the capture leaves Capture. " +
+            "No date given = the task has no date. Returns the taskId.",
+        inputSchema: taskDraftSchema.omit({ sectionId: true, fixed: true }).extend({ inboxItemId: z.uuid() }),
+        execute: async ({ inboxItemId, subtasks, note, fromImage: _quotes, ...draft }, { toolCallId }) =>
+            safeExecute("structure_inbox_item", userId, async () => {
+                const { task } = await withRls(getDbClient(env), userId, (tx) =>
+                    processCapture(
+                        tx,
+                        userId,
+                        inboxItemId,
+                        {
+                            ...draft,
+                            // Explicit nulls: the capture's own words never add a date, list or tags.
+                            dueDate: draft.dueDate ?? null,
+                            scheduledStart: draft.scheduledStart ?? null,
+                            isAllDay: inferIsAllDay(draft) ?? true,
+                            projectId: draft.projectId ?? null,
+                            tagIds: draft.tagIds ?? [],
+                        },
+                        { idempotencyKey: toolCallId, subtasks, note },
+                    ),
+                );
+                return { taskId: task.id, title: task.title };
+            }),
     }),
 
-    // ── W (safe additive write — ONLY directly-writing tool) ──────────────────
+    // ── W (additive: never waits for approval) ──────────────────────────────
     capture_to_inbox: tool({
         description:
             "Saves a thought to Capture right away (no approval: it's additive and can be discarded). Returns its id.",

@@ -107,6 +107,7 @@ export const batchRescheduleSchema = z
     })
     .refine((v) => (v.scheduledStart === undefined) !== (v.date === undefined), "Send scheduledStart or date, not both")
     .refine((v) => v.date === undefined || v.timezone !== undefined, "date needs a timezone");
+export type BatchReschedule = z.infer<typeof batchRescheduleSchema>;
 
 // ── Row schema — exactly the DB columns (wire-shaped, timestamps as ISO strings) ──
 export const taskRowSchema = z.object({

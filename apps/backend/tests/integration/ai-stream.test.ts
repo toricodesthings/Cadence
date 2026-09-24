@@ -34,7 +34,6 @@ vi.mock("../../src/domains/ai/persistence/conversation-repo", () => ({
     appendUserMessage: vi.fn(),
     truncateMessagesAfter: vi.fn(),
     deleteAllMessages: vi.fn(),
-    attachToolOutput: vi.fn(),
     setTitleIfEmpty: vi.fn(),
     touchConversation: vi.fn(),
     listConversations: vi.fn(),

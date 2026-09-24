@@ -7,6 +7,8 @@ import { AddTaskInput } from "./AddTaskInput";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { Tip } from "../primitives/Tooltip";
+import { ManageSectionsButton } from "./ProjectSheets";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { Task } from "@cadence/contracts/task";
 
@@ -19,6 +21,8 @@ interface SectionedTaskListProps {
     rationaleByTaskId?: Record<string, string | null | undefined>;
     /** Additional content to render at the end */
     footer?: React.ReactNode;
+    /** Compact: open the sections sheet, renaming the given section id ("" for none). */
+    onManageSections?: (focus: string) => void;
 }
 
 /**
@@ -34,6 +38,7 @@ export function SectionedTaskList({
     showUngroupedAddTask = true,
     rationaleByTaskId,
     footer,
+    onManageSections,
 }: SectionedTaskListProps) {
     const { data: sections = [] } = useSections(projectId);
     const createSection = useCreateSection(projectId);
@@ -42,6 +47,12 @@ export function SectionedTaskList({
     const shell = useShellMode();
     // Compact shells add through the route's orb and sections sheet instead of inline fields.
     const inlineAdd = !shell.isCompact;
+    const manageInSheet = shell.isCompact && onManageSections;
+    const addSectionChip = manageInSheet ? (
+        <div className="mt-2">
+            <ManageSectionsButton wide onClick={() => onManageSections("")} />
+        </div>
+    ) : null;
 
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
     const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -143,6 +154,7 @@ export function SectionedTaskList({
                         </button>
                     )}
                 </div>}
+                {addSectionChip}
 
                 {footer}
             </div>
@@ -233,7 +245,18 @@ export function SectionedTaskList({
                             </button>
 
                             {/* Section context menu */}
-                            <div className={shell.isCompact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}>
+                            {manageInSheet ? (
+                                <Tip label="Edit section">
+                                    <button
+                                        type="button"
+                                        onClick={() => onManageSections(section.id)}
+                                        className="mobile-icon-button"
+                                        aria-label={`Edit section ${section.name}`}
+                                    >
+                                        <MoreHorizontal size={18} aria-hidden="true" />
+                                    </button>
+                                </Tip>
+                            ) : <div className={shell.isCompact ? "opacity-100" : "opacity-0 transition-opacity group-hover:opacity-100"}>
                                 <DropdownMenu.Root>
                                     <DropdownMenu.Trigger asChild>
                                         <Button
@@ -260,7 +283,7 @@ export function SectionedTaskList({
                                         </DropdownMenu.Item>
                                     </DropdownMenu.Content>
                                 </DropdownMenu.Root>
-                            </div>
+                            </div>}
 
                             <div className="flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent" />
                         </div>
@@ -342,6 +365,7 @@ export function SectionedTaskList({
                     </button>
                 )}
             </div>}
+            {addSectionChip}
 
             {footer}
         </div>

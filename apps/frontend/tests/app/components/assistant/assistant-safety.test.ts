@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isInAppPath } from "../../../../app/components/assistant/Markdown";
-import { shouldAutoApply } from "../../../../app/components/assistant/widgets/use-proposal-resolver";
+import { outcomeOf, removedReason } from "../../../../app/components/assistant/widgets/ApprovalCard";
+import { approvalAnswers } from "../../../../app/lib/ai/chat-transport";
 
 describe("isInAppPath (assistant links)", () => {
     it("treats same-origin paths as in-app", () => {
@@ -16,21 +17,34 @@ describe("isInAppPath (assistant links)", () => {
     });
 });
 
-describe("shouldAutoApply (approval modes)", () => {
-    it("Ask first never applies on its own", () => {
-        expect(shouldAutoApply("ask", false)).toBe(false);
-        expect(shouldAutoApply(undefined, false)).toBe(false);
+describe("approval cards", () => {
+    it("settle from the part: done, failed, declined, or never answered on an older reply", () => {
+        expect(outcomeOf({ state: "output-available", output: {} })).toBe("done");
+        expect(outcomeOf({ state: "output-available", output: { ok: false } })).toBe("failed");
+        expect(outcomeOf({ state: "output-error" })).toBe("failed");
+        expect(outcomeOf({ state: "output-denied", approval: { reason: "user removed it" } })).toBe("declined");
+        expect(outcomeOf({ state: "approval-requested" })).toBeNull();
+        expect(outcomeOf({ state: "approval-requested" }, true)).toBe("unanswered");
     });
 
-    it("Auto applies everything except a permanent delete or a change to more than 5 tasks", () => {
-        expect(shouldAutoApply("auto", false)).toBe(true);
-        expect(shouldAutoApply("auto", true)).toBe(false);
-        expect(shouldAutoApply("auto", false, 5)).toBe(true);
-        expect(shouldAutoApply("auto", false, 6)).toBe(false);
+    it("send only the answers, never the reply itself", () => {
+        const reply = {
+            id: "a1",
+            role: "assistant" as const,
+            parts: [
+                { type: "text", text: "Here you go" },
+                { type: "tool-create_tag", toolCallId: "c1", state: "approval-responded", input: {}, approval: { id: "ap1", approved: true } },
+                { type: "tool-delete_tasks", toolCallId: "c2", state: "approval-responded", input: {}, approval: { id: "ap2", approved: false, reason: "no" } },
+            ],
+        };
+        expect(approvalAnswers(reply as never)).toEqual([
+            { id: "ap1", approved: true },
+            { id: "ap2", approved: false, reason: "no" },
+        ]);
     });
 
-    it("Full applies permanent deletes and big batches too", () => {
-        expect(shouldAutoApply("full", true)).toBe(true);
-        expect(shouldAutoApply("full", false, 50)).toBe(true);
+    it("name unticked rows in the decline, and approve when none are", () => {
+        expect(removedReason([])).toBeUndefined();
+        expect(removedReason(["Buy milk", "Call Sam"])).toContain("Buy milk; Call Sam");
     });
 });

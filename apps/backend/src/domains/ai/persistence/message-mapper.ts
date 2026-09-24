@@ -45,6 +45,53 @@ function coerceRole(role: string): MessageRole {
 }
 
 /**
+ * Apply the user's approval decisions to the stored assistant message. Only parts
+ * still waiting (`approval-requested`) change, and their approval id and signature
+ * stay the server's own. Null when no decision matched a waiting part.
+ */
+export function applyApprovals(
+    message: UIMessageLike,
+    decisions: { id: string; approved: boolean; reason?: string }[],
+): UIMessageLike | null {
+    let matched = false;
+    const parts = message.parts.map((part) => {
+        const waiting = part as { state?: string; approval?: { id?: string } };
+        const decision = waiting?.state === "approval-requested" && decisions.find((d) => d.id === waiting.approval?.id);
+        if (!decision) return part;
+        matched = true;
+        return {
+            ...waiting,
+            state: "approval-responded",
+            approval: { ...waiting.approval, approved: decision.approved, ...(decision.reason && { reason: decision.reason }) },
+        };
+    });
+    return matched ? { ...message, parts } : null;
+}
+
+const UNANSWERED = new Set(["input-available", "approval-requested", "approval-responded"]);
+
+/**
+ * Tool calls left open in history (the user moved on without answering, the turn
+ * was cut off, or a 0.18 proposal was never decided) replay as declined, so the
+ * model never sees a call without a result and a retired tool name never fails
+ * validation. Half-streamed calls are dropped.
+ */
+export function settleUnanswered<T extends { role: string; parts: unknown[] }>(messages: T[]): T[] {
+    return messages.map((message) => {
+        if (message.role !== "assistant") return message;
+        const parts = message.parts.flatMap((part) => {
+            const call = part as { type?: string; state?: string; toolCallId?: string; approval?: { id?: string } };
+            if (typeof call?.type !== "string" || !call.type.startsWith("tool-")) return [part];
+            if (call.state === "input-streaming") return [];
+            if (!UNANSWERED.has(call.state ?? "")) return [part];
+            const approval = { ...call.approval, id: call.approval?.id ?? `unanswered-${call.toolCallId}`, approved: false, reason: "Not answered" };
+            return [{ ...call, state: "output-denied", approval }];
+        });
+        return { ...message, parts };
+    });
+}
+
+/**
  * Reconstruct a render-faithful UIMessage from a DB row. Drops the
  * persistence-only `status`/`orderIndex` and keeps id/role/parts/metadata.
  */

@@ -228,63 +228,6 @@ export async function deleteAllMessages(
 }
 
 /**
- * Attach a client-resolved tool output (HITL proposal decision) to an EXISTING
- * tool part on an assistant message. Deliberately narrow: the client can only
- * fill `output`/`state` on a part whose `toolCallId` already exists and that is
- * not yet resolved — it can never rewrite assistant text, add parts, or flip an
- * already-settled decision. Returns true when a part was updated.
- */
-export async function attachToolOutput(
-    tx: Tx,
-    userId: string,
-    conversationId: string,
-    messageId: string,
-    args: { toolCallId: string; output: Record<string, unknown> },
-): Promise<boolean> {
-    const [row] = await tx
-        .select({ parts: aiMessages.parts, role: aiMessages.role })
-        .from(aiMessages)
-        .where(
-            and(
-                eq(aiMessages.id, messageId),
-                eq(aiMessages.conversationId, conversationId),
-                eq(aiMessages.userId, userId),
-            ),
-        )
-        .limit(1);
-    if (!row || row.role !== "assistant" || !Array.isArray(row.parts)) return false;
-
-    let changed = false;
-    const parts = (row.parts as unknown[]).map((part) => {
-        if (
-            part &&
-            typeof part === "object" &&
-            typeof (part as { type?: unknown }).type === "string" &&
-            ((part as { type: string }).type.startsWith("tool-")) &&
-            (part as { toolCallId?: unknown }).toolCallId === args.toolCallId &&
-            (part as { state?: unknown }).state !== "output-available"
-        ) {
-            changed = true;
-            return { ...(part as Record<string, unknown>), state: "output-available", output: args.output };
-        }
-        return part;
-    });
-    if (!changed) return false;
-
-    await tx
-        .update(aiMessages)
-        .set({ parts })
-        .where(
-            and(
-                eq(aiMessages.id, messageId),
-                eq(aiMessages.conversationId, conversationId),
-                eq(aiMessages.userId, userId),
-            ),
-        );
-    return true;
-}
-
-/**
  * Upsert the assistant UIMessage row. onConflictDoUpdate on the PK allows status
  * transitions (streaming → complete/failed/aborted) and part/metadata refreshes
  * across `onFinish` saves. Order index is placed after the latest message.

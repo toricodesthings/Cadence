@@ -1,36 +1,34 @@
 import React from "react";
 import { getToolName } from "ai";
 import { ToolActivityChip, WriteConfirmChip } from "./ToolActivityChip";
-import { TaskProposalCard } from "./widgets/TaskProposalCard";
-import { DangerConfirmCard } from "./widgets/DangerConfirmCard";
-import { BatchRescheduleCard } from "./widgets/BatchRescheduleCard";
-import { CompleteTasksCard } from "./widgets/CompleteTasksCard";
-import { CreateProjectCard } from "./widgets/CreateProjectCard";
-import { CreateTagCard } from "./widgets/CreateTagCard";
-import { SubtaskCard } from "./widgets/SubtaskCard";
-import { LogHabitCard } from "./widgets/LogHabitCard";
-import { InboxStructureCard } from "./widgets/InboxStructureCard";
-import { partRenderState, type ToolRenderContext } from "./widgets/use-proposal-resolver";
+import { ProposalCard } from "./widgets/ProposalCard";
+import { TaskBatchCard } from "./widgets/TaskBatchCard";
+import { UpdateTasksCard } from "./widgets/UpdateTasksCard";
+import { SubtaskEditCard } from "./widgets/SubtaskEditCard";
+import { DeleteTasksCard, RescheduleCard, SetStateCard } from "./widgets/TaskListCards";
+import { CreateProjectCard, CreateTagCard, InboxStructureCard, LogHabitCard } from "./widgets/SmallCards";
+import type { ToolRenderContext } from "./widgets/ApprovalCard";
+import { Sparkles } from "lucide-react";
 
 /**
  * Tool-part registry (ai_frontend.md §6.1) — the SINGLE coupling point to backend
- * tool names. When the backend adds a tool (docs/ai_upgrade/05), add it here.
+ * tool names; `tests/unit/ai-tools.test.ts` in the backend checks they match.
  *
- * Three classes:
- *  - read  → server-side execute; subtle activity chip (no card).
- *  - proposal → HITL card; confirm routes through an existing REST hook, then
- *    `addToolResult` reports the outcome to the model (the REST call did the write).
- *  - write → already executed server-side (capture_to_inbox); quiet confirm chip.
+ * Three classes, all executed on the server:
+ *  - read  → subtle activity chip (no card).
+ *  - write → an approval card: it waits for a tap when the server asks for one,
+ *    otherwise it arrives done and shows settled.
+ *  - capture → never waits (capture_to_inbox); quiet confirm chip.
  */
 
-export type ToolClass = "read" | "proposal" | "write";
+export type ToolClass = "read" | "write" | "capture";
 
 interface ToolDescriptor {
     class: ToolClass;
-    /** Read/write chip copy (design §9.2). */
+    /** Read/capture chip copy (design §9.2). */
     label: string;
-    /** Proposal/write renderer. */
-    render?: (ctx: ToolRenderContext, state: ReturnType<typeof partRenderState>) => React.ReactNode;
+    /** Write card renderer. */
+    render?: (ctx: ToolRenderContext) => React.ReactNode;
 }
 
 const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
@@ -46,71 +44,56 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     get_schedule_window: { class: "read", label: "Scanned your schedule" },
     get_cadence_help: { class: "read", label: "Checked the Cadence guide" },
 
-    // ── proposal → interactive cards ──────────────────────────────────────
-    propose_create_task: {
-        class: "proposal",
-        label: "Suggested a task",
-        render: (ctx, state) => <TaskProposalCard ctx={ctx} state={state} mode="create" />,
-    },
-    propose_update_task: {
-        class: "proposal",
-        label: "Suggested a change",
-        render: (ctx, state) => <TaskProposalCard ctx={ctx} state={state} mode="update" />,
-    },
-    propose_batch_reschedule: {
-        class: "proposal",
-        label: "Proposed a reschedule",
-        render: (ctx, state) => <BatchRescheduleCard ctx={ctx} state={state} />,
-    },
-    propose_delete_task: {
-        class: "proposal",
-        label: "Asked to delete a task",
-        render: (ctx, state) => <DangerConfirmCard ctx={ctx} state={state} />,
-    },
-    propose_complete_tasks: {
-        class: "proposal",
-        label: "Proposed marking done",
-        render: (ctx, state) => <CompleteTasksCard ctx={ctx} state={state} />,
-    },
-    propose_create_project: {
-        class: "proposal",
-        label: "Suggested a list",
-        render: (ctx, state) => <CreateProjectCard ctx={ctx} state={state} />,
-    },
-    propose_create_tag: {
-        class: "proposal",
-        label: "Suggested a tag",
-        render: (ctx, state) => <CreateTagCard ctx={ctx} state={state} />,
-    },
-    propose_add_subtask: {
-        class: "proposal",
-        label: "Suggested a subtask",
-        render: (ctx, state) => <SubtaskCard ctx={ctx} state={state} mode="add" />,
-    },
-    propose_update_subtask: {
-        class: "proposal",
-        label: "Suggested a subtask change",
-        render: (ctx, state) => <SubtaskCard ctx={ctx} state={state} mode="update" />,
-    },
-    propose_delete_subtask: {
-        class: "proposal",
-        label: "Asked to delete a subtask",
-        render: (ctx, state) => <SubtaskCard ctx={ctx} state={state} mode="delete" />,
-    },
-    propose_log_habit: {
-        class: "proposal",
-        label: "Proposed a routine check-in",
-        render: (ctx, state) => <LogHabitCard ctx={ctx} state={state} />,
-    },
-    propose_structure_inbox_item: {
-        class: "proposal",
-        label: "Proposed structuring a capture",
-        render: (ctx, state) => <InboxStructureCard ctx={ctx} state={state} />,
-    },
+    // ── write → approval cards ────────────────────────────────────────────
+    create_tasks: { class: "write", label: "Added tasks", render: (ctx) => <TaskBatchCard ctx={ctx} /> },
+    update_tasks: { class: "write", label: "Changed tasks", render: (ctx) => <UpdateTasksCard ctx={ctx} /> },
+    edit_subtasks: { class: "write", label: "Changed a checklist", render: (ctx) => <SubtaskEditCard ctx={ctx} /> },
+    set_task_state: { class: "write", label: "Moved tasks", render: (ctx) => <SetStateCard ctx={ctx} /> },
+    delete_tasks: { class: "write", label: "Deleted tasks", render: (ctx) => <DeleteTasksCard ctx={ctx} /> },
+    reschedule_tasks: { class: "write", label: "Rescheduled tasks", render: (ctx) => <RescheduleCard ctx={ctx} /> },
+    structure_inbox_item: { class: "write", label: "Structured a capture", render: (ctx) => <InboxStructureCard ctx={ctx} /> },
+    create_project: { class: "write", label: "Made a list", render: (ctx) => <CreateProjectCard ctx={ctx} /> },
+    create_tag: { class: "write", label: "Made a tag", render: (ctx) => <CreateTagCard ctx={ctx} /> },
+    log_habit: { class: "write", label: "Logged a routine", render: (ctx) => <LogHabitCard ctx={ctx} /> },
 
-    // ── write → quiet confirmation chip ───────────────────────────────────
-    capture_to_inbox: { class: "write", label: "Saved to your inbox" },
+    // ── capture → quiet confirmation chip ─────────────────────────────────
+    capture_to_inbox: { class: "capture", label: "Saved to your inbox" },
 };
+
+/**
+ * Proposals from before 0.19 (the client wrote them, then saved a decision). Old
+ * threads still hold them, so they render settled and read-only: applied or not.
+ */
+const RETIRED_PROPOSALS: Record<string, string> = {
+    propose_create_task: "Suggested a task",
+    propose_update_task: "Suggested a change",
+    propose_batch_reschedule: "Proposed a reschedule",
+    propose_delete_task: "Asked to delete a task",
+    propose_complete_tasks: "Proposed marking done",
+    propose_create_project: "Suggested a list",
+    propose_create_tag: "Suggested a tag",
+    propose_add_subtask: "Suggested a subtask",
+    propose_update_subtask: "Suggested a subtask change",
+    propose_delete_subtask: "Asked to delete a subtask",
+    propose_log_habit: "Proposed a routine check-in",
+    propose_structure_inbox_item: "Proposed structuring a capture",
+};
+
+function RetiredProposal({ label, applied }: { label: string; applied: boolean }) {
+    return (
+        <ProposalCard
+            state="output-available"
+            eyebrow={label}
+            eyebrowGlyph={Sparkles}
+            ariaLabel={label}
+            primaryLabel=""
+            resolvedCommitted={applied}
+            resolvedText={`${label} · ${applied ? "applied" : "not applied"}`}
+        >
+            {null}
+        </ProposalCard>
+    );
+}
 
 /** Resolve the descriptor for a tool name, or undefined for unknown tools. */
 export function getToolDescriptor(toolName: string): ToolDescriptor | undefined {
@@ -118,28 +101,28 @@ export function getToolDescriptor(toolName: string): ToolDescriptor | undefined 
 }
 
 /**
- * Dispatcher for a single tool part. Proposals + writes render their own UI;
+ * Dispatcher for a single tool part. Write cards and capture render their own UI;
  * read parts are collected and rendered as one grouped chip by the panel, so
  * here a read part renders nothing (returns null) — see `collectReadLabels`.
  * Unknown tools degrade to a neutral "Working…" chip (forward-compatible).
  */
 export function ToolPart({
     part,
-    addToolResult,
-    conversationId,
-    messageId,
-    approvalMode,
+    answer,
+    stale,
 }: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     part: any;
-    addToolResult: ToolRenderContext["addToolResult"];
-    /** Thread + message hosting this part — lets proposals persist their decision. */
-    conversationId?: string | null;
-    messageId?: string;
-    approvalMode?: ToolRenderContext["approvalMode"];
+    /** Answers the part's approval request; absent while a turn runs or on an older reply. */
+    answer?: ToolRenderContext["answer"];
+    /** The part sits on an older reply. */
+    stale?: boolean;
 }) {
     const toolName = safeToolName(part);
     const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
+    const retired = toolName ? RETIRED_PROPOSALS[toolName] : undefined;
+
+    if (retired) return <RetiredProposal label={retired} applied={part?.output?.decision === "commit"} />;
 
     if (!descriptor) {
         // Unknown / future tool → neutral chip.
@@ -154,14 +137,11 @@ export function ToolPart({
         return null;
     }
 
-    if (descriptor.class === "write") {
+    if (descriptor.class === "capture") {
         return <WriteConfirmChip label={descriptor.label} />;
     }
 
-    // proposal
-    const state = partRenderState(part);
-    const ctx: ToolRenderContext = { part, addToolResult, toolName: toolName!, conversationId, messageId, approvalMode };
-    return <>{descriptor.render?.(ctx, state)}</>;
+    return <>{descriptor.render?.({ part, toolName: toolName!, answer, stale })}</>;
 }
 
 /** Safely extract a tool name from a part, tolerating non-tool parts. */

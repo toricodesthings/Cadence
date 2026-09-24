@@ -8,6 +8,7 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, MAX_LIST_LIMIT } from "./index";
 import { toMinimalTag } from "./projections";
+import { createTag } from "../../tags/tags.service";
 
 export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -31,13 +32,17 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
             }),
     }),
 
-    // ── P (proposal — NO DB WRITE) ──────────────────────────────────────────
-    propose_create_tag: tool({
-        description:
-            "Drafts a new tag.",
+    // ── W ──────────────────────────────────────────────────────────────────
+    create_tag: tool({
+        description: "Creates a tag. Returns its tagId.",
         inputSchema: z.object({
             name: z.string().min(1).max(100),
             color: z.string().max(40).optional().describe("Color token, e.g. 'default'."),
         }),
+        execute: async (input, { toolCallId }) =>
+            safeExecute("create_tag", userId, async () => {
+                const row = await withRls(getDbClient(env), userId, (tx) => createTag(tx, userId, input, toolCallId));
+                return { tagId: row.id, name: row.name };
+            }),
     }),
 });

@@ -1,6 +1,10 @@
 import { asSchema, jsonSchema } from "ai";
 import type { Env } from "../../../types/env";
 import { logger, hashIdentifier } from "../../../platform/log";
+import { AppError } from "../../../platform/errors";
+import { checkIdempotency, recordMutation } from "../../../platform/idempotency";
+import { DomainError } from "@cadence/domain/errors";
+import type { Tx } from "../../../types/db";
 import { taskTools } from "./tasks";
 import { projectTools } from "./projects";
 import { tagTools } from "./tags";
@@ -30,6 +34,8 @@ export interface AgentContext {
     locale?: string;
     /** The turn's data-fence nonce, for user text a tool returns (notes). */
     nonce?: string;
+    /** Keeps post-commit metrics alive after the response (the Worker's `waitUntil`). */
+    waitUntil?: (promise: Promise<unknown>) => void;
 }
 
 /**
@@ -62,12 +68,33 @@ export async function safeExecute<T>(
             // Only the error class/name — never the message body or row data.
             code: error instanceof Error ? error.name : "UnknownError",
         });
+        // Our own 4xx messages ("Project not found", a stale note) are safe and tell
+        // the model what to fix; anything else stays generic.
+        const known = (error instanceof AppError && error.statusCode < 500) || error instanceof DomainError;
         return {
             ok: false,
             tool: toolName,
-            error: `The "${toolName}" tool failed to run. Inform the user and offer to retry.`,
+            error: known
+                ? `${(error as Error).message}. Nothing was changed.`
+                : `The "${toolName}" tool failed to run. Inform the user and offer to retry.`,
         };
     }
+}
+
+/**
+ * Run a write once per tool call, keyed by the call id: a replayed call returns
+ * `{ deduped: true }` instead of writing again. `id` is any row the write touched.
+ */
+export async function once<T>(
+    tx: Tx,
+    userId: string,
+    toolCallId: string,
+    write: () => Promise<{ result: T; id: string }>,
+): Promise<T | { deduped: true }> {
+    if (await checkIdempotency(tx, userId, toolCallId)) return { deduped: true };
+    const { result, id } = await write();
+    await recordMutation(tx, userId, toolCallId, id);
+    return result;
 }
 
 /**

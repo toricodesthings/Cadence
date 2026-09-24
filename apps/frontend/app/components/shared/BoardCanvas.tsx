@@ -27,7 +27,7 @@ interface BoardCanvasProps {
     /** Compact shells: control the chosen column from outside. */
     activeColumnId?: string;
     onActiveColumnChange?: (id: string) => void;
-    /** Compact shells: extra chip after the column chooser, e.g. add section. */
+    /** Compact shells: control pinned beside the column chooser (it doesn't scroll), e.g. manage sections. */
     compactTrailing?: React.ReactNode;
 }
 
@@ -129,7 +129,8 @@ export function BoardCanvas({
 
         return (
             <div className={["flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4", className].join(" ").trim()}>
-                <ChipScroller className="-mx-4 px-4 pb-1">
+                <div className="flex items-center gap-2">
+                <ChipScroller className={`-ml-4 min-w-0 flex-1 pb-1 pl-4 ${compactTrailing ? "" : "-mr-4 pr-4"}`}>
                     {columns.map((column) => (
                         <button
                             key={column.id}
@@ -148,8 +149,9 @@ export function BoardCanvas({
                             </span>
                         </button>
                     ))}
-                    {compactTrailing}
                 </ChipScroller>
+                {compactTrailing ? <div className="shrink-0 pb-1">{compactTrailing}</div> : null}
+                </div>
 
                 <div className="min-h-0 flex-1">
                     <BoardColumnShell {...activeColumn} titleHidden />

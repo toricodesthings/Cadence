@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { UIMessage } from "ai";
+import { lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
 import { X, ArrowUp, ArrowDown, History, SquarePen, Plus, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ResizableSidePanel } from "../shared/ResizableSidePanel";
@@ -16,6 +16,7 @@ import { ConversationList } from "./ConversationList";
 import { ChatErrorBubble } from "./ChatErrorBubble";
 import { ToolActivityChip, type ToolCall } from "./ToolActivityChip";
 import { ToolPart, isReadToolPart, safeToolName, getToolDescriptor } from "./tool-registry";
+import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { makeChatTransport } from "../../lib/ai/chat-transport";
 import { checkMessageText } from "../../lib/ai/input-guard";
 import {
@@ -234,11 +235,22 @@ export function AssistantSidePanel({
     // handler always sees the latest applyTitle/broadcast without rebuilding useChat.
     const handleTitleDataRef = useRef<(data: ConversationTitleData) => void>(() => {});
 
-    const { messages, sendMessage, regenerate, setMessages, addToolResult, status, stop, error, resumeStream } =
+    const { messages, sendMessage, regenerate, setMessages, addToolApprovalResponse, status, stop, error, resumeStream } =
         useChat({
             transport,
             id: activeConversationId ?? undefined,
             resume: false,
+            // Once every approval on the reply is answered, send the answers: the server
+            // runs what was approved and the assistant carries on in the same reply.
+            sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+            // Writes run on the server now, so a reply that changed anything refreshes the workspace.
+            onFinish: ({ message }) => {
+                const wrote = message.parts.some((part) => {
+                    const name = safeToolName(part);
+                    return !!name && getToolDescriptor(name)?.class !== "read" && (part as { state?: string }).state === "output-available";
+                });
+                if (wrote) void hardRefreshWorkspaceCaches(queryClient);
+            },
             // The server streams the auto-title as a TRANSIENT data part on the first
             // turn (never persisted into parts) — surface it live to header + sidebar.
             onData: (part) => {
@@ -249,11 +261,6 @@ export function AssistantSidePanel({
         });
 
     const isStreaming = status === "submitted" || status === "streaming";
-
-    // Assistant turns that streamed live from a turn THIS tab sent. Only these may
-    // auto-approve — never a reloaded thread's old proposal, nor a peer tab's turn
-    // mirrored here (that tab commits its own). Filled below, once localTurnRef exists.
-    const liveMessageIdsRef = useRef(new Set<string>());
 
     // The live stream id for the active thread, hydrated from the conversation
     // read (`GET /conversations/:id` → `conversation.activeStreamId`). The Stop
@@ -277,10 +284,6 @@ export function AssistantSidePanel({
     // re-seed, so the reply never appeared). Genuine (re)loads — refresh / reconnect /
     // thread-switch — leave this false and still resume to catch a live stream.
     const skipResumeOnNextLoadRef = useRef(false);
-    if (isStreaming && localTurnRef.current) {
-        const last = messages.at(-1);
-        if (last?.role === "assistant") liveMessageIdsRef.current.add(last.id);
-    }
 
     // ── Cross-tab signalling (two-tab fix, doc Update 4) ─────────────────────
     // When another tab on THIS thread starts/finishes a turn, re-sync from the server:
@@ -340,6 +343,14 @@ export function AssistantSidePanel({
             sendMessage(message, options);
         },
         [sendMessage],
+    );
+    // Answering an approval sends the answers (once all are in) as a turn this tab owns.
+    const answerApproval = useCallback(
+        (id: string, approved: boolean, reason?: string) => {
+            localTurnRef.current = true;
+            void addToolApprovalResponse({ id, approved, reason });
+        },
+        [addToolApprovalResponse],
     );
     const regenerateLocal = useCallback(
         (options?: Parameters<typeof regenerate>[0]) => {
@@ -737,13 +748,6 @@ export function AssistantSidePanel({
         return streamErrorFromError(error);
     }, [error]);
 
-    // `addToolResult` from useChat is typed against this chat's tool set; our
-    // messages are untyped UIMessages, so the registry passes a loose
-    // `{ tool, toolCallId, output }`. Cast once here (pragmatic `any`, matching
-    // the tool-part typing approach in the registry/cards).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const reportToolResult = addToolResult as unknown as (args: any) => void;
-
     const panelContent = (
         <div
             className={`surface-shell flex h-full flex-col ${isMobile ? "" : "photo-shell-surface"}`}
@@ -865,8 +869,8 @@ export function AssistantSidePanel({
                                 const grouped = index > 0 && messages[index - 1].role === message.role;
                                 const isLastAssistant = index === lastAssistantIndex;
                                 const failed = messageStatus(message) === "failed";
-                                const approvalModeHere =
-                                    !isStreaming && liveMessageIdsRef.current.has(message.id) ? approvalMode : "ask";
+                                // Only the latest reply can still be answered, and not mid-turn.
+                                const answerable = isLastAssistant && index === messages.length - 1 && !isStreaming;
 
                                 // Failed-turn recovery after reload (§8.3); otherwise the latest
                                 // user turn carries the read receipt under its avatar.
@@ -912,10 +916,12 @@ export function AssistantSidePanel({
                                                     <div key={seg.part.toolCallId || i} className="w-full">
                                                         <ToolPart
                                                             part={seg.part}
-                                                            addToolResult={reportToolResult}
-                                                            conversationId={activeConversationId}
-                                                            messageId={message.id}
-                                                            approvalMode={approvalModeHere}
+                                                            stale={!isLastAssistant}
+                                                            answer={
+                                                                answerable && seg.part.approval?.id
+                                                                    ? (approved, reason) => answerApproval(seg.part.approval.id, approved, reason)
+                                                                    : undefined
+                                                            }
                                                         />
                                                     </div>
                                                 ),

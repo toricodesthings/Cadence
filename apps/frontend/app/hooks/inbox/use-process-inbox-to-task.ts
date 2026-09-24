@@ -40,8 +40,6 @@ interface ProcessInboxParams {
      * (which v5 drops once the component unmounts) to receive the new task id.
      */
     skipOptimisticRemoval?: boolean;
-    /** A caller's own Idempotency-Key (an assistant proposal passes its tool call id). */
-    idempotencyKey?: string;
 }
 
 /**
@@ -60,7 +58,7 @@ export function useProcessInboxToTask() {
                 type: "process_inbox_to_task",
                 payload: { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, effort, durationEstimate, recurrenceRule, waitingOn, nlp, complete },
             }),
-            async ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, effort, durationEstimate, recurrenceRule, waitingOn, nlp, complete, idempotencyKey }) => {
+            async ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, effort, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => {
                 if (!isPersistedId(inboxItemId)) {
                     // Defensive: the capture hasn't been saved yet, so it has no
                     // server id to process. Call sites disable the action while
@@ -89,7 +87,7 @@ export function useProcessInboxToTask() {
                         nlp,
                         complete,
                     },
-                }, idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined);
+                });
                 const task = await unwrapResponse<Task>(taskRes);
 
                 return task;

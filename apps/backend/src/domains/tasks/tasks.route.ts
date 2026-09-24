@@ -1,16 +1,13 @@
 import { Hono } from "hono";
-import { and, between, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, between, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
 import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
 import { tasks, tags, taskTags, taskNlpMetadata, taskNlpMetadataHistory } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
-import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
-import { assertOwnership } from "../../platform/ownership";
+import { throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
-import { trackReschedule, trackBatchCompletion, trackBatchEvents } from "../../platform/metrics";
 import { withRls } from "../../platform/rls";
-import { atLocalDate } from "../../platform/date-utils";
 import { normalizeTaskFilters, type NormalizedTaskFilters } from "./task-filters";
 import {
     hasTaskTemporalMutation,
@@ -19,10 +16,8 @@ import {
 import {
     expandScheduleScopedTasks,
     isScheduleScopedTaskQuery,
-    validateTaskRecurrenceRule,
 } from "@cadence/domain/task-recurrence";
 import { computeGappedOrderIndex } from "@cadence/domain/ordering";
-import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
@@ -30,6 +25,7 @@ import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "./tasks.schema";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
+import { createTask, deleteTasks, rescheduleTasks, setTaskState, trackTaskChanges, updateTask } from "./tasks.service";
 
 const taskTagParamSchema = z.object({
     id: z.string().uuid(),
@@ -110,41 +106,6 @@ export function buildTaskWhereClause(userId: string, filters: NormalizedTaskFilt
     }
 
     return conditions;
-}
-
-function getTemporalFieldsForPersistence(fields: {
-    dueDate?: string | null;
-    scheduledStart?: string | null;
-    scheduledEnd?: string | null;
-    isAllDay?: boolean | null;
-}) {
-    return normalizeTaskTemporalFields(fields);
-}
-
-/**
- * One task moved to a local `date`, keeping its shape: an all-day task lands on
- * the date, a timed task keeps its local time there, and an end (or deadline)
- * moves by the same amount.
- */
-export function rescheduleToDate(
-    row: { isAllDay: boolean; dueDate: string | null; scheduledStart: string | null; scheduledEnd: string | null },
-    date: string,
-    timezone: string,
-) {
-    const shift = (value: string | null, ms: number) => (value ? new Date(new Date(value).getTime() + ms).toISOString() : null);
-    if (!row.isAllDay && row.scheduledStart) {
-        const start = atLocalDate(new Date(row.scheduledStart), date, timezone);
-        const delta = start.getTime() - new Date(row.scheduledStart).getTime();
-        return getTemporalFieldsForPersistence({
-            isAllDay: false,
-            scheduledStart: start.toISOString(),
-            scheduledEnd: shift(row.scheduledEnd, delta),
-            dueDate: shift(row.dueDate, delta),
-        });
-    }
-    const anchor = (row.dueDate ?? row.scheduledStart)?.slice(0, 10);
-    const days = anchor ? Date.parse(date) - Date.parse(anchor) : 0;
-    return getTemporalFieldsForPersistence({ isAllDay: true, dueDate: date, scheduledEnd: shift(row.scheduledEnd, days) });
 }
 
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -374,7 +335,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                         durationEstimate: inferred?.durationEstimate ?? body.durationEstimate,
                         waitingOn: inferred?.waitingOn ?? body.waitingOn,
                         recurrenceRule: inferred?.recurrenceRule ?? body.recurrenceRule,
-                        ...getTemporalFieldsForPersistence({
+                        ...normalizeTaskTemporalFields({
                             dueDate: inferred?.dueDate ?? body.dueDate ?? null,
                             scheduledStart: inferred?.scheduledStart ?? body.scheduledStart ?? null,
                             scheduledEnd: inferred?.scheduledEnd ?? body.scheduledEnd ?? null,
@@ -383,31 +344,10 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     }
                     : {
                         ...body,
-                        ...getTemporalFieldsForPersistence(body),
+                        ...normalizeTaskTemporalFields(body),
                     };
 
-                validateTaskRecurrenceRule(taskBody.recurrenceRule, taskBody.scheduledStart ?? null);
-
-                await assertOwnership(tx, userId, {
-                    projectId: taskBody.projectId,
-                    sectionId: taskBody.sectionId,
-                    tagIds: allTagIds,
-                });
-
-                const [row] = await tx
-                    .insert(tasks)
-                    .values({
-                        ...taskBody,
-                        interactionMode: taskBody.interactionMode ?? suggestInteractionMode(taskBody),
-                        userId,
-                    })
-                    .returning();
-
-                if (allTagIds.length > 0) {
-                    await tx.insert(taskTags).values(
-                        allTagIds.map((tagId) => ({ taskId: row.id, tagId })),
-                    );
-                }
+                const row = await createTask(tx, userId, taskBody, allTagIds);
 
                 if (parsed) {
                     await persistNlpSnapshot(tx, parsed, row.id, userId);
@@ -417,13 +357,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 return row;
             });
 
-        try {
-            c.executionCtx.waitUntil(
-                trackBatchEvents(db, userId, [{ event: "task.create", metadata: { taskId: task.id } }]),
-            );
-        } catch {
-            // executionCtx may not be available in test environments
-        }
+        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });
 
         return c.json({ data: task }, 201);
     })
@@ -467,49 +401,11 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     })
     .post("/batch/reschedule", apiValidator("json", batchRescheduleSchema), async (c) => {
         const userId = c.get("userId");
-        const { taskIds, scheduledStart, isAllDay, date, timezone } = c.req.valid("json");
+        const body = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updatedTasks = await withRls(db, userId, async (tx) => {
-            if (!date) {
-                return tx
-                    .update(tasks)
-                    .set({ ...getTemporalFieldsForPersistence({ isAllDay, scheduledStart }), updatedAt: sql`NOW()` })
-                    .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
-                    .returning();
-            }
-            const rows = await tx
-                .select({
-                    id: tasks.id,
-                    isAllDay: tasks.isAllDay,
-                    dueDate: tasks.dueDate,
-                    scheduledStart: tasks.scheduledStart,
-                    scheduledEnd: tasks.scheduledEnd,
-                    interactionMode: tasks.interactionMode,
-                })
-                .from(tasks)
-                .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
-            // Fixed blocks (classes, shifts) stay put unless they're all that was asked to move.
-            const onlyFixed = rows.every((row) => row.interactionMode === "timetable");
-            const moved = [];
-            for (const row of rows) {
-                if (row.interactionMode === "timetable" && !onlyFixed) continue;
-                const [updated] = await tx
-                    .update(tasks)
-                    .set({ ...rescheduleToDate(row, date, timezone!), updatedAt: sql`NOW()` })
-                    .where(and(eq(tasks.id, row.id), eq(tasks.userId, userId)))
-                    .returning();
-                moved.push(updated);
-            }
-            return moved;
-        });
-
-        for (const task of updatedTasks) {
-            c.executionCtx.waitUntil(trackReschedule(db, task.id, userId, task.scheduledStart ?? task.dueDate));
-        }
-        c.executionCtx.waitUntil(
-            trackBatchEvents(db, userId, updatedTasks.map((task) => ({ event: "task.reschedule", metadata: { taskId: task.id } }))),
-        );
+        const updatedTasks = await withRls(db, userId, (tx) => rescheduleTasks(tx, userId, body));
+        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { rescheduled: updatedTasks });
 
         return c.json({ data: updatedTasks });
     })
@@ -519,63 +415,11 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { expectedUpdatedAt, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, async (tx) => {
-            const [existing] = await tx
-                .select({
-                    id: tasks.id,
-                    isAllDay: tasks.isAllDay,
-                    dueDate: tasks.dueDate,
-                    scheduledStart: tasks.scheduledStart,
-                    scheduledEnd: tasks.scheduledEnd,
-                    updatedAt: tasks.updatedAt,
-                })
-                .from(tasks)
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-
-            throwIfNotFound(existing, "Task");
-
-            // Conflict detection: if client sends expectedUpdatedAt, verify it matches
-            assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
-
-            // Validate ownership of referenced entities
-            await assertOwnership(tx, userId, {
-                projectId: body.projectId,
-                sectionId: body.sectionId,
-            });
-
-            validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
-
-            const temporalPatch = hasTaskTemporalMutation(body)
-                ? getTemporalFieldsForPersistence({
-                    isAllDay: body.isAllDay ?? existing.isAllDay,
-                    dueDate: "dueDate" in body ? body.dueDate : existing.dueDate,
-                    scheduledStart: "scheduledStart" in body ? body.scheduledStart : existing.scheduledStart,
-                    scheduledEnd: "scheduledEnd" in body ? body.scheduledEnd : existing.scheduledEnd,
-                })
-                : {};
-
-            const [row] = await tx
-                .update(tasks)
-                .set({ ...body, ...temporalPatch, updatedAt: sql`NOW()` })
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-                .returning();
-            return row;
+        const updated = await withRls(db, userId, (tx) => updateTask(tx, userId, id, body, expectedUpdatedAt));
+        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
+            rescheduled: hasTaskTemporalMutation(body) ? [updated] : [],
+            completed: body.state === "COMPLETE" ? [id] : [],
         });
-
-        if (hasTaskTemporalMutation(body)) {
-            c.executionCtx.waitUntil(
-                trackReschedule(db, id, userId, updated.scheduledStart ?? updated.dueDate),
-            );
-            c.executionCtx.waitUntil(
-                trackBatchEvents(db, userId, [{ event: "task.reschedule", metadata: { taskId: id } }]),
-            );
-        }
-        if (body.state === "COMPLETE") {
-            c.executionCtx.waitUntil(trackBatchCompletion(db, [id], userId));
-            c.executionCtx.waitUntil(
-                trackBatchEvents(db, userId, [{ event: "task.complete", metadata: { taskId: id } }]),
-            );
-        }
 
         return c.json({ data: updated });
     })
@@ -626,20 +470,10 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { taskIds, state } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updatedTasks = await withRls(db, userId, async (tx) =>
-            tx
-                .update(tasks)
-                .set({ state, updatedAt: sql`NOW()` })
-                .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
-                .returning(),
-        );
-
-        if (state === "COMPLETE") {
-                c.executionCtx.waitUntil(trackBatchCompletion(db, taskIds, userId));
-            c.executionCtx.waitUntil(
-                trackBatchEvents(db, userId, taskIds.map((id) => ({ event: "task.complete", metadata: { taskId: id } }))),
-            );
-        }
+        const updatedTasks = await withRls(db, userId, (tx) => setTaskState(tx, userId, taskIds, state));
+        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
+            completed: state === "COMPLETE" ? updatedTasks.map((task) => task.id) : [],
+        });
 
         return c.json({ data: updatedTasks });
     })
@@ -743,13 +577,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, async (tx) => {
-            const [row] = await tx
-                .delete(tasks)
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-                .returning();
-            return row;
-        });
+        const [deleted] = await withRls(db, userId, (tx) => deleteTasks(tx, userId, [id]));
 
         throwIfNotFound(deleted, "Task");
         return c.json({ data: deleted });

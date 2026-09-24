@@ -41,6 +41,7 @@ const USER_SCOPED_TABLES = [
  */
 const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     { fragment: "eq(taskTags.taskId", reason: "task_tags has no userId column; scoped by a task verified as owned earlier in the tx" },
+    { fragment: "inArray(taskTags.taskId, taskIds", reason: "task_tags has no userId column; every id was verified owned by updateTask earlier in the tx" },
     { fragment: "eq(habitLogs.id, existing.id", reason: "`existing` was fetched via a userId-scoped select in the same tx" },
     { fragment: "eq(habits.id, habit.id", reason: "`habit` was fetched via a userId-scoped select in the same tx" },
     { fragment: "eq(habitTags.habitId, id", reason: "`id` is verified as an owned habit (update + throwIfNotFound) before tag sync" },

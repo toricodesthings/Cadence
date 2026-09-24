@@ -65,7 +65,7 @@ describe("useProcessInboxToTask", () => {
             json: expect.objectContaining({
                 title: "Buy groceries",
             }),
-        }, undefined);
+        });
     });
 
     it("passes through scheduling metadata when placing an inbox item", async () => {
@@ -90,7 +90,6 @@ describe("useProcessInboxToTask", () => {
             isAllDay: false,
             priority: 2,
             effort: 1,
-            idempotencyKey: "call_1",
         });
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -107,7 +106,7 @@ describe("useProcessInboxToTask", () => {
                 priority: 2,
                 effort: 1,
             }),
-        }, { headers: { "Idempotency-Key": "call_1" } });
+        });
     });
 
     it("surfaces an error when the task creation fails", async () => {

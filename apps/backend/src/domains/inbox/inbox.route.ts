@@ -1,21 +1,17 @@
 import { Hono } from "hono";
 import { eq, and, desc } from "drizzle-orm";
-import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
-import { inboxItems, inboxSections, tasks, taskTags } from "../../db/schema";
+import { inboxItems, inboxSections, tasks } from "../../db/schema";
 import { inboxQuerySchema, insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
-import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
-import { sourceSurfaceSchema } from "../tasks/tasks.schema";
-import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot, isDateOnlyValue } from "../tasks/task-nlp";
+import { processCapture } from "./inbox.service";
 
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Atomic Inbox→Task Processing (Section 11.2C) ──
@@ -23,167 +19,10 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
-        const title = body.title;
-        const scheduledDate = body.scheduledDate ?? undefined;
-        const dueDate = body.dueDate ?? undefined;
-        const scheduledStart = body.scheduledStart ?? undefined;
-        const scheduledEnd = body.scheduledEnd ?? undefined;
-        const isAllDay = body.isAllDay ?? undefined;
-        const projectId = body.projectId ?? undefined;
-        const tagIds = body.tagIds ?? undefined;
-        const priority = body.priority ?? undefined;
-        const durationEstimate = body.durationEstimate ?? undefined;
-        const recurrenceRule = body.recurrenceRule ?? undefined;
-        const waitingOn = body.waitingOn ?? undefined;
-        const nlp = body.nlp ?? undefined;
         const idempotencyKey = getIdempotencyKey(c);
         const db = getDbClient(c.env);
 
-        const result = await withRls(db, userId, async (tx) => {
-            // Idempotency guard
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId)));
-                if (existing) return { task: existing, alreadyProcessed: true };
-            }
-
-            // Verify inbox item exists and belongs to user
-            const [item] = await tx.select().from(inboxItems).where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).for("update");
-            throwIfNotFound(item, "Inbox item");
-            // Already placed (double submit, second device): return that task, never a duplicate.
-            if (item.processed && item.placedTaskId) {
-                const [placed] = await tx.select().from(tasks).where(and(eq(tasks.id, item.placedTaskId), eq(tasks.userId, userId)));
-                if (placed) return { task: placed, alreadyProcessed: true };
-            }
-
-            const nlpRuntime = await loadNlpRuntime(tx, userId);
-            const envelope = nlp ?? {
-                rawInput: item.rawText,
-                sourceSurface: sourceSurfaceSchema.parse(item.sourceSurface ?? "inbox"),
-                dateStyle: ((nlpRuntime.settings as any).dateTime?.dateStyle ?? "mdy") as "mdy" | "dmy" | "ymd",
-                dismissedEntityIds: Array.from(nlpRuntime.dismissedEntityIds),
-                userOverrides: {},
-            };
-            const parsed = parseCanonicalNlpEnvelope(envelope, {
-                context: nlpRuntime.context,
-            });
-            const confidenceThreshold = (((nlpRuntime.settings as any).tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low");
-            const inferred = inferTaskFieldsFromParse(
-                parsed,
-                {
-                    projectId,
-                    tagIds,
-                    priority,
-                    durationEstimate,
-                    waitingOn,
-                    recurrenceRule,
-                    scheduledDate,
-                    dueDate,
-                    scheduledStart,
-                    scheduledEnd,
-                    isAllDay,
-                },
-                confidenceThreshold,
-            );
-
-            let temporalFields: ReturnType<typeof normalizeTaskTemporalFields>;
-            if (
-                "dueDate" in body
-                || "scheduledStart" in body
-                || "scheduledEnd" in body
-                || "isAllDay" in body
-            ) {
-                temporalFields = normalizeTaskTemporalFields({
-                    dueDate,
-                    scheduledStart,
-                    scheduledEnd,
-                    isAllDay: isAllDay ?? (scheduledStart ? false : true),
-                });
-            } else if (scheduledDate !== undefined) {
-                if (isDateOnlyValue(scheduledDate)) {
-                    temporalFields = normalizeTaskTemporalFields({
-                        isAllDay: true,
-                        dueDate: scheduledDate,
-                    });
-                } else {
-                    temporalFields = normalizeTaskTemporalFields({
-                        isAllDay: false,
-                        scheduledStart: scheduledDate,
-                    });
-                }
-            } else if (inferred.scheduledDate !== undefined && inferred.scheduledDate !== null) {
-                if (isDateOnlyValue(inferred.scheduledDate)) {
-                    temporalFields = normalizeTaskTemporalFields({
-                        isAllDay: true,
-                        dueDate: inferred.scheduledDate,
-                    });
-                } else {
-                    temporalFields = normalizeTaskTemporalFields({
-                        isAllDay: false,
-                        scheduledStart: inferred.scheduledDate,
-                    });
-                }
-            } else {
-                temporalFields = normalizeTaskTemporalFields({ isAllDay: true });
-            }
-
-            const taskTagIds = Array.from(new Set(tagIds ?? inferred.tagIds ?? []));
-            const taskValues = {
-                userId,
-                title,
-                orderIndex: 0,
-                state: body.complete ? "COMPLETE" as const : "ACTIVE" as const,
-                origin: body.complete ? "thought" as const : null,
-                projectId: "projectId" in body ? body.projectId : inferred.projectId,
-                priority: inferred.priority ?? priority ?? 0,
-                durationEstimate: inferred.durationEstimate ?? durationEstimate ?? null,
-                effort: body.effort ?? null,
-                recurrenceRule: inferred.recurrenceRule ?? recurrenceRule ?? null,
-                waitingOn: inferred.waitingOn ?? waitingOn ?? null,
-                ...temporalFields,
-                ...(body.complete ? { dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true, projectId: null, recurrenceRule: null } : {}),
-            };
-
-            validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.scheduledStart ?? null);
-
-            await assertOwnership(tx, userId, {
-                projectId: taskValues.projectId,
-                tagIds: taskTagIds,
-            });
-
-            // 1. Create the task atomically
-            const [task] = await tx
-                .insert(tasks)
-                .values(taskValues)
-                .returning();
-
-            if (taskTagIds.length > 0) {
-                await tx.insert(taskTags).values(
-                    taskTagIds.map((tagId) => ({ taskId: task.id, tagId })),
-                );
-            }
-
-            await persistNlpSnapshot(tx, parsed, task.id, userId);
-
-            // 2. Transition inbox item (never delete — preserves audit trail)
-            await tx
-                .update(inboxItems)
-                .set({
-                    captureStatus: "placed",
-                    placedTaskId: task.id,
-                    processed: true,
-                    analysisStatus: "applied",
-                    analysisVersion: parsed.parserVersion,
-                    analysisSummary: parsed.summary,
-                    analysis: parsed as unknown as Record<string, unknown>,
-                    sourceSurface: parsed.sourceSurface,
-                })
-                .where(eq(inboxItems.id, id));
-
-            await recordMutation(tx, userId, idempotencyKey, task.id);
-
-            return { task, alreadyProcessed: false };
-        });
+        const result = await withRls(db, userId, (tx) => processCapture(tx, userId, id, body, { idempotencyKey }));
 
         return c.json({ data: result.task }, result.alreadyProcessed ? 200 : 201);
     })

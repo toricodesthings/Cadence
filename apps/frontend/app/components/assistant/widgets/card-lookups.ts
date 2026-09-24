@@ -9,6 +9,7 @@ import { formatShortDate, formatShortDateTime, parseLocalDate } from "../../../l
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { Tag } from "@cadence/contracts/tag";
+import type { Project } from "@cadence/contracts/project";
 
 export function useTaskTitleLookup() {
     const queryClient = useQueryClient();
@@ -56,6 +57,13 @@ export function useTagsLookup() {
         const all = queryClient.getQueryData<Tag[]>(queryKeys.tags.all) ?? [];
         return ids.flatMap((id) => all.find((t) => t.id === id) ?? []);
     };
+}
+
+/** A list's name from the projects cache (undefined when it isn't cached). */
+export function useProjectNameLookup() {
+    const queryClient = useQueryClient();
+    return (id: string): string | undefined =>
+        queryClient.getQueryData<Project[]>(queryKeys.projects.all)?.find((p) => p.id === id)?.name;
 }
 
 export function useHabitTitleLookup() {

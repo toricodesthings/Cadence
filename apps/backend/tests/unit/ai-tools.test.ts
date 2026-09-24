@@ -12,6 +12,8 @@ import {
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT } from "../../src/domains/ai/tools/index";
+import { taskDraftSchema } from "../../src/domains/ai/tools/drafts";
+import { approvalFor, needsTap } from "../../src/domains/ai/safety/approval";
 
 const baseTask: TaskRow = {
     id: "t1",
@@ -150,19 +152,64 @@ describe("tool registry", () => {
     it("every backend tool has a frontend descriptor, and the frontend lists no removed tool", () => {
         const backend = Object.keys(buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" })).sort();
         const registry = readFileSync(join(__dirname, "../../../frontend/app/components/assistant/tool-registry.tsx"), "utf8");
+        // Live tools are `name: { … }` rows; retired names (history only) are `name: "label"`.
         const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
 
         expect(frontend).toEqual(backend);
+        expect(backend).toHaveLength(21);
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {
         const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
-        const schema = asSchema(tools.propose_batch_reschedule.inputSchema);
+        const schema = asSchema(tools.reschedule_tasks.inputSchema);
 
         expect(JSON.stringify(await schema.jsonSchema)).not.toContain("pattern");
         expect((await schema.validate!({ taskIds: ["not-a-uuid"], targetDate: "2026-10-01" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01T14:00" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" })).success).toBe(true);
+    });
+});
+
+describe("which calls wait for a tap", () => {
+    const ids = (n: number) => Array.from({ length: n }, (_, i) => `t${i}`);
+    const approval = (mode: "ask" | "auto" | "full", toolName: string, input: unknown = {}) => approvalFor(mode)({ toolCall: { toolName, input } });
+
+    it("Ask waits on every write but never on reads or capture", () => {
+        expect(approval("ask", "create_tag")).toBe("user-approval");
+        expect(approval("ask", "get_tasks")).toBeUndefined();
+        expect(approval("ask", "capture_to_inbox")).toBeUndefined();
+    });
+
+    it("Auto waits on more than 5 tasks, permanent deletes, removed steps and note rewrites", () => {
+        expect(approval("auto", "set_task_state", { taskIds: ids(5) })).toBeUndefined();
+        expect(approval("auto", "set_task_state", { taskIds: ids(6) })).toBe("user-approval");
+        expect(approval("auto", "create_tasks", { tasks: ids(6) })).toBe("user-approval");
+        expect(approval("auto", "delete_tasks", { tasks: ids(1) })).toBe("user-approval");
+        expect(needsTap("edit_subtasks", { add: ["a"] })).toBe(false);
+        expect(needsTap("edit_subtasks", { remove: [{ subtaskId: "s" }] })).toBe(true);
+        expect(needsTap("update_tasks", { taskIds: ids(1), patch: { appendNote: "more" } })).toBe(false);
+        expect(needsTap("update_tasks", { taskIds: ids(1), patch: { note: "rewritten" } })).toBe(true);
+    });
+
+    it("Full never waits, even on a permanent delete", () => {
+        expect(approval("full", "delete_tasks", { tasks: ids(20) })).toBeUndefined();
+    });
+});
+
+describe("task drafts", () => {
+    const tasksSchema = taskDraftSchema.array().min(1).max(20);
+    const draft = { title: "Plan trip", subtasks: Array.from({ length: 30 }, (_, i) => `Step ${i + 1}`) };
+
+    it("take up to 20 tasks of 30 steps each, and no more", () => {
+        expect(tasksSchema.safeParse(Array(20).fill(draft)).success).toBe(true);
+        expect(tasksSchema.safeParse(Array(21).fill(draft)).success).toBe(false);
+        expect(tasksSchema.safeParse([{ ...draft, subtasks: [...draft.subtasks, "One more"] }]).success).toBe(false);
+    });
+
+    it("quote only known fields, briefly", () => {
+        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "pay by 9/30" } }).success).toBe(true);
+        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { project: "Home" } }).success).toBe(false);
+        expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "x".repeat(61) } }).success).toBe(false);
     });
 });
 
