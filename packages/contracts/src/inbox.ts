@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { flexibleDateTimeSchema, isoDateTimeSchema } from "./common";
-import { canonicalNlpEnvelopeSchema, sourceSurfaceSchema } from "./task";
+import { canonicalNlpEnvelopeSchema, effortLevelSchema, sourceSurfaceSchema } from "./task";
 
 export const inboxQuerySchema = z.object({ status: z.enum(["clarifying", "kept"]).default("clarifying") });
 
@@ -49,6 +49,7 @@ export const processInboxItemSchema = z.object({
     projectId: z.string().uuid().nullish(),
     tagIds: z.array(z.string().uuid()).nullish(),
     priority: z.number().int().min(0).max(4).nullish(),
+    effort: effortLevelSchema.nullish(),
     durationEstimate: z.number().int().min(1).max(480).nullish(),
     recurrenceRule: z.string().max(500).nullish(),
     waitingOn: z.string().max(200).nullish(),

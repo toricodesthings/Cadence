@@ -62,6 +62,18 @@ export function toZonedIso(date: Date, timezone: string): string {
     return `${wallClock}${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
 }
 
+/**
+ * The instant showing the same wall-clock time as `instant` in `timezone`, but on
+ * the local `date` (`YYYY-MM-DD`). 2:00 PM Friday → 2:00 PM Monday, across DST.
+ */
+export function atLocalDate(instant: Date, date: string, timezone: string): Date {
+    const wallClockAsUtc = Date.parse(`${date}T${toZonedIso(instant, timezone).slice(11, 19)}Z`);
+    // The offset depends on the answer; a second pass settles a DST change between the days.
+    let result = wallClockAsUtc - utcOffsetMinutes(new Date(wallClockAsUtc), timezone) * 60_000;
+    result = wallClockAsUtc - utcOffsetMinutes(new Date(result), timezone) * 60_000;
+    return new Date(result);
+}
+
 /** Shift a `YYYY-MM-DD` date by whole days (calendar arithmetic, zone-free). */
 export function addDaysToDateStr(date: string, days: number): string {
     const d = new Date(`${date}T00:00:00.000Z`);

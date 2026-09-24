@@ -12,9 +12,8 @@ export const metricTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_user_metrics: tool({
         description:
-            "READ-ONLY. Fetch the user's current adaptive-state metrics: burnout index, reschedule " +
-            "velocity, completion ratio, overdue carry load, habit adherence, and schedule density. " +
-            "Use these to plan protectively (avoid overloading a stressed user).",
+            "The user's workload signals: burnout index, reschedule velocity, completion ratio, overdue load, " +
+            "routine adherence and schedule density.",
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_user_metrics", userId, async () => {

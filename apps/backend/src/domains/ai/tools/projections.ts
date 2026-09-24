@@ -9,24 +9,27 @@
 
 import { addDaysToDateStr, toLocalDateStr, toZonedIso } from "../../../platform/date-utils";
 
-/** A minimal task row as projected for the model. */
+/**
+ * A minimal task row as projected for the model. Keys at their default are left
+ * out (no priority, effort, list, waiting, Fixed or repeat → no key), and so is
+ * isAllDay: a plain date is all-day, a date with a time is timed.
+ */
 export interface MinimalTask {
     id: string;
     title: string;
     state: string;
-    isAllDay: boolean;
-    dueDate: string | null;
-    scheduledStart: string | null;
-    scheduledEnd: string | null;
-    durationEstimate: number | null;
-    priority: number;
-    effort: number | null;
-    projectId: string | null;
-    waitingOn: string | null;
+    dueDate?: string;
+    scheduledStart?: string;
+    scheduledEnd?: string;
+    durationEstimate?: number;
+    priority?: number;
+    effort?: number;
+    projectId?: string;
+    waitingOn?: string;
     /** A timetable block (class, shift): occupies time, can't be checked off, never overdue. */
-    fixedBlock: boolean;
+    fixedBlock?: true;
     /** Part of a repeating series; `id` is the series id. */
-    repeats: boolean;
+    repeats?: true;
 }
 
 export interface TaskRow {
@@ -58,24 +61,25 @@ export interface TaskRow {
  */
 export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
     const show = (value: string | null) =>
-        value === null ? null : row.isAllDay ? value.slice(0, 10) : toZonedIso(new Date(value), timezone);
-    return {
+        value === null ? undefined : row.isAllDay ? value.slice(0, 10) : toZonedIso(new Date(value), timezone);
+    const task: MinimalTask = {
         // An expanded occurrence's id is "<series>::<start>"; the model acts on the series.
         id: row.seriesId ?? row.id,
         title: row.title,
         state: row.state,
-        isAllDay: row.isAllDay,
         dueDate: show(row.dueDate),
         scheduledStart: show(row.scheduledStart),
         scheduledEnd: show(row.scheduledEnd),
-        durationEstimate: row.durationEstimate,
-        priority: row.priority,
-        effort: row.effort,
-        projectId: row.projectId,
-        waitingOn: row.waitingOn,
-        fixedBlock: row.interactionMode === "timetable",
-        repeats: !!row.recurrenceRule,
+        durationEstimate: row.durationEstimate ?? undefined,
+        priority: row.priority || undefined,
+        effort: row.effort ?? undefined,
+        projectId: row.projectId ?? undefined,
+        waitingOn: row.waitingOn ?? undefined,
+        fixedBlock: row.interactionMode === "timetable" || undefined,
+        repeats: !!row.recurrenceRule || undefined,
     };
+    // Drop the undefined keys so they cost nothing on the wire.
+    return Object.fromEntries(Object.entries(task).filter(([, v]) => v !== undefined)) as MinimalTask;
 }
 
 export interface MinimalSubtask {
@@ -115,6 +119,7 @@ export interface MinimalProject {
     name: string;
     emoji: string | null;
     colorAccent: string | null;
+    sections: { id: string; name: string }[];
 }
 
 export interface ProjectRow {
@@ -124,24 +129,18 @@ export interface ProjectRow {
     colorAccent: string | null;
 }
 
-export function toMinimalProject(row: ProjectRow): MinimalProject {
-    return { id: row.id, name: row.name, emoji: row.emoji, colorAccent: row.colorAccent };
-}
-
-export interface MinimalSection {
-    id: string;
-    name: string;
-    projectId: string | null;
-}
-
-export interface SectionRow {
-    id: string;
-    name: string;
-    projectId: string | null;
-}
-
-export function toMinimalSection(row: SectionRow): MinimalSection {
-    return { id: row.id, name: row.name, projectId: row.projectId };
+/** A list with its sections (board columns), in order. */
+export function toMinimalProject(
+    row: ProjectRow,
+    sections: { id: string; name: string; projectId: string | null }[] = [],
+): MinimalProject {
+    return {
+        id: row.id,
+        name: row.name,
+        emoji: row.emoji,
+        colorAccent: row.colorAccent,
+        sections: sections.filter((s) => s.projectId === row.id).map(({ id, name }) => ({ id, name })),
+    };
 }
 
 export interface MinimalHabit {
@@ -219,35 +218,6 @@ export function toMinimalInboxItem(row: InboxItemRow): MinimalInboxItem {
         captureKind: row.captureKind,
         captureStatus: row.captureStatus,
         processed: row.processed,
-    };
-}
-
-export interface MinimalSuggestion {
-    id: string;
-    type: string;
-    title: string;
-    status: string;
-    relatedTaskIds: string[];
-}
-
-export interface SuggestionRow {
-    id: string;
-    type: string;
-    title: string;
-    status: string;
-    relatedTaskIds: string[] | null;
-    // body intentionally accepted but DROPPED.
-    body?: string | null;
-}
-
-/** Project a suggestion. Drops the free-text `body` to stay token-frugal. */
-export function toMinimalSuggestion(row: SuggestionRow): MinimalSuggestion {
-    return {
-        id: row.id,
-        type: row.type,
-        title: row.title,
-        status: row.status,
-        relatedTaskIds: row.relatedTaskIds ?? [],
     };
 }
 

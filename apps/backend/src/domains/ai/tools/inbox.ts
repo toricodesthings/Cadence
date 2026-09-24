@@ -9,20 +9,17 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
 import { toMinimalInboxItem } from "./projections";
+import { taskDraftSchema } from "./drafts";
 
 export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_inbox_items: tool({
         description:
-            "READ-ONLY. Fetch unprocessed inbox captures (rawText, captureKind, captureStatus, " +
-            "processed). These are the user's raw, unstructured thoughts awaiting triage. " +
-            "Kept captures are notes. Do not propose turning notes into tasks unless asked. Hard-capped server-side.",
+            "Captures waiting in Capture, newest first: thoughts to sort and kept notes (isNote). " +
+            "more:true when the cap cut it off.",
         inputSchema: z.object({
-            includeProcessed: z
-                .boolean()
-                .default(false)
-                .describe("Include already-processed captures too."),
-            limit: z.number().int().min(1).max(50).default(20).describe("Max rows (capped at 50)."),
+            includeProcessed: z.boolean().default(false).describe("Also captures already sorted or discarded."),
+            limit: z.number().int().min(1).max(50).default(20),
         }),
         execute: async ({ includeProcessed, limit }) =>
             safeExecute("get_inbox_items", userId, async () => {
@@ -44,76 +41,36 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                                 : and(eq(inboxItems.userId, userId), inArray(inboxItems.captureStatus, ["clarifying", "kept"])),
                         )
                         .orderBy(desc(inboxItems.createdAt), desc(inboxItems.id))
-                        .limit(cap),
+                        .limit(cap + 1),
                 );
-                return { items: rows.map(toMinimalInboxItem) };
+                const more = rows.length > cap;
+                return { items: rows.slice(0, cap).map(toMinimalInboxItem), ...(more && { more }) };
             }),
     }),
 
     // ── P (proposal — NO DB WRITE) ──────────────────────────────────────────
     propose_structure_inbox_item: tool({
         description:
-            "PROPOSAL ONLY — does NOT write anything. Turns a messy capture into a structured task " +
-            "draft for confirmation; the task is created (and the capture placed) later via REST. " +
-            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset (the offset in Environment, e.g. 2026-09-22T14:00:00-04:00), never Z. " +
-            "Duration is in minutes.",
-        inputSchema: z.object({
-            inboxItemId: z.string().uuid().describe("Source capture id."),
-            title: z.string().min(1).max(500).describe("Cleaned task title."),
-            content: z.string().max(5000).optional().describe("Optional note body."),
-            dueDate: z.string().optional().describe("Deadline. For all-day tasks use YYYY-MM-DD."),
-            scheduledStart: z.string().optional().describe("Block start: the user's local time with their UTC offset, e.g. 2026-09-22T14:00:00-04:00."),
-            durationEstimate: z.number().int().min(1).max(1440).optional().describe("Minutes."),
-            projectId: z.string().uuid().optional().describe("Re-validated on confirm."),
-            tagIds: z.array(z.string().uuid()).max(20).optional().describe("Re-validated on confirm."),
-        }),
-    }),
-
-    // ── P ────────────────────────────────────────────────────────────────────
-    propose_cluster_inbox: tool({
-        description:
-            "PROPOSAL ONLY — does NOT write anything. Suggests grouping related captures into a " +
-            "(possibly new) list; returns the cluster plan for confirmation. Real grouping " +
-            "happens later via REST.",
-        inputSchema: z.object({
-            projectName: z.string().min(1).max(200).describe("Proposed/target list name."),
-            existingProjectId: z
-                .string()
-                .uuid()
-                .optional()
-                .describe("If clustering into an existing list, its id (re-validated on confirm)."),
-            inboxItemIds: z
-                .array(z.string().uuid())
-                .min(1)
-                .max(50)
-                .describe("Captures to group together."),
-        }),
+            "Drafts turning a capture into a task; the capture leaves Capture when approved. " +
+            "No date given = the task has no date.",
+        inputSchema: taskDraftSchema.extend({ inboxItemId: z.uuid() }),
     }),
 
     // ── W (safe additive write — ONLY directly-writing tool) ──────────────────
     capture_to_inbox: tool({
         description:
-            "WRITES IMMEDIATELY. Drops a raw thought into the user's inbox as a new capture. This " +
-            "is the ONLY tool that writes to the database directly — it is safe, reversible, and " +
-            "additive (mirrors quick-capture). Pass a stable clientMutationId to make it idempotent " +
-            "(replays return the existing capture instead of duplicating).",
+            "Saves a thought to Capture right away (no approval: it's additive and can be discarded). Returns its id.",
         inputSchema: z.object({
-            rawText: z.string().min(1).max(5000).describe("The raw thought to capture, verbatim."),
-            captureKind: z
-                .enum(["task", "thought", "reference", "unknown"])
-                .default("unknown")
-                .describe("Coarse kind hint."),
-            clientMutationId: z
-                .string()
-                .min(8)
-                .max(200)
-                .describe("Stable idempotency key for this capture (e.g. a UUID)."),
+            rawText: z.string().min(1).max(5000).describe("The thought, verbatim."),
+            captureKind: z.enum(["task", "thought", "reference", "unknown"]).default("unknown"),
         }),
-        execute: async ({ rawText, captureKind, clientMutationId }) =>
+        // The tool call's own id is the idempotency key: a replayed call returns its
+        // capture, and a new call can never merge into an older one.
+        execute: async ({ rawText, captureKind }, { toolCallId }) =>
             safeExecute("capture_to_inbox", userId, async () => {
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
-                    const existingId = await checkIdempotency(tx, userId, clientMutationId);
+                    const existingId = await checkIdempotency(tx, userId, toolCallId);
                     if (existingId) {
                         const [existing] = await tx
                             .select({ id: inboxItems.id, rawText: inboxItems.rawText })
@@ -131,7 +88,7 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                         .values({ userId, rawText, captureKind })
                         .returning({ id: inboxItems.id, rawText: inboxItems.rawText });
 
-                    await recordMutation(tx, userId, clientMutationId, row.id);
+                    await recordMutation(tx, userId, toolCallId, row.id);
                     return { item: row, deduped: false as const };
                 });
             }),

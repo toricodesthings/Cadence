@@ -10,6 +10,7 @@ import { assertOwnership } from "../../platform/ownership";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { trackReschedule, trackBatchCompletion, trackBatchEvents } from "../../platform/metrics";
 import { withRls } from "../../platform/rls";
+import { atLocalDate } from "../../platform/date-utils";
 import { normalizeTaskFilters, type NormalizedTaskFilters } from "./task-filters";
 import {
     hasTaskTemporalMutation,
@@ -118,6 +119,34 @@ function getTemporalFieldsForPersistence(fields: {
     isAllDay?: boolean | null;
 }) {
     return normalizeTaskTemporalFields(fields);
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * One task moved to a local `date`, keeping its shape: an all-day task lands on
+ * the date, a timed task keeps its local time there, and an end (or deadline)
+ * moves by the same amount.
+ */
+export function rescheduleToDate(
+    row: { isAllDay: boolean; dueDate: string | null; scheduledStart: string | null; scheduledEnd: string | null },
+    date: string,
+    timezone: string,
+) {
+    const shift = (value: string | null, ms: number) => (value ? new Date(new Date(value).getTime() + ms).toISOString() : null);
+    if (!row.isAllDay && row.scheduledStart) {
+        const start = atLocalDate(new Date(row.scheduledStart), date, timezone);
+        const delta = start.getTime() - new Date(row.scheduledStart).getTime();
+        return getTemporalFieldsForPersistence({
+            isAllDay: false,
+            scheduledStart: start.toISOString(),
+            scheduledEnd: shift(row.scheduledEnd, delta),
+            dueDate: shift(row.dueDate, delta),
+        });
+    }
+    const anchor = (row.dueDate ?? row.scheduledStart)?.slice(0, 10);
+    const days = anchor ? Date.parse(date) - Date.parse(anchor) : 0;
+    return getTemporalFieldsForPersistence({ isAllDay: true, dueDate: date, scheduledEnd: shift(row.scheduledEnd, days) });
 }
 
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -440,28 +469,48 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     })
     .post("/batch/reschedule", apiValidator("json", batchRescheduleSchema), async (c) => {
         const userId = c.get("userId");
-        const { taskIds, scheduledStart, isAllDay } = c.req.valid("json");
+        const { taskIds, scheduledStart, isAllDay, date, timezone } = c.req.valid("json");
         const db = getDbClient(c.env);
-        const temporalFields = getTemporalFieldsForPersistence({
-            isAllDay,
-            scheduledStart,
+
+        const updatedTasks = await withRls(db, userId, async (tx) => {
+            if (!date) {
+                return tx
+                    .update(tasks)
+                    .set({ ...getTemporalFieldsForPersistence({ isAllDay, scheduledStart }), updatedAt: sql`NOW()` })
+                    .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
+                    .returning();
+            }
+            const rows = await tx
+                .select({
+                    id: tasks.id,
+                    isAllDay: tasks.isAllDay,
+                    dueDate: tasks.dueDate,
+                    scheduledStart: tasks.scheduledStart,
+                    scheduledEnd: tasks.scheduledEnd,
+                    interactionMode: tasks.interactionMode,
+                })
+                .from(tasks)
+                .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+            // Fixed blocks (classes, shifts) stay put unless they're all that was asked to move.
+            const onlyFixed = rows.every((row) => row.interactionMode === "timetable");
+            const moved = [];
+            for (const row of rows) {
+                if (row.interactionMode === "timetable" && !onlyFixed) continue;
+                const [updated] = await tx
+                    .update(tasks)
+                    .set({ ...rescheduleToDate(row, date, timezone!), updatedAt: sql`NOW()` })
+                    .where(and(eq(tasks.id, row.id), eq(tasks.userId, userId)))
+                    .returning();
+                moved.push(updated);
+            }
+            return moved;
         });
 
-        const updatedTasks = await withRls(db, userId, async (tx) =>
-            tx
-                .update(tasks)
-                .set({ ...temporalFields, updatedAt: sql`NOW()` })
-                .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
-                .returning(),
-        );
-
-        for (const id of taskIds) {
-            c.executionCtx.waitUntil(
-                trackReschedule(db, id, userId, temporalFields.scheduledStart ?? temporalFields.dueDate),
-            );
+        for (const task of updatedTasks) {
+            c.executionCtx.waitUntil(trackReschedule(db, task.id, userId, task.scheduledStart ?? task.dueDate));
         }
         c.executionCtx.waitUntil(
-            trackBatchEvents(db, userId, taskIds.map((id) => ({ event: "task.reschedule", metadata: { taskId: id } }))),
+            trackBatchEvents(db, userId, updatedTasks.map((task) => ({ event: "task.reschedule", metadata: { taskId: task.id } }))),
         );
 
         return c.json({ data: updatedTasks });

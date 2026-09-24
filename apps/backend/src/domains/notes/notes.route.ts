@@ -7,7 +7,7 @@ import { upsertNoteSchema } from "@cadence/contracts/note";
 import { taskIdParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
+import { AppError, throwIfNotFound, assertNoConflict } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { generateExcerpt, countWords, countHeadings } from "./note-analysis";
 
@@ -20,7 +20,7 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         async (c) => {
             const userId = c.get("userId");
             const { taskId } = c.req.valid("param");
-            const { body, expectedUpdatedAt } = c.req.valid("json");
+            const { body, expectedUpdatedAt, expectedVersion } = c.req.valid("json");
             const db = getDbClient(c.env);
 
             const excerpt = generateExcerpt(body);
@@ -41,6 +41,10 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     .select({ id: taskNotes.id, updatedAt: taskNotes.updatedAt, version: taskNotes.version })
                     .from(taskNotes)
                     .where(and(eq(taskNotes.taskId, taskId), eq(taskNotes.userId, userId)));
+
+                if (expectedVersion !== undefined && expectedVersion !== (existing?.version ?? 0)) {
+                    throw new AppError(409, "CONFLICT", "Note was modified by another client");
+                }
 
                 if (existing) {
                     // Update existing note with conflict detection

@@ -5,6 +5,7 @@ vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../h
 import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
 let run: (args: any) => Promise<any>;
+let capture: (args: any, toolCallId: string) => Promise<any>;
 let inbox: ReturnType<typeof apiAs>;
 beforeAll(startTestDb);
 beforeEach(async () => {
@@ -12,6 +13,7 @@ beforeEach(async () => {
     inbox = apiAs(id, "/inbox", inboxRoutes);
     const registry = buildToolRegistry({} as any, id, { timezone: "America/New_York", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23", weekStart: "Monday" }) as any;
     run = args => registry.get_inbox_items.execute(args, { toolCallId: "test", messages: [] });
+    capture = (args, toolCallId) => registry.capture_to_inbox.execute(args, { toolCallId, messages: [] });
 });
 it("reads only live thoughts and explicitly marked notes, never discarded captures", async () => {
     const thought = (await inbox("POST", "", { rawText: "Buy milk" })).body.data;
@@ -22,4 +24,14 @@ it("reads only live thoughts and explicitly marked notes, never discarded captur
     const result = await run({ includeProcessed: false, limit: 20 });
     expect(result.items.map((i: any) => i.id).sort()).toEqual([thought.id, note.id].sort());
     expect(result.items.find((i: any) => i.id === note.id).isNote).toBe(true);
+});
+
+it("keys a capture by its tool call: a new call never merges into an older one, a replay does", async () => {
+    const first = await capture({ rawText: "Call mum", captureKind: "task" }, "call_a");
+    const second = await capture({ rawText: "Call mum", captureKind: "task" }, "call_b");
+    const replay = await capture({ rawText: "Call mum", captureKind: "task" }, "call_a");
+
+    expect(second.item.id).not.toBe(first.item.id);
+    expect(replay).toMatchObject({ item: { id: first.item.id }, deduped: true });
+    expect((await run({ includeProcessed: false, limit: 20 })).items).toHaveLength(2);
 });

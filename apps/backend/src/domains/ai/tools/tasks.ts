@@ -1,8 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, desc, ilike, ne, or } from "drizzle-orm";
+import { and, eq, desc, exists, ilike, inArray, isNull, ne, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { tasks, subtasks, taskTags, tags } from "../../../db/schema";
+import { tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import { normalizeTaskFilters } from "../../tasks/task-filters";
@@ -17,6 +17,8 @@ import {
     taskLocalDay,
 } from "./projections";
 import { addDaysToDateStr } from "../../../platform/date-utils";
+import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
+import { NOTE_READ_LIMIT, taskDraftSchema, taskPatchSchema } from "./drafts";
 
 /** Columns returned by the minimal task projection — selected once, reused. */
 const minimalTaskColumns = {
@@ -40,38 +42,18 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_tasks: tool({
         description:
-            "READ-ONLY. Fetch the user's tasks filtered by state, list, due window, " +
-            "waiting status, or missing-structure. Returns ids + minimal fields (title, " +
-            "dates, state) only — never note bodies. Excludes fixed timetable blocks (classes, shifts); " +
-            "use get_schedule_window for those. Results are hard-capped server-side.",
+            "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine. " +
+            "Leaves out Fixed blocks (see get_schedule_window). Returns minimal rows; more:true when the cap cut it off.",
         inputSchema: z.object({
-            state: z
-                .enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"])
-                .optional()
-                .describe("Task lifecycle state to filter by."),
+            query: z.string().min(1).max(200).optional().describe("Words to find in titles and notes."),
+            state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional().describe("ARCHIVED = Trash."),
             dueWindow: z
                 .enum(["overdue", "today", "this_week", "this_month"])
                 .optional()
-                .describe(
-                    "Coarse due/scheduled window relative to the user's current local date. " +
-                        "'overdue' = anything dated before today.",
-                ),
-            projectId: z.string().uuid().optional().describe("Restrict to one list."),
-            waiting: z
-                .boolean()
-                .optional()
-                .describe("If true, only tasks in the WAITING state (blocked/delegated)."),
-            missingStructure: z
-                .boolean()
-                .optional()
-                .describe("If true, only tasks with no date AND no list (need triage)."),
-            limit: z
-                .number()
-                .int()
-                .min(1)
-                .max(50)
-                .default(20)
-                .describe("Max rows (server caps at 50 regardless)."),
+                .describe("Local-date window; overdue = dated before today (repeating series excluded)."),
+            projectId: z.uuid().optional().describe("One list only."),
+            missingStructure: z.boolean().optional().describe("Only tasks with no date and no list."),
+            limit: z.number().int().min(1).max(50).default(20),
         }),
         execute: async (args) =>
             safeExecute("get_tasks", userId, async () => {
@@ -80,7 +62,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
 
                 // Reuse the REST filter builder — no copy-pasted WHERE clauses (AGENTS §18).
                 const filterInput: Record<string, unknown> = {
-                    state: args.waiting ? "WAITING" : args.state,
+                    state: args.state,
                     projectId: args.projectId,
                     hasNoDate: args.missingStructure || undefined,
                     hasNoProject: args.missingStructure || undefined,
@@ -99,44 +81,57 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                 // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
                 // checked off, so they never belong in a task list. get_schedule_window shows them.
                 const conditions = [...buildTaskWhereClause(userId, normalized), ne(tasks.interactionMode, "timetable")];
+                // Done and Trash only when asked for by name.
+                if (!args.state) conditions.push(inArray(tasks.state, ["ACTIVE", "WAITING"]));
+                // A series is stored at its first date; that date passing doesn't make it overdue.
+                if (args.dueWindow === "overdue") conditions.push(isNull(tasks.recurrenceRule));
 
                 const db = getDbClient(env);
-                const rows = await withRls(db, userId, async (tx) =>
-                    tx
+                const rows = await withRls(db, userId, async (tx) => {
+                    if (args.query) {
+                        // Escape LIKE wildcards so a model-supplied "%"/"_" matches literally.
+                        const pattern = `%${args.query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+                        const inNote = tx
+                            .select({ id: taskNotes.id })
+                            .from(taskNotes)
+                            .where(and(eq(taskNotes.taskId, tasks.id), ilike(taskNotes.body, pattern)));
+                        conditions.push(or(ilike(tasks.title, pattern), ilike(tasks.content, pattern), exists(inNote)));
+                    }
+                    return tx
                         .select(minimalTaskColumns)
                         .from(tasks)
                         .where(and(...conditions))
                         .orderBy(desc(tasks.priority), desc(tasks.createdAt))
                         // ponytail: edge-day rows count toward this cap before the local-day
                         // filter; a window holding more than 50 dated tasks may come back short.
-                        .limit(window ? MAX_LIST_LIMIT : limit),
-                );
-                const inWindow = window
-                    ? rows
-                          .filter((row) => {
-                              const day = taskLocalDay(row, ctx.timezone);
-                              return day !== null && (!window.from || day >= window.from) && day <= window.to;
-                          })
-                          .slice(0, limit)
+                        .limit(window ? MAX_LIST_LIMIT + 1 : limit + 1);
+                });
+                const matched = window
+                    ? rows.filter((row) => {
+                          const day = taskLocalDay(row, ctx.timezone);
+                          return day !== null && (!window.from || day >= window.from) && day <= window.to;
+                      })
                     : rows;
-                return { tasks: inWindow.map((row) => toMinimalTask(row, ctx.timezone)), count: inWindow.length };
+                const shown = matched.slice(0, limit);
+                const more = matched.length > limit || rows.length > MAX_LIST_LIMIT;
+                return { tasks: shown.map((row) => toMinimalTask(row, ctx.timezone)), count: shown.length, ...(more && { more }) };
             }),
     }),
 
     // ── R ──────────────────────────────────────────────────────────────────
     get_task_detail: tool({
         description:
-            "READ-ONLY. Fetch one task plus its subtasks and tags (ids/titles only, no " +
-            "note bodies). Use after get_tasks/search_tasks to inspect structure.",
+            `One task with its subtasks, tags and note. The note shows its first ${NOTE_READ_LIMIT} characters ` +
+            "(truncated:true when longer) and a version to pass back when changing it.",
         inputSchema: z.object({
-            taskId: z.string().uuid().describe("The task to inspect."),
+            taskId: z.uuid(),
         }),
         execute: async ({ taskId }) =>
             safeExecute("get_task_detail", userId, async () => {
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
                     const [row] = await tx
-                        .select(minimalTaskColumns)
+                        .select({ ...minimalTaskColumns, content: tasks.content })
                         .from(tasks)
                         .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
                         .limit(1);
@@ -160,45 +155,27 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .where(eq(taskTags.taskId, taskId))
                         .limit(50);
 
+                    // The notes panel shows task_notes.body, falling back to tasks.content.
+                    const [noteRow] = await tx
+                        .select({ body: taskNotes.body, version: taskNotes.version })
+                        .from(taskNotes)
+                        .where(and(eq(taskNotes.taskId, taskId), eq(taskNotes.userId, userId)))
+                        .limit(1);
+                    const noteText = noteRow?.body ?? row.content ?? "";
+                    const nonce = ctx.nonce ?? makeFenceNonce();
+                    const shown = noteText.slice(0, NOTE_READ_LIMIT);
+
                     return {
                         task: toMinimalTask(row, ctx.timezone),
                         subtasks: subs.map(toMinimalSubtask),
                         tags: tagRows.map(toMinimalTag),
+                        note: {
+                            text: shown && fenceData({ nonce, kind: "note", trust: "untrusted", content: sanitizeUntrusted(shown, nonce) }),
+                            truncated: noteText.length > NOTE_READ_LIMIT,
+                            version: noteRow?.version ?? 0,
+                        },
                     };
                 });
-            }),
-    }),
-
-    // ── R ──────────────────────────────────────────────────────────────────
-    search_tasks: tool({
-        description:
-            "READ-ONLY. Case-insensitive keyword search over task titles (and note text). " +
-            "Returns minimal fields only, hard-capped server-side.",
-        inputSchema: z.object({
-            query: z.string().min(1).max(200).describe("Keyword(s) to match in title/notes."),
-            limit: z.number().int().min(1).max(50).default(20).describe("Max rows (capped at 50)."),
-        }),
-        execute: async ({ query, limit }) =>
-            safeExecute("search_tasks", userId, async () => {
-                const cap = clampLimit(limit);
-                // Escape LIKE wildcards so a model-supplied "%"/"_" matches literally
-                // instead of widening the scan.
-                const pattern = `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
-                const db = getDbClient(env);
-                const rows = await withRls(db, userId, async (tx) =>
-                    tx
-                        .select(minimalTaskColumns)
-                        .from(tasks)
-                        .where(
-                            and(
-                                eq(tasks.userId, userId),
-                                or(ilike(tasks.title, pattern), ilike(tasks.content, pattern)),
-                            ),
-                        )
-                        .orderBy(desc(tasks.createdAt))
-                        .limit(cap),
-                );
-                return { tasks: rows.map((row) => toMinimalTask(row, ctx.timezone)), count: rows.length };
             }),
     }),
 
@@ -210,127 +187,74 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // would render already-resolved. The model only proposes; the app commits.
     propose_create_task: tool({
         description:
-            "PROPOSAL ONLY — does NOT create anything. Drafts a task for the user to confirm; " +
-            "the actual task is created later via the REST API after explicit approval. " +
-            "Never use it to change a task that already exists, including one created earlier in this chat " +
-            "(its taskId is in that proposal's result) — use propose_update_task. " +
-            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset (the offset in Environment, e.g. 2026-09-22T14:00:00-04:00), never Z. " +
-            "Duration is in minutes.",
-        inputSchema: z.object({
-            title: z.string().min(1).max(500).describe("Task title."),
-            content: z.string().max(5000).optional().describe("Optional note body."),
-            isAllDay: z.boolean().default(true).describe("All-day vs. time-blocked."),
-            dueDate: z.string().optional().describe("Deadline. For all-day tasks use YYYY-MM-DD."),
-            scheduledStart: z.string().optional().describe("Block start: the user's local time with their UTC offset, e.g. 2026-09-22T14:00:00-04:00."),
-            scheduledEnd: z.string().optional().describe("Block end: the user's local time with their UTC offset."),
-            durationEstimate: z.number().int().min(1).max(1440).optional().describe("Minutes."),
-            projectId: z.string().uuid().optional().describe("Target list (re-validated on confirm)."),
-            tagIds: z.array(z.string().uuid()).max(20).optional().describe("Tags (re-validated on confirm)."),
-            priority: z.number().int().min(0).max(4).optional().describe("0=none, 1=low, 2=medium, 3=high, 4=urgent."),
-            effort: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional().describe("1=low, 2=medium, 3=high effort. Omit for none."),
-        }),
+            "Drafts a new task. Never for a task that already exists, including one created earlier in this chat " +
+            "(its taskId is in that proposal's result): use propose_update_task.",
+        inputSchema: taskDraftSchema,
     }),
 
     // ── P ────────────────────────────────────────────────────────────────────
     propose_update_task: tool({
         description:
-            "PROPOSAL ONLY — does NOT modify anything. Validates a field change/reschedule on " +
-            "an existing task (by id) and returns it for confirmation. Applied later via REST. " +
-            "Use YYYY-MM-DD for all-day dueDate values. For time blocks use the user's local time with their UTC offset (the offset in Environment, e.g. 2026-09-22T14:00:00-04:00), never Z. " +
-            "Duration is in minutes.",
-        inputSchema: z.object({
-            taskId: z.string().uuid().describe("Task to change."),
-            title: z.string().min(1).max(500).optional(),
-            content: z.string().max(5000).optional(),
-            state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional(),
-            dueDate: z.string().nullable().optional().describe("YYYY-MM-DD for all-day deadlines, or null to clear."),
-            scheduledStart: z.string().nullable().optional().describe("The user's local time with their UTC offset (e.g. 2026-09-22T14:00:00-04:00), or null to clear."),
-            scheduledEnd: z.string().nullable().optional().describe("The user's local time with their UTC offset (e.g. 2026-09-22T14:00:00-04:00), or null to clear."),
-            durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
-            projectId: z.string().uuid().nullable().optional(),
-            priority: z.number().int().min(0).max(4).optional().describe("0=none, 1=low, 2=medium, 3=high, 4=urgent."),
-            effort: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable().optional().describe("1=low, 2=medium, 3=high effort, or null to clear."),
-            waitingOn: z.string().max(500).nullable().optional().describe("Who/what it's blocked on."),
-            tagIds: z
-                .array(z.string().uuid())
-                .max(20)
-                .optional()
-                .describe("The task's FULL tag set after the change (current tags from get_task_detail plus/minus yours). [] removes all."),
-        }),
+            "Drafts a change to one task: only the fields that change. state ARCHIVED = Trash. " +
+            "A note change needs noteVersion from get_task_detail.",
+        inputSchema: taskPatchSchema,
     }),
 
     // ── P ────────────────────────────────────────────────────────────────────
     propose_add_subtask: tool({
-        description:
-            "PROPOSAL ONLY — does NOT create anything. Drafts a checklist subtask under an existing task " +
-            "(by id) for the user to confirm; created later via REST. One subtask per call.",
+        description: "Drafts one checklist subtask under a task.",
         inputSchema: z.object({
-            taskId: z.string().uuid().describe("Parent task."),
-            title: z.string().min(1).max(500).describe("Subtask title."),
+            taskId: z.uuid(),
+            title: z.string().min(1).max(500),
         }),
     }),
 
     // ── P ────────────────────────────────────────────────────────────────────
     propose_update_subtask: tool({
-        description:
-            "PROPOSAL ONLY — does NOT modify anything. Renames a subtask and/or ticks it done/undone " +
-            "(ids from get_task_detail); applied later via REST after approval.",
+        description: "Drafts renaming a subtask and/or ticking it done or undone (ids from get_task_detail).",
         inputSchema: z.object({
-            taskId: z.string().uuid().describe("Parent task."),
-            subtaskId: z.string().uuid().describe("Subtask to change."),
-            title: z.string().min(1).max(500).optional().describe("New title."),
-            isComplete: z.boolean().optional().describe("true = done, false = not done."),
+            taskId: z.uuid(),
+            subtaskId: z.uuid(),
+            title: z.string().min(1).max(500).optional(),
+            isComplete: z.boolean().optional(),
         }),
     }),
 
     // ── P (destructive) ──────────────────────────────────────────────────────
     propose_delete_subtask: tool({
-        description:
-            "PROPOSAL ONLY — does NOT delete anything. Removes a subtask (ids from get_task_detail) " +
-            "after explicit confirmation. Always echo the title so the user can verify.",
+        description: "Drafts permanently deleting a subtask. Echo its title for the user to check.",
         inputSchema: z.object({
-            taskId: z.string().uuid().describe("Parent task."),
-            subtaskId: z.string().uuid().describe("Subtask to delete."),
-            title: z.string().describe("Title of the subtask being deleted, for confirmation."),
+            taskId: z.uuid(),
+            subtaskId: z.uuid(),
+            title: z.string(),
         }),
     }),
 
     // ── P ────────────────────────────────────────────────────────────────────
     propose_batch_reschedule: tool({
         description:
-            "PROPOSAL ONLY — does NOT move anything. Builds a structured change-set plan that " +
-            "moves N tasks to a target date (e.g. 'push overdue tasks to Monday'). Returns the " +
-            "plan for confirmation; the moves happen later via REST. Use YYYY-MM-DD for all-day targets; " +
-            "for timed targets use the user's local time with their UTC offset (e.g. 2026-09-22T14:00:00-04:00), never Z.",
+            "Drafts moving tasks to another day. Each keeps its own time (all-day stays all-day); " +
+            "Fixed blocks stay put unless they're the only ones listed.",
         inputSchema: z.object({
-            taskIds: z.array(z.string().uuid()).min(1).max(50).describe("Tasks to reschedule."),
-            targetDate: z.string().describe("The user's local date (YYYY-MM-DD), or local time with UTC offset for a timed target."),
-            field: z
-                .enum(["dueDate", "scheduledStart"])
-                .default("dueDate")
-                .describe("Which date field to set."),
+            taskIds: z.array(z.uuid()).min(1).max(50),
+            targetDate: z.iso.date().describe("The new local day."),
         }),
     }),
 
     // ── P (destructive — danger card) ────────────────────────────────────────
     propose_delete_task: tool({
-        description:
-            "PROPOSAL ONLY — does NOT delete anything. DESTRUCTIVE: returns a danger-card " +
-            "proposal to permanently delete a task; the delete happens later via REST after " +
-            "explicit confirmation. Always echo the title so the user can verify.",
+        description: "Drafts permanently deleting a task (not Trash). Echo its title for the user to check.",
         inputSchema: z.object({
-            taskId: z.string().uuid().describe("Task to delete."),
-            title: z.string().describe("Title of the task being deleted, for confirmation."),
+            taskId: z.uuid(),
+            title: z.string(),
         }),
     }),
 
     // ── P ────────────────────────────────────────────────────────────────────
     propose_complete_tasks: tool({
-        description:
-            "PROPOSAL ONLY — does NOT complete anything. Returns a mark-done proposal for one or " +
-            "more tasks; completion is applied later via REST after confirmation.",
+        description: "Drafts marking one or more tasks done.",
         inputSchema: z.object({
-            taskIds: z.array(z.string().uuid()).min(1).max(50).describe("Task(s) to mark COMPLETE."),
+            taskIds: z.array(z.uuid()).min(1).max(50),
         }),
     }),
 });

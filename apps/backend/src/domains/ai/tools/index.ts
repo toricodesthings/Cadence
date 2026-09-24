@@ -1,12 +1,11 @@
+import { asSchema, jsonSchema } from "ai";
 import type { Env } from "../../../types/env";
 import { logger, hashIdentifier } from "../../../platform/log";
 import { taskTools } from "./tasks";
 import { projectTools } from "./projects";
-import { sectionTools } from "./sections";
 import { tagTools } from "./tags";
 import { habitTools } from "./habits";
 import { inboxTools } from "./inbox";
-import { suggestionTools } from "./suggestions";
 import { calendarTools } from "./calendar";
 import { metricTools } from "./metrics";
 import { helpTools } from "./help";
@@ -29,6 +28,8 @@ export interface AgentContext {
     weekStart?: string;
     /** BCP-47 locale, e.g. "en-CA". */
     locale?: string;
+    /** The turn's data-fence nonce, for user text a tool returns (notes). */
+    nonce?: string;
 }
 
 /**
@@ -89,16 +90,38 @@ export function clampLimit(limit: number | undefined, fallback = 20): number {
  * The integration in agent.ts spreads the result into `streamText({ tools })`.
  */
 export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
-    return {
+    return withoutPatterns({
         ...taskTools(env, userId, ctx),
         ...projectTools(env, userId, ctx),
-        ...sectionTools(env, userId, ctx),
         ...tagTools(env, userId, ctx),
         ...habitTools(env, userId, ctx),
         ...inboxTools(env, userId, ctx),
-        ...suggestionTools(env, userId, ctx),
         ...calendarTools(env, userId, ctx),
         ...metricTools(env, userId, ctx),
         ...helpTools(),
-    };
+    });
+}
+
+/** Drop regex `pattern`s (and `$schema`) from a JSON schema, recursively. */
+function dropPatterns(node: unknown): unknown {
+    if (Array.isArray(node)) return node.map(dropPatterns);
+    if (!node || typeof node !== "object") return node;
+    return Object.fromEntries(
+        Object.entries(node).filter(([key]) => key !== "pattern" && key !== "$schema").map(([key, value]) => [key, dropPatterns(value)]),
+    );
+}
+
+/**
+ * The model sees each input schema without the long regex `pattern`s that zod
+ * emits for dates and uuids (`format` already says "date"/"uuid"), which were
+ * most of the tool tokens. Calls are still validated against the full zod schema.
+ */
+function withoutPatterns<T extends Record<string, { inputSchema: unknown }>>(tools: T): T {
+    for (const t of Object.values(tools)) {
+        const full = asSchema(t.inputSchema as Parameters<typeof asSchema>[0]);
+        t.inputSchema = jsonSchema(async () => dropPatterns(await full.jsonSchema) as never, {
+            validate: (value) => full.validate!(value),
+        });
+    }
+    return tools;
 }

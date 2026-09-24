@@ -28,6 +28,7 @@ interface ProcessInboxParams {
     projectId?: string | null;
     tagIds?: string[];
     priority?: number | null;
+    effort?: 1 | 2 | 3 | null;
     durationEstimate?: number | null;
     recurrenceRule?: string | null;
     waitingOn?: string | null;
@@ -39,6 +40,8 @@ interface ProcessInboxParams {
      * (which v5 drops once the component unmounts) to receive the new task id.
      */
     skipOptimisticRemoval?: boolean;
+    /** A caller's own Idempotency-Key (an assistant proposal passes its tool call id). */
+    idempotencyKey?: string;
 }
 
 /**
@@ -53,11 +56,11 @@ export function useProcessInboxToTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<ProcessInboxParams, Task>(
-            ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => ({
+            ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, effort, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => ({
                 type: "process_inbox_to_task",
-                payload: { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete },
+                payload: { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, effort, durationEstimate, recurrenceRule, waitingOn, nlp, complete },
             }),
-            async ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => {
+            async ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, effort, durationEstimate, recurrenceRule, waitingOn, nlp, complete, idempotencyKey }) => {
                 if (!isPersistedId(inboxItemId)) {
                     // Defensive: the capture hasn't been saved yet, so it has no
                     // server id to process. Call sites disable the action while
@@ -79,13 +82,14 @@ export function useProcessInboxToTask() {
                         projectId,
                         tagIds,
                         priority,
+                        effort,
                         durationEstimate,
                         recurrenceRule,
                         waitingOn,
                         nlp,
                         complete,
                     },
-                });
+                }, idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined);
                 const task = await unwrapResponse<Task>(taskRes);
 
                 return task;

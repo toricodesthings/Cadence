@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysToDateStr, resolveTimeZone, toLocalDateStr, toZonedIso } from "../../src/platform/date-utils";
+import { addDaysToDateStr, atLocalDate, resolveTimeZone, toLocalDateStr, toZonedIso } from "../../src/platform/date-utils";
 
 describe("toZonedIso", () => {
     it.each([
@@ -32,5 +32,18 @@ describe("date strings", () => {
     it("addDaysToDateStr crosses month and year ends", () => {
         expect(addDaysToDateStr("2026-12-31", 1)).toBe("2027-01-01");
         expect(addDaysToDateStr("2026-03-01", -1)).toBe("2026-02-28");
+    });
+});
+
+describe("atLocalDate", () => {
+    it("keeps the local wall-clock time on the new day, across a DST change", () => {
+        // 2:00 PM Friday Oct 30 EDT (-04:00) → 2:00 PM Monday Nov 2 EST (-05:00).
+        const moved = atLocalDate(new Date("2026-10-30T18:00:00.000Z"), "2026-11-02", "America/Toronto");
+        expect(moved.toISOString()).toBe("2026-11-02T19:00:00.000Z");
+    });
+
+    it("keeps a late-evening time whose UTC day is the next day", () => {
+        const moved = atLocalDate(new Date("2026-09-22T01:00:00.000Z"), "2026-09-28", "America/Toronto");
+        expect(moved.toISOString()).toBe("2026-09-29T01:00:00.000Z");
     });
 });

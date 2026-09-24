@@ -3,8 +3,8 @@ import { CalendarClock, Check } from "lucide-react";
 import { ProposalCard, type ProposalCardState } from "./ProposalCard";
 import { useProposalResolver, type ToolRenderContext } from "./use-proposal-resolver";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
-import { useBatchRescheduleTasks } from "../../../hooks/tasks/use-batch-state";
-import { normalizeTaskWriteTemporalField } from "../../../lib/utils/task/task-scheduling";
+import { useApiClient } from "../../../hooks/auth/use-api-client";
+import { unwrapResponse } from "../../../lib/api/helpers";
 import { useTaskTitleLookup } from "./card-lookups";
 import { parseLocalDate } from "../../../lib/utils/date-format";
 
@@ -19,7 +19,8 @@ function dayLabel(iso?: string): string {
 /**
  * Change-set card for `propose_batch_reschedule` (design §4.2). Load-reducing,
  * protective framing. Shows ≤4 affected items then a "+ N more" reveal; one
- * confirm applies the whole set via the existing batch-reschedule hook.
+ * confirm moves the whole set to the local day, each task keeping its own time
+ * (the server does it per task). Auto waits for a tap past 5 tasks.
  */
 export function BatchRescheduleCard({
     ctx,
@@ -30,23 +31,23 @@ export function BatchRescheduleCard({
 }) {
     const persona = useAssistantPersona();
     const lookupTitle = useTaskTitleLookup();
-    const reschedule = useBatchRescheduleTasks();
+    const client = useApiClient();
     const [expanded, setExpanded] = useState(false);
 
     const input = ctx.part?.input ?? {};
     const taskIds: string[] = input.taskIds ?? [];
-    const targetDate: string | undefined = normalizeTaskWriteTemporalField(input.targetDate, "scheduledStart") ?? undefined;
+    // A local day; older proposals may carry a time, which the day alone replaces.
+    const targetDate: string | undefined = input.targetDate?.slice(0, 10);
     const day = dayLabel(targetDate);
     const count = taskIds.length;
 
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
-        await reschedule.mutateAsync({
-            taskIds,
-            scheduledStart: targetDate!,
-            isAllDay: true,
+        const res = await client.api.tasks.batch.reschedule.$post({
+            json: { taskIds, date: targetDate!, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
         });
-        return { count, targetDate };
-    });
+        const moved = await unwrapResponse<unknown[]>(res);
+        return { count: moved.length, targetDate };
+    }, { size: count });
 
     const eyebrow = `RESCHEDULE ${count} ITEMS`;
 
@@ -61,7 +62,8 @@ export function BatchRescheduleCard({
                 primaryLabel={`Move all to ${day}`}
                 resolvedCommitted={committed}
                 resolvedText={
-                    committed ? `Moved ${count} to ${day}.` : "Left them where they were."
+                    // Fixed blocks stay put, so the server's count is the honest one.
+                    committed ? `Moved ${ctx.part?.output?.count ?? count} to ${day}.` : "Left them where they were."
                 }
             >
                 {null}

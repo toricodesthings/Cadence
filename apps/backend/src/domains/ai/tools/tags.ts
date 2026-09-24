@@ -6,15 +6,14 @@ import { tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
-import { safeExecute } from "./index";
+import { safeExecute, MAX_LIST_LIMIT } from "./index";
 import { toMinimalTag } from "./projections";
 
 export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_tags: tool({
         description:
-            "READ-ONLY. List the user's tags/labels (id, name, color) for labeling context. " +
-            "Hard-capped server-side.",
+            "The user's tags. more:true when cut off.",
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_tags", userId, async () => {
@@ -25,20 +24,19 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                         .from(tags)
                         .where(eq(tags.userId, userId))
                         .orderBy(desc(tags.createdAt))
-                        .limit(50),
+                        .limit(MAX_LIST_LIMIT + 1),
                 );
-                return { tags: rows.map(toMinimalTag) };
+                const more = rows.length > MAX_LIST_LIMIT;
+                return { tags: rows.slice(0, MAX_LIST_LIMIT).map(toMinimalTag), ...(more && { more }) };
             }),
     }),
 
     // ── P (proposal — NO DB WRITE) ──────────────────────────────────────────
     propose_create_tag: tool({
         description:
-            "PROPOSAL ONLY — does NOT create anything. Validates a drafted tag/label when " +
-            "organizing and returns it for confirmation; the tag is created later via REST after " +
-            "explicit approval.",
+            "Drafts a new tag.",
         inputSchema: z.object({
-            name: z.string().min(1).max(100).describe("Tag name."),
+            name: z.string().min(1).max(100),
             color: z.string().max(40).optional().describe("Color token, e.g. 'default'."),
         }),
     }),

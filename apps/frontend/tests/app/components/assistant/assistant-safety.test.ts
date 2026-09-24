@@ -22,12 +22,15 @@ describe("shouldAutoApply (approval modes)", () => {
         expect(shouldAutoApply(undefined, false)).toBe(false);
     });
 
-    it("Auto applies everything except a permanent delete", () => {
+    it("Auto applies everything except a permanent delete or a change to more than 5 tasks", () => {
         expect(shouldAutoApply("auto", false)).toBe(true);
         expect(shouldAutoApply("auto", true)).toBe(false);
+        expect(shouldAutoApply("auto", false, 5)).toBe(true);
+        expect(shouldAutoApply("auto", false, 6)).toBe(false);
     });
 
-    it("Full applies permanent deletes too", () => {
+    it("Full applies permanent deletes and big batches too", () => {
         expect(shouldAutoApply("full", true)).toBe(true);
+        expect(shouldAutoApply("full", false, 50)).toBe(true);
     });
 });

@@ -6,12 +6,15 @@ import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useProcessInboxToTask } from "../../../hooks/inbox/use-process-inbox-to-task";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 import { Calendar, Clock } from "lucide-react";
+import { useNoteProposal } from "./note-proposal";
 
 /**
  * Suggestion card for `propose_structure_inbox_item` (design §4.1). Turns a
  * messy capture into a task. Confirm routes through the existing atomic
  * inbox→task hook (`useProcessInboxToTask`) — the task is created and the
- * capture transitioned in one transaction.
+ * capture transitioned in one transaction. Everything the draft says is sent,
+ * including "no date" as an explicit null, so the server never guesses a date
+ * from the capture's text; the note follows through the note route.
  */
 export function InboxStructureCard({
     ctx,
@@ -25,18 +28,28 @@ export function InboxStructureCard({
     const input = normalizeTaskWriteTemporalInput(ctx.part?.input ?? {});
     const title = input.title ?? "this capture";
     const dateLabel = formatWhen(input.scheduledStart ?? input.dueDate);
+    const notes = useNoteProposal(undefined, input);
+    // A clock time means timed; a plain date (even one given as the start) means all-day.
+    const timedStart = input.scheduledStart?.includes("T") ? input.scheduledStart : undefined;
+    const day = input.dueDate ?? (timedStart ? undefined : input.scheduledStart);
 
-    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
+    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async (idempotencyKey) => {
         const created = await processInbox.mutateAsync({
             inboxItemId: input.inboxItemId,
             rawText: title,
             title,
-            ...(input.dueDate && { dueDate: input.dueDate }),
-            ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
+            idempotencyKey,
+            isAllDay: !timedStart,
+            dueDate: day ? day.slice(0, 10) : null,
+            scheduledStart: timedStart ?? null,
+            ...(timedStart && input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
             ...(input.durationEstimate != null && { durationEstimate: input.durationEstimate }),
             ...(input.projectId && { projectId: input.projectId }),
             ...(input.tagIds?.length ? { tagIds: input.tagIds } : {}),
+            ...(input.priority != null && { priority: input.priority }),
+            ...(input.effort != null && { effort: input.effort }),
         });
+        if (created?.id) await notes.write(created.id);
         return { title, taskId: created?.id };
     });
 
@@ -72,7 +85,7 @@ export function InboxStructureCard({
         >
             <IdentityBlock
                 title={title}
-                subtitle={!persona.terse && input.content ? input.content : undefined}
+                subtitle={!persona.terse && input.note ? input.note : undefined}
             />
             <div className="flex flex-wrap gap-1.5">
                 {dateLabel ? <MetaPill icon={Calendar}>{dateLabel}</MetaPill> : null}

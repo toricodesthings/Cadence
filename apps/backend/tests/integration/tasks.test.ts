@@ -216,6 +216,26 @@ describe("batch operations", () => {
         expect((await otherTasks("GET", `/${theirs.id}`)).body.data.dueDate).toBe("2026-01-01T12:00:00.000Z");
     });
 
+    it("moves tasks to a local date keeping each one's time: timed stays 2 PM local, all-day stays all-day", async () => {
+        // 2:00 PM Friday in Toronto, an all-day Friday task, and a Fixed class.
+        const call = await create({ title: "Call", isAllDay: false, scheduledStart: "2026-09-25T18:00:00.000Z", scheduledEnd: "2026-09-25T18:30:00.000Z" });
+        const rent = await create({ title: "Rent", dueDate: "2026-09-25" });
+        const lecture = await create({ title: "Lecture", isAllDay: false, scheduledStart: "2026-09-25T13:00:00.000Z", interactionMode: "timetable" });
+
+        const { body } = await tasks("POST", "/batch/reschedule", {
+            taskIds: [call.id, rent.id, lecture.id],
+            date: "2026-09-28",
+            timezone: "America/Toronto",
+        });
+
+        const byTitle = Object.fromEntries(body.data.map((t: any) => [t.title, t]));
+        expect(byTitle.Call).toMatchObject({ isAllDay: false, scheduledStart: "2026-09-28T18:00:00.000Z", scheduledEnd: "2026-09-28T18:30:00.000Z" });
+        expect(byTitle.Rent).toMatchObject({ isAllDay: true, dueDate: "2026-09-28T12:00:00.000Z", scheduledStart: null });
+        expect(byTitle.Lecture).toBeUndefined(); // Fixed blocks stay put alongside other tasks
+        expect((await tasks("POST", "/batch/reschedule", { taskIds: [lecture.id], date: "2026-09-28", timezone: "America/Toronto" })).body.data[0].scheduledStart)
+            .toBe("2026-09-28T13:00:00.000Z");
+    });
+
     it("completes many tasks at once, recording completion, and skips other users' tasks", async () => {
         const [a, b] = [await create({ title: "A" }), await create({ title: "B" })];
         const theirs = await create({ title: "Theirs" }, otherTasks);

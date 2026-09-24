@@ -1,5 +1,6 @@
 // Repeating things come in three kinds (Fixed · Routine · Task). These helpers
 // hold the rules shared by every client.
+import { rrulestr } from "rrule";
 
 const RRULE_DAY_KEYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
@@ -16,6 +17,18 @@ export function routineTimeOn(
     const overrides = routine.targetTimes;
     if (overrides && key in overrides) return overrides[key] || null;
     return routine.targetTime;
+}
+
+/**
+ * The days (`YYYY-MM-DD`) a routine is due between two instants, inclusive. The
+ * rule is anchored at midnight UTC of the routine's creation day, so each
+ * occurrence is a plain calendar date. Throws on an invalid rule.
+ */
+export function habitOccurrences(recurrenceRule: string, createdAt: string, start: Date, end: Date): string[] {
+    const dtstart = new Date(`${createdAt.slice(0, 10)}T00:00:00.000Z`);
+    return rrulestr(recurrenceRule, { dtstart })
+        .between(start, end, true)
+        .map((d) => d.toISOString().slice(0, 10));
 }
 
 // ponytail: keyword list, not a classifier. The user can switch kinds in one tap.

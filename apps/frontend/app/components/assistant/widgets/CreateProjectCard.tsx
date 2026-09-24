@@ -15,9 +15,10 @@ export function CreateProjectCard({
     const input = ctx.part?.input ?? {};
     const name = input.name ?? "this list";
 
-    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
+    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async (idempotencyKey) => {
         const created = await createProject.mutateAsync({
             name: input.name,
+            idempotencyKey,
             ...(input.emoji && { emoji: input.emoji }),
             ...(input.colorAccent && { colorAccent: input.colorAccent }),
         });

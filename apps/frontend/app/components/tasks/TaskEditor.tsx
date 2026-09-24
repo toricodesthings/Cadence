@@ -31,7 +31,7 @@ import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
 import { formatShortDate, formatShortDateTime, parseLocalDate, toISODate } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
-import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, FIELD_LABEL, PRIORITY_OPTIONS } from "./task-choice-options";
+import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_OPTIONS, PRIORITY_OPTIONS } from "./task-choice-options";
 import {
     getTaskRecurrenceSummary,
     getTaskScheduleSummary,
@@ -41,7 +41,9 @@ import {
 import type { EffortLevel, TaskPriority, TaskState } from "@cadence/contracts/task";
 import { DetailTitle } from "../shared/DetailTitle";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
-import { CARD, PANEL_TRIGGER, PanelTrigger, PanelHeader } from "../shared/DetailPanelSections";
+import {
+    CARD, PANEL_TRIGGER, PanelTrigger, PanelHeader, DetailGroup, FieldBlock, FieldRow, ValueSelect, VALUE_BTN,
+} from "../shared/DetailPanelSections";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 
 const MarkdownEditor = lazy(() => import("./MarkdownEditor").then((m) => ({ default: m.MarkdownEditor })));
@@ -55,47 +57,6 @@ interface TaskEditorProps {
 
 function formatDateTime(iso: string) {
     return formatShortDate(iso);
-}
-
-/** Native select dressed as a value button — the OS picker is the mobile-friendly one. */
-const VALUE_SELECT = "min-h-10 max-w-full cursor-pointer appearance-none truncate rounded-lg bg-transparent px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
-
-const VALUE_BTN = "flex min-h-10 max-w-full cursor-pointer items-center rounded-lg px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
-
-/** Titled cluster of related fields inside Details. */
-function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <section className="flex flex-col gap-1 border-t border-twilight-border/25 px-4 py-4" aria-label={title}>
-            <p className={`${FIELD_LABEL} mb-1`}>{title}</p>
-            {children}
-        </section>
-    );
-}
-
-/** Label above a full-width control — for choice rows that need the width. */
-function FieldBlock({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
-    return (
-        <div className="flex flex-col gap-2 py-1.5" role="group" aria-label={label}>
-            <span className="flex items-center gap-2 text-[13px] text-twilight-text-muted">
-                <Icon size={14} className="shrink-0 opacity-80" aria-hidden="true" />
-                {label}
-            </span>
-            {children}
-        </div>
-    );
-}
-
-/** Label left, value right — for single-value rows. */
-function FieldRow({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
-    return (
-        <div className="flex min-h-11 items-center justify-between gap-3" role="group" aria-label={label}>
-            <span className="flex shrink-0 items-center gap-2 text-[13px] text-twilight-text-muted">
-                <Icon size={14} className="shrink-0 opacity-80" aria-hidden="true" />
-                {label}
-            </span>
-            <div className="flex min-w-0 flex-1 justify-end">{children}</div>
-        </div>
-    );
 }
 
 /** Full task editing panel — notes-first design; metadata revealed on demand */
@@ -240,7 +201,6 @@ export function TaskEditor({
         onClose();
     };
 
-    const project = projects?.find((p) => p.id === task?.projectId);
     const { data: sections = [] } = useSections(task?.projectId ?? null);
 
     const scheduleSummary = task ? getTaskScheduleSummary(task) : null;
@@ -568,19 +528,14 @@ export function TaskEditor({
                                                     label="Hide until date"
                                                     clearLabel="Always show"
                                                 >
-                                                    <button type="button" className={`${VALUE_BTN}${task.notBefore ? "" : "text-twilight-text-muted"}`}>
+                                                    <button type="button" className={`${VALUE_BTN} ${task.notBefore ? "" : "text-twilight-text-muted"}`}>
                                                         {task.notBefore ? formatShortDate(task.notBefore) : "Always shown"}
                                                     </button>
                                                 </DatePicker>
                                             </FieldRow>
                                         ) : null}
 
-                                        <FieldRow icon={Bell} label="Reminder">
-                                            {task.reminderAt ? (
-                                                <span className="truncate px-2.5 text-[13px] text-twilight-text-soft">
-                                                    {formatShortDateTime(task.reminderAt)}
-                                                </span>
-                                            ) : null}
+                                        <FieldRow icon={Bell} label="Reminder" hint={task.reminderAt ? formatShortDateTime(task.reminderAt) : undefined}>
                                             <Switch
                                                 checked={Boolean(task.reminderAt)}
                                                 onCheckedChange={(on) => updateTask.mutate({ id: task.id, reminderAt: on ? new Date().toISOString() : null, reminderSilenced: false })}
@@ -637,28 +592,22 @@ export function TaskEditor({
 
                                     <DetailGroup title="Organize">
                                         <FieldRow icon={FolderOpen} label="List">
-                                            <select
-                                                aria-label="List"
+                                            <ValueSelect
+                                                label="List"
                                                 value={task.projectId ?? ""}
-                                                onChange={(e) => updateTask.mutate({ id: task.id, projectId: e.target.value || null, sectionId: null })}
-                                                className={`${VALUE_SELECT} ${project ? "" : "text-twilight-text-muted"}`}
-                                            >
-                                                <option value="">None</option>
-                                                {projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                            </select>
+                                                onChange={(id) => updateTask.mutate({ id: task.id, projectId: id || null, sectionId: null })}
+                                                options={[{ value: "", label: "None" }, ...(projects ?? []).map((p) => ({ value: p.id, label: p.name }))]}
+                                            />
                                         </FieldRow>
 
                                         {sections.length > 0 ? (
                                             <FieldRow icon={Columns3} label="Section">
-                                                <select
-                                                    aria-label="Section"
+                                                <ValueSelect
+                                                    label="Section"
                                                     value={task.sectionId ?? ""}
-                                                    onChange={(e) => updateTask.mutate({ id: task.id, sectionId: e.target.value || null })}
-                                                    className={VALUE_SELECT}
-                                                >
-                                                    <option value="">Unsectioned</option>
-                                                    {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
-                                                </select>
+                                                    onChange={(id) => updateTask.mutate({ id: task.id, sectionId: id || null })}
+                                                    options={[{ value: "", label: "Unsectioned" }, ...sections.map((x) => ({ value: x.id, label: x.name }))]}
+                                                />
                                             </FieldRow>
                                         ) : null}
 

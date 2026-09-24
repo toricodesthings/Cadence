@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, MoreVertical } from "lucide-react";
+import { CalendarDays, FolderOpen, MessageSquare, MoreVertical, Tag } from "lucide-react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useThoughtParse } from "../../hooks/inbox/use-thought-parse";
 import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
@@ -9,19 +9,15 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
-import { CARD } from "../shared/DetailPanelSections";
+import { CARD, DetailGroup, FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
 import { Button } from "../primitives/Button";
 import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
 import { TagField } from "../tasks/TagField";
 import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
 import { QuickScheduleSurface } from "../tasks/QuickScheduleSurface";
 import { CaptureDayChips } from "./CaptureDayChips";
 import { useWeekLoad } from "./PlaceSheet";
-
-/** Radix Select reserves "" for "no value", so "no list" needs its own key. */
-const NO_LIST = "none";
 
 interface ClarifySheetProps {
     item: InboxItem;
@@ -134,60 +130,51 @@ export function ClarifySheet({
                     <p className="mt-2 text-xs text-twilight-text-muted">From: {item.rawText}</p>
                 )}
             </DetailTitle>
-            <section className={`${CARD} space-y-3 p-4`}>
-                <h3 className="text-sm font-medium">When</h3>
-                <CaptureDayChips
-                    detected={parse.scheduledStart ?? parse.dueDate}
-                    lightest={lightest}
-                    onPlace={runPlace}
-                    onPick={openCustom}
-                    disabled={disabled}
-                />
-                {custom && (
-                    <>
-                        <QuickScheduleSurface
-                            {...schedule}
-                            onChange={(patch) => setSchedule((old) => ({ ...old, ...patch }))}
-                            onRequestClose={() => setCustom(false)}
+            <div className={`${CARD} flex shrink-0 flex-col`}>
+                <DetailGroup title="When">
+                    <FieldBlock icon={CalendarDays} label="Place on">
+                        <CaptureDayChips
+                            detected={parse.scheduledStart ?? parse.dueDate}
+                            lightest={lightest}
+                            onPlace={runPlace}
+                            onPick={openCustom}
+                            disabled={disabled}
                         />
-                        <Button
-                            disabled={disabled || (!schedule.dueDate && !schedule.scheduledStart)}
-                            onClick={() => runPlace(undefined, false, true)}
-                        >
-                            Place with this schedule
-                        </Button>
-                    </>
-                )}
-            </section>
-            <section className={`${CARD} space-y-2 p-4`}>
-                <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium">List</span>
-                    <Select
-                        value={projectId ?? NO_LIST}
-                        onValueChange={(next) => save({ projectId: next === NO_LIST ? null : next })}
-                    >
-                        <SelectTrigger aria-label="List" className="w-44">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={NO_LIST}>None</SelectItem>
-                            {projects.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                    {p.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2 pt-1">
-                    <span className="block text-sm font-medium">Tags</span>
-                    <TagField
-                        tagIds={tagIds}
-                        onAdd={(id) => save({ tagIds: [...tagIds, id] })}
-                        onRemove={(id) => save({ tagIds: tagIds.filter((t) => t !== id) })}
-                    />
-                </div>
-            </section>
+                    </FieldBlock>
+                    {custom && (
+                        <div className="flex flex-col gap-3 pt-2">
+                            <QuickScheduleSurface
+                                {...schedule}
+                                onChange={(patch) => setSchedule((old) => ({ ...old, ...patch }))}
+                                onRequestClose={() => setCustom(false)}
+                            />
+                            <Button
+                                disabled={disabled || (!schedule.dueDate && !schedule.scheduledStart)}
+                                onClick={() => runPlace(undefined, false, true)}
+                            >
+                                Place with this schedule
+                            </Button>
+                        </div>
+                    )}
+                </DetailGroup>
+                <DetailGroup title="Organize">
+                    <FieldRow icon={FolderOpen} label="List">
+                        <ValueSelect
+                            label="List"
+                            value={projectId ?? ""}
+                            onChange={(id) => save({ projectId: id || null })}
+                            options={[{ value: "", label: "None" }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+                        />
+                    </FieldRow>
+                    <FieldBlock icon={Tag} label="Tags">
+                        <TagField
+                            tagIds={tagIds}
+                            onAdd={(id) => save({ tagIds: [...tagIds, id] })}
+                            onRemove={(id) => save({ tagIds: tagIds.filter((t) => t !== id) })}
+                        />
+                    </FieldBlock>
+                </DetailGroup>
+            </div>
             <div className="flex items-center gap-2">
                 <Button variant="secondary" className="flex-1" disabled={disabled} onClick={() => runPlace()}>
                     Keep with no day

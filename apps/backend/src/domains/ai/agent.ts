@@ -179,6 +179,7 @@ export async function getAgentInstance(
         today: clock.today,
         weekStart,
         locale,
+        nonce: opts.nonce,
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
 

@@ -3,6 +3,7 @@ import { DomainError } from "./errors";
 import {
     classifyTaskReadShape,
     hasTaskTemporalMutation,
+    inferIsAllDay,
     normalizeEndBoundary,
     normalizeStartBoundary,
     normalizeTaskTemporalFields,
@@ -100,5 +101,29 @@ describe("task temporal normalization", () => {
     it("detects schedule mutations", () => {
         expect(hasTaskTemporalMutation({ title: "noop" } as never)).toBe(false);
         expect(hasTaskTemporalMutation({ scheduledStart: null })).toBe(true);
+    });
+});
+
+describe("inferIsAllDay (assistant proposals)", () => {
+    const apply = (existing: Parameters<typeof normalizeTaskTemporalFields>[0], patch: Parameters<typeof inferIsAllDay>[0]) =>
+        normalizeTaskTemporalFields({ ...existing, ...patch, isAllDay: inferIsAllDay(patch) ?? existing.isAllDay });
+
+    it("an all-day task given a clock time becomes timed", () => {
+        const result = apply({ isAllDay: true, dueDate: "2026-10-01" }, { scheduledStart: "2026-10-01T14:00:00-04:00" });
+        expect(result).toMatchObject({ isAllDay: false, scheduledStart: "2026-10-01T14:00:00-04:00" });
+    });
+
+    it("a timed task given a date and a cleared start becomes all-day without throwing", () => {
+        const result = apply(
+            { isAllDay: false, scheduledStart: "2026-10-01T18:00:00.000Z" },
+            { dueDate: "2026-10-03", scheduledStart: null },
+        );
+        expect(result).toMatchObject({ isAllDay: true, dueDate: "2026-10-03T12:00:00.000Z", scheduledStart: null });
+    });
+
+    it("creating with a timed start keeps the time, and no date change keeps what the task has", () => {
+        expect(inferIsAllDay({ scheduledStart: "2026-10-01T09:30:00-04:00" })).toBe(false);
+        expect(inferIsAllDay({ scheduledStart: "2026-10-01" })).toBe(true);
+        expect(inferIsAllDay({})).toBeUndefined();
     });
 });

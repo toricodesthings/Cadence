@@ -46,7 +46,7 @@ import { generateConversationTitle } from "./title/generate-title";
 import { openStream, closeStream, flushChunks, requestAbort, readMeta } from "./streaming/resume-store";
 import { startAbortWatcher } from "./streaming/abort-watcher";
 import { buildResumeStream } from "./streaming/replay";
-import { dropUnsignedReasoning, rowToUIMessage } from "./persistence/message-mapper";
+import { compactOldReads, dropUnsignedReasoning, rowToUIMessage } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
 import { assertMessageWithinCaps, clampHistory, MAX_HISTORY_TURNS, MAX_PART_BYTES } from "./safety/input-guard";
 import { buildStreamError, streamErrorToText, AI_ERROR_CODES } from "./safety/stream-error";
@@ -255,9 +255,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // are genuine UIMessages reconstructed from the DB + the validated incoming turn.
     // The incoming id is filtered from history (a rerun's anchor row is already
     // there) and system-role rows are dropped defensively — no persisted row may
-    // ever re-enter model context with system authority.
-    const uiMessages = dropUnsignedReasoning(
-        clampHistory([...history.filter((m) => m.id !== incoming.id && m.role !== "system"), incoming]),
+    // ever re-enter model context with system authority. Older turns' read rows
+    // shrink to ids (compactOldReads).
+    const uiMessages = compactOldReads(
+        dropUnsignedReasoning(clampHistory([...history.filter((m) => m.id !== incoming.id && m.role !== "system"), incoming])),
     ) as unknown[];
 
     const { agent, promptHash } = await getAgentInstance(c.env, userId, {

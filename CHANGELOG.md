@@ -6,6 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+- Remove a tag from a task or thought by clicking it; an × appears on hover.
+- List and Section in task details open a proper menu on desktop, and thought details match the task layout.
+
+### Fixed
+- The reminder time in task details no longer gets squeezed next to its switch.
+
 ## [0.18.2] - 2026-09-23
 
 Capture keeps up with you, and Projects are now Lists: jot it, tick it off or give it a day in one move.

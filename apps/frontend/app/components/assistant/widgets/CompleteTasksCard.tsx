@@ -28,7 +28,7 @@ export function CompleteTasksCard({
     const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
         await batchState.mutateAsync({ taskIds, state: "COMPLETE" });
         return { count };
-    });
+    }, { size: count });
 
     if (state === "output-available" || decision) {
         const committed = decision === "commit";

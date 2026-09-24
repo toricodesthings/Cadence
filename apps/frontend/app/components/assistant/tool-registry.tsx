@@ -10,8 +10,6 @@ import { CreateTagCard } from "./widgets/CreateTagCard";
 import { SubtaskCard } from "./widgets/SubtaskCard";
 import { LogHabitCard } from "./widgets/LogHabitCard";
 import { InboxStructureCard } from "./widgets/InboxStructureCard";
-import { InboxClusterCard } from "./widgets/InboxClusterCard";
-import { SuggestionActionCard } from "./widgets/SuggestionActionCard";
 import { partRenderState, type ToolRenderContext } from "./widgets/use-proposal-resolver";
 
 /**
@@ -39,14 +37,11 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     // ── read → activity chip ──────────────────────────────────────────────
     get_tasks: { class: "read", label: "Checked your tasks" },
     get_task_detail: { class: "read", label: "Checked your tasks" },
-    search_tasks: { class: "read", label: "Checked your tasks" },
     get_projects: { class: "read", label: "Checked your lists" },
-    get_sections: { class: "read", label: "Checked your sections" },
     get_tags: { class: "read", label: "Checked your tags" },
     get_habits: { class: "read", label: "Looked at your routines" },
     get_habit_status_today: { class: "read", label: "Looked at your routines" },
     get_inbox_items: { class: "read", label: "Looked through Capture" },
-    get_suggestions: { class: "read", label: "Took a look around" },
     get_user_metrics: { class: "read", label: "Took a look around" },
     get_schedule_window: { class: "read", label: "Scanned your schedule" },
     get_cadence_help: { class: "read", label: "Checked the Cadence guide" },
@@ -111,16 +106,6 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
         class: "proposal",
         label: "Proposed structuring a capture",
         render: (ctx, state) => <InboxStructureCard ctx={ctx} state={state} />,
-    },
-    propose_cluster_inbox: {
-        class: "proposal",
-        label: "Proposed grouping captures",
-        render: (ctx, state) => <InboxClusterCard ctx={ctx} state={state} />,
-    },
-    propose_suggestion_action: {
-        class: "proposal",
-        label: "Proposed a suggestion action",
-        render: (ctx, state) => <SuggestionActionCard ctx={ctx} state={state} />,
     },
 
     // ── write → quiet confirmation chip ───────────────────────────────────

@@ -10,20 +10,21 @@ import { useCreateTask } from "../../../hooks/tasks/use-create-task";
 import { useUpdateTask } from "../../../hooks/tasks/use-update-task";
 import { useAddTaskTag, useRemoveTaskTag } from "../../../hooks/tags/use-task-tags";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
+import { inferIsAllDay } from "@cadence/domain/task-temporal";
 import type { CreateTaskInput, UpdateTaskInput } from "@cadence/contracts/task";
+import { NoteDiff, useNoteProposal, type NoteProposal } from "./note-proposal";
 
 /**
- * The proposed task draft the assistant streams as the tool part `input`. It is a
- * CreateTaskInput (for `propose_create_task`) plus the update-only addressing
- * fields (`taskId`/`state`/`waitingOn`) for `propose_update_task`. Typing it here
- * replaces the former `part.input: any` and guarantees the draft committed via the
- * REST hooks is a valid CreateTaskInput.
+ * The proposed task draft the assistant streams as the tool part `input`: task
+ * fields (`propose_create_task`) plus the update-only addressing fields and the
+ * note change (`propose_update_task`). No `isAllDay`: the values decide it.
  */
-type TaskProposalInput = Partial<CreateTaskInput> & {
-    taskId?: string;
-    state?: UpdateTaskInput["state"];
-    waitingOn?: UpdateTaskInput["waitingOn"];
-};
+type TaskProposalInput = Partial<Omit<CreateTaskInput, "isAllDay" | "content">> &
+    NoteProposal & {
+        taskId?: string;
+        state?: UpdateTaskInput["state"];
+        waitingOn?: UpdateTaskInput["waitingOn"];
+    };
 
 /**
  * Suggestion card for `propose_create_task` / `propose_update_task` (design §4.1).
@@ -53,14 +54,17 @@ export function TaskProposalCard({
     const input = normalizeTaskWriteTemporalInput((ctx.part?.input ?? {}) as TaskProposalInput);
     // An update only carries the changed fields — name the task from the cached list.
     const title = input.title ?? (input.taskId ? lookupTitle(input.taskId) : "this task");
+    // A clock time means timed, a plain date or a cleared start means all-day.
+    const isAllDay = inferIsAllDay(input);
+    const notes = useNoteProposal(mode === "update" ? input.taskId : undefined, input);
 
-    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
+    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async (idempotencyKey) => {
         if (mode === "create") {
             const created = await createTask.mutateAsync({
                 title: input.title ?? "",
                 orderIndex: Date.now(),
-                ...(input.content !== undefined && { content: input.content }),
-                ...(input.isAllDay !== undefined && { isAllDay: input.isAllDay }),
+                idempotencyKey,
+                ...(isAllDay !== undefined && { isAllDay }),
                 ...(input.dueDate && { dueDate: input.dueDate }),
                 ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
                 ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
@@ -70,13 +74,15 @@ export function TaskProposalCard({
                 ...(input.priority != null && { priority: input.priority }),
                 ...(input.effort != null && { effort: input.effort }),
             });
+            if (created?.id) await notes.write(created.id);
             // The id lets a follow-up ("make it 6pm") update this task instead of re-creating it.
             return { title, taskId: created?.id };
         }
-        await updateTask.mutateAsync({
-            id: input.taskId ?? "",
+        // The note first: a refused or stale note change stops the card before anything else moves.
+        await notes.write();
+        const patch = {
             ...(input.title !== undefined && { title: input.title }),
-            ...(input.content !== undefined && { content: input.content }),
+            ...(isAllDay !== undefined && { isAllDay }),
             ...(input.state !== undefined && { state: input.state }),
             ...(input.dueDate !== undefined && { dueDate: input.dueDate }),
             ...(input.scheduledStart !== undefined && { scheduledStart: input.scheduledStart }),
@@ -86,7 +92,8 @@ export function TaskProposalCard({
             ...(input.priority !== undefined && { priority: input.priority }),
             ...(input.effort !== undefined && { effort: input.effort }),
             ...(input.waitingOn !== undefined && { waitingOn: input.waitingOn }),
-        });
+        };
+        if (Object.keys(patch).length) await updateTask.mutateAsync({ id: input.taskId ?? "", ...patch });
         // Tags live on their own endpoints: diff the proposed full set against the cache.
         if (input.tagIds && input.taskId) {
             const taskId = input.taskId;
@@ -96,7 +103,7 @@ export function TaskProposalCard({
             for (const tagId of current.filter((id) => !next.includes(id))) await removeTag.mutateAsync({ taskId, tagId });
         }
         return { title };
-    });
+    }, { destructive: mode === "update" && notes.removesText });
 
     const dateLabel = formatWhen(input.scheduledStart ?? input.dueDate);
     const effortOption = input.effort != null ? EFFORT_OPTIONS.find((o) => o.value === input.effort) : undefined;
@@ -157,7 +164,7 @@ export function TaskProposalCard({
         >
             <IdentityBlock
                 title={title}
-                subtitle={!persona.terse && input.content ? input.content : undefined}
+                subtitle={mode === "create" && !persona.terse && input.note ? input.note : undefined}
                 icon={priorityOption?.icon}
                 iconClassName={input.priority != null ? PRIORITY_CONFIG[input.priority].color : undefined}
             />
@@ -184,6 +191,7 @@ export function TaskProposalCard({
                     );
                 })}
             </div>
+            {mode === "update" ? <NoteDiff diff={notes.diff} /> : null}
         </ProposalCard>
     );
 }

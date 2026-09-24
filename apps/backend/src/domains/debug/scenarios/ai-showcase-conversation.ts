@@ -11,7 +11,7 @@
  * the live tools return. Approved writes are applied to the workspace too.
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Tx } from "../../../types/db";
 import {
     aiConversations,
@@ -19,19 +19,17 @@ import {
     type habits,
     inboxItems,
     type projects,
-    suggestions,
     type subtasks,
     type tags,
     tasks,
     userMetrics,
 } from "../../../db/schema";
 import { createSeedTask, seedDate, seedDateTime } from "../debug-seed";
+import { routinesDue } from "../../ai/tools/calendar";
 import {
     toMinimalHabit,
     toMinimalInboxItem,
     toMinimalProject,
-    toMinimalSection,
-    toMinimalSuggestion,
     toMinimalTag,
     toMinimalTask,
 } from "../../ai/tools/projections";
@@ -100,18 +98,9 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const hydrate = habit("Hydrate before coffee");
     const strength = habit("Strength session");
     const transcript = inbox("Review customer interview");
-    const teardown = inbox("Save the campaign teardown");
     const prescription = inbox("Pick up prescription");
 
     // ── Side effects the conversation implies ───────────────────────────
-    const [suggestion] = await db.insert(suggestions).values({
-        userId,
-        type: "move_overdue",
-        title: "Move 1 overdue task to tomorrow",
-        body: "“Follow up on venue booking” slipped past its date.",
-        relatedTaskIds: [venue.id],
-    }).returning();
-
     // capture_to_inbox writes immediately.
     const [passport] = await db.insert(inboxItems).values({
         userId,
@@ -121,20 +110,22 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     }).returning();
 
     // Approved: propose_complete_tasks.
-    await db.update(tasks).set({ state: "COMPLETE" }).where(eq(tasks.id, invoices.id));
+    await db.update(tasks).set({ state: "COMPLETE" }).where(and(eq(tasks.id, invoices.id), eq(tasks.userId, userId)));
 
     // Approved: propose_create_task.
     const slidesDraft = {
         title: "Prep slides for client review",
-        content: "Pull Q3 numbers and the revised timeline.",
-        isAllDay: false,
+        note: "Pull Q3 numbers and the revised timeline.",
         scheduledStart: seedDateTime(anchor, 2, 13, 0),
         scheduledEnd: seedDateTime(anchor, 2, 14, 0),
         durationEstimate: 60,
         projectId: clientOps.id,
         priority: 2 as const,
     };
-    await db.insert(tasks).values(createSeedTask(userId, { ...slidesDraft, state: "ACTIVE", orderIndex: 40 }));
+    const { note: slidesNote, ...slidesTask } = slidesDraft;
+    await db.insert(tasks).values(
+        createSeedTask(userId, { ...slidesTask, content: slidesNote, isAllDay: false, state: "ACTIVE", orderIndex: 40 }),
+    );
 
     const [metrics] = await db
         .select({
@@ -184,16 +175,11 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 read("get_schedule_window", { start: today, end: weekEnd, limit: 50 }, {
                     range: { start: today, end: weekEnd, timezone: TZ },
                     tasks: inWeek.map(mini),
-                    habits: activeHabits.map((h) => ({
-                        id: h.id,
-                        title: h.title,
-                        recurrenceRule: h.recurrenceRule,
-                        targetTime: h.targetTime,
-                    })),
+                    routines: routinesDue(activeHabits, today, weekEnd),
                 }),
                 read("get_habit_status_today", {}, {
                     date: today,
-                    statuses: activeHabits.map((h) => ({ habitId: h.id, title: h.title, status: "PENDING" })),
+                    statuses: routinesDue(activeHabits, today, today).map((h) => ({ habitId: h.id, title: h.title, status: "PENDING" })),
                 }),
                 step,
                 text(
@@ -205,7 +191,6 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 pending("propose_batch_reschedule", {
                     taskIds: [venue.id],
                     targetDate: seedDate(anchor, 1),
-                    field: "dueDate",
                 }),
             ],
         },
@@ -221,8 +206,8 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             minute: 5,
             parts: [
                 step,
-                read("search_tasks", { query: "invoice", limit: 20 }, { tasks: [mini(invoices)], count: 1 }),
-                read("get_projects", {}, { projects: refs.projects.map(toMinimalProject) }),
+                read("get_tasks", { query: "invoice", limit: 20 }, { tasks: [mini(invoices)], count: 1 }),
+                read("get_projects", {}, { projects: refs.projects.map((p) => toMinimalProject(p, refs.sections)) }),
                 step,
                 text("Nice, that's one off the list. I put the slides in **Client Ops** as a one-hour block."),
                 resolved("propose_complete_tasks", { taskIds: [invoices.id] }, { decision: "commit", count: 1 }),
@@ -261,14 +246,11 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 read("get_inbox_items", { includeProcessed: false, limit: 20 }, {
                     items: refs.inboxItems.map(toMinimalInboxItem),
                 }),
-                read("get_sections", { projectId: featureLaunch.id }, {
-                    sections: refs.sections.filter((s) => s.projectId === featureLaunch.id).map(toMinimalSection),
-                }),
                 read("get_tags", {}, { tags: refs.tags.map(toMinimalTag) }),
                 step,
                 text(
                     "Four captures in there. The interview transcript is real work for the launch, so I drafted it as a task. " +
-                        "The transcript and teardown deck both feed next quarter, so they could live together in a new project. " +
+                        "The teardown deck feeds next quarter, so it could live in a new list once you say yes to it. " +
                         "I also suggested an **Errands** tag for things like the prescription.",
                 ),
                 pending("propose_structure_inbox_item", {
@@ -279,10 +261,6 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     projectId: featureLaunch.id,
                 }),
                 pending("propose_create_project", { name: "Q3 Planning", emoji: "🧭", colorAccent: "luminous-amber" }),
-                pending("propose_cluster_inbox", {
-                    projectName: "Q3 Planning",
-                    inboxItemIds: [transcript.id, teardown.id],
-                }),
                 resolved("propose_create_tag", { name: "Errands", color: "default" }, { decision: "discard" }),
             ],
         },
@@ -302,29 +280,28 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 read("capture_to_inbox", {
                     rawText: passport.rawText,
                     captureKind: "task",
-                    clientMutationId: "seed-capture-passport",
                 }, { item: { id: passport.id, rawText: passport.rawText }, deduped: false }),
-                read("get_task_detail", { taskId: acme.id }, { task: mini(acme), subtasks: [], tags: [] }),
-                read("get_suggestions", { limit: 20 }, { suggestions: [toMinimalSuggestion(suggestion)] }),
+                read("get_task_detail", { taskId: acme.id }, {
+                    task: mini(acme),
+                    subtasks: [],
+                    tags: [],
+                    note: { text: "", truncated: false, version: 0 },
+                }),
                 step,
-                text(
-                    "Passport is saved to your inbox. Below: putting Acme on hold for Maya, and deleting the receipts task for good.\n\n" +
-                        "Cadence also noticed the overdue venue follow-up. Accepting that suggestion does the same thing as the " +
-                        "reschedule I offered earlier, so pick whichever.",
-                ),
+                text("Passport is saved to Capture. Below: putting Acme on hold for Maya, and deleting the receipts task for good."),
                 pending("propose_update_task", {
                     taskId: acme.id,
                     state: "WAITING",
                     waitingOn: "Maya: legal review",
+                    appendNote: "Waiting on Maya's legal review before sending.",
+                    noteVersion: 0,
                 }),
                 pending("propose_add_subtask", { taskId: acme.id, title: "Send redlines to Maya" }),
                 pending("propose_update_subtask", { taskId: q2.id, subtaskId: clusterThemes.id, isComplete: true }),
                 pending("propose_delete_subtask", { taskId: q2.id, subtaskId: hypotheses.id, title: hypotheses.title }),
                 pending("propose_delete_task", { taskId: receipts.id, title: receipts.title }),
-                pending("propose_suggestion_action", { suggestionId: suggestion.id, action: "accept" }),
                 pending("propose_create_task", {
                     title: prescription.rawText,
-                    isAllDay: false,
                     scheduledStart: seedDateTime(anchor, 0, 17, 15),
                     scheduledEnd: seedDateTime(anchor, 0, 17, 45),
                     durationEstimate: 30,

@@ -23,6 +23,18 @@ export function useTaskTitleLookup() {
     };
 }
 
+/** The cached task itself (undefined when it isn't cached). */
+export function useTaskLookup() {
+    const queryClient = useQueryClient();
+    return (id: string): Task | undefined => {
+        for (const [, tasks] of queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })) {
+            const found = Array.isArray(tasks) ? tasks.find((t) => t.id === id) : undefined;
+            if (found) return found;
+        }
+        return undefined;
+    };
+}
+
 /** The task's current tag ids from the cache (undefined when the task isn't cached). */
 export function useTaskTagIdsLookup() {
     const queryClient = useQueryClient();

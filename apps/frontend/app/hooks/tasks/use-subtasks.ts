@@ -16,7 +16,8 @@ type CachedSubtask = Subtask & { __optimisticKey?: string };
 
 const createSubtaskIdempotencyKeys = new WeakMap<{ title: string; orderIndex: number }, string>();
 
-function getCreateSubtaskIdempotencyKey(input: { title: string; orderIndex: number }) {
+function getCreateSubtaskIdempotencyKey(input: { title: string; orderIndex: number; idempotencyKey?: string }) {
+    if (input.idempotencyKey) return input.idempotencyKey;
     const existingKey = createSubtaskIdempotencyKeys.get(input);
     if (existingKey) return existingKey;
 
@@ -121,7 +122,7 @@ export function useCreateSubtask(taskId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (input: { title: string; orderIndex: number }) => {
+        mutationFn: async (input: { title: string; orderIndex: number; idempotencyKey?: string }) => {
             const idempotencyKey = getCreateSubtaskIdempotencyKey(input);
             const res = await (api.api.tasks as any)[":taskId"].subtasks.$post({
                 param: { taskId },

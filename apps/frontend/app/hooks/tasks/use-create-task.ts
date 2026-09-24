@@ -13,9 +13,13 @@ import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { ApiErrorResponse } from "../../types/api";
 import { showRateLimitToast } from "../../lib/utils/rate-limit-toast";
 
+/** `idempotencyKey`: a caller's own key (an assistant proposal passes its tool call id). */
+type CreateTaskVars = CreateTaskInput & { idempotencyKey?: string };
+
 const createTaskIdempotencyKeys = new WeakMap<CreateTaskInput, string>();
 
-function getCreateTaskIdempotencyKey(input: CreateTaskInput) {
+function getCreateTaskIdempotencyKey(input: CreateTaskVars) {
+    if (input.idempotencyKey) return input.idempotencyKey;
     const existingKey = createTaskIdempotencyKeys.get(input);
     if (existingKey) return existingKey;
 
@@ -35,7 +39,7 @@ export function useCreateTask() {
             return false;
         },
         retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
-        mutationFn: withOfflineSupport<CreateTaskInput, Task>(
+        mutationFn: withOfflineSupport<CreateTaskVars, Task>(
             (input) => ({
                 type: "create_task",
                 payload: {

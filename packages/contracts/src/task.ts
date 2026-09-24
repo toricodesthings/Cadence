@@ -93,11 +93,20 @@ export const batchStateSchema = z.object({
     state: taskStateSchema,
 });
 
-export const batchRescheduleSchema = z.object({
-    taskIds: z.array(z.uuid()).min(1).max(50),
-    scheduledStart: flexibleDateTimeSchema,
-    isAllDay: z.boolean().default(true),
-});
+/**
+ * Either `scheduledStart` (every task gets that exact value) or `date` + `timezone`
+ * (each task keeps its own local time on the new day, all-day stays all-day).
+ */
+export const batchRescheduleSchema = z
+    .object({
+        taskIds: z.array(z.uuid()).min(1).max(50),
+        scheduledStart: flexibleDateTimeSchema.optional(),
+        isAllDay: z.boolean().default(true),
+        date: z.iso.date().optional(),
+        timezone: z.string().min(1).max(64).optional(),
+    })
+    .refine((v) => (v.scheduledStart === undefined) !== (v.date === undefined), "Send scheduledStart or date, not both")
+    .refine((v) => v.date === undefined || v.timezone !== undefined, "date needs a timezone");
 
 // ── Row schema — exactly the DB columns (wire-shaped, timestamps as ISO strings) ──
 export const taskRowSchema = z.object({

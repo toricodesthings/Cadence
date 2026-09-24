@@ -15,9 +15,10 @@ export function CreateTagCard({
     const input = ctx.part?.input ?? {};
     const name = input.name ?? "this tag";
 
-    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
+    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async (idempotencyKey) => {
         const created = await createTag.mutateAsync({
             name: input.name,
+            idempotencyKey,
             ...(input.color && { color: input.color }),
         });
         return { name, tagId: created?.id };

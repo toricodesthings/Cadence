@@ -26,10 +26,10 @@ export function SubtaskCard({ ctx, state, mode }: { ctx: ToolRenderContext; stat
     const current = siblings?.find((s) => s.id === input.subtaskId)?.title;
     const title: string = input.title ?? current ?? "this step";
 
-    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async () => {
+    const { resolving, writeError, decision, confirm, discard } = useProposalResolver(ctx, async (idempotencyKey) => {
         if (mode === "add") {
             // Date.now() appends after existing steps, same as task creation does.
-            const created = await createSubtask.mutateAsync({ title, orderIndex: Date.now() });
+            const created = await createSubtask.mutateAsync({ title, orderIndex: Date.now(), idempotencyKey });
             return { title, subtaskId: created?.id, taskId };
         }
         if (mode === "update") {

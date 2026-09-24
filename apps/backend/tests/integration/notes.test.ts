@@ -57,6 +57,16 @@ describe("task notes", () => {
         expect((await notes("GET", `/tasks/${taskId}/note`)).body.data.body).toBe("v2");
     });
 
+    it("accepts the version it read, and rejects a stale version with 409 without saving", async () => {
+        const taskId = await newTask();
+        // 0 = "there was no note": fine the first time, stale once a note exists.
+        expect((await notes("PATCH", `/tasks/${taskId}/note`, { body: "v1", expectedVersion: 0 })).status).toBe(200);
+        expect((await notes("PATCH", `/tasks/${taskId}/note`, { body: "lost", expectedVersion: 0 })).status).toBe(409);
+        expect((await notes("PATCH", `/tasks/${taskId}/note`, { body: "v2", expectedVersion: 1 })).status).toBe(200);
+
+        expect((await notes("GET", `/tasks/${taskId}/note`)).body.data).toMatchObject({ body: "v2", version: 2 });
+    });
+
     it("deletes the note with its task", async () => {
         const taskId = await newTask();
         await notes("PATCH", `/tasks/${taskId}/note`, { body: "gone" });

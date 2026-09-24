@@ -8,6 +8,8 @@ vi.mock("../../../app/hooks/inbox/use-capture-actions", () => ({ useCaptureActio
 vi.mock("../../../app/hooks/inbox/use-thought-parse", () => ({ useThoughtParse: () => ({ cleanedTitle: "Dentist", tagIds: [], scheduledStart: "2026-09-24T15:00:00.000Z" }) }));
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/tags/use-tags", () => ({ useTags: () => ({ data: [] }) }));
+vi.mock("../../../app/hooks/tags/use-task-tags", () => ({ useAddTaskTag: () => ({ mutate: vi.fn() }) }));
+vi.mock("../../../app/hooks/inbox/use-update-inbox-item", () => ({ useUpdateInboxItem: () => ({ mutate: vi.fn() }) }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: null }) }));
 vi.mock("../../../app/hooks/ui/use-coarse-pointer", () => ({ useIsCoarsePointer: () => false }));
 vi.mock("../../../app/components/holding/PlaceSheet", () => ({ PlaceDraggable: ({ children }: any) => children, usePlaceTask: () => vi.fn() }));

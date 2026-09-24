@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, between, eq, isNotNull, or } from "drizzle-orm";
+import { and, between, eq, isNotNull, ne, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { tasks, habits } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
@@ -12,34 +12,45 @@ import {
     normalizeEndBoundary,
 } from "@cadence/domain/task-temporal";
 import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
+import { habitOccurrences } from "@cadence/domain/repeats";
 import { taskLocalDay, toMinimalTask } from "./projections";
 import { addDaysToDateStr, toLocalDateStr } from "../../../platform/date-utils";
 
 /** Hard cap on the span a single schedule-window read may cover. */
 const MAX_RANGE_DAYS = 62;
 
+/** Routines with the days they're due in [from, to], skipping paused days; none due → left out. */
+export function routinesDue(
+    rows: { id: string; title: string; recurrenceRule: string; targetTime: string | null; createdAt: string; pausedUntil: string | null }[],
+    from: string,
+    to: string,
+) {
+    return rows.flatMap((row) => {
+        let days: string[];
+        try {
+            days = habitOccurrences(row.recurrenceRule, row.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`));
+        } catch {
+            return []; // an unreadable rule has no due days
+        }
+        days = days.filter((day) => !row.pausedUntil || day > row.pausedUntil);
+        return days.length ? [{ id: row.id, title: row.title, days, targetTime: row.targetTime }] : [];
+    });
+}
+
 export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_schedule_window: tool({
         description:
-            "READ-ONLY. Fetch tasks (by scheduled/due date) plus active habits within a date range " +
-            "for density-aware planning. The range is capped at ~2 months and the task count is " +
-            "hard-capped server-side. Pass the user's local dates (YYYY-MM-DD); both ends are inclusive. " +
-            "Repeating tasks appear once per occurrence. fixedBlock:true = a timetable commitment (class, " +
-            "shift): it occupies that time, can't be checked off and is never overdue — plan around it, " +
-            "and don't propose completing or moving it unless the user asks.",
+            "Open tasks and the routines due on each day of a local date range (inclusive, up to ~2 months), " +
+            "for planning. Repeating tasks appear once per occurrence. fixedBlock:true = a class or shift: it " +
+            "takes that time, can't be checked off and is never overdue. more:true when the cap cut tasks off.",
         inputSchema: z.object({
-            start: z.string().describe("First local date, YYYY-MM-DD (a datetime is reduced to its local date)."),
-            end: z.string().describe("Last local date, YYYY-MM-DD (inclusive)."),
-            limit: z
-                .number()
-                .int()
-                .min(1)
-                .max(50)
-                .default(50)
-                .describe("Max tasks returned (capped at 50)."),
+            start: z.string().describe("First local date (a datetime is reduced to its local date)."),
+            end: z.string().describe("Last local date."),
+            includeDone: z.boolean().default(false).describe("Also tasks already done."),
+            limit: z.number().int().min(1).max(50).default(50),
         }),
-        execute: async ({ start, end, limit }) =>
+        execute: async ({ start, end, includeDone, limit }) =>
             safeExecute("get_schedule_window", userId, async () => {
                 // Work in the user's local dates; a datetime is reduced to its local day.
                 const localDay = (value: string) =>
@@ -79,6 +90,9 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .where(
                             and(
                                 eq(tasks.userId, userId),
+                                // Trash never, Done only when asked.
+                                ne(tasks.state, "ARCHIVED"),
+                                includeDone ? undefined : ne(tasks.state, "COMPLETE"),
                                 or(
                                     between(tasks.scheduledStart, startIso, endIso),
                                     between(tasks.dueDate, startIso, endIso),
@@ -98,6 +112,8 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             title: habits.title,
                             recurrenceRule: habits.recurrenceRule,
                             targetTime: habits.targetTime,
+                            createdAt: habits.createdAt,
+                            pausedUntil: habits.pausedUntil,
                         })
                         .from(habits)
                         .where(and(eq(habits.userId, userId), eq(habits.archived, false)))
@@ -110,16 +126,16 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         scheduledRangeStart: startIso,
                         scheduledRangeEnd: endIso,
                     });
-                    const inRange = expanded
-                        .filter((row) => {
-                            const day = taskLocalDay(row, ctx.timezone);
-                            return day !== null && day >= from && day <= to;
-                        })
-                        .slice(0, cap);
+                    const inRange = expanded.filter((row) => {
+                        const day = taskLocalDay(row, ctx.timezone);
+                        return day !== null && day >= from && day <= to;
+                    });
+                    const more = inRange.length > cap;
                     return {
                         range: { start: from, end: to, timezone: ctx.timezone },
-                        tasks: inRange.map((row) => toMinimalTask(row, ctx.timezone)),
-                        habits: habitRows,
+                        tasks: inRange.slice(0, cap).map((row) => toMinimalTask(row, ctx.timezone)),
+                        ...(more && { more }),
+                        routines: routinesDue(habitRows, from, to),
                     };
                 });
             }),

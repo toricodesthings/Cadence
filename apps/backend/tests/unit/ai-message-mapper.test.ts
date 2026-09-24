@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     rowToUIMessage,
     dropUnsignedReasoning,
+    compactOldReads,
     uiMessageToRow,
     type StoredMessage,
 } from "../../src/domains/ai/persistence/message-mapper";
@@ -109,5 +110,20 @@ describe("dropUnsignedReasoning", () => {
         expect(tool.callProviderMetadata.openrouter.reasoning_details.map((d: any) => d.text)).toEqual(kept);
         expect(reasoning.providerMetadata.openrouter.other).toBe(1);
         expect(text).toEqual({ type: "text", text: "hi" });
+    });
+});
+
+describe("compactOldReads", () => {
+    const read = { type: "tool-get_tasks", state: "output-available", output: { tasks: [{ id: "a", title: "A" }, { id: "b", title: "B" }], count: 2 } };
+    const proposal = { type: "tool-propose_create_task", state: "input-available", input: { title: "X" } };
+    const turn = (role: string) => ({ role, parts: role === "assistant" ? [read, proposal] : [{ type: "text", text: "hi" }] });
+
+    it("shrinks older turns' read rows to ids and keeps the latest assistant turn whole", () => {
+        const [older, , latest, user] = compactOldReads([turn("assistant"), turn("user"), turn("assistant"), turn("user")]);
+
+        expect(older.parts[0]).toMatchObject({ output: { tasks: { count: 2, ids: ["a", "b"] }, count: 2 } });
+        expect(older.parts[1]).toBe(proposal);
+        expect(latest.parts[0]).toBe(read);
+        expect(user.parts).toEqual([{ type: "text", text: "hi" }]);
     });
 });

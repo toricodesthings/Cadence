@@ -13,6 +13,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
 import { logger, shorten, issuesFromError } from "../../platform/log";
 import { rrulestr } from "rrule";
+import { habitOccurrences } from "@cadence/domain/repeats";
 import { apiValidator } from "../../platform/validation";
 import type { Tx } from "../../types/db";
 
@@ -23,10 +24,7 @@ import type { Tx } from "../../types/db";
  */
 function expandOccurrences(recurrenceRule: string, createdAt: string, startDate: Date, endDate: Date): string[] {
     try {
-        const dtstart = new Date(`${String(createdAt).substring(0, 10)}T00:00:00.000Z`);
-        const rule = rrulestr(recurrenceRule, { dtstart });
-        const instances = rule.between(startDate, endDate, true);
-        return instances.map((d) => d.toISOString().substring(0, 10));
+        return habitOccurrences(recurrenceRule, String(createdAt), startDate, endDate);
     } catch (e) {
         logger.warn("http", "recurrence_rule_invalid", {
             rule: shorten(recurrenceRule),

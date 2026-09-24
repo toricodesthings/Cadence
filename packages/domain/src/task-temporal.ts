@@ -77,6 +77,13 @@ export function classifyTaskReadShape(fields: TaskTemporalFields): TaskReadShape
     return "deadline_only";
 }
 
+/** A proposal's shape decides all-day vs timed: a clock time anywhere → timed. */
+export function inferIsAllDay(fields: { scheduledStart?: string | null; dueDate?: string | null }): boolean | undefined {
+    if (fields.scheduledStart) return !fields.scheduledStart.includes("T");
+    if (fields.scheduledStart === null && fields.dueDate) return true;
+    return undefined; // no temporal change → keep what the task has
+}
+
 export function hasTaskTemporalMutation(fields: Partial<TaskTemporalFields>) {
     return ["dueDate", "scheduledStart", "scheduledEnd", "isAllDay"].some((key) => key in fields);
 }

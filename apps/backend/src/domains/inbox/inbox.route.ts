@@ -137,6 +137,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 projectId: "projectId" in body ? body.projectId : inferred.projectId,
                 priority: inferred.priority ?? priority ?? 0,
                 durationEstimate: inferred.durationEstimate ?? durationEstimate ?? null,
+                effort: body.effort ?? null,
                 recurrenceRule: inferred.recurrenceRule ?? recurrenceRule ?? null,
                 waitingOn: inferred.waitingOn ?? waitingOn ?? null,
                 ...temporalFields,

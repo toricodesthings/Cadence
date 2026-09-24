@@ -41,7 +41,7 @@ export const helpTools = () => ({
     // ── R (static, no DB) ────────────────────────────────────────────────────
     get_cadence_help: tool({
         description:
-            "READ-ONLY. The Cadence guide: how a feature works, where it lives, and in-app links to copy. " +
+            "The Cadence guide: how a feature works, where it lives, and in-app links to copy. " +
             "Topics: tasks (create, edit, Waiting, done, Trash, Undo) · dates-and-times (due vs scheduled, typing dates, dragging, overdue) · " +
             "repeats (Fixed vs Routine vs repeating task, making each) · routines (done/skip, pause, archive, streaks) · " +
             "capture (thoughts, quick capture, sorting) · organizing (lists, sections, tags) · " +

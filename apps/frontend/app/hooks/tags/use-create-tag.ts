@@ -13,8 +13,11 @@ export function useCreateTag() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (input: CreateTagInput) => {
-            const res = await client.api.tags.$post({ json: input });
+        mutationFn: async ({ idempotencyKey, ...input }: CreateTagInput & { idempotencyKey?: string }) => {
+            const res = await client.api.tags.$post(
+                { json: input },
+                idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined,
+            );
             return unwrapResponse<Tag>(res);
         },
 

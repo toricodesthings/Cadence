@@ -54,7 +54,7 @@ export interface TipProps {
 /** Touch screens have no hover: a tip only follows keyboard focus, never a sheet's initial focus. */
 const focusedWithoutKeyboard = () =>
     typeof window !== "undefined" &&
-    window.matchMedia("(hover: none)").matches &&
+    window.matchMedia?.("(hover: none)").matches &&
     !document.activeElement?.matches(":focus-visible");
 
 export function Tip({ label, side = "right", children }: TipProps) {

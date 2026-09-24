@@ -130,3 +130,33 @@ export function dropUnsignedReasoning<T extends { parts: unknown[] }>(messages: 
         }),
     }));
 }
+
+/** A read result's row lists shrink to their ids; other fields stay as they were. */
+function compactReadPart(part: unknown): unknown {
+    const p = part as { type?: unknown; state?: unknown; output?: unknown };
+    if (typeof p?.type !== "string" || !p.type.startsWith("tool-get_") || p.state !== "output-available") return part;
+    if (!p.output || typeof p.output !== "object" || Array.isArray(p.output)) return part;
+    const output = Object.fromEntries(
+        Object.entries(p.output).map(([key, value]) =>
+            Array.isArray(value) && value.length && value.every((row) => row && typeof row === "object" && "id" in row)
+                ? [key, { count: value.length, ids: value.map((row) => (row as { id: unknown }).id) }]
+                : [key, value],
+        ),
+    );
+    return { ...p, output };
+}
+
+/**
+ * Read results from assistant turns before the latest one shrink to `{count, ids}`
+ * before replay: the model keeps the ids it can act on, not every row again on
+ * every later turn. The latest assistant turn keeps its full rows.
+ */
+export function compactOldReads<T extends { role: string; parts: unknown[] }>(messages: T[]): T[] {
+    let latest = -1;
+    messages.forEach((msg, i) => {
+        if (msg.role === "assistant") latest = i;
+    });
+    return messages.map((msg, i) =>
+        msg.role !== "assistant" || i === latest ? msg : { ...msg, parts: msg.parts.map(compactReadPart) },
+    );
+}

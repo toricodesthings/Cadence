@@ -191,6 +191,11 @@ describe("Capture exits", () => {
         expect(result.status).toBe(201);
         expect(result.body.data).toMatchObject({ dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true });
     });
+    it("an explicit null date means no date, even when the text names a day (assistant structure card)", async () => {
+        const item = await capture("pay rent friday");
+        const result = await inbox("POST", `/${item.id}/process`, { title: "Pay rent", dueDate: null, priority: 3, effort: 1 });
+        expect(result.body.data).toMatchObject({ dueDate: null, scheduledStart: null, priority: 3, effort: 1 });
+    });
     it("ticks a thought off and atomically undoes it", async () => {
         const item = await capture("Buy milk tomorrow");
         const result = await inbox("POST", `/${item.id}/process`, { title: "Buy milk", complete: true });

@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { asSchema } from "ai";
 import {
     toMinimalTask,
     toMinimalHabit,
     toMinimalInboxItem,
-    toMinimalSuggestion,
     resolveDueWindow,
     taskLocalDay,
     type TaskRow,
     type HabitRow,
 } from "../../src/domains/ai/tools/projections";
-import { clampLimit, MAX_LIST_LIMIT } from "../../src/domains/ai/tools/index";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT } from "../../src/domains/ai/tools/index";
 
 const baseTask: TaskRow = {
     id: "t1",
@@ -30,10 +32,12 @@ const baseTask: TaskRow = {
 };
 
 describe("toMinimalTask", () => {
-    it("projects only the token-frugal fields and DROPS content", () => {
+    it("projects only the set fields: DROPS content, nulls, defaults and isAllDay", () => {
         expect(Object.keys(toMinimalTask(baseTask, "UTC")).sort()).toEqual(
-            ["dueDate", "durationEstimate", "effort", "fixedBlock", "id", "isAllDay", "priority", "projectId", "repeats", "scheduledEnd", "scheduledStart", "state", "title", "waitingOn"],
+            ["dueDate", "durationEstimate", "effort", "id", "priority", "projectId", "state", "title"],
         );
+        expect(toMinimalTask({ ...baseTask, priority: 0, effort: null, projectId: null, durationEstimate: null, dueDate: null }, "UTC"))
+            .toEqual({ id: "t1", title: "Write report", state: "ACTIVE" });
     });
 
     it("flags timetable blocks and repeats, and names an occurrence by its series id", () => {
@@ -45,7 +49,8 @@ describe("toMinimalTask", () => {
             recurrenceRule: "FREQ=WEEKLY",
         };
         expect(toMinimalTask(occurrence, "UTC")).toMatchObject({ id: "t1", fixedBlock: true, repeats: true });
-        expect(toMinimalTask(baseTask, "UTC")).toMatchObject({ id: "t1", fixedBlock: false, repeats: false });
+        expect(toMinimalTask(baseTask, "UTC")).not.toHaveProperty("fixedBlock");
+        expect(toMinimalTask(baseTask, "UTC")).not.toHaveProperty("repeats");
     });
 
     it("writes timed values as the user's wall clock with offset, so the model never converts", () => {
@@ -62,7 +67,8 @@ describe("toMinimalTask", () => {
         const task = { ...baseTask, isAllDay: true, dueDate: "2026-06-10T12:00:00.000Z", scheduledEnd: "2026-06-12T23:59:59.999Z" };
 
         for (const tz of ["Pacific/Auckland", "America/Los_Angeles"]) {
-            expect(toMinimalTask(task, tz)).toMatchObject({ dueDate: "2026-06-10", scheduledEnd: "2026-06-12", scheduledStart: null });
+            expect(toMinimalTask(task, tz)).toMatchObject({ dueDate: "2026-06-10", scheduledEnd: "2026-06-12" });
+            expect(toMinimalTask(task, tz)).not.toHaveProperty("scheduledStart");
         }
     });
 });
@@ -140,35 +146,23 @@ describe("toMinimalInboxItem", () => {
     });
 });
 
-describe("toMinimalSuggestion", () => {
-    it("drops the free-text body and defaults relatedTaskIds to []", () => {
-        const result = toMinimalSuggestion({
-            id: "u1",
-            type: "move_overdue",
-            title: "Move overdue",
-            status: "PENDING",
-            relatedTaskIds: null,
-            body: "long explanation that should not be projected",
-        });
-        expect(result).toEqual({
-            id: "u1",
-            type: "move_overdue",
-            title: "Move overdue",
-            status: "PENDING",
-            relatedTaskIds: [],
-        });
+describe("tool registry", () => {
+    it("every backend tool has a frontend descriptor, and the frontend lists no removed tool", () => {
+        const backend = Object.keys(buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" })).sort();
+        const registry = readFileSync(join(__dirname, "../../../frontend/app/components/assistant/tool-registry.tsx"), "utf8");
+        const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
+
+        expect(frontend).toEqual(backend);
     });
 
-    it("preserves provided relatedTaskIds", () => {
-        expect(
-            toMinimalSuggestion({
-                id: "u2",
-                type: "lighten_today",
-                title: "Lighten",
-                status: "PENDING",
-                relatedTaskIds: ["t1", "t2"],
-            }).relatedTaskIds,
-        ).toEqual(["t1", "t2"]);
+    it("sends the model schemas without regex patterns, but still validates calls in full", async () => {
+        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const schema = asSchema(tools.propose_batch_reschedule.inputSchema);
+
+        expect(JSON.stringify(await schema.jsonSchema)).not.toContain("pattern");
+        expect((await schema.validate!({ taskIds: ["not-a-uuid"], targetDate: "2026-10-01" })).success).toBe(false);
+        expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01T14:00" })).success).toBe(false);
+        expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" })).success).toBe(true);
     });
 });
 
