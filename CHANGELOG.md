@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-09-23
+
 Capture keeps up with you, and Projects are now Lists: jot it, tick it off or give it a day in one move.
 
 ### Added
