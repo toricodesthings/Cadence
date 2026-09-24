@@ -121,8 +121,6 @@ function getTemporalFieldsForPersistence(fields: {
     return normalizeTaskTemporalFields(fields);
 }
 
-const DAY_MS = 86_400_000;
-
 /**
  * One task moved to a local `date`, keeping its shape: an all-day task lands on
  * the date, a timed task keeps its local time there, and an end (or deadline)
