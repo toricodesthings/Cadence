@@ -197,8 +197,8 @@ export function NotificationsTab() {
                     />
                 </SettingsRow>
                 <SettingsRow
-                    title="Bundle missed-routine prompts"
-                    description="Combine overdue routine notifications into a single dismissible prompt instead of showing each one individually."
+                    title="Bundle routine reminders"
+                    description="When several routine reminders are due at once, show one notification instead of one each."
                 >
                     <Switch
                         checked={notif.bundleMissedRoutinePrompts}

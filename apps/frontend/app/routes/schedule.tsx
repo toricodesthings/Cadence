@@ -407,6 +407,7 @@ export default function Schedule() {
 
     // ── Phone surface: one grouping (routines included) for marks and lists ─
     const todayIso = toISODate(today);
+    const periodRange = { day: dayRange, week: weekRange, month: monthRange, year: yearRange }[viewMode];
     const phoneGroups = useMemo(() => {
         if (!shell.isPhone || viewMode === "year") return new Map<string, Task[]>();
         return groupByDate([...(viewMode === "month" ? visibleMonthTasks : visibleWeekTasks), ...visibleHabitTasks]);
@@ -1154,6 +1155,7 @@ export default function Schedule() {
                         onViewMode={handleViewMode}
                         onNavigate={handleNavigate}
                         onToday={handleToday}
+                        isCurrentPeriod={todayIso >= periodRange.start && todayIso <= periodRange.end}
                         onAddTask={handleAddTaskToolbar}
                         onAddEvent={handleAddEventToolbar}
                         overflowContent={shell.isPhone ? phoneOptions : overflowContent}

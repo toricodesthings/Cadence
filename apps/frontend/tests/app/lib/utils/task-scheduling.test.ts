@@ -126,6 +126,13 @@ describe("task scheduling helpers", () => {
         });
     });
 
+    it("says how often an every-N rule repeats", () => {
+        const summary = (recurrenceRule: string) => getTaskRecurrenceSummary(createTask({ recurrenceRule, scheduledStart: null, scheduledEnd: null }))?.cadenceLabel;
+        expect(summary("FREQ=DAILY;INTERVAL=3")).toBe("Repeats every 3 days");
+        expect(summary("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE")).toBe("Repeats every other week on Mon & Wed");
+        expect(summary("FREQ=DAILY")).toBe("Repeats daily");
+    });
+
     it("routes recurring instances back to their series master for mutations", () => {
         const instance = createTask({
             id: "series-1::2026-03-10T09:30:00.000Z",

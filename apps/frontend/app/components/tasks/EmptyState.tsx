@@ -1,17 +1,19 @@
-import { Feather, Plus, CalendarRange, CalendarClock, Inbox, CheckCircle2 } from "lucide-react";
+import { Feather, Plus, CalendarRange, CalendarClock, Inbox, CheckCircle2, Flame, Archive } from "lucide-react";
 import { useNavigate } from "react-router";
 
-type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" | "schedule" | "default";
+type EmptyStateVariant = "today" | "upcoming" | "holding" | "completed" | "schedule" | "routines" | "routines-archived" | "default";
 
 interface EmptyStateProps {
     variant?: EmptyStateVariant;
+    /** Runs the CTA in place (e.g. opens a composer) instead of navigating. */
+    onAction?: () => void;
 }
 
 const VARIANTS: Record<EmptyStateVariant, {
     icon: typeof Feather;
     title: string;
     description: string;
-    cta?: { label: string; to: string };
+    cta?: { label: string; to?: string };
 }> = {
     today: {
         icon: Feather,
@@ -41,6 +43,17 @@ const VARIANTS: Record<EmptyStateVariant, {
         title: "This day is clear.",
         description: "Nothing is booked yet. Add a block when you're ready, or swipe across to another day.",
     },
+    routines: {
+        icon: Flame,
+        title: "No routines yet.",
+        description: "A routine is something you come back to. Miss a day and it simply lets go.",
+        cta: { label: "Add a routine" },
+    },
+    "routines-archived": {
+        icon: Archive,
+        title: "Nothing archived.",
+        description: "Routines you archive rest here, history and all, until you restore them.",
+    },
     default: {
         icon: Feather,
         title: "Nothing scheduled for today",
@@ -49,7 +62,7 @@ const VARIANTS: Record<EmptyStateVariant, {
 };
 
 /** Empty state with optional CTA for core surfaces */
-export function EmptyState({ variant = "default" }: EmptyStateProps) {
+export function EmptyState({ variant = "default", onAction }: EmptyStateProps) {
     const navigate = useNavigate();
     const config = VARIANTS[variant];
     const Icon = config.icon;
@@ -68,7 +81,7 @@ export function EmptyState({ variant = "default" }: EmptyStateProps) {
             {config.cta && (
                 <button
                     type="button"
-                    onClick={() => navigate(config.cta!.to)}
+                    onClick={() => onAction ? onAction() : config.cta?.to && navigate(config.cta.to)}
                     className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent-primary/10 px-4 py-2 text-sm font-medium text-accent-primary hover:bg-accent-primary/20 transition-colors ring-1 ring-accent-primary/20 cursor-pointer"
                 >
                     <Plus size={14} />

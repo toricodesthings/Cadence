@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useSettings } from "../core/use-settings";
-import { setDateFormatConfig } from "../../lib/utils/date-format";
+import { setDateFormatConfig, WEEK_START_INDEX } from "../../lib/utils/date-format";
 import { useDesktopLayoutScale } from "./use-desktop-layout-scale";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { deriveCustomTokens, buildGradientCSS, gradientBaseHex } from "../../lib/themes/background-tokens";
@@ -235,11 +235,10 @@ export function useThemeSync() {
 
     // ── Date/time format sync ──
     useEffect(() => {
-        const weekStartMap = { Sunday: 0, Monday: 1, Saturday: 6 } as const;
         setDateFormatConfig({
             timeDisplay,
             dateStyle,
-            weekStartsOn: weekStartMap[weekStart] ?? 1,
+            weekStartsOn: WEEK_START_INDEX[weekStart] ?? 1,
         });
     }, [timeDisplay, dateStyle, weekStart]);
 }

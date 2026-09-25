@@ -35,7 +35,7 @@ export function PageHeaderIdentity({ icon, eyebrow, title, meta, accentColor, co
                         {title}
                     </h1>
                     {meta && !compact ? (
-                        <span className="hidden min-w-0 items-baseline gap-2 truncate text-[13px] text-twilight-text-soft md:flex">
+                        <span className="hidden min-w-0 shrink-[999] items-baseline gap-2 truncate text-[13px] text-twilight-text-soft md:flex">
                             <span aria-hidden="true" className="text-twilight-text-muted">·</span>
                             {meta}
                         </span>

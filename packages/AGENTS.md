@@ -171,7 +171,10 @@ Never import `AppError` here.
 - `ordering.ts` — fractional `orderIndex` math (`ORDER_INDEX_GAP`,
   `computeNextOrderIndex`, `computeMidpointIndex`, `computeGappedOrderIndex`).
 - `repeats.ts` — the Fixed / Routine / Task rules: `routineTimeOn` (a routine's
-  time on a date, honouring per-weekday overrides) and `suggestInteractionMode`
+  time on a date, honouring per-weekday overrides), `habitRule`/`habitOccurrences`
+  (a routine's due days; rules without INTERVAL/COUNT are anchored by whole
+  periods so days before creation follow the pattern, "every N" rules count from
+  the creation day in the user's zone), `localDay`, and `suggestInteractionMode`
   (the server default that makes class-like timed series Fixed).
 - `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
   `normalizeTitle`) for the frontend's optimistic title and the backend fallback.

@@ -1,295 +1,81 @@
-import { useMemo } from "react";
-import { Check, Clock, Flame, Pause } from "lucide-react";
-
-import { useHabitsMonthly, type HabitMonthlyData } from "../../hooks/habits/use-habit-monthly";
-import { useProjects } from "../../hooks/projects/use-projects";
-import { getDaysInMonth, getFirstDayOfWeek, toISODate, weekdayLabels } from "../../lib/utils/date-format";
-import { sortHabits } from "../../lib/utils/habits";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import type { Habit } from "@cadence/contracts/habit";
-import { HabitMenu } from "./HabitMenu";
-import { RoutineMark } from "./RoutineMark";
-import { useSettings } from "../../hooks/core/use-settings";
-import { HabitContextMenuWrapper } from "./HabitContextMenuWrapper";
+import { isRoutinePaused, routineTone, sortHabits } from "../../lib/utils/habits";
+import { HabitContextMenu, HabitMenu } from "./HabitMenu";
+import { RoutineIdentity, openOnCardClick } from "./RoutineWeekRow";
+import { monthStats, RoutineMonthGrid } from "./RoutineMonthGrid";
 
-const DOW = weekdayLabels(2, 0);
-
-interface HabitsMonthViewProps {
-    year: number;
-    month: number;
-    habits: Habit[];
-    selectedHabitId?: string | null;
-    onSelectHabit?: (id: string) => void;
-    emptyStateMode?: "active" | "archived";
-}
-
-function buildMonthCells(year: number, month: number) {
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDow = getFirstDayOfWeek(year, month, 0);
-    const cells: Array<number | null> = [
-        ...Array(firstDow).fill(null),
-        ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
-    ];
-
-    while (cells.length % 7 !== 0) {
-        cells.push(null);
-    }
-
-    return cells;
-}
-
-function MonthCardGrid({
-    year,
-    month,
-    data,
-    isLoading,
-}: {
-    year: number;
-    month: number;
-    data: HabitMonthlyData | undefined;
-    isLoading: boolean;
-}) {
-    const todayIso = toISODate(new Date());
-    const cells = useMemo(() => buildMonthCells(year, month), [year, month]);
-    const scheduledDays = new Set(data?.scheduledDays ?? []);
-    const logsByDay = data?.logsByDay ?? {};
-
-    return (
-        <div className="space-y-2">
-            <div className="grid grid-cols-7 gap-1.5">
-                {DOW.map((label) => (
-                    <div
-                        key={label}
-                        className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted/45"
-                    >
-                        {label}
-                    </div>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1.5">
-                {isLoading
-                    ? cells.map((_, index) => (
-                        <div
-                            key={index}
-                            className="aspect-square rounded-[0.85rem] bg-white/[0.04] animate-pulse"
-                        />
-                    ))
-                    : cells.map((day, index) => {
-                        if (day === null) {
-                            return <div key={index} className="aspect-square" />;
-                        }
-
-                        const dayIso = toISODate(new Date(year, month, day));
-                        const isToday = dayIso === todayIso;
-                        const status = logsByDay[day];
-                        const isScheduled = scheduledDays.has(day);
-                        const isCompleted = status === "COMPLETED";
-                        const isSkipped = status === "SKIPPED";
-                        const isMissed = isScheduled && !isCompleted && !isSkipped && dayIso < todayIso;
-
-                        return (
-                            <div
-                                key={index}
-                                className={[
-                                    "relative aspect-square rounded-[0.85rem] border flex items-center justify-center transition-colors",
-                                    isToday ? "ring-1 ring-accent-primary/45" : "",
-                                    isCompleted
-                                        ? "border-accent-primary/25 bg-accent-primary/18"
-                                        : isSkipped
-                                            ? "border-twilight-border/30 bg-white/[0.04]"
-                                            : isMissed
-                                                ? "border-accent-primary/20 bg-[repeating-linear-gradient(135deg,rgba(232,164,74,0.10)_0_2px,transparent_2px_6px)]"
-                                                : isScheduled
-                                                    ? "border-white/[0.06] bg-white/[0.03]"
-                                                    : "border-transparent bg-transparent opacity-40",
-                                ].join(" ")}
-                                title={
-                                    !isScheduled
-                                        ? undefined
-                                        : isCompleted
-                                            ? "Completed"
-                                            : isSkipped
-                                                ? "Skipped"
-                                                : isMissed
-                                                    ? "Missed"
-                                                    : "Scheduled"
-                                }
-                            >
-                                {isCompleted ? (
-                                    <Check size={11} className="text-accent-primary" strokeWidth={3} />
-                                ) : (
-                                    <span
-                                        className={[
-                                            "text-[10px] font-medium tabular-nums",
-                                            isToday
-                                                ? "text-accent-primary"
-                                                : isScheduled
-                                                    ? "text-twilight-text-soft"
-                                                    : "text-twilight-text-muted/35",
-                                        ].join(" ")}
-                                    >
-                                        {day}
-                                    </span>
-                                )}
-                            </div>
-                        );
-                    })}
-            </div>
-        </div>
-    );
-}
-
+/** A card per routine: its month (every loggable day tappable) and a neutral footer. */
 export function HabitsMonthView({
     year,
     month,
+    weekStartsOn,
     habits,
+    today,
+    showStreaks,
+    bloom,
     selectedHabitId,
     onSelectHabit,
-    emptyStateMode = "active",
-}: HabitsMonthViewProps) {
-    const { data: projects = [] } = useProjects();
-    const { data: settings } = useSettings();
-    const showStreaks = settings?.tasks?.showStreaks !== false;
-    const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
-    const sortedHabits = useMemo(() => sortHabits(habits), [habits]);
-    const todayIso = toISODate(new Date());
-
-    const monthlyQueries = useHabitsMonthly(sortedHabits.map((habit) => habit.id), year, month);
-
-    if (habits.length === 0) {
-        return (
-            <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 sm:px-6">
-                <div className="flex h-full flex-col items-center justify-center px-4 py-20 text-center">
-                    <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-twilight-surface ring-1 ring-twilight-border">
-                        <Flame size={24} className="text-accent-primary" />
-                    </div>
-                    <h3 className="mb-2 text-lg font-medium text-twilight-text">
-                        {emptyStateMode === "archived" ? "No archived habits." : "The sanctuary is ready."}
-                    </h3>
-                    <p className="max-w-sm text-sm text-twilight-text-muted">
-                        {emptyStateMode === "archived"
-                            ? "Keep up the consistent work across your active routines."
-                            : "Add a routine above, then switch back here for a month-level momentum review."}
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    onCloseHabit,
+    trimEarlyWeeks,
+    lead,
+    empty,
+}: {
+    year: number;
+    month: number;
+    weekStartsOn: 0 | 1 | 6;
+    habits: Habit[];
+    today: string;
+    showStreaks: boolean;
+    bloom: boolean;
+    selectedHabitId: string | null;
+    onSelectHabit: (id: string) => void;
+    onCloseHabit: () => void;
+    /** Phone: drop the weeks before a routine existed to save height. */
+    trimEarlyWeeks: boolean;
+    lead?: ReactNode;
+    empty: ReactNode;
+}) {
+    const sorted = useMemo(() => sortHabits(habits), [habits]);
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 sm:px-6">
-            <div className="mt-2 min-h-0 flex-1 overflow-auto pr-1 scrollbar-thin">
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    {sortedHabits.map((habit, index) => {
-                        const project = habit.projectId ? projectMap.get(habit.projectId) : null;
-                        const monthData = monthlyQueries[index]?.data;
-                        const isLoading = monthlyQueries[index]?.isLoading ?? false;
-                        const isSelected = selectedHabitId === habit.id;
-                        const isPaused = Boolean(habit.pausedUntil && new Date(habit.pausedUntil) > new Date());
-
-                        const scheduledDays = monthData?.scheduledDays ?? [];
-                        const logsByDay = monthData?.logsByDay ?? {};
-                        const completedCount = Object.values(logsByDay).filter((status) => status === "COMPLETED").length;
-                        const skippedCount = Object.values(logsByDay).filter((status) => status === "SKIPPED").length;
-                        const missedCount = scheduledDays.filter((day) => {
-                            const dayIso = toISODate(new Date(year, month, day));
-                            return dayIso < todayIso && !logsByDay[day];
-                        }).length;
-                        const adherence = scheduledDays.length === 0
-                            ? 0
-                            : Math.round((completedCount / scheduledDays.length) * 100);
-
+        <div className="min-h-0 flex-1 overflow-auto px-4 pb-28 scrollbar-thin sm:px-6">
+            {/* Cards share the row (auto-fit), and the band and cards share one
+                width, capped per card so one routine isn't a page-wide month. */}
+            <div style={{ maxWidth: `${Math.max(sorted.length, 2) * 36}rem` }}>
+            {lead}
+            {sorted.length === 0 ? empty : (
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))] gap-4">
+                    {sorted.map((habit) => {
+                        const selected = habit.id === selectedHabitId;
+                        const toggle = selected ? onCloseHabit : () => onSelectHabit(habit.id);
+                        const { checkIns, longest } = monthStats(habit, today);
+                        const footer = [
+                            checkIns ? `${checkIns} check-in${checkIns === 1 ? "" : "s"} this month` : "No check-ins yet this month",
+                            showStreaks && longest > 1 ? `longest run ${longest}` : null,
+                        ].filter(Boolean).join(" · ");
                         return (
-                            <HabitContextMenuWrapper key={habit.id} habit={habit} onEdit={() => onSelectHabit?.(habit.id)}>
-                            <section
-                                className={[
-                                    "rounded-[1.65rem] border px-5 py-6 transition-colors",
-                                    isPaused ? "opacity-60" : "",
-                                    isSelected
-                                        ? "border-accent-primary/25 bg-accent-primary/[0.06]"
-                                        : "border-twilight-border/35 bg-white/[0.03] hover:bg-white/[0.04]",
-                                ].join(" ")}
-                            >
-                                <div className="flex items-start gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => onSelectHabit?.(habit.id)}
-                                        className="min-w-0 flex-1 text-left"
-                                        aria-label={`View details for ${habit.title}`}
-                                        aria-pressed={isSelected}
-                                    >
-                                        <div className="flex items-start gap-2">
-                                            {habit.emoji ? (
-                                                <RoutineMark emoji={habit.emoji} size={14} />
-                                            ) : (
-                                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent-primary shadow-[0_0_6px_color-mix(in_srgb,var(--accent-primary)_45%,transparent)]" />
-                                            )}
-                                            <div className="min-w-0 flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="truncate text-[15px] font-medium text-twilight-text">
-                                                        {habit.title}
-                                                    </h3>
-                                                    {showStreaks ? (
-                                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2 py-0.5 text-[10px] font-medium text-accent-primary">
-                                                            <Flame size={10} />
-                                                            {habit.currentStreak}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                                    {isPaused ? (
-                                                        <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] text-twilight-text-muted">
-                                                            <Pause size={9} /> Paused
-                                                        </span>
-                                                    ) : null}
-                                                    {habit.targetTime ? (
-                                                        <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] text-twilight-text-muted">
-                                                            <Clock size={9} /> {habit.targetTime}
-                                                        </span>
-                                                    ) : null}
-                                                    {project ? (
-                                                        <span className="inline-flex items-center rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] text-twilight-text-muted">
-                                                            {project.name}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </button>
-
-                                    <HabitMenu habit={habit} onEdit={() => onSelectHabit?.(habit.id)} />
-                                </div>
-
-                                <div className="mt-3 flex items-center gap-1.5 text-xs text-twilight-text-muted">
-                                    <span>{completedCount} / {scheduledDays.length || 0}</span>
-                                    <span className="text-twilight-text-muted/30">·</span>
-                                    <span>{adherence}% adherence</span>
-                                    {missedCount > 0 ? (
-                                        <>
-                                            <span className="text-twilight-text-muted/30">·</span>
-                                            <span className="text-accent-primary/80">{missedCount} missed</span>
-                                        </>
-                                    ) : skippedCount > 0 ? (
-                                        <>
-                                            <span className="text-twilight-text-muted/30">·</span>
-                                            <span>{skippedCount} skipped</span>
-                                        </>
-                                    ) : null}
-                                </div>
-
-                                <div className="mt-5">
-                                    <MonthCardGrid
-                                        year={year}
-                                        month={month}
-                                        data={monthData}
-                                        isLoading={isLoading}
-                                    />
-                                </div>
-                            </section>
-                            </HabitContextMenuWrapper>
+                            <HabitContextMenu key={habit.id} habit={habit} onEdit={() => onSelectHabit(habit.id)}>
+                                <section
+                                    aria-label={habit.title}
+                                    onClick={openOnCardClick(toggle)}
+                                    style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties}
+                                    className={`group cursor-pointer rounded-[1.5rem] border p-4 sm:p-5 transition-colors ${isRoutinePaused(habit) ? "opacity-60" : ""} ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "border-twilight-border/35 bg-white/[0.03]"}`}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        <RoutineIdentity habit={habit} today={today} showStreaks={showStreaks} selected={selected} onSelect={toggle} />
+                                        <HabitMenu habit={habit} onEdit={() => onSelectHabit(habit.id)} />
+                                    </div>
+                                    <div className="mt-4">
+                                        <RoutineMonthGrid habit={habit} year={year} month={month} weekStartsOn={weekStartsOn} today={today} bloom={bloom} fromFirstWeek={trimEarlyWeeks} onEdit={() => onSelectHabit(habit.id)} />
+                                    </div>
+                                    <p className="mt-3 text-xs text-twilight-text-muted">{footer}</p>
+                                </section>
+                            </HabitContextMenu>
                         );
                     })}
                 </div>
+            )}
             </div>
         </div>
     );

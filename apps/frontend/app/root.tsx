@@ -47,10 +47,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {RUNTIME_TARGET !== "desktop" && (
           <>
             <meta name="mobile-web-app-capable" content="yes" />
-            {/* Home-screen app on iOS: content runs under a transparent status
-                bar, so top-edge surfaces pad with env(safe-area-inset-top). */}
+            {/* Home-screen app on iOS: an opaque status bar. black-translucent sizes the
+                app one status bar short on iOS 26 (WebKit bug 301108), stranding a band at
+                the bottom, and blurs whatever scrolls under the status bar. */}
             <meta name="apple-mobile-web-app-capable" content="yes" />
-            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+            <meta name="apple-mobile-web-app-status-bar-style" content="black" />
             <meta name="apple-mobile-web-app-title" content="Cadence" />
             {/* iOS zooms into any focused field under 16px and stays zoomed in
                 the home-screen app. maximum-scale stops that without blocking

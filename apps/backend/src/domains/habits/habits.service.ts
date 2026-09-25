@@ -27,7 +27,7 @@ export function expandOccurrences(recurrenceRule: string, createdAt: string, sta
 
 /**
  * Deterministic streak recomputation from habit log history.
- * Walks backward from the most recent completed date.
+ * Walks backward from the most recent completed date; skipped days are neutral.
  */
 function recomputeStreaks(
     logs: Array<{ targetDate: string; status: string }>,
@@ -52,7 +52,7 @@ function recomputeStreaks(
         const status = logByDate.get(date);
         if (status === "COMPLETED") {
             streak++;
-        } else {
+        } else if (status !== "SKIPPED") { // a skip is a planned rest: it neither extends nor breaks a run
             if (streak > longestStreak) longestStreak = streak;
             // Current streak is only from the most recent unbroken run
             if (currentStreak === 0) currentStreak = streak;
@@ -65,25 +65,27 @@ function recomputeStreaks(
     return { currentStreak, longestStreak, totalCompletions, totalSkips };
 }
 
-/** Load which of the given occurrence dates have a COMPLETED log, as a Set. */
-async function loadCompletedOccurrenceDates(
+/** Which of the given occurrence dates were completed or skipped, keyed by date. */
+async function loadResolvedOccurrenceDates(
     tx: Tx,
     habitId: string,
     userId: string,
     dates: string[],
-): Promise<Set<string>> {
-    if (dates.length === 0) return new Set();
+): Promise<Map<string, ResolvedStatus>> {
+    if (dates.length === 0) return new Map();
     const rows = await tx
-        .select({ targetDate: habitLogs.targetDate })
+        .select({ targetDate: habitLogs.targetDate, status: habitLogs.status })
         .from(habitLogs)
         .where(and(
             eq(habitLogs.userId, userId),
             eq(habitLogs.habitId, habitId),
-            eq(habitLogs.status, "COMPLETED"),
+            inArray(habitLogs.status, ["COMPLETED", "SKIPPED"]),
             inArray(habitLogs.targetDate, dates),
         ));
-    return new Set(rows.map((r) => r.targetDate));
+    return new Map(rows.map((r) => [r.targetDate, r.status as ResolvedStatus]));
 }
+
+type ResolvedStatus = "COMPLETED" | "SKIPPED";
 
 const STREAK_LEADING_LIMIT = 60;
 
@@ -97,7 +99,8 @@ type StreakScanState = { streak: number; runStarted: boolean; leadingGap: number
  * Semantics:
  *  - Trailing not-yet-resolved occurrences (e.g. today still PENDING) are skipped
  *    as a grace period — they do not break the streak before the run begins.
- *  - The first non-completed occurrence *after* the run has started ends it.
+ *  - Skipped occurrences are neutral: they neither extend nor end a run.
+ *  - The first missed occurrence *after* the run has started ends it.
  *  - If `leadingLimit` occurrences pass with no completion at all, the streak is
  *    considered broken (0).
  *
@@ -106,13 +109,15 @@ type StreakScanState = { streak: number; runStarted: boolean; leadingGap: number
  */
 export function scanStreak(
     windowNewestFirst: string[],
-    completed: ReadonlySet<string>,
+    resolved: ReadonlyMap<string, ResolvedStatus>,
     state: StreakScanState,
     leadingLimit = STREAK_LEADING_LIMIT,
 ): StreakScanState & { terminated: boolean } {
     let { streak, runStarted, leadingGap } = state;
     for (const date of windowNewestFirst) {
-        if (completed.has(date)) {
+        const status = resolved.get(date);
+        if (status === "SKIPPED") continue;
+        if (status === "COMPLETED") {
             streak++;
             runStarted = true;
         } else if (runStarted) {
@@ -133,7 +138,7 @@ export function scanStreak(
  * stopping as soon as the streak is determined. This is the correct, cadence-
  * agnostic replacement for a fixed look-back window or a full-history rescan.
  *
- * `loadCompleted` is injected (rather than taking a `tx`) so the streak logic is
+ * `loadResolved` is injected (rather than taking a `tx`) so the streak logic is
  * pure of persistence concerns and unit-testable with real recurrence rules.
  * `earliest` (the oldest completed day, when it predates the routine) lets the
  * walk reach days logged before the routine was created.
@@ -142,7 +147,7 @@ export async function computeCurrentStreak(
     recurrenceRule: string,
     createdAt: string,
     asOfDateStr: string,
-    loadCompleted: (dates: string[]) => Promise<ReadonlySet<string>>,
+    loadResolved: (dates: string[]) => Promise<ReadonlyMap<string, ResolvedStatus>>,
     { timeZone = "UTC", earliest }: { timeZone?: string; earliest?: string | null } = {},
 ): Promise<number> {
     let rule: ReturnType<typeof habitRule>;
@@ -176,8 +181,7 @@ export async function computeCurrentStreak(
         }
         if (window.length === 0) break;
 
-        const completed = await loadCompleted(window);
-        const result = scanStreak(window, completed, state);
+        const result = scanStreak(window, await loadResolved(window), state);
         if (result.terminated) return result.streak;
         state = { streak: result.streak, runStarted: result.runStarted, leadingGap: result.leadingGap };
     }
@@ -297,7 +301,7 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
             habit.recurrenceRule,
             habit.createdAt,
             todayStr,
-            (dates) => loadCompletedOccurrenceDates(tx, habit.id, userId, dates),
+            (dates) => loadResolvedOccurrenceDates(tx, habit.id, userId, dates),
             { timeZone: tz, earliest },
         );
         // Longest streak is a monotonic high-water mark; it never shrinks.

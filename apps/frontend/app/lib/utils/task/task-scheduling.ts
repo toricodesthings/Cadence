@@ -124,10 +124,15 @@ export function getTaskRecurrenceSummary(
         ? `${formatTime(task.scheduledStart)}${task.scheduledEnd ? ` – ${formatTime(task.scheduledEnd)}` : ""}`
         : null;
 
+    const interval = Number(parts.get("INTERVAL") ?? 1);
     let cadenceLabel = "Repeats";
-    if (freq === "DAILY") cadenceLabel = "Repeats daily";
-    if (freq === "WEEKLY" && weekdayLabel) cadenceLabel = `Repeats ${weekdayLabel}`;
-    if (freq === "WEEKLY" && !weekdayLabel) cadenceLabel = "Repeats weekly";
+    if (freq === "DAILY") cadenceLabel = interval > 1 ? `Repeats every ${interval} days` : "Repeats daily";
+    if (freq === "WEEKLY") {
+        const every = interval === 2 ? "every other week" : interval > 2 ? `every ${interval} weeks` : null;
+        cadenceLabel = every
+            ? `Repeats ${every}${weekdayLabel ? ` on ${weekdayLabel}` : ""}`
+            : weekdayLabel ? `Repeats ${weekdayLabel}` : "Repeats weekly";
+    }
     if (freq === "MONTHLY") cadenceLabel = "Repeats monthly";
 
     const detailParts = [weekdayLabel ? `every ${weekdayLabel}` : null, timeLabel, endLabel ? `until ${endLabel}` : null].filter(Boolean);

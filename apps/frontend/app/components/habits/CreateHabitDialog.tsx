@@ -1,26 +1,49 @@
 import { useState } from "react";
-import { Bell, Clock3, Flame, FolderOpen, Repeat, StickyNote, Tag } from "lucide-react";
+import { Bell, CalendarClock, Clock3, Flame, FolderOpen, Repeat, StickyNote, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { TimePicker } from "../primitives";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useProjects } from "../../hooks/projects/use-projects";
-import { useTags } from "../../hooks/tags/use-tags";
 import { CadencePicker } from "./CadencePicker";
+import { DayTimes } from "./DayTimes";
+import * as Popover from "../primitives/Popover";
+import { Tip } from "../primitives/Tooltip";
+import { Swatches } from "../shared/Swatches";
+import { FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
+import { TagField } from "../tasks/TagField";
+import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, routineTone } from "../../lib/utils/habits";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { Composer, type ComposerDraft, ComposerSubmit, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
-import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
+import { CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
 import { toISODate } from "../../lib/utils/date-format";
 import type { Habit } from "@cadence/contracts/habit";
 import { createHabitSchema } from "../../lib/validations/habit-schemas";
 
 const IDEAS = [
-    { emoji: "🌅", title: "Morning review", description: "Check Today, clear Capture, and start with intention.", recurrenceRule: "FREQ=DAILY" },
-    { emoji: "🏋️", title: "Workout", description: "Keep a steady training rhythm across the week.", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR" },
-    { emoji: "💧", title: "Hydration", description: "A small daily reset that keeps the baseline healthy.", recurrenceRule: "FREQ=DAILY" },
-    { emoji: "📚", title: "Reading", description: "A calm evening reading routine.", recurrenceRule: "FREQ=DAILY" },
+    { emoji: "🌅", colorAccent: "luminous-amber", title: "Morning review", description: "Check Today, clear Capture, and start with intention.", recurrenceRule: "FREQ=DAILY" },
+    { emoji: "🏋️", colorAccent: "ember-red", title: "Workout", description: "Keep a steady training rhythm across the week.", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR" },
+    { emoji: "💧", colorAccent: "sky", title: "Hydration", description: "A small daily reset that keeps the baseline healthy.", recurrenceRule: "FREQ=DAILY" },
+    { emoji: "📚", colorAccent: "violet", title: "Reading", description: "A calm evening reading routine.", recurrenceRule: "FREQ=DAILY" },
 ] as const;
+
+/** The routine's colour beside its emoji: a dot that opens the swatches. */
+function ColourDot({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Popover.Root open={open} onOpenChange={setOpen}>
+            <Tip label="Colour"><Popover.Trigger asChild>
+                <button type="button" aria-label="Routine colour" className="flex h-11 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
+                    <span className="h-4 w-4 rounded-full ring-2 ring-white/10" style={{ backgroundColor: routineTone(value) }} />
+                </button>
+            </Popover.Trigger></Tip>
+            <Popover.Content align="start" className="w-72 p-3">
+                <Swatches options={ROUTINE_SWATCHES} value={value} onChange={(next) => { onChange(next); setOpen(false); }} />
+            </Popover.Content>
+        </Popover.Root>
+    );
+}
 
 const DEFAULT_TIME = "09:00";
 
@@ -35,10 +58,11 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const shell = useShellMode();
     const { mutate: createHabit, isPending } = useCreateHabit();
     const { data: projects = [] } = useProjects();
-    const { data: tags = [] } = useTags();
 
     const [title, setTitle] = useState("");
     const [emoji, setEmoji] = useState<string | null>(null);
+    const [colorAccent, setColorAccent] = useState<string>(ROUTINE_DEFAULT_ACCENT);
+    const [targetTimes, setTargetTimes] = useState<Record<string, string> | null>(null);
     const [recurrenceRule, setRecurrenceRule] = useState("FREQ=DAILY");
     const [targetTime, setTargetTime] = useState<string | null>(null);
     const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -46,11 +70,13 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const [projectId, setProjectId] = useState<string | null>(null);
     const [tagIds, setTagIds] = useState<string[]>([]);
 
-    const isDirty = Boolean(title.trim() || emoji || recurrenceRule !== "FREQ=DAILY" || targetTime || description.trim() || projectId || tagIds.length);
+    const isDirty = Boolean(title.trim() || emoji || colorAccent !== ROUTINE_DEFAULT_ACCENT || recurrenceRule !== "FREQ=DAILY" || targetTime || targetTimes || description.trim() || projectId || tagIds.length);
 
     const reset = () => {
         setTitle("");
         setEmoji(null);
+        setColorAccent(ROUTINE_DEFAULT_ACCENT);
+        setTargetTimes(null);
         setRecurrenceRule("FREQ=DAILY");
         setTargetTime(null);
         setReminderEnabled(false);
@@ -64,8 +90,9 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
             title: title.trim(),
             description: description.trim() || undefined,
             recurrenceRule,
-            colorAccent: "lantern",
+            colorAccent,
             targetTime,
+            targetTimes,
             emoji,
             reminderEnabled: Boolean(targetTime) && reminderEnabled,
             projectId,
@@ -91,7 +118,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
     const subtitle = `${summary?.label ?? "Repeats"}${targetTime ? "" : ", any time"}`;
 
     const projectName = projects.find((project) => project.id === projectId)?.name;
-    const moreSummary = [projectName, tagIds.length ? `${tagIds.length} tag${tagIds.length > 1 ? "s" : ""}` : null, description.trim() ? "purpose" : null]
+    const moreSummary = [targetTimes ? "times by day" : null, projectName, tagIds.length ? `${tagIds.length} tag${tagIds.length > 1 ? "s" : ""}` : null, description.trim() ? "purpose" : null]
         .filter(Boolean)
         .join(" · ");
 
@@ -115,7 +142,12 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     placeholder="Name this routine…"
                     maxLength={200}
                     aria-label="Routine name"
-                    leading={<EmojiMarkButton emoji={emoji} onChange={setEmoji} />}
+                    leading={(
+                        <span className="flex items-center" style={{ color: routineTone(colorAccent) }}>
+                            <EmojiMarkButton emoji={emoji} onChange={setEmoji} />
+                            <ColourDot value={colorAccent} onChange={setColorAccent} />
+                        </span>
+                    )}
                 />
                 {title.trim() ? null : (
                     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ideas">
@@ -126,6 +158,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                                 onClick={() => {
                                     setTitle(idea.title);
                                     setEmoji(idea.emoji);
+                                    setColorAccent(idea.colorAccent);
                                     setDescription(idea.description);
                                     setRecurrenceRule(idea.recurrenceRule);
                                 }}
@@ -182,49 +215,33 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     />
                 </label>
 
-                {projects.length > 0 ? (
-                    <label className="block">
-                        <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                            <FolderOpen size={12} aria-hidden="true" />
-                            List
-                        </span>
-                        <select
-                            value={projectId ?? ""}
-                            onChange={(event) => setProjectId(event.target.value || null)}
-                            className={`${COMPOSER_FIELD} min-h-11 cursor-pointer`}
-                        >
-                            <option value="">None</option>
-                            {projects.map((project) => (
-                                <option key={project.id} value={project.id}>{project.name}</option>
-                            ))}
-                        </select>
-                    </label>
-                ) : null}
+                <div role="group" aria-label="Times by day">
+                    <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
+                        <CalendarClock size={12} aria-hidden="true" />
+                        Times by day
+                    </span>
+                    <DayTimes value={targetTimes} usualTime={targetTime} onChange={setTargetTimes} />
+                </div>
 
-                {tags.length > 0 ? (
-                    <div role="group" aria-label="Tags">
-                        <span className={`mb-2 flex items-center gap-1.5 ${FIELD_LABEL}`}>
-                            <Tag size={12} aria-hidden="true" />
-                            Tags
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                            {tags.map((tag) => {
-                                const selected = tagIds.includes(tag.id);
-                                return (
-                                    <button
-                                        key={tag.id}
-                                        type="button"
-                                        aria-pressed={selected}
-                                        onClick={() => setTagIds((prev) => (selected ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]))}
-                                        className={`${CHIP_BASE} px-3 ${selected ? CHIP_ACTIVE : CHIP_IDLE}`}
-                                    >
-                                        {tag.name}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                ) : null}
+                <div>
+                    {projects.length > 0 ? (
+                        <FieldRow icon={FolderOpen} label="List">
+                            <ValueSelect
+                                label="List"
+                                value={projectId ?? ""}
+                                onChange={(id) => setProjectId(id || null)}
+                                options={[{ value: "", label: "None" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]}
+                            />
+                        </FieldRow>
+                    ) : null}
+                    <FieldBlock icon={Tag} label="Tags">
+                        <TagField
+                            tagIds={tagIds}
+                            onAdd={(id) => setTagIds((prev) => [...prev, id])}
+                            onRemove={(id) => setTagIds((prev) => prev.filter((tagId) => tagId !== id))}
+                        />
+                    </FieldBlock>
+                </div>
             </ComposerMore>
             </>
         ),

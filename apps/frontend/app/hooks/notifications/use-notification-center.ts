@@ -117,6 +117,7 @@ export function useNotificationCenter() {
     const quietHoursEnabled = settings?.notifications?.quietHoursEnabled ?? false;
     const quietHoursStart = settings?.notifications?.quietHoursStart ?? null;
     const quietHoursEnd = settings?.notifications?.quietHoursEnd ?? null;
+    const bundleMissedHabits = settings?.notifications?.bundleMissedRoutinePrompts !== false;
 
     // Reminders skip Done and Trash, so open and waiting tasks are all it needs.
     const { data: activeTasks } = useTasks({ state: "ACTIVE" });
@@ -209,6 +210,7 @@ export function useNotificationCenter() {
             quietHoursEnabled,
             quietHoursStart,
             quietHoursEnd,
+            bundleMissedHabits,
         });
         // Sort: high priority first, then by trigger time
         filtered.sort((a, b) => {
@@ -217,7 +219,7 @@ export function useNotificationCenter() {
         });
         return filtered;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tasks, habits, taskReminders, habitReminders, dueDateAlerts, quietHoursEnabled, quietHoursStart, quietHoursEnd, version]);
+    }, [tasks, habits, taskReminders, habitReminders, dueDateAlerts, quietHoursEnabled, quietHoursStart, quietHoursEnd, bundleMissedHabits, version]);
 
     // Step 3: Persistence-aware presentation
     const notifications = useMemo(() => {

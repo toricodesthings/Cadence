@@ -90,7 +90,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | projects, tags, sections | `/projects`, `/tags`, `/sections` | CRUD |
 | inbox | `/inbox` | items + sections CRUD; clarifying or kept reads, stable newest first; atomic process/complete + unprocess Undo |
 | subtasks, notes | nested under `/tasks/:taskId/*` + standalone PATCH/DELETE; `GET /subtasks?taskIds=a,b` (≤200) reads many tasks' subtasks, `POST /subtasks/bulk` stays for older desktop builds |
-| habits | `/habits` | CRUD, resolve, weekly/monthly views |
+| habits | `/habits` | CRUD, resolve (streak in the caller's `timezone`; skipped days are neutral, never a break), `/weekly` range view (any start/end: logs per due day from the day before creation, earlier days only when logged; a pause hides today onward, never the past) |
 | settings | `/settings`, `/settings/background` | GET + PATCH (deep-merge via `deepPartial`); background = one photo per user in R2 (`USER_ASSETS`): POST upload (WebP-only, metadata stripped), GET own image, DELETE |
 | events | `/events` | single + batch usage tracking |
 | suggestions | `/suggestions` | list + accept/dismiss |

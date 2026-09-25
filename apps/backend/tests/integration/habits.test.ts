@@ -117,6 +117,16 @@ describe("resolving occurrences", () => {
         expect(logs).toEqual({ n: 0 });
     });
 
+    it("a skipped day is neutral: done, skip, done keeps a run of 2 whichever day is logged last", async () => {
+        const habit = await create();
+        await backdate(habit.id, 3);
+        await resolve(habit.id, day(-3), "COMPLETED");
+        await resolve(habit.id, day(-1), "COMPLETED");
+        await resolve(habit.id, day(-2), "SKIPPED"); // backfill path: full recompute
+        expect((await habits("GET", `/${habit.id}`)).body.data).toMatchObject({ currentStreak: 2, longestStreak: 2 });
+        expect((await resolve(habit.id, day(), "COMPLETED")).body.data.habit).toMatchObject({ currentStreak: 3 }); // today: backward walk
+    });
+
     it("counts a streak across past days, and un-completing one splits it without lowering the record", async () => {
         const habit = await create();
         await backdate(habit.id, 4);

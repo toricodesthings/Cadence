@@ -12,6 +12,7 @@ import { getDateFormatConfig, MONTH_NAMES } from "../../lib/utils/date-format";
 import * as Popover from "../primitives/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
 import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "../layout/PageHeader";
+import { PeriodNav, PeriodTodayButton } from "../layout/PeriodNav";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
 
@@ -37,6 +38,8 @@ export interface ScheduleHeaderProps {
     onViewMode: (mode: CalendarViewMode) => void;
     onNavigate: (delta: number) => void;
     onToday: () => void;
+    /** Today is inside the period on screen (greys out Today). */
+    isCurrentPeriod: boolean;
     /** Opens the event popover for creating a task */
     onAddTask?: () => void;
     /** Opens the schedule dialog on the personal event tab */
@@ -160,6 +163,7 @@ export function ScheduleHeader({
     onViewMode,
     onNavigate,
     onToday,
+    isCurrentPeriod,
     onAddTask,
     onAddEvent,
     overflowContent,
@@ -287,13 +291,7 @@ export function ScheduleHeader({
                         onChange={onViewMode}
                         options={(["day", "week", "month", "year"] as CalendarViewMode[]).map((mode) => ({ value: mode, label: VIEW_LABELS[mode] }))}
                     />
-                    <button
-                        type="button"
-                        onClick={onToday}
-                        className="ml-auto rounded-lg border border-twilight-border/30 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text cursor-pointer"
-                    >
-                        Today
-                    </button>
+                    <PeriodTodayButton compact isCurrent={isCurrentPeriod} onToday={onToday} />
                 </div>
             </header>
         );
@@ -307,32 +305,7 @@ export function ScheduleHeader({
             title={mainHeading}
             meta={<><span>{subtitleLabel}</span><span aria-hidden="true" className="text-twilight-text-muted">·</span><span className="tabular-nums">{clock}</span></>}
             actions={<>
-                {/* Center: navigation */}
-                <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={() => onNavigate(-1)}
-                        className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                        aria-label="Previous"
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onToday}
-                        className="inline-flex min-h-11 items-center rounded-xl border border-twilight-border/30 bg-white/[0.03] px-3.5 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text transition-colors cursor-pointer"
-                    >
-                        Today
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onNavigate(1)}
-                        className="btn-icon rounded-xl text-twilight-text-muted hover:text-twilight-text hover:bg-white/[0.06]"
-                        aria-label="Next"
-                    >
-                        <ChevronRight size={16} />
-                    </button>
-                </div>
+                <PeriodNav unit={VIEW_LABELS[viewMode].toLowerCase()} isCurrent={isCurrentPeriod} onNavigate={onNavigate} onToday={onToday} />
 
                 {/* Right: view switcher */}
                 <Select value={viewMode} onValueChange={(value) => onViewMode(value as CalendarViewMode)}>

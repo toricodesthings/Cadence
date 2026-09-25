@@ -247,7 +247,9 @@ export function ComposerTabs<T extends string>({
                         aria-checked={itemRole === "radio" ? active : undefined}
                         onClick={() => onChange(option.id)}
                         className={cn(
-                            "flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
+                            "flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
+                            // Four or more choices share a phone-width row: tighter, so labels don't truncate.
+                            options.length >= 4 ? "px-1.5 text-[13px]" : "px-2 text-sm",
                             active
                                 ? option.activeClassName ?? "bg-accent-primary/15 text-accent-primary"
                                 : "text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text",

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { useReducedMotion, type PanInfo } from "framer-motion";
-import { useSettings } from "../core/use-settings";
+import { type PanInfo } from "framer-motion";
+import { useReducedMotionSetting } from "./use-reduced-motion";
 
 /** Distance (px) past which releasing commits to the neighbouring period. */
 const COMMIT_DISTANCE = 64;
@@ -26,10 +26,7 @@ export interface UsePeriodSwipeOptions {
  * release thresholds still navigate.
  */
 export function usePeriodSwipe({ enabled, onCommit }: UsePeriodSwipeOptions) {
-    const prefersReducedMotion = useReducedMotion();
-    const { data: settings } = useSettings();
-    const motionPreference = settings?.appearance?.motion;
-    const reducedMotion = motionPreference === "reduced" || (motionPreference !== "full" && prefersReducedMotion);
+    const reducedMotion = useReducedMotionSetting();
 
     const handleDragEnd = useCallback((_: unknown, info: PanInfo) => {
         const { x, y } = info.offset;

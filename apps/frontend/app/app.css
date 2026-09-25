@@ -2119,6 +2119,23 @@ a:active {
   }
 }
 
+/* ── Routine bloom — one soft ring when a day is checked off (tone via --routine-tone).
+   data-motion="reduced" collapses it like every animation; low stimulation never adds it. ── */
+@keyframes routine-bloom {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--routine-tone) 45%, transparent); transform: scale(0.94); }
+  100% { box-shadow: 0 0 0 10px transparent; transform: scale(1); }
+}
+
+@utility routine-bloom {
+  animation: routine-bloom 520ms var(--ease-out-expo) 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .routine-bloom {
+    animation: none;
+  }
+}
+
 /* ── Sync spin — rotation for sync icon ── */
 @keyframes sync-spin {
   from { transform: rotate(0deg); }

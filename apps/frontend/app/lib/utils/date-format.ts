@@ -192,14 +192,17 @@ export function relativeTime(iso: string, { suffix = "" }: { suffix?: string } =
 
 // ─── Week Helpers ────────────────────────────────────────────────────────────
 
+/** Settings' `dateTime.weekStart` as a weekday index (0 = Sunday). */
+export const WEEK_START_INDEX = { Sunday: 0, Monday: 1, Saturday: 6 } as const;
+
 /** Return the start of the week containing the given date, respecting settings */
-export function getWeekStart(date: Date): Date {
-    return startOfWeek(date, { weekStartsOn: _config.weekStartsOn });
+export function getWeekStart(date: Date, weekStartsOn: 0 | 1 | 6 = _config.weekStartsOn): Date {
+    return startOfWeek(date, { weekStartsOn });
 }
 
 /** Return an array of 7 Date objects for the week containing the given date */
-export function getWeekDates(date: Date): Date[] {
-    const start = getWeekStart(date);
+export function getWeekDates(date: Date, weekStartsOn?: 0 | 1 | 6): Date[] {
+    const start = getWeekStart(date, weekStartsOn);
     return eachDayOfInterval({ start, end: addDays(start, 6) });
 }
 
@@ -212,18 +215,18 @@ export const MONTH_NAMES = [
 
 const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-/** Weekday labels cut to `length` chars ("Mon", "Mo", "M"), starting on `weekStartsOn` (0 = Sunday, 1 = Monday). */
-export function weekdayLabels(length: number, weekStartsOn: 0 | 1 = 1): string[] {
-    const names = weekStartsOn === 0 ? [WEEKDAY_NAMES[6], ...WEEKDAY_NAMES.slice(0, 6)] : WEEKDAY_NAMES;
-    return names.map((d) => d.slice(0, length));
+/** Weekday labels cut to `length` chars ("Mon", "Mo", "M"), starting on `weekStartsOn` (0 = Sunday, 1 = Monday, 6 = Saturday). */
+export function weekdayLabels(length: number, weekStartsOn: 0 | 1 | 6 = 1): string[] {
+    const shift = (weekStartsOn + 6) % 7; // WEEKDAY_NAMES starts on Monday
+    return [...WEEKDAY_NAMES.slice(shift), ...WEEKDAY_NAMES.slice(0, shift)].map((d) => d.slice(0, length));
 }
 
 export function getDaysInMonth(year: number, month: number): number {
     return new Date(year, month + 1, 0).getDate();
 }
 
-/** Blank cells before day 1 in a month grid whose weeks start on `weekStartsOn` (0 = Sunday, 1 = Monday). */
-export function getFirstDayOfWeek(year: number, month: number, weekStartsOn: 0 | 1 = 1): number {
+/** Blank cells before day 1 in a month grid whose weeks start on `weekStartsOn` (0 = Sunday, 1 = Monday, 6 = Saturday). */
+export function getFirstDayOfWeek(year: number, month: number, weekStartsOn: 0 | 1 | 6 = 1): number {
     return (new Date(year, month, 1).getDay() - weekStartsOn + 7) % 7;
 }
 

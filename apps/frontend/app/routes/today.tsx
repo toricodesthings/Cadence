@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { ChevronDown, EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Repeat } from "lucide-react";
+import { EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Repeat } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
-import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
+import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { BucketedCollectionView } from "../components/shared/BucketedCollectionView";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
@@ -35,46 +35,19 @@ import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
-import { formatTime, toISODate } from "../lib/utils/date-format";
-import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
+import { toISODate } from "../lib/utils/date-format";
+import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import { rankTasks } from "@cadence/nlp/ranking";
 import type { RankableTask } from "@cadence/nlp/ranking";
-import { routineTimeOn } from "@cadence/domain/repeats";
 const LazyFocusViewBar = lazy(() => import("../components/focus-views/FocusViewBar").then(m => ({ default: m.FocusViewBar })));
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import type { Task } from "@cadence/contracts/task";
 
 const ROUTINES_STORAGE_KEY = "cadence-today-hide-routines";
-
-interface TodayRoutine {
-    id: string;
-    habitId: string;
-    title: string;
-    emoji: string | null;
-    /** "HH:mm" for today, when the routine has one. */
-    time: string | null;
-    done: boolean;
-}
-
-function TodayRoutineRow({ item, onOpen }: { item: TodayRoutine; onOpen: () => void }) {
-    const resolveHabit = useResolveHabit(item.habitId);
-    const todayISO = toISODate(new Date());
-
-    return (
-        <RoutineAgendaRow
-            title={item.title}
-            emoji={item.emoji}
-            done={item.done}
-            timeLabel={item.time ? formatTime(`${todayISO}T${item.time}:00`) : null}
-            onOpen={onOpen}
-            onComplete={() => resolveHabit.mutateAsync({ targetDate: todayISO, status: item.done ? "PENDING" : "COMPLETED" })}
-        />
-    );
-}
 
 function readHideRoutines() {
     try {
@@ -92,7 +65,6 @@ export default function TodayRoute() {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
-    const [showDoneRoutines, setShowDoneRoutines] = useState(false);
 
     useTaskDetailsRequest((taskId) => {
         setSelectedTaskId(taskId);
@@ -101,6 +73,7 @@ export default function TodayRoute() {
     });
 
     const [hideRoutines, setHideRoutines] = useState(false);
+    const resolveHabit = useResolveHabit();
     const todayISO = toISODate(new Date());
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
@@ -152,7 +125,6 @@ export default function TodayRoute() {
         const stillOpen: Task[] = [];
         const today: Task[] = [];
         const fixed: Task[] = [];
-        const routines: TodayRoutine[] = [];
 
         for (const task of filteredTasks) {
             const anchor = getTaskTimelineAnchor(task);
@@ -165,20 +137,7 @@ export default function TodayRoute() {
             if (anchor === todayISO) today.push(task);
         }
 
-        for (const habit of activeTagId ? [] : habits) {
-            const log = habit.logs?.find((entry) => toTaskDateOnly(entry.targetDate) === todayISO);
-            if (!log || log.status === "SKIPPED") continue;
-            routines.push({
-                id: `habit-${habit.id}-${todayISO}`,
-                habitId: habit.id,
-                title: habit.title,
-                emoji: habit.emoji ?? null,
-                time: routineTimeOn(habit, todayISO),
-                done: log.status === "COMPLETED",
-            });
-        }
-
-        routines.sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.title.localeCompare(b.title));
+        const routines = routineAgendaItems(activeTagId ? [] : habits, todayISO);
 
         const useRanking = intelligenceEnabled && smartSortEnabled && sortMode === "smart";
         const rationaleByTaskId: Record<string, string | null> = {};
@@ -230,7 +189,7 @@ export default function TodayRoute() {
         for (const routine of [...grouped.routinesOpen, ...grouped.routinesDone]) {
             if (!routine.time) continue;
             items.push({
-                id: routine.id,
+                id: routine.habitId,
                 kind: "routine",
                 title: routine.title,
                 emoji: routine.emoji,
@@ -271,7 +230,7 @@ export default function TodayRoute() {
             handleSelectTask(item.id);
             return;
         }
-        const routine = [...grouped.routinesOpen, ...grouped.routinesDone].find((entry) => entry.id === item.id);
+        const routine = [...grouped.routinesOpen, ...grouped.routinesDone].find((entry) => entry.habitId === item.id);
         if (routine) openRoutine(routine.habitId);
     };
 
@@ -377,42 +336,13 @@ export default function TodayRoute() {
             );
         }
 
-        const doneCount = grouped.routinesDone.length;
-
         return (
-            <div className="flex flex-col">
-                {grouped.routinesOpen.length === 0 ? (
-                    <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
-                        All done for today.
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-0.5">
-                        {grouped.routinesOpen.map((item) => (
-                            <TodayRoutineRow key={item.id} item={item} onOpen={() => openRoutine(item.habitId)} />
-                        ))}
-                    </div>
-                )}
-                {doneCount > 0 ? (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => setShowDoneRoutines((value) => !value)}
-                            aria-expanded={showDoneRoutines}
-                            className="mx-2 mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 self-start rounded-2xl px-3 text-[13px] font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.04] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                        >
-                            <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showDoneRoutines ? "rotate-180" : ""}`} />
-                            {doneCount} done
-                        </button>
-                        {showDoneRoutines ? (
-                            <div className="flex flex-col gap-0.5">
-                                {grouped.routinesDone.map((item) => (
-                                    <TodayRoutineRow key={item.id} item={item} onOpen={() => openRoutine(item.habitId)} />
-                                ))}
-                            </div>
-                        ) : null}
-                    </>
-                ) : null}
-            </div>
+            <RoutineAgendaList
+                items={[...grouped.routinesOpen, ...grouped.routinesDone]}
+                day={todayISO}
+                onOpen={openRoutine}
+                onComplete={(item) => resolveHabit.mutateAsync({ habitId: item.habitId, targetDate: todayISO, status: item.done ? "PENDING" : "COMPLETED" })}
+            />
         );
     };
 

@@ -11,35 +11,46 @@ function occurrences(recurrenceRule: string, createdAt: string, asOf: string): s
         .map((d) => d.toISOString().substring(0, 10));
 }
 
-/** Build a `loadCompleted` lookup backed by an in-memory set of completed dates. */
-function lookup(completed: Iterable<string>) {
-    const set = new Set(completed);
-    return async (dates: string[]) => new Set(dates.filter((d) => set.has(d)));
+/** Completed days (and optionally skipped ones) as the date → status map the scan reads. */
+function done(completed: Iterable<string>, skipped: Iterable<string> = []) {
+    return new Map<string, "COMPLETED" | "SKIPPED">([...[...skipped].map((d) => [d, "SKIPPED"] as const), ...[...completed].map((d) => [d, "COMPLETED"] as const)]);
+}
+
+/** Build a `loadResolved` lookup backed by in-memory completed (and skipped) dates. */
+function lookup(completed: Iterable<string>, skipped: Iterable<string> = []) {
+    const map = done(completed, skipped);
+    return async (dates: string[]) => new Map(dates.filter((d) => map.has(d)).map((d) => [d, map.get(d)!]));
 }
 
 describe("scanStreak (pure reducer)", () => {
     const init = { streak: 0, runStarted: false, leadingGap: 0 };
 
     it("counts a fully completed window", () => {
-        const r = scanStreak(["d3", "d2", "d1"], new Set(["d3", "d2", "d1"]), init);
+        const r = scanStreak(["d3", "d2", "d1"], done(["d3", "d2", "d1"]), init);
         expect(r.streak).toBe(3);
         expect(r.terminated).toBe(false);
     });
 
     it("grants grace to trailing unresolved occurrences before the run starts", () => {
         // d3 (newest) not yet resolved; the run d2..d1 is preserved.
-        const r = scanStreak(["d3", "d2", "d1"], new Set(["d2", "d1"]), init);
+        const r = scanStreak(["d3", "d2", "d1"], done(["d2", "d1"]), init);
         expect(r.streak).toBe(2);
     });
 
     it("terminates at the first gap after the run has started", () => {
-        const r = scanStreak(["d3", "d2", "d1"], new Set(["d3", "d1"]), init);
+        const r = scanStreak(["d3", "d2", "d1"], done(["d3", "d1"]), init);
         expect(r.streak).toBe(1);
         expect(r.terminated).toBe(true);
     });
 
+    it("treats a skipped day as neutral: done, skip, done is a run of 2", () => {
+        const r = scanStreak(["d3", "d2", "d1", "d0"], done(["d3", "d1"], ["d2"]), init);
+        expect(r.streak).toBe(2);
+        expect(r.terminated).toBe(true);
+    });
+
     it("returns 0 once the leading-gap limit is reached with no completion", () => {
-        const r = scanStreak(["a", "b"], new Set<string>(), init, 2);
+        const r = scanStreak(["a", "b"], done([]), init, 2);
         expect(r.streak).toBe(0);
         expect(r.terminated).toBe(true);
     });

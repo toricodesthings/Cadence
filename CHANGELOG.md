@@ -6,7 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Routines get a proper home: check off any day, see your week at a glance, and shape them your way.
+
+### Added
+- Check off any past day of a routine, from the week, the month, or its history.
+- Give each routine its own colour.
+- Routines can repeat every few days or every other week.
+- Pause a routine for 3 days, a week, two weeks, or until a date you pick.
+
 ### Changed
+- The Routines page opens on today, with one-tap check-ins and a calmer week and month.
+- On phones, tap a routine day to check it off; press and hold to skip or clear.
+- The Routines page no longer shows a "routines open today" pop-up; today's routines sit at the top instead.
 - Pages load and changes save faster, especially for people far from the US East Coast.
 - Tasks on Today, Upcoming and Lists sit a little further apart, so each one reads on its own.
 - Effort always shows as a battery and priority as rising signal bars, wherever they appear.
@@ -15,6 +26,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Events on Today and Upcoming sit at the top of their day, in list and board, and open on the Events page.
 
 ### Fixed
+- The installed iPhone app fills the whole screen again, with no empty strip at the bottom or blur at the top.
+- Pausing a routine no longer hides the days you already checked this week.
+- Routine reminders no longer fire after you've checked in, or on days the routine isn't due.
+- Checking off an earlier day no longer resets your streak.
+- Skipping a routine day no longer breaks its streak; a skip is a rest, not a miss.
+- Routine streaks count your day in your own time zone, not UTC.
+- The Routines week no longer jumps to a different start day after loading.
 - Today, Upcoming, Lists and tags show every task instead of stopping at 50; Completed and Trash have Show older.
 - A task's tags no longer disappear for a moment after you edit or complete it.
 - Deleting a large selection of tasks no longer brings some of them back.

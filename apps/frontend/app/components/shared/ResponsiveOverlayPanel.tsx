@@ -1,9 +1,9 @@
-import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion, useDragControls, type PanInfo } from "framer-motion";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { useSettings } from "../../hooks/core/use-settings";
+import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 
 interface ResponsiveOverlayPanelProps {
     ariaLabel: string;
@@ -55,10 +55,7 @@ export function ResponsiveOverlayPanel({
     const isFocus = mode === "focus";
     const isPeekMobile = isMobile && !isFocus;
     const dragControls = useDragControls();
-    const prefersReducedMotion = useReducedMotion();
-    const { data: settings } = useSettings();
-    const motionPreference = settings?.appearance?.motion;
-    const reducedMotion = motionPreference === "reduced" || (motionPreference !== "full" && prefersReducedMotion);
+    const reducedMotion = useReducedMotionSetting();
     const labelId = useId();
     const panelRef = useRef<HTMLElement | null>(null);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
