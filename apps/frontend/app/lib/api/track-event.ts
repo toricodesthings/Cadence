@@ -1,6 +1,5 @@
 import { TRACK_BATCH_MAX, type UsageEvent } from "@cadence/contracts/events";
-import { authenticatedFetch } from "./client";
-import { API_BASE_URL } from "../env";
+import { apiClient } from "./client";
 
 /** Structured telemetry metadata per §11.8 taxonomy */
 export interface UsageEventMetadata {
@@ -46,12 +45,7 @@ async function flushEvents() {
     const batch = pendingEvents.splice(0, TRACK_BATCH_MAX);
 
     try {
-        await authenticatedFetch(`${API_BASE_URL}/api/v1/events/batch`, {
-            method: "POST",
-            authenticated: true,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ events: batch }),
-        });
+        await apiClient.api.events.batch.$post({ json: { events: batch } });
     } catch {
         // Best-effort telemetry — silently discard on failure
     }

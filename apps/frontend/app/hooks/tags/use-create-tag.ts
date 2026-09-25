@@ -5,6 +5,8 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { Tag, CreateTagInput } from "@cadence/contracts/tag";
 import { toast } from "sonner";
 import { reconcileTagInCaches } from "../../lib/api/cache-sync";
+import { createTempId } from "../../lib/api/optimistic-id";
+import { tagCache } from "./optimistic-helpers";
 
 /** Create a tag with optimistic insertion */
 export function useCreateTag() {
@@ -18,11 +20,11 @@ export function useCreateTag() {
         },
 
         onMutate: async (input) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.tags.all });
-            const snapshot = queryClient.getQueryData<Tag[]>(queryKeys.tags.all);
+            await tagCache.cancel(queryClient);
+            const snapshot = tagCache.snapshot(queryClient);
 
             const optimisticTag: Tag = {
-                id: `temp-${Date.now()}`,
+                id: createTempId(),
                 userId: "",
                 name: input.name,
                 color: input.color ?? "default",
@@ -41,13 +43,10 @@ export function useCreateTag() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) {
-                queryClient.setQueryData(queryKeys.tags.all, context.snapshot);
-            }
+            if (context) tagCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to create tag");
         },
 
-        onSettled: () =>
-            queryClient.invalidateQueries({ queryKey: queryKeys.tags.all }),
+        onSettled: () => tagCache.invalidate(queryClient),
     });
 }

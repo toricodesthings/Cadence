@@ -18,8 +18,7 @@
  */
 import type { UIMessage } from "ai";
 import type { StopStreamRequest } from "@cadence/contracts/ai";
-import { API_BASE_URL } from "../env";
-import { authenticatedFetch } from "../api/client";
+import { apiClient } from "../api/client";
 
 /**
  * Send the server-side hard-abort request for a conversation's live turn.
@@ -44,10 +43,5 @@ export async function stopServerStream(
                 : undefined,
     };
 
-    await authenticatedFetch(`${API_BASE_URL}/api/v1/ai/chat/${conversationId}/stop`, {
-        method: "POST",
-        authenticated: true,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
+    await apiClient.api.ai.chat[":id"].stop.$post({ param: { id: conversationId }, json: body });
 }

@@ -12,10 +12,9 @@ import { trackEventSchema, trackBatchSchema } from "@cadence/contracts/events";
 export const eventRoutes = new Hono<{
     Bindings: Env;
     Variables: AuthVariables;
-}>();
-
-// POST /api/events — record a single event
-eventRoutes.post(
+}>()
+    // POST /api/events — record a single event
+    .post(
     "/",
     apiValidator("json", trackEventSchema),
     async (c) => {
@@ -37,10 +36,9 @@ eventRoutes.post(
 
         return c.json({ data: { tracked: true } }, 201);
     },
-);
-
-// POST /api/events/batch — record multiple events
-eventRoutes.post(
+    )
+    // POST /api/events/batch — record multiple events
+    .post(
     "/batch",
     apiValidator("json", trackBatchSchema),
     async (c) => {
@@ -67,7 +65,7 @@ eventRoutes.post(
 
         return c.json({ data: { tracked: true } }, 201);
     },
-);
+    );
 
 async function isTrackingAllowed(db: DbClient, userId: string): Promise<boolean> {
     const [user] = await withRls(db, userId, async (tx) =>

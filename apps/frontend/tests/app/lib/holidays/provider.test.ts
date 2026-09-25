@@ -4,19 +4,24 @@ import {
     fetchHolidaySubdivisions,
 } from "../../../../app/lib/holidays/provider";
 
-const authenticatedFetchMock = vi.fn();
+const fetchMock = vi.fn();
 
-vi.mock("../../../../app/lib/api/client", () => ({
-    authenticatedFetch: (...args: Parameters<typeof authenticatedFetchMock>) => authenticatedFetchMock(...args),
-}));
+// The real RPC client, over a fake fetch: the test sees the URL it builds.
+vi.mock("../../../../app/lib/api/client", async () => {
+    const { hc } = await import("hono/client");
+    const { api } = hc<import("@cadence/backend").AppType>("http://api.test", {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) => fetchMock(String(input), init),
+    });
+    return { apiClient: { api: api.v1 } };
+});
 
 describe("holiday provider", () => {
     beforeEach(() => {
-        authenticatedFetchMock.mockReset();
+        fetchMock.mockReset();
     });
 
     it("requests holidays through the authenticated proxy and returns the normalized payload", async () => {
-        authenticatedFetchMock.mockResolvedValueOnce(Response.json({
+        fetchMock.mockResolvedValueOnce(Response.json({
             data: [
                 {
                     date: "2026-01-01",
@@ -36,9 +41,9 @@ describe("holiday provider", () => {
             locale: "en-US",
         });
 
-        expect(authenticatedFetchMock).toHaveBeenCalledWith(
+        expect(fetchMock).toHaveBeenCalledWith(
             expect.stringContaining("/api/v1/proxy/holidays?"),
-            expect.objectContaining({ authenticated: true }),
+            expect.anything(),
         );
         expect(holidays).toEqual([
             expect.objectContaining({
@@ -51,7 +56,7 @@ describe("holiday provider", () => {
     });
 
     it("passes subdivision selection through to the authenticated holiday proxy", async () => {
-        authenticatedFetchMock.mockResolvedValueOnce(Response.json({
+        fetchMock.mockResolvedValueOnce(Response.json({
             data: [
                 {
                     date: "2026-01-01",
@@ -78,9 +83,9 @@ describe("holiday provider", () => {
             locale: "en-US",
         });
 
-        expect(authenticatedFetchMock).toHaveBeenCalledWith(
+        expect(fetchMock).toHaveBeenCalledWith(
             expect.stringContaining("subdivisionCode=US-CA"),
-            expect.objectContaining({ authenticated: true }),
+            expect.anything(),
         );
         expect(holidays).toEqual([
             expect.objectContaining({ date: "2026-01-01", countryCode: "US" }),
@@ -89,7 +94,7 @@ describe("holiday provider", () => {
     });
 
     it("falls back to static subdivisions when the proxy lookup fails", async () => {
-        authenticatedFetchMock.mockRejectedValueOnce(new Error("missing"));
+        fetchMock.mockRejectedValueOnce(new Error("missing"));
 
         const subdivisions = await fetchHolidaySubdivisions("US", 2026, "en-US");
 

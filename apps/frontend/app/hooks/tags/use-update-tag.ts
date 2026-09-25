@@ -4,6 +4,7 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { Tag, UpdateTag } from "@cadence/contracts/tag";
 import { toast } from "sonner";
+import { tagCache } from "./optimistic-helpers";
 
 /** Rename or recolour a tag, optimistically in place */
 export function useUpdateTag() {
@@ -17,8 +18,8 @@ export function useUpdateTag() {
         },
 
         onMutate: async ({ id, ...patch }) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.tags.all });
-            const snapshot = queryClient.getQueryData<Tag[]>(queryKeys.tags.all);
+            await tagCache.cancel(queryClient);
+            const snapshot = tagCache.snapshot(queryClient);
             queryClient.setQueryData<Tag[]>(queryKeys.tags.all, (old) =>
                 old?.map((tag) => (tag.id === id ? { ...tag, ...patch } : tag)),
             );
@@ -26,10 +27,10 @@ export function useUpdateTag() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) queryClient.setQueryData(queryKeys.tags.all, context.snapshot);
+            if (context) tagCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to update tag");
         },
 
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.tags.all }),
+        onSettled: () => tagCache.invalidate(queryClient),
     });
 }

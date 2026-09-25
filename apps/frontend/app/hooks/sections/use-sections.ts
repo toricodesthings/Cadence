@@ -6,6 +6,7 @@ import type { Task } from "@cadence/contracts/task";
 import { queryKeys } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { createTempId } from "../../lib/api/optimistic-id";
 
 function sectionsKey(projectId?: string | null) {
     return ["sections", projectId ?? "__none__"] as const;
@@ -43,7 +44,7 @@ export function useCreateSection(projectId?: string | null) {
             const previous = queryClient.getQueryData<TaskSection[]>(key);
 
             const optimistic: TaskSection = {
-                id: `temp-${Date.now()}`,
+                id: createTempId(),
                 userId: "",
                 projectId: projectId ?? null,
                 name: newSection.name,

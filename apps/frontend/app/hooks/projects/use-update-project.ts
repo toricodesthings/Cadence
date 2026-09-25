@@ -6,6 +6,7 @@ import type { Project } from "@cadence/contracts/project";
 import { toast } from "sonner";
 import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { projectCache } from "./optimistic-helpers";
 
 export function useUpdateProject() {
     const client = useApiClient();
@@ -24,8 +25,8 @@ export function useUpdateProject() {
         },
 
         onMutate: async ({ id, ...updates }) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.projects.all });
-            const snapshot = queryClient.getQueriesData<Project[]>({ queryKey: queryKeys.projects.all });
+            await projectCache.cancel(queryClient);
+            const snapshot = projectCache.snapshot(queryClient);
 
             queryClient.setQueriesData<Project[]>(
                 { queryKey: queryKeys.projects.all },
@@ -40,14 +41,10 @@ export function useUpdateProject() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) {
-                for (const [key, data] of context.snapshot) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
+            if (context) projectCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to update list");
         },
 
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+        onSettled: () => projectCache.invalidate(queryClient),
     });
 }

@@ -1,8 +1,4 @@
-import { hc } from "hono/client";
-import type { AppType } from "@cadence/backend";
-import type { ApiClient } from "./client";
-import { authenticatedFetch } from "./client";
-import { API_BASE_URL } from "../env";
+import { apiClient, type ApiClient } from "./client";
 import { unwrapResponse } from "./helpers";
 import type { MutationOp, WalEntry } from "./offline-wal";
 import type { ResolveHabitAction } from "@cadence/contracts/habit";
@@ -16,17 +12,6 @@ import {
 import { hardRefreshWorkspaceCaches } from "./workspace-cache";
 import { chunk } from "../utils";
 import type { QueryClient } from "@tanstack/react-query";
-
-function createReplayClient(): ApiClient {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const root = hc<AppType>(API_BASE_URL, {
-        fetch: (input: RequestInfo | URL, requestInit?: RequestInit) =>
-            authenticatedFetch(input, { ...requestInit, authenticated: true }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
-    // Backend routes mount under /api/v1/ — expose the v1 subtree as `.api`
-    return { api: root.api.v1 } as ApiClient;
-}
 
 /**
  * Execute a single mutation operation against the API.
@@ -190,7 +175,7 @@ export async function replayWal(queryClient: QueryClient): Promise<void> {
 
     try {
         await initWal();
-        const client = createReplayClient();
+        const client = apiClient;
         const entries = getWalSnapshot().filter(
             (e): e is WalEntry & { status: "pending" } => e.status === "pending",
         );

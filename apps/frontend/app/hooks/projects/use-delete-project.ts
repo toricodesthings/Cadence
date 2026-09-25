@@ -6,6 +6,7 @@ import type { Project } from "@cadence/contracts/project";
 import { toast } from "sonner";
 import { removeProjectFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { projectCache } from "./optimistic-helpers";
 
 export function useDeleteProject() {
     const client = useApiClient();
@@ -18,8 +19,8 @@ export function useDeleteProject() {
         },
 
         onMutate: async (id) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.projects.all });
-            const snapshot = queryClient.getQueriesData<Project[]>({ queryKey: queryKeys.projects.all });
+            await projectCache.cancel(queryClient);
+            const snapshot = projectCache.snapshot(queryClient);
 
             queryClient.setQueriesData<Project[]>(
                 { queryKey: queryKeys.projects.all },
@@ -34,14 +35,10 @@ export function useDeleteProject() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) {
-                for (const [key, data] of context.snapshot) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
+            if (context) projectCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to delete list");
         },
 
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+        onSettled: () => projectCache.invalidate(queryClient),
     });
 }

@@ -5,7 +5,9 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { Project, CreateProjectInput } from "@cadence/contracts/project";
 import { toast } from "sonner";
 import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
+import { createTempId } from "../../lib/api/optimistic-id";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { projectCache } from "./optimistic-helpers";
 
 export function useCreateProject() {
     const client = useApiClient();
@@ -18,11 +20,11 @@ export function useCreateProject() {
         },
 
         onMutate: async (input) => {
-            await queryClient.cancelQueries({ queryKey: queryKeys.projects.all });
-            const snapshot = queryClient.getQueriesData<Project[]>({ queryKey: queryKeys.projects.all });
+            await projectCache.cancel(queryClient);
+            const snapshot = projectCache.snapshot(queryClient);
 
             const optimisticProject: Project = {
-                id: `temp-${Date.now()}`,
+                id: createTempId(),
                 userId: "",
                 name: input.name,
                 colorAccent: input.colorAccent || "luminous-amber",
@@ -43,14 +45,10 @@ export function useCreateProject() {
         },
 
         onError: (err, _input, context) => {
-            if (context?.snapshot) {
-                for (const [key, data] of context.snapshot) {
-                    queryClient.setQueryData(key, data);
-                }
-            }
+            if (context) projectCache.rollback(queryClient, context.snapshot);
             toast.error(err.message || "Failed to create list");
         },
 
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
+        onSettled: () => projectCache.invalidate(queryClient),
     });
 }

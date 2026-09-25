@@ -1,7 +1,7 @@
 import type { HolidayCountryOption, HolidayRecord, HolidaySubdivisionOption } from "@cadence/contracts/proxy";
 import { normalizeCountryCode } from "./location-resolver";
-import { authenticatedFetch } from "../api/client";
-import { API_BASE_URL } from "../env";
+import { apiClient } from "../api/client";
+import { unwrapResponse } from "../api/helpers";
 
 const SUBDIVISION_LABELS: Record<string, string> = {
     "CA-AB": "Alberta",
@@ -92,21 +92,10 @@ function sortOptions<T extends { label: string }>(options: T[]) {
     return [...options].sort((left, right) => left.label.localeCompare(right.label));
 }
 
-async function proxyFetch<T>(path: string): Promise<T> {
-    const response = await authenticatedFetch(`${API_BASE_URL}/api/v1/proxy${path}`, {
-        authenticated: true,
-    });
-
-    if (!response.ok) {
-        throw new Error(`Proxy request failed with status ${response.status}`);
-    }
-
-    const body = (await response.json()) as { data: T };
-    return body.data;
-}
+const holidaysApi = apiClient.api.proxy.holidays;
 
 export async function fetchHolidayCountries(locale: string) {
-    return proxyFetch<HolidayCountryOption[]>(`/holidays/countries?locale=${encodeURIComponent(locale)}`);
+    return unwrapResponse<HolidayCountryOption[]>(await holidaysApi.countries.$get({ query: { locale } }));
 }
 
 export async function fetchHolidaySubdivisions(
@@ -119,8 +108,8 @@ export async function fetchHolidaySubdivisions(
     const staticSubdivisions = getStaticSubdivisions(normalizedCountryCode);
 
     try {
-        const subdivisions = await proxyFetch<HolidaySubdivisionOption[]>(
-            `/holidays/subdivisions?countryCode=${encodeURIComponent(normalizedCountryCode)}&year=${year}&locale=${encodeURIComponent(locale)}`,
+        const subdivisions = await unwrapResponse<HolidaySubdivisionOption[]>(
+            await holidaysApi.subdivisions.$get({ query: { countryCode: normalizedCountryCode, year: String(year), locale } }),
         );
         return mergeSubdivisionOptions(staticSubdivisions, subdivisions);
     } catch {
@@ -144,15 +133,6 @@ export async function fetchHolidays({
     const normalizedCountryCode = normalizeCountryCode(countryCode);
     if (!normalizedCountryCode) return [];
 
-    const params = new URLSearchParams({
-        countryCode: normalizedCountryCode,
-        start,
-        end,
-        locale,
-    });
-    if (subdivisionCode?.trim()) {
-        params.set("subdivisionCode", subdivisionCode.trim());
-    }
-
-    return proxyFetch<HolidayRecord[]>(`/holidays?${params.toString()}`);
+    const query = { countryCode: normalizedCountryCode, start, end, locale, subdivisionCode: subdivisionCode?.trim() || undefined };
+    return unwrapResponse<HolidayRecord[]>(await holidaysApi.$get({ query }));
 }

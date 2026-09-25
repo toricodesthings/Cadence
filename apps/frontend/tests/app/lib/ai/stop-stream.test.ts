@@ -1,14 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { UIMessage } from "ai";
 
-// Mock the auth fetch wrapper so we can inspect the exact request the stop
-// helper issues (endpoint / method / body) without hitting the network.
-const authenticatedFetch = vi.fn(async () => new Response(null, { status: 200 }));
-vi.mock("../../../../app/lib/api/client", () => ({
-    authenticatedFetch: (...args: unknown[]) => authenticatedFetch(...(args as [])),
-}));
-// Pin a deterministic API base (env.ts reads import.meta.env / throws in prod builds).
-vi.mock("../../../../app/lib/env", () => ({ API_BASE_URL: "http://api.test" }));
+// The real RPC client over a fake fetch, so we can inspect the exact request the
+// stop helper issues (endpoint / method / body) without hitting the network.
+const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(null, { status: 200 }));
+vi.mock("../../../../app/lib/api/client", async () => {
+    const { hc } = await import("hono/client");
+    const { api } = hc<import("@cadence/backend").AppType>("http://api.test", {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) => fetchMock(String(input), init),
+    });
+    return { apiClient: { api: api.v1 } };
+});
 
 import { stopServerStream } from "../../../../app/lib/ai/stop-stream";
 
@@ -16,12 +18,12 @@ const CONVO = "conv-123";
 const SID = "stream-abc";
 
 function lastArgs() {
-    const [url, init] = authenticatedFetch.mock.calls.at(-1) as unknown as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
     return { url, init, body: JSON.parse(String(init.body)) };
 }
 
 describe("stopServerStream", () => {
-    beforeEach(() => authenticatedFetch.mockClear());
+    beforeEach(() => fetchMock.mockClear());
 
     it("POSTs to the conversation-scoped stop endpoint with the contract body", async () => {
         const assistant: UIMessage = {
@@ -39,8 +41,6 @@ describe("stopServerStream", () => {
         // matches stopStreamSchema: { activeStreamId?, assistantMessage? }
         expect(body.activeStreamId).toBe(SID);
         expect(body.assistantMessage).toEqual(assistant);
-        // Authenticated request (carries the JWT via the wrapper).
-        expect((init as { authenticated?: boolean }).authenticated).toBe(true);
     });
 
     it("omits assistantMessage when the last message is not the assistant turn", async () => {

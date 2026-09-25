@@ -124,17 +124,15 @@ export async function authenticatedFetch(
 }
 
 /**
- * Create a typed Hono RPC client with optional auth token injection.
- * `AppType` flows end-to-end: routes return `@cadence/contracts` shapes, so
- * `ApiClient` is fully inferred (no `as any` collapse).
+ * The one typed Hono RPC client. `authenticatedFetch` reads the current JWT on
+ * every call, so it never needs rebuilding when the session changes. Backend
+ * routes mount under /api/v1/; `.api` is that subtree (`apiClient.api.tasks`).
  */
-function createApiClient(token?: string) {
-    const root = hc<AppType>(API_BASE_URL, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        fetch: platformFetch,
-    });
-    // Backend routes mount under /api/v1/ — expose the v1 subtree as `.api`
-    return { api: root.api.v1 };
-}
+export const apiClient = {
+    api: hc<AppType>(API_BASE_URL, {
+        fetch: (input: RequestInfo | URL, requestInit?: RequestInit) =>
+            authenticatedFetch(input, { ...requestInit, authenticated: true }),
+    }).api.v1,
+};
 
-export type ApiClient = ReturnType<typeof createApiClient>;
+export type ApiClient = typeof apiClient;

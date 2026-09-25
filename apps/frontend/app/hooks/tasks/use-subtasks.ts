@@ -4,6 +4,7 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import type { Subtask } from "@cadence/contracts/subtask";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
+import { createTempId } from "../../lib/api/optimistic-id";
 import { toast } from "sonner";
 import { ApiErrorResponse } from "../../types/api";
 import { showRateLimitToast } from "../../lib/utils/rate-limit-toast";
@@ -137,7 +138,7 @@ export function useCreateSubtask(taskId: string) {
             const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
 
             const optimistic: CachedSubtask = {
-                id: `temp-${Date.now()}`,
+                id: createTempId(),
                 taskId,
                 title: newSubtask.title,
                 isComplete: false,
