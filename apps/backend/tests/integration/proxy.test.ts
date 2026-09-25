@@ -1,30 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
-import { createRequestContext } from "../../src/platform/request-log";
-import type { AuthVariables } from "../../src/platform/auth";
-import { formatErrorResponse } from "../../src/platform/errors";
+import { createTestApp } from "../helpers/app";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
 import { proxyRoutes } from "../../src/domains/proxy/proxy.route";
 
-const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
-
-function createProxyApp() {
-    const app = new Hono<{ Variables: AuthVariables }>();
-    app.onError((err, c) => {
-        const res = formatErrorResponse(err);
-        return c.json(res.body, res.status as 500);
-    });
-    app.use("*", createRequestContext());
-    app.use("*", async (c, next) => {
-        c.set("userId", TEST_USER_ID);
-        await next();
-    });
-    app.route("/proxy", proxyRoutes as any);
-    return app;
-}
+const app = createTestApp("/proxy", proxyRoutes);
 
 function jsonResponse(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), {
@@ -34,11 +16,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("proxy route contracts", () => {
-    let app: ReturnType<typeof createProxyApp>;
-
     beforeEach(() => {
         vi.clearAllMocks();
-        app = createProxyApp();
     });
 
     // ── Weather ──

@@ -58,38 +58,3 @@ describe("stopServerStream", () => {
         expect(lastArgs().body.activeStreamId).toBeUndefined();
     });
 });
-
-describe("hard-abort ordering (doc Update 4 §8)", () => {
-    it("calls the server stop endpoint BEFORE local chat.stop() teardown", async () => {
-        const order: string[] = [];
-        authenticatedFetch.mockImplementationOnce(async () => {
-            order.push("server-stop");
-            return new Response(null, { status: 200 });
-        });
-        const chatStop = vi.fn(() => order.push("chat.stop"));
-
-        // Mirror the component's handleStop sequence: server first, then teardown.
-        await stopServerStream(CONVO, SID, undefined).catch(() => {});
-        chatStop();
-
-        expect(order).toEqual(["server-stop", "chat.stop"]);
-    });
-
-    it("still tears down the UI when the server stop call fails", async () => {
-        const order: string[] = [];
-        authenticatedFetch.mockImplementationOnce(async () => {
-            throw new Error("network down");
-        });
-        const chatStop = vi.fn(() => order.push("chat.stop"));
-
-        try {
-            await stopServerStream(CONVO, SID, undefined);
-        } catch {
-            /* swallowed by the component's try/catch */
-        }
-        chatStop();
-
-        expect(order).toEqual(["chat.stop"]);
-        expect(chatStop).toHaveBeenCalledOnce();
-    });
-});

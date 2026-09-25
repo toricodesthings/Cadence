@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsSheet } from "../../../app/components/settings/SettingsSheet";
 import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
+import { Location } from "../../helpers";
 
 vi.mock("../../../app/components/shared/ResponsiveOverlayPanel", () => ({ ResponsiveOverlayPanel: ({ children, open, ariaLabel }: { children: ReactNode; open: boolean; ariaLabel: string }) => open ? <div role="dialog" aria-label={ariaLabel}>{children}</div> : null }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ session: { user: { name: "Sam" } } }) }));
@@ -22,7 +23,6 @@ vi.mock("../../../app/components/settings/tabs/LocationTab", () => ({ LocationTa
 vi.mock("../../../app/components/settings/tabs/DataPrivacyTab", () => ({ DataPrivacyTab: () => null }));
 vi.mock("../../../app/components/settings/tabs/AboutTab", () => ({ AboutTab: () => null }));
 
-function Location() { const location = useLocation(); return <output>{location.pathname}{location.search}</output>; }
 function setup(tab = "menu") {
     render(<MemoryRouter initialEntries={["/today?tag=work", { pathname: "/today", search: `?tag=work&settings=${tab}`, state: { utilitySheet: true } }]} initialIndex={1}>
         <TooltipProvider><Location /><SettingsSheet /></TooltipProvider>

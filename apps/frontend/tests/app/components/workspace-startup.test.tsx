@@ -1,10 +1,11 @@
-import { QueryClient, QueryClientProvider, IsRestoringProvider, useQuery, onlineManager } from "@tanstack/react-query";
+import { QueryClient, IsRestoringProvider, useQuery, onlineManager } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { lazy, type ReactNode } from "react";
 import { WorkspaceStartup } from "../../../app/components/layout/WorkspaceStartup";
 import { StartupSuspense } from "../../../app/components/shared/StartupSuspense";
+import { testQueryClient, withClient } from "../../helpers";
 
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => ({ authReady: true, isAuthenticated: true }),
@@ -13,31 +14,20 @@ vi.mock("../../../app/components/shared/Loading", () => ({
     Loading: ({ children }: { children?: ReactNode }) => <div data-testid="startup">{children}</div>,
 }));
 
-function deferred<T>() {
-    let resolve!: (value: T) => void;
-    const promise = new Promise<T>((done) => { resolve = done; });
-    return { promise, resolve };
-}
 function Data({ name, load, enabled = true }: { name: string; load: () => Promise<string>; enabled?: boolean }) {
     const { data } = useQuery({ queryKey: [name], queryFn: load, enabled });
     return <span>{data ?? `${name} pending`}</span>;
 }
-function mount(children: ReactNode, client = new QueryClient({ defaultOptions: { queries: { retry: false } } }), path = "/today") {
-    const result = render(
-        <QueryClientProvider client={client}>
-            <MemoryRouter initialEntries={[path]}>
-                <WorkspaceStartup>{children}</WorkspaceStartup>
-            </MemoryRouter>
-        </QueryClientProvider>,
-    );
-    return { ...result, client };
+function mount(children: ReactNode, client = testQueryClient(), path = "/today") {
+    const view = <MemoryRouter initialEntries={[path]}><WorkspaceStartup>{children}</WorkspaceStartup></MemoryRouter>;
+    return { ...render(view, { wrapper: withClient(client) }), client };
 }
 afterEach(() => { onlineManager.setOnline(true); vi.useRealTimers(); });
 
 describe("workspace startup", () => {
     it("waits for a lazy first-screen component and the requests it starts", async () => {
-        const module = deferred<{ default: () => ReactNode }>();
-        const tasks = deferred<string>();
+        const module = Promise.withResolvers<{ default: () => ReactNode }>();
+        const tasks = Promise.withResolvers<string>();
         const LazyPage = lazy(() => module.promise);
         mount(<StartupSuspense fallback={null}><LazyPage /></StartupSuspense>);
         await new Promise((resolve) => setTimeout(resolve, 80));
@@ -50,8 +40,8 @@ describe("workspace startup", () => {
     });
 
     it("starts independent route and child queries together and hides the screen until both finish", async () => {
-        const tasks = deferred<string>();
-        const projects = deferred<string>();
+        const tasks = Promise.withResolvers<string>();
+        const projects = Promise.withResolvers<string>();
         const loadTasks = vi.fn(() => tasks.promise);
         const loadProjects = vi.fn(() => projects.promise);
         const { container } = mount(<><Data name="tasks" load={loadTasks} /><Data name="projects" load={loadProjects} /></>);
@@ -66,8 +56,8 @@ describe("workspace startup", () => {
     });
 
     it("waits for dependent queries mounted by the first response", async () => {
-        const settings = deferred<string>();
-        const tasks = deferred<string>();
+        const settings = Promise.withResolvers<string>();
+        const tasks = Promise.withResolvers<string>();
         function Dependent() {
             const { data } = useQuery({ queryKey: ["settings"], queryFn: () => settings.promise });
             return data ? <Data name="tasks" load={() => tasks.promise} /> : null;
@@ -131,7 +121,7 @@ describe("workspace startup", () => {
 
     it("lets optional decoration fall back after four seconds without releasing pending tasks", async () => {
         vi.useFakeTimers();
-        const tasks = deferred<string>();
+        const tasks = Promise.withResolvers<string>();
         mount(<><Data name="tasks" load={() => tasks.promise} /><Data name="weather" load={() => new Promise(() => {})} /></>);
         await act(async () => { await vi.advanceTimersByTimeAsync(4_100); });
         expect(screen.queryByText("Your workspace is taking longer than usual to load.")).not.toBeNull();

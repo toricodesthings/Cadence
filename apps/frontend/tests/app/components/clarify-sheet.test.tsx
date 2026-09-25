@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { ClarifySheet } from "../../../app/components/holding/ClarifySheet";
 import { Provider } from "../../../app/components/primitives/Tooltip";
@@ -20,8 +20,7 @@ const item = { id: "capture-1", rawText: "Call Sam tomorrow at 3pm", createdAt: 
 const close = vi.fn();
 const parsed = { cleanedTitle: "Call Sam", dueDate: "2026-09-17", scheduledStart: "2026-09-17T15:00:00-04:00", tagIds: [], projectId: null, priority: 2, recurrenceRule: null, parseResult: { entities: [] } };
 function setup() { return render(<Provider><ClarifySheet item={item} onClose={close} /></Provider>); }
-beforeEach(() => { vi.clearAllMocks(); parse.mockReturnValue(parsed); process.mockResolvedValue({ id: "task-1" }); vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} }); });
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => { vi.clearAllMocks(); parse.mockReturnValue(parsed); process.mockResolvedValue({ id: "task-1" }); });
 describe("Shared capture editor", () => {
     it("saves edited titles on blur without converting the thought", () => {
         setup();

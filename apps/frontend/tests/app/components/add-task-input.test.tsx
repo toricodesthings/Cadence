@@ -71,25 +71,26 @@ function renderInput() {
     return render(<AddTaskInput tasks={[]} />);
 }
 
+const unparsed = {
+    cleanedTitle: "",
+    dueDate: null,
+    scheduledStart: null,
+    recurrenceRule: null,
+    priority: null,
+    projectId: null,
+    tagIds: [],
+    tokens: [],
+    parseResult: { entities: [] },
+    summary: "",
+    waitingOn: null,
+    durationMinutes: null,
+    dueHumanLabel: null,
+};
+
 describe("AddTaskInput", () => {
     beforeEach(() => {
         createTaskMutateMock.mockReset();
-        useNlpParseMock.mockReset();
-        useNlpParseMock.mockReturnValue({
-            cleanedTitle: "",
-            dueDate: null,
-            scheduledStart: null,
-            recurrenceRule: null,
-            priority: null,
-            projectId: null,
-            tagIds: [],
-            tokens: [],
-            parseResult: { entities: [] },
-            summary: "",
-            waitingOn: null,
-            durationMinutes: null,
-            dueHumanLabel: null,
-        });
+        useNlpParseMock.mockReset().mockReturnValue(unparsed);
     });
 
     it("preserves the raw title when no accepted NLP entity is applied", () => {
@@ -108,18 +109,10 @@ describe("AddTaskInput", () => {
 
     it("submits scheduledStart and non-all-day timing when NLP detects a time", () => {
         useNlpParseMock.mockReturnValue({
+            ...unparsed,
             cleanedTitle: "Submit report",
             dueDate: "2026-03-29",
             scheduledStart: "2026-03-29T17:00:00.000Z",
-            recurrenceRule: null,
-            priority: null,
-            projectId: null,
-            tagIds: [],
-            tokens: [],
-            parseResult: { entities: [] },
-            summary: "",
-            waitingOn: null,
-            durationMinutes: null,
             dueHumanLabel: "Tomorrow at 5:00 PM",
         });
 

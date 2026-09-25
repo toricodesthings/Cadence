@@ -148,6 +148,8 @@ export function toMinimalProject(
 export interface MinimalHabit {
     id: string;
     title: string;
+    /** The routine's mark; left out when it has none. */
+    emoji?: string;
     recurrenceRule: string;
     currentStreak: number;
     longestStreak: number;
@@ -161,6 +163,7 @@ export interface MinimalHabit {
 export interface HabitRow {
     id: string;
     title: string;
+    emoji?: string | null;
     recurrenceRule: string;
     currentStreak: number;
     longestStreak: number;
@@ -185,6 +188,7 @@ export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit
     return {
         id: row.id,
         title: row.title,
+        emoji: row.emoji ?? undefined,
         recurrenceRule: row.recurrenceRule,
         currentStreak: row.currentStreak,
         longestStreak: row.longestStreak,

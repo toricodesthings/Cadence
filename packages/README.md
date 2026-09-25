@@ -7,9 +7,9 @@ app, `drizzle-orm`, `hono`, `react`, or `@cloudflare/workers-types`.
 
 | Package | Job | Deps |
 |---|---|---|
-| [`@cadence/nlp`](./nlp) | NLP parse / resolve / rank / focus-views | chrono-node, fuse.js, rrule |
+| [`@cadence/nlp`](./nlp) | NLP parse / resolve / rank / focus-views | chrono-node, fuse.js |
 | [`@cadence/contracts`](./contracts) | Zod schemas → inferred types (the single source of truth for wire shapes) | zod, @cadence/nlp |
-| [`@cadence/domain`](./domain) | Pure domain logic — no I/O, no framework (`DomainError`) | rrule, date-fns, @cadence/contracts, @cadence/nlp |
+| [`@cadence/domain`](./domain) | Pure domain logic — no I/O, no framework (`DomainError`) | rrule |
 
 **Before editing anything here, read [`AGENTS.md`](./AGENTS.md)** — it covers the
 Row/Entity/Input schema split, `$inferSelect` parity, `z.input` vs `z.infer`,

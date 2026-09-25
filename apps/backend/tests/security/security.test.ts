@@ -7,7 +7,6 @@
  * database or Redis configured, so any non-200 comes from the middleware.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authedRequest, createEnv, createExecutionContext } from "../helpers/app";
 
 const { jwtVerifyMock } = vi.hoisted(() => ({ jwtVerifyMock: vi.fn() }));
 
@@ -26,12 +25,37 @@ const DEBUG = "/api/v1/debug/capabilities";
 const ADMIN = { sub: "admin-user", email: "admin@cadenceapp.cloud" };
 const MEMBER = { sub: "member-user", email: "member@example.com" };
 
-function send(request: Request, env: Record<string, unknown> = {}) {
-    return worker.fetch(request, createEnv(env), createExecutionContext());
+function limiter(success = true) {
+    return { limit: vi.fn().mockResolvedValue({ success }) };
 }
 
-function limiter(success: boolean) {
-    return { limit: vi.fn().mockResolvedValue({ success }) };
+/** Runs the real worker with a full env stub; `env` overrides individual bindings. */
+function send(request: Request, env: Record<string, unknown> = {}) {
+    const fullEnv = {
+        HYPERDRIVE: {},
+        NEON_AUTH_JWKS_URL: "https://auth.cadenceapp.cloud/jwks.json",
+        JWT_ISSUER: "https://auth.cadenceapp.cloud",
+        JWT_AUDIENCE: "cadence-api",
+        DEPLOYMENT_STAGE: "development",
+        ENABLE_DEBUG_ROUTES: "true",
+        RATE_LIMITER: limiter(),
+        RATE_LIMITER_READ: limiter(),
+        RATE_LIMITER_WRITE: limiter(),
+        RATE_LIMITER_ADMIN: limiter(),
+        ADMIN_USER_IDS: "admin-user",
+        ADMIN_EMAILS: "admin@cadenceapp.cloud",
+        ...env,
+    } as any;
+    const ctx = { exports: {}, passThroughOnException() {}, props: {}, waitUntil() {} } as unknown as ExecutionContext;
+    return worker.fetch(request, fullEnv, ctx);
+}
+
+/** A Request pre-populated with a bearer token. */
+function authedRequest(path: string, options: RequestInit = {}) {
+    return new Request(`http://localhost${path}`, {
+        ...options,
+        headers: { Authorization: "Bearer valid-token", ...options.headers },
+    });
 }
 
 beforeEach(() => {

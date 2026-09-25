@@ -14,7 +14,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "node scripts/check-imports.mjs",
+    "lint": "node ../check-imports.mjs @cadence/contracts @cadence/domain",
     "test": "vitest run",
     "test:watch": "vitest"
   },

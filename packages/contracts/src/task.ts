@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { flexibleDateTimeSchema, isoDateTimeSchema } from "./common";
-import { SOURCE_SURFACES } from "@cadence/nlp";
+import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Enums / shared scalars ──
 export const taskStateSchema = z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]);
@@ -20,11 +20,10 @@ export type EffortLevel = z.infer<typeof effortLevelSchema> | null;
 export const canonicalNlpEnvelopeSchema = z.object({
     rawInput: z.string().min(1).max(2_000),
     sourceSurface: sourceSurfaceSchema,
-    dateStyle: z.enum(["mdy", "dmy", "ymd"]),
+    dateStyle: z.enum(DATE_STYLES),
     dismissedEntityIds: z.array(z.string().min(1).max(100)).default([]),
     userOverrides: z.record(z.string(), z.unknown()).default({}),
-});
-export type CanonicalNlpEnvelopeInput = z.infer<typeof canonicalNlpEnvelopeSchema>;
+}) satisfies z.ZodType<CanonicalNlpEnvelope>; // nlp owns the type; this fails tsc if they drift
 
 // ── Input schemas (moved verbatim from backend tasks.schema.ts) ──
 export const insertTaskSchema = z.object({
@@ -166,7 +165,6 @@ export const taskSchema = taskRowSchema.extend({
 });
 export type Task = z.infer<typeof taskSchema>;
 
-export const createTaskInputSchema = insertTaskSchema; // FE-facing alias
 // FE-facing input types use z.input so server-defaulted fields remain optional
 // for clients building request bodies.
 export type CreateTaskInput = z.input<typeof insertTaskSchema>;

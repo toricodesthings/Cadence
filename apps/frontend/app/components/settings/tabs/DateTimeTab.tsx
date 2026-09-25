@@ -5,6 +5,7 @@ import { Switch } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
 import { HolidayPreferencesPanel } from "../../calendar/HolidayControls";
@@ -34,27 +35,8 @@ export function DateTimeTab() {
 
     const personalEvents = usePersonalEvents(currentYear);
 
-    const dtSettings = settings?.dateTime ?? {
-        weekStart: "Sunday" as const,
-        timezone: "local",
-        timeDisplay: "12h" as const,
-        dateStyle: "mdy" as const,
-    };
-
-    const calSettings = settings?.calendar ?? {
-        defaultView: "month" as const,
-        showWeekNumbers: false,
-        showWeekends: true,
-        clutter: {
-            showAllDay: true,
-            showTimedTasks: true,
-            showHabitAnchors: true,
-            showFixed: true,
-        },
-        holidays: {
-            enabled: true,
-        },
-    };
+    const dtSettings = settings?.dateTime ?? SETTINGS_DEFAULTS.dateTime;
+    const calSettings = settings?.calendar ?? SETTINGS_DEFAULTS.calendar;
 
     return (
         <div className="flex flex-col gap-10">

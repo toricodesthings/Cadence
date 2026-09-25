@@ -12,7 +12,6 @@ export const insertProjectSchema = z.object({
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 
 export const updateProjectSchema = insertProjectSchema.partial();
-export type UpdateProject = z.infer<typeof updateProjectSchema>;
 
 export const projectRowSchema = z.object({
     id: z.uuid(),
@@ -29,5 +28,4 @@ export type ProjectRow = z.infer<typeof projectRowSchema>;
 export const projectSchema = projectRowSchema;
 export type Project = z.infer<typeof projectSchema>;
 
-export const createProjectInputSchema = insertProjectSchema;
 export type CreateProjectInput = z.input<typeof insertProjectSchema>;

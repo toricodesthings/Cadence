@@ -10,4 +10,3 @@ export class DomainError extends Error {
     }
 }
 
-export const isDomainError = (e: unknown): e is DomainError => e instanceof DomainError;

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, useLocation, useNavigate } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, useNavigate } from "react-router";
+import { describe, expect, it, vi } from "vitest";
 import { NotificationCenter } from "../../../app/components/notifications/NotificationCenter";
 import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
 import type { AppNotification } from "../../../app/lib/notifications/notification-model";
+import { Location } from "../../helpers";
 
 const notices: AppNotification[] = [
     { id: "old", title: "Old priority task", body: "Due today", kind: "task-due", priority: "high", read: false, triggerAt: "2026-09-16T08:00:00Z", route: "/today", entityId: "task1" },
@@ -12,10 +13,9 @@ const notices: AppNotification[] = [
     { id: "bundle", title: "Missed routines", body: "3 habits are waiting for you", kind: "habit-reminder", priority: "normal", read: true, triggerAt: "2026-09-16T09:00:00Z", route: "/habits", entityId: null },
 ];
 
-function Location() {
-    const location = useLocation();
+function Back() {
     const navigate = useNavigate();
-    return <><output aria-label="Current location">{location.pathname}{location.search}</output><button onClick={() => navigate(-1)}>Back</button></>;
+    return <button onClick={() => navigate(-1)}>Back</button>;
 }
 function setup(items = notices) {
     const cleared = vi.fn();
@@ -30,17 +30,13 @@ function setup(items = notices) {
             dismissMany={(ids) => { cleared(ids); setNotifications((all) => all.filter((n) => !ids.includes(n.id))); }}
             defer={(id) => setNotifications((all) => all.filter((n) => n.id !== id))} />;
     }
-    render(<MemoryRouter initialEntries={["/today?tag=work", "/today?tag=work&notifications=true"]} initialIndex={1}><TooltipProvider><Location /><Harness /></TooltipProvider></MemoryRouter>);
+    render(<MemoryRouter initialEntries={["/today?tag=work", "/today?tag=work&notifications=true"]} initialIndex={1}><TooltipProvider><Location /><Back /><Harness /></TooltipProvider></MemoryRouter>);
     return { cleared };
 }
 function rowTitles() {
     return screen.getAllByRole("listitem").map((row) => within(row).getAllByRole("button")[0].getAttribute("aria-label")?.split(".")[0]);
 }
 
-beforeEach(() => {
-    vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-});
-afterEach(() => vi.unstubAllGlobals());
 function openMenu(name: string | RegExp) {
     fireEvent.keyDown(screen.getByRole("button", { name }), { key: "Enter" });
 }

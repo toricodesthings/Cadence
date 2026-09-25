@@ -1,33 +1,32 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { KanbanBoard } from "../../../app/components/kanban/KanbanBoard";
 
-const useSectionsMock = vi.fn();
-const useCreateSectionMock = vi.fn();
-const useUpdateSectionMock = vi.fn();
-const useDeleteSectionMock = vi.fn();
-const useSubtasksByTaskIdsMock = vi.fn();
-const useUpdateTaskMock = vi.fn();
-const useTagsMock = vi.fn();
+vi.mock("../../../app/hooks/sections/use-sections", () => {
+    const sections = { data: [] };
+    const mutation = { mutate: vi.fn() };
+    return {
+        useSections: () => sections,
+        useCreateSection: () => mutation,
+        useUpdateSection: () => mutation,
+        useDeleteSection: () => mutation,
+    };
+});
 
-vi.mock("../../../app/hooks/sections/use-sections", () => ({
-    useSections: (projectId?: string | null) => useSectionsMock(projectId),
-    useCreateSection: (projectId?: string | null) => useCreateSectionMock(projectId),
-    useUpdateSection: (projectId?: string | null) => useUpdateSectionMock(projectId),
-    useDeleteSection: (projectId?: string | null) => useDeleteSectionMock(projectId),
-}));
+vi.mock("../../../app/hooks/tasks/use-subtasks", () => {
+    const subtasks = { data: {} };
+    return { useSubtasksByTaskIds: () => subtasks };
+});
 
-vi.mock("../../../app/hooks/tasks/use-subtasks", () => ({
-    useSubtasksByTaskIds: (taskIds: string[]) => useSubtasksByTaskIdsMock(taskIds),
-}));
+vi.mock("../../../app/hooks/tasks/use-update-task", () => {
+    const mutation = { mutate: vi.fn() };
+    return { useUpdateTask: () => mutation };
+});
 
-vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
-    useUpdateTask: () => useUpdateTaskMock(),
-}));
-
-vi.mock("../../../app/hooks/tags/use-tags", () => ({
-    useTags: () => useTagsMock(),
-}));
+vi.mock("../../../app/hooks/tags/use-tags", () => {
+    const tags = { data: [] };
+    return { useTags: () => tags };
+});
 
 vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({
     useShellMode: () => ({
@@ -66,24 +65,6 @@ vi.mock("../../../app/components/tasks/RenameTaskDialog", () => ({
 }));
 
 describe("KanbanBoard", () => {
-    beforeEach(() => {
-        useSectionsMock.mockReset();
-        useCreateSectionMock.mockReset();
-        useUpdateSectionMock.mockReset();
-        useDeleteSectionMock.mockReset();
-        useSubtasksByTaskIdsMock.mockReset();
-        useUpdateTaskMock.mockReset();
-        useTagsMock.mockReset();
-
-        useSectionsMock.mockReturnValue({ data: [] });
-        useCreateSectionMock.mockReturnValue({ mutate: vi.fn() });
-        useUpdateSectionMock.mockReturnValue({ mutate: vi.fn() });
-        useDeleteSectionMock.mockReturnValue({ mutate: vi.fn() });
-        useSubtasksByTaskIdsMock.mockReturnValue({ data: {} });
-        useUpdateTaskMock.mockReturnValue({ mutate: vi.fn() });
-        useTagsMock.mockReturnValue({ data: [] });
-    });
-
     it("keeps the Unsectioned column and add-section trigger visible for an empty project board", () => {
         const { container } = render(<KanbanBoard tasks={[]} projectId="project-1" />);
 

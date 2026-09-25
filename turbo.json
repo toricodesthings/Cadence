@@ -29,6 +29,10 @@
       "dependsOn": [
         "^lint"
       ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/check-imports.mjs"
+      ],
       "outputs": []
     },
     "test": {

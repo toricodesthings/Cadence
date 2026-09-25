@@ -1,8 +1,7 @@
-import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, it, vi } from "vitest";
 import { useNotificationCenter } from "../../../app/hooks/notifications/use-notification-center";
+import { testQueryClient, withClient } from "../../helpers";
 
 const fixture = vi.hoisted(() => {
     const notification = { id: "read-toggle", kind: "task-due", title: "Review plan", body: "Due today", triggerAt: "2026-09-16T10:00:00Z", entityId: "task1", route: "/today", priority: "high", read: false };
@@ -23,9 +22,8 @@ vi.mock("../../../app/lib/notifications/reminder-engine", async (importOriginal)
 }));
 
 it("persists read/unread changes locally, syncs their explicit action, and hydrates server unread state", async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-    const { result, unmount } = renderHook(() => useNotificationCenter(), { wrapper });
+    const client = testQueryClient();
+    const { result, unmount } = renderHook(() => useNotificationCenter(), { wrapper: withClient(client) });
     await waitFor(() => expect(client.getQueryState(["notification-state"])?.status).toBe("success"));
     act(() => result.current.markRead("read-toggle"));
     expect(result.current.unreadCount).toBe(0);

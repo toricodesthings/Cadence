@@ -2,15 +2,11 @@
 // Pure TypeScript, no DOM assumptions, safe for web + Worker + mobile
 
 export * from "./core/index.js";
-export { parse, parseCanonicalNlpEnvelope, deriveOverallConfidence } from "./parse/index.js";
-export { resolveProjectsAndTags } from "./resolve/index.js";
+export { parse, parseCanonicalNlpEnvelope } from "./parse/index.js";
 export { rankTasks } from "./ranking/index.js";
 export type { RankableTask, RankedTask, TaskRankReason, RankingOptions } from "./ranking/index.js";
-export {
-  composeFocusView,
-  applyFocusView,
-  FOCUS_VIEW_PRESETS,
-} from "./focus-views/index.js";
+export { composeFocusView, FOCUS_VIEW_PRESETS } from "./focus-views/index.js";
+export { applyFocusView } from "./focus-views/apply.js";
 export type {
   FocusViewDefinition,
   FocusViewPreset,

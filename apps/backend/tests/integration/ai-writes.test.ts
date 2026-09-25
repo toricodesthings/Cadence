@@ -7,9 +7,10 @@ import { projectRoutes } from "../../src/domains/projects/projects.route";
 import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
 import { noteRoutes } from "../../src/domains/notes/notes.route";
 import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
+import { settingsRoutes } from "../../src/domains/settings/settings.route";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
 import { withRls } from "../../src/platform/rls";
-import { projects, taskSections } from "../../src/db/schema";
+import { habits, projects, taskSections } from "../../src/db/schema";
 
 let userId: string;
 let call: (name: string, input: unknown, toolCallId?: string) => Promise<any>;
@@ -256,5 +257,83 @@ describe("structure_inbox_item", () => {
 
         expect((await api("GET", `/${taskId}`)).body.data).toMatchObject({ title: "Pay rent", dueDate: null, scheduledStart: null });
         expect((await steps(taskId)).map((s) => s.title)).toEqual(["Log in to bank"]);
+    });
+});
+
+describe("events and routine emoji", () => {
+    it("adds, reads, changes and deletes events in the user's settings, and only theirs", async () => {
+        const settings = apiAs(userId, "/settings", settingsRoutes);
+        const { eventId } = await call("create_event", { label: "Mom's birthday", monthDay: "03-14", emoji: "🎂", startedOn: "1966-03-14" });
+        await call("create_event", { label: "Anniversary", monthDay: "09-30" });
+        // Replaying a call adds nothing.
+        await call("create_event", { label: "Dup", monthDay: "01-01" }, "fixed");
+        await call("create_event", { label: "Dup", monthDay: "01-01" }, "fixed");
+
+        const { events } = await call("get_events", {});
+        expect(events.map((e: any) => e.label)).toEqual(["Anniversary", "Dup", "Mom's birthday"]);
+        expect(events[0]).toMatchObject({ next: "2026-09-30", daysUntil: 7 });
+        expect(events[2]).toMatchObject({ id: eventId, emoji: "🎂", next: "2027-03-14", years: 61 });
+
+        expect(await call("update_event", { eventId, patch: { emoji: "🌷", notify: false } })).toMatchObject({ emoji: "🌷", notify: false, label: "Mom's birthday" });
+        expect(await call("delete_event", { eventId })).toEqual({ deleted: "Mom's birthday" });
+        const items = (await settings("GET", "")).body.data.calendar.personalEvents.items;
+        expect(items.map((e: any) => e.label)).toEqual(["Anniversary", "Dup"]);
+        expect(items[0]).toMatchObject({ emoji: null, notify: true, startedOn: null });
+
+        expect((await call("update_event", { eventId, patch: { label: "x" } })).ok).toBe(false);
+        const other = await createUser();
+        const otherTools = buildToolRegistry({} as never, other, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        expect((await otherTools.get_events.execute({}, { toolCallId: "o1", messages: [] })).events).toEqual([]);
+    });
+
+    it("sets and clears a routine's emoji, and never another user's", async () => {
+        const [habit] = await withRls(getTestDb(), userId, (tx) => tx.insert(habits).values({ userId, title: "Stretch", recurrenceRule: "FREQ=DAILY" }).returning());
+        expect(await call("set_habit_emoji", { habitId: habit.id, emoji: "🧘" })).toEqual({ title: "Stretch", emoji: "🧘" });
+        expect((await call("get_habits", {})).habits[0].emoji).toBe("🧘");
+        await call("set_habit_emoji", { habitId: habit.id, emoji: null });
+        expect((await call("get_habits", {})).habits[0].emoji).toBeUndefined();
+
+        const other = await createUser();
+        const otherTools = buildToolRegistry({} as never, other, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        expect((await otherTools.set_habit_emoji.execute({ habitId: habit.id, emoji: "💀" }, { toolCallId: "o2", messages: [] })).ok).toBe(false);
+    });
+});
+
+describe("sections", () => {
+    it("adds sections in order, sorts tasks in and out, renames, reorders, and deletes keeping the tasks", async () => {
+        const { projectId } = await call("create_project", { name: "Semester" });
+        await call("create_sections", { projectId, names: ["Existing"] });
+        const { sections } = await call("create_sections", { projectId, names: ["Readings", "Labs"] });
+        const [readings, labs] = sections.map((s: any) => s.sectionId);
+        const { created } = await call("create_tasks", { tasks: [{ title: "Ch 1", projectId }, { title: "Lab 1", projectId }] });
+        const [ch1, lab1] = created.map((t: any) => t.taskId);
+
+        await call("update_tasks", { taskIds: [ch1], patch: { sectionId: readings } });
+        await call("update_tasks", { taskIds: [lab1], patch: { sectionId: labs } });
+        await call("update_tasks", { taskIds: [ch1], patch: { sectionId: labs } });
+        await call("update_tasks", { taskIds: [ch1], patch: { sectionId: null } });
+        expect((await api("GET", `/${ch1}`)).body.data.sectionId).toBeNull();
+
+        await call("update_section", { sectionId: labs, name: "Lab work", position: 1 });
+        const names = async () => (await call("get_projects", { projectId })).projects[0].sections.map((s: any) => s.name);
+        expect(await names()).toEqual(["Lab work", "Existing", "Readings"]);
+        await call("update_section", { sectionId: labs, position: 99 });
+        expect(await names()).toEqual(["Existing", "Readings", "Lab work"]);
+
+        expect(await call("delete_section", { sectionId: labs })).toEqual({ deleted: "Lab work", tasksUnsectioned: 1 });
+        expect((await api("GET", `/${lab1}`)).body.data).toMatchObject({ projectId, sectionId: null });
+        expect(await names()).toEqual(["Existing", "Readings"]);
+    });
+
+    it("never touches another user's list or section", async () => {
+        const { projectId } = await call("create_project", { name: "Mine" });
+        const { sections } = await call("create_sections", { projectId, names: ["A"] });
+        const other = await createUser();
+        const otherTools = buildToolRegistry({} as never, other, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const run = (name: string, input: unknown) => otherTools[name].execute(input, { toolCallId: `o-${name}`, messages: [] });
+        expect((await run("create_sections", { projectId, names: ["X"] })).ok).toBe(false);
+        expect((await run("update_section", { sectionId: sections[0].sectionId, name: "X" })).ok).toBe(false);
+        expect((await run("delete_section", { sectionId: sections[0].sectionId })).ok).toBe(false);
+        expect((await call("get_projects", { projectId })).projects[0].sections.map((s: any) => s.name)).toEqual(["A"]);
     });
 });

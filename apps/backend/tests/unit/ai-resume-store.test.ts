@@ -82,7 +82,7 @@ describe("resume-store", () => {
         const before = redis.requests;
         await flushChunks(redis as any, USER_KEY, SID, "frame");
         expect(redis.requests - before).toBe(1);
-        expect(redis.xaddCount()).toBe(1);
+        expect(redis.commandLog.filter((c) => c === "xadd").length).toBe(1);
     });
 
     it("closeStream flips terminal state and shrinks TTL to the grace window (§15.2)", async () => {

@@ -13,15 +13,6 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
     4: "Urgent",
 };
 
-/** Sort weight per priority — higher sorts to the top. */
-export const TASK_PRIORITY_SORT_WEIGHT: Record<TaskPriority, number> = {
-    0: 0,
-    1: 1,
-    2: 2,
-    3: 3,
-    4: 4,
-};
-
 /**
  * Canonical tag colour palette. `"default"` is the themeable sentinel; the rest
  * are raw hex values shared across every client.

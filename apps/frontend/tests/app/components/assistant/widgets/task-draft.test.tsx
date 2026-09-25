@@ -1,8 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DraftDetails, DraftQuotes, type TaskDraft } from "../../../../../app/components/assistant/widgets/TaskBatchCard";
 import { queryKeys } from "../../../../../app/lib/api/query-keys";
+import { testQueryClient, withClient } from "../../../../helpers";
 
 const LIST = "11111111-1111-4111-8111-111111111111";
 const TAG = "22222222-2222-4222-8222-222222222222";
@@ -18,15 +18,10 @@ vi.mock("../../../../../app/hooks/auth/use-api-client", () => ({
 }));
 
 function renderDraft(draft: TaskDraft) {
-    const queryClient = new QueryClient();
+    const queryClient = testQueryClient();
     queryClient.setQueryData(queryKeys.projects.all, [{ id: LIST, name: "Perfume" }]);
     queryClient.setQueryData(queryKeys.tags.all, [{ id: TAG, name: "Errands", color: "#e8a44a" }]);
-    return render(
-        <QueryClientProvider client={queryClient}>
-            <DraftDetails draft={draft} />
-            <DraftQuotes draft={draft} />
-        </QueryClientProvider>,
-    );
+    return render(<><DraftDetails draft={draft} /><DraftQuotes draft={draft} /></>, { wrapper: withClient(queryClient) });
 }
 
 describe("assistant task draft", () => {

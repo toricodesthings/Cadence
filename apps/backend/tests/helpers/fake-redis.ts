@@ -6,12 +6,12 @@
  *
  * Instrumentation: `requests` counts round-trips (each direct call + each
  * `pipeline().exec()`), and `commandLog` records command names — both let the
- * perf tests assert write minimization (doc Update 4 §15.3/§15.7).
+ * perf tests assert write minimization.
  */
 export type StreamEntry = { id: string; fields: Record<string, string> };
 
-type SetOpts = { nx?: boolean; xx?: boolean; ex?: number; px?: number };
-type ExpireOpt = "NX" | "XX" | "GT" | "LT";
+type SetOpts = { ex?: number };
+type ExpireOpt = "NX";
 
 export class FakeRedis {
     strings = new Map<string, string>();
@@ -38,13 +38,9 @@ export class FakeRedis {
     }
 
     // ── internal command implementations (no request accounting) ──
-    private _set(key: string, val: unknown, opts?: SetOpts): "OK" | null {
-        // Honour SET … NX so the settle-once idempotency marker behaves like Redis.
-        if (opts?.nx && this.strings.has(key)) return null;
-        if (opts?.xx && !this.strings.has(key)) return null;
+    private _set(key: string, val: unknown, opts?: SetOpts): "OK" {
         this.strings.set(key, String(val));
         if (typeof opts?.ex === "number") this.ttls.set(key, Date.now() + opts.ex * 1000);
-        if (typeof opts?.px === "number") this.ttls.set(key, Date.now() + opts.px);
         return "OK";
     }
     private _get(key: string): string | null {
@@ -55,18 +51,17 @@ export class FakeRedis {
         this.ttls.delete(key);
         return had ? 1 : 0;
     }
-    /** INCR/INCRBY/DECR/DECRBY — counters default to 0, mirroring Redis. */
+    /** INCRBY — counters default to 0, mirroring Redis. */
     private _incrby(key: string, by: number): number {
         const cur = Number(this.strings.get(key) ?? "0");
         const next = (Number.isFinite(cur) ? cur : 0) + by;
         this.strings.set(key, String(next));
         return next;
     }
-    /** EXPIRE with optional NX/XX flag; anchors the window on first write (§5). */
+    /** EXPIRE with optional NX flag; anchors the window on first write (§5). */
     private _expire(key: string, ttl: number, opt?: ExpireOpt): 0 | 1 {
         if (!this._exists(key)) return 0;
         if (opt === "NX" && this.ttls.has(key)) return 0;
-        if (opt === "XX" && !this.ttls.has(key)) return 0;
         this.ttls.set(key, Date.now() + ttl * 1000);
         return 1;
     }
@@ -166,7 +161,7 @@ export class FakeRedis {
     }
 
     // ── direct (single round-trip) methods ──
-    async set(key: string, val: unknown, opts?: SetOpts): Promise<"OK" | null> {
+    async set(key: string, val: unknown, opts?: SetOpts): Promise<"OK"> {
         this.requests += 1;
         this.commandLog.push("set");
         return this._set(key, val, opts);
@@ -175,31 +170,6 @@ export class FakeRedis {
         this.requests += 1;
         this.commandLog.push("get");
         return this._get(key) as unknown as T;
-    }
-    async incr(key: string): Promise<number> {
-        this.requests += 1;
-        this.commandLog.push("incr");
-        return this._incrby(key, 1);
-    }
-    async incrby(key: string, by: number): Promise<number> {
-        this.requests += 1;
-        this.commandLog.push("incrby");
-        return this._incrby(key, by);
-    }
-    async decr(key: string): Promise<number> {
-        this.requests += 1;
-        this.commandLog.push("decr");
-        return this._incrby(key, -1);
-    }
-    async decrby(key: string, by: number): Promise<number> {
-        this.requests += 1;
-        this.commandLog.push("decrby");
-        return this._incrby(key, -by);
-    }
-    async expire(key: string, ttl: number, opt?: ExpireOpt): Promise<0 | 1> {
-        this.requests += 1;
-        this.commandLog.push("expire");
-        return this._expire(key, ttl, opt);
     }
     async pttl(key: string): Promise<number> {
         this.requests += 1;
@@ -255,26 +225,6 @@ export class FakeRedis {
                 ops.push(() => self._expire(key, ttl, opt));
                 return p;
             },
-            incr(key: string) {
-                self.commandLog.push("incr");
-                ops.push(() => self._incrby(key, 1));
-                return p;
-            },
-            incrby(key: string, by: number) {
-                self.commandLog.push("incrby");
-                ops.push(() => self._incrby(key, by));
-                return p;
-            },
-            decr(key: string) {
-                self.commandLog.push("decr");
-                ops.push(() => self._incrby(key, -1));
-                return p;
-            },
-            decrby(key: string, by: number) {
-                self.commandLog.push("decrby");
-                ops.push(() => self._incrby(key, -by));
-                return p;
-            },
             pttl(key: string) {
                 self.commandLog.push("pttl");
                 ops.push(() => self._pttl(key));
@@ -296,10 +246,5 @@ export class FakeRedis {
             },
         };
         return p;
-    }
-
-    /** Count of `xadd` commands issued (write-minimization assertions). */
-    xaddCount(): number {
-        return this.commandLog.filter((c) => c === "xadd").length;
     }
 }

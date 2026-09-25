@@ -4,18 +4,11 @@ import { hashIdentifier } from "../../src/platform/log";
 import { FakeRedis } from "../helpers/fake-redis";
 import { rlKeys } from "../../src/domains/ai/safety/rate-limit-keys";
 
-const {
-    getDbClientMock,
-    withRlsMock,
-    getRedisMock,
-    getRateLimitRedisMock,
-    appendUserMessageMock,
-} = vi.hoisted(() => ({
+const { getDbClientMock, withRlsMock, getRedisMock, getRateLimitRedisMock } = vi.hoisted(() => ({
     getDbClientMock: vi.fn(() => ({})),
     withRlsMock: vi.fn(),
     getRedisMock: vi.fn(() => null),
     getRateLimitRedisMock: vi.fn(),
-    appendUserMessageMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../src/platform/db", () => ({ getDbClient: getDbClientMock }));
@@ -26,28 +19,12 @@ vi.mock("../../src/platform/redis", () => ({
     getRedis: getRedisMock,
     getRateLimitRedis: getRateLimitRedisMock,
 }));
-vi.mock("../../src/domains/ai/persistence/conversation-repo", () => ({
-    appendUserMessage: appendUserMessageMock,
-    // Unused-by-these-tests exports the route imports at module load:
-    resolveOrCreateConversation: vi.fn().mockResolvedValue({ id: "conv-1" }),
-    loadConversationMessages: vi.fn().mockResolvedValue([]),
-    getConversation: vi.fn(),
-    saveAssistantMessage: vi.fn(),
-    touchConversation: vi.fn(),
-    listConversations: vi.fn(),
-    renameOrArchiveConversation: vi.fn(),
-    deleteConversation: vi.fn(),
-    listConversationImageIds: vi.fn().mockResolvedValue([]),
-    setActiveStream: vi.fn(),
-    finalizeActiveStream: vi.fn(),
-}));
+vi.mock("../../src/domains/ai/persistence/conversation-repo");
 
+import { appendUserMessage } from "../../src/domains/ai/persistence/conversation-repo";
 import { aiRoutes } from "../../src/domains/ai/ai.route";
 
-
-function createApp() {
-    return createTestApp("/ai", aiRoutes);
-}
+const app = createTestApp("/ai", aiRoutes);
 
 const chatBody = () => ({
     message: { id: "m1", role: "user", parts: [{ type: "text", text: "hello there" }] },
@@ -68,7 +45,6 @@ describe("POST /ai/chat — usage budget admission", () => {
         redis.strings.set(rlKeys(userKey).req5h, "1");
         getRateLimitRedisMock.mockReturnValue(redis);
 
-        const app = createApp();
         const res = await app.request(
             "/ai/chat",
             { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(chatBody()) },
@@ -82,7 +58,7 @@ describe("POST /ai/chat — usage budget admission", () => {
         expect(res.headers.get("Retry-After")).toBeTruthy();
         expect(res.headers.get("X-RateLimit-Remaining-Tokens-5h")).toBeTruthy();
         // Admission precedes persistence → an over-budget user produces no orphan turn.
-        expect(appendUserMessageMock).not.toHaveBeenCalled();
+        expect(appendUserMessage).not.toHaveBeenCalled();
     });
 
     it("fails closed (429) when the store is unreachable and FAIL_MODE=closed", async () => {
@@ -93,7 +69,6 @@ describe("POST /ai/chat — usage budget admission", () => {
             },
         } as any);
 
-        const app = createApp();
         const res = await app.request(
             "/ai/chat",
             { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(chatBody()) },
@@ -101,14 +76,13 @@ describe("POST /ai/chat — usage budget admission", () => {
         );
 
         expect(res.status).toBe(429);
-        expect(appendUserMessageMock).not.toHaveBeenCalled();
+        expect(appendUserMessage).not.toHaveBeenCalled();
     });
 });
 
 describe("GET /ai/usage", () => {
     it("returns the caller's live budget when the store is reachable", async () => {
         getRateLimitRedisMock.mockReturnValue(new FakeRedis());
-        const app = createApp();
         const res = await app.request("/ai/usage", {}, { AI_RL_REQUESTS_5H: "42" });
 
         expect(res.status).toBe(200);
@@ -120,7 +94,6 @@ describe("GET /ai/usage", () => {
 
     it("returns a disabled placeholder when the budget store is not configured", async () => {
         getRateLimitRedisMock.mockReturnValue(null);
-        const app = createApp();
         const res = await app.request("/ai/usage", {}, {});
 
         expect(res.status).toBe(200);

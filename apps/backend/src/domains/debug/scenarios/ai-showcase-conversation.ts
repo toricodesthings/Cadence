@@ -6,7 +6,8 @@
  * - approved (`output-available`): set_task_state, create_tasks, log_habit (in Auto),
  *   structure_inbox_item, create_project
  * - declined (`output-denied`): create_tag; not answered: reschedule_tasks
- * - waiting (`approval-requested`, last reply only): every other write tool
+ * - waiting (`approval-requested`, last reply only): every other write tool (routine
+ *   emoji, events, sections)
  *
  * Read outputs go through the real `projections.ts` helpers and approved writes
  * through the real services, so both match what the live tools do. Seeded
@@ -33,6 +34,7 @@ import { resolveHabit } from "../../habits/habits.service";
 import { processCapture } from "../../inbox/inbox.service";
 import { createProject } from "../../projects/projects.service";
 import { routinesDue } from "../../ai/tools/calendar";
+import { toMinimalEvent } from "../../ai/tools/events";
 import {
     toMinimalHabit,
     toMinimalInboxItem,
@@ -112,6 +114,9 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const clusterThemes = subtask("Cluster themes");
     const hypotheses = subtask("Write three hypotheses");
     const clientOps = project("Client Ops");
+    const section = (projectId: string, name: string) => find(refs.sections, (s) => s.projectId === projectId && s.name === name, `section "${name}"`);
+    const opsToday = section(clientOps.id, "Today");
+    const opsLater = section(clientOps.id, "Later This Week");
     const featureLaunch = project("Feature Launch");
     const hydrate = habit("Hydrate before coffee");
     const strength = habit("Strength session");
@@ -301,7 +306,9 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             parts: [text(
                 "Skip the tag. Random thought: renew my passport before March. Also the 2025 receipts task can go, " +
                     `and put the Acme proposal on hold until Maya signs off. Oh, and I still need to ${prescription.rawText.toLowerCase()}, ` +
-                    "plus the essay on the handout I photographed.",
+                    "plus the essay on the handout I photographed. Give Strength an emoji, add Sam's birthday on Nov 3, " +
+                    "make Mom's cake emoji a flower, drop the launch-day event, and in Client Ops add a Waiting section, " +
+                    "rename Today to Now and drop Later This Week.",
             )],
         },
         {
@@ -313,6 +320,10 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     rawText: passport.rawText,
                     captureKind: "task",
                 }, { item: { id: passport.id, rawText: passport.rawText }, deduped: false }),
+                read("get_events", {}, {
+                    today,
+                    events: [toMinimalEvent({ id: "mom-birthday", label: "Mom's Birthday", monthDay: seedDate(anchor, 4).slice(5), emoji: "🎂", notify: true, startedOn: null }, today)],
+                }),
                 read("get_task_detail", { taskId: acme.id }, {
                     task: mini(acme),
                     subtasks: [],
@@ -355,6 +366,13 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                         },
                     ],
                 }),
+                waiting("set_habit_emoji", { habitId: strength.id, emoji: "🏋️" }),
+                waiting("create_event", { label: "Sam's birthday", monthDay: "11-03", emoji: "🎂" }),
+                waiting("update_event", { eventId: "mom-birthday", patch: { emoji: "🌷" } }),
+                waiting("delete_event", { eventId: "cadence-launch" }),
+                waiting("create_sections", { projectId: clientOps.id, names: ["Waiting"] }),
+                waiting("update_section", { sectionId: opsToday.id, name: "Now" }),
+                waiting("delete_section", { sectionId: opsLater.id }),
                 text(`I left **${launch.title}** alone. That 2 PM block is still your best focus time today.`),
             ],
         },

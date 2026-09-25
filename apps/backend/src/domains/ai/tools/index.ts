@@ -11,6 +11,7 @@ import { tagTools } from "./tags";
 import { habitTools } from "./habits";
 import { inboxTools } from "./inbox";
 import { calendarTools } from "./calendar";
+import { eventTools } from "./events";
 import { metricTools } from "./metrics";
 import { helpTools } from "./help";
 
@@ -124,6 +125,7 @@ export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
         ...habitTools(env, userId, ctx),
         ...inboxTools(env, userId, ctx),
         ...calendarTools(env, userId, ctx),
+        ...eventTools(env, userId, ctx),
         ...metricTools(env, userId, ctx),
         ...helpTools(),
     });

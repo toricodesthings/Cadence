@@ -6,7 +6,10 @@ import { TaskBatchCard } from "./widgets/TaskBatchCard";
 import { UpdateTasksCard } from "./widgets/UpdateTasksCard";
 import { SubtaskEditCard } from "./widgets/SubtaskEditCard";
 import { DeleteTasksCard, RescheduleCard, SetStateCard } from "./widgets/TaskListCards";
-import { CreateProjectCard, CreateTagCard, InboxStructureCard, LogHabitCard } from "./widgets/SmallCards";
+import {
+    CreateEventCard, CreateProjectCard, CreateSectionsCard, CreateTagCard, DeleteEventCard, DeleteSectionCard,
+    InboxStructureCard, LogHabitCard, SetHabitEmojiCard, UpdateEventCard, UpdateSectionCard,
+} from "./widgets/SmallCards";
 import type { ToolRenderContext } from "./widgets/ApprovalCard";
 import { Sparkles } from "lucide-react";
 
@@ -42,6 +45,7 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     get_inbox_items: { class: "read", label: "Looked through Capture" },
     get_user_metrics: { class: "read", label: "Took a look around" },
     get_schedule_window: { class: "read", label: "Scanned your schedule" },
+    get_events: { class: "read", label: "Looked at your events" },
     get_cadence_help: { class: "read", label: "Checked the Cadence guide" },
 
     // ── write → approval cards ────────────────────────────────────────────
@@ -53,8 +57,15 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     reschedule_tasks: { class: "write", label: "Rescheduled tasks", render: (ctx) => <RescheduleCard ctx={ctx} /> },
     structure_inbox_item: { class: "write", label: "Structured a capture", render: (ctx) => <InboxStructureCard ctx={ctx} /> },
     create_project: { class: "write", label: "Made a list", render: (ctx) => <CreateProjectCard ctx={ctx} /> },
+    create_sections: { class: "write", label: "Added sections", render: (ctx) => <CreateSectionsCard ctx={ctx} /> },
+    update_section: { class: "write", label: "Changed a section", render: (ctx) => <UpdateSectionCard ctx={ctx} /> },
+    delete_section: { class: "write", label: "Deleted a section", render: (ctx) => <DeleteSectionCard ctx={ctx} /> },
     create_tag: { class: "write", label: "Made a tag", render: (ctx) => <CreateTagCard ctx={ctx} /> },
     log_habit: { class: "write", label: "Logged a routine", render: (ctx) => <LogHabitCard ctx={ctx} /> },
+    set_habit_emoji: { class: "write", label: "Changed a routine", render: (ctx) => <SetHabitEmojiCard ctx={ctx} /> },
+    create_event: { class: "write", label: "Added an event", render: (ctx) => <CreateEventCard ctx={ctx} /> },
+    update_event: { class: "write", label: "Changed an event", render: (ctx) => <UpdateEventCard ctx={ctx} /> },
+    delete_event: { class: "write", label: "Deleted an event", render: (ctx) => <DeleteEventCard ctx={ctx} /> },
 
     // ── capture → quiet confirmation chip ─────────────────────────────────
     capture_to_inbox: { class: "capture", label: "Saved to your inbox" },

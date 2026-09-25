@@ -5,7 +5,6 @@ export const upsertNoteSchema = z.object({
     body: z.string().max(50_000),
     expectedUpdatedAt: z.string().optional(),
 });
-export type UpsertNote = z.infer<typeof upsertNoteSchema>;
 
 export const taskNoteRowSchema = z.object({
     id: z.uuid(),
@@ -19,7 +18,6 @@ export const taskNoteRowSchema = z.object({
     createdAt: isoDateTimeSchema,
     updatedAt: isoDateTimeSchema,
 });
-export type TaskNoteRow = z.infer<typeof taskNoteRowSchema>;
 
 export const taskNoteSchema = taskNoteRowSchema;
 export type TaskNote = z.infer<typeof taskNoteSchema>;

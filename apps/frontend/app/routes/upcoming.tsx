@@ -178,7 +178,6 @@ export default function Upcoming() {
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
-    const lowStimulationMode = userSettings?.tasks?.intelligence?.lowStimulationMode ?? false;
 
     const today = new Date();
     const todayISO = toISODate(today);
@@ -324,7 +323,7 @@ export default function Upcoming() {
                         notBefore: item.task!.notBefore ?? null,
                         durationEstimate: item.task!.durationEstimate,
                     }));
-                const ranked = rankTasks(rankable, { routeContext: "upcoming", lowStimulation: lowStimulationMode });
+                const ranked = rankTasks(rankable, { routeContext: "upcoming" });
                 const sorted = ranked.flatMap((entry) => {
                     const item = grouped[bucket].find((candidate) => candidate.task?.id === entry.task.id);
                     if (!item) return [];
@@ -344,7 +343,7 @@ export default function Upcoming() {
         }
 
         return grouped;
-    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled, lowStimulationMode]);
+    }, [activeTagId, habits, nextWeekISO, projectById, sortMode, tagFilteredTasks, todayISO, tomorrowISO, intelligenceEnabled, smartSortEnabled]);
 
     const totalVisible = groupedItems.overdue.length + groupedItems.today.length + groupedItems.tomorrow.length + groupedItems.nextWeek.length;
     const isLoading = tasksLoading || habitsLoading;

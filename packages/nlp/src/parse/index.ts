@@ -24,7 +24,7 @@ import { resolveProjectsAndTags } from "../resolve/index.js";
  * 3. Dates/times via chrono-node
  * 4. Priority keywords
  * 5. Waiting-on patterns
- * 6. Project/tag/section resolution (fuzzy via Fuse.js)
+ * 6. Project/tag resolution (fuzzy via Fuse.js)
  * 7. Explicit shorthand (#tag, /project)
  */
 export function parse(options: ParseOptions): ParseResult {
@@ -60,48 +60,38 @@ export function parse(options: ParseOptions): ParseResult {
     consumedRanges.push({ start: seg.start, end: seg.end });
   }
 
+  /** Keep a parser's undismissed entities (optionally skipping ones over consumed text) and consume its ranges. */
+  const take = (
+    result: { entities: ParsedEntity[]; consumedRanges: Array<{ start: number; end: number }> },
+    skipOverlaps: boolean,
+    onTake?: (entity: ParsedEntity) => void,
+  ) => {
+    for (const entity of result.entities) {
+      if (skipOverlaps && consumedRanges.some((r) => entity.start < r.end && entity.end > r.start)) continue;
+      if (dismissed.has(entity.id)) continue;
+      onTake?.(entity);
+      allEntities.push(entity);
+      consumedRanges.push(...result.consumedRanges);
+    }
+  };
+
   // 1. Recurrence
   const recurrenceResult = parseRecurrence(input);
-  for (const entity of recurrenceResult.entities) {
-    if (!dismissed.has(entity.id)) {
-      allEntities.push(entity);
-      consumedRanges.push(...recurrenceResult.consumedRanges);
-    }
-  }
+  take(recurrenceResult, false);
 
   // 2. Duration (before dates — chrono-node would otherwise consume duration phrases)
-  const durationResult = parseDuration(input);
-  for (const entity of durationResult.entities) {
-    const overlaps = consumedRanges.some(
-      (r) => entity.start < r.end && entity.end > r.start,
-    );
-    if (overlaps) continue;
-    if (!dismissed.has(entity.id)) {
-      allEntities.push(entity);
-      consumedRanges.push(...durationResult.consumedRanges);
-    }
-  }
+  take(parseDuration(input), true);
 
-  // 3. Dates — give chrono the input without consumed recurrence/duration ranges
+  // 3. Dates — skip any that overlap recurrence or duration matches
   const dateResult = parseDates(input, { referenceDate, dateStyle });
-  for (const entity of dateResult.entities) {
-    // Skip dates that overlap with recurrence or duration matches
-    const overlaps = consumedRanges.some(
-      (r) => entity.start < r.end && entity.end > r.start,
-    );
-    if (overlaps) continue;
-    if (!dismissed.has(entity.id)) {
-      // Emit warning for timed deadlines that need review
-      if (entity.type === "due_date" && (entity.normalizedValue as { hasTime?: boolean })?.hasTime) {
-        warnings.push("timed_deadline_needs_review");
-      }
-      if (entity.confidence === "low") {
-        warnings.push("low_confidence_entity");
-      }
-      allEntities.push(entity);
-      consumedRanges.push(...dateResult.consumedRanges);
+  take(dateResult, true, (entity) => {
+    if (entity.type === "due_date" && (entity.normalizedValue as { hasTime?: boolean })?.hasTime) {
+      warnings.push("timed_deadline_needs_review");
     }
-  }
+    if (entity.confidence === "low") {
+      warnings.push("low_confidence_entity");
+    }
+  });
 
   // Emit warning if multiple dates detected
   if (dateResult.entities.length > 1) {
@@ -114,22 +104,10 @@ export function parse(options: ParseOptions): ParseResult {
   }
 
   // 4. Priority
-  const priorityResult = parsePriority(input);
-  for (const entity of priorityResult.entities) {
-    if (!dismissed.has(entity.id)) {
-      allEntities.push(entity);
-      consumedRanges.push(...priorityResult.consumedRanges);
-    }
-  }
+  take(parsePriority(input), false);
 
   // 5. Waiting on
-  const waitingResult = parseWaitingOn(input);
-  for (const entity of waitingResult.entities) {
-    if (!dismissed.has(entity.id)) {
-      allEntities.push(entity);
-      consumedRanges.push(...waitingResult.consumedRanges);
-    }
-  }
+  take(parseWaitingOn(input), false);
 
   // 6. Explicit #tag and /project shorthand
   const shorthandEntities = parseShorthand(input, context, dismissed);
@@ -170,7 +148,7 @@ export function parse(options: ParseOptions): ParseResult {
   };
 }
 
-export function deriveOverallConfidence(
+function deriveOverallConfidence(
   entities: ParsedEntity[],
   warnings: WarningCode[] = [],
 ): ConfidenceTier | null {
@@ -304,9 +282,8 @@ function buildSummary(entities: ParsedEntity[]): string | null {
     switch (entity.type) {
       case "due_date":
       case "scheduled_start":
-        parts.push((entity.normalizedValue as { humanLabel: string }).humanLabel);
-        break;
       case "recurrence":
+      case "duration":
         parts.push((entity.normalizedValue as { humanLabel: string }).humanLabel);
         break;
       case "priority":
@@ -321,19 +298,11 @@ function buildSummary(entities: ParsedEntity[]): string | null {
       case "waiting_on":
         parts.push(`Waiting on ${(entity.normalizedValue as { person: string }).person}`);
         break;
-      case "duration":
-        parts.push((entity.normalizedValue as { humanLabel: string }).humanLabel);
-        break;
     }
   }
 
   return parts.length > 0 ? `Cadence understood: ${parts.join(" · ")}` : null;
 }
-
-export { parseDates } from "./date-parser.js";
-export { parseRecurrence } from "./recurrence-parser.js";
-export { parsePriority } from "./priority-parser.js";
-export { parseDuration, parseWaitingOn } from "./entity-parser.js";
 
 export function parseCanonicalNlpEnvelope(
   envelope: CanonicalNlpEnvelope,

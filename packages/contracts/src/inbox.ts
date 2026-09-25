@@ -5,11 +5,8 @@ import { canonicalNlpEnvelopeSchema, effortLevelSchema, sourceSurfaceSchema } fr
 export const inboxQuerySchema = z.object({ status: z.enum(["clarifying", "kept"]).default("clarifying") });
 
 export const captureKindSchema = z.enum(["task", "thought", "reference", "unknown"]);
-export type CaptureKind = z.infer<typeof captureKindSchema>;
 export const captureStatusSchema = z.enum(["clarifying", "placed", "kept", "discarded"]);
-export type CaptureStatus = z.infer<typeof captureStatusSchema>;
 export const inboxAnalysisStatusSchema = z.enum(["pending", "parsed", "reviewed", "applied"]);
-export type InboxAnalysisStatus = z.infer<typeof inboxAnalysisStatusSchema>;
 
 export const insertInboxItemSchema = z.object({
     rawText: z.string().min(1).max(5_000),
@@ -17,7 +14,6 @@ export const insertInboxItemSchema = z.object({
     orderIndex: z.number().optional(),
     captureKind: captureKindSchema.optional(),
 });
-export type InsertInboxItem = z.infer<typeof insertInboxItemSchema>;
 
 export const updateInboxItemSchema = z.object({
     rawText: z.string().min(1).max(5_000).optional(),
@@ -62,10 +58,8 @@ export const insertInboxSectionSchema = z.object({
     name: z.string().min(1).max(200),
     orderIndex: z.number().optional(),
 });
-export type InsertInboxSection = z.infer<typeof insertInboxSectionSchema>;
 
 export const updateInboxSectionSchema = insertInboxSectionSchema.partial();
-export type UpdateInboxSection = z.infer<typeof updateInboxSectionSchema>;
 
 // ── Row schemas (exact DB columns) ──
 export const inboxItemRowSchema = z.object({
@@ -113,7 +107,4 @@ export const inboxSectionRowSchema = z.object({
     orderIndex: z.number().int(),
     createdAt: isoDateTimeSchema,
 });
-export type InboxSectionRow = z.infer<typeof inboxSectionRowSchema>;
 
-export const inboxSectionSchema = inboxSectionRowSchema;
-export type InboxSection = z.infer<typeof inboxSectionSchema>;

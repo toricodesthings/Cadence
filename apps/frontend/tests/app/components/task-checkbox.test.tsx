@@ -2,12 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TaskCheckbox } from "../../../app/components/tasks/TaskCheckbox";
 import type { Task } from "@cadence/contracts/task";
+import { makeTask } from "../../helpers";
 
 const updateTaskMutateMock = vi.fn();
 const updateSubtaskMutateMock = vi.fn();
 const queueCompletionMock = vi.fn();
-const cancelCompletionMock = vi.fn();
-const clearCompletionMock = vi.fn();
+const noop = vi.fn();
 
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
     useUpdateTask: () => ({
@@ -32,52 +32,20 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
 }));
 
 vi.mock("../../../app/stores/task-completion-store", () => ({
-    useTaskCompletionStore: (selector: (state: {
-        pendingById: Record<string, unknown>;
-        queueCompletion: typeof queueCompletionMock;
-        cancelCompletion: typeof cancelCompletionMock;
-        clearCompletion: typeof clearCompletionMock;
-    }) => unknown) =>
-        selector({
-            pendingById: {},
-            queueCompletion: queueCompletionMock,
-            cancelCompletion: cancelCompletionMock,
-            clearCompletion: clearCompletionMock,
-        }),
+    useTaskCompletionStore: (select: (state: object) => unknown) => select({
+        pendingById: {}, queueCompletion: queueCompletionMock, cancelCompletion: noop, clearCompletion: noop,
+    }),
 }));
 
-function createTask(overrides: Partial<Task> = {}): Task {
-    return {
-        id: "task-1",
-        userId: "user-1",
-        projectId: null,
-        title: "Task",
-        content: null,
-        state: "ACTIVE",
-        orderIndex: 1,
-        isAllDay: false,
-        dueDate: null,
-        scheduledStart: "2026-03-10T09:30:00.000Z",
-        scheduledEnd: "2026-03-10T10:45:00.000Z",
-        durationEstimate: 75,
-        timezoneLocked: true,
-        createdAt: "2026-03-09T00:00:00.000Z",
-        updatedAt: "2026-03-09T00:00:00.000Z",
-        priority: 0,
-        isPinned: false,
-        reminderAt: null,
-        reminderSilenced: false,
-        recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH",
-        interactionMode: "task",
-        sectionId: null,
-        seriesId: undefined,
-        isRecurringInstance: false,
-        occurrenceStart: null,
-        occurrenceEnd: null,
-        effort: null,
-        ...overrides,
-    };
-}
+const createTask = (overrides: Partial<Task> = {}) => makeTask({
+    isAllDay: false,
+    scheduledStart: "2026-03-10T09:30:00.000Z",
+    scheduledEnd: "2026-03-10T10:45:00.000Z",
+    durationEstimate: 75,
+    timezoneLocked: true,
+    recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH",
+    ...overrides,
+});
 
 describe("TaskCheckbox", () => {
     it("suppresses completion affordances for passive timetable anchors", () => {

@@ -1,60 +1,27 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useProcessInboxToTask } from "../../../app/hooks/inbox/use-process-inbox-to-task";
+import { withClient } from "../../helpers";
 
 const inboxProcessMock = vi.fn();
-const useApiClientMock = vi.fn();
 
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({
-    useApiClient: () => useApiClientMock(),
+    useApiClient: () => ({ api: { inbox: { ":id": { process: { $post: inboxProcessMock } } } } }),
 }));
 
 vi.mock("sonner", () => ({
     toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-function createWrapper() {
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false },
-        },
-    });
-    return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-}
-
 describe("useProcessInboxToTask", () => {
     beforeEach(() => {
         inboxProcessMock.mockReset();
-        useApiClientMock.mockReset();
-        useApiClientMock.mockReturnValue({
-            api: {
-                inbox: {
-                    ":id": {
-                        process: {
-                            $post: inboxProcessMock,
-                        },
-                    },
-                },
-            },
-        });
     });
 
     it("processes the inbox item atomically by default", async () => {
-        const createdTask = { id: "task-1", title: "Buy groceries" };
-        inboxProcessMock.mockResolvedValue(
-            new Response(JSON.stringify({ data: createdTask }), {
-                status: 201,
-                headers: { "Content-Type": "application/json" },
-            }),
-        );
+        inboxProcessMock.mockResolvedValue(Response.json({ data: { id: "task-1", title: "Buy groceries" } }, { status: 201 }));
 
-        const { result } = renderHook(() => useProcessInboxToTask(), {
-            wrapper: createWrapper(),
-        });
+        const { result } = renderHook(() => useProcessInboxToTask(), { wrapper: withClient() });
 
         result.current.mutate({ inboxItemId: "10000000-0000-4000-8000-000000000001", rawText: "Buy groceries" });
 
@@ -69,17 +36,9 @@ describe("useProcessInboxToTask", () => {
     });
 
     it("passes through scheduling metadata when placing an inbox item", async () => {
-        const createdTask = { id: "task-2", title: "Meeting notes" };
-        inboxProcessMock.mockResolvedValue(
-            new Response(JSON.stringify({ data: createdTask }), {
-                status: 201,
-                headers: { "Content-Type": "application/json" },
-            }),
-        );
+        inboxProcessMock.mockResolvedValue(Response.json({ data: { id: "task-2", title: "Meeting notes" } }, { status: 201 }));
 
-        const { result } = renderHook(() => useProcessInboxToTask(), {
-            wrapper: createWrapper(),
-        });
+        const { result } = renderHook(() => useProcessInboxToTask(), { wrapper: withClient() });
 
         result.current.mutate({
             inboxItemId: "10000000-0000-4000-8000-000000000002",
@@ -108,16 +67,9 @@ describe("useProcessInboxToTask", () => {
     });
 
     it("surfaces an error when the task creation fails", async () => {
-        inboxProcessMock.mockResolvedValue(
-            new Response(JSON.stringify({ error: { message: "Server error" } }), {
-                status: 500,
-                headers: { "Content-Type": "application/json" },
-            }),
-        );
+        inboxProcessMock.mockResolvedValue(Response.json({ error: { message: "Server error" } }, { status: 500 }));
 
-        const { result } = renderHook(() => useProcessInboxToTask(), {
-            wrapper: createWrapper(),
-        });
+        const { result } = renderHook(() => useProcessInboxToTask(), { wrapper: withClient() });
 
         result.current.mutate({ inboxItemId: "10000000-0000-4000-8000-000000000003", rawText: "Broken" });
 

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { BucketedCollectionView, BucketedSectionHeader } from "../shared/BucketedCollectionView";
 import { useMemo, useState } from "react";
 import { parse } from "@cadence/nlp/parse";
-import { applyFocusView } from "@cadence/nlp/focus-views";
+import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import { useFocusViewStore } from "../../stores/focus-view-store";

@@ -450,33 +450,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── Section resolution ──
-    describe("section resolution", () => {
-        it("resolves sections when context is provided", () => {
-            const result = parse({
-                input: "Fix navbar in Frontend",
-                sourceSurface: "quick_add",
-                context: {
-                    projects: [],
-                    tags: [],
-                    sections: [{ id: "s1", name: "Frontend" }, { id: "s2", name: "Backend" }],
-                },
-            });
-            const section = result.entities.find(e => e.type === "section");
-            expect(section).toBeDefined();
-            expect((section!.normalizedValue as { name: string }).name).toBe("Frontend");
-        });
-
-        it("does not resolve sections without context", () => {
-            const result = parse({
-                input: "Fix navbar in Frontend",
-                sourceSurface: "quick_add",
-            });
-            const section = result.entities.find(e => e.type === "section");
-            expect(section).toBeUndefined();
-        });
-    });
-
     // ── Confidence trust rules ──
     describe("confidence trust rules", () => {
         it("high confidence for explicit date patterns", () => {

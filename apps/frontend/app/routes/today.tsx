@@ -81,7 +81,6 @@ export default function TodayRoute() {
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
-    const lowStimulationMode = userSettings?.tasks?.intelligence?.lowStimulationMode ?? false;
 
     const todayDate = new Date();
     const personalEvents = usePersonalEvents(todayDate.getFullYear());
@@ -159,7 +158,7 @@ export default function TodayRoute() {
                 notBefore: t.notBefore ?? null,
                 durationEstimate: t.durationEstimate,
             }));
-            const ranked = rankTasks(rankable, { routeContext: "today", lowStimulation: lowStimulationMode });
+            const ranked = rankTasks(rankable, { routeContext: "today" });
             for (const item of ranked) {
                 rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
             }
@@ -175,7 +174,7 @@ export default function TodayRoute() {
             routinesDone: routines.filter((routine) => routine.done),
             rationaleByTaskId,
         };
-    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled, lowStimulationMode]);
+    }, [activeTagId, filteredTasks, habits, todayISO, sortMode, intelligenceEnabled, smartSortEnabled]);
 
     const spineItems = useMemo<SpineItem[]>(() => {
         const items: SpineItem[] = [];

@@ -4,10 +4,7 @@
  */
 
 import type { FocusViewDefinition } from "./index.js";
-
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+import { toDateStr } from "../core/index.js";
 
 /**
  * Filter tasks based on a Focus View definition.

@@ -31,7 +31,6 @@ export const uiMessageSchema = z.object({
     parts: z.array(uiMessagePartSchema).max(MAX_PARTS_PER_MESSAGE).default([]),
     metadata: z.record(z.string(), z.unknown()).optional(),
 });
-export type UIMessageInput = z.infer<typeof uiMessageSchema>;
 
 /**
  * The incoming chat turn MUST be a user message. Role is pinned at the schema
@@ -81,7 +80,6 @@ export const chatRequestSchema = z.object({
 })
     .refine((v) => !v.message !== !v.approvals, "Send a message or approvals, not both")
     .refine((v) => !v.approvals || v.conversationId, "Approvals need a conversationId");
-export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
 // ── Conversation management endpoints ──
 export const conversationIdParamSchema = z.object({ id: z.string().uuid() });
@@ -104,7 +102,6 @@ export const conversationPatchSchema = z
     .refine((d) => d.title !== undefined || d.archived !== undefined, {
         message: "At least one of `title` or `archived` is required",
     });
-export type ConversationPatch = z.infer<typeof conversationPatchSchema>;
 
 /**
  * Stop-stream request — hard-aborts the in-flight turn for a conversation.
@@ -120,7 +117,6 @@ export const stopStreamSchema = z.object({
     assistantMessage: assistantMessageSchema.optional(),
 });
 export type StopStreamRequest = z.infer<typeof stopStreamSchema>;
-
 
 // ── Conversation entity (Row + entity) ──
 export const aiConversationRowSchema = z.object({
@@ -142,7 +138,6 @@ export const aiConversationRowSchema = z.object({
     createdAt: isoDateTimeSchema,
     updatedAt: isoDateTimeSchema,
 });
-export type AiConversationRow = z.infer<typeof aiConversationRowSchema>;
 
 export const conversationSchema = aiConversationRowSchema;
 export type Conversation = z.infer<typeof conversationSchema>;
@@ -172,7 +167,6 @@ export const aiMessageRowSchema = z.object({
     orderIndex: z.number(),
     createdAt: isoDateTimeSchema,
 });
-export type AiMessageRow = z.infer<typeof aiMessageRowSchema>;
 
 /** Client-facing message entity — the UIMessage projection (no status/orderIndex). */
 export const messageSchema = uiMessageSchema;
@@ -188,7 +182,6 @@ export const aiUsageWindowSchema = z.object({
     resetEpoch: z.number().nullable(),
 });
 export type AiUsageWindow = z.infer<typeof aiUsageWindowSchema>;
-
 
 // ── Chat images (photos sent to the assistant) ──
 // A photo is uploaded first (POST /ai/images) and the chat turn carries only a
@@ -254,7 +247,6 @@ export const aiImageRowSchema = z.object({
     lastUsedAt: isoDateTimeSchema,
     diagnosticsSharedAt: isoDateTimeSchema.nullable(),
 });
-export type AiImageRow = z.infer<typeof aiImageRowSchema>;
 
 export const aiUsageSchema = z.object({
     /** False when the budget is not configured/reachable (used:0 placeholders). */

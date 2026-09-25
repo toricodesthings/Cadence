@@ -4,6 +4,7 @@ import { Button } from "../../primitives/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
+import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import {
     getStoredNotificationPermission,
     type NotificationPermission,
@@ -15,19 +16,7 @@ export function NotificationsTab() {
     const updateSettings = useUpdateSettings();
     const [permState, setPermState] = useState<NotificationPermission>("default");
 
-    const notif = settings?.notifications ?? {
-        email: true,
-        browser: false,
-        taskReminders: true,
-        habitReminders: true,
-        dueDateAlerts: true,
-        quietHoursEnabled: false,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-        habitReminderLeadMinutes: 15 as const,
-        showHabitNavDueCount: true,
-        bundleMissedRoutinePrompts: true,
-    };
+    const notif = settings?.notifications ?? SETTINGS_DEFAULTS.notifications;
 
     useEffect(() => {
         let active = true;

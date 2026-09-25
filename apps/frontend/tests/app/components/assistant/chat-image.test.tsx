@@ -1,8 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ImageViewer, formatBytes, type ViewerImage } from "../../../../app/components/shared/ImageViewer";
 import { queryKeys } from "../../../../app/lib/api/query-keys";
+import { testQueryClient, withClient } from "../../../helpers";
 
 vi.mock("../../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({}) }));
 
@@ -46,13 +46,9 @@ describe("ImageViewer", () => {
 describe("ChatImages", () => {
     it("opens a sent photo in the viewer", async () => {
         const id = "33333333-3333-4333-8333-333333333333";
-        const queryClient = new QueryClient();
+        const queryClient = testQueryClient();
         queryClient.setQueryData(queryKeys.ai.image(id), new Blob(["x"], { type: "image/webp" }));
-        render(
-            <QueryClientProvider client={queryClient}>
-                <ChatImages ids={[id]} />
-            </QueryClientProvider>,
-        );
+        render(<ChatImages ids={[id]} />, { wrapper: withClient(queryClient) });
 
         fireEvent.click(await screen.findByRole("button", { name: "View image full size" }));
         const dialog = await screen.findByRole("dialog");

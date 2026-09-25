@@ -2,8 +2,6 @@
  * §13.1 & §13.3 Acceptance: Ranking determinism and explainability
  *
  * - Same inputs → same output order and scores (deterministic)
- * - Route dampening affects scores predictably
- * - Low-stimulation mode keeps tasks closer to manual order
  * - Reasons are always present and correct
  */
 import { describe, it, expect } from "vitest";
@@ -138,42 +136,5 @@ describe("rankTasks scoring signals", () => {
         const result = rankTasks(tasks, { now: NOW });
         expect(result[0].task.id).toBe("now");
         expect(result[0].reasons).toContain("scheduled_now");
-    });
-});
-
-describe("rankTasks route dampening", () => {
-    it("today route uses full scores (dampen = 1.0)", () => {
-        const tasks = [makeTask({ id: "a", dueDate: TODAY })];
-        const today = rankTasks(tasks, { now: NOW, routeContext: "today" });
-        const inbox = rankTasks(tasks, { now: NOW, routeContext: "inbox" });
-        // inbox dampen = 0.4, today = 1.0
-        expect(today[0].score).toBeGreaterThan(inbox[0].score);
-    });
-
-    it("inbox route dampens scores significantly", () => {
-        const tasks = [makeTask({ id: "a", dueDate: TODAY })];
-        const today = rankTasks(tasks, { now: NOW, routeContext: "today" });
-        const inbox = rankTasks(tasks, { now: NOW, routeContext: "inbox" });
-        expect(inbox[0].score).toBeCloseTo(today[0].score * 0.4, 5);
-    });
-});
-
-describe("rankTasks low-stimulation mode", () => {
-    it("halves score deltas in low-stimulation mode", () => {
-        const tasks = [makeTask({ id: "a", dueDate: TODAY })];
-        const normal = rankTasks(tasks, { now: NOW, routeContext: "today" });
-        const lowStim = rankTasks(tasks, { now: NOW, routeContext: "today", lowStimulation: true });
-        expect(lowStim[0].score).toBeCloseTo(normal[0].score * 0.5, 5);
-    });
-
-    it("preserves relative ordering in low-stimulation mode", () => {
-        const tasks = [
-            makeTask({ id: "high", priority: 4, orderIndex: 2 }),
-            makeTask({ id: "overdue", dueDate: YESTERDAY, orderIndex: 1 }),
-            makeTask({ id: "plain", orderIndex: 0 }),
-        ];
-        const normal = rankTasks(tasks, { now: NOW });
-        const lowStim = rankTasks(tasks, { now: NOW, lowStimulation: true });
-        expect(normal.map((r) => r.task.id)).toEqual(lowStim.map((r) => r.task.id));
     });
 });

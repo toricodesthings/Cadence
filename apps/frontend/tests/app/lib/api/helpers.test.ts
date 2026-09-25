@@ -4,18 +4,9 @@ import { ApiErrorResponse } from "../../../../app/types/api";
 
 describe("api/helpers", () => {
     it("parses structured API errors into typed errors", async () => {
-        const response = new Response(
-            JSON.stringify({
-                error: {
-                    code: "TOKEN_EXPIRED",
-                    message: "Session expired",
-                    isRetryable: false,
-                },
-            }),
-            {
-                status: 401,
-                headers: { "Content-Type": "application/json" },
-            },
+        const response = Response.json(
+            { error: { code: "TOKEN_EXPIRED", message: "Session expired", isRetryable: false } },
+            { status: 401 },
         );
 
         const error = await parseApiError(response);
@@ -39,10 +30,7 @@ describe("api/helpers", () => {
     });
 
     it("unwraps successful response envelopes", async () => {
-        const response = new Response(
-            JSON.stringify({ data: { id: "task-1", title: "Write tests" } }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-        );
+        const response = Response.json({ data: { id: "task-1", title: "Write tests" } });
 
         await expect(unwrapResponse<{ id: string; title: string }>(response)).resolves.toEqual({
             id: "task-1",
@@ -51,10 +39,7 @@ describe("api/helpers", () => {
     });
 
     it("throws typed errors for failed responses", async () => {
-        const response = new Response(
-            JSON.stringify({ error: { code: "UNAUTHORIZED", message: "Missing token" } }),
-            { status: 401, headers: { "Content-Type": "application/json" } },
-        );
+        const response = Response.json({ error: { code: "UNAUTHORIZED", message: "Missing token" } }, { status: 401 });
 
         await expect(unwrapResponse(response)).rejects.toMatchObject({
             name: "ApiErrorResponse",

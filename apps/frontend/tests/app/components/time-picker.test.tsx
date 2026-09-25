@@ -19,14 +19,9 @@ function typeAndEnter(value: string, typed: string) {
 }
 
 describe("TimePicker (desktop)", () => {
-    it("commits typed text on Enter, not the highlighted suggestion", () => {
+    it.each(["09:00", ""])("commits typed text on Enter, not the highlighted suggestion (starting at %j)", (value) => {
         setDateFormatConfig({ timeDisplay: "24h", dateStyle: "mdy", weekStartsOn: 1 });
-        expect(typeAndEnter("09:00", "14:30")).toHaveBeenCalledWith("14:30");
-    });
-
-    it("commits typed text on Enter when the field starts empty", () => {
-        setDateFormatConfig({ timeDisplay: "24h", dateStyle: "mdy", weekStartsOn: 1 });
-        expect(typeAndEnter("", "14:30")).toHaveBeenCalledWith("14:30");
+        expect(typeAndEnter(value, "14:30")).toHaveBeenCalledWith("14:30");
     });
 
     it("still commits an arrow-key pick on Enter", () => {

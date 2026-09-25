@@ -10,24 +10,12 @@ const authState = vi.hoisted(() => ({
     session: null,
 }));
 
-const authViewMock = vi.fn(
-    ({ view }: { view: "SIGN_IN" | "SIGN_UP" }) => (
+vi.mock("@neondatabase/auth/react/ui", () => ({
+    AuthView: ({ view }: { view: "SIGN_IN" | "SIGN_UP" }) => (
         <div data-testid="auth-view" data-view={view}>
-            <button type="button">
-                <svg aria-hidden="true" />
-            </button>
-            <button type="button">
-                <svg aria-hidden="true" />
-            </button>
-            <button type="button">
-                <svg aria-hidden="true" />
-            </button>
+            {[0, 1, 2].map((i) => <button key={i} type="button"><svg aria-hidden="true" /></button>)}
         </div>
     ),
-);
-
-vi.mock("@neondatabase/auth/react/ui", () => ({
-    AuthView: (props: { view: "SIGN_IN" | "SIGN_UP" }) => authViewMock(props),
 }));
 
 vi.mock("../../../app/hooks/core/use-document-meta", () => ({
@@ -65,12 +53,7 @@ function renderAuthPage(initialEntry: string) {
         </MemoryRouter>
     );
     const result = render(tree());
-
-    return {
-        ...result,
-        publishAuthState: () => result.rerender(tree()),
-        layoutSection: result.container.querySelector("section"),
-    };
+    return { ...result, publishAuthState: () => result.rerender(tree()) };
 }
 
 describe("auth route", () => {
@@ -107,8 +90,8 @@ describe("auth route", () => {
 
     it("times out a stalled request and does not retry it when it finishes late", async () => {
         vi.useFakeTimers();
-        let finish!: (value: boolean) => void;
-        authState.beginAuthRecovery.mockReturnValue(new Promise<boolean>((resolve) => { finish = resolve; }));
+        const { promise, resolve: finish } = Promise.withResolvers<boolean>();
+        authState.beginAuthRecovery.mockReturnValue(promise);
         renderAuthPage("/auth/callback");
         await act(() => vi.advanceTimersByTimeAsync(15_000));
         expect(screen.getByText("Sign-in didn't finish")).toBeTruthy();
@@ -131,12 +114,11 @@ describe("auth route", () => {
         await act(() => vi.advanceTimersByTimeAsync(20_000));
         expect(authState.beginAuthRecovery).toHaveBeenCalledOnce();
     });
-    it("renders the centered sanctuary sign-in surface and labels icon-only auth buttons", async () => {
-        const { layoutSection } = renderAuthPage("/auth/sign-in");
+    it("renders the sign-in surface and labels icon-only auth buttons", async () => {
+        renderAuthPage("/auth/sign-in");
 
         expect(screen.getByText("Sign in to Cadence")).toBeTruthy();
         expect(screen.getByRole("img", { name: "Cadence" }).getAttribute("src")).toBe("/logo.png");
-        expect(layoutSection?.className).toContain("md:items-center");
 
         await waitFor(() => {
             expect(screen.getByRole("button", { name: "Continue with Google" })).toBeTruthy();

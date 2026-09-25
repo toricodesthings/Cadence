@@ -156,7 +156,7 @@ describe("tool registry", () => {
         const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
 
         expect(frontend).toEqual(backend);
-        expect(backend).toHaveLength(21);
+        expect(backend).toHaveLength(29);
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {
@@ -185,6 +185,9 @@ describe("which calls wait for a tap", () => {
         expect(approval("auto", "set_task_state", { taskIds: ids(6) })).toBe("user-approval");
         expect(approval("auto", "create_tasks", { tasks: ids(6) })).toBe("user-approval");
         expect(approval("auto", "delete_tasks", { tasks: ids(1) })).toBe("user-approval");
+        expect(needsTap("delete_event", { eventId: "e" })).toBe(true);
+        expect(needsTap("delete_section", { sectionId: "s" })).toBe(true);
+        expect(needsTap("update_event", { eventId: "e", patch: { emoji: "🎂" } })).toBe(false);
         expect(needsTap("edit_subtasks", { add: ["a"] })).toBe(false);
         expect(needsTap("edit_subtasks", { remove: [{ subtaskId: "s" }] })).toBe(true);
         expect(needsTap("update_tasks", { taskIds: ids(1), patch: { appendNote: "more" } })).toBe(false);

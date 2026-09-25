@@ -1,9 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
 import { useArchiveTask } from "../../../app/hooks/tasks/use-archive-task";
 import { useTaskDetailsRequest } from "../../../app/hooks/ui/use-task-details-request";
+import { withClient } from "../../helpers";
 
 const { patch, toast } = vi.hoisted(() => ({
     patch: vi.fn(),
@@ -14,19 +13,8 @@ vi.mock("../../../app/hooks/auth/use-api-client", () => ({
 }));
 vi.mock("sonner", () => ({ toast }));
 
-function setup() {
-    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-    const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
-    return renderHook(() => useArchiveTask(), { wrapper });
-}
-
-function response(state: string) {
-    return new Response(JSON.stringify({ data: { id: "task-1", state, title: "Test task" } }), {
-        headers: { "Content-Type": "application/json" },
-    });
-}
+const setup = () => renderHook(() => useArchiveTask(), { wrapper: withClient() });
+const response = (state: string) => Response.json({ data: { id: "task-1", state, title: "Test task" } });
 
 describe("Trash Undo", () => {
     beforeEach(() => {

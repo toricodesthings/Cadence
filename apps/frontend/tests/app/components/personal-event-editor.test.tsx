@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalEventEditor } from "../../../app/components/events/PersonalEventEditor";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import type { PersonalEvent } from "../../../app/types/settings";
@@ -17,12 +17,7 @@ function editor(value = event) {
     return <Provider><PersonalEventEditor event={value} onChange={onChange} onClose={onClose} onDelete={onDelete} /></Provider>;
 }
 
-beforeEach(() => {
-    vi.clearAllMocks();
-    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
-});
-
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => vi.clearAllMocks());
 
 describe("PersonalEventEditor", () => {
     it("saves a trimmed title on blur and rejects empty titles", () => {

@@ -136,7 +136,6 @@ export default function ProjectView() {
     const smartSortEnabled = userSettings?.tasks?.intelligence?.smartSortEnabled !== false;
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
-    const lowStimulationMode = userSettings?.tasks?.intelligence?.lowStimulationMode ?? false;
     const { sortMode, setSortMode } = useSortMode();
 
     useRouteFocus();
@@ -182,7 +181,7 @@ export default function ProjectView() {
                 notBefore: t.notBefore ?? null,
                 durationEstimate: t.durationEstimate,
             }));
-            const ranked = rankTasks(rankable, { routeContext: "project", lowStimulation: lowStimulationMode });
+            const ranked = rankTasks(rankable, { routeContext: "project" });
             for (const item of ranked) {
                 rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
             }
@@ -196,7 +195,7 @@ export default function ProjectView() {
             tasks: sortTasks(filtered, sortMode),
             rationaleByTaskId,
         };
-    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, lowStimulationMode]);
+    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId]);
 
     const handleRenameOpen = () => {
         setRenameValue(project?.name ?? "");

@@ -24,20 +24,12 @@ describe("useConversationBroadcast", () => {
         for (const c of channels.splice(0)) c.close();
     });
 
-    it("invokes the handler for a message from another tab", async () => {
+    it.each(["stream-started", "stream-finished"] as const)("invokes the handler for a %s message from another tab", async (type) => {
         const handler = vi.fn();
         renderHook(() => useConversationBroadcast(handler));
 
-        open().postMessage({ type: "stream-started", conversationId: "conv-1", senderId: "other-tab" });
-        await waitFor(() => expect(handler).toHaveBeenCalledWith("stream-started", "conv-1", undefined));
-    });
-
-    it("delivers the finished payload verbatim", async () => {
-        const handler = vi.fn();
-        renderHook(() => useConversationBroadcast(handler));
-
-        open().postMessage({ type: "stream-finished", conversationId: "abc", senderId: "x" });
-        await waitFor(() => expect(handler).toHaveBeenCalledWith("stream-finished", "abc", undefined));
+        open().postMessage({ type, conversationId: "conv-1", senderId: "other-tab" });
+        await waitFor(() => expect(handler).toHaveBeenCalledWith(type, "conv-1", undefined));
     });
 
     it("forwards the title on a title-updated message", async () => {

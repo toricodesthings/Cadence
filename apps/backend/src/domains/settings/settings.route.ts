@@ -12,12 +12,44 @@ import { throwIfNotFound } from "../../platform/errors";
 import { sanitizeBackgroundPatch } from "./background-image";
 import {
     deepMerge,
-    migrateLegacySettings,
     savedFocusViewInputSchema,
     savedFocusViewPatchSchema,
     settingsPatchSchema,
     SETTINGS_DEFAULTS,
+    type LocationMode,
 } from "@cadence/contracts/settings";
+
+function isPlainObject(value: unknown): value is Record<string, any> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Lift the location fields that used to live under `calendar.holidays`
+ * (`usePreciseLocation`, `locationMode`, `countryCode`, `subdivisionCode`,
+ * `promptDismissedAt`) into `location`. Runs on stored settings before they are
+ * merged over defaults. The legacy keys are left in place so older clients keep
+ * reading them; the parsers ignore them.
+ */
+export function migrateLegacySettings<T>(stored: T): T {
+    if (!isPlainObject(stored) || stored.location !== undefined) return stored;
+    const holidays = isPlainObject(stored.calendar) ? stored.calendar.holidays : undefined;
+    if (!isPlainObject(holidays)) return stored;
+
+    const mode: LocationMode = holidays.locationMode === "manual"
+        ? "manual"
+        : holidays.usePreciseLocation === true ? "precise" : "approximate";
+
+    return {
+        ...stored,
+        location: {
+            mode,
+            countryCode: typeof holidays.countryCode === "string" ? holidays.countryCode : null,
+            subdivisionCode: typeof holidays.subdivisionCode === "string" ? holidays.subdivisionCode : null,
+            city: null,
+            promptDismissedAt: typeof holidays.promptDismissedAt === "string" ? holidays.promptDismissedAt : null,
+        },
+    };
+}
 
 /**
  * Normalize stored settings against canonical defaults.

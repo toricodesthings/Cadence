@@ -9,6 +9,7 @@ import { formatShortDate, formatShortDateTime, parseLocalDate } from "../../../l
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { Tag } from "@cadence/contracts/tag";
+import type { TaskSection } from "@cadence/contracts/section";
 
 /** The cached task itself (undefined when it isn't cached). */
 export function useTaskLookup() {
@@ -33,6 +34,18 @@ export function useTagsLookup() {
     return (ids: string[]): Tag[] => {
         const all = queryClient.getQueryData<Tag[]>(queryKeys.tags.all) ?? [];
         return ids.flatMap((id) => all.find((t) => t.id === id) ?? []);
+    };
+}
+
+/** A section from any cached list's sections (undefined when none is cached). */
+export function useSectionLookup() {
+    const queryClient = useQueryClient();
+    return (id: string): TaskSection | undefined => {
+        for (const [, sections] of queryClient.getQueriesData<TaskSection[]>({ queryKey: ["sections"] })) {
+            const found = Array.isArray(sections) ? sections.find((s) => s.id === id) : undefined;
+            if (found) return found;
+        }
+        return undefined;
     };
 }
 

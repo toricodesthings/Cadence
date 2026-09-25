@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Habit } from "@cadence/contracts/habit";
 import { HabitEditor } from "../../../app/components/habits/HabitEditor";
 import { Provider } from "../../../app/components/primitives/Tooltip";
@@ -30,9 +30,7 @@ function setup(value = habit) { return render(<Provider><HabitEditor habit={valu
 beforeEach(() => {
     vi.clearAllMocks();
     settings.current = { tasks: { showStreaks: true } };
-    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
 });
-afterEach(() => vi.unstubAllGlobals());
 
 describe("HabitEditor", () => {
     it("saves titles, notes and purpose on blur without a settings form", () => {

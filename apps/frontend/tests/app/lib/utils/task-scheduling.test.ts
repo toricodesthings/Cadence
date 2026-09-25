@@ -9,44 +9,11 @@ import {
     normalizeTaskWriteTemporalInput,
 } from "../../../../app/lib/utils/task/task-scheduling";
 import { formatTime } from "../../../../app/lib/utils/date-format";
-import type { Task } from "@cadence/contracts/task";
-
-function createTask(overrides: Partial<Task> = {}): Task {
-    return {
-        id: "task-1",
-        userId: "user-1",
-        projectId: null,
-        title: "Task",
-        content: null,
-        state: "ACTIVE",
-        orderIndex: 1,
-        isAllDay: true,
-        dueDate: null,
-        scheduledStart: null,
-        scheduledEnd: null,
-        durationEstimate: null,
-        timezoneLocked: false,
-        createdAt: "2026-03-09T00:00:00.000Z",
-        updatedAt: "2026-03-09T00:00:00.000Z",
-        priority: 0,
-        isPinned: false,
-        reminderAt: null,
-        reminderSilenced: false,
-        recurrenceRule: null,
-        interactionMode: "task",
-        sectionId: null,
-        seriesId: undefined,
-        isRecurringInstance: false,
-        occurrenceStart: null,
-        occurrenceEnd: null,
-        effort: null,
-        ...overrides,
-    };
-}
+import { makeTask } from "../../../helpers";
 
 describe("task scheduling helpers", () => {
     it("classifies deadline, duration, timed, and legacy mixed tasks deterministically", () => {
-        expect(getTaskScheduleSummary(createTask({ dueDate: "2026-03-09" }))).toMatchObject({
+        expect(getTaskScheduleSummary(makeTask({ dueDate: "2026-03-09" }))).toMatchObject({
             kind: "deadline",
             displayMode: "deadline",
             primaryLabel: "Mar 9",
@@ -54,7 +21,7 @@ describe("task scheduling helpers", () => {
         });
 
         expect(
-            getTaskScheduleSummary(createTask({ dueDate: "2026-03-09", scheduledEnd: "2026-03-12", isAllDay: true })),
+            getTaskScheduleSummary(makeTask({ dueDate: "2026-03-09", scheduledEnd: "2026-03-12", isAllDay: true })),
         ).toMatchObject({
             kind: "duration",
             displayMode: "duration",
@@ -63,7 +30,7 @@ describe("task scheduling helpers", () => {
 
         expect(
             getTaskScheduleSummary(
-                createTask({
+                makeTask({
                     isAllDay: false,
                     scheduledStart: "2026-03-09T09:00:00.000Z",
                     scheduledEnd: "2026-03-09T10:00:00.000Z",
@@ -77,7 +44,7 @@ describe("task scheduling helpers", () => {
 
         expect(
             getTaskScheduleSummary(
-                createTask({
+                makeTask({
                     isAllDay: false,
                     dueDate: "2026-03-09",
                     scheduledStart: "2026-03-09T09:00:00.000Z",
@@ -109,7 +76,7 @@ describe("task scheduling helpers", () => {
     });
 
     it("formats recurring series metadata without exposing raw RRULE text", () => {
-        const task = createTask({
+        const task = makeTask({
             isAllDay: false,
             scheduledStart: "2026-03-10T13:30:00.000Z",
             scheduledEnd: "2026-03-10T14:45:00.000Z",
@@ -127,14 +94,14 @@ describe("task scheduling helpers", () => {
     });
 
     it("says how often an every-N rule repeats", () => {
-        const summary = (recurrenceRule: string) => getTaskRecurrenceSummary(createTask({ recurrenceRule, scheduledStart: null, scheduledEnd: null }))?.cadenceLabel;
+        const summary = (recurrenceRule: string) => getTaskRecurrenceSummary(makeTask({ recurrenceRule, scheduledStart: null, scheduledEnd: null }))?.cadenceLabel;
         expect(summary("FREQ=DAILY;INTERVAL=3")).toBe("Repeats every 3 days");
         expect(summary("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE")).toBe("Repeats every other week on Mon & Wed");
         expect(summary("FREQ=DAILY")).toBe("Repeats daily");
     });
 
     it("routes recurring instances back to their series master for mutations", () => {
-        const instance = createTask({
+        const instance = makeTask({
             id: "series-1::2026-03-10T09:30:00.000Z",
             seriesId: "series-1",
             isRecurringInstance: true,
@@ -145,7 +112,7 @@ describe("task scheduling helpers", () => {
     });
 
     it("labels passive recurring timeblocks as timetable anchors and resolves their occurrence date", () => {
-        const passiveSeries = createTask({
+        const passiveSeries = makeTask({
             isAllDay: false,
             interactionMode: "timetable",
             scheduledStart: "2026-03-10T09:30:00.000Z",

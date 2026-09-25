@@ -1,12 +1,11 @@
-// Dependency-rule guard (Canonical_models §5.4): @cadence/domain may import ONLY
-// `rrule`, `date-fns`, `@cadence/contracts`, `@cadence/nlp`. No platform code
-// (AppError/db/withRls), no React, no Hono, no apps.
+// Dependency-rule guard for every shared package (packages/AGENTS.md §6). Run from a
+// package dir as `node ../check-imports.mjs [extra forbidden specifiers…]`. No package
+// may import an app, backend platform code, Drizzle, Hono, React, or workers-types;
+// each package passes the @cadence packages above it in the graph as extras.
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-
+const pkg = JSON.parse(readFileSync("package.json", "utf8")).name;
 const FORBIDDEN = [
     "drizzle-orm",
     "hono",
@@ -14,6 +13,7 @@ const FORBIDDEN = [
     "@cloudflare/workers-types",
     "@cadence/backend",
     "@cadence/frontend",
+    ...process.argv.slice(2),
 ];
 
 const importRe = /\bfrom\s+["']([^"']+)["']/g;
@@ -27,9 +27,7 @@ function walk(dir) {
             continue;
         }
         if (!/\.(ts|tsx)$/.test(entry)) continue;
-        const src = readFileSync(full, "utf8");
-        for (const m of src.matchAll(importRe)) {
-            const spec = m[1];
+        for (const [, spec] of readFileSync(full, "utf8").matchAll(importRe)) {
             if (
                 FORBIDDEN.some((f) => spec === f || spec.startsWith(`${f}/`)) ||
                 spec.includes("apps/") ||
@@ -41,10 +39,10 @@ function walk(dir) {
     }
 }
 
-walk(root);
+walk("src");
 
 if (violations.length > 0) {
-    console.error("@cadence/domain dependency-rule violations:\n" + violations.join("\n"));
+    console.error(`${pkg} dependency-rule violations:\n${violations.join("\n")}`);
     process.exit(1);
 }
-console.log("@cadence/domain import boundaries OK");
+console.log(`${pkg} import boundaries OK`);

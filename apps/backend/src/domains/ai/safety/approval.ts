@@ -15,12 +15,12 @@ function isFree(toolName: string) {
 }
 
 /**
- * True when Auto should still wait: permanent deletes, removing subtasks, a whole
+ * True when Auto should still wait: permanent deletes (tasks, events, sections), removing subtasks, a whole
  * note rewrite (it can remove text), and anything touching more than 5 tasks.
  */
 export function needsTap(toolName: string, input: unknown): boolean {
     const args = (input ?? {}) as { taskIds?: unknown[]; tasks?: unknown[]; remove?: unknown[]; patch?: { note?: unknown } };
-    if (toolName === "delete_tasks") return true;
+    if (toolName.startsWith("delete_")) return true;
     if (toolName === "edit_subtasks" && args.remove?.length) return true;
     if (toolName === "update_tasks" && args.patch?.note !== undefined) return true;
     return (args.taskIds?.length ?? args.tasks?.length ?? 0) > AUTO_TASK_LIMIT;

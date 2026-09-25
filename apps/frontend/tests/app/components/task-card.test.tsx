@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import { TaskCard } from "../../../app/components/tasks/TaskCard";
+import { makeTask } from "../../helpers";
 
 vi.mock("../../../app/components/tasks/TaskCheckbox", () => ({
     TaskCheckbox: ({ task, subtask }: { task?: { title: string }; subtask?: { title: string } }) => (
@@ -38,31 +39,7 @@ vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({
     useShellMode: () => ({ isPhone: false }),
 }));
 
-const baseTask = {
-    id: "task-1",
-    userId: "user-1",
-    projectId: null,
-    title: "Call landlord about hallway leak",
-    content: null,
-    state: "ACTIVE" as const,
-    orderIndex: 0,
-    isAllDay: true,
-    dueDate: "2026-03-25",
-    scheduledStart: null,
-    scheduledEnd: null,
-    durationEstimate: null,
-    timezoneLocked: false,
-    createdAt: "2026-03-20T00:00:00.000Z",
-    updatedAt: "2026-03-20T00:00:00.000Z",
-    priority: 0 as const,
-    isPinned: false,
-    reminderAt: null,
-    reminderSilenced: false,
-    recurrenceRule: null,
-    interactionMode: "task" as const,
-    effort: null,
-    tagIds: [],
-};
+const baseTask = makeTask({ title: "Call landlord about hallway leak", dueDate: "2026-03-25", tagIds: [] });
 
 describe("TaskCard overdue presentation", () => {
     beforeEach(() => {
@@ -87,7 +64,6 @@ describe("TaskCard overdue presentation", () => {
         expect(screen.queryByText("This task is past its due date")).toBeNull();
     });
 });
-
 
 it("labels a completed thought without corrupting the task action name", () => {
     render(<Provider><TaskCard task={{ ...baseTask, origin: "thought", state: "COMPLETE" }} /></Provider>);

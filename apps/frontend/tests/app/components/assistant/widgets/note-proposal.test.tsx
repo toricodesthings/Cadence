@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useNoteProposal, type NoteProposal } from "../../../../../app/components/assistant/widgets/note-proposal";
+import { withClient } from "../../../../helpers";
 
 const getNote = vi.fn();
 
@@ -12,15 +12,8 @@ vi.mock("../../../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => ({ authReady: true, isAuthenticated: true }),
 }));
 
-const note = (body: string, version: number) =>
-    new Response(JSON.stringify({ data: { body, version, updatedAt: "2026-09-23T12:00:00.000Z" } }), { status: 200 });
-
-function render(proposal: NoteProposal) {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return renderHook(() => useNoteProposal("task-1", proposal), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-    });
-}
+const note = (body: string, version: number) => Response.json({ data: { body, version, updatedAt: "2026-09-23T12:00:00.000Z" } });
+const render = (proposal: NoteProposal) => renderHook(() => useNoteProposal("task-1", proposal), { wrapper: withClient() });
 
 describe("assistant note changes", () => {
     beforeEach(() => getNote.mockReset());

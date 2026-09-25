@@ -1,18 +1,32 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, desc, ilike, inArray } from "drizzle-orm";
+import { and, asc, count, eq, desc, ilike, inArray, isNull, max } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { projects, taskSections } from "../../../db/schema";
+import { projects, taskSections, tasks } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
+import { throwIfNotFound } from "../../../platform/errors";
+import { assertProjectOwnership } from "../../../platform/ownership";
+import type { Tx } from "../../../types/db";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
-import { safeExecute, MAX_LIST_LIMIT } from "./index";
+import { safeExecute, once, MAX_LIST_LIMIT } from "./index";
 import { toMinimalProject } from "./projections";
 import { createProject } from "../../projects/projects.service";
+import { createSectionSchema } from "@cadence/contracts/section";
 
 const SECTION_LIMIT = 200;
 const namePattern = (query: string) => `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
 const offsetSchema = z.number().int().min(0).max(2_147_483_647).optional();
+const sectionName = createSectionSchema.shape.name;
+
+async function findSection(tx: Tx, userId: string, sectionId: string) {
+    const [row] = await tx
+        .select({ id: taskSections.id, name: taskSections.name, projectId: taskSections.projectId })
+        .from(taskSections)
+        .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, userId)));
+    throwIfNotFound(row, "Section");
+    return row;
+}
 
 export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -83,5 +97,91 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                 const row = await withRls(getDbClient(env), userId, (tx) => createProject(tx, userId, input, toolCallId));
                 return { projectId: row.id, name: row.name };
             }),
+    }),
+
+    // ── W ──────────────────────────────────────────────────────────────────
+    create_sections: tool({
+        description: "Adds sections to the end of a list, in the order given. Returns each sectionId, for placing tasks in it.",
+        inputSchema: z.object({
+            projectId: z.uuid(),
+            names: z.array(sectionName).min(1).max(20),
+        }),
+        execute: async ({ projectId, names }, { toolCallId }) =>
+            safeExecute("create_sections", userId, async () =>
+                withRls(getDbClient(env), userId, (tx) =>
+                    once(tx, userId, toolCallId, async () => {
+                        await assertProjectOwnership(tx, userId, projectId);
+                        const [{ last }] = await tx
+                            .select({ last: max(taskSections.orderIndex) })
+                            .from(taskSections)
+                            .where(and(eq(taskSections.userId, userId), eq(taskSections.projectId, projectId)));
+                        const start = (last ?? -1) + 1;
+                        const rows = await tx
+                            .insert(taskSections)
+                            .values(names.map((name, i) => ({ userId, projectId, name, orderIndex: start + i })))
+                            .returning({ sectionId: taskSections.id, name: taskSections.name });
+                        return { result: { sections: rows }, id: rows[0].sectionId };
+                    }),
+                ),
+            ),
+    }),
+
+    // ── U ──────────────────────────────────────────────────────────────────
+    update_section: tool({
+        description: "Renames a section and/or moves it to a position in its list (1 = first). Its tasks stay in it.",
+        inputSchema: z.object({
+            sectionId: z.uuid(),
+            name: sectionName.optional(),
+            position: z.number().int().min(1).optional().describe("Where it lands among the list's sections; past the end = last."),
+        }).refine((v) => v.name !== undefined || v.position !== undefined, "Send a name or a position"),
+        execute: async ({ sectionId, name, position }, { toolCallId }) =>
+            safeExecute("update_section", userId, async () =>
+                withRls(getDbClient(env), userId, (tx) =>
+                    once(tx, userId, toolCallId, async () => {
+                        const section = await findSection(tx, userId, sectionId);
+                        if (name !== undefined) {
+                            await tx.update(taskSections).set({ name }).where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, userId)));
+                        }
+                        if (position !== undefined) {
+                            // Renumber the list's sections 0..n with this one at its new place.
+                            const siblings = await tx
+                                .select({ id: taskSections.id })
+                                .from(taskSections)
+                                .where(and(
+                                    eq(taskSections.userId, userId),
+                                    section.projectId ? eq(taskSections.projectId, section.projectId) : isNull(taskSections.projectId),
+                                ))
+                                .orderBy(asc(taskSections.orderIndex), asc(taskSections.createdAt));
+                            const order = siblings.map((row) => row.id).filter((id) => id !== sectionId);
+                            order.splice(Math.min(position - 1, order.length), 0, sectionId);
+                            for (const [orderIndex, id] of order.entries()) {
+                                await tx.update(taskSections).set({ orderIndex }).where(and(eq(taskSections.id, id), eq(taskSections.userId, userId)));
+                            }
+                        }
+                        return { result: { sectionId, name: name ?? section.name, position }, id: sectionId };
+                    }),
+                ),
+            ),
+    }),
+
+    // ── D ──────────────────────────────────────────────────────────────────
+    delete_section: tool({
+        description: "Deletes a section for good. Its tasks are kept, unsectioned in the same list. Returns how many moved.",
+        inputSchema: z.object({ sectionId: z.uuid() }),
+        execute: async ({ sectionId }, { toolCallId }) =>
+            safeExecute("delete_section", userId, async () =>
+                withRls(getDbClient(env), userId, (tx) =>
+                    once(tx, userId, toolCallId, async () => {
+                        const section = await findSection(tx, userId, sectionId);
+                        const [{ tasksUnsectioned }] = await tx
+                            .select({ tasksUnsectioned: count() })
+                            .from(tasks)
+                            .where(and(eq(tasks.userId, userId), eq(tasks.sectionId, sectionId)));
+                        // The foreign key sets each task's section to null.
+                        await tx.delete(taskSections).where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, userId)));
+                        return { result: { deleted: section.name, tasksUnsectioned }, id: sectionId };
+                    }),
+                ),
+            ),
     }),
 });

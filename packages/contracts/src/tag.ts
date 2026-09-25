@@ -15,7 +15,6 @@ export type UpdateTag = z.infer<typeof updateTagSchema>;
 export const taskTagSchema = z.object({
     tagId: z.string().uuid(),
 });
-export type TaskTagInput = z.infer<typeof taskTagSchema>;
 
 export const tagRowSchema = z.object({
     id: z.uuid(),
@@ -31,5 +30,4 @@ export type TagRow = z.infer<typeof tagRowSchema>;
 export const tagSchema = tagRowSchema;
 export type Tag = z.infer<typeof tagSchema>;
 
-export const createTagInputSchema = insertTagSchema;
 export type CreateTagInput = z.input<typeof insertTagSchema>;

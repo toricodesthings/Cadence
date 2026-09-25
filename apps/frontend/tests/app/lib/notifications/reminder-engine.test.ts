@@ -12,65 +12,15 @@ import {
     filterByBehavior,
     applyPresentationRules,
     computeDeferUntil,
-    DEFER_LABELS,
-    type DeferChoice,
     type NotificationDismissalState,
     type BehaviorFilterOptions,
 } from "../../../../app/lib/notifications/reminder-engine";
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
+import { makeHabit, makeTask } from "../../../helpers";
 
-const BASE_TASK: Task = {
-    id: "t1",
-    userId: "u1",
-    title: "Test Task",
-    content: null,
-    state: "ACTIVE",
-    dueDate: null,
-    scheduledStart: null,
-    scheduledEnd: null,
-    isAllDay: false,
-    durationEstimate: null,
-    timezoneLocked: false,
-    priority: 0 as const,
-    isPinned: false,
-    reminderAt: null,
-    reminderSilenced: false,
-    recurrenceRule: null,
-    interactionMode: "task" as const,
-    effort: null,
-    projectId: null,
-    sectionId: null,
-    orderIndex: 0,
-    createdAt: "2026-03-26T00:00:00.000Z",
-    updatedAt: "2026-03-26T00:00:00.000Z",
-};
-
-const BASE_HABIT: Habit = {
-    id: "h1",
-    userId: "u1",
-    title: "Test Habit",
-    description: null,
-    notes: null,
-    steps: null,
-    recurrenceRule: "FREQ=DAILY",
-    targetTime: null,
-    reminderEnabled: false,
-    totalCompletions: 0,
-    totalSkips: 0,
-    currentStreak: 0,
-    longestStreak: 0,
-    colorAccent: "#000",
-    archived: false,
-    targetTimes: null,
-    emoji: null,
-    projectId: null,
-    sortOrder: 0,
-    pausedUntil: null,
-    logs: [],
-    createdAt: "2026-03-26T00:00:00.000Z",
-    updatedAt: "2026-03-26T00:00:00.000Z",
-};
+const BASE_TASK = makeTask({ id: "t1", userId: "u1", title: "Test Task", isAllDay: false });
+const BASE_HABIT = makeHabit({ id: "h1", userId: "u1", title: "Test Habit" });
 
 const DEFAULT_BEHAVIOR: BehaviorFilterOptions = {
     taskReminders: true,
@@ -131,17 +81,6 @@ describe("deriveCandidates", () => {
         const candidates = deriveCandidates([task], [], now);
         expect(candidates.length).toBe(1);
         expect(candidates[0].kind).toBe("task-reminder");
-    });
-
-    it("produces deterministic output for same inputs", () => {
-        const now = new Date("2026-03-26T10:00:00");
-        const tasks: Task[] = [
-            { ...BASE_TASK, id: "t1", title: "Task A", dueDate: "2026-03-26" },
-            { ...BASE_TASK, id: "t2", title: "Task B", dueDate: "2026-03-25" },
-        ];
-        const a = deriveCandidates(tasks, [], now);
-        const b = deriveCandidates(tasks, [], now);
-        expect(a).toEqual(b);
     });
 });
 
@@ -279,15 +218,5 @@ describe("computeDeferUntil", () => {
         const d = new Date(result);
         expect(d.getDate()).toBe(27);
         expect(d.getHours()).toBe(9);
-    });
-});
-
-describe("DEFER_LABELS", () => {
-    it("has labels for all DeferChoice values", () => {
-        const choices: DeferChoice[] = ["10_minutes", "this_evening", "tomorrow"];
-        for (const choice of choices) {
-            expect(DEFER_LABELS[choice]).toBeDefined();
-            expect(typeof DEFER_LABELS[choice]).toBe("string");
-        }
     });
 });

@@ -1,39 +1,17 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSubtasksByTaskIds } from "../../../app/hooks/tasks/use-subtasks";
+import { withClient } from "../../helpers";
 
 const bulkGetMock = vi.fn();
 
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({
-    useApiClient: () => ({
-        api: {
-            subtasks: {
-                $get: bulkGetMock,
-            },
-        },
-    }),
+    useApiClient: () => ({ api: { subtasks: { $get: bulkGetMock } } }),
 }));
 
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
-    useAuthState: () => ({
-        authReady: true,
-        isAuthenticated: true,
-    }),
+    useAuthState: () => ({ authReady: true, isAuthenticated: true }),
 }));
-
-function createWrapper() {
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false },
-        },
-    });
-
-    return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-}
 
 describe("useSubtasksByTaskIds", () => {
     beforeEach(() => {
@@ -41,40 +19,17 @@ describe("useSubtasksByTaskIds", () => {
     });
 
     it("fetches subtasks for many tasks with a single bulk request", async () => {
-        bulkGetMock.mockResolvedValue(
-            new Response(
-                JSON.stringify({
-                    data: {
-                        "task-1": [
-                            {
-                                id: "subtask-1",
-                                taskId: "task-1",
-                                title: "First",
-                                isComplete: false,
-                                orderIndex: 2,
-                                createdAt: "2026-03-20T00:00:00.000Z",
-                            },
-                            {
-                                id: "subtask-2",
-                                taskId: "task-1",
-                                title: "Second",
-                                isComplete: false,
-                                orderIndex: 1,
-                                createdAt: "2026-03-20T00:00:00.000Z",
-                            },
-                        ],
-                    },
-                }),
-                {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                },
-            ),
-        );
+        const subtask = { taskId: "task-1", isComplete: false, createdAt: "2026-03-20T00:00:00.000Z" };
+        bulkGetMock.mockResolvedValue(Response.json({
+            data: {
+                "task-1": [
+                    { ...subtask, id: "subtask-1", title: "First", orderIndex: 2 },
+                    { ...subtask, id: "subtask-2", title: "Second", orderIndex: 1 },
+                ],
+            },
+        }));
 
-        const { result } = renderHook(() => useSubtasksByTaskIds(["task-2", "task-1", "task-1"]), {
-            wrapper: createWrapper(),
-        });
+        const { result } = renderHook(() => useSubtasksByTaskIds(["task-2", "task-1", "task-1"]), { wrapper: withClient() });
 
         await waitFor(() => expect(result.current.data).toBeDefined());
 
@@ -94,7 +49,7 @@ describe("useSubtasksByTaskIds", () => {
         bulkGetMock.mockImplementation(async () => Response.json({ data: {} }));
         const ids = Array.from({ length: 250 }, (_, i) => `task-${String(i).padStart(3, "0")}`);
 
-        const { result } = renderHook(() => useSubtasksByTaskIds(ids), { wrapper: createWrapper() });
+        const { result } = renderHook(() => useSubtasksByTaskIds(ids), { wrapper: withClient() });
 
         await waitFor(() => expect(result.current.data).toBeDefined());
         expect(bulkGetMock.mock.calls.map(([{ query }]) => query.taskIds.split(",").length)).toEqual([200, 50]);

@@ -5,6 +5,8 @@
  * a multi-signal ranking model that can explain each decision.
  */
 
+import { toDateStr } from "../core/index.js";
+
 export interface RankableTask {
   id: string;
   priority: number;
@@ -46,29 +48,15 @@ export type TaskRankReason =
   | "pinned"
   | "scheduled_now";
 
-/** Per-route dampening factors — lower values keep tasks closer to manual order */
-const ROUTE_DAMPENING: Record<string, number> = {
-  today: 1.0,
-  upcoming: 0.7,
-  project: 0.5,
-  inbox: 0.4,
-  planner: 0.8,
-};
-
 export interface RankingOptions {
   now?: Date;
   /** Current route context hint */
-  routeContext?: "today" | "upcoming" | "project" | "inbox" | "planner";
-  /** User preference: low-stimulation mode reduces reordering */
-  lowStimulation?: boolean;
+  routeContext?: "today" | "upcoming" | "project";
 }
 
 /**
  * Rank tasks with explainable scoring.
  * Returns sorted tasks with reason annotations.
- *
- * §11.6: Applies per-route dampening and low-stimulation stabilization.
- * Low-stim mode halves score deltas, keeping tasks closer to manual order.
  */
 export function rankTasks(
   tasks: RankableTask[],
@@ -76,14 +64,8 @@ export function rankTasks(
 ): RankedTask[] {
   const now = options.now ?? new Date();
   const todayStr = toDateStr(now);
-  const routeDampen = ROUTE_DAMPENING[options.routeContext ?? "today"] ?? 1.0;
-  const lowStimDampen = options.lowStimulation ? 0.5 : 1.0;
-  const dampenFactor = routeDampen * lowStimDampen;
 
-  const ranked = tasks.map((task) => {
-    const { score, reasons } = computeScore(task, now, todayStr, options);
-    return { task, score: score * dampenFactor, reasons };
-  });
+  const ranked = tasks.map((task) => ({ task, ...computeScore(task, now, todayStr, options) }));
 
   // Sort by score descending, then by order index for stable tie-breaking
   ranked.sort((a, b) => {
@@ -177,20 +159,13 @@ function computeScore(
     reasons.push("pinned");
   }
 
-  // ── Needs date (in today/planner context, unscheduled tasks bubble up gently) ──
-  if (
-    !effectiveDate &&
-    (options.routeContext === "today" || options.routeContext === "planner")
-  ) {
+  // ── Needs date (in today context, unscheduled tasks bubble up gently) ──
+  if (!effectiveDate && options.routeContext === "today") {
     score += 2;
     reasons.push("needs_date");
   }
 
   return { score, reasons };
-}
-
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function daysDiff(fromStr: string, toStr: string): number {

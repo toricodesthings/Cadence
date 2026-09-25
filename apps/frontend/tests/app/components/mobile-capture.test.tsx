@@ -13,8 +13,8 @@ function Host({ onSaved = vi.fn() }: { onSaved?: () => void }) {
 beforeEach(() => { vi.clearAllMocks(); });
 describe("Capture composer", () => {
     it("saves with Enter, waits for success, and stays ready for another thought", async () => {
-        let resolve!: (value: unknown) => void;
-        create.mockReturnValue(new Promise(r => { resolve = r; }));
+        const { promise, resolve } = Promise.withResolvers();
+        create.mockReturnValue(promise);
         const onSaved = vi.fn();
         render(<Host onSaved={onSaved} />);
         const input = screen.getByRole("textbox") as HTMLTextAreaElement;

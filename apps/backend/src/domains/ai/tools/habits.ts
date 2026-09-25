@@ -1,23 +1,24 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { habits, habitLogs } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
+import { throwIfNotFound } from "../../../platform/errors";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalHabit } from "./projections";
 import { routinesDue } from "./calendar";
 import { resolveHabit } from "../../habits/habits.service";
-import { stepStatusSchema } from "@cadence/contracts/habit";
+import { insertHabitSchema, stepStatusSchema } from "@cadence/contracts/habit";
 import { stepMarksOn } from "@cadence/domain/repeats";
 
 export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_habits: tool({
         description:
-            "The user's routines (habits in code) with streaks and adherence (0..1). Archived ones only when asked.",
+            "The user's routines (habits in code) with emoji, streaks and adherence (0..1). Archived ones only when asked.",
         inputSchema: z.object({
             includeArchived: z
                 .boolean()
@@ -34,6 +35,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .select({
                             id: habits.id,
                             title: habits.title,
+                            emoji: habits.emoji,
                             recurrenceRule: habits.recurrenceRule,
                             currentStreak: habits.currentStreak,
                             longestStreak: habits.longestStreak,
@@ -123,6 +125,29 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     once(tx, userId, toolCallId, async () => {
                         const { habit, log } = await resolveHabit(tx, userId, input.habitId, { ...input, timezone: ctx.timezone });
                         return { result: { status: log.status, currentStreak: habit.currentStreak }, id: habit.id };
+                    }),
+                ),
+            ),
+    }),
+
+    // ── U ──────────────────────────────────────────────────────────────────
+    set_habit_emoji: tool({
+        description: "Sets the emoji shown as a routine's mark; null removes it.",
+        inputSchema: z.object({
+            habitId: z.uuid(),
+            emoji: insertHabitSchema.shape.emoji.unwrap().describe("One emoji, or null for none."),
+        }),
+        execute: async ({ habitId, emoji }, { toolCallId }) =>
+            safeExecute("set_habit_emoji", userId, async () =>
+                withRls(getDbClient(env), userId, (tx) =>
+                    once(tx, userId, toolCallId, async () => {
+                        const [row] = await tx
+                            .update(habits)
+                            .set({ emoji, updatedAt: sql`NOW()` })
+                            .where(and(eq(habits.id, habitId), eq(habits.userId, userId)))
+                            .returning({ id: habits.id, title: habits.title });
+                        throwIfNotFound(row, "Routine");
+                        return { result: { title: row.title, emoji }, id: row.id };
                     }),
                 ),
             ),

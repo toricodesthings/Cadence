@@ -4,101 +4,91 @@
  * These three run raw DELETE/UPDATE driven by client-supplied ids (the edit /
  * regenerate flows), so the property that matters is the WHERE clause: every
  * statement must be scoped to the owning user + conversation, and an unknown
- * anchor must be a no-op rather than a broad delete. There is no test DB here,
- * so we assert the generated SQL via a drizzle mock driver.
+ * anchor must be a no-op rather than a broad delete. The helpers run as the
+ * table owner (RLS bypassed), so only their own WHERE clauses protect the rows.
  */
-import { describe, expect, it } from "vitest";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
 import {
+    appendUserMessage,
+    resolveOrCreateConversation,
     truncateMessagesAfter,
     deleteAllMessages,
     setTitleIfEmpty,
 } from "../../src/domains/ai/persistence/conversation-repo";
+import { withRls } from "../../src/platform/rls";
 import type { Tx } from "../../src/types/db";
 
-const USER_ID = "11111111-1111-4111-8111-111111111111";
-const CONV_ID = "22222222-2222-4222-8222-222222222222";
+let owner: string;
+let other: string;
 
-/**
- * A tx stand-in that records the SQL each statement WOULD run. Chain shapes
- * mirror the ones the repo uses; `selectRows` seeds the anchor lookup.
- */
-function createFakeTx(selectRows: unknown[] = []) {
-    const mock = (drizzle as any).mock();
-    const captured: { sql: string; params: unknown[] }[] = [];
+beforeAll(startTestDb);
+beforeEach(async () => {
+    owner = await createUser();
+    other = await createUser();
+});
 
-    const tx = {
-        select: () => ({
-            from: () => ({
-                where: () => ({
-                    limit: () => Promise.resolve(selectRows),
-                }),
-            }),
-        }),
-        delete: (table: unknown) => ({
-            where: (cond: unknown) => {
-                captured.push(mock.delete(table).where(cond).toSQL());
-                return Promise.resolve();
-            },
-        }),
-        update: (table: unknown) => ({
-            set: (values: unknown) => ({
-                where: (cond: unknown) => {
-                    captured.push(mock.update(table).set(values).where(cond).toSQL());
-                    return Promise.resolve();
-                },
-            }),
-        }),
-    } as unknown as Tx;
+/** A thread holding user turns `${id}-1` … `${id}-n`, in order. */
+async function seedThread(userId: string, turns = 3) {
+    return withRls(getTestDb(), userId, async (tx) => {
+        const { id } = await resolveOrCreateConversation(tx, userId, {});
+        for (let i = 1; i <= turns; i++) {
+            await appendUserMessage(tx, userId, id, { id: `${id}-${i}`, role: "user", parts: [{ type: "text", text: `turn ${i}` }] }, {});
+        }
+        return id;
+    });
+}
 
-    return { tx, captured };
+const bypassingRls = <T>(fn: (tx: Tx) => Promise<T>) => asOwner(() => fn(getTestDb()));
+
+async function messageIds(conversationId: string) {
+    const { rows } = await asOwner((pg) =>
+        pg.query<{ id: string }>("SELECT id FROM ai_messages WHERE conversation_id = $1 ORDER BY order_index", [conversationId]),
+    );
+    return rows.map((r) => r.id);
+}
+
+async function title(conversationId: string) {
+    const { rows } = await asOwner((pg) => pg.query<{ title: string | null }>("SELECT title FROM ai_conversations WHERE id = $1", [conversationId]));
+    return rows[0].title;
 }
 
 describe("conversation-repo destructive helpers are owner-scoped", () => {
-    it("deleteAllMessages scopes the DELETE to the owner AND the conversation", async () => {
-        const { tx, captured } = createFakeTx();
+    it("deleteAllMessages empties only the owner's named conversation", async () => {
+        const target = await seedThread(owner);
+        const sibling = await seedThread(owner);
 
-        await deleteAllMessages(tx, USER_ID, CONV_ID);
+        await bypassingRls((tx) => deleteAllMessages(tx, other, target));
+        expect(await messageIds(target)).toHaveLength(3);
 
-        expect(captured).toHaveLength(1);
-        expect(captured[0].sql).toContain('delete from "ai_messages"');
-        expect(captured[0].sql).toContain('"conversation_id" = $');
-        expect(captured[0].sql).toContain('"user_id" = $');
-        expect(captured[0].params).toEqual([CONV_ID, USER_ID]);
+        await bypassingRls((tx) => deleteAllMessages(tx, owner, target));
+        expect(await messageIds(target)).toEqual([]);
+        expect(await messageIds(sibling)).toHaveLength(3);
     });
 
-    it("truncateMessagesAfter deletes only rows ordered after the anchor, owner-scoped", async () => {
-        const { tx, captured } = createFakeTx([{ orderIndex: 40 }]);
+    it("truncateMessagesAfter deletes only rows ordered after the anchor", async () => {
+        const conv = await seedThread(owner);
 
-        const found = await truncateMessagesAfter(tx, USER_ID, CONV_ID, "msg-anchor");
-
-        expect(found).toBe(true);
-        expect(captured).toHaveLength(1);
-        expect(captured[0].sql).toContain('delete from "ai_messages"');
-        expect(captured[0].sql).toContain('"order_index" > $');
-        expect(captured[0].params).toEqual([CONV_ID, USER_ID, 40]);
+        expect(await bypassingRls((tx) => truncateMessagesAfter(tx, owner, conv, `${conv}-1`))).toBe(true);
+        expect(await messageIds(conv)).toEqual([`${conv}-1`]);
     });
 
-    it("truncateMessagesAfter is a NO-OP when the anchor id is unknown (never a broad delete)", async () => {
-        const { tx, captured } = createFakeTx([]); // anchor lookup finds nothing
+    it("truncateMessagesAfter is a NO-OP for an unknown anchor or another user (never a broad delete)", async () => {
+        const conv = await seedThread(owner);
 
-        const found = await truncateMessagesAfter(tx, USER_ID, CONV_ID, "does-not-exist");
-
-        expect(found).toBe(false);
-        expect(captured).toHaveLength(0);
+        expect(await bypassingRls((tx) => truncateMessagesAfter(tx, owner, conv, "does-not-exist"))).toBe(false);
+        expect(await bypassingRls((tx) => truncateMessagesAfter(tx, other, conv, `${conv}-1`))).toBe(false);
+        expect(await messageIds(conv)).toHaveLength(3);
     });
 
-    it("setTitleIfEmpty only writes when the title is still null (never clobbers a rename)", async () => {
-        const { tx, captured } = createFakeTx();
+    it("setTitleIfEmpty only writes the owner's untitled conversation (never clobbers a rename)", async () => {
+        const conv = await seedThread(owner, 0);
 
-        await setTitleIfEmpty(tx, USER_ID, CONV_ID, "Plan The Week");
+        await bypassingRls((tx) => setTitleIfEmpty(tx, other, conv, "Hijack"));
+        expect(await title(conv)).toBeNull();
 
-        expect(captured).toHaveLength(1);
-        expect(captured[0].sql).toContain('update "ai_conversations"');
-        expect(captured[0].sql).toContain('"title" is null');
-        expect(captured[0].sql).toContain('"user_id" = $');
-        expect(captured[0].params).toContain(CONV_ID);
-        expect(captured[0].params).toContain(USER_ID);
-        expect(captured[0].params).toContain("Plan The Week");
+        await bypassingRls((tx) => setTitleIfEmpty(tx, owner, conv, "Plan The Week"));
+        await bypassingRls((tx) => setTitleIfEmpty(tx, owner, conv, "Second Title"));
+        expect(await title(conv)).toBe("Plan The Week");
     });
 });

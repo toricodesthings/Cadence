@@ -234,6 +234,3 @@ export function composeFocusView(
     matchedPreset: null,
   };
 }
-
-// Re-export from the lightweight apply module (no Fuse.js dependency)
-export { applyFocusView } from "./apply.js";

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { DATE_STYLES } from "@cadence/nlp/core";
+import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
 
 // ── Focus View schemas ──
 
@@ -16,7 +18,7 @@ export const focusViewDefinitionSchema = z.object({
     waitingOnly: z.boolean(),
     missingStructureOnly: z.boolean(),
     sortMode: focusViewSortModeSchema,
-});
+}) satisfies z.ZodType<FocusViewDefinition>; // nlp owns the type; this fails tsc if they drift
 export type FocusViewDefinitionInput = z.infer<typeof focusViewDefinitionSchema>;
 
 export const savedFocusViewInputSchema = z.object({
@@ -26,12 +28,10 @@ export const savedFocusViewInputSchema = z.object({
     source: focusViewSourceSchema.optional(),
     orderIndex: z.number().optional(),
 });
-export type SavedFocusViewInput = z.infer<typeof savedFocusViewInputSchema>;
 
 export const savedFocusViewPatchSchema = savedFocusViewInputSchema.partial().extend({
     definition: focusViewDefinitionSchema.optional(),
 });
-export type SavedFocusViewPatch = z.infer<typeof savedFocusViewPatchSchema>;
 
 // ── Personal calendar event (element of calendar.personalEvents.items) ──
 
@@ -150,7 +150,7 @@ export const userSettingsSchema = z.object({
         weekStart: z.enum(["Sunday", "Monday", "Saturday"]),
         timezone: z.string(),
         timeDisplay: z.enum(["12h", "24h"]),
-        dateStyle: z.enum(["mdy", "dmy", "ymd"]).optional(),
+        dateStyle: z.enum(DATE_STYLES).optional(),
     }).optional(),
     calendar: z.object({
         defaultView: z.enum(["month", "week", "day"]).optional(),
@@ -332,38 +332,8 @@ export function deepMerge(target: any, source: any): any {
     return output;
 }
 
-/**
- * Lift the location fields that used to live under `calendar.holidays`
- * (`usePreciseLocation`, `locationMode`, `countryCode`, `subdivisionCode`,
- * `promptDismissedAt`) into `location`. Runs on stored settings before they are
- * merged over defaults. The legacy keys are left in place so older clients keep
- * reading them; the parsers ignore them.
- */
-export function migrateLegacySettings<T>(stored: T): T {
-    if (!isPlainObject(stored) || stored.location !== undefined) return stored;
-    const holidays = isPlainObject(stored.calendar) ? stored.calendar.holidays : undefined;
-    if (!isPlainObject(holidays)) return stored;
-
-    const mode: LocationMode = holidays.locationMode === "manual"
-        ? "manual"
-        : holidays.usePreciseLocation === true ? "precise" : "approximate";
-
-    return {
-        ...stored,
-        location: {
-            mode,
-            countryCode: typeof holidays.countryCode === "string" ? holidays.countryCode : null,
-            subdivisionCode: typeof holidays.subdivisionCode === "string" ? holidays.subdivisionCode : null,
-            city: null,
-            promptDismissedAt: typeof holidays.promptDismissedAt === "string" ? holidays.promptDismissedAt : null,
-        },
-    };
-}
-
 // Patch schema — recursively partial version of the canonical schema.
 export const settingsPatchSchema = deepPartial(userSettingsSchema) as z.ZodType<DeepPartial<UserSettings>>;
-
-export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 
 // ── Canonical settings defaults — single source of truth ──
 
@@ -522,5 +492,3 @@ export const SETTINGS_DEFAULTS = {
         adaptiveTone: true,
     },
 } as const satisfies Record<string, unknown>;
-
-export type CanonicalSettings = typeof SETTINGS_DEFAULTS;

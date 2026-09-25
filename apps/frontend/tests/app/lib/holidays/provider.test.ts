@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     fetchHolidays,
     fetchHolidaySubdivisions,
@@ -15,12 +15,8 @@ describe("holiday provider", () => {
         authenticatedFetchMock.mockReset();
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
-
     it("requests holidays through the authenticated proxy and returns the normalized payload", async () => {
-        authenticatedFetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+        authenticatedFetchMock.mockResolvedValueOnce(Response.json({
             data: [
                 {
                     date: "2026-01-01",
@@ -30,7 +26,7 @@ describe("holiday provider", () => {
                     isRegional: false,
                 },
             ],
-        }), { status: 200 }));
+        }));
 
         const holidays = await fetchHolidays({
             start: "2026-01-01",
@@ -55,7 +51,7 @@ describe("holiday provider", () => {
     });
 
     it("passes subdivision selection through to the authenticated holiday proxy", async () => {
-        authenticatedFetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+        authenticatedFetchMock.mockResolvedValueOnce(Response.json({
             data: [
                 {
                     date: "2026-01-01",
@@ -72,7 +68,7 @@ describe("holiday provider", () => {
                     isRegional: true,
                 },
             ],
-        }), { status: 200 }));
+        }));
 
         const holidays = await fetchHolidays({
             start: "2026-01-01",

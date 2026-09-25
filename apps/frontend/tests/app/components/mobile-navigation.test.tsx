@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MobileHeaderActions, MobileTabBar } from "../../../app/components/layout/MobileNavigation";
 import { SignOutButton } from "../../../app/components/settings/SignOutButton";
 import { NotificationCenter } from "../../../app/components/notifications/NotificationCenter";
 import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
+import { Location } from "../../helpers";
 
 vi.mock("../../../app/hooks/habits/use-routine-due-count", () => ({ useRoutineDueCount: () => 0 }));
 
@@ -15,13 +16,7 @@ vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => (
 vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({ useNotificationCenter: () => ({ hasUnread: true, unreadCount: 5 }) }));
 vi.mock("sonner", () => ({ toast: { error: state.error } }));
 
-function Location() { const location = useLocation(); return <output aria-label="Current location">{location.pathname}{location.search}</output>; }
-beforeEach(() => {
-    vi.clearAllMocks();
-    vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-});
-
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => vi.clearAllMocks());
 
 describe("Compact navigation", () => {
     it.each(["/", "/today", "/schedule", "/routines", "/browse", "/project/example", "/?settings=appearance", "/today?notifications=true"])("keeps four destinations and one selected tab at %s", (path) => {

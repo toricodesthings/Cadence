@@ -3,6 +3,7 @@ import type {
   ParsedEntity,
   DateValue,
   ConfidenceTier,
+  DateStyle,
 } from "../core/index.js";
 
 /** Date phrases that should always be high-confidence */
@@ -121,7 +122,7 @@ function formatHumanLabel(d: Date, hasTime: boolean): string {
 
 export interface DateParseOptions {
   referenceDate?: Date;
-  dateStyle?: "mdy" | "dmy" | "ymd";
+  dateStyle?: DateStyle;
 }
 
 export interface DateParseResult {

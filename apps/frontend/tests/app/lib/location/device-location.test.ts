@@ -43,14 +43,7 @@ async function loadStore(): Promise<DeviceLocationModule> {
     return import("../../../../app/lib/location/device-location");
 }
 
-function cachedKeys() {
-    const keys: string[] = [];
-    for (let index = 0; index < localStorage.length; index += 1) {
-        const key = localStorage.key(index);
-        if (key?.startsWith(CACHE_PREFIX)) keys.push(key);
-    }
-    return keys;
-}
+const cachedKeys = () => Object.keys(localStorage).filter((key) => key.startsWith(CACHE_PREFIX));
 
 const lookup = vi.fn(async () => ({ countryCode: "CA", subdivisionCode: "CA-ON", subdivisionName: "Ontario" }));
 

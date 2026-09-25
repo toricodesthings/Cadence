@@ -3,17 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionedTaskList } from "../../../app/components/tasks/SectionedTaskList";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { Task } from "@cadence/contracts/task";
+import { makeTask } from "../../helpers";
 
-const useSectionsMock = vi.fn();
-const useCreateSectionMock = vi.fn();
-const useUpdateSectionMock = vi.fn();
-const useDeleteSectionMock = vi.fn();
+const mocks = vi.hoisted(() => {
+    const mutation = { mutate: vi.fn() };
+    return { mutation, useSections: vi.fn(), useCreateSection: vi.fn(() => mutation) };
+});
 
 vi.mock("../../../app/hooks/sections/use-sections", () => ({
-    useSections: (projectId?: string | null) => useSectionsMock(projectId),
-    useCreateSection: (projectId?: string | null) => useCreateSectionMock(projectId),
-    useUpdateSection: (projectId?: string | null) => useUpdateSectionMock(projectId),
-    useDeleteSection: (projectId?: string | null) => useDeleteSectionMock(projectId),
+    useSections: mocks.useSections,
+    useCreateSection: mocks.useCreateSection,
+    useUpdateSection: () => mocks.mutation,
+    useDeleteSection: () => mocks.mutation,
 }));
 
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
@@ -30,61 +31,16 @@ vi.mock("../../../app/components/tasks/AddTaskInput", () => ({
     AddTaskInput: () => <div data-testid="add-task-input" />,
 }));
 
-function makeTask(overrides: Partial<Task>): Task {
-    return {
-        id: overrides.id ?? "task-1",
-        userId: "user-1",
-        projectId: null,
-        sectionId: null,
-        title: "Task",
-        content: null,
-        state: "ACTIVE",
-        orderIndex: 1000,
-        isAllDay: false,
-        dueDate: null,
-        scheduledStart: null,
-        scheduledEnd: null,
-        durationEstimate: null,
-        timezoneLocked: false,
-        createdAt: "2026-03-15T00:00:00.000Z",
-        updatedAt: "2026-03-15T00:00:00.000Z",
-        priority: 0,
-        isPinned: false,
-        reminderAt: null,
-        reminderSilenced: false,
-        recurrenceRule: null,
-        interactionMode: "task",
-        effort: null,
-        ...overrides,
-    };
-}
-
-function makeSection(overrides: Partial<TaskSection>): TaskSection {
-    return {
-        id: overrides.id ?? "section-1",
-        userId: "user-1",
-        projectId: null,
-        name: "Section",
-        orderIndex: 1,
-        createdAt: "2026-03-15T00:00:00.000Z",
-        ...overrides,
-    };
-}
+const section = (overrides: Partial<TaskSection>): TaskSection => ({
+    id: "section-1", userId: "user-1", projectId: null, name: "Section", orderIndex: 1, createdAt: "2026-03-15T00:00:00.000Z",
+    ...overrides,
+});
 
 describe("SectionedTaskList", () => {
-    beforeEach(() => {
-        useSectionsMock.mockReset();
-        useCreateSectionMock.mockReset();
-        useUpdateSectionMock.mockReset();
-        useDeleteSectionMock.mockReset();
-
-        useCreateSectionMock.mockReturnValue({ mutate: vi.fn() });
-        useUpdateSectionMock.mockReturnValue({ mutate: vi.fn() });
-        useDeleteSectionMock.mockReturnValue({ mutate: vi.fn() });
-    });
+    beforeEach(() => vi.clearAllMocks());
 
     it("keeps tasks in one normalized list until the user creates a section", () => {
-        useSectionsMock.mockReturnValue({ data: [] });
+        mocks.useSections.mockReturnValue({ data: [] });
 
         render(
             <SectionedTaskList
@@ -96,15 +52,15 @@ describe("SectionedTaskList", () => {
             />,
         );
 
-        expect(useSectionsMock).toHaveBeenCalledWith(null);
+        expect(mocks.useSections).toHaveBeenCalledWith(null);
         expect(screen.queryByText("Unsectioned")).toBeNull();
         expect(screen.getAllByTestId("task-list")).toHaveLength(1);
         expect(screen.getByText("First task, Second task")).toBeTruthy();
     });
 
     it("uses the holding section scope when no project is active", () => {
-        useSectionsMock.mockReturnValue({
-            data: [makeSection({ id: "holding-section", name: "Holding", projectId: null })],
+        mocks.useSections.mockReturnValue({
+            data: [section({ id: "holding-section", name: "Holding", projectId: null })],
         });
 
         render(
@@ -116,15 +72,15 @@ describe("SectionedTaskList", () => {
             />,
         );
 
-        expect(useSectionsMock).toHaveBeenCalledWith(null);
-        expect(useCreateSectionMock).toHaveBeenCalledWith(null);
+        expect(mocks.useSections).toHaveBeenCalledWith(null);
+        expect(mocks.useCreateSection).toHaveBeenCalledWith(null);
         expect(screen.getByText("Holding")).toBeTruthy();
         expect(screen.getByText("Holding task")).toBeTruthy();
     });
 
     it("uses the active project section scope so kanban and list share sections", () => {
-        useSectionsMock.mockReturnValue({
-            data: [makeSection({ id: "project-section", name: "Backlog", projectId: "project-123" })],
+        mocks.useSections.mockReturnValue({
+            data: [section({ id: "project-section", name: "Backlog", projectId: "project-123" })],
         });
 
         render(
@@ -137,8 +93,8 @@ describe("SectionedTaskList", () => {
             />,
         );
 
-        expect(useSectionsMock).toHaveBeenCalledWith("project-123");
-        expect(useCreateSectionMock).toHaveBeenCalledWith("project-123");
+        expect(mocks.useSections).toHaveBeenCalledWith("project-123");
+        expect(mocks.useCreateSection).toHaveBeenCalledWith("project-123");
         expect(screen.getByText("Backlog")).toBeTruthy();
         expect(screen.getByText("Unsectioned")).toBeTruthy();
         expect(screen.getByText("Ungrouped task")).toBeTruthy();

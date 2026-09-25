@@ -10,10 +10,6 @@ export type ConfidenceTier = "high" | "medium" | "low";
 export const WARNING_CODES = [
   "timed_deadline_needs_review",
   "low_confidence_entity",
-  "ambiguous_date",
-  "ambiguous_duration",
-  "possible_false_positive",
-  "missing_context",
   "multiple_dates_detected",
   "recurrence_with_deadline",
 ] as const;
@@ -37,21 +33,23 @@ export const SOURCE_SURFACES = [
 
 export type SourceSurface = (typeof SOURCE_SURFACES)[number];
 
+// ── Date styles (how ambiguous numeric dates read) ──
+
+export const DATE_STYLES = ["mdy", "dmy", "ymd"] as const;
+
+export type DateStyle = (typeof DATE_STYLES)[number];
+
 // ── Parsed Entity Types ──
 
 export type ParsedEntityType =
   | "due_date"
   | "scheduled_start"
-  | "scheduled_end"
-  | "time_range"
   | "recurrence"
   | "priority"
   | "project"
   | "tag"
-  | "section"
   | "waiting_on"
-  | "duration"
-  | "intent";
+  | "duration";
 
 // ── Parsed Entity (Section 8.3) ──
 
@@ -85,43 +83,30 @@ export interface ParseResult {
   overallConfidence: ConfidenceTier | null;
 }
 
-// ── Dismissal Model (Section 8.4) ──
-
-export interface DismissalRecord {
-  rawInput: string;
-  sourceSurface: SourceSurface;
-  parserVersion: string;
-  dismissedEntityIds: string[];
-  userOverrides: Record<string, unknown>;
-}
-
 // ── Canonical NLP Envelope (Section 8.4B) ──
 
 export interface CanonicalNlpEnvelope {
   rawInput: string;
   sourceSurface: SourceSurface;
-  dateStyle: "mdy" | "dmy" | "ymd";
+  dateStyle: DateStyle;
   dismissedEntityIds: string[];
   userOverrides: Record<string, unknown>;
 }
 
 export interface CanonicalNlpSnapshot extends ParseResult {
-  dateStyle: "mdy" | "dmy" | "ymd";
+  dateStyle: DateStyle;
   dismissedEntityIds: string[];
   userOverrides: Record<string, unknown>;
+}
+
+/** A date's local calendar day as `YYYY-MM-DD`. */
+export function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // ── Priority mapping ──
 
 export type TaskPriority = 0 | 1 | 2 | 3 | 4;
-
-export const PRIORITY_LABELS: Record<number, string> = {
-  0: "None",
-  1: "Low",
-  2: "Medium",
-  3: "High",
-  4: "Urgent",
-};
 
 // ── Recurrence intent ──
 
@@ -155,7 +140,6 @@ export interface DurationValue {
 export interface ResolutionContext {
   projects: Array<{ id: string; name: string }>;
   tags: Array<{ id: string; name: string }>;
-  sections?: Array<{ id: string; name: string }>;
 }
 
 // ── Parse options ──
@@ -167,5 +151,5 @@ export interface ParseOptions {
   context?: ResolutionContext;
   dismissedEntityIds?: string[];
   /** User's preferred date style for ambiguous dates */
-  dateStyle?: "mdy" | "dmy" | "ymd";
+  dateStyle?: DateStyle;
 }

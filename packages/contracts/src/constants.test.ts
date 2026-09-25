@@ -1,16 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { TAG_PALETTE, TASK_PRIORITY_LABELS, TASK_PRIORITY_SORT_WEIGHT } from "./constants";
+import { TAG_PALETTE, TASK_PRIORITY_LABELS } from "./constants";
 
 describe("priority constants", () => {
     it("labels every priority level 0–4", () => {
         expect(Object.keys(TASK_PRIORITY_LABELS).map(Number)).toEqual([0, 1, 2, 3, 4]);
         expect(TASK_PRIORITY_LABELS[4]).toBe("Urgent");
-    });
-
-    it("sorts higher priorities first", () => {
-        const weights = [0, 1, 2, 3, 4].map((p) => TASK_PRIORITY_SORT_WEIGHT[p as 0 | 1 | 2 | 3 | 4]);
-        expect(weights).toEqual([...weights].sort((a, b) => a - b));
-        expect(new Set(weights).size).toBe(weights.length);
     });
 });
 

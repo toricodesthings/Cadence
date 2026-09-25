@@ -9,15 +9,11 @@ import {
     isAbortRequested,
 } from "../../src/domains/ai/streaming/resume-store";
 
-const { getDbClientMock, withRlsMock, getRedisMock, getConversationMock, saveAssistantMessageMock } = vi.hoisted(
-    () => ({
-        getDbClientMock: vi.fn(() => ({})),
-        withRlsMock: vi.fn(),
-        getRedisMock: vi.fn(),
-        getConversationMock: vi.fn(),
-        saveAssistantMessageMock: vi.fn().mockResolvedValue(undefined),
-    }),
-);
+const { getDbClientMock, withRlsMock, getRedisMock } = vi.hoisted(() => ({
+    getDbClientMock: vi.fn(() => ({})),
+    withRlsMock: vi.fn(),
+    getRedisMock: vi.fn(),
+}));
 
 vi.mock("../../src/platform/db", () => ({ getDbClient: getDbClientMock }));
 vi.mock("../../src/platform/rls", () => ({
@@ -25,33 +21,17 @@ vi.mock("../../src/platform/rls", () => ({
     withRls: (_db: unknown, userId: string, fn: (tx: unknown) => unknown) => withRlsMock(userId, fn),
 }));
 vi.mock("../../src/platform/redis", () => ({ getRedis: getRedisMock }));
-vi.mock("../../src/domains/ai/persistence/conversation-repo", () => ({
-    getConversation: getConversationMock,
-    saveAssistantMessage: saveAssistantMessageMock,
-    // Unused-by-these-tests exports the route imports at module load:
-    resolveOrCreateConversation: vi.fn(),
-    loadConversationMessages: vi.fn(),
-    appendUserMessage: vi.fn(),
-    truncateMessagesAfter: vi.fn(),
-    deleteAllMessages: vi.fn(),
-    setTitleIfEmpty: vi.fn(),
-    touchConversation: vi.fn(),
-    listConversations: vi.fn(),
-    renameOrArchiveConversation: vi.fn(),
-    deleteConversation: vi.fn(),
-    listConversationImageIds: vi.fn().mockResolvedValue([]),
-    setActiveStream: vi.fn(),
-    finalizeActiveStream: vi.fn(),
-}));
+vi.mock("../../src/domains/ai/persistence/conversation-repo");
 
+import { getConversation, saveAssistantMessage } from "../../src/domains/ai/persistence/conversation-repo";
 import { aiRoutes } from "../../src/domains/ai/ai.route";
 
 const CONV_ID = "22222222-2222-4222-8222-222222222222";
 const SID = "stream_xyz";
 
-function createApp() {
-    return createTestApp("/ai", aiRoutes);
-}
+const app = createTestApp("/ai", aiRoutes);
+const getConversationMock = vi.mocked(getConversation) as ReturnType<typeof vi.fn>;
+const saveAssistantMessageMock = vi.mocked(saveAssistantMessage);
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -62,21 +42,21 @@ beforeEach(() => {
 describe("GET /ai/chat/:id/stream (resume)", () => {
     it("204 when resumption is disabled (getRedis null)", async () => {
         getRedisMock.mockReturnValue(null);
-        const res = await createApp().request(`/ai/chat/${CONV_ID}/stream`);
+        const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
         expect(res.status).toBe(204);
     });
 
     it("204 when there is neither a live nor a recently-finished stream", async () => {
         getRedisMock.mockReturnValue(new FakeRedis());
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: null, lastStreamId: null });
-        const res = await createApp().request(`/ai/chat/${CONV_ID}/stream`);
+        const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
         expect(res.status).toBe(204);
     });
 
     it("404 when the conversation is not owned (RLS)", async () => {
         getRedisMock.mockReturnValue(new FakeRedis());
         getConversationMock.mockResolvedValue(null);
-        const res = await createApp().request(`/ai/chat/${CONV_ID}/stream`);
+        const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
         expect(res.status).toBe(404);
     });
 
@@ -96,7 +76,7 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
         getRedisMock.mockReturnValue(redis);
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
 
-        const res = await createApp().request(`/ai/chat/${CONV_ID}/stream`);
+        const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
         expect(res.status).toBe(200);
         expect(await res.text()).toBe("data: hello\n\ndata: world\n\n");
     });
@@ -119,7 +99,7 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
         getRedisMock.mockReturnValue(redis);
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: null, lastStreamId: SID });
 
-        const res = await createApp().request(`/ai/chat/${CONV_ID}/stream`);
+        const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
         expect(res.status).toBe(200);
         expect(await res.text()).toBe("data: hello\n\ndata: world\n\n");
     });
@@ -129,7 +109,7 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
         // readMeta is null, so there is nothing to replay → 204 (client falls back to DB).
         getRedisMock.mockReturnValue(new FakeRedis());
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: null, lastStreamId: SID });
-        const res = await createApp().request(`/ai/chat/${CONV_ID}/stream`);
+        const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
         expect(res.status).toBe(204);
     });
 
@@ -146,14 +126,14 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
         getRedisMock.mockReturnValue(redis);
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
 
-        const res = await createApp().request(`/ai/chat/${CONV_ID}/stream`);
+        const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
         expect(res.status).toBe(204);
     });
 });
 
 describe("POST /ai/chat/:id/stop", () => {
     async function post(body: unknown) {
-        return createApp().request(`/ai/chat/${CONV_ID}/stop`, {
+        return app.request(`/ai/chat/${CONV_ID}/stop`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
