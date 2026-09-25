@@ -39,6 +39,7 @@ import {
     isRecurringTask,
 } from "../../lib/utils/task/task-scheduling";
 import type { EffortLevel, TaskPriority, TaskState } from "@cadence/contracts/task";
+import { isDateOnly } from "@cadence/contracts/common";
 import { DetailTitle } from "../shared/DetailTitle";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import {
@@ -170,7 +171,7 @@ export function TaskEditor({
         const dueDate = (() => {
             const raw = updates.dueDate;
             if (!raw || !raw.trim()) return null;
-            if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+            if (isDateOnly(raw)) return raw;
             const ms = new Date(raw).getTime();
             return Number.isNaN(ms) ? null : raw;
         })();

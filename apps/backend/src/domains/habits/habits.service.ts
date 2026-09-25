@@ -5,7 +5,7 @@ import { habits, habitLogs, habitTags } from "../../db/schema";
 import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
-import { resolveTimeZone, toLocalDateStr } from "../../platform/date-utils";
+import { resolveTimeZone } from "../../platform/date-utils";
 import { logger, shorten, issuesFromError } from "../../platform/log";
 import type { Tx } from "../../types/db";
 
@@ -274,7 +274,7 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     // before the caller's today. The log mutation above is visible inside
     // this tx, so both streak paths read the post-mutation state.
     const tz = resolveTimeZone(timezone);
-    const todayStr = toLocalDateStr(new Date(), tz);
+    const todayStr = localDay(new Date(), tz);
     const todayEnd = new Date(`${todayStr}T23:59:59.999Z`);
     const targetEnd = new Date(`${datePrefix}T23:59:59.999Z`);
     const occurrencesAfter = targetEnd < todayEnd

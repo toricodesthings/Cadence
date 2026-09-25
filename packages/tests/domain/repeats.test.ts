@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { habitOccurrences, localDay, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
+import { addDaysToDate, habitOccurrences, isPausedOn, localDay, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
@@ -75,5 +75,30 @@ describe("stepDayStatus", () => {
         expect(stepMarksOn(["a", "b"], { status: "COMPLETED" })).toEqual({ a: "COMPLETED", b: "COMPLETED" });
         expect(stepMarksOn(["a", "b"], { status: "PENDING", stepStatus: { b: "SKIPPED" } })).toEqual({ b: "SKIPPED" });
         expect(stepMarksOn(["a"], undefined)).toEqual({});
+    });
+});
+
+describe("isPausedOn", () => {
+    const today = "2026-09-25";
+
+    it("covers today through pausedUntil", () => {
+        expect(isPausedOn("2026-09-28", today, today)).toBe(true);
+        expect(isPausedOn("2026-09-28", "2026-09-28", today)).toBe(true);
+        expect(isPausedOn("2026-09-28", "2026-09-29", today)).toBe(false);
+    });
+
+    it("never hides a day already past", () => {
+        expect(isPausedOn("2026-09-28", "2026-09-24", today)).toBe(false);
+    });
+
+    it("is off without a pause", () => {
+        expect(isPausedOn(null, today, today)).toBe(false);
+    });
+});
+
+describe("addDaysToDate", () => {
+    it("crosses month and year ends", () => {
+        expect(addDaysToDate("2026-12-31", 1)).toBe("2027-01-01");
+        expect(addDaysToDate("2026-03-01", -1)).toBe("2026-02-28");
     });
 });

@@ -16,7 +16,7 @@ import {
     resolveDueWindow,
     taskLocalDay,
 } from "./projections";
-import { addDaysToDateStr } from "../../../platform/date-utils";
+import { addDaysToDate } from "@cadence/domain/repeats";
 import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
 import { NOTE_READ_LIMIT, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
 import { hasTaskTemporalMutation, inferIsAllDay } from "@cadence/domain/task-temporal";
@@ -101,8 +101,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     // side and keep exactly the tasks whose local day falls inside.
                     const window = args.dueWindow ? resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn) : null;
                     if (window?.from) {
-                        filterInput.scheduledRangeStart = addDaysToDateStr(window.from, -1);
-                        filterInput.scheduledRangeEnd = addDaysToDateStr(window.to, 1);
+                        filterInput.scheduledRangeStart = addDaysToDate(window.from, -1);
+                        filterInput.scheduledRangeEnd = addDaysToDate(window.to, 1);
                     } else if (window) {
                         filterInput.effectiveOnOrBeforeDate = window.to;
                     }

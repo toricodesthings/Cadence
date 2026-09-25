@@ -17,7 +17,8 @@ import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
 import { isMemoryEnabled, embedText } from "./memory/embedding";
 import { retrieveMemories, type RetrievedMemory } from "./memory/memory-retrieval";
 import type { Env } from "../../types/env";
-import { resolveTimeZone, toLocalDateStr, toZonedIso } from "../../platform/date-utils";
+import { resolveTimeZone, toZonedIso } from "../../platform/date-utils";
+import { localDay } from "@cadence/domain/repeats";
 
 /** Default chat model: cost-effective, low-latency. Overridable via AI_CHAT_MODEL. */
 const DEFAULT_CHAT_MODEL = "google/gemini-3.8-flash";
@@ -142,7 +143,7 @@ export function userClock(timezone: string | undefined, currentDate: string) {
     const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(now);
     const iso = toZonedIso(now, tz); // 2026-09-21T22:30:00-04:00
     const localTime = `${iso.slice(0, 10)} ${iso.slice(11, 16)} ${iso.slice(19)} (${weekday})`;
-    return { timezone: tz, now, today: toLocalDateStr(now, tz), localTime };
+    return { timezone: tz, now, today: localDay(now, tz), localTime };
 }
 
 /**

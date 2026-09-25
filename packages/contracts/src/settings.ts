@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isoDateTimeSchema } from "./common";
+import { TASK_PRIORITY_NAMES } from "./constants";
 import { DATE_STYLES } from "@cadence/nlp/core";
 import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
 
@@ -205,7 +206,7 @@ export const userSettingsSchema = z.object({
     tasks: z.object({
         defaultDueDate: z.enum(["None", "Today", "Tomorrow", "Next Week"]).nullable().optional(),
         defaultView: z.enum(["list", "kanban"]).optional(),
-        defaultPriority: z.enum(["none", "low", "medium", "high", "urgent"]).optional(),
+        defaultPriority: z.enum(TASK_PRIORITY_NAMES).optional(),
         defaultDurationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90)]).nullable().optional(),
         newTaskPlacement: z.enum(["top", "bottom"]).optional(),
         openDetailOnCreate: z.boolean().optional(),

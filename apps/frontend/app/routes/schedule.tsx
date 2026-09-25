@@ -74,7 +74,9 @@ import * as Popover from "../components/primitives/Popover";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
-import { parseYMD, addDaysToIso, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
+import { parseYMD, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
+import { addDaysToDate } from "@cadence/domain/repeats";
+import { isDateOnly } from "@cadence/contracts/common";
 import { trackUsageEvent } from "../lib/api/track-event";
 
 function applyCalendarClutterFilters(tasks: Task[], clutter: {
@@ -93,7 +95,7 @@ function applyCalendarClutterFilters(tasks: Task[], clutter: {
 }
 
 function isValidDateParam(value: string | null): value is string {
-    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    if (!value || !isDateOnly(value)) return false;
     const parsed = new Date(`${value}T00:00:00`);
     return !Number.isNaN(parsed.getTime()) && toISODate(parsed) === value;
 }
@@ -447,8 +449,8 @@ export default function Schedule() {
         setDirection(delta);
         setCurrentDate((prev) => {
             switch (viewMode) {
-                case "day": return addDaysToIso(prev, delta);
-                case "week": return addDaysToIso(prev, delta * 7);
+                case "day": return addDaysToDate(prev, delta);
+                case "week": return addDaysToDate(prev, delta * 7);
                 case "month": return addMonthsToIso(prev, delta);
                 case "year": {
                     const { y, m, d } = parseYMD(prev);
@@ -709,7 +711,7 @@ export default function Schedule() {
     const moveRowLater = useCallback((task: Task) => {
         const anchor = task.scheduledStart ?? task.dueDate;
         const from = anchor ? getEffectiveTaskDate(anchor, task.isAllDay) : todayIso;
-        moveTaskToDay(task, addDaysToIso(from < todayIso ? todayIso : from, 1));
+        moveTaskToDay(task, addDaysToDate(from < todayIso ? todayIso : from, 1));
     }, [moveTaskToDay, todayIso]);
 
     const rowHandlers = useMemo(() => ({
@@ -738,7 +740,7 @@ export default function Schedule() {
     ), [phoneGroups, todayIso]);
 
     const lightenToday = useCallback((tasks: Task[], to: "tomorrow" | "holding") => {
-        const tomorrow = addDaysToIso(todayIso, 1);
+        const tomorrow = addDaysToDate(todayIso, 1);
         const previous = tasks.map((task) => {
             const prev = { id: task.id, dueDate: task.dueDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd, isAllDay: task.isAllDay };
             if (to === "tomorrow") moveTaskToDay(task, tomorrow, { quiet: true });
@@ -1181,7 +1183,7 @@ export default function Schedule() {
                             onShiftWeek={(delta) => {
                                 setZoom(0);
                                 setDirection(delta);
-                                setCurrentDate((prev) => addDaysToIso(prev, delta * 7));
+                                setCurrentDate((prev) => addDaysToDate(prev, delta * 7));
                             }}
                         />
                     ) : null}

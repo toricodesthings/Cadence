@@ -1,4 +1,5 @@
 import type { Habit } from "@cadence/contracts/habit";
+import { isPausedOn } from "@cadence/domain/repeats";
 import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
 import { toISODate } from "./date-format";
 
@@ -8,8 +9,7 @@ import { toISODate } from "./date-format";
  */
 export function isRoutinePaused(habit: Pick<Habit, "pausedUntil">, date?: string): boolean {
     const today = toISODate(new Date());
-    const day = date ?? today;
-    return Boolean(habit.pausedUntil) && day >= today && day <= habit.pausedUntil!;
+    return isPausedOn(habit.pausedUntil, date ?? today, today);
 }
 
 /** The DB default ("lantern") and anything unknown mean "no colour picked". */

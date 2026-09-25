@@ -7,7 +7,7 @@ import { useCreateTask } from "../tasks/use-create-task";
 import { useCreateHabit } from "./use-create-habit";
 import { taskCache } from "../tasks/optimistic-helpers";
 import { habitCache } from "./optimistic-helpers";
-import { getTaskMutationTargetId, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
+import { getTaskSeriesId, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import { toISODate } from "../../lib/utils/date-format";
 
 /** Fixed happens to you, a Routine lets go when missed, a Task carries over. */
@@ -48,7 +48,7 @@ export function useConvertRepeat() {
 
     const taskToRoutine = async (task: Task) => {
         if (!task.recurrenceRule) return;
-        const taskId = getTaskMutationTargetId(task);
+        const taskId = getTaskSeriesId(task);
         const habit = await createHabit.mutateAsync({
             title: task.title,
             recurrenceRule: task.recurrenceRule,

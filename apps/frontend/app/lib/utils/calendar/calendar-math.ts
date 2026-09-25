@@ -1,15 +1,8 @@
-import { toISODate } from "../date-format";
 import type { Task } from "@cadence/contracts/task";
 
 export function parseYMD(dateStr: string): { y: number; m: number; d: number } {
     const [y, m, d] = dateStr.split("-").map(Number);
     return { y, m: m - 1, d };
-}
-
-export function addDaysToIso(iso: string, days: number): string {
-    const { y, m, d } = parseYMD(iso);
-    const dt = new Date(y, m, d + days);
-    return toISODate(dt);
 }
 
 export function addMonthsToIso(iso: string, delta: number): string {

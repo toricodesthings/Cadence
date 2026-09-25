@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysToDateStr, atLocalDate, resolveTimeZone, toLocalDateStr, toZonedIso } from "../../src/platform/date-utils";
+import { atLocalDate, resolveTimeZone, toZonedIso } from "../../src/platform/date-utils";
 
 describe("toZonedIso", () => {
     it.each([
@@ -21,17 +21,6 @@ describe("resolveTimeZone", () => {
         expect(resolveTimeZone("America/Toronto")).toBe("America/Toronto");
         expect(resolveTimeZone("Mars/Olympus")).toBe("UTC");
         expect(resolveTimeZone(undefined)).toBe("UTC");
-    });
-});
-
-describe("date strings", () => {
-    it("toLocalDateStr gives the user's calendar date", () => {
-        expect(toLocalDateStr(new Date("2026-09-22T02:30:00.000Z"), "America/Toronto")).toBe("2026-09-21");
-    });
-
-    it("addDaysToDateStr crosses month and year ends", () => {
-        expect(addDaysToDateStr("2026-12-31", 1)).toBe("2027-01-01");
-        expect(addDaysToDateStr("2026-03-01", -1)).toBe("2026-02-28");
     });
 });
 

@@ -1,17 +1,10 @@
 import { addDays, nextMonday, format } from "date-fns";
 import type { TaskPriority } from "@cadence/contracts/task";
-
-const PRIORITY_MAP: Record<string, TaskPriority> = {
-    none: 0,
-    low: 1,
-    medium: 2,
-    high: 3,
-    urgent: 4,
-};
+import { TASK_PRIORITY_NAMES, type TaskPriorityName } from "@cadence/contracts/constants";
 
 export function mapPriorityNameToNumber(name?: string | null): TaskPriority {
-    if (!name) return 0;
-    return PRIORITY_MAP[name] ?? 0;
+    const level = TASK_PRIORITY_NAMES.indexOf(name as TaskPriorityName);
+    return level < 0 ? 0 : (level as TaskPriority);
 }
 
 export function resolveDefaultDueDate(setting?: string | null): string | undefined {

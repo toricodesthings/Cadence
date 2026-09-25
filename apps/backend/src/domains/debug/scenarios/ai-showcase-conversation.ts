@@ -211,11 +211,11 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 read("get_schedule_window", { start: today, end: weekEnd, limit: 50 }, {
                     range: { start: today, end: weekEnd, timezone: TZ },
                     tasks: inWeek.map(mini),
-                    routines: routinesDue(activeHabits, today, weekEnd),
+                    routines: routinesDue(activeHabits, today, weekEnd, today),
                 }),
                 read("get_habit_status_today", {}, {
                     date: today,
-                    statuses: routinesDue(activeHabits, today, today).map((h) => ({ habitId: h.id, title: h.title, status: "PENDING" })),
+                    statuses: routinesDue(activeHabits, today, today, today).map((h) => ({ habitId: h.id, title: h.title, status: "PENDING" })),
                 }),
                 step,
                 text(

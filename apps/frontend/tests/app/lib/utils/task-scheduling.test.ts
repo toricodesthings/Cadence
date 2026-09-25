@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     buildTasksQuery,
-    getTaskMutationTargetId,
+    getTaskSeriesId,
     getTaskRecurrenceSummary,
     getTaskScheduleSummary,
     getTaskTimelineAnchor,
@@ -14,7 +14,7 @@ import { makeTask } from "../../../helpers";
 describe("task scheduling helpers", () => {
     it("classifies deadline, duration, timed, and legacy mixed tasks deterministically", () => {
         expect(getTaskScheduleSummary(makeTask({ dueDate: "2026-03-09" }))).toMatchObject({
-            kind: "deadline",
+            kind: "deadline_only",
             displayMode: "deadline",
             primaryLabel: "Mar 9",
             secondaryLabel: "Deadline",
@@ -23,7 +23,7 @@ describe("task scheduling helpers", () => {
         expect(
             getTaskScheduleSummary(makeTask({ dueDate: "2026-03-09", scheduledEnd: "2026-03-12", isAllDay: true })),
         ).toMatchObject({
-            kind: "duration",
+            kind: "all_day_duration",
             displayMode: "duration",
             secondaryLabel: "Duration",
         });
@@ -37,7 +37,7 @@ describe("task scheduling helpers", () => {
                 }),
             ),
         ).toMatchObject({
-            kind: "timed",
+            kind: "timed_block",
             displayMode: "timed",
             secondaryLabel: "Time block",
         });
@@ -51,8 +51,8 @@ describe("task scheduling helpers", () => {
                 }),
             ),
         ).toMatchObject({
-            kind: "legacy-mixed-timed-deadline",
-            needsNormalization: true,
+            kind: "legacy_mixed_timed_deadline",
+            displayMode: "timed",
         });
     });
 
@@ -108,7 +108,7 @@ describe("task scheduling helpers", () => {
         });
 
         expect(isRecurringTaskInstance(instance)).toBe(true);
-        expect(getTaskMutationTargetId(instance)).toBe("series-1");
+        expect(getTaskSeriesId(instance)).toBe("series-1");
     });
 
     it("labels passive recurring timeblocks as timetable anchors and resolves their occurrence date", () => {
@@ -121,7 +121,7 @@ describe("task scheduling helpers", () => {
         });
 
         expect(getTaskScheduleSummary(passiveSeries)).toMatchObject({
-            kind: "timed",
+            kind: "timed_block",
             secondaryLabel: "Fixed",
         });
 

@@ -102,7 +102,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .where(
                             and(eq(habitLogs.userId, userId), eq(habitLogs.targetDate, today)),
                         );
-                    const active = routinesDue(rows, today, today, ctx.timezone);
+                    const active = routinesDue(rows, today, today, today, ctx.timezone);
                     const byHabit = new Map(logs.map((l) => [l.habitId, l]));
                     const stepsOf = new Map(rows.map((r) => [r.id, r.steps ?? []]));
 

@@ -9,28 +9,19 @@ import {
 import { classifyTaskReadShape, type TaskReadShape } from "@cadence/domain/task-temporal";
 import { resolveOccurrenceAnchor } from "@cadence/domain/task-recurrence";
 import type { Task, TaskListQueryInput } from "@cadence/contracts/task";
+import { isDateOnly } from "@cadence/contracts/common";
 
 const canonicalAllDayDateTimePattern = /^(\d{4}-\d{2}-\d{2})T(?:00:00:00(?:\.000)?|12:00:00(?:\.000)?|23:59:59\.999)Z$/;
-const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
 const offsetDateTimePattern = /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/;
 
-export type TaskScheduleKind =
-    | "unscheduled"
-    | "deadline"
-    | "duration"
-    | "timed"
-    | "legacy-all-day-start"
-    | "legacy-mixed-timed-deadline";
-
 export interface TaskScheduleSummary {
-    kind: TaskScheduleKind;
+    kind: TaskReadShape;
     displayMode: "none" | "deadline" | "duration" | "timed";
     primaryLabel: string | null;
     secondaryLabel: string | null;
     isDeadline: boolean;
     isDuration: boolean;
     isTimed: boolean;
-    needsNormalization: boolean;
     anchorDate: string | null;
 }
 
@@ -105,10 +96,6 @@ export function supportsManualTaskCompletion(task: Pick<Task, "interactionMode">
 
 export function getTaskSeriesId(task: Pick<Task, "id" | "seriesId">) {
     return task.seriesId ?? task.id;
-}
-
-export function getTaskMutationTargetId(task: Pick<Task, "id" | "seriesId">) {
-    return getTaskSeriesId(task);
 }
 
 export function getTaskRecurrenceSummary(
@@ -192,7 +179,7 @@ export function normalizeTaskWriteTemporalField(
     if (!trimmed) return value;
 
     if (field === "dueDate") {
-        if (dateOnlyPattern.test(trimmed)) return trimmed;
+        if (isDateOnly(trimmed)) return trimmed;
 
         const canonicalAllDayMatch = trimmed.match(canonicalAllDayDateTimePattern);
         if (canonicalAllDayMatch) return canonicalAllDayMatch[1];
@@ -202,7 +189,7 @@ export function normalizeTaskWriteTemporalField(
         return toISODate(parsed);
     }
 
-    if (dateOnlyPattern.test(trimmed) || offsetDateTimePattern.test(trimmed)) {
+    if (isDateOnly(trimmed) || offsetDateTimePattern.test(trimmed)) {
         return trimmed;
     }
 
@@ -230,58 +217,28 @@ export function normalizeTaskWriteTemporalInput<T extends {
     };
 }
 
-// Canonical → legacy-FE label map (see Canonical_models §2.3 reconciliation table).
-const READ_SHAPE_TO_KIND: Record<TaskReadShape, TaskScheduleKind> = {
-    unscheduled: "unscheduled",
-    deadline_only: "deadline",
-    timed_block: "timed",
-    all_day_duration: "duration",
-    legacy_all_day_with_start: "legacy-all-day-start",
-    legacy_mixed_timed_deadline: "legacy-mixed-timed-deadline",
-};
-
-export function getTaskScheduleKind(task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay">): TaskScheduleKind {
-    return READ_SHAPE_TO_KIND[classifyTaskReadShape(task)];
-}
-
 export function getTaskScheduleSummary(
     task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay" | "interactionMode">,
 ): TaskScheduleSummary {
-    const passiveTimetable = isPassiveTimetableTask(task);
-    const kind = getTaskScheduleKind(task);
+    const kind = classifyTaskReadShape(task);
 
     switch (kind) {
-        case "timed": {
+        case "timed_block":
+        case "legacy_mixed_timed_deadline": {
             const start = task.scheduledStart!;
             const end = task.scheduledEnd;
             return {
                 kind,
                 displayMode: "timed",
                 primaryLabel: end ? `${formatShortDateTime(start)} – ${formatTime(end)}` : formatShortDateTime(start),
-                secondaryLabel: passiveTimetable ? "Fixed" : "Time block",
+                secondaryLabel: isPassiveTimetableTask(task) ? "Fixed" : "Time block",
                 isDeadline: false,
                 isDuration: false,
                 isTimed: true,
-                needsNormalization: false,
                 anchorDate: toTaskDateOnly(start),
             };
         }
-        case "legacy-mixed-timed-deadline": {
-            const start = task.scheduledStart!;
-            const end = task.scheduledEnd;
-            return {
-                kind,
-                displayMode: "timed",
-                primaryLabel: end ? `${formatShortDateTime(start)} – ${formatTime(end)}` : formatShortDateTime(start),
-                secondaryLabel: passiveTimetable ? "Fixed" : "Time block",
-                isDeadline: false,
-                isDuration: false,
-                isTimed: true,
-                needsNormalization: true,
-                anchorDate: toTaskDateOnly(start),
-            };
-        }
-        case "duration": {
+        case "all_day_duration": {
             const start = toTaskDateOnly(task.dueDate!)!;
             const end = toTaskDateOnly(task.scheduledEnd!)!;
             return {
@@ -292,25 +249,11 @@ export function getTaskScheduleSummary(
                 isDeadline: false,
                 isDuration: true,
                 isTimed: false,
-                needsNormalization: false,
                 anchorDate: start,
             };
         }
-        case "deadline": {
-            const dueDate = toTaskDateOnly(task.dueDate!)!;
-            return {
-                kind,
-                displayMode: "deadline",
-                primaryLabel: formatShortDate(dueDate),
-                secondaryLabel: "Deadline",
-                isDeadline: true,
-                isDuration: false,
-                isTimed: false,
-                needsNormalization: false,
-                anchorDate: dueDate,
-            };
-        }
-        case "legacy-all-day-start": {
+        case "deadline_only":
+        case "legacy_all_day_with_start": {
             const anchor = toTaskDateOnly(task.dueDate ?? task.scheduledStart!)!;
             return {
                 kind,
@@ -320,7 +263,6 @@ export function getTaskScheduleSummary(
                 isDeadline: true,
                 isDuration: false,
                 isTimed: false,
-                needsNormalization: true,
                 anchorDate: anchor,
             };
         }
@@ -333,7 +275,6 @@ export function getTaskScheduleSummary(
                 isDeadline: false,
                 isDuration: false,
                 isTimed: false,
-                needsNormalization: false,
                 anchorDate: null,
             };
     }

@@ -3,9 +3,9 @@ import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
-import { addDaysToDateStr, resolveTimeZone, toLocalDateStr } from "../../platform/date-utils";
+import { resolveTimeZone } from "../../platform/date-utils";
+import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
 import { habits, habitLogs, habitTags } from "../../db/schema";
-import { localDay } from "@cadence/domain/repeats";
 import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, habitListQuerySchema } from "@cadence/contracts/habit";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
@@ -13,11 +13,6 @@ import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { createHabit, expandOccurrences, resolveHabit, updateHabit } from "./habits.service";
-
-/** A pause covers today through `pausedUntil`; it never hides a day already past. */
-function isHabitPaused(habit: { pausedUntil: string | null }, dateStr: string, todayStr: string): boolean {
-    return Boolean(habit.pausedUntil) && dateStr >= todayStr && dateStr <= habit.pausedUntil!;
-}
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/:id/resolve", apiValidator("param", uuidParamSchema), apiValidator("json", resolveHabitActionSchema), async (c) => {
@@ -85,7 +80,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const startDate = new Date(`${start}T00:00:00.000Z`);
         const endDate = new Date(`${end}T23:59:59.999Z`);
         const tz = resolveTimeZone(timezone);
-        const todayStr = toLocalDateStr(new Date(), tz);
+        const todayStr = localDay(new Date(), tz);
 
         const result = await withRls(db, userId, async (tx) => {
             const userHabits = await tx
@@ -133,13 +128,13 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             return userHabits.map((habit) => {
                 // Shown from the day before the routine was created ("I did it
                 // yesterday too"); earlier days only when they were logged.
-                const firstDay = addDaysToDateStr(localDay(habit.createdAt, tz), -1);
+                const firstDay = addDaysToDate(localDay(habit.createdAt, tz), -1);
                 const dates = expandOccurrences(habit.recurrenceRule, habit.createdAt, startDate, endDate, tz)
                     .filter((dateKey) => dateKey >= firstDay || logsByHabitDate[`${habit.id}_${dateKey}`]);
 
                 // Expand instances, respecting pause state
                 const logsHydrated = dates
-                    .filter(dateKey => !isHabitPaused(habit, dateKey, todayStr))
+                    .filter(dateKey => !isPausedOn(habit.pausedUntil, dateKey, todayStr))
                     .map((dateKey) => {
                         const logKey = `${habit.id}_${dateKey}`;
                         const existingLog = logsByHabitDate[logKey];
@@ -161,7 +156,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
 
                 // Determine due-today and overdue status
-                const isDueToday = dates.includes(todayStr) && !isHabitPaused(habit, todayStr, todayStr);
+                const isDueToday = dates.includes(todayStr) && !isPausedOn(habit.pausedUntil, todayStr, todayStr);
                 const isOverdue = logsHydrated.some(l =>
                     l.status === "PENDING" && l.targetDate < todayStr
                 );

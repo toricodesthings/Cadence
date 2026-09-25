@@ -13,7 +13,8 @@ import type { ProjectRow as ProjectRecord } from "@cadence/contracts/project";
 import type { SubtaskRow as SubtaskRecord } from "@cadence/contracts/subtask";
 import type { TagRow as TagRecord } from "@cadence/contracts/tag";
 import type { TaskRow as TaskRecord } from "@cadence/contracts/task";
-import { addDaysToDateStr, toLocalDateStr, toZonedIso } from "../../../platform/date-utils";
+import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
+import { toZonedIso } from "../../../platform/date-utils";
 
 /**
  * A minimal task row as projected for the model. Keys at their default are left
@@ -141,8 +142,8 @@ export type HabitRow = Pick<
 export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit {
     const resolved = row.totalCompletions + row.totalSkips;
     const adherence = resolved === 0 ? 0 : Math.round((row.totalCompletions / resolved) * 100) / 100;
-    const dayKey = currentDate.slice(0, 10);
-    const paused = row.pausedUntil !== null && dayKey <= row.pausedUntil;
+    const today = currentDate.slice(0, 10);
+    const paused = isPausedOn(row.pausedUntil, today, today);
     return {
         id: row.id,
         title: row.title,
@@ -185,7 +186,7 @@ export function taskLocalDay(
 ): string | null {
     const value = row.isAllDay ? row.dueDate ?? row.scheduledStart : row.scheduledStart ?? row.dueDate;
     if (!value) return null;
-    return row.isAllDay ? value.slice(0, 10) : toLocalDateStr(new Date(value), timezone);
+    return row.isAllDay ? value.slice(0, 10) : localDay(new Date(value), timezone);
 }
 
 /**
@@ -198,13 +199,13 @@ export function resolveDueWindow(
     today: string,
     weekStartsOn: "Sunday" | "Monday" = "Sunday",
 ): { from?: string; to: string } {
-    if (window === "overdue") return { to: addDaysToDateStr(today, -1) };
+    if (window === "overdue") return { to: addDaysToDate(today, -1) };
     if (window === "today") return { from: today, to: today };
     if (window === "this_week") {
         const dow = new Date(`${today}T00:00:00.000Z`).getUTCDay(); // 0=Sun..6=Sat
-        const from = addDaysToDateStr(today, -(weekStartsOn === "Monday" ? (dow + 6) % 7 : dow));
-        return { from, to: addDaysToDateStr(from, 6) };
+        const from = addDaysToDate(today, -(weekStartsOn === "Monday" ? (dow + 6) % 7 : dow));
+        return { from, to: addDaysToDate(from, 6) };
     }
     const from = `${today.slice(0, 7)}-01`;
-    return { from, to: addDaysToDateStr(addDaysToDateStr(from, 32).slice(0, 7) + "-01", -1) };
+    return { from, to: addDaysToDate(addDaysToDate(from, 32).slice(0, 7) + "-01", -1) };
 }

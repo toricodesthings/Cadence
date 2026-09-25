@@ -6,18 +6,6 @@
  * Always accept a timezone string from the client and use these helpers.
  */
 
-/**
- * Return the `YYYY-MM-DD` date string for a given moment in a specific IANA
- * timezone. Uses `Intl.DateTimeFormat` with the `en-CA` locale, which
- * produces the ISO-style `YYYY-MM-DD` format directly.
- *
- * @param date     - The instant to convert (defaults to now)
- * @param timezone - IANA timezone identifier, e.g. "America/New_York"
- */
-export function toLocalDateStr(date: Date = new Date(), timezone = "UTC"): string {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(date);
-}
-
 /** The client's IANA zone if the runtime recognizes it, otherwise "UTC". */
 export function resolveTimeZone(timezone: string | undefined): string {
     if (!timezone) return "UTC";
@@ -72,11 +60,4 @@ export function atLocalDate(instant: Date, date: string, timezone: string): Date
     let result = wallClockAsUtc - utcOffsetMinutes(new Date(wallClockAsUtc), timezone) * 60_000;
     result = wallClockAsUtc - utcOffsetMinutes(new Date(result), timezone) * 60_000;
     return new Date(result);
-}
-
-/** Shift a `YYYY-MM-DD` date by whole days (calendar arithmetic, zone-free). */
-export function addDaysToDateStr(date: string, days: number): string {
-    const d = new Date(`${date}T00:00:00.000Z`);
-    d.setUTCDate(d.getUTCDate() + days);
-    return d.toISOString().slice(0, 10);
 }

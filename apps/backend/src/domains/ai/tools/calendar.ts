@@ -7,11 +7,11 @@ import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, MAX_LIST_LIMIT } from "./index";
-import { normalizeStartBoundary, normalizeEndBoundary } from "@cadence/contracts/common";
+import { isDateOnly, normalizeStartBoundary, normalizeEndBoundary } from "@cadence/contracts/common";
 import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
+import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
 import { taskLocalDay, toMinimalTask } from "./projections";
 import { expandOccurrences } from "../../habits/habits.service";
-import { addDaysToDateStr, toLocalDateStr } from "../../../platform/date-utils";
 
 /** Hard cap on the span a single schedule-window read may cover. */
 const MAX_RANGE_DAYS = 62;
@@ -21,11 +21,12 @@ export function routinesDue(
     rows: { id: string; title: string; recurrenceRule: string; targetTime: string | null; createdAt: string; pausedUntil: string | null }[],
     from: string,
     to: string,
+    today: string,
     timeZone = "UTC",
 ) {
     return rows.flatMap((row) => {
         const days = expandOccurrences(row.recurrenceRule, row.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`), timeZone)
-            .filter((day) => !row.pausedUntil || day > row.pausedUntil);
+            .filter((day) => !isPausedOn(row.pausedUntil, day, today));
         return days.length ? [{ id: row.id, title: row.title, days, targetTime: row.targetTime }] : [];
     });
 }
@@ -46,16 +47,15 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
         execute: async ({ start, end, includeDone, limit }) =>
             safeExecute("get_schedule_window", userId, async () => {
                 // Work in the user's local dates; a datetime is reduced to its local day.
-                const localDay = (value: string) =>
-                    /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : toLocalDateStr(new Date(value), ctx.timezone);
-                const from = localDay(start);
-                let to = localDay(end);
+                const dayOf = (value: string) => (isDateOnly(value) ? value : localDay(value, ctx.timezone));
+                const from = dayOf(start);
+                let to = dayOf(end);
                 // Clamp the span server-side so a huge range can't be requested.
-                const maxTo = addDaysToDateStr(from, MAX_RANGE_DAYS);
+                const maxTo = addDaysToDate(from, MAX_RANGE_DAYS);
                 if (to > maxTo) to = maxTo;
                 // The DB filters by UTC day; query a day wider and keep exact local days below.
-                const startIso = normalizeStartBoundary(addDaysToDateStr(from, -1));
-                const endIso = normalizeEndBoundary(addDaysToDateStr(to, 1));
+                const startIso = normalizeStartBoundary(addDaysToDate(from, -1));
+                const endIso = normalizeEndBoundary(addDaysToDate(to, 1));
                 const cap = clampLimit(limit, 50);
 
                 const db = getDbClient(env);
@@ -127,7 +127,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         range: { start: from, end: to, timezone: ctx.timezone },
                         tasks: inRange.slice(0, cap).map((row) => toMinimalTask(row, ctx.timezone)),
                         more: inRange.length > cap || undefined,
-                        routines: routinesDue(habitRows, from, to, ctx.timezone),
+                        routines: routinesDue(habitRows, from, to, ctx.today, ctx.timezone),
                     };
                 });
             }),

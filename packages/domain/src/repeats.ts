@@ -21,6 +21,21 @@ export function routineTimeOn(
 
 const DAY_MS = 86_400_000;
 
+/**
+ * Whether a routine's pause covers `day`. A pause runs from `today` through
+ * `pausedUntil` (all `YYYY-MM-DD`); it never hides a day already past.
+ */
+export function isPausedOn(pausedUntil: string | null | undefined, day: string, today: string): boolean {
+    return !!pausedUntil && day >= today && day <= pausedUntil;
+}
+
+/** Shift a `YYYY-MM-DD` date by whole days (calendar arithmetic, zone-free). */
+export function addDaysToDate(date: string, days: number): string {
+    const d = new Date(`${date}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+}
+
 /** The calendar day (`YYYY-MM-DD`) an instant falls on in `timeZone`; an unknown zone reads as UTC. */
 export function localDay(instant: string | Date, timeZone = "UTC"): string {
     const date = new Date(instant);

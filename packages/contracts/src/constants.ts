@@ -4,6 +4,10 @@ import type { TaskPriority } from "./task";
 // (Tailwind classes, icon names, CSS var names) stays in the consuming app and is
 // layered on top of these. See packages/AGENTS.md §1.
 
+/** Priority names (settings, typed words) in level order: the index is the `TaskPriority`. */
+export const TASK_PRIORITY_NAMES = ["none", "low", "medium", "high", "urgent"] as const;
+export type TaskPriorityName = (typeof TASK_PRIORITY_NAMES)[number];
+
 /** Human-readable label for each task priority level (0–4). */
 export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
     0: "None",
