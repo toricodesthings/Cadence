@@ -8,7 +8,6 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
-import type { ConversationDetail, ConversationListItem } from "@cadence/contracts/ai";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";

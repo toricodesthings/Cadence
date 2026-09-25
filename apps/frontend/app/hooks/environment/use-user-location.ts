@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ApproximatePlace } from "@cadence/contracts/proxy";
 import type { LocationMode, SavedCity } from "@cadence/contracts/settings";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";

@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { toast } from "sonner";
 import { unwrapResponse } from "../../lib/api/helpers";
-import type { Tag } from "@cadence/contracts/tag";
 import { removeTagFromCaches } from "../../lib/api/cache-sync";
 import { tagCache } from "./optimistic-helpers";
 

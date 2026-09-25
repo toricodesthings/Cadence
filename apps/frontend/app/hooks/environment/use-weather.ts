@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import type { WeatherReading } from "@cadence/contracts/proxy";
 import { useQuery } from "@tanstack/react-query";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, type LucideIcon } from "lucide-react";
 import { useSettings } from "../core/use-settings";

@@ -22,7 +22,6 @@ import {
 import { extractPhotoPalette } from "../../lib/themes/image-palette";
 import { compressBackgroundImage, readImagePixels } from "../../lib/utils/image";
 import { useSettingsCache } from "../core/use-settings";
-import type { UserSettings } from "../../types/settings";
 import { useObjectUrl } from "./use-object-url";
 
 async function unwrapImageResponse(response: UnwrappableResponse & { blob(): Promise<Blob> }): Promise<Blob> {

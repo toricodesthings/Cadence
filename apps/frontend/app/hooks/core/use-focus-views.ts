@@ -4,7 +4,7 @@ import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { useFocusViewStore, type SavedFocusView } from "../../stores/focus-view-store";
-import type { FocusViewDefinitionInput, SavedFocusView as SavedFocusViewEntity } from "@cadence/contracts/settings";
+import type { FocusViewDefinitionInput } from "@cadence/contracts/settings";
 import { queryKeys } from "../../lib/api/query-keys";
 
 interface FocusViewInput {

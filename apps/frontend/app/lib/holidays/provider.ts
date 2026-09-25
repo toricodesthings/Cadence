@@ -1,4 +1,4 @@
-import type { HolidayCountryOption, HolidayRecord, HolidaySubdivisionOption } from "@cadence/contracts/proxy";
+import type {  HolidaySubdivisionOption } from "@cadence/contracts/proxy";
 import { normalizeCountryCode } from "./location-resolver";
 import { apiClient } from "../api/client";
 import { unwrapResponse } from "../api/helpers";

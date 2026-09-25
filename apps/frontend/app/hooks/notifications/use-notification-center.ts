@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { NotificationState, UpsertNotificationState } from "@cadence/contracts/notification";
+import type {  UpsertNotificationState } from "@cadence/contracts/notification";
 import { useTasks } from "../tasks/use-tasks";
 import { useHabitsRange } from "../habits/use-habits";
 import { toISODate } from "../../lib/utils/date-format";

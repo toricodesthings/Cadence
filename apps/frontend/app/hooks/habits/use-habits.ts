@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
-import type { Habit } from "@cadence/contracts/habit";
 import { useAuthState } from "../auth/use-auth-state";
 
 interface UseHabitsRangeOptions {

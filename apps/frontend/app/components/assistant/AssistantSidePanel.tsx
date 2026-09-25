@@ -15,7 +15,6 @@ import {
     parseChatImageUrl,
     type AiUsage,
     type ApprovalMode,
-    type ChatImageUpload,
     type ConversationDetail,
     type ConversationListItem,
 } from "@cadence/contracts/ai";

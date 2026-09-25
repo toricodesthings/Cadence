@@ -7,7 +7,6 @@
  * (invalidate on streaming → ready), so the numbers track real spend.
  */
 import { useQuery } from "@tanstack/react-query";
-import type { AiUsage } from "@cadence/contracts/ai";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
