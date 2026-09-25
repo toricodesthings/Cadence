@@ -1,8 +1,11 @@
 import { z } from "zod";
-import { flexibleDateTimeSchema, isoDateTimeSchema } from "./common";
+import { flexibleDateTimeSchema, isoDateTimeSchema, normalizeEndBoundary, normalizeStartBoundary, paginationSchema } from "./common";
 import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Enums / shared scalars ──
+/** Who or what a WAITING task waits on. */
+export const waitingOnSchema = z.string().max(500);
+
 export const taskStateSchema = z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]);
 export type TaskState = z.infer<typeof taskStateSchema>;
 
@@ -45,7 +48,7 @@ export const insertTaskSchema = z.object({
     recurrenceRule: z.string().max(500).nullable().optional(),
     // Omitted → the server picks a default (see @cadence/domain suggestInteractionMode).
     interactionMode: taskInteractionModeSchema.optional(),
-    waitingOn: z.string().max(500).nullable().optional(),
+    waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: isoDateTimeSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
     notBefore: isoDateTimeSchema.nullable().optional(),
@@ -73,7 +76,7 @@ export const updateTaskSchema = z.object({
     reminderSilenced: z.boolean().optional(),
     recurrenceRule: z.string().max(500).nullable().optional(),
     interactionMode: taskInteractionModeSchema.optional(),
-    waitingOn: z.string().max(500).nullable().optional(),
+    waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: isoDateTimeSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
     notBefore: isoDateTimeSchema.nullable().optional(),
@@ -84,15 +87,18 @@ export type UpdateTask = z.infer<typeof updateTaskSchema>;
 
 export const reorderTaskSchema = z.object({
     orderIndex: z.number(),
-    orderedTaskIds: z.array(z.string().uuid()).max(200).optional(),
+    orderedTaskIds: z.array(z.uuid()).max(200).optional(),
 });
 
+/** The tasks one batch call may touch. */
+export const batchTaskIdsSchema = z.array(z.uuid()).min(1).max(50);
+
 export const batchDeleteSchema = z.object({
-    taskIds: z.array(z.uuid()).min(1).max(50),
+    taskIds: batchTaskIdsSchema,
 });
 
 export const batchStateSchema = z.object({
-    taskIds: z.array(z.uuid()).min(1).max(50),
+    taskIds: batchTaskIdsSchema,
     state: taskStateSchema,
 });
 
@@ -102,7 +108,7 @@ export const batchStateSchema = z.object({
  */
 export const batchRescheduleSchema = z
     .object({
-        taskIds: z.array(z.uuid()).min(1).max(50),
+        taskIds: batchTaskIdsSchema,
         scheduledStart: flexibleDateTimeSchema.optional(),
         isAllDay: z.boolean().default(true),
         date: z.iso.date().optional(),
@@ -169,3 +175,60 @@ export type Task = z.infer<typeof taskSchema>;
 // for clients building request bodies.
 export type CreateTaskInput = z.input<typeof insertTaskSchema>;
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
+
+// ── List filters (GET /tasks query) ──
+
+const booleanQuerySchema = z
+    .enum(["true", "false"])
+    .transform((v) => v === "true");
+
+const taskFiltersSchemaBase = z.object({
+    state: taskStateSchema.optional(),
+    projectId: z.uuid().optional(),
+    scheduledDate: z.iso.date().optional(),
+    scheduledRangeStart: flexibleDateTimeSchema.optional(),
+    scheduledRangeEnd: flexibleDateTimeSchema.optional(),
+    priority: z.coerce.number().int().min(0).max(4).optional(),
+    isPinned: booleanQuerySchema.optional(),
+    effort: z.coerce.number().int().min(1).max(3).optional(),
+    notBeforeBefore: isoDateTimeSchema.optional(), // tasks where not_before <= this date
+    hasNoDate: booleanQuerySchema.optional(),
+    hasNoProject: booleanQuerySchema.optional(),
+    effectiveOnOrBeforeDate: z.iso.date().optional(),
+});
+
+function refineTaskFilters(value: z.infer<typeof taskFiltersSchemaBase>, ctx: z.RefinementCtx) {
+    const hasRangeStart = value.scheduledRangeStart !== undefined;
+    const hasRangeEnd = value.scheduledRangeEnd !== undefined;
+
+    if (hasRangeStart !== hasRangeEnd) {
+        ctx.addIssue({
+            code: "custom",
+            message: "scheduledRangeStart and scheduledRangeEnd must be provided together",
+            path: hasRangeStart ? ["scheduledRangeEnd"] : ["scheduledRangeStart"],
+        });
+    }
+
+    if (value.scheduledRangeStart && value.scheduledRangeEnd) {
+        const start = new Date(normalizeStartBoundary(value.scheduledRangeStart)).getTime();
+        const end = new Date(normalizeEndBoundary(value.scheduledRangeEnd)).getTime();
+
+        if (Number.isFinite(start) && Number.isFinite(end) && start > end) {
+            ctx.addIssue({
+                code: "custom",
+                message: "scheduledRangeEnd must be on or after scheduledRangeStart",
+                path: ["scheduledRangeEnd"],
+            });
+        }
+    }
+}
+
+export const taskFiltersSchema = taskFiltersSchemaBase.superRefine(refineTaskFilters);
+export type TaskFilters = z.infer<typeof taskFiltersSchema>;
+
+// No default limit: open lists are the working set and views need all of it.
+// Done and Trash grow forever, so their pages send a limit.
+export const taskListQuerySchema = taskFiltersSchemaBase
+    .extend({ limit: z.coerce.number().int().min(1).max(1000).optional(), offset: paginationSchema.shape.offset })
+    .superRefine(refineTaskFilters);
+export type TaskListQueryInput = z.input<typeof taskListQuerySchema>;

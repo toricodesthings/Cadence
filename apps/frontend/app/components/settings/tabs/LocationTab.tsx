@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Compass, EyeOff, LocateFixed, MapPin, Search, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import type { CityResult } from "@cadence/contracts/proxy";
 import type { LocationMode } from "@cadence/contracts/settings";
 import { Button, Input, Switch } from "../../primitives";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
@@ -20,15 +21,6 @@ import { IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 import { cn } from "../../../lib/utils";
 
 type UserLocation = ReturnType<typeof useUserLocation>;
-
-interface CityResult {
-    name: string;
-    region: string | null;
-    country: string | null;
-    countryCode: string | null;
-    latitude: number;
-    longitude: number;
-}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

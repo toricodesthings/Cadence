@@ -10,16 +10,16 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toast } from "sonner";
-import type { ConversationSummary } from "./use-conversations";
+import type { ConversationListItem } from "@cadence/contracts/ai";
 
-type ListSnapshot = ConversationSummary[] | undefined;
+type ListSnapshot = ConversationListItem[] | undefined;
 
 function patchList(
     queryClient: ReturnType<typeof useQueryClient>,
-    update: (rows: ConversationSummary[]) => ConversationSummary[],
+    update: (rows: ConversationListItem[]) => ConversationListItem[],
 ): ListSnapshot {
-    const snapshot = queryClient.getQueryData<ConversationSummary[]>(queryKeys.ai.conversations);
-    queryClient.setQueryData<ConversationSummary[]>(queryKeys.ai.conversations, (old) =>
+    const snapshot = queryClient.getQueryData<ConversationListItem[]>(queryKeys.ai.conversations);
+    queryClient.setQueryData<ConversationListItem[]>(queryKeys.ai.conversations, (old) =>
         old ? update(old) : old,
     );
     return snapshot;

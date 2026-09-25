@@ -1,15 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { FocusViewDefinition, FocusViewPreset } from "@cadence/nlp/focus-views";
+import type { FocusViewSource, SavedFocusView as SavedFocusViewEntity } from "@cadence/contracts/settings";
 
-export interface SavedFocusView {
-    id: string;
-    name: string;
+/** A saved view as the store holds it: from the API, or saved locally ("custom", written as "manual"). */
+export type SavedFocusView = Pick<SavedFocusViewEntity, "id" | "name" | "isPinned" | "orderIndex"> & {
     definition: FocusViewDefinition;
-    isPinned: boolean;
-    source: "preset" | "composed" | "manual" | "custom";
-    orderIndex: number;
-}
+    source: FocusViewSource | "custom";
+};
 
 export type CaptureOrder = "newest" | "oldest" | "priority";
 

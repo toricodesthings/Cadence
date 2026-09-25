@@ -25,6 +25,7 @@ import type { Tx } from "../../../types/db";
 import { createTasks, deleteTasks, rescheduleTasks, setTaskState, trackTaskChanges, updateTasks } from "../../tasks/tasks.service";
 import { editSubtasks } from "../../subtasks/subtasks.service";
 import { writeNote } from "../../notes/notes.service";
+import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
 
 /** Columns returned by the minimal task projection — selected once, reused. */
 const minimalTaskColumns = {
@@ -228,7 +229,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Applies the same change to 1–50 tasks: only the fields that change, plus tags to add or remove. " +
                 "A title or note change is for one task. Returns how many changed.",
             inputSchema: z
-                .object({ taskIds: z.array(z.uuid()).min(1).max(50), patch: taskPatchSchema })
+                .object({ taskIds: batchTaskIdsSchema, patch: taskPatchSchema })
                 .refine(
                     ({ taskIds, patch }) => taskIds.length === 1 || [patch.title, patch.note, patch.appendNote].every((v) => v === undefined),
                     "A title or note change is for one task",
@@ -264,9 +265,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Moves 1–50 tasks to Done, Trash (ARCHIVED, restorable), back to open (ACTIVE), or Waiting (with waitingOn). " +
                 "Returns how many changed.",
             inputSchema: z.object({
-                taskIds: z.array(z.uuid()).min(1).max(50),
+                taskIds: batchTaskIdsSchema,
                 state: z.enum(["COMPLETE", "ARCHIVED", "ACTIVE", "WAITING"]),
-                waitingOn: z.string().min(1).max(500).optional().describe("Who or what, with WAITING."),
+                waitingOn: waitingOnSchema.min(1).optional().describe("Who or what, with WAITING."),
             }),
             execute: async ({ taskIds, state, waitingOn }, { toolCallId }) =>
                 write("set_task_state", toolCallId, async (tx) => {
@@ -293,7 +294,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Moves 1–50 tasks to another day. Each keeps its own time (all-day stays all-day); " +
                 "Fixed blocks stay put unless they're the only ones listed. Returns how many moved.",
             inputSchema: z.object({
-                taskIds: z.array(z.uuid()).min(1).max(50),
+                taskIds: batchTaskIdsSchema,
                 targetDate: z.iso.date().describe("The new local day."),
             }),
             execute: async ({ taskIds, targetDate }, { toolCallId }) =>

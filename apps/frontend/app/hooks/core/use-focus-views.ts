@@ -4,9 +4,8 @@ import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { useFocusViewStore, type SavedFocusView } from "../../stores/focus-view-store";
-import type { FocusViewDefinitionInput } from "@cadence/contracts/settings";
-
-const FOCUS_VIEWS_KEY = (userId: string | undefined) => ["settings", userId ?? "anonymous", "focusViews"] as const;
+import type { FocusViewDefinitionInput, SavedFocusView as SavedFocusViewEntity } from "@cadence/contracts/settings";
+import { queryKeys } from "../../lib/api/query-keys";
 
 interface FocusViewInput {
     name: string;
@@ -25,11 +24,11 @@ export function useFocusViews() {
     const { authReady, isAuthenticated, session } = useAuthState();
     const hydrateSavedViews = useFocusViewStore((state) => state.hydrateSavedViews);
     const query = useQuery({
-        queryKey: FOCUS_VIEWS_KEY(session?.user.id),
+        queryKey: queryKeys.settings.focusViews(session?.user.id),
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.settings["focus-views"].$get();
-            return unwrapResponse<SavedFocusView[]>(res);
+            return unwrapResponse<SavedFocusViewEntity[]>(res);
         },
         staleTime: 60_000,
     });
@@ -61,10 +60,10 @@ export function useCreateFocusView() {
                     definition: input.definition as FocusViewDefinitionInput,
                 },
             });
-            return unwrapResponse<SavedFocusView>(res);
+            return unwrapResponse<SavedFocusViewEntity>(res);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: FOCUS_VIEWS_KEY(session?.user.id) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.settings.focusViews(session?.user.id) });
         },
     });
 }
@@ -84,10 +83,10 @@ export function useUpdateFocusView() {
                     definition: patch.definition as FocusViewDefinitionInput | undefined,
                 },
             });
-            return unwrapResponse<SavedFocusView>(res);
+            return unwrapResponse<SavedFocusViewEntity>(res);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: FOCUS_VIEWS_KEY(session?.user.id) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.settings.focusViews(session?.user.id) });
         },
     });
 }
@@ -102,10 +101,10 @@ export function useDeleteFocusView() {
             const res = await client.api.settings["focus-views"][":id"].$delete({
                 param: { id },
             });
-            return unwrapResponse<SavedFocusView>(res);
+            return unwrapResponse<SavedFocusViewEntity>(res);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: FOCUS_VIEWS_KEY(session?.user.id) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.settings.focusViews(session?.user.id) });
         },
     });
 }

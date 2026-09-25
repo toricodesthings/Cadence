@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-const ALLOWED_EVENTS = [
+/**
+ * Every usage event the API accepts. Names older desktop builds still send stay
+ * here even after the web app stops sending them.
+ */
+export const USAGE_EVENTS = [
     "capture.opened",
     "capture.submitted",
     "capture.clarify_opened",
@@ -51,11 +55,17 @@ const ALLOWED_EVENTS = [
     "export.request",
 ] as const;
 
+/** Most events one batch may carry. */
+export const TRACK_BATCH_MAX = 50;
+
 export const trackEventSchema = z.object({
-    event: z.enum(ALLOWED_EVENTS),
+    event: z.enum(USAGE_EVENTS),
     metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const trackBatchSchema = z.object({
-    events: z.array(trackEventSchema).min(1).max(50),
+    events: z.array(trackEventSchema).min(1).max(TRACK_BATCH_MAX),
 });
+
+export type TrackEvent = z.infer<typeof trackEventSchema>;
+export type UsageEvent = TrackEvent["event"];

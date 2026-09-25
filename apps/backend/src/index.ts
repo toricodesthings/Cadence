@@ -19,7 +19,6 @@ import { sectionRoutes } from "./domains/sections/sections.route";
 import { settingsRoutes } from "./domains/settings/settings.route";
 import { backgroundRoutes } from "./domains/settings/background.route";
 import { eventRoutes } from "./domains/events/events.route";
-import { suggestionRoutes } from "./domains/suggestions/suggestions.route";
 import { proxyRoutes } from "./domains/proxy/proxy.route";
 import { noteRoutes } from "./domains/notes/notes.route";
 import { aiRoutes } from "./domains/ai/ai.route";
@@ -178,7 +177,6 @@ const apiApp = app
   .route("/api/v1/settings/background", backgroundRoutes)
   .route("/api/v1/settings", settingsRoutes)
   .route("/api/v1/events", eventRoutes)
-  .route("/api/v1/suggestions", suggestionRoutes)
   .route("/api/v1/proxy", proxyRoutes)
   .route("/api/v1/debug", debugRoutes)
   .route("/api/v1/ai/images", aiImageRoutes)

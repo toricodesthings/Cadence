@@ -16,7 +16,9 @@ const persona: AssistantPersona = {
     tone: "neutral",
     verbosity: "balanced",
     emoji: true,
+    nickname: null,
     assistantName: "Emilie",
+    customInstructions: null,
     proactiveSuggestions: true,
     memoryEnabled: false,
     adaptiveTone: true,
@@ -93,7 +95,7 @@ describe("composePrompt", () => {
         expect(minimalist).toContain(PROMPT_BLOCKS.voices.minimalist);
         expect(minimalist).not.toContain(PROMPT_BLOCKS.voices.coach);
         expect(minimalist).not.toMatch(/kind="(voice|persona)/);
-        expect(compose(ctx({}, { persona: "pirate" }))).toContain(PROMPT_BLOCKS.voices.secretary);
+        expect(compose(ctx({}, { persona: "pirate" as AssistantPersona["persona"] }))).toContain(PROMPT_BLOCKS.voices.secretary);
     });
 
     it("appends the workload modifier to the voice instead of replacing it", () => {

@@ -8,7 +8,7 @@ import {
 } from "../date-format";
 import { classifyTaskReadShape, type TaskReadShape } from "@cadence/domain/task-temporal";
 import { resolveOccurrenceAnchor } from "@cadence/domain/task-recurrence";
-import type { Task } from "@cadence/contracts/task";
+import type { Task, TaskListQueryInput } from "@cadence/contracts/task";
 
 const canonicalAllDayDateTimePattern = /^(\d{4}-\d{2}-\d{2})T(?:00:00:00(?:\.000)?|12:00:00(?:\.000)?|23:59:59\.999)Z$/;
 const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -357,18 +357,16 @@ export function getTaskTimelineAnchor(
     return getTaskEffectiveAnchor(task);
 }
 
-export interface UseTasksFilterInput {
-    state?: string;
-    projectId?: string;
-    scheduledDate?: string;
+/** `GET /tasks` filters as views pass them: typed values, with the range as one pair. */
+export type UseTasksFilterInput = Pick<TaskListQueryInput, "state" | "projectId" | "scheduledDate" | "effectiveOnOrBeforeDate"> & {
     scheduledRange?: { start: string; end: string };
     limit?: number;
     offset?: number;
     hasNoProject?: boolean;
     hasNoDate?: boolean;
-    effectiveOnOrBeforeDate?: string;
-}
+};
 
+/** The query string for `GET /tasks`, in the order the validator reads it. */
 export function buildTasksQuery(filters: UseTasksFilterInput) {
     return {
         ...(filters.state && { state: filters.state }),
@@ -376,8 +374,8 @@ export function buildTasksQuery(filters: UseTasksFilterInput) {
         ...(filters.scheduledDate && { scheduledDate: filters.scheduledDate }),
         ...(filters.scheduledRange?.start && { scheduledRangeStart: filters.scheduledRange.start }),
         ...(filters.scheduledRange?.end && { scheduledRangeEnd: filters.scheduledRange.end }),
-        ...(filters.hasNoProject !== undefined && { hasNoProject: String(filters.hasNoProject) }),
-        ...(filters.hasNoDate !== undefined && { hasNoDate: String(filters.hasNoDate) }),
+        ...(filters.hasNoProject !== undefined && { hasNoProject: filters.hasNoProject ? "true" as const : "false" as const }),
+        ...(filters.hasNoDate !== undefined && { hasNoDate: filters.hasNoDate ? "true" as const : "false" as const }),
         ...(filters.effectiveOnOrBeforeDate && { effectiveOnOrBeforeDate: filters.effectiveOnOrBeforeDate }),
         ...(filters.limit !== undefined && { limit: String(filters.limit) }),
         ...(filters.offset !== undefined && { offset: String(filters.offset) }),

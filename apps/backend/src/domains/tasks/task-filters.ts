@@ -1,5 +1,5 @@
-import type { TaskFilters } from "./tasks.schema";
-import { normalizeStartBoundary, normalizeEndBoundary } from "@cadence/domain/task-temporal";
+import type { TaskFilters } from "@cadence/contracts/task";
+import { normalizeStartBoundary, normalizeEndBoundary } from "@cadence/contracts/common";
 import { addDaysToDateStr } from "../../platform/date-utils";
 
 export type NormalizedTaskFilters = Omit<TaskFilters, "scheduledRangeStart" | "scheduledRangeEnd"> & {

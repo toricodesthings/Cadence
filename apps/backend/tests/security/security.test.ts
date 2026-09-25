@@ -141,7 +141,6 @@ describe("every route family requires auth", () => {
         ["GET", "/api/v1/sections"],
         ["POST", "/api/v1/sections"],
         ["GET", "/api/v1/tasks/fake-id/subtasks"],
-        ["GET", "/api/v1/suggestions"],
         ["POST", "/api/v1/events"],
         ["GET", "/api/v1/settings"],
         ["GET", "/api/v1/habits"],

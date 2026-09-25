@@ -1,3 +1,4 @@
+import { isDateOnly, normalizeEndBoundary } from "@cadence/contracts/common";
 import { DomainError } from "./errors";
 
 export type TaskTemporalFields = {
@@ -14,19 +15,6 @@ export type TaskReadShape =
     | "all_day_duration"
     | "legacy_all_day_with_start"
     | "legacy_mixed_timed_deadline";
-
-// ── Pure boundary helpers (shared by backend filters + frontend) ──
-export function isDateOnly(value: string) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-export function normalizeStartBoundary(value: string) {
-    return isDateOnly(value) ? `${value}T00:00:00.000Z` : value;
-}
-
-export function normalizeEndBoundary(value: string) {
-    return isDateOnly(value) ? `${value}T23:59:59.999Z` : value;
-}
 
 function normalizeAnchorDate(value: string | null | undefined) {
     if (!value) return null;

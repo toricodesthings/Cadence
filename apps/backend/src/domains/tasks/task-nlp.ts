@@ -7,10 +7,6 @@ function confidenceRank(confidence: "high" | "medium" | "low" | undefined) {
     return confidence === "high" ? 2 : confidence === "medium" ? 1 : 0;
 }
 
-export function isDateOnlyValue(value: string) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
 export async function loadNlpRuntime(tx: Tx, userId: string) {
     const [user] = await tx
         .select({ settings: users.settings })

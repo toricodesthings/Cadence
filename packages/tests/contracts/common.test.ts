@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { apiErrorSchema, flexibleDateTimeSchema, isoDateTimeSchema, paginationSchema, uuidParamSchema } from "@cadence/contracts/common";
+import {
+    apiErrorSchema,
+    flexibleDateTimeSchema,
+    isoDateTimeSchema,
+    normalizeEndBoundary,
+    normalizeStartBoundary,
+    paginationSchema,
+    uuidParamSchema,
+} from "@cadence/contracts/common";
 
 describe("timestamps", () => {
     it.each([
@@ -51,5 +59,18 @@ describe("apiErrorSchema", () => {
 
     it("rejects a code that isn't in ERROR_CODES", () => {
         expect(apiErrorSchema.safeParse({ error: { ...body, code: "INTERNAL_SERVER_ERROR" } }).success).toBe(false);
+    });
+});
+
+describe("range boundary normalization", () => {
+    it("expands date-only boundaries to the inclusive start/end of that UTC day", () => {
+        expect(normalizeStartBoundary("2026-03-01")).toBe("2026-03-01T00:00:00.000Z");
+        expect(normalizeEndBoundary("2026-03-31")).toBe("2026-03-31T23:59:59.999Z");
+    });
+
+    it("passes full datetimes through unchanged", () => {
+        const iso = "2026-03-01T12:30:00.000Z";
+        expect(normalizeStartBoundary(iso)).toBe(iso);
+        expect(normalizeEndBoundary(iso)).toBe(iso);
     });
 });

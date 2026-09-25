@@ -3,8 +3,12 @@
  * agent.ts. Keep names stable.
  */
 import type { ApprovalMode } from "@cadence/contracts/ai";
+import type { UserSettings } from "@cadence/contracts/settings";
+import type { RetrievedMemory } from "../memory/memory-retrieval";
 
-export type Voice = "secretary" | "coach" | "minimalist" | "companion";
+type AssistantSettings = NonNullable<UserSettings["assistant"]>;
+
+export type Voice = NonNullable<AssistantSettings["persona"]>;
 
 /** The block set: static base sections in order, then the per-user/per-turn templates. */
 export interface PromptBlocks {
@@ -24,26 +28,7 @@ export interface PromptBlocks {
  * back-compat but no longer reach the prompt. Names and `customInstructions` are
  * free text and UNTRUSTED: the composer sanitizes and fences them.
  */
-export interface AssistantPersona {
-    persona: string;
-    tone: string;
-    verbosity: string;
-    emoji: boolean;
-    nickname?: string | null;
-    assistantName?: string;
-    customInstructions?: string | null;
-    proactiveSuggestions: boolean;
-    memoryEnabled: boolean;
-    adaptiveTone: boolean;
-}
-
-/** A single retrieved memory (RAG, doc 06). Content is untrusted → fenced. */
-export interface RetrievedMemory {
-    id: string;
-    content: string;
-    type: "CORE" | "EPHEMERAL";
-    salience: number;
-}
+export type AssistantPersona = Required<AssistantSettings>;
 
 /**
  * Everything the composer needs at request time. All async (settings, metrics,

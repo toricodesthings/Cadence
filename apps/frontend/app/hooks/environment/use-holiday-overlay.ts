@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
-import { fetchHolidays, fetchHolidaySubdivisions, type HolidayRecord } from "../../lib/holidays/provider";
+import type { HolidayRecord } from "@cadence/contracts/proxy";
+import { fetchHolidays, fetchHolidaySubdivisions } from "../../lib/holidays/provider";
 import {
     findSubdivisionCode,
     getCountryLabel,

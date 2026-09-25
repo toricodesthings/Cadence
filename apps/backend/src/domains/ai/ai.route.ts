@@ -14,14 +14,14 @@ import { getRequestId, setRequestErrorCode } from "../../platform/request-log";
 import { logger, hashIdentifier, issuesFromError, shorten } from "../../platform/log";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { getRedis, getRateLimitRedis } from "../../platform/redis";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import {
     chatRequestSchema,
-    conversationIdParamSchema,
     listConversationsQuerySchema,
     conversationMessagesQuerySchema,
     conversationPatchSchema,
     stopStreamSchema,
-} from "./ai.schema";
+} from "@cadence/contracts/ai";
 import { getAgentInstance, getModelId } from "./agent";
 import {
     resolveOrCreateConversation,
@@ -465,7 +465,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     });
     })
     // ── Resume: re-attach to an in-flight stream (`useChat({ resume: true })`) ──
-    .get("/chat/:id/stream", apiValidator("param", conversationIdParamSchema), async (c) => {
+    .get("/chat/:id/stream", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const redis = getRedis(c.env);
@@ -502,7 +502,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Stop: hard-abort the in-flight turn (real cross-isolate cancel) ──
     .post(
         "/chat/:id/stop",
-        apiValidator("param", conversationIdParamSchema),
+        apiValidator("param", uuidParamSchema),
         apiValidator("json", stopStreamSchema),
         async (c) => {
             const userId = c.get("userId");
@@ -564,7 +564,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Update: rename / archive a thread ────────────────────────────────
     .patch(
     "/conversations/:id",
-    apiValidator("param", conversationIdParamSchema),
+    apiValidator("param", uuidParamSchema),
     apiValidator("json", conversationPatchSchema),
     async (c) => {
         const userId = c.get("userId");
@@ -606,7 +606,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     })
     .get(
     "/conversations/:id",
-    apiValidator("param", conversationIdParamSchema),
+    apiValidator("param", uuidParamSchema),
     apiValidator("query", conversationMessagesQuerySchema),
     async (c) => {
         const userId = c.get("userId");
@@ -626,7 +626,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     },
     )
     // ── Delete: remove a thread (messages cascade) ───────────────────────
-    .delete("/conversations/:id", apiValidator("param", conversationIdParamSchema), async (c) => {
+    .delete("/conversations/:id", apiValidator("param", uuidParamSchema), async (c) => {
     const userId = c.get("userId");
     const { id } = c.req.valid("param");
     const db = getDbClient(c.env);

@@ -34,8 +34,8 @@ export const insertHabitSchema = z.object({
     reminderEnabled: z.boolean().optional(),
     colorAccent: z.string().optional(),
     archived: z.boolean().optional(),
-    projectId: z.string().uuid().nullable().optional(),
-    tagIds: z.array(z.string().uuid()).optional(),
+    projectId: z.uuid().nullable().optional(),
+    tagIds: z.array(z.uuid()).optional(),
     sortOrder: z.number().optional(),
     pausedUntil: z.string().nullable().optional(),
     steps: routineStepsSchema.nullable().optional(),
@@ -97,15 +97,26 @@ export const habitRowSchema = z.object({
 });
 export type HabitRow = z.infer<typeof habitRowSchema>;
 
-// ── HabitLog entity ──
-export const habitLogSchema = z.object({
-    id: z.string(),
+// ── HabitLog row + entity ──
+export const habitLogStepStatusSchema = z.record(z.string(), z.enum(["COMPLETED", "SKIPPED"]));
+
+export const habitLogRowSchema = z.object({
+    id: z.uuid(),
     habitId: z.uuid(),
-    userId: z.uuid().optional(),
+    userId: z.uuid(),
     status: habitStatusSchema,
     targetDate: z.string(),
-    completedAt: z.string().nullable(),
-    stepStatus: z.record(z.string(), z.enum(["COMPLETED", "SKIPPED"])).nullable().optional(),
+    completedAt: isoDateTimeSchema.nullable(),
+    resolvedAt: isoDateTimeSchema.nullable(),
+    stepStatus: habitLogStepStatusSchema.nullable(),
+    createdAt: isoDateTimeSchema,
+});
+
+/** Optimistic logs carry a temp id and skip server-only columns. */
+export const habitLogSchema = habitLogRowSchema.extend({
+    id: z.string(),
+    userId: z.uuid().optional(),
+    stepStatus: habitLogStepStatusSchema.nullable().optional(),
     resolvedAt: z.string().nullable().optional(),
     createdAt: z.string().optional(),
 });

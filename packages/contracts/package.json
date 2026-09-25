@@ -15,7 +15,10 @@
     "./section": "./src/section.ts",
     "./note": "./src/note.ts",
     "./settings": "./src/settings.ts",
-    "./ai": "./src/ai.ts"
+    "./ai": "./src/ai.ts",
+    "./events": "./src/events.ts",
+    "./proxy": "./src/proxy.ts",
+    "./notification": "./src/notification.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

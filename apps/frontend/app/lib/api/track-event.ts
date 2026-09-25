@@ -1,48 +1,6 @@
+import { TRACK_BATCH_MAX, type UsageEvent } from "@cadence/contracts/events";
 import { authenticatedFetch } from "./client";
 import { API_BASE_URL } from "../env";
-
-type UsageEvent =
-    // Capture lifecycle
-    | "capture.submitted"
-    | "capture.clarify_opened"
-    | "capture.placed"
-    | "capture.discarded"
-    // NLP events
-    | "nlp.parse_completed"
-    | "nlp.entity_dismissed"
-    | "nlp.low_confidence_seen"
-    // Task events
-    | "task.complete"
-    | "task.create"
-    | "task.quick_action_used"
-    | "task.context_menu_opened"
-    | "task.context_menu_action"
-    // Habit events
-    | "habit.context_menu_opened"
-    // Capture / Inbox events
-    | "capture.context_menu_opened"
-    | "capture.context_menu_action"
-    // Project events
-    | "project.context_menu_opened"
-    // Schedule events
-    | "schedule.drop_completed"
-    | "schedule.quick_add_used"
-    | "schedule.context_menu_opened"
-    | "schedule.context_menu_action"
-    // Event events
-    | "event.context_menu_opened"
-    // Keyboard & navigation
-    | "shortcut.used"
-    | "command_palette.opened"
-    | "command_palette.result_opened"
-    // Reminders
-    | "reminder.presented"
-    | "reminder.deferred"
-    | "reminder.dismissed"
-    // Weekly reset
-    | "weekly_reset.started"
-    | "weekly_reset.abandoned"
-    | "weekly_reset.completed";
 
 /** Structured telemetry metadata per §11.8 taxonomy */
 export interface UsageEventMetadata {
@@ -85,7 +43,7 @@ async function flushEvents() {
     flushTimer = null;
     if (pendingEvents.length === 0) return;
 
-    const batch = pendingEvents.splice(0, 50);
+    const batch = pendingEvents.splice(0, TRACK_BATCH_MAX);
 
     try {
         await authenticatedFetch(`${API_BASE_URL}/api/v1/events/batch`, {

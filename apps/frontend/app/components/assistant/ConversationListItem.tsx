@@ -4,7 +4,7 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { Tip } from "../primitives";
-import type { ConversationSummary } from "../../hooks/ai/use-conversations";
+import type { ConversationListItem } from "@cadence/contracts/ai";
 
 /** Compact, calm relative time ("2m ago", "Yesterday", "Mon"). */
 function relativeTime(iso: string | null): string {
@@ -39,7 +39,7 @@ export function ConversationListItem({
     onArchive,
     onDelete,
 }: {
-    conversation: ConversationSummary;
+    conversation: ConversationListItem;
     active: boolean;
     /** Client fallback when the server hasn't titled the thread yet (§5.4). */
     fallbackTitle?: string;

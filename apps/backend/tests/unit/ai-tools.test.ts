@@ -47,7 +47,7 @@ describe("toMinimalTask", () => {
             ...baseTask,
             id: "t1::2026-06-10T18:00:00.000Z",
             seriesId: "t1",
-            interactionMode: "timetable",
+            interactionMode: "timetable" as const,
             recurrenceRule: "FREQ=WEEKLY",
         };
         expect(toMinimalTask(occurrence, "UTC")).toMatchObject({ id: "t1", fixedBlock: true, repeats: true });

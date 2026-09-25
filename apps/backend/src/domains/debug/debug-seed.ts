@@ -5,7 +5,7 @@ import { insertInboxItemSchema, insertInboxSectionSchema } from "@cadence/contra
 import { insertProjectSchema } from "@cadence/contracts/project";
 import { insertSubtaskSchema } from "@cadence/contracts/subtask";
 import { insertTagSchema } from "@cadence/contracts/tag";
-import { insertTaskSchema } from "../tasks/tasks.schema";
+import { insertTaskSchema } from "@cadence/contracts/task";
 import { upsertNoteSchema } from "@cadence/contracts/note";
 import type {
     sourceSurfaceEnum,
@@ -18,7 +18,7 @@ import type {
 const seedSectionSchema = z.object({
     name: z.string().min(1).max(200),
     orderIndex: z.number(),
-    projectId: z.string().uuid().nullable().optional(),
+    projectId: z.uuid().nullable().optional(),
 });
 
 // ── Enum helper types ────────────────────────────────────────────────

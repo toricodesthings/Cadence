@@ -13,6 +13,7 @@
 import { and, asc, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { aiConversations, aiImages, aiMessages } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
+import type { ConversationDetail, ConversationListItem } from "@cadence/contracts/ai";
 import { AppError } from "../../../platform/errors";
 import { logger } from "../../../platform/log";
 import {
@@ -330,7 +331,7 @@ export async function listConversations(
     tx: Tx,
     userId: string,
     opts?: { limit?: number; cursor?: string },
-): Promise<Array<{ id: string; title: string | null; lastMessageAt: string | null; archived: boolean }>> {
+): Promise<ConversationListItem[]> {
     const limit = clampLimit(opts?.limit, DEFAULT_CONVERSATION_LIMIT, MAX_CONVERSATION_LIMIT);
 
     const conditions = [eq(aiConversations.userId, userId)];
@@ -357,16 +358,7 @@ export async function getConversation(
     tx: Tx,
     userId: string,
     conversationId: string,
-): Promise<{
-    id: string;
-    title: string | null;
-    model: string | null;
-    lastMessageAt: string | null;
-    archived: boolean;
-    activeStreamId: string | null;
-    lastStreamId: string | null;
-    lastStreamStatus: string | null;
-} | null> {
+): Promise<ConversationDetail | null> {
     const [row] = await tx
         .select({
             id: aiConversations.id,

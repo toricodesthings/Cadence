@@ -13,15 +13,20 @@ import {
     aiConversations,
     aiMessages,
     aiImages,
+    habitLogs,
+    notificationState,
+    savedFocusViews,
 } from "../../src/db/schema";
 import type { taskRowSchema } from "@cadence/contracts/task";
 import type { projectRowSchema } from "@cadence/contracts/project";
 import type { tagRowSchema } from "@cadence/contracts/tag";
 import type { inboxItemRowSchema, inboxSectionRowSchema } from "@cadence/contracts/inbox";
-import type { habitRowSchema } from "@cadence/contracts/habit";
+import type { habitLogRowSchema, habitRowSchema } from "@cadence/contracts/habit";
 import type { subtaskRowSchema } from "@cadence/contracts/subtask";
 import type { taskSectionRowSchema } from "@cadence/contracts/section";
 import type { taskNoteRowSchema } from "@cadence/contracts/note";
+import type { notificationStateRowSchema } from "@cadence/contracts/notification";
+import type { savedFocusViewRowSchema } from "@cadence/contracts/settings";
 import type { aiConversationRowSchema, aiImageRowSchema, aiMessageRowSchema } from "@cadence/contracts/ai";
 
 // Compile-time guardrails, enforced by `tsc --noEmit` (vitest itself cannot fail
@@ -43,4 +48,7 @@ test("every contract row schema matches its Drizzle table", () => {
     expectTypeOf<z.infer<typeof aiConversationRowSchema>>().toEqualTypeOf<typeof aiConversations.$inferSelect>();
     expectTypeOf<z.infer<typeof aiMessageRowSchema>>().toEqualTypeOf<typeof aiMessages.$inferSelect>();
     expectTypeOf<z.infer<typeof aiImageRowSchema>>().toEqualTypeOf<typeof aiImages.$inferSelect>();
+    expectTypeOf<z.infer<typeof habitLogRowSchema>>().toEqualTypeOf<typeof habitLogs.$inferSelect>();
+    expectTypeOf<z.infer<typeof notificationStateRowSchema>>().toEqualTypeOf<typeof notificationState.$inferSelect>();
+    expectTypeOf<z.infer<typeof savedFocusViewRowSchema>>().toEqualTypeOf<typeof savedFocusViews.$inferSelect>();
 });

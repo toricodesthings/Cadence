@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { NotificationState, UpsertNotificationState } from "@cadence/contracts/notification";
 import { useTasks } from "../tasks/use-tasks";
 import { useHabitsRange } from "../habits/use-habits";
 import { toISODate } from "../../lib/utils/date-format";
@@ -26,18 +27,6 @@ interface PersistedNotificationState {
     dismissedIds: string[];
     readIds: string[];
     deferredUntilEntries: Array<[string, string]>;
-}
-
-interface NotificationStateRow {
-    objectType: "task" | "habit" | "event";
-    objectId: string;
-    triggerId: string;
-    firstPresentedAt: string | null;
-    lastPresentedAt: string | null;
-    dismissedAt: string | null;
-    deferredUntil: string | null;
-    actionTaken: string | null;
-    presentationCount: number;
 }
 
 function readPersistedState(): PersistedNotificationState {
@@ -135,7 +124,7 @@ export function useNotificationCenter() {
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.settings["notification-state"].$get();
-            return unwrapResponse<NotificationStateRow[]>(res);
+            return unwrapResponse<NotificationState[]>(res);
         },
         staleTime: 60_000,
     });
@@ -176,7 +165,7 @@ export function useNotificationCenter() {
         if (changed) emitChange();
     }, [persistedRows]);
 
-    const syncNotificationState = useCallback(async (notification: AppNotification, payload: Omit<NotificationStateRow, "triggerId" | "objectId" | "objectType" | "presentationCount"> & { presentationCountIncrement?: number }) => {
+    const syncNotificationState = useCallback(async (notification: AppNotification, payload: Omit<UpsertNotificationState, "triggerId" | "objectId" | "objectType">) => {
         const record = toNotificationRecord(notification);
         if (!record) return;
 

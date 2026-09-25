@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import {
     BACKGROUND_IMAGE_DEFAULTS,
     BACKGROUND_IMAGE_LIMITS,
@@ -38,7 +39,6 @@ import { normalizeSettings } from "./settings.route";
 const UPLOAD_BODY_SLACK = 64 * 1024;
 
 const uploadFormSchema = backgroundUploadMetaSchema.extend({ file: z.instanceof(File) });
-const imageParamSchema = z.object({ id: z.string().uuid() });
 
 function requireBucket(env: Env): R2Bucket {
     if (!env.USER_ASSETS) {
@@ -153,7 +153,7 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
             return c.json({ data: settings }, 201);
         },
     )
-    .get("/:id", apiValidator("param", imageParamSchema), async (c) => {
+    .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const bucket = requireBucket(c.env);

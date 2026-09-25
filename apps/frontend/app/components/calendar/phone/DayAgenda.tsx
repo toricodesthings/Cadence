@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Flag, Inbox, Plus } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
-import type { HolidayRecord } from "../../../lib/holidays/provider";
+import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "../../../types/settings";
 import { formatTime, toISODate } from "../../../lib/utils/date-format";
 import { formatDuration, freeGaps, itemEnd, itemStart, scheduleKind, splitDay, type FreeGap } from "../../../lib/utils/calendar/schedule-day";

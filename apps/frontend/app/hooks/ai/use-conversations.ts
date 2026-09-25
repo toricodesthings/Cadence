@@ -8,35 +8,11 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
+import type { ConversationDetail, ConversationListItem } from "@cadence/contracts/ai";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
-
-/** A row in the conversation sidebar (matches the backend list projection). */
-export interface ConversationSummary {
-    id: string;
-    title: string | null;
-    lastMessageAt: string | null;
-    archived: boolean;
-}
-
-/** Single-conversation metadata returned alongside its messages. */
-export interface ConversationDetail {
-    id: string;
-    title: string | null;
-    model?: string | null;
-    lastMessageAt: string | null;
-    archived: boolean;
-    // Non-null while a turn is producing — lets the client hydrate `resume` and
-    // hand the live id to the Stop control (doc Update 4 §7.10 / §8).
-    activeStreamId?: string | null;
-    // The most recently finished stream + its terminal status. A slightly-late
-    // re-attach grace-replays `lastStreamId`'s still-alive chunk-log server-side;
-    // the status backs the failed-turn Retry affordance (doc Update 4 §7.10).
-    lastStreamId?: string | null;
-    lastStreamStatus?: string | null;
-}
 
 /**
  * A persisted message row reconstructed by the backend. The server reconstructs
@@ -59,7 +35,7 @@ export function useConversations() {
         staleTime: 30_000,
         queryFn: async () => {
             const res = await client.api.ai.conversations.$get({ query: {} });
-            const data = await unwrapResponse<{ conversations: ConversationSummary[] }>(res);
+            const data = await unwrapResponse<{ conversations: ConversationListItem[] }>(res);
             return data.conversations;
         },
     });

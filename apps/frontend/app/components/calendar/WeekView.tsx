@@ -13,7 +13,7 @@ import { trackUsageEvent } from "../../lib/api/track-event";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "@cadence/contracts/task";
-import type { HolidayRecord } from "../../lib/holidays/provider";
+import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "../../types/settings";
 
 interface DroppableDayColumnProps {

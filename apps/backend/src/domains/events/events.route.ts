@@ -7,7 +7,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import type { DbClient } from "../../platform/db";
-import { trackEventSchema, trackBatchSchema } from "./events.schema";
+import { trackEventSchema, trackBatchSchema } from "@cadence/contracts/events";
 
 export const eventRoutes = new Hono<{
     Bindings: Env;

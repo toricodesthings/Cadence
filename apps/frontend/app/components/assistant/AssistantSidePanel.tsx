@@ -16,6 +16,8 @@ import {
     type AiUsage,
     type ApprovalMode,
     type ChatImageUpload,
+    type ConversationDetail,
+    type ConversationListItem,
 } from "@cadence/contracts/ai";
 import { ChatMessage, ChatAvatar, AssistantText } from "./MessageBubble";
 import { AssistantSigil } from "./AssistantSigil";
@@ -34,8 +36,6 @@ import {
 } from "../../lib/ai/stream-error";
 import {
     useConversationMessages,
-    type ConversationSummary,
-    type ConversationDetail,
 } from "../../hooks/ai/use-conversations";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useAiUsage } from "../../hooks/ai/use-ai-usage";
@@ -357,7 +357,7 @@ export function AssistantSidePanel({
         (convId: string, title: string) => {
             if (!title) return;
             if (convId === conversationIdRef.current) setThreadTitle(title);
-            queryClient.setQueryData<ConversationSummary[]>(queryKeys.ai.conversations, (prev) =>
+            queryClient.setQueryData<ConversationListItem[]>(queryKeys.ai.conversations, (prev) =>
                 prev?.map((c) => (c.id === convId ? { ...c, title } : c)),
             );
             queryClient.setQueryData(queryKeys.ai.conversation(convId), (prev: unknown) => {

@@ -7,10 +7,7 @@ import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, MAX_LIST_LIMIT } from "./index";
-import {
-    normalizeStartBoundary,
-    normalizeEndBoundary,
-} from "@cadence/domain/task-temporal";
+import { normalizeStartBoundary, normalizeEndBoundary } from "@cadence/contracts/common";
 import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
 import { taskLocalDay, toMinimalTask } from "./projections";
 import { expandOccurrences } from "../../habits/habits.service";

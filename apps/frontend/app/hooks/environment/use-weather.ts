@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { WeatherReading } from "@cadence/contracts/proxy";
 import { useQuery } from "@tanstack/react-query";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, type LucideIcon } from "lucide-react";
 import { useSettings } from "../core/use-settings";
@@ -69,7 +70,7 @@ export function useWeather() {
             const response = await client.api.proxy.weather.$get({
                 query: { latitude: String(coordinates!.latitude), longitude: String(coordinates!.longitude) },
             });
-            return unwrapResponse<{ temperature: number; weatherCode: number }>(response);
+            return unwrapResponse<WeatherReading>(response);
         },
         enabled: enabled && location.ready && coordinates !== null,
         staleTime: WEATHER_STALE_MS,

@@ -7,6 +7,12 @@
  * `tests/unit/ai-tools.test.ts`.
  */
 
+import type { HabitRow as HabitRecord } from "@cadence/contracts/habit";
+import type { InboxItemRow as InboxItemRecord } from "@cadence/contracts/inbox";
+import type { ProjectRow as ProjectRecord } from "@cadence/contracts/project";
+import type { SubtaskRow as SubtaskRecord } from "@cadence/contracts/subtask";
+import type { TagRow as TagRecord } from "@cadence/contracts/tag";
+import type { TaskRow as TaskRecord } from "@cadence/contracts/task";
 import { addDaysToDateStr, toLocalDateStr, toZonedIso } from "../../../platform/date-utils";
 
 /**
@@ -33,27 +39,15 @@ export interface MinimalTask {
     repeats?: true;
 }
 
-export interface TaskRow {
-    id: string;
-    title: string;
-    state: string;
-    isAllDay: boolean;
-    dueDate: string | null;
-    scheduledStart: string | null;
-    scheduledEnd: string | null;
-    durationEstimate: number | null;
-    priority: number;
-    effort: number | null;
-    projectId: string | null;
-    sectionId?: string | null;
-    waitingOn: string | null;
-    interactionMode: string;
-    recurrenceRule: string | null;
+/** The task columns the projection reads (a full row fits; `content` is dropped). */
+export type TaskRow = Pick<
+    TaskRecord,
+    | "id" | "title" | "state" | "isAllDay" | "dueDate" | "scheduledStart" | "scheduledEnd"
+    | "durationEstimate" | "priority" | "effort" | "projectId" | "waitingOn" | "interactionMode" | "recurrenceRule"
+> & Partial<Pick<TaskRecord, "sectionId" | "content">> & {
     /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
     seriesId?: string;
-    // content/notes intentionally accepted but DROPPED by the projection.
-    content?: string | null;
-}
+};
 
 /**
  * Project a task row to its minimal, token-frugal shape. Drops `content`.
@@ -84,52 +78,21 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
     };
 }
 
-export interface MinimalSubtask {
-    id: string;
-    title: string;
-    isComplete: boolean;
-}
+export type MinimalSubtask = Pick<SubtaskRecord, "id" | "title" | "isComplete">;
 
-export interface SubtaskRow {
-    id: string;
-    title: string;
-    isComplete: boolean;
-}
-
-export function toMinimalSubtask(row: SubtaskRow): MinimalSubtask {
+export function toMinimalSubtask(row: MinimalSubtask): MinimalSubtask {
     return { id: row.id, title: row.title, isComplete: row.isComplete };
 }
 
-export interface MinimalTag {
-    id: string;
-    name: string;
-    color: string | null;
-}
+export type MinimalTag = Pick<TagRecord, "id" | "name" | "color">;
 
-export interface TagRow {
-    id: string;
-    name: string;
-    color: string | null;
-}
-
-export function toMinimalTag(row: TagRow): MinimalTag {
+export function toMinimalTag(row: MinimalTag): MinimalTag {
     return { id: row.id, name: row.name, color: row.color };
 }
 
-export interface MinimalProject {
-    id: string;
-    name: string;
-    emoji: string | null;
-    colorAccent: string | null;
-    sections: { id: string; name: string }[];
-}
+export type ProjectRow = Pick<ProjectRecord, "id" | "name" | "emoji" | "colorAccent">;
 
-export interface ProjectRow {
-    id: string;
-    name: string;
-    emoji: string | null;
-    colorAccent: string | null;
-}
+export type MinimalProject = ProjectRow & { sections: { id: string; name: string }[] };
 
 /** A list with its sections (board columns), in order. */
 export function toMinimalProject(
@@ -163,20 +126,10 @@ export interface MinimalHabit {
     paused: boolean;
 }
 
-export interface HabitRow {
-    id: string;
-    title: string;
-    emoji?: string | null;
-    recurrenceRule: string;
-    targetTime?: string | null;
-    steps?: { id: string; title: string }[] | null;
-    currentStreak: number;
-    longestStreak: number;
-    totalCompletions: number;
-    totalSkips: number;
-    archived: boolean;
-    pausedUntil: string | null;
-}
+export type HabitRow = Pick<
+    HabitRecord,
+    "id" | "title" | "recurrenceRule" | "currentStreak" | "longestStreak" | "totalCompletions" | "totalSkips" | "archived" | "pausedUntil"
+> & Partial<Pick<HabitRecord, "emoji" | "targetTime" | "steps">>;
 
 /**
  * Derive a habit's adherence rate from the denormalized completion/skip counts
@@ -205,22 +158,9 @@ export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit
     };
 }
 
-export interface MinimalInboxItem {
-    isNote: boolean;
-    id: string;
-    rawText: string;
-    captureKind: string;
-    captureStatus: string;
-    processed: boolean;
-}
+export type InboxItemRow = Pick<InboxItemRecord, "id" | "rawText" | "captureKind" | "captureStatus" | "processed">;
 
-export interface InboxItemRow {
-    id: string;
-    rawText: string;
-    captureKind: string;
-    captureStatus: string;
-    processed: boolean;
-}
+export type MinimalInboxItem = InboxItemRow & { isNote: boolean };
 
 /** Project an inbox capture. `rawText` is the user's own short capture, kept verbatim. */
 export function toMinimalInboxItem(row: InboxItemRow): MinimalInboxItem {

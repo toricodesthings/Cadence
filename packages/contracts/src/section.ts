@@ -2,13 +2,13 @@ import { z } from "zod";
 import { isoDateTimeSchema } from "./common";
 
 export const sectionQuerySchema = z.object({
-    projectId: z.string().uuid().optional(),
+    projectId: z.uuid().optional(),
 });
 
 export const createSectionSchema = z.object({
     name: z.string().min(1).max(200),
     orderIndex: z.number(),
-    projectId: z.string().uuid().nullable().optional(),
+    projectId: z.uuid().nullable().optional(),
 });
 
 export const updateSectionSchema = z.object({

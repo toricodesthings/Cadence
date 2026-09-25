@@ -13,7 +13,7 @@ export const updateTagSchema = insertTagSchema.partial();
 export type UpdateTag = z.infer<typeof updateTagSchema>;
 
 export const taskTagSchema = z.object({
-    tagId: z.string().uuid(),
+    tagId: z.uuid(),
 });
 
 export const tagRowSchema = z.object({

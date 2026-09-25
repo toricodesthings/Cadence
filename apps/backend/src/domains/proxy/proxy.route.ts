@@ -10,7 +10,14 @@ import {
     holidayCountriesQuerySchema,
     holidaySubdivisionsQuerySchema,
     holidaysQuerySchema,
-} from "./proxy.schema";
+    type ApproximatePlace,
+    type CityResult,
+    type HolidayCountryOption,
+    type HolidayRecord,
+    type HolidaySubdivisionOption,
+    type RegionInfo,
+    type WeatherReading,
+} from "@cadence/contracts/proxy";
 
 // ── Helpers ──
 
@@ -121,7 +128,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         }
 
         return c.json(
-            { data: { temperature: current.temperature, weatherCode: current.weathercode } },
+            { data: { temperature: current.temperature, weatherCode: current.weathercode } satisfies WeatherReading },
             200,
             PRIVATE_NO_STORE,
         );
@@ -147,7 +154,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     countryCode: address?.country_code?.toUpperCase() ?? null,
                     subdivisionCode: address?.["ISO3166-2-lvl4"]?.toUpperCase() ?? null,
                     subdivisionName: address?.state ?? address?.region ?? address?.county ?? null,
-                },
+                } satisfies RegionInfo,
             },
             200,
             PRIVATE_NO_STORE,
@@ -170,7 +177,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             results?: Array<{ name: string; latitude: number; longitude: number; country?: string; country_code?: string; admin1?: string }>;
         };
 
-        const results = (payload.results ?? []).map((result) => ({
+        const results = (payload.results ?? []).map((result): CityResult => ({
             name: result.name,
             region: result.admin1 ?? null,
             country: result.country ?? null,
@@ -200,7 +207,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     subdivisionName: cf?.region || null,
                     city: cf?.city || null,
                     coordinates: latitude !== null && longitude !== null ? { latitude, longitude } : null,
-                },
+                } satisfies ApproximatePlace,
             },
             200,
             PRIVATE_NO_STORE,
@@ -218,7 +225,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             upstreamFetch("nager", `${NAGER_BASE}/AvailableCountries`, 86400),
         ]);
 
-        const merged = new Map<string, { code: string; label: string }>();
+        const merged = new Map<string, HolidayCountryOption>();
 
         if (nagerRes.status === "fulfilled" && nagerRes.value.ok) {
             const countries = (await nagerRes.value.json()) as Array<{ countryCode: string; name: string }>;
@@ -252,7 +259,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const language = getLanguage(locale);
         const cc = countryCode.toUpperCase();
 
-        let subdivisions: Array<{ code: string; label: string }> = [];
+        let subdivisions: HolidaySubdivisionOption[] = [];
 
         try {
             const res = await upstreamFetch(
@@ -327,7 +334,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 }>;
 
                 const holidays = raw
-                    .map((h) => {
+                    .map((h): HolidayRecord | null => {
                         const scopes = h.subdivisions?.map((s) => s.code) ?? [];
                         const isRegional = h.nationwide === false || scopes.length > 0;
 
@@ -353,7 +360,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                             isRegional,
                         };
                     })
-                    .filter(Boolean);
+                    .filter((h) => h !== null);
 
                 if (holidays.length > 0) {
                     return c.json({ data: holidays }, 200, cacheHeaders(43200)); // 12h client cache
@@ -382,7 +389,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         const holidays = nagerRaw
             .filter((h) => h.types.includes("Public"))
-            .map((h) => {
+            .map((h): HolidayRecord | null => {
                 const scopes = h.counties ?? [];
                 const isRegional = !h.global || scopes.length > 0;
 
@@ -401,7 +408,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     isRegional,
                 };
             })
-            .filter((h) => h !== null && h.date >= start && h.date <= end);
+            .filter((h): h is HolidayRecord => h !== null && h.date >= start && h.date <= end);
 
         return c.json({ data: holidays }, 200, cacheHeaders(43200));
     });

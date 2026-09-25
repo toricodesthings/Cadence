@@ -12,7 +12,7 @@
  */
 import { fenceData, sanitizeUntrusted } from "../safety/injection-policy";
 import type { ApprovalMode } from "@cadence/contracts/ai";
-import type { PromptBlocks, PromptRuntimeContext, Voice } from "./prompt-blocks.schema";
+import type { PromptBlocks, PromptRuntimeContext } from "./prompt-blocks.schema";
 
 /** Burnout above this (with adaptive tone on) makes the workload "high". */
 const HIGH_WORKLOAD_BURNOUT = 70;
@@ -39,7 +39,7 @@ function fence(kind: string, content: string, nonce: string): string {
 }
 
 function voiceSection(blocks: PromptBlocks, ctx: PromptRuntimeContext): string {
-    const voice = blocks.voices[ctx.persona.persona as Voice] ?? blocks.voices.secretary;
+    const voice = blocks.voices[ctx.persona.persona] ?? blocks.voices.secretary;
     return ctx.workloadHigh ? `${voice}\n${blocks.workloadHigh}` : voice;
 }
 

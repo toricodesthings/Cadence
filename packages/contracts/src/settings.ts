@@ -1,15 +1,17 @@
 import { z } from "zod";
+import { isoDateTimeSchema } from "./common";
 import { DATE_STYLES } from "@cadence/nlp/core";
 import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
 
 // ── Focus View schemas ──
 
 export const focusViewSourceSchema = z.enum(["preset", "composed", "manual"]);
+export type FocusViewSource = z.infer<typeof focusViewSourceSchema>;
 export const focusViewSortModeSchema = z.enum(["smart", "priority", "manual"]);
 export const focusViewDefinitionSchema = z.object({
     states: z.array(z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"])).min(1).max(8),
-    projectIds: z.array(z.string().uuid()).max(100).default([]),
-    tagIds: z.array(z.string().uuid()).max(100).default([]),
+    projectIds: z.array(z.uuid()).max(100).default([]),
+    tagIds: z.array(z.uuid()).max(100).default([]),
     needsDate: z.boolean(),
     needsProject: z.boolean(),
     priorityMin: z.number().int().min(0).max(4).nullable(),
@@ -32,6 +34,22 @@ export const savedFocusViewInputSchema = z.object({
 export const savedFocusViewPatchSchema = savedFocusViewInputSchema.partial().extend({
     definition: focusViewDefinitionSchema.optional(),
 });
+
+export const savedFocusViewRowSchema = z.object({
+    id: z.uuid(),
+    userId: z.uuid(),
+    name: z.string(),
+    definition: z.record(z.string(), z.unknown()),
+    isPinned: z.boolean(),
+    source: focusViewSourceSchema,
+    orderIndex: z.number(),
+    createdAt: isoDateTimeSchema,
+    updatedAt: isoDateTimeSchema,
+});
+
+/** The row with its definition parsed (the column is loose jsonb). */
+export const savedFocusViewSchema = savedFocusViewRowSchema.extend({ definition: focusViewDefinitionSchema });
+export type SavedFocusView = z.infer<typeof savedFocusViewSchema>;
 
 // ── Personal calendar event (element of calendar.personalEvents.items) ──
 
@@ -74,7 +92,7 @@ export const BACKGROUND_IMAGE_LIMITS = {
 } as const;
 
 export const backgroundImageSchema = z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     /** Average tone of the photo; drives surface and text tokens. */
     dominant: hexColorSchema,
     /** Accent candidates read from the photo, most useful first. */

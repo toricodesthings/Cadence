@@ -359,7 +359,7 @@ export default function Schedule() {
         return { datesWithTasks: withTasks, tasksByDay: byDay, habitDays: habitDaySet };
     }, [month, visibleHabitTasks, visibleMonthTasks, year]);
 
-    const holidaysByDateRecord = useMemo<Record<string, import("../lib/holidays/provider").HolidayRecord[]>>(() => {
+    const holidaysByDateRecord = useMemo<Record<string, import("@cadence/contracts/proxy").HolidayRecord[]>>(() => {
         return Object.fromEntries(holidayOverlay.holidaysByDate.entries());
     }, [holidayOverlay.holidaysByDate]);
 

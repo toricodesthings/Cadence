@@ -1,7 +1,4 @@
-export interface HolidaySubdivisionOption {
-    code: string;
-    label: string;
-}
+import type { HolidaySubdivisionOption } from "@cadence/contracts/proxy";
 
 /** What a location source knows about the user's region, used to pick holiday subdivisions. */
 export interface RegionHint {

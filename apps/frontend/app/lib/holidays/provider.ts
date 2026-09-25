@@ -1,23 +1,7 @@
-import {
-    normalizeCountryCode,
-    type HolidaySubdivisionOption,
-} from "./location-resolver";
+import type { HolidayCountryOption, HolidayRecord, HolidaySubdivisionOption } from "@cadence/contracts/proxy";
+import { normalizeCountryCode } from "./location-resolver";
 import { authenticatedFetch } from "../api/client";
 import { API_BASE_URL } from "../env";
-
-export interface HolidayCountryOption {
-    code: string;
-    label: string;
-}
-
-export interface HolidayRecord {
-    date: string;
-    name: string;
-    localName?: string;
-    countryCode: string;
-    subdivisionCode?: string | null;
-    isRegional: boolean;
-}
 
 const SUBDIVISION_LABELS: Record<string, string> = {
     "CA-AB": "Alberta",

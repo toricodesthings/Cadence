@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { z } from "zod";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
@@ -18,6 +17,8 @@ import {
     SETTINGS_DEFAULTS,
     type LocationMode,
 } from "@cadence/contracts/settings";
+import { upsertNotificationStateSchema } from "@cadence/contracts/notification";
+import { uuidParamSchema } from "@cadence/contracts/common";
 
 function isPlainObject(value: unknown): value is Record<string, any> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -148,20 +149,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
     })
     .post(
         "/notification-state",
-        apiValidator(
-            "json",
-            z.object({
-                objectType: z.enum(["task", "habit", "event"]),
-                objectId: z.string().uuid(),
-                triggerId: z.string().min(1).max(200),
-                firstPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
-                lastPresentedAt: z.string().datetime({ offset: true }).nullable().optional(),
-                dismissedAt: z.string().datetime({ offset: true }).nullable().optional(),
-                deferredUntil: z.string().datetime({ offset: true }).nullable().optional(),
-                actionTaken: z.string().max(64).nullable().optional(),
-                presentationCountIncrement: z.number().int().min(0).max(100).optional(),
-            }),
-        ),
+        apiValidator("json", upsertNotificationStateSchema),
         async (c) => {
             const userId = c.get("userId");
             const body = c.req.valid("json");
@@ -233,7 +221,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         const normalizedResult = normalizeSettings((updated?.settings ?? {}) as Record<string, any>);
         return c.json({ data: normalizedResult });
     })
-    .patch("/focus-views/:id", apiValidator("param", z.object({ id: z.string().uuid() })), apiValidator("json", savedFocusViewPatchSchema), async (c) => {
+    .patch("/focus-views/:id", apiValidator("param", uuidParamSchema), apiValidator("json", savedFocusViewPatchSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
@@ -305,7 +293,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
 
         return c.json({ data: items });
     })
-    .delete("/focus-views/:id", apiValidator("param", z.object({ id: z.string().uuid() })), async (c) => {
+    .delete("/focus-views/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);

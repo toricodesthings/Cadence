@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import { uuidParamSchema } from "@cadence/contracts/common";
 import { CHAT_IMAGE_LIMITS, chatImageReportSchema, type ChatImageUpload } from "@cadence/contracts/ai";
 import { aiImages } from "../../../db/schema";
 import type { AuthVariables } from "../../../platform/auth";
@@ -27,7 +28,6 @@ import { AI_IMAGE_CACHE_CONTROL, aiImageKey, contentHash, countPending, REPORT_K
 const UPLOAD_BODY_SLACK = 64 * 1024;
 
 const uploadFormSchema = z.object({ file: z.instanceof(File), conversationId: z.uuid() });
-const imageParamSchema = z.object({ id: z.uuid() });
 
 function requireBucket(env: Env): R2Bucket {
     if (!env.USER_ASSETS) {
@@ -141,7 +141,7 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     // ── Create: share one image with an error report (consent per incident) ──
     .post(
         "/:id/report",
-        apiValidator("param", imageParamSchema),
+        apiValidator("param", uuidParamSchema),
         apiValidator("json", chatImageReportSchema),
         async (c) => {
             const userId = c.get("userId");
@@ -171,7 +171,7 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         },
     )
     // ── Read: the owner's image bytes ────────────────────────────────────
-    .get("/:id", apiValidator("param", imageParamSchema), async (c) => {
+    .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const bucket = requireBucket(c.env);
@@ -200,7 +200,7 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         return c.body(object.body, 200, headers);
     })
     // ── Delete: take an attached image off before sending ────────────────
-    .delete("/:id", apiValidator("param", imageParamSchema), async (c) => {
+    .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const bucket = requireBucket(c.env);

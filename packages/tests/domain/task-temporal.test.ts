@@ -4,23 +4,8 @@ import {
     classifyTaskReadShape,
     hasTaskTemporalMutation,
     inferIsAllDay,
-    normalizeEndBoundary,
-    normalizeStartBoundary,
     normalizeTaskTemporalFields,
 } from "@cadence/domain/task-temporal";
-
-describe("range boundary normalization", () => {
-    it("expands date-only boundaries to the inclusive start/end of that UTC day", () => {
-        expect(normalizeStartBoundary("2026-03-01")).toBe("2026-03-01T00:00:00.000Z");
-        expect(normalizeEndBoundary("2026-03-31")).toBe("2026-03-31T23:59:59.999Z");
-    });
-
-    it("passes full datetimes through unchanged", () => {
-        const iso = "2026-03-01T12:30:00.000Z";
-        expect(normalizeStartBoundary(iso)).toBe(iso);
-        expect(normalizeEndBoundary(iso)).toBe(iso);
-    });
-});
 
 describe("task temporal normalization", () => {
     it("canonicalizes deadline-only all-day tasks", () => {

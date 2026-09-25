@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
+import { insertTagSchema } from "@cadence/contracts/tag";
 import { getDbClient } from "../../../platform/db";
 import { tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
@@ -35,7 +36,7 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     create_tag: tool({
         description: "Creates a tag. Returns its tagId.",
         inputSchema: z.object({
-            name: z.string().min(1).max(100),
+            name: insertTagSchema.shape.name,
             color: z.string().max(40).optional().describe("Color token, e.g. 'default'."),
         }),
         execute: async (input, { toolCallId }) =>

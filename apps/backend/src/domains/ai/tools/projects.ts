@@ -13,6 +13,7 @@ import { safeExecute, once, MAX_LIST_LIMIT } from "./index";
 import { toMinimalProject } from "./projections";
 import { createProject } from "../../projects/projects.service";
 import { createSectionSchema } from "@cadence/contracts/section";
+import { insertProjectSchema } from "@cadence/contracts/project";
 
 const SECTION_LIMIT = 200;
 const namePattern = (query: string) => `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
@@ -84,7 +85,7 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
     create_project: tool({
         description: "Creates a list. Returns its projectId, for putting tasks in it.",
         inputSchema: z.object({
-            name: z.string().min(1).max(200),
+            name: insertProjectSchema.shape.name,
             emoji: z.string().max(8).optional(),
             colorAccent: z
                 .string()

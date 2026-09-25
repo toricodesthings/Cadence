@@ -6,7 +6,7 @@ export const insertSubtaskSchema = z.object({
     orderIndex: z.number(),
 });
 
-const subtaskTaskIdsSchema = z.array(z.string().uuid()).max(200);
+const subtaskTaskIdsSchema = z.array(z.uuid()).max(200);
 
 /** `GET /subtasks?taskIds=a,b`: at most 200 ids (about 7.5KB of URL). */
 export const subtasksByTaskQuerySchema = z.object({

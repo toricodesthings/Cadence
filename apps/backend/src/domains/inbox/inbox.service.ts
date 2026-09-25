@@ -8,8 +8,9 @@ import { checkIdempotency, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { throwIfNotFound } from "../../platform/errors";
 import type { Tx } from "../../types/db";
-import { sourceSurfaceSchema } from "../tasks/tasks.schema";
-import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot, isDateOnlyValue } from "../tasks/task-nlp";
+import { sourceSurfaceSchema } from "@cadence/contracts/task";
+import { isDateOnly } from "@cadence/contracts/common";
+import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
 import { writeNote } from "../notes/notes.service";
 
 /**
@@ -99,7 +100,7 @@ export async function processCapture(
             isAllDay: isAllDay ?? (scheduledStart ? false : true),
         });
     } else if (scheduledDate !== undefined) {
-        if (isDateOnlyValue(scheduledDate)) {
+        if (isDateOnly(scheduledDate)) {
             temporalFields = normalizeTaskTemporalFields({
                 isAllDay: true,
                 dueDate: scheduledDate,
@@ -111,7 +112,7 @@ export async function processCapture(
             });
         }
     } else if (inferred.scheduledDate !== undefined && inferred.scheduledDate !== null) {
-        if (isDateOnlyValue(inferred.scheduledDate)) {
+        if (isDateOnly(inferred.scheduledDate)) {
             temporalFields = normalizeTaskTemporalFields({
                 isAllDay: true,
                 dueDate: inferred.scheduledDate,

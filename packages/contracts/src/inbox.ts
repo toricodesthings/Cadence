@@ -10,18 +10,18 @@ export const inboxAnalysisStatusSchema = z.enum(["pending", "parsed", "reviewed"
 
 export const insertInboxItemSchema = z.object({
     rawText: z.string().min(1).max(5_000),
-    sectionId: z.string().uuid().optional(),
+    sectionId: z.uuid().optional(),
     orderIndex: z.number().optional(),
     captureKind: captureKindSchema.optional(),
 });
 
 export const updateInboxItemSchema = z.object({
     rawText: z.string().min(1).max(5_000).optional(),
-    sectionId: z.string().uuid().nullable().optional(),
+    sectionId: z.uuid().nullable().optional(),
     orderIndex: z.number().optional(),
     captureKind: captureKindSchema.optional(),
     captureStatus: captureStatusSchema.optional(),
-    placedTaskId: z.string().uuid().nullable().optional(),
+    placedTaskId: z.uuid().nullable().optional(),
     aiSuggestion: z.string().max(10_000).nullable().optional(),
     processed: z.boolean().optional(),
     // NLP analysis fields
@@ -42,8 +42,8 @@ export const processInboxItemSchema = z.object({
     scheduledStart: isoDateTimeSchema.nullish(),
     scheduledEnd: flexibleDateTimeSchema.nullish(),
     isAllDay: z.boolean().nullish(),
-    projectId: z.string().uuid().nullish(),
-    tagIds: z.array(z.string().uuid()).nullish(),
+    projectId: z.uuid().nullish(),
+    tagIds: z.array(z.uuid()).nullish(),
     priority: z.number().int().min(0).max(4).nullish(),
     effort: effortLevelSchema.nullish(),
     durationEstimate: z.number().int().min(1).max(480).nullish(),

@@ -14,10 +14,7 @@ import { aiMemories } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
 
-/**
- * Structurally identical to the prompt layer's `RetrievedMemory`. Intentionally
- * NOT imported from prompt/ to keep the memory layer decoupled.
- */
+/** A single retrieved memory (RAG). Content is untrusted: the prompt composer fences it. */
 export interface RetrievedMemory {
     id: string;
     content: string;

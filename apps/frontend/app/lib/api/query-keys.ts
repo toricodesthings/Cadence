@@ -36,6 +36,9 @@ export const queryKeys = {
         backgroundImage: (userId: string | null, imageId: string | null) =>
             ["appearance", "background", userId, imageId] as const,
     },
+    settings: {
+        focusViews: (userId: string | undefined) => ["settings", userId ?? "anonymous", "focusViews"] as const,
+    },
     ai: {
         conversations: ["ai", "conversations"] as const,
         conversation: (id: string) => ["ai", "conversation", id] as const,

@@ -22,14 +22,14 @@ import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
-import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "./tasks.schema";
+import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { createTask, deleteTasks, rescheduleTasks, setTaskState, trackTaskChanges, updateTask } from "./tasks.service";
 
 const taskTagParamSchema = z.object({
-    id: z.string().uuid(),
-    tagId: z.string().uuid(),
+    id: z.uuid(),
+    tagId: z.uuid(),
 });
 
 const nlpReparseSchema = z.object({

@@ -1,3 +1,7 @@
+import type { Coordinates, RegionInfo } from "@cadence/contracts/proxy";
+
+export type { Coordinates, RegionInfo };
+
 /**
  * Device (browser) geolocation for the `precise` location mode.
  *
@@ -11,16 +15,6 @@
 export type DevicePermissionState = "unknown" | "prompt" | "granted" | "denied" | "unsupported";
 export type DeviceLocationStatus = "granted" | "denied" | "unsupported" | "error";
 
-export interface Coordinates {
-    latitude: number;
-    longitude: number;
-}
-
-export interface RegionInfo {
-    countryCode: string | null;
-    subdivisionCode: string | null;
-    subdivisionName: string | null;
-}
 
 export interface DevicePlace extends RegionInfo {
     coordinates: Coordinates;

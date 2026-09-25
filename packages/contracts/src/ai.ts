@@ -90,7 +90,7 @@ export const toolApprovalDecisionSchema = z.object({
 export type ToolApprovalDecision = z.infer<typeof toolApprovalDecisionSchema>;
 
 export const chatRequestSchema = z.object({
-    conversationId: z.string().uuid().optional(),
+    conversationId: z.uuid().optional(),
     /** The new user turn. Omitted when the request only answers approvals. */
     message: userMessageSchema.optional(),
     /** Answers to the approvals the last assistant message waits on; the turn then continues. */
@@ -115,7 +115,6 @@ export const chatRequestSchema = z.object({
     .refine((v) => !v.approvals || v.conversationId, "Approvals need a conversationId");
 
 // ── Conversation management endpoints ──
-export const conversationIdParamSchema = z.object({ id: z.string().uuid() });
 
 export const listConversationsQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).optional(),
@@ -173,6 +172,23 @@ export const aiConversationRowSchema = z.object({
 });
 
 export const conversationSchema = aiConversationRowSchema;
+
+/** One row of GET /ai/conversations. */
+export const conversationListItemSchema = conversationSchema.pick({ id: true, title: true, lastMessageAt: true, archived: true });
+export type ConversationListItem = z.infer<typeof conversationListItemSchema>;
+
+/** The thread metadata GET /ai/conversations/:id returns with its messages. */
+export const conversationDetailSchema = conversationSchema.pick({
+    id: true,
+    title: true,
+    model: true,
+    lastMessageAt: true,
+    archived: true,
+    activeStreamId: true,
+    lastStreamId: true,
+    lastStreamStatus: true,
+});
+export type ConversationDetail = z.infer<typeof conversationDetailSchema>;
 export type Conversation = z.infer<typeof conversationSchema>;
 
 // ── Auto-title streaming (data part) ──

@@ -6,6 +6,21 @@ export const isoDateTimeSchema = z.iso.datetime({ offset: true });
 /** A date-only (`YYYY-MM-DD`) or full ISO datetime, for fields shared by all-day and timed values. */
 export const flexibleDateTimeSchema = z.union([z.iso.date(), isoDateTimeSchema]);
 
+// ── Wire-format boundaries ──
+// A date-only range bound covers that whole UTC day.
+
+export function isDateOnly(value: string) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+export function normalizeStartBoundary(value: string) {
+    return isDateOnly(value) ? `${value}T00:00:00.000Z` : value;
+}
+
+export function normalizeEndBoundary(value: string) {
+    return isDateOnly(value) ? `${value}T23:59:59.999Z` : value;
+}
+
 export const paginationSchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(50),
     offset: z.coerce.number().int().min(0).default(0),

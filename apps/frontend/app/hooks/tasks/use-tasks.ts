@@ -3,20 +3,11 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
-import type { Task, TaskState } from "@cadence/contracts/task";
+import type { Task } from "@cadence/contracts/task";
 import { useAuthState } from "../auth/use-auth-state";
-import { buildTasksQuery } from "../../lib/utils/task/task-scheduling";
+import { buildTasksQuery, type UseTasksFilterInput } from "../../lib/utils/task/task-scheduling";
 
-interface UseTasksOptions {
-    state?: TaskState;
-    projectId?: string;
-    scheduledDate?: string;
-    scheduledRange?: { start: string; end: string };
-    limit?: number;
-    offset?: number;
-    hasNoProject?: boolean;
-    hasNoDate?: boolean;
-    effectiveOnOrBeforeDate?: string;
+interface UseTasksOptions extends UseTasksFilterInput {
     /** When false, the query will not execute (useful for view-gated fetching) */
     enabled?: boolean;
     /** Keep the last result on screen while a new key loads (growing pages). */
@@ -36,7 +27,7 @@ export function useTasks(options: UseTasksOptions = {}) {
         placeholderData: keepPrevious ? keepPreviousData : undefined,
         // Without a limit the server returns the whole list.
         queryFn: async () => unwrapResponse<Task[]>(await client.api.tasks.$get({
-            query: buildTasksQuery(filterOptions) as NonNullable<Parameters<typeof client.api.tasks.$get>[0]>["query"],
+            query: buildTasksQuery(filterOptions),
         })),
     });
 
