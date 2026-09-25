@@ -35,7 +35,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("HabitEditor", () => {
-    it("saves titles and notes on blur without a settings form", () => {
+    it("saves titles, notes and purpose on blur without a settings form", () => {
         setup();
         fireEvent.change(screen.getByLabelText("Routine title"), { target: { value: "Walk outside" } });
         fireEvent.blur(screen.getByLabelText("Routine title"));
@@ -43,15 +43,15 @@ describe("HabitEditor", () => {
         fireEvent.change(screen.getByLabelText("Routine notes"), { target: { value: "After lunch" } });
         fireEvent.blur(screen.getByLabelText("Routine notes"));
         expect(update).toHaveBeenCalledWith({ id: habit.id, notes: "After lunch" });
-        expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-    });
-    it("retains purpose, cadence, time, reminders, project and pause controls", () => {
-        setup();
-        fireEvent.click(screen.getByRole("button", { name: /^Details/ }));
         fireEvent.change(screen.getByLabelText("Routine purpose"), { target: { value: "Stay active" } });
         fireEvent.blur(screen.getByLabelText("Routine purpose"));
         expect(update).toHaveBeenCalledWith({ id: habit.id, description: "Stay active" });
-        fireEvent.click(screen.getByRole("radio", { name: "Mon–Fri" }));
+        expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    });
+    it("retains cadence, time, reminders, project and pause controls", () => {
+        setup();
+        fireEvent.click(screen.getByRole("button", { name: /^Details/ }));
+        fireEvent.change(screen.getByRole("combobox", { name: "Routine cadence" }), { target: { value: "weekdays" } });
         expect(update).toHaveBeenCalledWith({ id: habit.id, recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" });
         fireEvent.change(screen.getByLabelText("Routine usual time"), { target: { value: "10:30" } });
         expect(update).toHaveBeenCalledWith({ id: habit.id, targetTime: "10:30" });
@@ -60,6 +60,7 @@ describe("HabitEditor", () => {
         fireEvent.change(screen.getByRole("combobox", { name: "List" }), { target: { value: "project-1" } });
         expect(update).toHaveBeenCalledWith({ id: habit.id, projectId: "project-1" });
         expect(screen.getByRole("button", { name: "Remove tag Daily" })).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: "Pause" }));
         fireEvent.click(screen.getByRole("button", { name: "1 week" }));
         expect(pause).toHaveBeenCalledWith(habit.id, expect.any(Date));
         fireEvent.click(screen.getByRole("radio", { name: "Violet" }));
@@ -93,7 +94,7 @@ describe("HabitEditor", () => {
     it("sets a different time for one weekday", () => {
         setup();
         fireEvent.click(screen.getByRole("button", { name: /^Details/ }));
-        fireEvent.click(screen.getByRole("button", { name: "Different times on some days" }));
+        fireEvent.click(screen.getByRole("switch", { name: "Different times on some days" }));
         fireEvent.change(screen.getByLabelText("Sat time"), { target: { value: "11:00" } });
         expect(update).toHaveBeenCalledWith({ id: habit.id, targetTimes: { SA: "11:00" } });
     });
@@ -105,7 +106,6 @@ describe("HabitEditor", () => {
     });
     it("resumes a paused routine", () => {
         setup({ ...habit, pausedUntil: "2099-12-31" });
-        fireEvent.click(screen.getByRole("button", { name: /^Details/ }));
         fireEvent.click(screen.getByRole("button", { name: "Resume today" }));
         expect(resume).toHaveBeenCalledWith(habit.id);
     });

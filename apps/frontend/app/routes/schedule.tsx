@@ -678,7 +678,8 @@ export default function Schedule() {
     const handleSelectTask = useCallback((taskId: string) => {
         if (taskId.startsWith("habit-")) {
             // Compact shells open the routine in the same sheet tasks use; desktop has its page.
-            if (shell.isCompact) setSelectedHabitId(taskId.split("--")[0].replace(/^habit-/, ""));
+            const habitId = taskId.split("--")[0].replace(/^habit-/, "");
+            if (shell.isCompact) setSelectedHabitId((current) => (current === habitId ? null : habitId));
             else navigate("/routines");
             return;
         }
@@ -686,7 +687,9 @@ export default function Schedule() {
         if (!shell.isWide) {
             setMobileDetailMode("peek");
         }
-        setSelectedTaskId(task ? getTaskSeriesId(task) : taskId);
+        const id = task ? getTaskSeriesId(task) : taskId;
+        // Opening the open task again closes it.
+        setSelectedTaskId((current) => (current === id ? null : id));
     }, [allVisibleTasks, shell.isCompact, shell.isWide, navigate]);
 
     // ── Phone row actions ───────────────────────────────────────────────────

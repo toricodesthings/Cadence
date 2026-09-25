@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Routines can have steps: tick them off one at a time, or all at once.
+
+### Added
+- Give a routine a few steps, like water, stretch, journal, and it stays one routine.
+- Tick or skip a routine's steps one by one; the day counts once every step is done or skipped.
+
+### Changed
+- Click an open task, capture, event or routine again to close its details.
+
 ## [0.21.0] - 2026-09-24
 
 Routines get a proper home: check off any day, see your week at a glance, and shape them your way.

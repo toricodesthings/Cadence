@@ -117,6 +117,30 @@ describe("resolving occurrences", () => {
         expect(logs).toEqual({ n: 0 });
     });
 
+    it("steps: a partial day stays pending and kept, every step settled completes it, un-ticking reopens it", async () => {
+        const habit = await create({ steps: [{ id: "water", title: "Water" }, { id: "stretch", title: "Stretch" }] });
+        const steps = (stepStatus: Record<string, string>) => habits("POST", `/${habit.id}/resolve`, { targetDate: day(), status: "PENDING", stepStatus });
+
+        const partial = await steps({ water: "COMPLETED" });
+        expect(partial.body.data.log).toMatchObject({ status: "PENDING", stepStatus: { water: "COMPLETED" } });
+        expect(partial.body.data.habit).toMatchObject({ totalCompletions: 0, currentStreak: 0 });
+
+        const all = await steps({ water: "COMPLETED", stretch: "SKIPPED" });
+        expect(all.body.data.log.status).toBe("COMPLETED");
+        expect(all.body.data.habit).toMatchObject({ totalCompletions: 1, currentStreak: 1 });
+
+        const reopened = await steps({ stretch: "SKIPPED" });
+        expect(reopened.body.data.log).toMatchObject({ status: "PENDING", stepStatus: { stretch: "SKIPPED" } });
+        expect(reopened.body.data.habit).toMatchObject({ totalCompletions: 0, currentStreak: 0 });
+
+        const { body } = await habits("GET", `/weekly?start=${day()}&end=${day()}`);
+        expect(body.data[0].logs[0]).toMatchObject({ status: "PENDING", stepStatus: { stretch: "SKIPPED" } });
+
+        expect((await steps({})).body.data.log.status).toBe("PENDING");
+        const logs = await asOwner(async (pg) => (await pg.query("SELECT count(*)::int n FROM habit_logs WHERE habit_id = $1", [habit.id])).rows[0]);
+        expect(logs).toEqual({ n: 0 });
+    });
+
     it("a skipped day is neutral: done, skip, done keeps a run of 2 whichever day is logged last", async () => {
         const habit = await create();
         await backdate(habit.id, 3);

@@ -81,6 +81,11 @@ export default function EventsRoute() {
         setRailView("context");
     };
 
+    const toggleEdit = (event: PersonalEvent) => {
+        if (event.id === selectedEventId) setSelectedEventId(null);
+        else openEdit(event);
+    };
+
     const handleOpenSchedule = (date?: string) => {
         if (!date) {
             navigate("/schedule");
@@ -195,6 +200,7 @@ export default function EventsRoute() {
                                 <EventCard
                                     key={item.event.id}
                                     item={item}
+                                    onOpen={toggleEdit}
                                     onEdit={openEdit}
                                     onDelete={setDeletingEvent}
                                     onToggleReminder={(event) => {

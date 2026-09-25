@@ -9,6 +9,7 @@ import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { AgendaRow } from "./AgendaRow";
 import { RoutineMark } from "../habits/RoutineMark";
+import { stepProgress } from "../habits/RoutineSteps";
 
 /**
  * One routine in an agenda: its mark, its title, and a time only when it has
@@ -20,6 +21,7 @@ export function RoutineAgendaRow({
     emoji = null,
     timeLabel = null,
     dateLabel = null,
+    progress = null,
     done = false,
     tone,
     onOpen,
@@ -32,6 +34,8 @@ export function RoutineAgendaRow({
     timeLabel?: string | null;
     /** Only for lists that span several days, e.g. "Sep 23". */
     dateLabel?: string | null;
+    /** Steps settled so far on a partly done day, e.g. "2/3". */
+    progress?: string | null;
     done?: boolean;
     onOpen: () => void;
     onComplete: () => void | Promise<unknown>;
@@ -49,7 +53,7 @@ export function RoutineAgendaRow({
         }
     };
 
-    const meta = [dateLabel, timeLabel].filter(Boolean).join(" · ");
+    const meta = [dateLabel, progress, timeLabel].filter(Boolean).join(" · ");
 
     return (
         <AgendaRow
@@ -104,6 +108,8 @@ export interface RoutineAgendaItem {
     /** "HH:mm" on that day, when the routine has one. */
     time: string | null;
     done: boolean;
+    /** "2/3" while a routine with steps is partly done. */
+    progress: string | null;
 }
 
 /** The routines due on `day` (skipped ones left out), timed first. */
@@ -112,7 +118,7 @@ export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaI
         .flatMap((habit) => {
             const log = habit.logs?.find((entry) => entry.targetDate.slice(0, 10) === day);
             if (!log || log.status === "SKIPPED") return [];
-            return [{ habitId: habit.id, title: habit.title, emoji: habit.emoji ?? null, tone: routineTone(habit.colorAccent), time: routineTimeOn(habit, day), done: log.status === "COMPLETED" }];
+            return [{ habitId: habit.id, title: habit.title, emoji: habit.emoji ?? null, tone: routineTone(habit.colorAccent), time: routineTimeOn(habit, day), done: log.status === "COMPLETED", progress: stepProgress(habit, log) }];
         })
         .sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.title.localeCompare(b.title));
 }
@@ -144,6 +150,7 @@ export function RoutineAgendaList({ items, day, animate = false, columns = false
             emoji={item.emoji}
             tone={item.tone}
             done={item.done}
+            progress={item.progress}
             timeLabel={item.time ? formatTime(`${day}T${item.time}:00`) : null}
             onOpen={() => onOpen(item.habitId)}
             onComplete={() => onComplete(item)}

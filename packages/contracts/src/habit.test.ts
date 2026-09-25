@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     habitListQuerySchema,
     habitTargetTimesSchema,
+    routineStepsSchema,
     insertHabitSchema,
     resolveHabitActionSchema,
     weeklyHabitsQuerySchema,
@@ -56,5 +57,14 @@ describe("resolveHabitActionSchema", () => {
         [{ targetDate: "2026-03-09", status: "DONE" }, false],
     ])("%j → %s", (body, ok) => {
         expect(resolveHabitActionSchema.safeParse(body).success).toBe(ok);
+    });
+});
+
+describe("routineStepsSchema", () => {
+    it("takes up to 12 named steps with unique ids", () => {
+        expect(routineStepsSchema.safeParse([{ id: "a", title: "Water" }, { id: "b", title: "Stretch" }]).success).toBe(true);
+        expect(routineStepsSchema.safeParse([{ id: "a", title: "Water" }, { id: "a", title: "Stretch" }]).success).toBe(false);
+        expect(routineStepsSchema.safeParse([{ id: "a", title: "  " }]).success).toBe(false);
+        expect(routineStepsSchema.safeParse(Array.from({ length: 13 }, (_, i) => ({ id: String(i), title: "x" }))).success).toBe(false);
     });
 });

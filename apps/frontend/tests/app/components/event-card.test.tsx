@@ -5,13 +5,14 @@ import { toPersonalEventViewModel } from "../../../app/lib/utils/personal-events
 
 vi.mock("../../../app/lib/api/track-event", () => ({ trackUsageEvent: vi.fn() }));
 const event = { id: "event-1", label: "Anniversary", emoji: null, monthDay: "09-20", startedOn: null, notify: true };
+const onOpen = vi.fn();
 const onEdit = vi.fn();
 const onDelete = vi.fn();
 const onToggleReminder = vi.fn();
 const onOpenInSchedule = vi.fn();
 beforeEach(() => vi.clearAllMocks());
 function setup() {
-    return render(<EventCard item={toPersonalEventViewModel(event)} onEdit={onEdit} onDelete={onDelete} onToggleReminder={onToggleReminder} onOpenInSchedule={onOpenInSchedule} />);
+    return render(<EventCard item={toPersonalEventViewModel(event)} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} onToggleReminder={onToggleReminder} onOpenInSchedule={onOpenInSchedule} />);
 }
 describe("EventCard selection", () => {
     it("opens from the card background and informational surfaces", () => {
@@ -19,8 +20,9 @@ describe("EventCard selection", () => {
         fireEvent.click(container.querySelector("[data-event-card]")!);
         fireEvent.click(screen.getByText("Countdown"));
         fireEvent.click(screen.getByText("Date"));
-        expect(onEdit).toHaveBeenCalledTimes(3);
-        expect(onEdit).toHaveBeenLastCalledWith(event);
+        expect(onOpen).toHaveBeenCalledTimes(3);
+        expect(onOpen).toHaveBeenLastCalledWith(event);
+        expect(onEdit).not.toHaveBeenCalled();
     });
     it("keeps reminder, delete and schedule actions independent", () => {
         setup();
@@ -30,13 +32,15 @@ describe("EventCard selection", () => {
         expect(onToggleReminder).toHaveBeenCalledOnce();
         expect(onDelete).toHaveBeenCalledOnce();
         expect(onOpenInSchedule).toHaveBeenCalledOnce();
+        expect(onOpen).not.toHaveBeenCalled();
         expect(onEdit).not.toHaveBeenCalled();
     });
     it("opens once through each keyboard-accessible edit button", () => {
         setup();
         fireEvent.click(screen.getByRole("button", { name: "Anniversary" }));
-        expect(onEdit).toHaveBeenCalledTimes(1);
+        expect(onOpen).toHaveBeenCalledTimes(1);
         fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-        expect(onEdit).toHaveBeenCalledTimes(2);
+        expect(onEdit).toHaveBeenCalledTimes(1);
+        expect(onOpen).toHaveBeenCalledTimes(1);
     });
 });

@@ -16,7 +16,6 @@ export function HabitsMonthView({
     bloom,
     selectedHabitId,
     onSelectHabit,
-    onCloseHabit,
     trimEarlyWeeks,
     lead,
     empty,
@@ -30,7 +29,6 @@ export function HabitsMonthView({
     bloom: boolean;
     selectedHabitId: string | null;
     onSelectHabit: (id: string) => void;
-    onCloseHabit: () => void;
     /** Phone: drop the weeks before a routine existed to save height. */
     trimEarlyWeeks: boolean;
     lead?: ReactNode;
@@ -48,14 +46,15 @@ export function HabitsMonthView({
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))] gap-4">
                     {sorted.map((habit) => {
                         const selected = habit.id === selectedHabitId;
-                        const toggle = selected ? onCloseHabit : () => onSelectHabit(habit.id);
+                        const toggle = () => onSelectHabit(habit.id);
+                        const edit = () => { if (!selected) toggle(); };
                         const { checkIns, longest } = monthStats(habit, today);
                         const footer = [
                             checkIns ? `${checkIns} check-in${checkIns === 1 ? "" : "s"} this month` : "No check-ins yet this month",
                             showStreaks && longest > 1 ? `longest run ${longest}` : null,
                         ].filter(Boolean).join(" · ");
                         return (
-                            <HabitContextMenu key={habit.id} habit={habit} onEdit={() => onSelectHabit(habit.id)}>
+                            <HabitContextMenu key={habit.id} habit={habit} onEdit={edit}>
                                 <section
                                     aria-label={habit.title}
                                     onClick={openOnCardClick(toggle)}
@@ -64,10 +63,10 @@ export function HabitsMonthView({
                                 >
                                     <div className="flex items-center gap-1">
                                         <RoutineIdentity habit={habit} today={today} showStreaks={showStreaks} selected={selected} onSelect={toggle} />
-                                        <HabitMenu habit={habit} onEdit={() => onSelectHabit(habit.id)} />
+                                        <HabitMenu habit={habit} onEdit={edit} />
                                     </div>
                                     <div className="mt-4">
-                                        <RoutineMonthGrid habit={habit} year={year} month={month} weekStartsOn={weekStartsOn} today={today} bloom={bloom} fromFirstWeek={trimEarlyWeeks} onEdit={() => onSelectHabit(habit.id)} />
+                                        <RoutineMonthGrid habit={habit} year={year} month={month} weekStartsOn={weekStartsOn} today={today} bloom={bloom} fromFirstWeek={trimEarlyWeeks} onEdit={edit} />
                                     </div>
                                     <p className="mt-3 text-xs text-twilight-text-muted">{footer}</p>
                                 </section>

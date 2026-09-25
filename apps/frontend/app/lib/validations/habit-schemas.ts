@@ -17,6 +17,7 @@ export const createHabitSchema = insertHabitSchema
         reminderEnabled: true,
         projectId: true,
         tagIds: true,
+        steps: true,
     })
     .extend({
         recurrenceRule: z.string().min(1, "Recurrence is required").max(500),

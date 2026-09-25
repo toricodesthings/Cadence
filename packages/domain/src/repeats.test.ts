@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { habitOccurrences, localDay, routineTimeOn, suggestInteractionMode } from "./repeats";
+import { habitOccurrences, localDay, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "./repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
@@ -59,5 +59,21 @@ describe("habitOccurrences", () => {
         const window = [new Date("2026-09-19T00:00:00.000Z"), new Date("2026-09-25T23:59:59.999Z")] as const;
         expect(habitOccurrences("FREQ=DAILY;INTERVAL=2", created, ...window, "America/New_York")).toEqual(["2026-09-21", "2026-09-23", "2026-09-25"]);
         expect(localDay(created, "America/New_York")).toBe("2026-09-21");
+    });
+});
+
+describe("stepDayStatus", () => {
+    const ids = ["water", "stretch", "journal"];
+    it("is done once every step is settled, pending while some are, and drops removed steps", () => {
+        expect(stepDayStatus(ids, {})).toEqual({ status: "PENDING", stepStatus: null });
+        expect(stepDayStatus(ids, { water: "COMPLETED", gone: "COMPLETED" })).toEqual({ status: "PENDING", stepStatus: { water: "COMPLETED" } });
+        expect(stepDayStatus(ids, { water: "COMPLETED", stretch: "SKIPPED", journal: "COMPLETED" }).status).toBe("COMPLETED");
+        expect(stepDayStatus(ids, { water: "SKIPPED", stretch: "SKIPPED", journal: "SKIPPED" }).status).toBe("SKIPPED");
+    });
+
+    it("reads a day checked off as a whole as every step done", () => {
+        expect(stepMarksOn(["a", "b"], { status: "COMPLETED" })).toEqual({ a: "COMPLETED", b: "COMPLETED" });
+        expect(stepMarksOn(["a", "b"], { status: "PENDING", stepStatus: { b: "SKIPPED" } })).toEqual({ b: "SKIPPED" });
+        expect(stepMarksOn(["a"], undefined)).toEqual({});
     });
 });

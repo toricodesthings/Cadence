@@ -19,7 +19,6 @@ export function HabitsCanvas({
     bloom,
     selectedHabitId,
     onSelectHabit,
-    onCloseHabit,
     lead,
     empty,
 }: {
@@ -32,7 +31,6 @@ export function HabitsCanvas({
     bloom: boolean;
     selectedHabitId: string | null;
     onSelectHabit: (id: string) => void;
-    onCloseHabit: () => void;
     lead?: ReactNode;
     empty: ReactNode;
 }) {
@@ -61,7 +59,6 @@ export function HabitsCanvas({
             bloom={bloom}
             tabIndexFor={tabIndexFor}
             onSelect={() => onSelectHabit(habit.id)}
-            onClose={onCloseHabit}
         />
     ));
 

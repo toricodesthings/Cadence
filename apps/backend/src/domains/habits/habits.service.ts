@@ -1,6 +1,6 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
 import type { ResolveHabitAction } from "@cadence/contracts/habit";
-import { habitOccurrences, habitRule, localDay } from "@cadence/domain/repeats";
+import { habitOccurrences, habitRule, localDay, stepDayStatus } from "@cadence/domain/repeats";
 import { habits, habitLogs } from "../../db/schema";
 import { throwIfNotFound } from "../../platform/errors";
 import { resolveTimeZone, toLocalDateStr } from "../../platform/date-utils";
@@ -193,9 +193,11 @@ export async function computeCurrentStreak(
 
 /**
  * Mark a routine done or skipped for a day (PENDING clears it), keeping its
- * totals and streaks in step.
+ * totals and streaks in step. A routine with steps can send the day's step
+ * marks instead: the status follows from them, and a partly done day is kept
+ * as PENDING. A whole-day status clears the step marks (one tap, every step).
  */
-export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, status, timezone }: ResolveHabitAction) {
+export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, timezone, ...action }: ResolveHabitAction) {
     const [habit] = await tx
         .select()
         .from(habits)
@@ -205,6 +207,10 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
 
     const datePrefix = targetDate.substring(0, 10);
     const now = sql`NOW()`;
+    const stepIds = (habit.steps ?? []).map((step) => step.id);
+    const { status, stepStatus } = stepIds.length && action.stepStatus
+        ? stepDayStatus(stepIds, action.stepStatus)
+        : { status: action.status, stepStatus: null };
 
     // Upsert by habitId + targetDate (unique constraint handles dedup)
     const [existing] = await tx
@@ -219,61 +225,25 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
         );
 
     let row;
-    if (status === "PENDING" && existing) {
-        // Clearing a resolution — delete the log row to avoid noisy PENDING accumulation
-        await tx.delete(habitLogs).where(eq(habitLogs.id, existing.id));
-        row = { ...existing, status: "PENDING" as const, completedAt: null, resolvedAt: null };
-    } else if (existing) {
-        [row] = await tx
-            .update(habitLogs)
-            .set({
-                status,
-                completedAt: status === "COMPLETED" ? now : null,
-                resolvedAt: now,
-            })
-            .where(eq(habitLogs.id, existing.id))
-            .returning();
-    } else if (status !== "PENDING") {
-        [row] = await tx
-            .insert(habitLogs)
-            .values({
-                userId,
-                habitId: habit.id,
-                targetDate: datePrefix,
-                status,
-                completedAt: status === "COMPLETED" ? now : null,
-                resolvedAt: now,
-            })
-            .returning();
-    } else {
-        // PENDING with no existing log — no-op
-        row = { id: `virt_${datePrefix}`, habitId: habit.id, userId, status: "PENDING" as const, targetDate: datePrefix, completedAt: null, resolvedAt: null, createdAt: new Date().toISOString() };
-    }
-
-    // Incremental completions and skips computation (O(1))
-    let totalCompletionsDelta = 0;
-    let totalSkipsDelta = 0;
-
-    if (status === "PENDING" && existing) {
-        if (existing.status === "COMPLETED") totalCompletionsDelta = -1;
-        if (existing.status === "SKIPPED") totalSkipsDelta = -1;
-    } else if (existing) {
-        if (existing.status !== status) {
-            if (existing.status === "COMPLETED") {
-                totalCompletionsDelta = -1;
-                if (status === "SKIPPED") totalSkipsDelta = 1;
-            } else if (existing.status === "SKIPPED") {
-                totalSkipsDelta = -1;
-                if (status === "COMPLETED") totalCompletionsDelta = 1;
-            }
+    if (status === "PENDING" && !stepStatus) {
+        if (existing) {
+            // Clearing a resolution — delete the log row to avoid noisy PENDING accumulation
+            await tx.delete(habitLogs).where(eq(habitLogs.id, existing.id));
+            row = { ...existing, status: "PENDING" as const, completedAt: null, resolvedAt: null, stepStatus: null };
+        } else {
+            row = { id: `virt_${datePrefix}`, habitId: habit.id, userId, status: "PENDING" as const, targetDate: datePrefix, completedAt: null, resolvedAt: null, stepStatus: null, createdAt: new Date().toISOString() };
         }
-    } else if (status !== "PENDING") {
-        if (status === "COMPLETED") totalCompletionsDelta = 1;
-        if (status === "SKIPPED") totalSkipsDelta = 1;
+    } else {
+        const values = { status, stepStatus, completedAt: status === "COMPLETED" ? now : null, resolvedAt: now };
+        [row] = existing
+            ? await tx.update(habitLogs).set(values).where(eq(habitLogs.id, existing.id)).returning()
+            : await tx.insert(habitLogs).values({ userId, habitId: habit.id, targetDate: datePrefix, ...values }).returning();
     }
 
-    const totalCompletions = Math.max(0, habit.totalCompletions + totalCompletionsDelta);
-    const totalSkips = Math.max(0, habit.totalSkips + totalSkipsDelta);
+    // Incremental totals (O(1)): what this day counted before, and what it counts now.
+    const was = existing?.status;
+    const totalCompletions = Math.max(0, habit.totalCompletions + Number(status === "COMPLETED") - Number(was === "COMPLETED"));
+    const totalSkips = Math.max(0, habit.totalSkips + Number(status === "SKIPPED") - Number(was === "SKIPPED"));
 
     // Determine whether `datePrefix` is the most recent occurrence on or
     // before the caller's today. The log mutation above is visible inside

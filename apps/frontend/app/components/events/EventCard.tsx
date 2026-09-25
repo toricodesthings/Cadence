@@ -7,12 +7,15 @@ import type { PersonalEventViewModel } from "../../lib/utils/personal-events";
 
 export function EventCard({
     item,
+    onOpen,
     onEdit,
     onDelete,
     onToggleReminder,
     onOpenInSchedule,
 }: {
     item: PersonalEventViewModel;
+    /** Card body and title: opens the event, or closes it when already open. */
+    onOpen: (event: PersonalEvent) => void;
     onEdit: (event: PersonalEvent) => void;
     onDelete: (event: PersonalEvent) => void;
     onToggleReminder: (event: PersonalEvent) => void;
@@ -27,13 +30,13 @@ export function EventCard({
             data-event-card={item.event.id}
             onClick={(e) => {
                 if (!(e.target instanceof Element) || e.target.closest("button, a, input, select, textarea, [role='menuitem'], [role='switch'], [contenteditable='true']")) return;
-                onEdit(item.event);
+                onOpen(item.event);
             }}
             className="group cursor-pointer rounded-[1.7rem] border border-white/[0.08] bg-white/[0.03] p-4 transition-[border-color,background-color,box-shadow] duration-200 hover:border-accent-nav-schedule/18 hover:bg-white/[0.045] hover:shadow-[0_18px_44px_color-mix(in_srgb,var(--accent-nav-schedule)_12%,transparent)]">
             <div className="flex items-start justify-between gap-3">
                 <button
                     type="button"
-                    onClick={() => onEdit(item.event)}
+                    onClick={() => onOpen(item.event)}
                     className="flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl -m-2 p-2 text-left transition-colors hover:bg-white/[0.03]"
                 >
                     <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 text-xl text-accent-nav-schedule">

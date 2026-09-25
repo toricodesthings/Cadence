@@ -10,6 +10,17 @@ const habitTimeSchema = z.union([z.string().regex(/^\d{2}:\d{2}$/), z.literal(""
 /** Per-weekday time overrides; a day without a key uses `targetTime`, "" means any time. */
 export const habitTargetTimesSchema = z.partialRecord(z.enum(HABIT_WEEKDAYS), habitTimeSchema);
 
+/** A routine's ordered steps ("water → stretch → journal"); ids are made by the client. */
+export const MAX_ROUTINE_STEPS = 12;
+export const routineStepSchema = z.object({ id: z.string().min(1).max(64), title: z.string().trim().min(1).max(200) });
+export type RoutineStep = z.infer<typeof routineStepSchema>;
+export const routineStepsSchema = z.array(routineStepSchema).max(MAX_ROUTINE_STEPS)
+    .refine((steps) => new Set(steps.map((step) => step.id)).size === steps.length, "Step ids must be unique");
+/** One day's steps, by step id: done or skipped. A step without a key is still open. */
+export const stepStatusSchema = z.record(z.string().max(64), z.enum(["COMPLETED", "SKIPPED"]))
+    .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_STEPS, "Too many steps");
+export type StepStatus = z.infer<typeof stepStatusSchema>;
+
 // No .default()s on create schemas: an omitted field takes its DB column default, and
 // a default here would leak into the .partial() update schema and overwrite data.
 export const insertHabitSchema = z.object({
@@ -27,6 +38,7 @@ export const insertHabitSchema = z.object({
     tagIds: z.array(z.string().uuid()).optional(),
     sortOrder: z.number().optional(),
     pausedUntil: z.string().nullable().optional(),
+    steps: routineStepsSchema.nullable().optional(),
 });
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
@@ -40,6 +52,8 @@ export type UpdateHabit = z.input<typeof updateHabitSchema>;
 export const resolveHabitActionSchema = z.object({
     targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/), // YYYY-MM-DD or full ISO datetime — server truncates to date
     status: habitStatusSchema,
+    /** A routine with steps: the day's step marks. The server derives `status` from them (see `stepDayStatus`). */
+    stepStatus: stepStatusSchema.optional(),
     /** The caller's IANA zone, so "today" (and the streak) is their day, not UTC's. */
     timezone: z.string().max(64).optional(),
 });
@@ -77,6 +91,7 @@ export const habitRowSchema = z.object({
     colorAccent: z.string(),
     archived: z.boolean(),
     notes: z.string().nullable(),
+    steps: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
     createdAt: isoDateTimeSchema,
     updatedAt: isoDateTimeSchema,
 });
@@ -90,6 +105,7 @@ export const habitLogSchema = z.object({
     status: habitStatusSchema,
     targetDate: z.string(),
     completedAt: z.string().nullable(),
+    stepStatus: z.record(z.string(), z.enum(["COMPLETED", "SKIPPED"])).nullable().optional(),
     resolvedAt: z.string().nullable().optional(),
     createdAt: z.string().optional(),
 });

@@ -8,6 +8,7 @@ import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 import { isRoutinePaused, routineTone } from "../../lib/utils/habits";
 import { formatShortDateLabel } from "../../lib/utils/date-format";
 import { RoutineMark } from "./RoutineMark";
+import { RoutineStepChecklist, stepProgress } from "./RoutineSteps";
 
 const LONG_PRESS_MS = 450;
 
@@ -26,8 +27,9 @@ const SM_HIT = "before:absolute before:-inset-[3px] before:rounded-full before:c
  * routine's tone); an open past day rests as a dot and shows its ring on hover
  * or focus, so a missed week isn't a wall of empties; days ahead are faint and
  * can't be logged yet. Click/tap toggles done (touch adds Undo); right-click or
- * long-press opens the day menu (Done · Skip · Clear). Keys: Space toggles,
- * S skips, E opens the routine.
+ * long-press opens the day menu (Done · Skip · Clear, then the steps one by one
+ * when the routine has them). A partly done day shows "2/3" (the date in month
+ * grids) in the open look. Keys: Space toggles, S skips, E opens the routine.
  */
 export function RoutineDayCell({
     habit,
@@ -42,7 +44,7 @@ export function RoutineDayCell({
     gridPosition,
     onEdit,
 }: {
-    habit: Pick<Habit, "id" | "title" | "emoji" | "colorAccent" | "pausedUntil">;
+    habit: Pick<Habit, "id" | "title" | "emoji" | "colorAccent" | "pausedUntil" | "steps">;
     date: string;
     log?: HabitLog;
     today: string;
@@ -87,13 +89,14 @@ export function RoutineDayCell({
 
     const set = (next: HabitStatus, undoable = isCoarsePointer) => {
         const previous = status ?? "PENDING";
-        if (next === previous) return;
+        if (next === previous && (next !== "PENDING" || !log.stepStatus)) return; // clearing still drops a partly done day's steps
+        const previousSteps = log.stepStatus ?? undefined;
         resolve({ targetDate: date, status: next });
         if (next === "COMPLETED" && bloom) setBlooming(true);
         if (!undoable) return;
         toast(next === "COMPLETED" ? "Checked off" : next === "SKIPPED" ? "Skipped" : "Cleared", {
             description: `${habit.title} · ${dayLabel}`,
-            action: { label: "Undo", onClick: () => resolve({ targetDate: date, status: previous }) },
+            action: { label: "Undo", onClick: () => resolve({ targetDate: date, status: previous, stepStatus: previousSteps }) },
         });
     };
     const toggle = () => set(status === "COMPLETED" ? "PENDING" : "COMPLETED");
@@ -104,14 +107,17 @@ export function RoutineDayCell({
     };
 
     const isToday = date === today;
-    const state = status === "COMPLETED" ? "done" : status === "SKIPPED" ? "skipped" : isToday ? "open today" : "not logged";
+    const progress = status === "PENDING" ? stepProgress(habit, log) : null;
+    const state = status === "COMPLETED" ? "done" : status === "SKIPPED" ? "skipped" : progress ? `${progress.replace("/", " of ")} steps` : isToday ? "open today" : "not logged";
     const look = status === "COMPLETED"
         ? "border border-transparent bg-[color-mix(in_srgb,var(--routine-tone)_80%,transparent)] text-[var(--primary-foreground)]"
         : status === "SKIPPED"
             ? "border border-twilight-border/45 text-twilight-text-muted hover:border-twilight-border"
             : isToday
                 ? "border-[1.5px] border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)] text-[var(--routine-tone)] hover:bg-[color-mix(in_srgb,var(--routine-tone)_10%,transparent)]"
-                : "border border-dashed border-transparent text-twilight-text-soft hover:border-twilight-text-muted focus-visible:border-twilight-text-muted";
+                : progress
+                    ? "border border-[color-mix(in_srgb,var(--routine-tone)_35%,transparent)] text-twilight-text-soft hover:border-[color-mix(in_srgb,var(--routine-tone)_60%,transparent)]"
+                    : "border border-dashed border-transparent text-twilight-text-soft hover:border-twilight-text-muted focus-visible:border-twilight-text-muted";
 
     return (
         <Popover.Root open={menuOpen} onOpenChange={setMenuOpen}>
@@ -173,10 +179,10 @@ export function RoutineDayCell({
                         </>
                     ) : status === "COMPLETED" ? <Check size={size === "md" ? 18 : 13} strokeWidth={3} aria-hidden="true" />
                         : status === "SKIPPED" ? <X size={size === "md" ? 14 : 11} aria-hidden="true" />
-                            : label ?? (isToday ? <RoutineMark emoji={habit.emoji} size={13} /> : <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />)}
+                            : label ?? progress ?? (isToday ? <RoutineMark emoji={habit.emoji} size={13} /> : <span aria-hidden="true" className="h-1 w-1 rounded-full bg-twilight-text-muted/70" />)}
                 </button>
             </Popover.Anchor>
-            <Popover.Content side="top" align="center" className="w-auto p-2 [--glass-surface-tint:100%]" aria-label={`${habit.title}, ${dayLabel}`}>
+            <Popover.Content side="top" align="center" style={style} className="w-auto p-2 [--glass-surface-tint:100%]" aria-label={`${habit.title}, ${dayLabel}`}>
                 <p className="px-2 pb-2 pt-1 text-xs font-medium text-twilight-text-soft">{dayLabel}</p>
                 <div className="flex gap-1.5">
                     {([
@@ -196,6 +202,11 @@ export function RoutineDayCell({
                         </button>
                     ))}
                 </div>
+                {habit.steps?.length ? (
+                    <div className="mt-2 w-64 border-t border-twilight-border/30 pt-1">
+                        <RoutineStepChecklist habit={habit} date={date} log={log} />
+                    </div>
+                ) : null}
             </Popover.Content>
         </Popover.Root>
     );

@@ -66,6 +66,37 @@ export function habitOccurrences(recurrenceRule: string, createdAt: string, star
         .map((d) => d.toISOString().slice(0, 10));
 }
 
+type StepMark = "COMPLETED" | "SKIPPED";
+
+/**
+ * A routine day's status from its steps, keeping only steps the routine still
+ * has. Every step settled → COMPLETED (SKIPPED when every one was skipped);
+ * some → PENDING, a partial day that's kept; none → PENDING with nothing to keep.
+ */
+export function stepDayStatus(
+    stepIds: readonly string[],
+    marks: Readonly<Record<string, StepMark>>,
+): { status: StepMark | "PENDING"; stepStatus: Record<string, StepMark> | null } {
+    const kept = Object.fromEntries(stepIds.flatMap((id) => (marks[id] ? [[id, marks[id]]] : []))) as Record<string, StepMark>;
+    const settled = Object.values(kept);
+    if (!settled.length) return { status: "PENDING", stepStatus: null };
+    if (settled.length < stepIds.length) return { status: "PENDING", stepStatus: kept };
+    return { status: settled.every((mark) => mark === "SKIPPED") ? "SKIPPED" : "COMPLETED", stepStatus: kept };
+}
+
+/**
+ * Each step's mark on a day. A day checked off (or skipped) as a whole, without
+ * step marks, reads as every step done (or skipped).
+ */
+export function stepMarksOn(
+    stepIds: readonly string[],
+    log: { status: string; stepStatus?: Readonly<Record<string, StepMark>> | null } | undefined,
+): Record<string, StepMark> {
+    if (log?.stepStatus) return stepDayStatus(stepIds, log.stepStatus).stepStatus ?? {};
+    if (log?.status === "COMPLETED" || log?.status === "SKIPPED") return Object.fromEntries(stepIds.map((id) => [id, log.status as StepMark]));
+    return {};
+}
+
 // ponytail: keyword list, not a classifier. The user can switch kinds in one tap.
 const FIXED_WORDS = /\b(class|lecture|lab|seminar|tutorial|lesson|course|school|shift|stand-?up|meeting|appointment|therapy)\b/i;
 

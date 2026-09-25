@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Minus, Plus, Repeat2 } from "lucide-react";
+import { Minus, Plus, Repeat, Repeat2 } from "lucide-react";
+import { FieldRow, ValueSelect } from "../shared/DetailPanelSections";
 import { ComposerTabs, ComposerToggle, WeekdayPicker, WEEKDAY_ORDER, type WeekdayCode } from "../shared/Composer";
 import { RRULE_WEEKDAYS } from "../../lib/constants/repeat";
 
@@ -7,7 +8,8 @@ import { RRULE_WEEKDAYS } from "../../lib/constants/repeat";
  * Which days a routine runs: Daily (every N days), Mon–Fri, Sat–Sun, or
  * Custom with Mon–Sun toggles and "every other week". Built from the
  * composer's segmented control and weekday picker so it matches schedule
- * creation. Produces "FREQ=DAILY[;INTERVAL=N]" or "FREQ=WEEKLY[;INTERVAL=2];BYDAY=…".
+ * creation; `select` swaps the segmented control for a Repeats row with a
+ * dropdown, for narrow panels. Produces "FREQ=DAILY[;INTERVAL=N]" or "FREQ=WEEKLY[;INTERVAL=2];BYDAY=…".
  */
 
 type CadenceMode = "daily" | "weekdays" | "weekends" | "custom";
@@ -23,6 +25,14 @@ const OPTIONS = [
     { id: "weekends", label: "Sat–Sun" },
     { id: "custom", label: "Custom" },
 ] as const;
+
+/** The dropdown has room to say it in full. */
+const SELECT_OPTIONS = [
+    { value: "daily", label: "Daily" },
+    { value: "weekdays", label: "Weekdays (Mon–Fri)" },
+    { value: "weekends", label: "Weekends (Sat–Sun)" },
+    { value: "custom", label: "Custom days" },
+];
 
 const MAX_EVERY = 30;
 const STEP_BUTTON = "flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-twilight-border/40 text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text disabled:cursor-default disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
@@ -47,24 +57,24 @@ function modeOf(rrule: string): CadenceMode {
     return (Object.keys(PRESETS) as Array<keyof typeof PRESETS>).find((key) => PRESETS[key] === rrule) ?? "custom";
 }
 
-export function CadencePicker({ value, onChange }: { value: string; onChange: (rrule: string) => void }) {
+export function CadencePicker({ value, onChange, select = false }: { value: string; onChange: (rrule: string) => void; select?: boolean }) {
     const [customPicked, setCustomPicked] = useState(false);
     const mode = customPicked ? "custom" : modeOf(value);
     const { interval, days } = parse(value);
+    const pick = (next: CadenceMode) => {
+        setCustomPicked(next === "custom");
+        onChange(next === "custom" ? weekly(days.length ? days : ["MO", "WE", "FR"], false) : next === "daily" ? "FREQ=DAILY" : PRESETS[next]);
+    };
 
     return (
         <div className="flex flex-col gap-3">
-            <ComposerTabs
-                ariaLabel="Routine cadence"
-                options={OPTIONS}
-                value={mode}
-                onChange={(next) => {
-                    setCustomPicked(next === "custom");
-                    onChange(next === "custom" ? weekly(days.length ? days : ["MO", "WE", "FR"], false) : next === "daily" ? "FREQ=DAILY" : PRESETS[next]);
-                }}
-            />
+            {select ? (
+                <FieldRow icon={Repeat} label="Repeats">
+                    <ValueSelect label="Routine cadence" value={mode} onChange={(next) => pick(next as CadenceMode)} options={SELECT_OPTIONS} />
+                </FieldRow>
+            ) : <ComposerTabs ariaLabel="Routine cadence" options={OPTIONS} value={mode} onChange={pick} />}
             {mode === "daily" ? (
-                <div className="flex items-center gap-2 text-sm text-twilight-text" role="group" aria-label="How often">
+                <div className={`flex items-center gap-2 ${select ? "pl-6 text-[13px] text-twilight-text-soft" : "text-sm text-twilight-text"}`} role="group" aria-label="How often">
                     <span className="flex-1" aria-live="polite">Every {interval > 1 ? `${interval} days` : "day"}</span>
                     <button type="button" className={STEP_BUTTON} aria-label="Fewer days between" disabled={interval <= 1} onClick={() => onChange(daily(interval - 1))}>
                         <Minus size={14} aria-hidden="true" />
@@ -75,7 +85,7 @@ export function CadencePicker({ value, onChange }: { value: string; onChange: (r
                 </div>
             ) : null}
             {mode === "custom" ? (
-                <>
+                <div className={`flex flex-col gap-3 ${select ? "pl-6" : ""}`}>
                     <WeekdayPicker value={days} onChange={(next) => onChange(weekly(next, interval === 2))} />
                     <ComposerToggle
                         icon={Repeat2}
@@ -85,7 +95,7 @@ export function CadencePicker({ value, onChange }: { value: string; onChange: (r
                         onCheckedChange={(on) => onChange(weekly(days, on))}
                         ariaLabel="Every other week"
                     />
-                </>
+                </div>
             ) : null}
         </div>
     );

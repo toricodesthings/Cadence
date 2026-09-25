@@ -209,6 +209,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                             status: existingLog?.status || "PENDING",
                             targetDate: dateKey,
                             completedAt: existingLog?.completedAt || null,
+                            stepStatus: existingLog?.stepStatus ?? null,
                         };
                     });
 

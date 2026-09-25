@@ -493,6 +493,9 @@ export const habits = pgTable(
         // User-authored notes for this habit
         notes: text('notes'),
 
+        // Ordered steps ("water → stretch → journal"); null for a single-act routine
+        steps: jsonb('steps').$type<Array<{ id: string; title: string }>>(),
+
         createdAt: timestamptz('created_at')
             .default(sql`now()`)
             .notNull(),
@@ -558,6 +561,9 @@ export const habitLogs = pgTable(
 
         // Timestamp of last explicit resolution action (complete/skip/clear)
         resolvedAt: timestamptz('resolved_at'),
+
+        // Step id → COMPLETED/SKIPPED for routines with steps; a partial day stays PENDING
+        stepStatus: jsonb('step_status').$type<Record<string, "COMPLETED" | "SKIPPED">>(),
 
         createdAt: timestamptz('created_at')
             .default(sql`now()`)

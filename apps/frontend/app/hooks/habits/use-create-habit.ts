@@ -39,6 +39,7 @@ export function useCreateHabit() {
                 description: input.description ?? null,
                 archived: false,
                 notes: null,
+                steps: input.steps ?? null,
                 recurrenceRule: input.recurrenceRule,
                 targetTime: input.targetTime ?? null,
                 reminderEnabled: input.reminderEnabled ?? false,

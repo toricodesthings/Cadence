@@ -9,6 +9,7 @@ import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { stepDayStatus } from "@cadence/domain/repeats";
 
 const latestResolveByCell = new Map<string, string>();
 
@@ -32,7 +33,7 @@ export function useResolveHabit(boundHabitId?: string) {
             (action) => ({
                 type: "resolve_habit",
                 id: idOf(action),
-                payload: { targetDate: action.targetDate, status: action.status, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+                payload: { targetDate: action.targetDate, status: action.status, stepStatus: action.stepStatus, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
             }),
             async (vars) => {
                 const habitId = idOf(vars);
@@ -63,9 +64,14 @@ export function useResolveHabit(boundHabitId?: string) {
                 return transformListCache(habits, (items) =>
                     items.map((habit) => {
                         if (habit.id !== habitId) return habit;
+                        // Same rule as the server: step marks decide the day's status.
+                        const stepIds = (habit.steps ?? []).map((step) => step.id);
+                        const next = stepIds.length && action.stepStatus
+                            ? stepDayStatus(stepIds, action.stepStatus)
+                            : { status: action.status, stepStatus: null };
                         const newLogs = habit.logs?.map((log) => {
                             if (log.targetDate.substring(0, 10) === action.targetDate.substring(0, 10)) {
-                                return { ...log, status: action.status };
+                                return { ...log, ...next };
                             }
                             return log;
                         });

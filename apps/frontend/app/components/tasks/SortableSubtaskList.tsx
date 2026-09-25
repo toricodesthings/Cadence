@@ -16,11 +16,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ReactNode } from "react";
-import type { Subtask } from "@cadence/contracts/subtask";
 
-type RenderableSubtask = Subtask & { __optimisticKey?: string };
+/** Anything ordered by `orderIndex`: subtasks, or a routine's steps (their array position). */
+type Sortable = { id: string; orderIndex: number; __optimisticKey?: string };
 
-function getRenderableSubtaskKey(subtask: RenderableSubtask) {
+function getRenderableSubtaskKey(subtask: Sortable) {
     return subtask.__optimisticKey ?? subtask.id;
 }
 
@@ -31,11 +31,11 @@ function computeSubtaskMidpointIndex(prevIndex: number | null, nextIndex: number
     return (prevIndex + nextIndex) / 2;
 }
 
-function buildOptimisticSubtaskReorder(
-    subtasks: Subtask[],
+function buildOptimisticSubtaskReorder<T extends Sortable>(
+    subtasks: T[],
     activeId: string,
     overId: string,
-): { optimisticSubtasks: Subtask[]; newOrderIndex: number } | null {
+): { optimisticSubtasks: T[]; newOrderIndex: number } | null {
     const oldIndex = subtasks.findIndex((subtask) => subtask.id === activeId);
     const newIndex = subtasks.findIndex((subtask) => subtask.id === overId);
 
@@ -56,8 +56,8 @@ function buildOptimisticSubtaskReorder(
     };
 }
 
-export interface SortableSubtaskRenderProps {
-    subtask: Subtask;
+export interface SortableSubtaskRenderProps<T extends Sortable = Sortable> {
+    subtask: T;
     isDragging: boolean;
     dragHandleProps: {
         ref: (node: HTMLElement | null) => void;
@@ -66,12 +66,12 @@ export interface SortableSubtaskRenderProps {
     };
 }
 
-function SortableSubtaskItem({
+function SortableSubtaskItem<T extends Sortable>({
     subtask,
     renderItem,
 }: {
-    subtask: RenderableSubtask;
-    renderItem: (props: SortableSubtaskRenderProps) => ReactNode;
+    subtask: T;
+    renderItem: (props: SortableSubtaskRenderProps<T>) => ReactNode;
 }) {
     const {
         attributes,
@@ -104,14 +104,14 @@ function SortableSubtaskItem({
     );
 }
 
-export function SortableSubtaskList({
+export function SortableSubtaskList<T extends Sortable>({
     subtasks,
     onReorder,
     renderItem,
 }: {
-    subtasks: RenderableSubtask[];
-    onReorder: (payload: { id: string; newOrderIndex: number; optimisticSubtasks: Subtask[] }) => void;
-    renderItem: (props: SortableSubtaskRenderProps) => ReactNode;
+    subtasks: T[];
+    onReorder: (payload: { id: string; newOrderIndex: number; optimisticSubtasks: T[] }) => void;
+    renderItem: (props: SortableSubtaskRenderProps<T>) => ReactNode;
 }) {
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

@@ -6,7 +6,7 @@ import { FolderPlus, TagIcon, Repeat, Inbox, Check } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
 import { ApprovalCard, type ToolRenderContext } from "./ApprovalCard";
 import { DraftDetails, DraftNote, DraftQuotes, DraftSteps, type TaskDraft } from "./TaskBatchCard";
-import { useHabitTitleLookup } from "./card-lookups";
+import { useHabitLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 
@@ -46,11 +46,17 @@ export function CreateTagCard({ ctx }: { ctx: ToolRenderContext }) {
 }
 
 export function LogHabitCard({ ctx }: { ctx: ToolRenderContext }) {
-    const lookupTitle = useHabitTitleLookup();
+    const lookupHabit = useHabitLookup();
     const input = ctx.part?.input ?? {};
-    const habitName = lookupTitle(input.habitId ?? "");
+    const habit = lookupHabit(input.habitId ?? "");
+    const habitName = habit?.title ?? "this routine";
+    const marks: Record<string, string> | undefined = input.stepStatus;
     const status: string = input.status ?? "COMPLETED";
-    const verb = status === "COMPLETED" ? "Done" : status === "SKIPPED" ? "Skipped" : "Cleared";
+    const verb = marks ? "Logged steps" : status === "COMPLETED" ? "Done" : status === "SKIPPED" ? "Skipped" : "Cleared";
+    // Step marks, in the routine's order: "Water ✓ · Stretch skipped".
+    const stepLine = marks
+        ? (habit?.steps ?? []).filter((step) => marks[step.id]).map((step) => `${step.title} ${marks[step.id] === "SKIPPED" ? "skipped" : "✓"}`).join(" · ") || "Clear every step"
+        : null;
     return (
         <ApprovalCard
             ctx={ctx}
@@ -62,7 +68,7 @@ export function LogHabitCard({ ctx }: { ctx: ToolRenderContext }) {
             doneText={`${verb}: ${habitName}.`}
             declinedText="No worries, left it."
         >
-            <IdentityBlock title={habitName} subtitle={status === "COMPLETED" ? "Mark complete" : status === "SKIPPED" ? "Skip" : "Clear"} />
+            <IdentityBlock title={habitName} subtitle={stepLine ?? (status === "COMPLETED" ? "Mark complete" : status === "SKIPPED" ? "Skip" : "Clear")} />
         </ApprovalCard>
     );
 }

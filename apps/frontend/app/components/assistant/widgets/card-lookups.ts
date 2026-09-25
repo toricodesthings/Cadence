@@ -36,16 +36,16 @@ export function useTagsLookup() {
     };
 }
 
-export function useHabitTitleLookup() {
+export function useHabitLookup() {
     const queryClient = useQueryClient();
-    return (id: string): string => {
+    return (id: string): Habit | undefined => {
         const caches = queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.all });
         for (const [, habits] of caches) {
             if (!Array.isArray(habits)) continue;
             const found = habits.find((h) => h.id === id);
-            if (found) return found.title;
+            if (found) return found;
         }
-        return "this routine";
+        return undefined;
     };
 }
 

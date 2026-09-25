@@ -52,6 +52,7 @@ const BASE_HABIT: Habit = {
     title: "Test Habit",
     description: null,
     notes: null,
+    steps: null,
     recurrenceRule: "FREQ=DAILY",
     targetTime: null,
     reminderEnabled: false,

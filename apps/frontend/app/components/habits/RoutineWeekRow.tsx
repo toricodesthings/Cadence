@@ -101,7 +101,6 @@ export function RoutineWeekRow({
     bloom,
     tabIndexFor,
     onSelect,
-    onClose,
 }: {
     habit: Habit;
     days: RoutineDay[];
@@ -114,10 +113,10 @@ export function RoutineWeekRow({
     bloom: boolean;
     tabIndexFor: (row: number, col: number) => number;
     onSelect: () => void;
-    onClose: () => void;
 }) {
-    const toggle = selected ? onClose : onSelect;
     const logs = logsByDay(habit);
+    // Edit (menu, `E`) only opens; clicking the row again closes.
+    const edit = () => { if (!selected) onSelect(); };
     const style = { "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties;
     const dim = isRoutinePaused(habit) ? "opacity-60" : "";
     const cell = (day: RoutineDay, col: number) => (
@@ -130,17 +129,17 @@ export function RoutineWeekRow({
             bloom={bloom}
             gridPosition={{ row, col }}
             tabIndex={tabIndexFor(row, col)}
-            onEdit={onSelect}
+            onEdit={edit}
         />
     );
-    const identity = <RoutineIdentity habit={habit} today={today} showStreaks={showStreaks} selected={selected} onSelect={toggle} />;
+    const identity = <RoutineIdentity habit={habit} today={today} showStreaks={showStreaks} selected={selected} onSelect={onSelect} />;
 
     if (stacked) {
         return (
-            <section style={style} aria-label={habit.title} onClick={openOnCardClick(toggle)} className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "border-twilight-border/35 bg-white/[0.03]"} ${dim}`}>
+            <section style={style} aria-label={habit.title} onClick={openOnCardClick(onSelect)} className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "border-twilight-border/35 bg-white/[0.03]"} ${dim}`}>
                 <div className="flex items-center gap-1 pl-1">
                     {identity}
-                    <HabitMenu habit={habit} onEdit={onSelect} />
+                    <HabitMenu habit={habit} onEdit={edit} />
                 </div>
                 <div className="mt-2 grid grid-cols-7 gap-1">
                     {days.map((day, col) => (
@@ -158,16 +157,16 @@ export function RoutineWeekRow({
     const done = days.filter((day) => logs.get(day.iso)?.status === "COMPLETED").length;
 
     return (
-        <HabitContextMenu habit={habit} onEdit={onSelect}>
+        <HabitContextMenu habit={habit} onEdit={edit}>
             <div
                 style={style}
                 role="row"
-                onClick={openOnCardClick(toggle)}
+                onClick={openOnCardClick(onSelect)}
                 className={`group grid cursor-pointer ${weekGridColumns(showWeekCount)} items-center rounded-2xl px-2 py-2 transition-colors ${selected ? "bg-[color-mix(in_srgb,var(--routine-tone)_7%,transparent)]" : "hover:bg-white/[0.025]"} ${dim}`}
             >
                 <div role="rowheader" className="flex min-w-0 items-center gap-1 pr-2">
                     {identity}
-                    <HabitMenu habit={habit} onEdit={onSelect} />
+                    <HabitMenu habit={habit} onEdit={edit} />
                 </div>
                 {days.map((day, col) => (
                     <div key={day.iso} role="gridcell" data-today={day.iso === today || undefined} className={`flex justify-center ${day.iso === today ? "-my-2 self-stretch items-center bg-accent-primary/[0.045] py-2" : ""}`}>{cell(day, col)}</div>

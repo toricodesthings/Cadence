@@ -5,6 +5,7 @@ import { CadencePicker } from "../../../app/components/habits/CadencePicker";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import { monthStats } from "../../../app/components/habits/RoutineMonthGrid";
 import { openOnCardClick } from "../../../app/components/habits/RoutineWeekRow";
+import { stepProgress } from "../../../app/components/habits/RoutineSteps";
 import { isRoutinePaused, routineTone } from "../../../app/lib/utils/habits";
 import { toISODate, weekdayLabels } from "../../../app/lib/utils/date-format";
 
@@ -41,6 +42,16 @@ describe("weekdayLabels", () => {
         expect(weekdayLabels(2, 0)[0]).toBe("Su");
         expect(weekdayLabels(2, 1)[0]).toBe("Mo");
         expect(weekdayLabels(2, 6)).toEqual(["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"]);
+    });
+});
+
+describe("stepProgress", () => {
+    it("counts settled steps only while a day is partly done", () => {
+        const habit = { steps: [{ id: "a", title: "Water" }, { id: "b", title: "Stretch" }, { id: "c", title: "Journal" }] };
+        const log = (status: "COMPLETED" | "PENDING", stepStatus: Record<string, "COMPLETED" | "SKIPPED"> | null) => ({ id: "1", habitId: "h", status, targetDate: day(0), completedAt: null, stepStatus });
+        expect(stepProgress(habit, log("PENDING", { a: "COMPLETED", b: "SKIPPED" }))).toBe("2/3");
+        expect(stepProgress(habit, log("COMPLETED", null))).toBeNull();
+        expect(stepProgress({ steps: null }, log("PENDING", null))).toBeNull();
     });
 });
 

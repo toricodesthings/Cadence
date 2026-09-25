@@ -1,22 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, type ReactNode } from "react";
 import { X, GripVertical } from "lucide-react";
 import { motion } from "framer-motion";
 import { useSubtasks, useCreateSubtask, useUpdateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 
-interface EditableSubtaskRowProps extends SortableSubtaskRenderProps {
+type EditableItem = { id: string; title: string; orderIndex: number; isComplete?: boolean };
+
+interface EditableSubtaskRowProps<T extends EditableItem> extends SortableSubtaskRenderProps<T> {
     onDelete: (id: string) => void;
     onTitleChange: (id: string, newTitle: string) => void;
+    /** Between the drag handle and the title, e.g. the subtask's checkbox. */
+    leading?: ReactNode;
+    deleteLabel?: string;
 }
 
-function EditableSubtaskRow({
+/** An editable, draggable title row; subtasks and routine steps share it. */
+export function EditableSubtaskRow<T extends EditableItem>({
     subtask,
     isDragging,
     dragHandleProps,
     onDelete,
     onTitleChange,
-}: EditableSubtaskRowProps) {
+    leading,
+    deleteLabel = "Delete subtask",
+}: EditableSubtaskRowProps<T>) {
     const [editingTitle, setEditingTitle] = useState(subtask.title);
 
     const handleBlur = () => {
@@ -41,7 +49,7 @@ function EditableSubtaskRow({
             >
                 <GripVertical size={16} />
             </div>
-            <TaskCheckbox subtask={subtask} compact />
+            {leading}
 
             <input
                 type="text"
@@ -58,7 +66,7 @@ function EditableSubtaskRow({
                 type="button"
                 onClick={() => onDelete(subtask.id)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-twilight-text-muted/50 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100 touch-reveal"
-                aria-label="Delete subtask"
+                aria-label={deleteLabel}
             >
                 <X size={16} />
             </button>
@@ -98,6 +106,7 @@ export function SubtaskList({ taskId }: { taskId: string }) {
                     renderItem={(props) => (
                         <EditableSubtaskRow
                             {...props}
+                            leading={<TaskCheckbox subtask={props.subtask} compact />}
                             onDelete={(id) => deleteSubtask.mutate(id)}
                             onTitleChange={(id, title) => updateSubtask.mutate({ id, title })}
                         />

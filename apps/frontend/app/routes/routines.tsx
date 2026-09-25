@@ -96,6 +96,10 @@ export default function Routines() {
     }, [currentDate, todayIso]);
 
     const handleSelectHabit = (id: string) => {
+        if (id === selectedHabitId) {
+            setSelectedHabitId(null);
+            return;
+        }
         if (!shell.isWide) setMobileDetailMode("peek");
         setSelectedHabitId(id);
         setRailView("context");
@@ -161,7 +165,6 @@ export default function Routines() {
         bloom,
         selectedHabitId,
         onSelectHabit: handleSelectHabit,
-        onCloseHabit: () => setSelectedHabitId(null),
         lead,
         empty,
     };

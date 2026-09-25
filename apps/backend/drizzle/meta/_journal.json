@@ -267,6 +267,13 @@
       "when": 1790281627382,
       "tag": "0037_quiet_devos",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790301067183,
+      "tag": "0038_clever_deadpool",
+      "breakpoints": true
     }
   ]
 }

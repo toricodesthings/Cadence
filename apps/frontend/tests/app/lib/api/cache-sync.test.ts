@@ -48,6 +48,7 @@ function createHabit(overrides: Partial<Habit> = {}): Habit {
         userId: "user-1",
         title: "Habit",
         description: null,
+        steps: null,
         notes: null,
         recurrenceRule: "FREQ=DAILY",
         targetTime: null,

@@ -10,6 +10,8 @@ import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalHabit } from "./projections";
 import { routinesDue } from "./calendar";
 import { resolveHabit } from "../../habits/habits.service";
+import { stepStatusSchema } from "@cadence/contracts/habit";
+import { stepMarksOn } from "@cadence/domain/repeats";
 
 export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -56,7 +58,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_habit_status_today: tool({
         description:
-            "Today's status (COMPLETED, SKIPPED or PENDING) for each routine due today; paused ones are left out.",
+            "Today's status (COMPLETED, SKIPPED or PENDING) for each routine due today, with each step's status for routines that have steps; paused ones are left out.",
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_habit_status_today", userId, async () => {
@@ -71,6 +73,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             targetTime: habits.targetTime,
                             createdAt: habits.createdAt,
                             pausedUntil: habits.pausedUntil,
+                            steps: habits.steps,
                         })
                         .from(habits)
                         .where(and(eq(habits.userId, userId), eq(habits.archived, false)))
@@ -78,21 +81,28 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .limit(50);
 
                     const logs = await tx
-                        .select({ habitId: habitLogs.habitId, status: habitLogs.status })
+                        .select({ habitId: habitLogs.habitId, status: habitLogs.status, stepStatus: habitLogs.stepStatus })
                         .from(habitLogs)
                         .where(
                             and(eq(habitLogs.userId, userId), eq(habitLogs.targetDate, today)),
                         );
                     const active = routinesDue(rows, today, today, ctx.timezone);
-                    const byHabit = new Map(logs.map((l) => [l.habitId, l.status]));
+                    const byHabit = new Map(logs.map((l) => [l.habitId, l]));
+                    const stepsOf = new Map(rows.map((r) => [r.id, r.steps ?? []]));
 
                     return {
                         date: today,
-                        statuses: active.map((h) => ({
-                            habitId: h.id,
-                            title: h.title,
-                            status: byHabit.get(h.id) ?? "PENDING",
-                        })),
+                        statuses: active.map((h) => {
+                            const log = byHabit.get(h.id);
+                            const steps = stepsOf.get(h.id) ?? [];
+                            const marks = stepMarksOn(steps.map((step) => step.id), log);
+                            return {
+                                habitId: h.id,
+                                title: h.title,
+                                status: log?.status ?? "PENDING",
+                                steps: steps.length ? steps.map((step) => ({ id: step.id, title: step.title, status: marks[step.id] ?? "PENDING" })) : undefined,
+                            };
+                        }),
                     };
                 });
             }),
@@ -100,18 +110,19 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
 
     // ── W ──────────────────────────────────────────────────────────────────
     log_habit: tool({
-        description: "Marks a routine done or skipped for a day (PENDING clears it). Returns the routine's streak.",
+        description: "Marks a routine done or skipped for a day (PENDING clears it), or, with `stepStatus`, the day's steps one by one: the day is done once every step is done or skipped. Returns the day's status and the routine's streak.",
         inputSchema: z.object({
             habitId: z.uuid(),
-            status: z.enum(["COMPLETED", "SKIPPED", "PENDING"]),
+            status: z.enum(["COMPLETED", "SKIPPED", "PENDING"]).describe("The whole day. Ignored when stepStatus is sent."),
             targetDate: z.iso.date().describe("The local day."),
+            stepStatus: stepStatusSchema.optional().describe("Step id → COMPLETED or SKIPPED, for every step settled that day; a step left out is open. Replaces the day's marks."),
         }),
         execute: async (input, { toolCallId }) =>
             safeExecute("log_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const { habit } = await resolveHabit(tx, userId, input.habitId, { ...input, timezone: ctx.timezone });
-                        return { result: { status: input.status, currentStreak: habit.currentStreak }, id: habit.id };
+                        const { habit, log } = await resolveHabit(tx, userId, input.habitId, { ...input, timezone: ctx.timezone });
+                        return { result: { status: log.status, currentStreak: habit.currentStreak }, id: habit.id };
                     }),
                 ),
             ),

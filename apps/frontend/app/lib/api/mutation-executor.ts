@@ -5,6 +5,7 @@ import { authenticatedFetch } from "./client";
 import { API_BASE_URL } from "../env";
 import { unwrapResponse } from "./helpers";
 import type { MutationOp, WalEntry } from "./offline-wal";
+import type { ResolveHabitAction } from "@cadence/contracts/habit";
 import {
     getWalSnapshot,
     initWal,
@@ -163,7 +164,7 @@ async function executeMutationOp(client: ApiClient, op: MutationOp): Promise<unk
         case "resolve_habit": {
             const res = await client.api.habits[":id"].resolve.$post({
                 param: { id: op.id },
-                json: op.payload as { targetDate: string; status: "COMPLETED" | "SKIPPED" | "PENDING" },
+                json: op.payload as ResolveHabitAction,
             });
             return unwrapResponse(res);
         }

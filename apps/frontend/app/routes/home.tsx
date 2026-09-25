@@ -94,23 +94,24 @@ export default function HomeRoute() {
         </EditSidePanelRail>
     );
 
+    // Opening the open task or capture again closes it (and the compact sheet).
     const handleSelectTask = (taskId: string) => {
+        const next = taskId === selectedTaskId ? null : taskId;
         setSelectedInboxItemId(null);
-        setSelectedTaskId((current) => (current === taskId ? null : taskId));
+        setSelectedTaskId(next);
         if (!shell.isWide) {
             setMobileDetailMode("peek");
-            setMobilePanelOpen(true);
+            setMobilePanelOpen(Boolean(next));
         }
     };
 
-    // Clarify always opens the sheet (never toggles it shut) so the action is
-    // deterministic — clicking "Clarify" reliably surfaces the triage pane.
     const handleClarifyInboxItem = (itemId: string) => {
+        const next = itemId === selectedInboxItemId ? null : itemId;
         setSelectedTaskId(null);
-        setSelectedInboxItemId(itemId);
+        setSelectedInboxItemId(next);
         if (!shell.isWide) {
             setMobileDetailMode("peek");
-            setMobilePanelOpen(true);
+            setMobilePanelOpen(Boolean(next));
         }
     };
 
