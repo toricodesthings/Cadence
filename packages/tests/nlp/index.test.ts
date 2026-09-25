@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyFocusView, composeFocusView, parseCanonicalNlpEnvelope, parse } from "./index.js";
-import type { WarningCode } from "./core/index.js";
+import { applyFocusView, composeFocusView, parseCanonicalNlpEnvelope, parse } from "@cadence/nlp";
+import type { WarningCode } from "@cadence/nlp/core";
 
 describe("@cadence/nlp canonical behavior", () => {
     it("parses canonical envelopes with source surface, dismissal, and confidence metadata", () => {

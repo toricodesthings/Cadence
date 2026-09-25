@@ -6,7 +6,7 @@ import {
     insertHabitSchema,
     resolveHabitActionSchema,
     weeklyHabitsQuerySchema,
-} from "./habit";
+} from "@cadence/contracts/habit";
 
 describe("habit list queries", () => {
     it("default to active (unarchived) habits", () => {

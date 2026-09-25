@@ -7,7 +7,7 @@ import {
     insertTaskSchema,
     reorderTaskSchema,
     taskPrioritySchema,
-} from "./task";
+} from "@cadence/contracts/task";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const ids = (n: number) => Array(n).fill(UUID);

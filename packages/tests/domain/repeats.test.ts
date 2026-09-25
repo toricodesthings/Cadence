@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { habitOccurrences, localDay, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "./repeats";
+import { habitOccurrences, localDay, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };

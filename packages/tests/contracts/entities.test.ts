@@ -9,20 +9,20 @@
  */
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
-import { updateHabitSchema } from "./habit";
+import { updateHabitSchema } from "@cadence/contracts/habit";
 import {
     insertInboxItemSchema,
     insertInboxSectionSchema,
     processInboxItemSchema,
     updateInboxItemSchema,
     updateInboxSectionSchema,
-} from "./inbox";
-import { upsertNoteSchema } from "./note";
-import { insertProjectSchema, updateProjectSchema } from "./project";
-import { createSectionSchema, updateSectionSchema } from "./section";
-import { bulkSubtasksSchema, insertSubtaskSchema, subtasksByTaskQuerySchema, updateSubtaskSchema } from "./subtask";
-import { insertTagSchema, updateTagSchema } from "./tag";
-import { updateTaskSchema } from "./task";
+} from "@cadence/contracts/inbox";
+import { upsertNoteSchema } from "@cadence/contracts/note";
+import { insertProjectSchema, updateProjectSchema } from "@cadence/contracts/project";
+import { createSectionSchema, updateSectionSchema } from "@cadence/contracts/section";
+import { bulkSubtasksSchema, insertSubtaskSchema, subtasksByTaskQuerySchema, updateSubtaskSchema } from "@cadence/contracts/subtask";
+import { insertTagSchema, updateTagSchema } from "@cadence/contracts/tag";
+import { updateTaskSchema } from "@cadence/contracts/task";
 
 const UUID = "22222222-2222-4222-8222-222222222222";
 const ok = (schema: z.ZodType, value: unknown) => schema.safeParse(value).success;

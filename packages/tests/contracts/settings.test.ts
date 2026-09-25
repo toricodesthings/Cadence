@@ -7,7 +7,7 @@ import {
     SETTINGS_DEFAULTS,
     settingsPatchSchema,
     userSettingsSchema,
-} from "./settings";
+} from "@cadence/contracts/settings";
 
 describe("SETTINGS_DEFAULTS", () => {
     it("satisfies the canonical settings schema exactly", () => {

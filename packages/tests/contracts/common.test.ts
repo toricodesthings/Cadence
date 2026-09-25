@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flexibleDateTimeSchema, isoDateTimeSchema, paginationSchema, uuidParamSchema } from "./common";
+import { flexibleDateTimeSchema, isoDateTimeSchema, paginationSchema, uuidParamSchema } from "@cadence/contracts/common";
 
 describe("timestamps", () => {
     it.each([

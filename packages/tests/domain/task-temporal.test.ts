@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DomainError } from "./errors";
+import { DomainError } from "@cadence/domain/errors";
 import {
     classifyTaskReadShape,
     hasTaskTemporalMutation,
@@ -7,7 +7,7 @@ import {
     normalizeEndBoundary,
     normalizeStartBoundary,
     normalizeTaskTemporalFields,
-} from "./task-temporal";
+} from "@cadence/domain/task-temporal";
 
 describe("range boundary normalization", () => {
     it("expands date-only boundaries to the inclusive start/end of that UTC day", () => {

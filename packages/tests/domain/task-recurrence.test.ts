@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandScheduleScopedTasks } from "./task-recurrence";
+import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
 
 const BASE_TASK = {
     id: "series-1",

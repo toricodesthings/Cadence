@@ -7,7 +7,7 @@ import {
     MAX_PARTS_PER_MESSAGE,
     stopStreamSchema,
     uiMessageSchema,
-} from "./ai";
+} from "@cadence/contracts/ai";
 
 const text = (t: string) => ({ type: "text", text: t });
 const chat = (message: Record<string, unknown>) => ({ message, currentDate: "2026-06-05T09:00:00.000Z" });

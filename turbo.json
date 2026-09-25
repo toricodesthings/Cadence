@@ -38,6 +38,13 @@
     "test": {
       "outputs": []
     },
+    "@cadence/package-tests#test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/*/src/**"
+      ],
+      "outputs": []
+    },
     "cf-typegen": {
       "cache": false
     },

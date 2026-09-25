@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TAG_PALETTE, TASK_PRIORITY_LABELS } from "./constants";
+import { TAG_PALETTE, TASK_PRIORITY_LABELS } from "@cadence/contracts/constants";
 
 describe("priority constants", () => {
     it("labels every priority level 0–4", () => {

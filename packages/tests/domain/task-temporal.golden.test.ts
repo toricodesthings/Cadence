@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyTaskReadShape, type TaskReadShape, type TaskTemporalFields } from "./task-temporal";
+import { classifyTaskReadShape, type TaskReadShape, type TaskTemporalFields } from "@cadence/domain/task-temporal";
 
 /**
  * Golden cross-consistency table — the regression net that previously required

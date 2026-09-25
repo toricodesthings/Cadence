@@ -7,7 +7,7 @@ import { after, before, describe, it } from "mocha";
 import { Builder, By, Capabilities, until } from "selenium-webdriver";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const desktopRoot = path.resolve(__dirname, "..");
+const desktopRoot = path.resolve(__dirname, "../..");
 const application = path.resolve(
   desktopRoot,
   "src-tauri",

@@ -5,7 +5,7 @@ import {
     PHOTO_CONVERSATION,
     UNTITLED_CONVERSATION,
     TITLE_MAX_CHARS,
-} from "./ai-title";
+} from "@cadence/domain/ai-title";
 
 describe("deriveFallbackTitle", () => {
     it("returns the placeholder for empty/whitespace input", () => {

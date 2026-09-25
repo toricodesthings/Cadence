@@ -4,7 +4,7 @@ import {
     computeNextOrderIndex,
     computeMidpointIndex,
     computeGappedOrderIndex,
-} from "./ordering";
+} from "@cadence/domain/ordering";
 
 describe("ordering math", () => {
     it("appends past the max (1 when empty)", () => {
