@@ -12,82 +12,32 @@
  * using `AppError` + `formatErrorResponse` — that path is unchanged.
  */
 
+import { AI_ERROR_CODES, type AiErrorCode, type StreamError } from "@cadence/contracts/ai";
 import { AppError } from "../../../platform/errors";
 
-export interface StreamError {
-    code: string;
-    message: string;
-    isRetryable: boolean;
-    requestId?: string;
-}
-
-interface ErrorCodeSpec {
-    /** HTTP-equivalent status, or null for in-stream-only failures. */
-    status: number | null;
-    isRetryable: boolean;
-    /** User-safe, calming default message. */
-    message: string;
-}
-
 /**
- * Stable error codes the client switches on (docs/ai_upgrade/09 §4.2). The client
- * shows a Retry control for `isRetryable` codes and guidance only otherwise.
+ * User-safe, calming wire message per code. The frontend shows its own copy for
+ * known codes, so these are the fallback for other clients.
  */
-export const AI_ERROR_CODES: Record<string, ErrorCodeSpec> = {
-    INVALID_REQUEST: {
-        status: 400,
-        isRetryable: false,
-        message: "That request couldn't be processed. Please adjust it and try again.",
-    },
-    AI_RATE_LIMITED: {
-        status: 429,
-        isRetryable: true,
-        message: "You're moving a little fast. Give it a moment, then try again.",
-    },
-    AI_IMAGE_LIMITED: {
-        status: 429,
-        isRetryable: false,
-        message: "You've sent all the images you can for today. Your text can still go on its own.",
-    },
-    AI_TIMEOUT: {
-        status: 504,
-        isRetryable: true,
-        message: "That took longer than expected. Please try again.",
-    },
-    AI_ABORTED: {
-        status: null,
-        isRetryable: true,
-        message: "Generation stopped.",
-    },
-    AI_UPSTREAM_UNAVAILABLE: {
-        status: 503,
-        isRetryable: true,
-        message: "The assistant is briefly unavailable. Please try again in a moment.",
-    },
-    AI_TOOL_FAILED: {
-        status: null,
-        isRetryable: true,
-        message: "A step didn't complete. You can try that again.",
-    },
-    AI_CONTENT_BLOCKED: {
-        status: null,
-        isRetryable: false,
-        message: "I can't help with that one. Let's try something else.",
-    },
-    INTERNAL_ERROR: {
-        status: 500,
-        isRetryable: true,
-        message: "Something went wrong on our side. Please try again.",
-    },
-} as const;
+export const AI_ERROR_MESSAGES: Record<AiErrorCode, string> = {
+    INVALID_REQUEST: "That request couldn't be processed. Please adjust it and try again.",
+    AI_RATE_LIMITED: "You're moving a little fast. Give it a moment, then try again.",
+    AI_IMAGE_LIMITED: "You've sent all the images you can for today. Your text can still go on its own.",
+    IMAGE_NOT_FOUND: "That image is no longer available.",
+    AI_TIMEOUT: "That took longer than expected. Please try again.",
+    AI_ABORTED: "Generation stopped.",
+    AI_UPSTREAM_UNAVAILABLE: "The assistant is briefly unavailable. Please try again in a moment.",
+    AI_TOOL_FAILED: "A step didn't complete. You can try that again.",
+    AI_CONTENT_BLOCKED: "I can't help with that one. Let's try something else.",
+    INTERNAL_ERROR: "Something went wrong on our side. Please try again.",
+};
 
-/** Build a StreamError from a known code, optionally overriding the message. */
-function fromCode(code: keyof typeof AI_ERROR_CODES, requestId?: string, message?: string): StreamError {
-    const spec = AI_ERROR_CODES[code];
+/** Build a StreamError from a known code. */
+function fromCode(code: AiErrorCode, requestId?: string): StreamError {
     return {
         code,
-        message: message ?? spec.message,
-        isRetryable: spec.isRetryable,
+        message: AI_ERROR_MESSAGES[code],
+        isRetryable: AI_ERROR_CODES[code].isRetryable,
         requestId,
     };
 }

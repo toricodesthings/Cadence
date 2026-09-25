@@ -121,7 +121,7 @@ export const authMiddleware = createMiddleware<{
         const token = header.slice(7);
 
         if (!jwksUrl) {
-            throw new AppError(500, "INTERNAL_SERVER_ERROR", "Missing NEON_AUTH_JWKS_URL");
+            throw new AppError(500, "INTERNAL_ERROR", "Missing NEON_AUTH_JWKS_URL");
         }
 
         // Fail closed outside development: tokens MUST be bound to this API's

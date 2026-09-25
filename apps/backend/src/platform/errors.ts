@@ -1,9 +1,10 @@
+import type { ApiError, ErrorCode } from "@cadence/contracts/common";
 import { DomainError } from "@cadence/domain/errors";
 
 export class AppError extends Error {
     constructor(
         public readonly statusCode: number,
-        public readonly code: string,
+        public readonly code: ErrorCode,
         message: string,
         public readonly isRetryable = false,
     ) {
@@ -32,16 +33,9 @@ export function assertNoConflict(expectedUpdatedAt: string | undefined, actualUp
     }
 }
 
-type ErrorBodyOptions = {
-    code: string;
-    message: string;
-    status: number;
-    isRetryable?: boolean;
-    requestId?: string;
-    issues?: Array<{ code: string; message: string; path: string }>;
-};
+type ErrorBodyOptions = Omit<ApiError["error"], "isRetryable"> & { isRetryable?: boolean };
 
-export function createErrorBody(options: ErrorBodyOptions) {
+export function createErrorBody(options: ErrorBodyOptions): ApiError {
     return {
         error: {
             code: options.code,

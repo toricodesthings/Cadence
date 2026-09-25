@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { errorCodeSchema, isoDateTimeSchema, type ErrorCode } from "./common";
 
 /** Upper bound on UIMessage parts. Per-part byte caps are enforced server-side. */
 export const MAX_PARTS_PER_MESSAGE = 32;
@@ -10,6 +10,39 @@ export const MAX_PARTS_PER_MESSAGE = 32;
  * composer blocks the send with an inline notice before the request.
  */
 export const MAX_MESSAGE_CHARS = 8_000;
+
+// ── Stream errors ──
+/**
+ * A failure after the stream opened can't use the HTTP envelope, so the server
+ * sends this as the JSON text of the stream's error part. Pre-stream failures use
+ * the `ApiError` envelope from common.
+ */
+export const streamErrorSchema = z.object({
+    code: errorCodeSchema,
+    message: z.string(),
+    isRetryable: z.boolean(),
+    requestId: z.string().optional(),
+});
+export type StreamError = z.infer<typeof streamErrorSchema>;
+
+/**
+ * The assistant's error codes: HTTP-equivalent status (null for in-stream-only
+ * failures) and whether the client offers Retry. Each client writes its own
+ * wording; only these semantics are shared.
+ */
+export const AI_ERROR_CODES = {
+    INVALID_REQUEST: { status: 400, isRetryable: false },
+    AI_RATE_LIMITED: { status: 429, isRetryable: true },
+    AI_IMAGE_LIMITED: { status: 429, isRetryable: false },
+    IMAGE_NOT_FOUND: { status: 404, isRetryable: false },
+    AI_TIMEOUT: { status: 504, isRetryable: true },
+    AI_ABORTED: { status: null, isRetryable: true },
+    AI_UPSTREAM_UNAVAILABLE: { status: 503, isRetryable: true },
+    AI_TOOL_FAILED: { status: null, isRetryable: true },
+    AI_CONTENT_BLOCKED: { status: null, isRetryable: false },
+    INTERNAL_ERROR: { status: 500, isRetryable: true },
+} as const satisfies Partial<Record<ErrorCode, { status: number | null; isRetryable: boolean }>>;
+export type AiErrorCode = keyof typeof AI_ERROR_CODES;
 
 // ── Message role / status enums (canonical; mapper imports these) ──
 export const messageRoleSchema = z.enum(["user", "assistant", "system"]);

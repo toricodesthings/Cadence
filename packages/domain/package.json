@@ -16,6 +16,7 @@
     "lint": "node ../check-imports.mjs"
   },
   "dependencies": {
+    "@cadence/contracts": "workspace:*",
     "rrule": "^2.8.1"
   },
   "devDependencies": {

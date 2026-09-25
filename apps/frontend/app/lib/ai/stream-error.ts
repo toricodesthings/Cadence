@@ -11,62 +11,33 @@
  * theater, never the raw requestId in the body.
  */
 
-export interface StreamError {
-    code: string;
-    message: string;
-    isRetryable: boolean;
-    requestId?: string;
-}
+import { AI_ERROR_CODES, type AiErrorCode, type StreamError as WireStreamError } from "@cadence/contracts/ai";
 
-/**
- * Stable error codes → user-facing line (design §9.3). The map drives both the
- * copy and (via the table value) whether a Retry control is offered.
- */
-const ERROR_COPY: Record<string, { line: string; isRetryable: boolean }> = {
-    AI_RATE_LIMITED: {
-        line: "A lot going on right now. Give it a moment, then try again.",
-        isRetryable: true,
-    },
-    AI_IMAGE_LIMITED: {
-        line: "That’s all the images for today. Your words can still go on their own.",
-        isRetryable: false,
-    },
-    IMAGE_NOT_FOUND: {
-        line: "That image expired. Attach it again, or send without it.",
-        isRetryable: false,
-    },
-    AI_TIMEOUT: {
-        line: "I lost the thread for a second. Want me to try that again?",
-        isRetryable: true,
-    },
-    AI_UPSTREAM_UNAVAILABLE: {
-        line: "I can’t reach my brain right now. Try again in a bit?",
-        isRetryable: true,
-    },
-    AI_TOOL_FAILED: {
-        line: "That didn’t go through. Want me to try once more?",
-        isRetryable: true,
-    },
-    INTERNAL_ERROR: {
-        line: "Something slipped on my end. Try again?",
-        isRetryable: true,
-    },
-    AI_CONTENT_BLOCKED: {
-        line: "I can’t help with that one. Try rewording it a little.",
-        isRetryable: false,
-    },
-    INVALID_REQUEST: {
-        line: "That came through oddly. Mind rephrasing?",
-        isRetryable: false,
-    },
+/** The wire shape, but `code` may also be one the client made up (`UNPARSEABLE_ERROR`). */
+export type StreamError = Omit<WireStreamError, "code"> & { code: string };
+
+/** Stable error codes → calm user-facing line (design §9.3). Retry comes from `AI_ERROR_CODES`. */
+const ERROR_LINES: Partial<Record<AiErrorCode, string>> = {
+    AI_RATE_LIMITED: "A lot going on right now. Give it a moment, then try again.",
+    AI_IMAGE_LIMITED: "That’s all the images for today. Your words can still go on their own.",
+    IMAGE_NOT_FOUND: "That image expired. Attach it again, or send without it.",
+    AI_TIMEOUT: "I lost the thread for a second. Want me to try that again?",
+    AI_UPSTREAM_UNAVAILABLE: "I can’t reach my brain right now. Try again in a bit?",
+    AI_TOOL_FAILED: "That didn’t go through. Want me to try once more?",
+    INTERNAL_ERROR: "Something slipped on my end. Try again?",
+    AI_CONTENT_BLOCKED: "I can’t help with that one. Try rewording it a little.",
+    INVALID_REQUEST: "That came through oddly. Mind rephrasing?",
 };
+
+function isAiCode(code: string | undefined): code is AiErrorCode {
+    return code !== undefined && Object.hasOwn(AI_ERROR_CODES, code);
+}
 
 const FALLBACK_LINE = "Something went wrong.";
 
 /** Map a known code to its calm user-facing line, or the generic fallback. */
 export function errorCodeToLine(code: string | undefined): string {
-    if (code && ERROR_COPY[code]) return ERROR_COPY[code].line;
-    return FALLBACK_LINE;
+    return (isAiCode(code) && ERROR_LINES[code]) || FALLBACK_LINE;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -86,15 +57,14 @@ export function parseStreamErrorText(text: string | undefined | null): StreamErr
             const parsed = isRecord(json) && isRecord(json.error) ? json.error : json;
             if (isRecord(parsed)) {
                 const code = typeof parsed.code === "string" ? parsed.code : undefined;
-                const known = code ? ERROR_COPY[code] : undefined;
                 const isRetryable =
                     typeof parsed.isRetryable === "boolean"
                         ? parsed.isRetryable
-                        : (known?.isRetryable ?? true);
+                        : isAiCode(code) ? AI_ERROR_CODES[code].isRetryable : true;
                 return {
                     code: code ?? "INTERNAL_ERROR",
-                    // Prefer our calm copy table over the raw backend message.
-                    message: known ? known.line : errorCodeToLine(code),
+                    // Our calm copy, never the raw backend message.
+                    message: errorCodeToLine(code),
                     isRetryable,
                     requestId:
                         typeof parsed.requestId === "string" ? parsed.requestId : undefined,
@@ -114,24 +84,15 @@ export function parseStreamErrorText(text: string | undefined | null): StreamErr
 export function streamErrorFromError(error: unknown): StreamError {
     if (isRecord(error)) {
         const code = typeof error.code === "string" ? error.code : undefined;
-        const known = code ? ERROR_COPY[code] : undefined;
         const isRetryable =
             typeof error.isRetryable === "boolean"
                 ? error.isRetryable
-                : (known?.isRetryable ?? true);
-        // `details.requestId` is where the backend AppError envelope carries it.
-        const details = isRecord(error.details) ? error.details : undefined;
-        const requestId =
-            typeof error.requestId === "string"
-                ? error.requestId
-                : typeof details?.requestId === "string"
-                  ? (details.requestId as string)
-                  : undefined;
+                : isAiCode(code) ? AI_ERROR_CODES[code].isRetryable : true;
         return {
             code: code ?? "INTERNAL_ERROR",
-            message: known ? known.line : errorCodeToLine(code),
+            message: errorCodeToLine(code),
             isRetryable,
-            requestId,
+            requestId: typeof error.requestId === "string" ? error.requestId : undefined,
         };
     }
     return { code: "INTERNAL_ERROR", message: FALLBACK_LINE, isRetryable: true };

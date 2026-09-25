@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flexibleDateTimeSchema, isoDateTimeSchema, paginationSchema, uuidParamSchema } from "@cadence/contracts/common";
+import { apiErrorSchema, flexibleDateTimeSchema, isoDateTimeSchema, paginationSchema, uuidParamSchema } from "@cadence/contracts/common";
 
 describe("timestamps", () => {
     it.each([
@@ -39,5 +39,17 @@ describe("uuidParamSchema", () => {
     it("accepts a uuid and rejects anything else", () => {
         expect(uuidParamSchema.safeParse({ id: "22222222-2222-4222-8222-222222222222" }).success).toBe(true);
         expect(uuidParamSchema.safeParse({ id: "not-a-uuid" }).success).toBe(false);
+    });
+});
+
+describe("apiErrorSchema", () => {
+    const body = { code: "NOT_FOUND", message: "Task not found", status: 404, isRetryable: false, requestId: "req_1" };
+
+    it("carries requestId at the top of the error", () => {
+        expect(apiErrorSchema.parse({ error: body }).error.requestId).toBe("req_1");
+    });
+
+    it("rejects a code that isn't in ERROR_CODES", () => {
+        expect(apiErrorSchema.safeParse({ error: { ...body, code: "INTERNAL_SERVER_ERROR" } }).success).toBe(false);
     });
 });

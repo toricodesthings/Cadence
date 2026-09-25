@@ -56,7 +56,7 @@ describe("streamErrorFromError (pre-stream HTTP)", () => {
         const err = streamErrorFromError({
             code: "AI_RATE_LIMITED",
             isRetryable: true,
-            details: { requestId: "req_abc" },
+            requestId: "req_abc",
         });
         expect(err.code).toBe("AI_RATE_LIMITED");
         expect(err.message).toBe(errorCodeToLine("AI_RATE_LIMITED"));

@@ -6,7 +6,7 @@ import {
     generateId,
     UI_MESSAGE_STREAM_HEADERS,
 } from "ai";
-import { CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts/ai";
+import { AI_ERROR_CODES, CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts/ai";
 import { apiValidator } from "../../platform/validation";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
@@ -47,7 +47,7 @@ import { buildResumeStream } from "./streaming/replay";
 import { applyApprovals, compactOldReads, dropUnsignedReasoning, rowToUIMessage, settleUnanswered } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
 import { assertMessageWithinCaps, clampHistory, MAX_HISTORY_TURNS } from "./safety/input-guard";
-import { buildStreamError, streamErrorToText, AI_ERROR_CODES } from "./safety/stream-error";
+import { buildStreamError, streamErrorToText, AI_ERROR_MESSAGES } from "./safety/stream-error";
 import {
     resolveLimits,
     estimateReserve,
@@ -121,7 +121,7 @@ function aiRateLimitResponse(
         {
             error: {
                 code,
-                message: AI_ERROR_CODES[code].message,
+                message: AI_ERROR_MESSAGES[code],
                 status: 429,
                 isRetryable: AI_ERROR_CODES[code].isRetryable,
                 requestId: getRequestId(c),

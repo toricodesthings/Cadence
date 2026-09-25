@@ -23,7 +23,7 @@ export async function parseApiError(response: UnwrappableResponse): Promise<ApiE
             code: body.error?.code ?? "UNKNOWN_ERROR",
             message: body.error?.message ?? "An unexpected error occurred",
             isRetryable: body.error?.isRetryable ?? (response.status >= 500 || response.status === 429),
-            details: body.error?.details,
+            requestId: body.error?.requestId,
             retryAfterSeconds,
         });
     } catch {

@@ -1,13 +1,18 @@
 // Envelope shapes are canonical in @cadence/contracts/common. The runtime error
 // class below stays in the frontend (it is behavior, not a contract).
+import type { ErrorCode } from "@cadence/contracts/common";
+
 export type { ApiResponse, ApiError } from "@cadence/contracts/common";
+
+/** A server code, or one the client makes when a response can't be read. */
+export type ClientErrorCode = ErrorCode | "UNKNOWN_ERROR" | "UNPARSEABLE_ERROR";
 
 export class ApiErrorResponse extends Error {
     status: number;
-    code: string;
+    code: ClientErrorCode;
     isAuthError: boolean;
     isRetryable: boolean;
-    details?: unknown;
+    requestId?: string;
     /** From a 429's `Retry-After`: how long the server wants us to wait. */
     retryAfterSeconds?: number;
 
@@ -16,14 +21,14 @@ export class ApiErrorResponse extends Error {
         code,
         message,
         isRetryable = false,
-        details,
+        requestId,
         retryAfterSeconds,
     }: {
         status: number;
-        code: string;
+        code: ClientErrorCode;
         message: string;
         isRetryable?: boolean;
-        details?: unknown;
+        requestId?: string;
         retryAfterSeconds?: number;
     }) {
         super(message);
@@ -32,7 +37,7 @@ export class ApiErrorResponse extends Error {
         this.code = code;
         this.isAuthError = status === 401 || code === "UNAUTHORIZED" || code === "TOKEN_EXPIRED";
         this.isRetryable = isRetryable;
-        this.details = details;
+        this.requestId = requestId;
         this.retryAfterSeconds = retryAfterSeconds;
     }
 
