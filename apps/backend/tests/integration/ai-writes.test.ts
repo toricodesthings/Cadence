@@ -286,16 +286,29 @@ describe("events and routine emoji", () => {
         expect((await otherTools.get_events.execute({}, { toolCallId: "o1", messages: [] })).events).toEqual([]);
     });
 
-    it("sets and clears a routine's emoji, and never another user's", async () => {
-        const [habit] = await withRls(getTestDb(), userId, (tx) => tx.insert(habits).values({ userId, title: "Stretch", recurrenceRule: "FREQ=DAILY" }).returning());
-        expect(await call("set_habit_emoji", { habitId: habit.id, emoji: "🧘" })).toEqual({ title: "Stretch", emoji: "🧘" });
-        expect((await call("get_habits", {})).habits[0].emoji).toBe("🧘");
-        await call("set_habit_emoji", { habitId: habit.id, emoji: null });
-        expect((await call("get_habits", {})).habits[0].emoji).toBeUndefined();
+    it("creates a routine, changes it keeping step ids, pauses, archives, and never touches another user's", async () => {
+        const { habitId } = await call("create_habit", {
+            title: "Stretch", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR", targetTime: "21:30", emoji: "🧘", steps: ["Neck", "Hips"],
+        });
+        const [created] = (await call("get_habits", {})).habits;
+        expect(created).toMatchObject({ id: habitId, emoji: "🧘", targetTime: "21:30", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR" });
+        const [neck] = created.steps;
+
+        await call("update_habit", { habitId, patch: { emoji: null, targetTime: null, steps: [{ id: neck.id, title: "Neck rolls" }, { title: "Back" }] } });
+        const [changed] = (await call("get_habits", {})).habits;
+        expect(changed.emoji).toBeUndefined();
+        expect(changed.targetTime).toBeUndefined();
+        expect(changed.steps.map((s: any) => s.title)).toEqual(["Neck rolls", "Back"]);
+        expect(changed.steps[0].id).toBe(neck.id);
+
+        await call("update_habit", { habitId, patch: { pausedUntil: "2026-09-30" } });
+        expect((await call("get_habits", {})).habits[0].paused).toBe(true);
+        await call("update_habit", { habitId, patch: { archived: true } });
+        expect((await call("get_habits", {})).habits).toEqual([]);
 
         const other = await createUser();
         const otherTools = buildToolRegistry({} as never, other, { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
-        expect((await otherTools.set_habit_emoji.execute({ habitId: habit.id, emoji: "💀" }, { toolCallId: "o2", messages: [] })).ok).toBe(false);
+        expect((await otherTools.update_habit.execute({ habitId, patch: { title: "Mine" } }, { toolCallId: "o2", messages: [] })).ok).toBe(false);
     });
 });
 

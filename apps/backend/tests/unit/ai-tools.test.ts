@@ -156,7 +156,7 @@ describe("tool registry", () => {
         const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
 
         expect(frontend).toEqual(backend);
-        expect(backend).toHaveLength(29);
+        expect(backend).toHaveLength(30);
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {
@@ -167,6 +167,16 @@ describe("tool registry", () => {
         expect((await schema.validate!({ taskIds: ["not-a-uuid"], targetDate: "2026-10-01" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01T14:00" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" })).success).toBe(true);
+    });
+
+    it("takes only the repeat rules the Routines picker can show", async () => {
+        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const schema = asSchema(tools.create_habit.inputSchema);
+        const ok = async (recurrenceRule: string, targetTime?: string) => (await schema.validate!({ title: "Gym", recurrenceRule, targetTime })).success;
+        for (const rule of ["FREQ=DAILY", "FREQ=DAILY;INTERVAL=3", "FREQ=WEEKLY;BYDAY=MO,WE,FR", "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA"]) expect(await ok(rule)).toBe(true);
+        for (const rule of ["FREQ=HOURLY", "FREQ=WEEKLY", "FREQ=MONTHLY;BYMONTHDAY=1", "FREQ=WEEKLY;INTERVAL=3;BYDAY=MO"]) expect(await ok(rule)).toBe(false);
+        expect(await ok("FREQ=DAILY", "7:30")).toBe(false);
+        expect(await ok("FREQ=DAILY", "07:30")).toBe(true);
     });
 });
 

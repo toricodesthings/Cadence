@@ -8,7 +8,7 @@ import { SubtaskEditCard } from "./widgets/SubtaskEditCard";
 import { DeleteTasksCard, RescheduleCard, SetStateCard } from "./widgets/TaskListCards";
 import {
     CreateEventCard, CreateProjectCard, CreateSectionsCard, CreateTagCard, DeleteEventCard, DeleteSectionCard,
-    InboxStructureCard, LogHabitCard, SetHabitEmojiCard, UpdateEventCard, UpdateSectionCard,
+    CreateHabitCard, InboxStructureCard, LogHabitCard, UpdateEventCard, UpdateHabitCard, UpdateSectionCard,
 } from "./widgets/SmallCards";
 import type { ToolRenderContext } from "./widgets/ApprovalCard";
 import { Sparkles } from "lucide-react";
@@ -62,7 +62,8 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     delete_section: { class: "write", label: "Deleted a section", render: (ctx) => <DeleteSectionCard ctx={ctx} /> },
     create_tag: { class: "write", label: "Made a tag", render: (ctx) => <CreateTagCard ctx={ctx} /> },
     log_habit: { class: "write", label: "Logged a routine", render: (ctx) => <LogHabitCard ctx={ctx} /> },
-    set_habit_emoji: { class: "write", label: "Changed a routine", render: (ctx) => <SetHabitEmojiCard ctx={ctx} /> },
+    create_habit: { class: "write", label: "Added a routine", render: (ctx) => <CreateHabitCard ctx={ctx} /> },
+    update_habit: { class: "write", label: "Changed a routine", render: (ctx) => <UpdateHabitCard ctx={ctx} /> },
     create_event: { class: "write", label: "Added an event", render: (ctx) => <CreateEventCard ctx={ctx} /> },
     update_event: { class: "write", label: "Changed an event", render: (ctx) => <UpdateEventCard ctx={ctx} /> },
     delete_event: { class: "write", label: "Deleted an event", render: (ctx) => <DeleteEventCard ctx={ctx} /> },

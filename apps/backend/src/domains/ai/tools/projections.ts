@@ -151,6 +151,9 @@ export interface MinimalHabit {
     /** The routine's mark; left out when it has none. */
     emoji?: string;
     recurrenceRule: string;
+    /** Usual local time HH:MM; left out for any time. */
+    targetTime?: string;
+    steps?: { id: string; title: string }[];
     currentStreak: number;
     longestStreak: number;
     /** completed / (completed + skipped), 0..1, rounded to 2dp. 0 when no history. */
@@ -165,6 +168,8 @@ export interface HabitRow {
     title: string;
     emoji?: string | null;
     recurrenceRule: string;
+    targetTime?: string | null;
+    steps?: { id: string; title: string }[] | null;
     currentStreak: number;
     longestStreak: number;
     totalCompletions: number;
@@ -190,6 +195,8 @@ export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit
         title: row.title,
         emoji: row.emoji ?? undefined,
         recurrenceRule: row.recurrenceRule,
+        targetTime: row.targetTime || undefined,
+        steps: row.steps?.length ? row.steps.map(({ id, title }) => ({ id, title })) : undefined,
         currentStreak: row.currentStreak,
         longestStreak: row.longestStreak,
         adherence,

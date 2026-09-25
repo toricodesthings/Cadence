@@ -1,8 +1,7 @@
 import { Hono } from "hono";
-import { eq, and, inArray, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
-import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
-import { assertOwnership } from "../../platform/ownership";
+import { getIdempotencyKey } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { addDaysToDateStr, resolveTimeZone, toLocalDateStr } from "../../platform/date-utils";
 import { habits, habitLogs, habitTags } from "../../db/schema";
@@ -11,9 +10,9 @@ import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyH
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { throwIfNotFound, assertNoConflict } from "../../platform/errors";
+import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { expandOccurrences, resolveHabit } from "./habits.service";
+import { createHabit, expandOccurrences, resolveHabit, updateHabit } from "./habits.service";
 
 /** A pause covers today through `pausedUntil`; it never hides a day already past. */
 function isHabitPaused(habit: { pausedUntil: string | null }, dateStr: string, todayStr: string): boolean {
@@ -33,34 +32,10 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     })
     .post("/", apiValidator("json", insertHabitSchema), async (c) => {
         const userId = c.get("userId");
-        const { tagIds, ...body } = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
         const db = getDbClient(c.env);
 
-        const habit = await withRls(db, userId, async (tx) => {
-            const existingId = await checkIdempotency(tx, userId, idempotencyKey);
-            if (existingId) {
-                const [existing] = await tx.select().from(habits).where(and(eq(habits.id, existingId), eq(habits.userId, userId)));
-                if (existing) return existing;
-            }
-
-            await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
-
-            const [row] = await tx
-                .insert(habits)
-                .values({ ...body, userId })
-                .returning();
-
-            // Insert tag associations if provided
-            if (tagIds && tagIds.length > 0) {
-                await tx.insert(habitTags).values(
-                    tagIds.map((tagId) => ({ habitId: row.id, tagId, userId }))
-                );
-            }
-
-            await recordMutation(tx, userId, idempotencyKey, row.id);
-            return row;
-        });
+        const habit = await withRls(db, userId, (tx) => createHabit(tx, userId, c.req.valid("json"), idempotencyKey));
 
         // Fetch tag IDs for the response
         const tags = await withRls(db, userId, async (tx) => {
@@ -72,43 +47,9 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateHabitSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
-        const { expectedUpdatedAt, tagIds, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, async (tx) => {
-            if (expectedUpdatedAt) {
-                const [existing] = await tx
-                    .select({ updatedAt: habits.updatedAt })
-                    .from(habits)
-                    .where(and(eq(habits.id, id), eq(habits.userId, userId)));
-                throwIfNotFound(existing, "Habit");
-                assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Habit");
-            }
-
-            await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
-
-            const [row] = await tx
-                .update(habits)
-                .set({ ...body, updatedAt: sql`NOW()` })
-                .where(and(eq(habits.id, id), eq(habits.userId, userId)))
-                .returning();
-
-            // Abort inside the transaction when the habit is not owned, so the
-            // tag mutations below never commit against another user's habit id.
-            throwIfNotFound(row, "Habit");
-
-            // Sync tag associations if provided
-            if (tagIds !== undefined) {
-                await tx.delete(habitTags).where(eq(habitTags.habitId, id));
-                if (tagIds.length > 0) {
-                    await tx.insert(habitTags).values(
-                        tagIds.map((tagId) => ({ habitId: id, tagId, userId }))
-                    );
-                }
-            }
-
-            return row;
-        });
+        const updated = await withRls(db, userId, (tx) => updateHabit(tx, userId, id, c.req.valid("json")));
 
         throwIfNotFound(updated, "Habit");
 

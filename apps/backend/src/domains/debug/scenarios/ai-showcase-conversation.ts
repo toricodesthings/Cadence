@@ -306,7 +306,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             parts: [text(
                 "Skip the tag. Random thought: renew my passport before March. Also the 2025 receipts task can go, " +
                     `and put the Acme proposal on hold until Maya signs off. Oh, and I still need to ${prescription.rawText.toLowerCase()}, ` +
-                    "plus the essay on the handout I photographed. Give Strength an emoji, add Sam's birthday on Nov 3, " +
+                    "plus the essay on the handout I photographed. Give Strength an emoji, set up a nightly 9:30 stretch routine, add Sam's birthday on Nov 3, " +
                     "make Mom's cake emoji a flower, drop the launch-day event, and in Client Ops add a Waiting section, " +
                     "rename Today to Now and drop Later This Week.",
             )],
@@ -366,7 +366,8 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                         },
                     ],
                 }),
-                waiting("set_habit_emoji", { habitId: strength.id, emoji: "🏋️" }),
+                waiting("update_habit", { habitId: strength.id, patch: { emoji: "🏋️" } }),
+                waiting("create_habit", { title: "Evening stretch", recurrenceRule: "FREQ=DAILY", targetTime: "21:30", emoji: "🧘", steps: ["Neck rolls", "Hamstrings", "Child's pose"] }),
                 waiting("create_event", { label: "Sam's birthday", monthDay: "11-03", emoji: "🎂" }),
                 waiting("update_event", { eventId: "mom-birthday", patch: { emoji: "🌷" } }),
                 waiting("delete_event", { eventId: "cadence-launch" }),

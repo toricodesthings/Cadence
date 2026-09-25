@@ -1,8 +1,10 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
-import type { ResolveHabitAction } from "@cadence/contracts/habit";
+import type { InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
 import { habitOccurrences, habitRule, localDay, stepDayStatus } from "@cadence/domain/repeats";
-import { habits, habitLogs } from "../../db/schema";
-import { throwIfNotFound } from "../../platform/errors";
+import { habits, habitLogs, habitTags } from "../../db/schema";
+import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
+import { checkIdempotency, recordMutation } from "../../platform/idempotency";
+import { assertOwnership } from "../../platform/ownership";
 import { resolveTimeZone, toLocalDateStr } from "../../platform/date-utils";
 import { logger, shorten, issuesFromError } from "../../platform/log";
 import type { Tx } from "../../types/db";
@@ -191,6 +193,29 @@ export async function computeCurrentStreak(
 
 // ── Create ────────────────────────────────────────────────────────────
 
+/** Create a routine with its tags; a repeated idempotency key returns the first one. */
+export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: InsertHabit, idempotencyKey?: string) {
+    const existingId = await checkIdempotency(tx, userId, idempotencyKey);
+    if (existingId) {
+        const [existing] = await tx.select().from(habits).where(and(eq(habits.id, existingId), eq(habits.userId, userId)));
+        if (existing) return existing;
+    }
+
+    await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
+
+    const [row] = await tx
+        .insert(habits)
+        .values({ ...body, userId })
+        .returning();
+
+    if (tagIds && tagIds.length > 0) {
+        await tx.insert(habitTags).values(tagIds.map((tagId) => ({ habitId: row.id, tagId, userId })));
+    }
+
+    await recordMutation(tx, userId, idempotencyKey, row.id);
+    return row;
+}
+
 /**
  * Mark a routine done or skipped for a day (PENDING clears it), keeping its
  * totals and streaks in step. A routine with steps can send the day's step
@@ -306,4 +331,39 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
         .returning();
 
     return { habit: updatedHabit, log: row };
+}
+
+// ── Update ────────────────────────────────────────────────────────────
+
+/** Change a routine; `tagIds` replaces its tags. 404 when it isn't the caller's. */
+export async function updateHabit(tx: Tx, userId: string, id: string, { expectedUpdatedAt, tagIds, ...body }: UpdateHabit) {
+    if (expectedUpdatedAt) {
+        const [existing] = await tx
+            .select({ updatedAt: habits.updatedAt })
+            .from(habits)
+            .where(and(eq(habits.id, id), eq(habits.userId, userId)));
+        throwIfNotFound(existing, "Habit");
+        assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Habit");
+    }
+
+    await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
+
+    const [row] = await tx
+        .update(habits)
+        .set({ ...body, updatedAt: sql`NOW()` })
+        .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+        .returning();
+
+    // Abort inside the transaction when the habit is not owned, so the
+    // tag mutations below never commit against another user's habit id.
+    throwIfNotFound(row, "Habit");
+
+    if (tagIds !== undefined) {
+        await tx.delete(habitTags).where(eq(habitTags.habitId, id));
+        if (tagIds.length > 0) {
+            await tx.insert(habitTags).values(tagIds.map((tagId) => ({ habitId: id, tagId, userId })));
+        }
+    }
+
+    return row;
 }

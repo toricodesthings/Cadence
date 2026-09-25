@@ -1,5 +1,5 @@
 # Routines
-- Routines live in [Routines](/routines) and show on [Today](/today). Timed ones appear on the [Schedule](/schedule).
+- Routines live in [Routines](/routines) and show on [Today](/today). Timed ones appear on the [Schedule](/schedule). The assistant can create routines and change, pause or archive them.
 - [Routines](/routines) opens on today: tap a routine to check it in. Below it, the week (or month) shows every day.
 - Any past day can be logged, from the week, the month, or a routine's History. Click or tap a day to mark it done; right-click or press and hold for Done, Skip or Clear. Skipping is neutral.
 - Each routine can have an emoji and a colour (in its Details), and a purpose (in its Notes).

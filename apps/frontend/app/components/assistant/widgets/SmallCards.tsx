@@ -1,6 +1,6 @@
 /**
  * Cards for the single-item writes: `create_project`, `create_tag`, `log_habit`,
- * `set_habit_emoji`, the event and section writes and `structure_inbox_item` (design §4.1).
+ * the routine, event and section writes and `structure_inbox_item` (design §4.1).
  */
 import { FolderPlus, TagIcon, Repeat, Inbox, Check, CalendarHeart, AlertCircle, Trash2, Columns3 } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
@@ -10,7 +10,8 @@ import { useHabitLookup, useSectionLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useSettings } from "../../../hooks/core/use-settings";
-import { formatShortDate } from "../../../lib/utils/date-format";
+import { formatShortDate, formatTime } from "../../../lib/utils/date-format";
+import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import { getNextPersonalEventDate } from "../../../lib/utils/personal-events";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 
@@ -77,22 +78,72 @@ export function LogHabitCard({ ctx }: { ctx: ToolRenderContext }) {
     );
 }
 
-export function SetHabitEmojiCard({ ctx }: { ctx: ToolRenderContext }) {
-    const lookupHabit = useHabitLookup();
-    const input = ctx.part?.input ?? {};
-    const habitName = lookupHabit(input.habitId ?? "")?.title ?? ctx.part?.output?.title ?? "this routine";
-    const emoji: string | null = input.emoji ?? null;
+type RoutineDraft = {
+    title?: string;
+    recurrenceRule?: string;
+    targetTime?: string | null;
+    emoji?: string | null;
+    description?: string | null;
+    reminderEnabled?: boolean;
+    steps?: (string | { title: string })[] | null;
+    pausedUntil?: string | null;
+    archived?: boolean;
+};
+
+/** "Every weekday · 07:30 · 3 steps · reminder", from whatever the draft sets. */
+function routineSummary(draft: RoutineDraft) {
+    return [
+        draft.recurrenceRule ? getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats" : null,
+        draft.targetTime ? formatTime(`2000-01-01T${draft.targetTime}:00`) : draft.targetTime === null ? "Any time" : null,
+        draft.steps ? (draft.steps.length ? draft.steps.map((step) => (typeof step === "string" ? step : step.title)).join(" → ") : "No steps") : null,
+        draft.reminderEnabled === true ? "Reminder on" : draft.reminderEnabled === false ? "Reminder off" : null,
+        draft.pausedUntil ? `Paused until ${formatShortDate(draft.pausedUntil)}` : draft.pausedUntil === null ? "Resumed" : null,
+        draft.archived === true ? "Archived" : draft.archived === false ? "Restored" : null,
+        draft.emoji === null ? "No emoji" : null,
+    ].filter(Boolean).join(" · ") || undefined;
+}
+
+export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+    const draft: RoutineDraft = ctx.part?.input ?? {};
+    const name = draft.title ?? "this routine";
     return (
         <ApprovalCard
             ctx={ctx}
-            eyebrow="ROUTINE EMOJI"
+            eyebrow="NEW ROUTINE"
             eyebrowGlyph={Repeat}
-            ariaLabel={`Routine emoji: ${habitName}`}
-            primaryLabel={emoji ? "Set it" : "Remove it"}
+            ariaLabel={`New routine: ${name}`}
+            primaryLabel="Create"
             primaryGlyph={Check}
-            doneText={emoji ? `${emoji} ${habitName}.` : `Removed the emoji from ${habitName}.`}
+            doneText={`Added “${name}” to Routines.`}
         >
-            <IdentityBlock title={`${emoji ? `${emoji} ` : ""}${habitName}`} subtitle={emoji ? "New mark" : "No emoji"} />
+            <IdentityBlock title={`${draft.emoji ? `${draft.emoji} ` : ""}${name}`} subtitle={routineSummary(draft)} />
+            {draft.description ? <p className="text-xs text-twilight-text-soft">{draft.description}</p> : null}
+        </ApprovalCard>
+    );
+}
+
+export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+    const lookupHabit = useHabitLookup();
+    const input = ctx.part?.input ?? {};
+    const habit = lookupHabit(input.habitId ?? "");
+    const patch: RoutineDraft = input.patch ?? {};
+    const name = patch.title ?? habit?.title ?? ctx.part?.output?.title ?? "this routine";
+    const emoji = "emoji" in patch ? patch.emoji : habit?.emoji;
+    return (
+        <ApprovalCard
+            ctx={ctx}
+            eyebrow="CHANGE ROUTINE"
+            eyebrowGlyph={Repeat}
+            ariaLabel={`Change routine: ${name}`}
+            primaryLabel="Save"
+            primaryGlyph={Check}
+            doneText={`Updated “${name}”.`}
+        >
+            <IdentityBlock
+                title={`${emoji ? `${emoji} ` : ""}${name}`}
+                subtitle={routineSummary(patch) ?? (patch.title && habit && patch.title !== habit.title ? `Renamed from “${habit.title}”` : patch.emoji ? "New emoji" : undefined)}
+            />
+            {patch.description ? <p className="text-xs text-twilight-text-soft">{patch.description}</p> : null}
         </ApprovalCard>
     );
 }

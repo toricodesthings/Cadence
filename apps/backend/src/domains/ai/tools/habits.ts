@@ -1,24 +1,36 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { habits, habitLogs } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
-import { throwIfNotFound } from "../../../platform/errors";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalHabit } from "./projections";
 import { routinesDue } from "./calendar";
-import { resolveHabit } from "../../habits/habits.service";
-import { insertHabitSchema, stepStatusSchema } from "@cadence/contracts/habit";
+import { createHabit, resolveHabit, updateHabit } from "../../habits/habits.service";
+import { insertHabitSchema, MAX_ROUTINE_STEPS, routineStepSchema, stepStatusSchema } from "@cadence/contracts/habit";
 import { stepMarksOn } from "@cadence/domain/repeats";
+
+const stepTitle = routineStepSchema.shape.title;
+const routineFields = z.object({
+    title: insertHabitSchema.shape.title,
+    recurrenceRule: z
+        .string()
+        .regex(/^FREQ=(DAILY(;INTERVAL=[1-9]\d?)?|WEEKLY(;INTERVAL=2)?;BYDAY=(MO|TU|WE|TH|FR|SA|SU)(,(MO|TU|WE|TH|FR|SA|SU))*)$/)
+        .describe("FREQ=DAILY · FREQ=DAILY;INTERVAL=2 (every 2nd day) · FREQ=WEEKLY;BYDAY=MO,WE,FR · FREQ=WEEKLY;INTERVAL=2;BYDAY=SA (every other week)."),
+    targetTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().describe("Usual local time, HH:MM 24h; null = any time."),
+    emoji: insertHabitSchema.shape.emoji.describe("One emoji as its mark, or null for none."),
+    description: z.string().max(2_000).nullable().optional().describe("Its purpose, a line or two."),
+    reminderEnabled: z.boolean().optional().describe("Remind on due days while still open."),
+});
 
 export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_habits: tool({
         description:
-            "The user's routines (habits in code) with emoji, streaks and adherence (0..1). Archived ones only when asked.",
+            "The user's routines (habits in code) with emoji, usual time, steps, streaks and adherence (0..1). Archived ones only when asked.",
         inputSchema: z.object({
             includeArchived: z
                 .boolean()
@@ -37,6 +49,8 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             title: habits.title,
                             emoji: habits.emoji,
                             recurrenceRule: habits.recurrenceRule,
+                            targetTime: habits.targetTime,
+                            steps: habits.steps,
                             currentStreak: habits.currentStreak,
                             longestStreak: habits.longestStreak,
                             totalCompletions: habits.totalCompletions,
@@ -130,24 +144,39 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
             ),
     }),
 
+    // ── W ──────────────────────────────────────────────────────────────────
+    create_habit: tool({
+        description: "Creates a routine on Routines. Returns its habitId.",
+        inputSchema: routineFields.extend({ steps: z.array(stepTitle).max(MAX_ROUTINE_STEPS).optional().describe("Steps in order, for a routine done as a short sequence.") }),
+        execute: async ({ steps, ...input }, { toolCallId }) =>
+            safeExecute("create_habit", userId, async () => {
+                const row = await withRls(getDbClient(env), userId, (tx) =>
+                    createHabit(tx, userId, { ...input, steps: steps?.length ? steps.map((title) => ({ id: crypto.randomUUID(), title })) : undefined }, toolCallId));
+                return { habitId: row.id, title: row.title };
+            }),
+    }),
+
     // ── U ──────────────────────────────────────────────────────────────────
-    set_habit_emoji: tool({
-        description: "Sets the emoji shown as a routine's mark; null removes it.",
+    update_habit: tool({
+        description: "Changes a routine: any of its fields, its steps (the full new list), pause or archive. Send only what changes.",
         inputSchema: z.object({
             habitId: z.uuid(),
-            emoji: insertHabitSchema.shape.emoji.unwrap().describe("One emoji, or null for none."),
+            patch: routineFields.partial().extend({
+                steps: z.array(z.object({ id: z.string().max(64).optional().describe("An existing step's id, to keep its history."), title: stepTitle }))
+                    .max(MAX_ROUTINE_STEPS).nullable().optional().describe("Replaces every step, in order; null or [] removes them."),
+                pausedUntil: z.iso.date().nullable().optional().describe("Paused from today through this local day; null resumes."),
+                archived: z.boolean().optional().describe("true puts it away (restorable), false restores it."),
+            }),
         }),
-        execute: async ({ habitId, emoji }, { toolCallId }) =>
-            safeExecute("set_habit_emoji", userId, async () =>
+        execute: async ({ habitId, patch: { steps, ...patch } }, { toolCallId }) =>
+            safeExecute("update_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const [row] = await tx
-                            .update(habits)
-                            .set({ emoji, updatedAt: sql`NOW()` })
-                            .where(and(eq(habits.id, habitId), eq(habits.userId, userId)))
-                            .returning({ id: habits.id, title: habits.title });
-                        throwIfNotFound(row, "Routine");
-                        return { result: { title: row.title, emoji }, id: row.id };
+                        const row = await updateHabit(tx, userId, habitId, {
+                            ...patch,
+                            ...(steps !== undefined && { steps: steps?.length ? steps.map((step) => ({ id: step.id ?? crypto.randomUUID(), title: step.title })) : null }),
+                        });
+                        return { result: { habitId: row.id, title: row.title }, id: row.id };
                     }),
                 ),
             ),

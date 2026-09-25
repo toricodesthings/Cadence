@@ -9,7 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Added
 - The assistant can add, change and delete your events, and give them an emoji.
 - The assistant can add, rename, reorder and delete sections in a list, and sort tasks into them.
-- The assistant can give a routine an emoji.
+- The assistant can create routines, and change, pause or archive them, steps and emoji included.
 
 ## [0.21.1] - 2026-09-24
 
