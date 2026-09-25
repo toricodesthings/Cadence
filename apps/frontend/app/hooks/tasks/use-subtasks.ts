@@ -91,10 +91,10 @@ export function useSubtasks(taskId: string) {
     return useQuery({
         queryKey: SUBTASKS_KEY(taskId),
         queryFn: async () => {
-            const res = await (api.api.tasks as any)[":taskId"].subtasks.$get({
+            const res = await api.api.tasks[":taskId"].subtasks.$get({
                 param: { taskId },
             });
-            return unwrapResponse<Subtask[]>(res);
+            return unwrapResponse(res);
         },
         enabled: !!taskId && authReady && isAuthenticated,
     });
@@ -113,7 +113,7 @@ export function useSubtasksByTaskIds(taskIds: string[]) {
         queryFn: async () => {
             // The route takes 200 ids per call (about 7.5KB of URL).
             const maps = await Promise.all(chunk(uniqueTaskIds, 200).map(async (ids) =>
-                unwrapResponse<BulkSubtasksMap>(await api.api.subtasks.$get({ query: { taskIds: ids.join(",") } }))));
+                unwrapResponse(await api.api.subtasks.$get({ query: { taskIds: ids.join(",") } }))));
             return normalizeBulkSubtasksMap(uniqueTaskIds, Object.assign({}, ...maps));
         },
     });
@@ -126,12 +126,11 @@ export function useCreateSubtask(taskId: string) {
     return useMutation({
         mutationFn: async (input: { title: string; orderIndex: number }) => {
             const idempotencyKey = getCreateSubtaskIdempotencyKey(input);
-            const res = await (api.api.tasks as any)[":taskId"].subtasks.$post({
-                param: { taskId },
-                header: { "Idempotency-Key": idempotencyKey },
-                json: { title: input.title, orderIndex: input.orderIndex },
-            });
-            return unwrapResponse<Subtask>(res);
+            const res = await api.api.tasks[":taskId"].subtasks.$post(
+                { param: { taskId }, json: { title: input.title, orderIndex: input.orderIndex } },
+                { headers: { "Idempotency-Key": idempotencyKey } },
+            );
+            return unwrapResponse(res);
         },
         onMutate: async (newSubtask) => {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
@@ -183,11 +182,11 @@ export function useUpdateSubtask(taskId: string) {
 
     return useMutation({
         mutationFn: async ({ id, ...updates }: { id: string; title?: string; isComplete?: boolean }) => {
-            const res = await (api.api.subtasks as any)[":id"].$patch({
+            const res = await api.api.subtasks[":id"].$patch({
                 param: { id },
                 json: updates,
             });
-            return unwrapResponse<Subtask>(res);
+            return unwrapResponse(res);
         },
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
@@ -225,7 +224,7 @@ export function useDeleteSubtask(taskId: string) {
 
     return useMutation({
         mutationFn: async (id: string) => {
-            const res = await (api.api.subtasks as any)[":id"].$delete({
+            const res = await api.api.subtasks[":id"].$delete({
                 param: { id },
             });
             if (!res.ok) throw new Error("Failed to delete subtask");
@@ -259,11 +258,11 @@ export function useReorderSubtasks(taskId: string) {
 
     return useMutation({
         mutationFn: async ({ id, newOrderIndex }: { id: string; newOrderIndex: number; optimisticSubtasks?: Subtask[] }) => {
-            const res = await (api.api.subtasks as any)[":id"].reorder.$patch({
+            const res = await api.api.subtasks[":id"].reorder.$patch({
                 param: { id },
                 json: { orderIndex: newOrderIndex },
             });
-            return unwrapResponse<Subtask>(res);
+            return unwrapResponse(res);
         },
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });

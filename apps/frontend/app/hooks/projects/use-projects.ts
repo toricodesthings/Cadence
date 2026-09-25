@@ -15,7 +15,7 @@ export function useProjects() {
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.projects.$get();
-            return unwrapResponse<Project[]>(res);
+            return unwrapResponse(res);
         },
     });
 }

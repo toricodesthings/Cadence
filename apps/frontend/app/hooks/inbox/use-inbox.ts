@@ -16,7 +16,7 @@ export function useInbox(status: "clarifying" | "kept" = "clarifying") {
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.inbox.$get({ query: { status } });
-            return unwrapResponse<InboxItem[]>(res);
+            return unwrapResponse(res);
         },
     });
 

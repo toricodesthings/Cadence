@@ -21,7 +21,7 @@ export function useCreateInboxItem() {
             }),
             async (rawText) => {
                 const res = await client.api.inbox.$post({ json: { rawText } });
-                return unwrapResponse<InboxItem>(res);
+                return unwrapResponse(res);
             },
         ),
 

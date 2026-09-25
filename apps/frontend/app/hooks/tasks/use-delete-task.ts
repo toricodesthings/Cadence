@@ -19,7 +19,7 @@ export function useDeleteTask() {
             (id) => ({ type: "delete_task", id }),
             async (id) => {
                 const res = await client.api.tasks[":id"].$delete({ param: { id } });
-                return unwrapResponse<Task>(res);
+                return unwrapResponse(res);
             },
         ),
 

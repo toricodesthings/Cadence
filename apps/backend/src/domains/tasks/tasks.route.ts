@@ -25,7 +25,7 @@ import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
-import { createTask, deleteTasks, rescheduleTasks, setTaskState, trackTaskChanges, updateTask } from "./tasks.service";
+import { createTask, deleteTasks, rescheduleTasks, setTaskState, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
 
 const taskTagParamSchema = z.object({
     id: z.uuid(),
@@ -118,7 +118,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const duplicate = await withRls(db, userId, async (tx) => {
             const existingId = await checkIdempotency(tx, userId, idempotencyKey);
             if (existingId) {
-                const [existing] = await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId)));
+                const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
                 if (existing) return existing;
             }
 
@@ -163,7 +163,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             }
 
             await recordMutation(tx, userId, idempotencyKey, dup.id);
-            return dup;
+            return toTask(dup, originalTags.map((tag) => tag.tagId));
         });
 
         return c.json({ data: duplicate }, 201);
@@ -281,7 +281,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 // Idempotency: return existing result if this mutation was already processed
                 const existingId = await checkIdempotency(tx, userId, idempotencyKey);
                 if (existingId) {
-                    const [existing] = await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId)));
+                    const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
                     if (existing) return existing;
                 }
 
@@ -354,7 +354,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 }
 
                 await recordMutation(tx, userId, idempotencyKey, row.id);
-                return row;
+                return toTask(row, allTagIds);
             });
 
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });
@@ -404,7 +404,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updatedTasks = await withRls(db, userId, (tx) => rescheduleTasks(tx, userId, body));
+        const updatedTasks = await withRls(db, userId, async (tx) => withTagIds(tx, await rescheduleTasks(tx, userId, body)));
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { rescheduled: updatedTasks });
 
         return c.json({ data: updatedTasks });
@@ -415,7 +415,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { expectedUpdatedAt, ...body } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updated = await withRls(db, userId, (tx) => updateTask(tx, userId, id, body, expectedUpdatedAt));
+        const [updated] = await withRls(db, userId, async (tx) => withTagIds(tx, [await updateTask(tx, userId, id, body, expectedUpdatedAt)]));
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
             rescheduled: hasTaskTemporalMutation(body) ? [updated] : [],
             completed: body.state === "COMPLETE" ? [id] : [],
@@ -446,21 +446,21 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                       AND user_id = ${userId}
                 `);
 
-                const [row] = await tx
+                const rows = await tx
                     .select()
                     .from(tasks)
                     .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-                return row;
+                return withTagIds(tx, rows);
             }
 
             // Fallback: only update the single moved task
-            const [row] = await tx
+            const rows = await tx
                 .update(tasks)
                 .set({ orderIndex, updatedAt: sql`NOW()` })
                 .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
                 .returning();
-            return row;
-        });
+            return withTagIds(tx, rows);
+        }).then(([row]) => row);
 
         throwIfNotFound(updated, "Task");
         return c.json({ data: updated });
@@ -470,7 +470,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { taskIds, state } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updatedTasks = await withRls(db, userId, (tx) => setTaskState(tx, userId, taskIds, state));
+        const updatedTasks = await withRls(db, userId, async (tx) => withTagIds(tx, await setTaskState(tx, userId, taskIds, state)));
         trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, {
             completed: state === "COMPLETE" ? updatedTasks.map((task) => task.id) : [],
         });
@@ -517,11 +517,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 },
             });
 
-            const mappedTasks = returnedTasks.map((task) => ({
-                ...task,
-                tags: undefined,
-                tagIds: task.tags.map((assoc) => assoc.tagId),
-            }));
+            const mappedTasks = returnedTasks.map(({ tags: links, ...task }) => toTask(task, links.map((link) => link.tagId)));
 
             return scheduleScoped ? expandScheduleScopedTasks(mappedTasks, query) : mappedTasks;
         });
@@ -534,13 +530,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
 
-        const task = await withRls(db, userId, async (tx) => {
-            const [row] = await tx
-                .select()
-                .from(tasks)
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-            return row;
-        });
+        const [task] = await withRls(db, userId, async (tx) =>
+            withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)))),
+        );
 
         throwIfNotFound(task, "Task");
 
@@ -582,7 +574,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const db = getDbClient(c.env);
 
         const deleted = await withRls(db, userId, (tx) => deleteTasks(tx, userId, taskIds));
-        return c.json({ data: deleted });
+        return c.json({ data: deleted.map((row) => toTask(row, [])) });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
@@ -592,7 +584,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const [deleted] = await withRls(db, userId, (tx) => deleteTasks(tx, userId, [id]));
 
         throwIfNotFound(deleted, "Task");
-        return c.json({ data: deleted });
+        return c.json({ data: toTask(deleted, []) });
     })
     .delete("/:id/tags/:tagId", apiValidator("param", taskTagParamSchema), async (c) => {
         const userId = c.get("userId");

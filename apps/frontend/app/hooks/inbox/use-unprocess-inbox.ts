@@ -12,7 +12,7 @@ export function useUnprocessInbox() {
     const cache = useQueryClient();
     return useMutation({
         mutationFn: async ({ id }: { id: string; taskId: string; item?: InboxItem }) =>
-            unwrapResponse<InboxItem>(await client.api.inbox[":id"].unprocess.$post({ param: { id } })),
+            unwrapResponse(await client.api.inbox[":id"].unprocess.$post({ param: { id } })),
         onMutate: async ({ taskId, item }) => {
             await Promise.all([
                 cache.cancelQueries({ queryKey: queryKeys.tasks.all }),

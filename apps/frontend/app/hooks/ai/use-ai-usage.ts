@@ -23,7 +23,7 @@ export function useAiUsage(enabled: boolean) {
         staleTime: 15_000,
         queryFn: async () => {
             const res = await client.api.ai.usage.$get();
-            return unwrapResponse<AiUsage>(res);
+            return unwrapResponse(res);
         },
     });
 }

@@ -162,7 +162,7 @@ export const taskSchema = taskRowSchema.extend({
     waitingOn: z.string().nullable().optional(),
     waitingReminder: isoDateTimeSchema.nullable().optional(),
     notBefore: isoDateTimeSchema.nullable().optional(),
-    tagIds: z.array(z.uuid()).optional(),
+    tagIds: z.array(z.uuid()),
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),
     isRecurringInstance: z.boolean().optional(),

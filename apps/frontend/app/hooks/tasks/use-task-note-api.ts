@@ -15,10 +15,10 @@ export function useTaskNoteQuery(taskId: string | null) {
         queryKey: taskId ? NOTE_KEY(taskId) : ["tasks", "__none__", "note"],
         queryFn: async () => {
             if (!taskId) return null;
-            const res = await (api.api.tasks as any)[":taskId"].note.$get({
+            const res = await api.api.tasks[":taskId"].note.$get({
                 param: { taskId },
             });
-            return unwrapResponse<TaskNote | null>(res);
+            return unwrapResponse(res);
         },
         enabled: !!taskId && authReady && isAuthenticated,
         staleTime: 30_000,
@@ -38,11 +38,11 @@ export function useUpsertTaskNote(taskId: string) {
             body: string;
             expectedUpdatedAt?: string;
         }) => {
-            const res = await (api.api.tasks as any)[":taskId"].note.$patch({
+            const res = await api.api.tasks[":taskId"].note.$patch({
                 param: { taskId },
                 json: { body, expectedUpdatedAt },
             });
-            return unwrapResponse<TaskNote>(res);
+            return unwrapResponse(res);
         },
         onSuccess: (data) => {
             queryClient.setQueryData(NOTE_KEY(taskId), data);

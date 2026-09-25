@@ -159,7 +159,7 @@ export default function ProjectView() {
 
     const { tasks, rationaleByTaskId } = useMemo(() => {
         let filtered = activeTagId
-            ? (rawTasks ?? []).filter(t => (t as any).tagIds?.includes(activeTagId))
+            ? (rawTasks ?? []).filter(t => t.tagIds.includes(activeTagId))
             : (rawTasks ?? []);
         const rationaleByTaskId: Record<string, string | null> = {};
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {

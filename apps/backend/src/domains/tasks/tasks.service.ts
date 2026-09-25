@@ -4,7 +4,7 @@
  * `trackTaskChanges`.
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { BatchReschedule, InsertTask, TaskState, UpdateTask } from "@cadence/contracts/task";
+import type { BatchReschedule, EffortLevel, InsertTask, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
 import { hasTaskTemporalMutation, inferIsAllDay, normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
@@ -80,6 +80,27 @@ export function trackTaskChanges(
         ...completed.map((taskId) => ({ event: "task.complete", metadata: { taskId } })),
     ];
     if (events.length) waitUntil(trackBatchEvents(db, userId, events));
+}
+
+// ── API shape ─────────────────────────────────────────────────────────
+
+/**
+ * A task row as the API sends it. Writes only accept priority 0–4 and effort 1–3
+ * (the contract validates them), so the columns narrow to their literal unions.
+ */
+export function toTask(row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstance" | "occurrenceStart" | "occurrenceEnd">, tagIds: string[]): Task {
+    return { ...row, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null, tagIds };
+}
+
+/** `toTask` for rows fresh from a write: loads their tag ids in one query. */
+export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
+    const links = rows.length
+        ? await tx
+              .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
+              .from(taskTags)
+              .where(inArray(taskTags.taskId, rows.map((row) => row.id)))
+        : [];
+    return rows.map((row) => toTask(row, links.filter((link) => link.taskId === row.id).map((link) => link.tagId)));
 }
 
 // ── Create ────────────────────────────────────────────────────────────

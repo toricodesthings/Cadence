@@ -21,7 +21,7 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
                 param: { id },
                 json: { state: "ACTIVE" },
             });
-            return unwrapResponse<Task>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async (id) => {

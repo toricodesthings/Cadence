@@ -85,7 +85,7 @@ export function useProcessInboxToTask() {
                         complete,
                     },
                 });
-                const task = await unwrapResponse<Task>(taskRes);
+                const task = await unwrapResponse(taskRes);
 
                 return task;
             },

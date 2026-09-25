@@ -17,7 +17,7 @@ export function useDeleteInboxItem() {
             (id) => ({ type: "delete_inbox", id }),
             async (id) => {
                 const res = await client.api.inbox[":id"].$delete({ param: { id } });
-                return unwrapResponse<InboxItem>(res);
+                return unwrapResponse(res);
             },
         ),
 

@@ -124,7 +124,7 @@ export function useNotificationCenter() {
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.settings["notification-state"].$get();
-            return unwrapResponse<NotificationState[]>(res);
+            return unwrapResponse(res);
         },
         staleTime: 60_000,
     });

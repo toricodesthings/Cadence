@@ -16,7 +16,7 @@ export function useCreateProject() {
     return useMutation({
         mutationFn: async (input: CreateProjectInput) => {
             const res = await client.api.projects.$post({ json: input });
-            return unwrapResponse<Project>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async (input) => {

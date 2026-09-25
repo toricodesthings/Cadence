@@ -18,7 +18,7 @@ export function useDuplicateTask() {
                 const res = await client.api.tasks[":id"].duplicate.$post({
                     param: { id: taskId },
                 });
-                return unwrapResponse<Task>(res);
+                return unwrapResponse(res);
             },
         ),
 

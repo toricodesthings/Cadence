@@ -74,7 +74,7 @@ export function useCreateTask() {
                 }, {
                     headers: { "Idempotency-Key": idempotencyKey },
                 });
-                return unwrapResponse<Task>(res);
+                return unwrapResponse(res);
             },
         ),
 

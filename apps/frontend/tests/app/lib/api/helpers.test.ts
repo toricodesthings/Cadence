@@ -32,7 +32,7 @@ describe("api/helpers", () => {
     it("unwraps successful response envelopes", async () => {
         const response = Response.json({ data: { id: "task-1", title: "Write tests" } });
 
-        await expect(unwrapResponse<{ id: string; title: string }>(response)).resolves.toEqual({
+        await expect(unwrapResponse(response)).resolves.toEqual({
             id: "task-1",
             title: "Write tests",
         });

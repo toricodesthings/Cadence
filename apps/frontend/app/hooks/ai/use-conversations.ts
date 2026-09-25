@@ -35,7 +35,7 @@ export function useConversations() {
         staleTime: 30_000,
         queryFn: async () => {
             const res = await client.api.ai.conversations.$get({ query: {} });
-            const data = await unwrapResponse<{ conversations: ConversationListItem[] }>(res);
+            const data = await unwrapResponse(res);
             return data.conversations;
         },
     });
@@ -63,10 +63,7 @@ export function useConversationMessages(id: string | null) {
                 param: { id: id! },
                 query: {},
             });
-            return unwrapResponse<{
-                conversation: ConversationDetail;
-                messages: StoredUIMessage[];
-            }>(res);
+            return unwrapResponse(res);
         },
     });
 }

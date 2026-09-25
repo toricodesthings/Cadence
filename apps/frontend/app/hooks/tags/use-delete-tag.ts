@@ -14,7 +14,7 @@ export function useDeleteTag() {
     return useMutation({
         mutationFn: async (id: string) => {
             const res = await client.api.tags[":id"].$delete({ param: { id } });
-            return unwrapResponse<Tag>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async (id) => {

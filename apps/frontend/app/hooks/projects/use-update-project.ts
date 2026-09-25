@@ -21,7 +21,7 @@ export function useUpdateProject() {
                 param: { id },
                 json: updates,
             });
-            return unwrapResponse<Project>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async ({ id, ...updates }) => {

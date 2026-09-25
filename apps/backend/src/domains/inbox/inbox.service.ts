@@ -9,6 +9,7 @@ import { assertOwnership } from "../../platform/ownership";
 import { throwIfNotFound } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 import { sourceSurfaceSchema } from "@cadence/contracts/task";
+import { toTask, withTagIds } from "../tasks/tasks.service";
 import { isDateOnly } from "@cadence/contracts/common";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
 import { writeNote } from "../notes/notes.service";
@@ -43,7 +44,7 @@ export async function processCapture(
     // Idempotency guard
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
     if (existingId) {
-        const [existing] = await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId)));
+        const [existing] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))));
         if (existing) return { task: existing, alreadyProcessed: true };
     }
 
@@ -52,7 +53,7 @@ export async function processCapture(
     throwIfNotFound(item, "Inbox item");
     // Already placed (double submit, second device): return that task, never a duplicate.
     if (item.processed && item.placedTaskId) {
-        const [placed] = await tx.select().from(tasks).where(and(eq(tasks.id, item.placedTaskId), eq(tasks.userId, userId)));
+        const [placed] = await withTagIds(tx, await tx.select().from(tasks).where(and(eq(tasks.id, item.placedTaskId), eq(tasks.userId, userId))));
         if (placed) return { task: placed, alreadyProcessed: true };
     }
 
@@ -187,5 +188,5 @@ export async function processCapture(
 
     await recordMutation(tx, userId, idempotencyKey, task.id);
 
-    return { task, alreadyProcessed: false };
+    return { task: toTask(task, taskTagIds), alreadyProcessed: false };
 }

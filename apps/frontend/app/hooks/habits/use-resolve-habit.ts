@@ -47,7 +47,7 @@ export function useResolveHabit(boundHabitId?: string) {
                     json: { ...action, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
                 });
                 return {
-                    ...(await unwrapResponse<{ habit: Habit }>(res)),
+                    ...(await unwrapResponse(res)),
                     requestId,
                     requestKey,
                 };

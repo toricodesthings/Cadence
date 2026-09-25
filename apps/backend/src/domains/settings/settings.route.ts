@@ -15,9 +15,12 @@ import {
     savedFocusViewPatchSchema,
     settingsPatchSchema,
     SETTINGS_DEFAULTS,
+    type SavedFocusView,
+    type SavedFocusViewRow,
+    type SettingsView,
     type LocationMode,
 } from "@cadence/contracts/settings";
-import { upsertNotificationStateSchema } from "@cadence/contracts/notification";
+import { upsertNotificationStateSchema, type NotificationState, type NotificationStateRow } from "@cadence/contracts/notification";
 import { uuidParamSchema } from "@cadence/contracts/common";
 
 function isPlainObject(value: unknown): value is Record<string, any> {
@@ -58,7 +61,7 @@ export function migrateLegacySettings<T>(stored: T): T {
  * - Migrates legacy `preferredView` into `tasks.defaultView`
  * - Migrates legacy `calendar.holidays` location fields into `location`
  */
-export function normalizeSettings(stored: Record<string, any>): Record<string, any> {
+export function normalizeSettings(stored: Record<string, any>): SettingsView {
     const merged = deepMerge(SETTINGS_DEFAULTS, migrateLegacySettings(stored));
 
     // Migrate legacy preferredView → tasks.defaultView
@@ -68,6 +71,10 @@ export function normalizeSettings(stored: Record<string, any>): Record<string, a
 
     return merged;
 }
+
+// Writes validate these columns (focus-view definition, reminder object type), so reads narrow them.
+const toSavedFocusView = (row: SavedFocusViewRow): SavedFocusView => ({ ...row, definition: row.definition as SavedFocusView["definition"] });
+const toNotificationState = (row: NotificationStateRow): NotificationState => ({ ...row, objectType: row.objectType as NotificationState["objectType"] });
 
 export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/intelligence-history/clear", async (c) => {
@@ -145,7 +152,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
             return row;
         });
 
-        return c.json({ data: view }, 201);
+        return c.json({ data: toSavedFocusView(view) }, 201);
     })
     .post(
         "/notification-state",
@@ -190,7 +197,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 return updated;
             });
 
-            return c.json({ data: row }, 201);
+            return c.json({ data: toNotificationState(row) }, 201);
         },
     )
     .patch("/", apiValidator("json", settingsPatchSchema), async (c) => {
@@ -248,7 +255,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
 
         throwIfNotFound(view, "Focus view");
 
-        return c.json({ data: view });
+        return c.json({ data: toSavedFocusView(view) });
     })
     .get("/", async (c) => {
         const userId = c.get("userId");
@@ -277,7 +284,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .orderBy(desc(notificationState.updatedAt)),
         );
 
-        return c.json({ data: items });
+        return c.json({ data: items.map(toNotificationState) });
     })
     .get("/focus-views", async (c) => {
         const userId = c.get("userId");
@@ -291,7 +298,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .orderBy(desc(savedFocusViews.isPinned), savedFocusViews.orderIndex, savedFocusViews.createdAt),
         );
 
-        return c.json({ data: items });
+        return c.json({ data: items.map(toSavedFocusView) });
     })
     .delete("/focus-views/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
@@ -307,5 +314,5 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
 
         throwIfNotFound(deleted, "Focus view");
 
-        return c.json({ data: deleted });
+        return c.json({ data: toSavedFocusView(deleted) });
     });

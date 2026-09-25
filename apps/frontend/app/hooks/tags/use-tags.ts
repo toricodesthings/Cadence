@@ -16,7 +16,7 @@ export function useTags() {
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.tags.$get();
-            return unwrapResponse<Tag[]>(res);
+            return unwrapResponse(res);
         },
     });
 }

@@ -70,7 +70,7 @@ export function useWeather() {
             const response = await client.api.proxy.weather.$get({
                 query: { latitude: String(coordinates!.latitude), longitude: String(coordinates!.longitude) },
             });
-            return unwrapResponse<WeatherReading>(response);
+            return unwrapResponse(response);
         },
         enabled: enabled && location.ready && coordinates !== null,
         staleTime: WEATHER_STALE_MS,

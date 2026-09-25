@@ -21,7 +21,7 @@ export function useArchiveTask() {
                 param: { id },
                 json: { state: "ARCHIVED" },
             });
-            return unwrapResponse<Task>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async (id) => {

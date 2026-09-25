@@ -288,7 +288,7 @@ function ManualLocationEditor({ location, locale, year }: { location: UserLocati
 
     const citiesQuery = useQuery({
         queryKey: [...queryKeys.location.all, "city-search", search, locale],
-        queryFn: async () => unwrapResponse<CityResult[]>(
+        queryFn: async () => unwrapResponse(
             await client.api.proxy.geocode.search.$get({ query: { name: search!, locale } }),
         ),
         enabled: search !== null,

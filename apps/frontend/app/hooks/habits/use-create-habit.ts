@@ -24,7 +24,7 @@ export function useCreateHabit() {
                 const res = await client.api.habits.$post({
                     json: input,
                 });
-                return unwrapResponse<Habit>(res);
+                return unwrapResponse(res);
             },
         ),
 

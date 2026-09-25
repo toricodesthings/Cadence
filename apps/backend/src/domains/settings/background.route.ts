@@ -26,6 +26,7 @@ import {
     backgroundObjectKey,
     backgroundPrefix,
 } from "./background-image";
+import type { SettingsView } from "@cadence/contracts/settings";
 import { normalizeSettings } from "./settings.route";
 
 /**
@@ -47,7 +48,7 @@ function requireBucket(env: Env): R2Bucket {
     return env.USER_ASSETS;
 }
 
-async function readSettings(tx: Tx, userId: string): Promise<Record<string, any>> {
+async function readSettings(tx: Tx, userId: string): Promise<SettingsView> {
     const [user] = await tx
         .select({ settings: users.settings })
         .from(users)
@@ -56,7 +57,7 @@ async function readSettings(tx: Tx, userId: string): Promise<Record<string, any>
     return normalizeSettings((user?.settings ?? {}) as Record<string, any>);
 }
 
-async function writeSettings(tx: Tx, userId: string, settings: Record<string, any>): Promise<Record<string, any>> {
+async function writeSettings(tx: Tx, userId: string, settings: Record<string, any>): Promise<SettingsView> {
     const [row] = await tx
         .update(users)
         .set({ settings })
@@ -112,7 +113,7 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
                 httpMetadata: { contentType: "image/webp", cacheControl: BACKGROUND_CACHE_CONTROL },
             });
 
-            let settings: Record<string, any>;
+            let settings: SettingsView;
             try {
                 settings = await withRls(db, userId, async (tx) => {
                     const current = await readSettings(tx, userId);

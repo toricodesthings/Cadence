@@ -40,7 +40,7 @@ export function useAddTaskTag() {
     const client = useApiClient();
     return useTaskTagMutation(true, async ({ taskId, tagId }) => {
         const res = await client.api.tasks[":id"].tags.$post({ param: { id: taskId }, json: { tagId } });
-        return unwrapResponse<unknown>(res);
+        return unwrapResponse(res);
     });
 }
 
@@ -49,6 +49,6 @@ export function useRemoveTaskTag() {
     const client = useApiClient();
     return useTaskTagMutation(false, async ({ taskId, tagId }) => {
         const res = await client.api.tasks[":id"].tags[":tagId"].$delete({ param: { id: taskId, tagId } });
-        return unwrapResponse<unknown>(res);
+        return unwrapResponse(res);
     });
 }

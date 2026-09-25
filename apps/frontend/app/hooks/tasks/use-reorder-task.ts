@@ -24,7 +24,7 @@ export function useReorderTask() {
                     param: { id },
                     json: { orderIndex, orderedTaskIds },
                 });
-                return unwrapResponse<Task>(res);
+                return unwrapResponse(res);
             },
         ),
         onMutate: async ({ id, orderIndex, orderedTaskIds }) => {

@@ -26,7 +26,7 @@ export function useTasks(options: UseTasksOptions = {}) {
         staleTime: STALE_TIMES.TASKS,
         placeholderData: keepPrevious ? keepPreviousData : undefined,
         // Without a limit the server returns the whole list.
-        queryFn: async () => unwrapResponse<Task[]>(await client.api.tasks.$get({
+        queryFn: async () => unwrapResponse(await client.api.tasks.$get({
             query: buildTasksQuery(filterOptions),
         })),
     });
@@ -82,7 +82,7 @@ export function useTask(taskId: string | null | undefined) {
         queryKey: queryKeys.tasks.detail(taskId ?? ""),
         enabled: !cached && !!taskId && UUID.test(taskId) && authReady && isAuthenticated,
         staleTime: STALE_TIMES.TASKS,
-        queryFn: async () => unwrapResponse<Task>(await client.api.tasks[":id"].$get({ param: { id: taskId! } })),
+        queryFn: async () => unwrapResponse(await client.api.tasks[":id"].$get({ param: { id: taskId! } })),
     });
 
     return cached ?? detail.data;

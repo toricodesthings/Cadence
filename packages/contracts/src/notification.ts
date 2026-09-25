@@ -20,6 +20,8 @@ export const notificationStateRowSchema = z.object({
     updatedAt: isoDateTimeSchema,
 });
 
+export type NotificationStateRow = z.infer<typeof notificationStateRowSchema>;
+
 export const notificationStateSchema = notificationStateRowSchema.extend({
     objectType: notificationObjectTypeSchema,
 });

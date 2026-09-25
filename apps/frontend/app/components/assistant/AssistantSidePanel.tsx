@@ -687,7 +687,7 @@ export function AssistantSidePanel({
             const res = await client.api.ai.images.$post({
                 form: { file: compressed, conversationId: conversationIdRef.current! },
             });
-            const data = await unwrapResponse<ChatImageUpload>(res);
+            const data = await unwrapResponse(res);
             queryClient.setQueryData<AiUsage>(queryKeys.ai.usage, (prev) =>
                 prev?.images ? { ...prev, images: { ...prev.images, ...data.images } } : prev,
             );

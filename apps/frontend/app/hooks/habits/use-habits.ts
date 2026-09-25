@@ -31,7 +31,7 @@ export function useHabitsRange({ start, end, archived = false, enabled = true, t
             const res = await client.api.habits.weekly.$get({
                 query: { start, end, archived: String(archived), timezone: tz },
             });
-            return unwrapResponse<Habit[]>(res);
+            return unwrapResponse(res);
         },
     });
 }
@@ -47,7 +47,7 @@ export function useAllHabits() {
         staleTime: STALE_TIMES.HABITS,
         queryFn: async () => {
             const res = await client.api.habits.$get({ query: {} });
-            return unwrapResponse<Habit[]>(res);
+            return unwrapResponse(res);
         },
     });
 }

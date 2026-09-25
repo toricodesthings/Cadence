@@ -52,7 +52,7 @@ export function useSettings() {
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.settings.$get();
-            const data = await unwrapResponse<UserSettings>(res);
+            const data = await unwrapResponse(res);
             writeLocalCache(storageKey, data); // sync to localStorage
             return data;
         },
@@ -111,7 +111,7 @@ export function useUpdateSettings() {
     const mutation = useMutation({
         mutationFn: async (patch: DeepPartial<UserSettings>) => {
             const res = await client.api.settings.$patch({ json: patch });
-            return unwrapResponse<UserSettings>(res);
+            return unwrapResponse(res);
         },
         onError: (_err, _patch) => {
             // On failure, re-fetch to restore the server state

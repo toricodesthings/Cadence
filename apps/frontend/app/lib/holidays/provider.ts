@@ -95,7 +95,7 @@ function sortOptions<T extends { label: string }>(options: T[]) {
 const holidaysApi = apiClient.api.proxy.holidays;
 
 export async function fetchHolidayCountries(locale: string) {
-    return unwrapResponse<HolidayCountryOption[]>(await holidaysApi.countries.$get({ query: { locale } }));
+    return unwrapResponse(await holidaysApi.countries.$get({ query: { locale } }));
 }
 
 export async function fetchHolidaySubdivisions(
@@ -108,7 +108,7 @@ export async function fetchHolidaySubdivisions(
     const staticSubdivisions = getStaticSubdivisions(normalizedCountryCode);
 
     try {
-        const subdivisions = await unwrapResponse<HolidaySubdivisionOption[]>(
+        const subdivisions = await unwrapResponse(
             await holidaysApi.subdivisions.$get({ query: { countryCode: normalizedCountryCode, year: String(year), locale } }),
         );
         return mergeSubdivisionOptions(staticSubdivisions, subdivisions);
@@ -134,5 +134,5 @@ export async function fetchHolidays({
     if (!normalizedCountryCode) return [];
 
     const query = { countryCode: normalizedCountryCode, start, end, locale, subdivisionCode: subdivisionCode?.trim() || undefined };
-    return unwrapResponse<HolidayRecord[]>(await holidaysApi.$get({ query }));
+    return unwrapResponse(await holidaysApi.$get({ query }));
 }

@@ -85,10 +85,9 @@ async function executeMutationOp(client: ApiClient, op: MutationOp): Promise<unk
         case "process_inbox_to_task": {
             const { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete } = op.payload;
             const taskTitle = title?.trim() || rawText;
-            const taskRes = await (client.api.inbox[":id"] as any).process.$post({
+            const taskRes = await client.api.inbox[":id"].process.$post({
                 param: { id: inboxItemId },
                 json: {
-                    clientMutationId: crypto.randomUUID(),
                     title: taskTitle,
                     scheduledDate,
                     dueDate,

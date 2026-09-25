@@ -79,7 +79,7 @@ export function useUploadBackgroundImage() {
             const response = await client.api.settings.background.$post({
                 form: { file: compressed, dominant, swatches: swatches.join(",") },
             });
-            return { settings: await unwrapResponse<UserSettings>(response), blob: compressed as Blob, generation };
+            return { settings: await unwrapResponse(response), blob: compressed as Blob, generation };
         },
         onSuccess: async ({ settings, blob, generation }) => {
             if (!isBackgroundCacheCurrent(generation)) return;
@@ -105,7 +105,7 @@ export function useDeleteBackgroundImage() {
         mutationFn: async () => {
             const generation = backgroundCacheGeneration();
             const response = await client.api.settings.background.$delete();
-            return { settings: await unwrapResponse<UserSettings>(response), generation };
+            return { settings: await unwrapResponse(response), generation };
         },
         onMutate: () => {
             const previous = settingsCache.read();

@@ -164,6 +164,16 @@ describe("updating tasks", () => {
         expect(body.data).toMatchObject({ effort: 2, priority: 3, isPinned: true, title: "T" });
     });
 
+    it("answers every write and read with the task's tagIds", async () => {
+        const { body: tag } = await tags("POST", "", { name: "t" });
+        const task = await create({ title: "T", tagIds: [tag.data.id] });
+        expect(task.tagIds).toEqual([tag.data.id]);
+
+        expect((await tasks("PATCH", `/${task.id}`, { effort: 2 })).body.data.tagIds).toEqual([tag.data.id]);
+        expect((await tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([tag.data.id]);
+        expect((await tasks("PATCH", "/batch/state", { taskIds: [task.id], state: "COMPLETE" })).body.data[0].tagIds).toEqual([tag.data.id]);
+    });
+
     it("moves a timed task to an all-day date the way the client sends it (clearing the time block)", async () => {
         const task = await create({ title: "T", isAllDay: false, scheduledStart: "2026-03-09T14:00:00.000Z", scheduledEnd: "2026-03-09T15:30:00.000Z" });
 

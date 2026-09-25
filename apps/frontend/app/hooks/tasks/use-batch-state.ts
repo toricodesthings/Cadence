@@ -26,7 +26,7 @@ export function useBatchStateTransition() {
         >(
             ({ taskIds, state }) => ({ type: "batch_state", payload: { taskIds, state } }),
             ({ taskIds, state }) => inBatches(taskIds, async (ids) =>
-                unwrapResponse<Task[]>(await client.api.tasks.batch.state.$patch({ json: { taskIds: ids, state } }))),
+                unwrapResponse(await client.api.tasks.batch.state.$patch({ json: { taskIds: ids, state } }))),
         ),
         onMutate: async ({ taskIds, state }) => {
             await taskCache.cancel(queryClient);
@@ -61,7 +61,7 @@ export function useBatchRescheduleTasks() {
         >(
             ({ taskIds, scheduledStart, isAllDay }) => ({ type: "batch_reschedule", payload: { taskIds, scheduledStart, isAllDay } }),
             ({ taskIds, scheduledStart, isAllDay }) => inBatches(taskIds, async (ids) =>
-                unwrapResponse<Task[]>(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, scheduledStart, isAllDay } }))),
+                unwrapResponse(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, scheduledStart, isAllDay } }))),
         ),
         onMutate: async ({ taskIds, scheduledStart, isAllDay }) => {
             await taskCache.cancel(queryClient);
@@ -98,7 +98,7 @@ export function useBatchDeleteTasks() {
         >(
             ({ taskIds }) => ({ type: "batch_delete", payload: { taskIds } }),
             ({ taskIds }) => inBatches(taskIds, async (ids) =>
-                unwrapResponse<Task[]>(await client.api.tasks.batch.delete.$post({ json: { taskIds: ids } }))),
+                unwrapResponse(await client.api.tasks.batch.delete.$post({ json: { taskIds: ids } }))),
         ),
         onMutate: async ({ taskIds }) => {
             await taskCache.cancel(queryClient);

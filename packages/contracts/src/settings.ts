@@ -48,6 +48,8 @@ export const savedFocusViewRowSchema = z.object({
     updatedAt: isoDateTimeSchema,
 });
 
+export type SavedFocusViewRow = z.infer<typeof savedFocusViewRowSchema>;
+
 /** The row with its definition parsed (the column is loose jsonb). */
 export const savedFocusViewSchema = savedFocusViewRowSchema.extend({ definition: focusViewDefinitionSchema });
 export type SavedFocusView = z.infer<typeof savedFocusViewSchema>;
@@ -310,6 +312,20 @@ export type DeepPartial<T> = T extends Array<infer U>
     : T extends object
         ? { [K in keyof T]?: DeepPartial<T[K]> }
         : T;
+
+/** Every field required, recursively: the inverse of `DeepPartial`. */
+export type DeepRequired<T> = T extends Array<infer U>
+    ? Array<DeepRequired<U>>
+    : T extends object
+        ? { [K in keyof T]-?: DeepRequired<T[K]> }
+        : T;
+
+/**
+ * The full settings the API returns: stored values over `SETTINGS_DEFAULTS`, so
+ * every field is present (legacy `preferredView` is folded into tasks.defaultView). (`typeof SETTINGS_DEFAULTS` would do, but its `as const`
+ * literals break `=== true/false` comparisons.)
+ */
+export type SettingsView = DeepRequired<Omit<UserSettings, "preferredView">>;
 
 /** Recursively make every property in a Zod object schema optional. */
 function deepPartial(schema: z.ZodType): z.ZodType {

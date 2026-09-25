@@ -15,7 +15,7 @@ export function useDeleteProject() {
     return useMutation({
         mutationFn: async (id: string) => {
             const res = await client.api.projects[":id"].$delete({ param: { id } });
-            return unwrapResponse<Project>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async (id) => {

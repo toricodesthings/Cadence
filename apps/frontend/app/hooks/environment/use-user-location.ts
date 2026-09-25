@@ -74,7 +74,7 @@ export function useUserLocation() {
         const response = await client.api.proxy.geocode.reverse.$get({
             query: { latitude: String(coordinates.latitude), longitude: String(coordinates.longitude) },
         });
-        return unwrapResponse<RegionInfo>(response);
+        return unwrapResponse(response);
     }, [client]);
 
     const requestPrecise = useCallback(
@@ -102,7 +102,7 @@ export function useUserLocation() {
 
     const approximateQuery = useQuery({
         queryKey: queryKeys.location.approximate(userId),
-        queryFn: async () => unwrapResponse<ApproximatePlace>(await client.api.proxy.geo.approximate.$get()),
+        queryFn: async () => unwrapResponse(await client.api.proxy.geo.approximate.$get()),
         enabled: needsApproximate && userId !== null,
         staleTime: APPROXIMATE_STALE_MS,
         gcTime: APPROXIMATE_GC_MS,

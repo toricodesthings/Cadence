@@ -74,7 +74,7 @@ export function useUpdateTask() {
                         ...(updates.expectedUpdatedAt ? {} : { expectedUpdatedAt: freshUpdatedAt ?? getExpectedUpdatedAt(id) }),
                     },
                 });
-                return unwrapResponse<Task>(res);
+                return unwrapResponse(res);
             }),
         ),
 

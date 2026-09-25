@@ -22,7 +22,7 @@ export function useSections(projectId?: string | null) {
         queryFn: async () => {
             const query = projectId ? { projectId } : {};
             const res = await client.api.sections.$get({ query });
-            return unwrapResponse<TaskSection[]>(res);
+            return unwrapResponse(res);
         },
     });
 }
@@ -37,7 +37,7 @@ export function useCreateSection(projectId?: string | null) {
             const res = await client.api.sections.$post({
                 json: { ...input, projectId: projectId ?? null },
             });
-            return unwrapResponse<TaskSection>(res);
+            return unwrapResponse(res);
         },
         onMutate: async (newSection) => {
             await queryClient.cancelQueries({ queryKey: key });
@@ -77,11 +77,11 @@ export function useUpdateSection(projectId?: string | null) {
 
     return useMutation({
         mutationFn: async ({ id, ...updates }: { id: string; name?: string; orderIndex?: number }) => {
-            const res = await (client.api.sections as any)[":id"].$patch({
+            const res = await client.api.sections[":id"].$patch({
                 param: { id },
                 json: updates,
             });
-            return unwrapResponse<TaskSection>(res);
+            return unwrapResponse(res);
         },
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: key });
@@ -115,7 +115,7 @@ export function useDeleteSection(projectId?: string | null) {
 
     return useMutation({
         mutationFn: async (id: string) => {
-            const res = await (client.api.sections as any)[":id"].$delete({
+            const res = await client.api.sections[":id"].$delete({
                 param: { id },
             });
             if (!res.ok) throw new Error("Failed to delete section");

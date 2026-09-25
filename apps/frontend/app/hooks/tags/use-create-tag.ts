@@ -16,7 +16,7 @@ export function useCreateTag() {
     return useMutation({
         mutationFn: async (input: CreateTagInput) => {
             const res = await client.api.tags.$post({ json: input });
-            return unwrapResponse<Tag>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async (input) => {

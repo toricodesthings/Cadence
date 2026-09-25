@@ -26,7 +26,7 @@ export function useUpdateHabit() {
                     param: { id },
                     json: patch,
                 });
-                return unwrapResponse<Habit>(res);
+                return unwrapResponse(res);
             },
         ),
 

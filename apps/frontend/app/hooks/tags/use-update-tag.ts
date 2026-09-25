@@ -14,7 +14,7 @@ export function useUpdateTag() {
     return useMutation({
         mutationFn: async ({ id, ...json }: UpdateTag & { id: string }) => {
             const res = await client.api.tags[":id"].$patch({ param: { id }, json });
-            return unwrapResponse<Tag>(res);
+            return unwrapResponse(res);
         },
 
         onMutate: async ({ id, ...patch }) => {
