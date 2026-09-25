@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-09-24
+
 Routines can have steps: tick them off one at a time, or all at once.
 
 ### Added
