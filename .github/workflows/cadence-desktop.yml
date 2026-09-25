@@ -77,6 +77,14 @@ jobs:
         if: runner.os != 'macOS'
         run: cargo install tauri-driver --locked
 
+      # The runner's stock msedgedriver tracks Edge, not WebView2; a mismatch fails with
+      # "DevToolsActivePort file doesn't exist". This puts a WebView2-matched driver first on PATH.
+      - name: Install WebView2-matched msedgedriver
+        if: runner.os == 'Windows'
+        run: |
+          cargo install --git https://github.com/chippers/msedgedriver-tool
+          & "$HOME/.cargo/bin/msedgedriver-tool.exe" $PWD.Path >> $env:GITHUB_PATH
+
       - name: Build + smoke test
         if: runner.os == 'Linux'
         env:
