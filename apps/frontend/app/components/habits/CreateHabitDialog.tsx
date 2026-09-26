@@ -7,9 +7,7 @@ import { useCreateHabit } from "../../hooks/habits/use-create-habit";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { CadencePicker } from "./CadencePicker";
 import { DayTimes } from "./DayTimes";
-import * as Popover from "../primitives/Popover";
-import { Tip } from "../primitives/Tooltip";
-import { Swatches } from "../shared/Swatches";
+import { ColourDot } from "../shared/ColourDot";
 import { FieldBlock, FieldRow, ValueSelect } from "../shared/DetailPanelSections";
 import { TagField } from "../tasks/TagField";
 import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, routineTone } from "../../lib/utils/habits";
@@ -28,23 +26,6 @@ const IDEAS = [
     { emoji: "💧", colorAccent: "sky", title: "Hydration", description: "A small daily reset that keeps the baseline healthy.", recurrenceRule: "FREQ=DAILY" },
     { emoji: "📚", colorAccent: "violet", title: "Reading", description: "A calm evening reading routine.", recurrenceRule: "FREQ=DAILY" },
 ] as const;
-
-/** The routine's colour beside its emoji: a dot that opens the swatches. */
-function ColourDot({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-    const [open, setOpen] = useState(false);
-    return (
-        <Popover.Root open={open} onOpenChange={setOpen}>
-            <Tip label="Colour"><Popover.Trigger asChild>
-                <button type="button" aria-label="Routine colour" className="flex h-11 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50">
-                    <span className="h-4 w-4 rounded-full ring-2 ring-white/10" style={{ backgroundColor: routineTone(value) }} />
-                </button>
-            </Popover.Trigger></Tip>
-            <Popover.Content align="start" className="w-72 p-3">
-                <Swatches options={ROUTINE_SWATCHES} value={value} onChange={(next) => { onChange(next); setOpen(false); }} />
-            </Popover.Content>
-        </Popover.Root>
-    );
-}
 
 const DEFAULT_TIME = "09:00";
 
@@ -149,7 +130,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
                     leading={(
                         <span className="flex items-center" style={{ color: routineTone(colorAccent) }}>
                             <EmojiMarkButton emoji={emoji} onChange={setEmoji} />
-                            <ColourDot value={colorAccent} onChange={setColorAccent} />
+                            <ColourDot options={ROUTINE_SWATCHES} value={colorAccent} onChange={setColorAccent} label="Routine colour" />
                         </span>
                     )}
                 />

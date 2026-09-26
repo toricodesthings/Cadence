@@ -63,6 +63,8 @@ export const personalEventSchema = z.object({
     emoji: z.string().max(4).nullable(),
     notify: z.boolean(),
     startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).nullable(), // "YYYY-MM-DD"
+    // A palette key like the routine colours; missing or null means no colour (the default tint).
+    color: z.string().max(30).nullable().optional(),
 });
 export type PersonalEvent = z.infer<typeof personalEventSchema>;
 

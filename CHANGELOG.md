@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+- Give an event a colour, like a routine; its card on Events takes on a soft tint of it.
+
 ### Fixed
 - Opening a task while the assistant is open now shows its details on top, and closing them brings the assistant back.
 
