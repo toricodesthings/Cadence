@@ -140,6 +140,11 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const userHash = await hashIdentifier(userId);
     const body = c.req.valid("json");
     const limits = resolveLimits(c.env);
+    // Where a turn spends its time: ms since the handler began at the first occurrence of
+    // each step and stream event (monotonic clock), logged once when the stream closes.
+    const t0 = performance.now();
+    const timing: Record<string, number> = { beforeHandler: Date.now() - (c as Context<any>).get("requestStartedAt") };
+    const mark = (step: string) => void (timing[step] ??= Math.round(performance.now() - t0));
 
     // Latest user message (load-by-id). Role is pinned to "user" at the schema
     // level — a crafted request can never persist an assistant/system row here.
@@ -204,6 +209,21 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             if (limits.failClosed) return aiRateLimitResponse(c, { retryAfterS: 30, limits });
         }
     }
+    mark("admitted");
+
+    // The agent (user settings, memories, prompt, tools) needs nothing from the turn's
+    // persistence, so build it alongside instead of after. Awaited below; the catch only
+    // stops an unhandled rejection if persistence throws first.
+    const agentReady = getAgentInstance(c.env, userId, {
+        timezone: body.timezone,
+        currentDate: body.currentDate,
+        locale: body.locale,
+        approvalMode: body.approvalMode,
+        nonce,
+        queryText: incomingText || undefined,
+        waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+    });
+    agentReady.catch(() => {});
 
     // Persist the user turn + reconstruct history (RLS). The DB is the source of truth.
     // active_stream_id is set in the SAME transaction as the user turn, so the moment
@@ -244,6 +264,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const isFirstTurn = isRerun ? priorRows.length <= 1 : priorRows.length === 0;
         return { conversationId: id, history: priorRows.map(rowToUIMessage), needsTitle: isFirstTurn && !title };
     });
+    mark("persisted");
 
     // Auto-title (first turn only): generate a short title in PARALLEL with the reply
     // and persist it via waitUntil — so it lands BEFORE the assistant finishes, never
@@ -279,6 +300,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         } catch {
             logger.warn("ai", "ai_redis_unavailable", { op: "openStream" });
         }
+        mark("streamOpened");
     }
 
     // Tool-specialized UIMessage typing is internal to the SDK; the runtime shapes
@@ -300,15 +322,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // references (never base64).
     const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey);
 
-    const { agent, promptHash } = await getAgentInstance(c.env, userId, {
-        timezone: body.timezone,
-        currentDate: body.currentDate,
-        locale: body.locale,
-        approvalMode: body.approvalMode,
-        nonce,
-        queryText: incomingText || undefined,
-        waitUntil: (promise) => c.executionCtx.waitUntil(promise),
-    });
+    const { agent, promptHash } = await agentReady;
+    mark("agentBuilt");
 
     // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
     const abortController = new AbortController();
@@ -348,6 +363,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             return streamErrorToText(streamError);
         },
         onEnd: async ({ responseMessage, isAborted, finishReason }) => {
+            mark("onEnd");
             abortController.abort(); // stop the fallback watcher loop
             // Terminal status drives the client's Retry affordance after reload (doc 09 §3.3).
             const status = isAborted ? "aborted" : finishReason === "error" ? "failed" : "complete";
@@ -363,6 +379,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             } catch {
                 logger.warn("ai", "ai_persist_failed", { requestId, userHash, conversationId });
             }
+            mark("replySaved");
             // Close the Redis log (TTLs shrink to a ~60s grace so a late re-attach can
             // still replay it) + authoritatively compare-and-finalize the pointer: clear
             // active_stream_id AND record this as last_stream_id/status, but only if it
@@ -414,8 +431,26 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
           })
         : agentStream;
 
+    // First occurrence of each chunk type as it leaves for the client; steps are numbered.
+    let steps = 0;
+    const timedStream = responseStream.pipeThrough(
+        new TransformStream({
+            transform(chunk, controller) {
+                mark(chunk.type === "start-step" ? `step${++steps}` : chunk.type);
+                controller.enqueue(chunk);
+            },
+        }),
+    );
+    let flushes = 0;
+    let flushMs = 0;
+    const logTiming = () => {
+        mark("closed");
+        logger.info("ai", "ai_turn_timing", { requestId, userHash, conversationId, flushes, flushMs, ...timing });
+    };
+    mark("responseReturned");
+
     return createUIMessageStreamResponse({
-        stream: responseStream,
+        stream: timedStream,
         // Echo the post-admission budget so the client tracks "remaining" locally (§9.4).
         headers: rlHeaders,
         consumeSseStream: ({ stream }) => {
@@ -426,6 +461,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     // disconnect (doc 08 §3 / doc 09 §3.2).
                     if (!redis) {
                         await stream.pipeTo(new WritableStream()).catch(() => {});
+                        logTiming();
                         return;
                     }
 
@@ -443,9 +479,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                         const blob = buf;
                         buf = "";
                         lastFlush = Date.now();
+                        const flushStart = performance.now();
                         const { abortRequested } = await flushChunks(redis, userKey, streamId, blob).catch(() => ({
                             abortRequested: false,
                         }));
+                        flushes++;
+                        flushMs += Math.round(performance.now() - flushStart);
                         if (abortRequested) abortController.abort(new Error("AI_ABORTED"));
                     };
                     try {
@@ -459,6 +498,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     } catch {
                         /* disconnect/abort — onFinish + closeStream still run */
                     }
+                    logTiming();
                 })(),
             );
         },

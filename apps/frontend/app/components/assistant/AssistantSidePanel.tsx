@@ -254,11 +254,43 @@ export function AssistantSidePanel({
     // ── Transport (load-by-id, Phase 1) ──────────────────────────────────────
     // Always attach the session JWT — DefaultChatTransport calls fetch without our
     // `authenticated` flag, so we wrap it to opt every chat request into auth.
+    // Turn timeline in the console (Verbose level), the client half of the server's
+    // `ai_turn_timing` log: ms from send to the first time each milestone reaches the UI.
+    const turnTimingRef = useRef<{ t0: number; seen: Set<string> } | null>(null);
+    const markTurn = useCallback((step: string) => {
+        const turn = turnTimingRef.current;
+        if (!turn || turn.seen.has(step)) return;
+        turn.seen.add(step);
+        console.debug(`[cadence:ai-timing] +${Math.round(performance.now() - turn.t0)}ms ${step}`);
+    }, []);
+
+    // Writes run on the server mid-turn, so the workspace refreshes as each one lands
+    // (and once more on finish for any the stream didn't show); each write refreshes once.
+    const refreshedWritesRef = useRef(new Set<string>());
+    const refreshAfterWrites = useCallback(
+        (message: UIMessage) => {
+            const landed = message.parts.flatMap((part) => {
+                const name = safeToolName(part);
+                const { state, toolCallId } = part as { state?: string; toolCallId?: string };
+                const isWrite = !!name && getToolDescriptor(name)?.class !== "read" && state === "output-available";
+                return isWrite && toolCallId && !refreshedWritesRef.current.has(toolCallId) ? [toolCallId] : [];
+            });
+            if (landed.length === 0) return;
+            landed.forEach((id) => refreshedWritesRef.current.add(id));
+            markTurn("workspace refresh");
+            void hardRefreshWorkspaceCaches(queryClient);
+        },
+        [queryClient, markTurn],
+    );
+
     const aiFetch = useMemo(
         () =>
             ((req: RequestInfo | URL, init?: RequestInit) =>
-                authenticatedFetch(req, { ...init, authenticated: true })) as typeof fetch,
-        [],
+                authenticatedFetch(req, { ...init, authenticated: true }).then((res) => {
+                    markTurn("response headers");
+                    return res;
+                })) as typeof fetch,
+        [markTurn],
     );
 
     // The conversation id + per-turn clientMessageId are read lazily by the
@@ -305,11 +337,8 @@ export function AssistantSidePanel({
             sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
             // Writes run on the server now, so a reply that changed anything refreshes the workspace.
             onFinish: ({ message }) => {
-                const wrote = message.parts.some((part) => {
-                    const name = safeToolName(part);
-                    return !!name && getToolDescriptor(name)?.class !== "read" && (part as { state?: string }).state === "output-available";
-                });
-                if (wrote) void hardRefreshWorkspaceCaches(queryClient);
+                markTurn("onFinish");
+                refreshAfterWrites(message);
             },
             // The server streams the auto-title as a TRANSIENT data part on the first
             // turn (never persisted into parts) — surface it live to header + sidebar.
@@ -321,6 +350,22 @@ export function AssistantSidePanel({
         });
 
     const isStreaming = status === "submitted" || status === "streaming";
+
+    useEffect(() => {
+        const last = messages.at(-1);
+        if (status === "streaming" && last?.role === "assistant") refreshAfterWrites(last);
+    }, [status, messages, refreshAfterWrites]);
+
+    useEffect(() => {
+        if (status === "submitted" && !turnTimingRef.current) turnTimingRef.current = { t0: performance.now(), seen: new Set() };
+        markTurn(`status ${status}`);
+        const last = messages.at(-1);
+        for (const part of last?.role === "assistant" ? last.parts : []) {
+            const tool = safeToolName(part);
+            markTurn(tool ? `${tool} ${(part as { state?: string }).state}` : part.type === "text" ? "first text" : part.type);
+        }
+        if (status === "ready" || status === "error") turnTimingRef.current = null;
+    }, [status, messages, markTurn]);
 
     // The live stream id for the active thread, hydrated from the conversation
     // read (`GET /conversations/:id` → `conversation.activeStreamId`). The Stop

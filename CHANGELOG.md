@@ -9,7 +9,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Added
 - Give an event a colour, like a routine; its card on Events takes on a soft tint of it.
 
+### Changed
+- The assistant starts answering sooner and looks things up in fewer steps.
+
 ### Fixed
+- Your lists now update the moment the assistant changes something, not after it finishes replying.
 - Opening a task while the assistant is open now shows its details on top, and closing them brings the assistant back.
 
 ## [0.21.2] - 2026-09-25
