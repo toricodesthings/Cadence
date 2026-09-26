@@ -9,7 +9,7 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
-import { userClock } from "../../src/domains/ai/agent";
+import { loadSnapshot, userClock } from "../../src/domains/ai/agent";
 import { buildToolRegistry } from "../../src/domains/ai/tools/index";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { habitRoutes } from "../../src/domains/habits/habits.route";
@@ -18,6 +18,7 @@ import { noteRoutes } from "../../src/domains/notes/notes.route";
 const clock = userClock("America/Toronto", "2026-09-22T02:30:00.000Z");
 
 let run: (name: string, args: Record<string, unknown>) => Promise<any>;
+let snapshot: () => Promise<string>;
 let tasks: ReturnType<typeof apiAs>;
 let habits: ReturnType<typeof apiAs>;
 let notes: ReturnType<typeof apiAs>;
@@ -30,6 +31,7 @@ beforeEach(async () => {
     notes = apiAs(userId, "/api", noteRoutes);
     const tools = buildToolRegistry({} as any, userId, { timezone: clock.timezone, currentDate: clock.now.toISOString(), today: clock.today, weekStart: "Monday" }) as any;
     run = (name, args) => tools[name].execute(args, { toolCallId: "t", messages: [] });
+    snapshot = () => loadSnapshot(tools, clock.today);
     // Timed, 9:00 PM Monday local (01:00 UTC Tuesday) — today for the user.
     await tasks("POST", "", { title: "Late call", orderIndex: 1, isAllDay: false, scheduledStart: "2026-09-22T01:00:00.000Z", scheduledEnd: "2026-09-22T01:30:00.000Z" });
     // All-day Monday and all-day Tuesday.
@@ -67,6 +69,15 @@ describe("assistant tools use the user's day and clock", () => {
 
         expect(result.range).toEqual({ start: "2026-09-22", end: "2026-09-22", timezone: "America/Toronto" });
         expect(titles(result.tasks)).toEqual(["Standup", "Tomorrow thing"]);
+    });
+
+    it("the prompt snapshot is the user's Monday, read through the same tools", async () => {
+        const result = JSON.parse(await snapshot());
+
+        expect(titles(result.schedule.tasks)).toEqual(["Late call", "Pay rent"]);
+        expect(result.overdue.tasks).toEqual([]);
+        expect(result.routines).toEqual([]);
+        expect(result.capture.items).toEqual([]);
     });
 });
 

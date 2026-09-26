@@ -119,6 +119,14 @@ describe("composePrompt", () => {
         expect(compose(ctx())).not.toContain("## Memory");
     });
 
+    it("fences the snapshot between Environment and memory, and omits it when absent", () => {
+        const out = compose(ctx({ snapshot: '{"overdue":[]}', memories: [{ id: "1", content: "m", type: "CORE", salience: 0.9 }] }));
+        expect(out).toContain('kind="snapshot" trust="untrusted">>>\nSANITIZED({"overdue":[]})');
+        expect(out.indexOf("## Today at a glance")).toBeGreaterThan(out.indexOf("## Environment"));
+        expect(out.indexOf("## Today at a glance")).toBeLessThan(out.indexOf("## Memory"));
+        expect(compose(ctx())).not.toContain("## Today at a glance");
+    });
+
     it("throws naming the token on an unknown placeholder", () => {
         const blocks = { ...PROMPT_BLOCKS, base: ["Hello {{bogusToken}}"] };
         expect(() => composePrompt(blocks, ctx(), "N")).toThrowError(/bogusToken/);

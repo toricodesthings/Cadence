@@ -5,10 +5,10 @@
  *
  * Layout, sections joined by a blank line, static → per-user → per-turn so the
  * longest possible prefix caches:
- *   base sections · voice (+ workload modifier) · custom instructions · Environment · memory
+ *   base sections · voice (+ workload modifier) · custom instructions · Environment · snapshot · memory
  *
  * Only raw user-provided VALUES are sanitized and fenced (names, custom
- * instructions, memory content). Every instruction is plain system text.
+ * instructions, snapshot, memory content). Every instruction is plain system text.
  */
 import { fenceData, sanitizeUntrusted } from "../safety/injection-policy";
 import type { ApprovalMode } from "@cadence/contracts/ai";
@@ -76,6 +76,9 @@ export function composePrompt(blocks: PromptBlocks, ctx: PromptRuntimeContext, n
               })
             : null,
         environmentSection(blocks, ctx, nonce),
+        ctx.snapshot
+            ? interpolate(blocks.snapshot, { snapshot: fence("snapshot", sanitizeUntrusted(ctx.snapshot, nonce), nonce) })
+            : null,
         memories.length > 0
             ? interpolate(blocks.memory, {
                   memory: fence(

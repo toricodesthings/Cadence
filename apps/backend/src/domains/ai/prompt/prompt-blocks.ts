@@ -24,6 +24,7 @@ import workloadHigh from "./blocks/voice/workload-high.md";
 import customInstructions from "./blocks/user/custom-instructions.md";
 import environment from "./blocks/user/environment.md";
 import memory from "./blocks/user/memory.md";
+import snapshot from "./blocks/user/snapshot.md";
 
 const t = (text: string) => text.trimEnd();
 
@@ -33,5 +34,6 @@ export const PROMPT_BLOCKS: PromptBlocks = {
     workloadHigh: t(workloadHigh),
     customInstructions: t(customInstructions),
     environment: t(environment),
+    snapshot: t(snapshot),
     memory: t(memory),
 };

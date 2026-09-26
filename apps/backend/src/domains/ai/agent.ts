@@ -113,6 +113,33 @@ async function maybeRetrieveMemories(
     }
 }
 
+/**
+ * Today at a glance: the reads most turns open with, run before the model starts
+ * so "plan my afternoon" needs no read step. Same tools and shapes the model
+ * already knows; a failed read is left out. Small caps keep it ~1k tokens.
+ */
+export async function loadSnapshot(tools: ReturnType<typeof buildToolRegistry>, today: string): Promise<string> {
+    const read = async (t: { execute?: unknown }, input: object): Promise<any> => {
+        const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, { toolCallId: "snapshot", messages: [] });
+        return (result as { ok?: boolean })?.ok === false ? undefined : result;
+    };
+    const [schedule, overdue, routines, capture, events] = await Promise.all([
+        read(tools.get_schedule_window, { start: today, end: today, includeDone: false, limit: 12 }),
+        read(tools.get_tasks, { dueWindow: "overdue", limit: 5 }),
+        read(tools.get_habit_status_today, {}),
+        read(tools.get_inbox_items, { includeProcessed: false, limit: 5 }),
+        read(tools.get_events, {}),
+    ]);
+    const targetTime = new Map<string, string | null>(schedule?.routines.map((r: any) => [r.id, r.targetTime]));
+    return JSON.stringify({
+        schedule: schedule && { tasks: schedule.tasks, more: schedule.more },
+        overdue,
+        routines: routines?.statuses.map((s: any) => ({ ...s, targetTime: targetTime.get(s.habitId) ?? undefined })),
+        capture,
+        events: events?.events.filter((e: { daysUntil: number }) => e.daysUntil <= 7),
+    });
+}
+
 let promptHash: Promise<string> | undefined;
 
 /**
@@ -159,7 +186,20 @@ export async function getAgentInstance(
     const locale = opts.locale ?? "en";
     const clock = userClock(opts.timezone, opts.currentDate);
     const { burnoutIndex, persona, weekStart } = await loadUserContext(env, userId);
-    const memories = await maybeRetrieveMemories(env, userId, persona, opts.queryText);
+    const agentCtx: AgentContext = {
+        timezone: clock.timezone,
+        currentDate: clock.now.toISOString(),
+        today: clock.today,
+        weekStart,
+        locale,
+        nonce: opts.nonce,
+        waitUntil: opts.waitUntil,
+    };
+    const tools = buildToolRegistry(env, userId, agentCtx);
+    const [memories, snapshot] = await Promise.all([
+        maybeRetrieveMemories(env, userId, persona, opts.queryText),
+        loadSnapshot(tools, clock.today),
+    ]);
 
     const instructions = composePrompt(
         PROMPT_BLOCKS,
@@ -171,21 +211,11 @@ export async function getAgentInstance(
             approvalMode: opts.approvalMode,
             workloadHigh: isWorkloadHigh(burnoutIndex, persona.adaptiveTone),
             persona,
+            snapshot,
             memories,
         },
         opts.nonce,
     );
-
-    const agentCtx: AgentContext = {
-        timezone: clock.timezone,
-        currentDate: clock.now.toISOString(),
-        today: clock.today,
-        weekStart,
-        locale,
-        nonce: opts.nonce,
-        waitUntil: opts.waitUntil,
-    };
-    const tools = buildToolRegistry(env, userId, agentCtx);
 
     const agent = new ToolLoopAgent({
         model: getModel(env),
