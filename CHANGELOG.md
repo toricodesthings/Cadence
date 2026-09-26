@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+- Opening a task while the assistant is open now shows its details on top, and closing them brings the assistant back.
+
 ## [0.21.2] - 2026-09-25
 
 The assistant can now shape your events, sections and routines, plus behind the scene improvements.

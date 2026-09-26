@@ -263,6 +263,14 @@ export function MainLayout({
         setRailView(assistantPanelOpen ? "assistant" : "context");
     }, [assistantPanelOpen, setRailView]);
 
+    // Opening a contextual panel (e.g. task details) claims the rail on top of
+    // Cadence; closing it hands the rail back to the assistant if it's open.
+    const contextPanelPresent = sidePanelActive ?? Boolean(sidePanel);
+    useEffect(() => {
+        if (contextPanelPresent) setRailView("context");
+        else if (useAssistantStore.getState().assistantPanelOpen) setRailView("assistant");
+    }, [contextPanelPresent, setRailView]);
+
     // Compact has no global tag filter: a `?tag=` deep link opens that tag's page instead.
     const deepLinkTag = shell.isCompact ? new URLSearchParams(location.search).get("tag") : null;
     useEffect(() => {
@@ -605,7 +613,7 @@ export function MainLayout({
     }
 
     // ── Shared right rail (mutually exclusive context panel ↔ assistant) ──
-    const sidePanelPresent = sidePanelActive ?? Boolean(sidePanel);
+    const sidePanelPresent = contextPanelPresent;
     // Cadence claims the rail when it owns the active tab, or when there's no
     // contextual panel to compete with.
     const assistantInRail =
