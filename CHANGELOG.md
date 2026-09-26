@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+The assistant can now shape your events, sections and routines, plus behind the scene improvements.
+
 ### Added
 - The assistant can add, change and delete your events, and give them an emoji.
 - The assistant can add, rename, reorder and delete sections in a list, and sort tasks into them.
