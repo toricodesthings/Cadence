@@ -1,6 +1,6 @@
 # Cadence — Repo Rules for Agents
 
-Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`.
+Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`. Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
 
 ## Find code with the graph first
 

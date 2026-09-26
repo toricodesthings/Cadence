@@ -15,7 +15,7 @@ apps/desktop/
 │   ├── gen/schemas/    # Generated capability JSON schemas — do not hand-edit
 │   ├── tauri.conf.json # Window config, CSP, bundle targets, plugin config (deep-link scheme, updater)
 │   └── Cargo.toml      # Plugin dependency versions
-├── e2e/                # tauri-driver + selenium-webdriver + mocha smoke suite
+├── tests/e2e/          # tauri-driver + selenium-webdriver + mocha smoke suite
 ├── scripts/
 │   ├── sync-version.mjs      # Copies root package.json version into tauri.conf.json + Cargo.toml/.lock
 │   └── dev-with-bridge.mjs   # Runs the frontend dev server on the bridge port for `tauri dev`
@@ -56,7 +56,7 @@ CSP is defined separately in `tauri.conf.json` (`app.security.csp`) from the web
 
 ## 7. Testing
 
-`e2e/` uses the official Tauri WebDriver flow: `tauri-driver` (installed via `cargo install tauri-driver --locked`, not a workspace dependency) + `selenium-webdriver` + `mocha`/`chai`. `smoke.test.mjs` runs `build:debug` itself (with `VITE_DESKTOP_E2E=true`), then launches `src-tauri/target/debug/cadence-desktop[.exe]`. `cargo fmt --check` + `cargo clippy --all-targets -D warnings` run as `typecheck` — treat clippy warnings as build failures, matching the `-D warnings` flag.
+`tests/e2e/` uses the official Tauri WebDriver flow: `tauri-driver` (installed via `cargo install tauri-driver --locked`, not a workspace dependency) + `selenium-webdriver` + `mocha`/`chai`. `smoke.test.mjs` runs `build:debug` itself (with `VITE_DESKTOP_E2E=true`), then launches `src-tauri/target/debug/cadence-desktop[.exe]`. `cargo fmt --check` + `cargo clippy --all-targets -D warnings` run as `typecheck` — treat clippy warnings as build failures, matching the `-D warnings` flag.
 
 ## 8. Commands
 

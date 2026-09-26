@@ -2,7 +2,7 @@
 
 Standalone Cloudflare Worker API (Hono v4 + Neon Postgres via Hyperdrive). Shared backend for web, desktop, and future mobile clients — must stay platform-neutral (no cookies/sessions), edge-safe (no Node-only APIs, no long-lived connections), schema-driven (Drizzle is truth), and parity-first (every endpoint usable by every client identically). Breaking a route contract breaks every client at once.
 
-**Canonical shapes live upstream, not here.** [`@cadence/contracts`](../../packages/contracts) (Zod → inferred types) owns every request/response/entity shape. [`@cadence/domain`](../../packages/domain) owns pure business logic (throws `DomainError`, mapped to `AppError`). Read `packages/AGENTS.md` before touching either. A domain's `domains/*/*.schema.ts` holds **only** server-only refinement (query coercion, cross-field `superRefine`) and re-exports the contract — most domains have **no schema file** at all. **Never hand-write a type that mirrors a contract** — derive via `z.infer`/`.pick`/`.extend`.
+**Canonical shapes live upstream, not here.** [`@cadence/contracts`](../../packages/contracts) (Zod → inferred types) owns every request/response/entity shape. [`@cadence/domain`](../../packages/domain) owns pure business logic (throws `DomainError`, mapped to `AppError`). Read `packages/AGENTS.md` before touching either. No domain has a schema file: routes and services import every schema from its contract (filters and their `superRefine` included). **Never hand-write a type that mirrors a contract** — derive via `z.infer`/`.pick`/`.extend`.
 
 ## 1. Tech Stack
 
@@ -31,14 +31,14 @@ src/
 │   ├── auth.ts       # Bearer JWT middleware + async user sync
 │   ├── db.ts         # getDbClient(c.env) — per-request client
 │   ├── rls.ts        # setRlsContext, withRls
-│   ├── errors.ts     # AppError, throwIfNotFound, formatErrorResponse
+│   ├── errors.ts     # AppError (code: contract `ErrorCode`), createErrorBody (→ `ApiError`), throwIfNotFound, formatErrorResponse
 │   ├── validation.ts # apiValidator() wrapper
 │   ├── idempotency.ts, ownership.ts, metrics.ts, log.ts, request-log.ts, redis.ts, date-utils.ts
 ├── domains/           # tasks, habits, inbox, projects, tags, subtasks, sections, settings,
-│                       # notes, events, suggestions, health, proxy, ai, debug — one folder each
+│                       # notes, events, health, proxy, ai, debug — one folder each
 ├── db/schema.ts       # Drizzle schema: tables, enums, indexes, RLS policies, relations (SOURCE OF TRUTH)
 ├── cron/overdue-check.ts
-└── types/             # env.ts (Env bindings), db.ts (DbClient/Tx aliases), api.ts (envelope re-exports)
+└── types/             # env.ts (Env bindings), db.ts (DbClient/Tx aliases), text-modules.d.ts (.md imports)
 ```
 
 **Key Principles**
@@ -54,8 +54,8 @@ src/
 
 ## 3. Adding Code
 
-- **New feature in existing domain:** contract in `@cadence/contracts/{domain}` → server refinement in `{domain}.schema.ts` only if needed → route handler → Drizzle schema + matching `xRowSchema` if persistence changed → tests in `tests/unit/` or `tests/integration/`.
-- **New domain:** author contract (`packages/contracts/src/{domain}.ts` + sub-path export) → `{domain}.route.ts` importing shapes directly from `@cadence/contracts/{domain}` (chained router) → mount in `src/index.ts` on the chained `apiApp` → Row-parity line in `tests/unit/contract-parity.test.ts` + schema tests in `packages/contracts` + `tests/integration/{domain}.test.ts`.
+- **New feature in existing domain:** contract in `@cadence/contracts/{domain}` → route handler → Drizzle schema + matching `xRowSchema` if persistence changed → tests in `tests/unit/` or `tests/integration/`.
+- **New domain:** author contract (`packages/contracts/src/{domain}.ts` + sub-path export) → `{domain}.route.ts` importing shapes directly from `@cadence/contracts/{domain}` (chained router) → mount in `src/index.ts` on the chained `apiApp` → Row-parity line in `tests/unit/contract-parity.test.ts` + schema tests in `packages/tests/contracts` + `tests/integration/{domain}.test.ts`. Read routes return the contract entity (narrow loose columns in one mapper, like `toTask`), and each gets a line in the frontend's `rpc-parity.test.ts`.
 - **Platform infra:** only genuinely cross-cutting code (auth, db, rls, errors, logging, validation, idempotency, ownership, metrics, redis).
 
 ## 4. Request Lifecycle
@@ -76,7 +76,7 @@ Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, a
 ## 6. API Conventions
 
 - All routes under `/api/v1/`, no exceptions. Auth is always `Authorization: Bearer <JWT>` — never cookies/sessions.
-- Success envelope: `{ "data": {...} }` everywhere, including health/debug. Errors: `{ "error": { code, message, status, requestId } }` via `AppError`.
+- Success envelope: `{ "data": {...} }` everywhere, including health/debug. Errors: the contract `ApiError` (`{ "error": { code, message, status, isRetryable, requestId, issues? } }`) via `AppError`; codes come from `ERROR_CODES` in `@cadence/contracts/common`. Task responses always carry `tagIds` (`toTask`/`withTagIds` in `tasks.service.ts`).
 - **Idempotency:** `Idempotency-Key` header — `getIdempotencyKey(c)` → `checkIdempotency(tx, userId, key)` (no-op if undefined) → mutate → `recordMutation(tx, userId, key)`. Supported on all POST endpoints in tasks/habits/inbox/projects/tags/subtasks/sections.
 - Read-heavy routes: `Cache-Control: private, max-age=0, stale-while-revalidate=5`.
 
@@ -93,7 +93,6 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | habits | `/habits` | CRUD, resolve (streak in the caller's `timezone`; skipped days are neutral, never a break; a routine with `steps` can send `stepStatus` and the day's status follows from it via `stepDayStatus`, a partial day kept as PENDING), `/weekly` range view (any start/end: logs per due day from the day before creation, earlier days only when logged; a pause hides today onward, never the past) |
 | settings | `/settings`, `/settings/background` | GET + PATCH (deep-merge via `deepPartial`); background = one photo per user in R2 (`USER_ASSETS`): POST upload (WebP-only, metadata stripped), GET own image, DELETE |
 | events | `/events` | single + batch usage tracking |
-| suggestions | `/suggestions` | list + accept/dismiss |
 | proxy | `/proxy` | proxied external calls: weather, reverse/forward geocoding, approximate location (`GET /geo/approximate` from Cloudflare `request.cf`), holidays. Coordinates are rounded to 2 decimals before any upstream call. |
 | debug | `/debug` | clear + seed (non-prod only) |
 | ai | `/ai`, `/ai/images` | `POST /chat` (streamed, persisted; a new message or approval answers), conversation CRUD (delete takes its images), `GET /usage`; images: `POST /` upload (WebP-only, 1MB, dedup per user + conversation), `POST /:id/report`, `GET /:id` own image, `DELETE /:id` while unsent |
@@ -104,7 +103,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 `src/db/schema.ts` is truth: **26 tables**, **14 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · infra (`mutationDedup`).
 
-**Settings:** `UserSettingsSchema` lives in `settings.schema.ts`, re-exported from `db/schema.ts`. `settings.appearance.backgroundImage` is server-owned: `sanitizeBackgroundPatch` (`domains/settings/background-image.ts`) lets a PATCH change only accent/blur/brightness, never the photo's identity or existence. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant`: `persona` is the one voice setting (it picks `prompt/blocks/voice/<persona>.md`); `tone` and `verbosity` stay for back-compat but never reach the prompt; the rest (names, emoji, proactiveSuggestions, adaptiveTone) render into the prompt's Environment. Free-text fields (names, customInstructions) are sanitized + fenced before composition — never trust them raw in a prompt.
+**Settings:** the contract's `userSettingsSchema` types the `users.settings` column; reads return `normalizeSettings` → `SettingsView` (stored over defaults). `settings.appearance.backgroundImage` is server-owned: `sanitizeBackgroundPatch` (`domains/settings/background-image.ts`) lets a PATCH change only accent/blur/brightness, never the photo's identity or existence. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant`: `persona` is the one voice setting (it picks `prompt/blocks/voice/<persona>.md`); `tone` and `verbosity` stay for back-compat but never reach the prompt; the rest (names, emoji, proactiveSuggestions, adaptiveTone) render into the prompt's Environment. Free-text fields (names, customInstructions) are sanitized + fenced before composition — never trust them raw in a prompt.
 
 ## 9. AI Domain (`src/domains/ai`)
 
@@ -114,7 +113,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 - **Cadence guide:** `help/*.md` (one file per topic) served by the read-only `get_cadence_help` tool (`tools/help.ts`, topic enum). Links are in-app only: routes, `?settings=<tab>`, or ids from tool results. The guide and primer call projects Lists and document Capture completion, notes, ordering and Undo. A user-visible change that makes a help file or the primer (`blocks/base/cadence-primer.md`) wrong edits it in the same change; `tests/unit/ai-help.test.ts` checks every link against the known routes and Settings tabs.
 - `tools/` — one file per callable surface: `tasks`, `projects` (searchable, paged lists and sections; `sectionsMore` flags incomplete sections; section create/rename/reorder/delete, a deleted section's tasks stay unsectioned), `tags`, `habits` (reads; create/update via `createHabit`/`updateHabit` in `habits.service.ts`, shared with the routes; repeat rules limited to what the Routines picker shows; logging), `inbox`, `calendar`, `events` (the /events page: `settings.calendar.personalEvents.items`, rewritten whole inside the transaction; dedup keyed to the user row), `metrics`, `help`, plus `projections` (compact rows: default and null keys dropped) and `drafts` (write-tool task schemas picked from the task contracts; no `isAllDay`, it follows from the values). Tools read/write real user data through the same RLS-scoped path as routes — never bypass `withRls`; writes call the domain services (`{domain}.service.ts`, shared with the routes) in one transaction, keyed by the tool call id (`once`), with metrics after commit. Reads return open tasks unless a state is asked for, hide the note body past 1,000 characters, fence note text, and set `more: true` when a cap cuts a list. `buildToolRegistry` strips regex `pattern`s from the schemas the model sees (validation still uses the zod schema). Descriptions say what a tool does, returns and its limits; when to use it belongs in the prompt. History replay shrinks older turns' read rows to `{count, ids}` (`compactOldReads`).
 - **Images (`images/`):** a turn carries `cadence-image:<uuid>` file parts only (`input-guard`: WebP references, ≤ `AI_IMAGES_PER_MESSAGE`, no filename), persisted as-is. Before `admit`, `resolveTurnImages` checks the ids are the caller's in this conversation (else 400 `IMAGE_NOT_FOUND`) and counts new sends; re-sends are free. After `compactOldReads`, `hydrateImages` turns images in the last 6 messages into data URLs (one R2 read each) and older or expired ones into a text stub; memory extraction and the saved reply keep the references. Objects live at `ai-images/{sha256(userId)}/{id}.webp` with no metadata; only the `ai_images` row links a user to one. The 24h image quota is one more dimension in the admit script (429 `AI_IMAGE_LIMITED`); 8 unsent uploads at most (429 `AI_IMAGE_PENDING_LIMIT`).
-- **Time:** `userClock` (`agent.ts`) turns the client's instant + IANA zone into the turn's clock: the prompt gets local wall-clock time to the minute with offset and weekday, tools get `ctx.timezone` + `ctx.today` (the user's local date). Tools speak local: `toMinimalTask(row, tz)` writes timed values as `…T14:00:00-04:00` and all-day values as `YYYY-MM-DD`; day windows are local dates matched with `taskLocalDay` (query a day wider, filter exactly). Never slice a UTC timestamp for "today". Zone helpers live in `platform/date-utils.ts`.
+- **Time:** `userClock` (`agent.ts`) turns the client's instant + IANA zone into the turn's clock: the prompt gets local wall-clock time to the minute with offset and weekday, tools get `ctx.timezone` + `ctx.today` (the user's local date). Tools speak local: `toMinimalTask(row, tz)` writes timed values as `…T14:00:00-04:00` and all-day values as `YYYY-MM-DD`; day windows are local dates matched with `taskLocalDay` (query a day wider, filter exactly). Never slice a UTC timestamp for "today". `localDay`, `addDaysToDate` and `isPausedOn` come from `@cadence/domain/repeats`; server-only zone helpers (`toZonedIso`, `atLocalDate`, `resolveTimeZone`) live in `platform/date-utils.ts`.
 - **Redis (`platform/redis.ts`, Upstash REST over HTTPS only):** `getRedis(env)` gates stream-resumption (in-flight SSE chunk log + abort flag) — returns `null` if unconfigured/insecure, and every resumption path must no-op gracefully on `null`. `getRateLimitRedis(env)` is a separate accessor for AI-specific rate limiting. Redis is a *cache*, never the source of truth — Postgres is. Built per-request (Workers rule), never a module global.
 
 ## 10. Debug Seed System (`src/domains/debug/`)
@@ -123,7 +122,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 ## 11. Tests
 
-`tests/unit/` (pure logic, no HTTP, no DB) · `tests/integration/` (routes against a real Postgres: `tests/helpers/db.ts` runs PGlite with every journaled migration, as a non-superuser role so RLS applies; each test creates its own users via `createUser()` and calls routes with `apiAs()`; only external services are faked: HTTP upstreams, R2, Redis) · `tests/security/` (worker middleware chain + static tenant-isolation scan of `src/`). Schema tests live in `packages/contracts`, not here. Commands: `pnpm test` (all of `tests/`, what CI runs), `test:unit`, `test:integration`, `test:security`, `test:watch`, `pnpm check` (typecheck + all tests).
+`tests/unit/` (pure logic, no HTTP, no DB) · `tests/integration/` (routes against a real Postgres: `tests/helpers/db.ts` runs PGlite with every journaled migration, as a non-superuser role so RLS applies; each test creates its own users via `createUser()` and calls routes with `apiAs()`; only external services are faked: HTTP upstreams, R2, Redis) · `tests/security/` (worker middleware chain + static tenant-isolation scan of `src/`). Schema and domain-rule tests live in `packages/tests`, not here. Commands: `pnpm test` (all of `tests/`, what CI runs), `test:unit`, `test:integration`, `test:security`, `test:watch`, `pnpm check` (typecheck + all tests).
 
 ## 12. Auth (`platform/auth.ts`)
 
@@ -165,10 +164,10 @@ Never call `console.*` directly — use `logger.<level>(source, event, fields)`.
 
 ## 17. Anti-Patterns
 
-Platform-specific endpoints · bypassing JWT/RLS/Zod · trusting client `userId` · global/cached DB clients · domain logic in `platform/` · `helpers.ts`/`utils.ts`/`misc.ts` · inline reusable schemas in routes · re-deriving `DbClient`/`Tx` aliases locally · domain re-export shims in `types/` (the one exception is `types/inbox.ts`, load-bearing for the frontend — don't imitate) · raw stack traces/SQL to clients · `drizzle-kit push` · expanding public AI surface without explicit scope · unversioned routes · duplicated cross-domain logic · UCURD violations · business logic buried in handlers · threading a raw `tx` into pure logic instead of injecting data/a loader.
+Platform-specific endpoints · bypassing JWT/RLS/Zod · trusting client `userId` · global/cached DB clients · domain logic in `platform/` · `helpers.ts`/`utils.ts`/`misc.ts` · inline reusable schemas in routes · re-deriving `DbClient`/`Tx` aliases locally · domain re-export shims in `types/` · raw stack traces/SQL to clients · `drizzle-kit push` · expanding public AI surface without explicit scope · unversioned routes · duplicated cross-domain logic · UCURD violations · business logic buried in handlers · threading a raw `tx` into pure logic instead of injecting data/a loader.
 
 ## 18. Checklist
 
-Identify domain → update/add contract + server schema refinement → update Drizzle schema + regenerate migration if persistence changed → route with `apiValidator()` → `getDbClient` + `withRls` → ownership checks → idempotency support on writes → `{ data }` envelope → tests → `pnpm check`.
+Identify domain → update/add contract → update Drizzle schema + regenerate migration if persistence changed → route with `apiValidator()` → `getDbClient` + `withRls` → ownership checks → idempotency support on writes → `{ data }` envelope → tests → `pnpm check`.
 
 If this document conflicts with a proposed change, this document is the baseline.

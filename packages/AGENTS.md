@@ -13,7 +13,8 @@ by every client (`apps/backend`, `apps/frontend`, and downstream
 packages/
   nlp/        NLP parse / resolve / rank / focus-views.   deps: chrono-node, fuse.js
   contracts/  Zod schemas → inferred types (wire shapes). deps: zod, @cadence/nlp
-  domain/     Pure domain logic (no I/O, no framework).   deps: rrule
+  domain/     Pure domain logic (no I/O, no framework).   deps: rrule, @cadence/contracts
+  tests/      @cadence/package-tests: every package test, mirroring each package's src/
 ```
 
 **Dependency direction is strictly downhill** and enforced (see §6):
@@ -59,7 +60,7 @@ families plus their inferred types:
 `xRowSchema` must be **structurally identical** to `typeof table.$inferSelect`.
 This is asserted at compile time in
 `apps/backend/tests/unit/contract-parity.test.ts` (one `expectTypeOf(...)
-.toEqualTypeOf(...)` per table — currently 12). A column rename/add/nullability
+.toEqualTypeOf(...)` per table — currently 15). A column rename/add/nullability
 change now fails `tsc` there instead of silently breaking a client. **When you
 touch `apps/backend/src/db/schema.ts`, update the matching `xRowSchema` in the
 same change.** Watch DB nullability: a Drizzle column with `.default()` but
@@ -99,23 +100,36 @@ interface** — the parity guard only covers the Row subset.
 
 - **settings**: `userSettingsSchema` is the sparse **storage/patch** shape (all
   fields optional — used by the DB jsonb column + PATCH). `SETTINGS_DEFAULTS`
-  (`as const`) is the **full** shape. The frontend's full
-  `UserSettings` *view* is `DeepRequired<UserSettings>` in
-  `apps/frontend/app/types/settings.ts` (not `typeof SETTINGS_DEFAULTS`, whose
-  `as const` literals break `=== true/false` comparisons). `deepPartial`,
+  (`as const`) holds the defaults. `SettingsView` (`DeepRequired` of the stored
+  shape) is the full view the API returns and the frontend's `UserSettings`
+  (not `typeof SETTINGS_DEFAULTS`, whose `as const` literals break
+  `=== true/false` comparisons). Saved focus views (Row + Entity) live here too. `deepPartial`,
   `deepMerge` (defaults ⊕ stored/patch, used by both apps), and
   `personalEventSchema` live here; legacy-settings migration is backend-only
   (`settings.route.ts#normalizeSettings`).
 - **ai**: only the **wire-crossing** shapes belong here (UIMessage, chat request,
-  conversation/message/image Row+Entity, chat image limits + `cadence-image:` URL helpers, message role/status enums, and the
+  conversation/message/image Row+Entity, conversation list/detail projections,
+  `streamErrorSchema` + `AI_ERROR_CODES` (status + retryability; each client
+  keeps its own wording), chat image limits + `cadence-image:` URL helpers, message role/status enums, and the
   `TaskProposalPart`/`DangerConfirmPart` widget payloads). Everything that
   composes prompts, runs tools, retrieves memory, or persists rows stays in
   `apps/backend/src/domains/ai` (server-only).
 
+### 1.5a The other modules
+
+- **common**: scalars, pagination, `uuidParamSchema`/`taskIdParamSchema`, the
+  `ApiError` envelope + `ERROR_CODES`/`ErrorCode` (every code the API sends;
+  `AppError` and `DomainError` take one), and the wire-format boundary helpers
+  `isDateOnly`/`normalizeStartBoundary`/`normalizeEndBoundary`.
+- **task** also holds the `GET /tasks` filters (`taskFiltersSchema`,
+  `taskListQuerySchema`); **events** the usage-event names and batch cap;
+  **proxy** the weather/geocoding/holiday queries and responses;
+  **notification** reminder state (Row + Entity + upsert).
+
 ### 1.5b Shared constants — `constants.ts` (Tier 2)
 
 `@cadence/contracts/constants` holds **semantic, framework-neutral data only** —
-`TASK_PRIORITY_LABELS`, `TAG_PALETTE`. The guiding
+`TASK_PRIORITY_NAMES` (`none…urgent`, index = level), `TASK_PRIORITY_LABELS`, `TAG_PALETTE`. The guiding
 rule (§0 litmus): **share semantics, never presentation.** Tailwind classes,
 Lucide icon names, and CSS-var strings stay in the consuming app and are layered
 on top — e.g. `apps/frontend/.../constants/priority.ts` builds its `PRIORITY_CONFIG`
@@ -129,12 +143,12 @@ framework/presentation coupling.
 1. Edit/author `packages/contracts/src/{domain}.ts` (Row + Entity + Input).
 2. Add the sub-path to `packages/contracts/package.json#exports`.
 3. If it maps to a DB table, add a parity assertion in
-   `contract-parity.test.ts`.
-4. The backend `domains/{domain}/{domain}.schema.ts` should be
-   `export * from "@cadence/contracts/{domain}"` (+ server-only refinements).
-5. Frontend imports the sub-path directly (`@cadence/contracts/{domain}`).
-6. `pnpm --filter @cadence/contracts typecheck && lint && test`, then
-   `pnpm typecheck` (whole workspace).
+   `contract-parity.test.ts`; if a read route returns it, a line in the
+   frontend's `tests/app/lib/api/rpc-parity.test.ts`.
+4. Both apps import the sub-path directly (`@cadence/contracts/{domain}`); no
+   app keeps a schema file.
+5. `pnpm --filter @cadence/contracts typecheck && lint`,
+   `pnpm --filter @cadence/package-tests test contracts`, then `pnpm typecheck`.
 
 ---
 
@@ -157,10 +171,8 @@ Never import `AppError` here.
 ### 2.2 Current modules
 
 - `task-temporal.ts` — `classifyTaskReadShape` (the canonical 6-value
-  `TaskReadShape` enum), `normalizeTaskTemporalFields`, `hasTaskTemporalMutation`,
-  `inferIsAllDay` (a proposal's shape → all-day vs timed), and the boundary helpers `isDateOnly`/`normalizeStartBoundary`/
-  `normalizeEndBoundary`. The frontend `getTaskScheduleKind` maps canonical →
-  legacy labels via a table; the backend uses the values directly.
+  `TaskReadShape` enum, used as-is by both apps), `normalizeTaskTemporalFields`,
+  `hasTaskTemporalMutation`, `inferIsAllDay` (a proposal's shape → all-day vs timed).
 - `task-recurrence.ts` — `validateTaskRecurrenceRule`, `expandScheduleScopedTasks`
   (+ helpers), and `resolveOccurrenceAnchor` (next/closest occurrence around a
   reference date; returns `null` on unparseable rule — callers supply the
@@ -173,7 +185,8 @@ Never import `AppError` here.
   time on a date, honouring per-weekday overrides), `habitRule`/`habitOccurrences`
   (a routine's due days; rules without INTERVAL/COUNT are anchored by whole
   periods so days before creation follow the pattern, "every N" rules count from
-  the creation day in the user's zone), `localDay`, `stepDayStatus`/`stepMarksOn`
+  the creation day in the user's zone), `localDay`, `addDaysToDate` (zone-free),
+  `isPausedOn` (a pause covers today through `pausedUntil`, never the past), `stepDayStatus`/`stepMarksOn`
   (a routine day's status from its step marks, and back), and
   `suggestInteractionMode` (the server default that makes class-like timed series Fixed).
 - `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
@@ -182,9 +195,9 @@ Never import `AppError` here.
 Presentation/formatting (human strings, `date-format`-dependent code) stays in
 the **frontend**; it *consumes* these primitives.
 
-### 2.3 Tests live with the code
+### 2.3 Tests live in `packages/tests/<pkg>/`, mirroring `src/`
 
-`packages/domain/src/*.test.ts` (vitest). The golden cross-consistency table in
+`packages/tests/domain/*.test.ts` (vitest), importing the public sub-paths. The golden cross-consistency table in
 `task-temporal.golden.test.ts` asserts the single classifier covers every
 branch — it is the regression net that previously required keeping two copies in
 sync. Add to it when you add a `TaskReadShape` branch.
@@ -193,19 +206,14 @@ sync. Add to it when you add a `TaskReadShape` branch.
 
 ## 3. Backend & frontend wiring (how the shims work)
 
-- **Backend**: routes import shapes directly from `@cadence/contracts/<domain>`
-  and pure logic from `@cadence/domain/*`. A `domains/*/*.schema.ts` exists only
-  for server-only validation — `tasks.schema.ts` (filter/query `superRefine`)
-  and `ai.schema.ts` re-export their contract; the
-  `events`/`suggestions`/`proxy` schemas are server-only. The per-domain schema shims, `settings-defaults.ts`,
-  `task-normalization.ts`, and `task-recurrence.ts` were **deleted** in cleanup.
-  `types/api.ts` remains a thin re-export of `@cadence/contracts/common` (the
-  documented shared-types home).
-- **Frontend**: Phase 3 codemod repointed relative imports to
-  `@cadence/contracts/*` sub-paths and deleted the `app/types/*` shims —
-  **except** `types/settings.ts` (the derived full `UserSettings` view +
-  `SETTINGS_DEFAULTS`/`DeepPartial`/`PersonalEvent` re-exports) and `types/api.ts` (the
-  `ApiErrorResponse` runtime class). `@cadence/backend` is still imported by the
+- **Backend**: routes and services import shapes directly from
+  `@cadence/contracts/<domain>` and pure logic from `@cadence/domain/*`; no domain
+  has a schema file. Loose DB columns are narrowed to the entity in one mapper
+  per domain (`toTask`, `toSavedFocusView`, …).
+- **Frontend**: imports `@cadence/contracts/*` sub-paths directly. The only
+  `app/types/*` files are `settings.ts` (re-exports `SettingsView` as
+  `UserSettings`, plus `SETTINGS_DEFAULTS`/`DeepPartial`/`PersonalEvent`) and
+  `api.ts` (the `ApiErrorResponse` runtime class). `@cadence/backend` is still imported by the
   RPC client (`AppType`) in 3 files — keep that dependency.
 
 ---
@@ -232,7 +240,7 @@ sync. Add to it when you add a `TaskReadShape` branch.
 - **Imports:** always by sub-path (`@cadence/contracts/task`); contracts and domain
   have no barrel (only nlp does, for the backend). Extensionless relative imports inside a package.
 - **No catch-all files.** One module per domain; no `utils.ts`/`helpers.ts`.
-- **Contracts own shape; domain folders keep server-only refinements.** Never
+- **Contracts own shape, including refinements.** Never
   duplicate a shape in an app. Where nlp owns a type (`CanonicalNlpEnvelope`,
   `FocusViewDefinition`), the contract schema ends in `satisfies z.ZodType<…>` so tsc catches drift.
 
@@ -242,10 +250,12 @@ sync. Add to it when you add a `TaskReadShape` branch.
 
 - **Compile-time row parity:** `apps/backend/tests/unit/contract-parity.test.ts`
   (enforced by `tsc --noEmit`, which includes `tests/`).
+- **Compile-time route parity:** `apps/frontend/tests/app/lib/api/rpc-parity.test.ts`
+  pins what each read route sends (inferred through the RPC client) to its entity.
 - **Dependency boundaries:** `packages/check-imports.mjs`, run by each package's
   `lint` script (and the turbo `lint` task) with the packages above it as extra
   forbidden specifiers. It fails on any forbidden import specifier.
-- **Per-package gates:** `pnpm --filter @cadence/<pkg> typecheck | lint | test`. Each package tests its own modules in `src/<module>.test.ts` (contracts: size limits and update-carries-only-sent-fields are API promises); apps never re-test package rules.
+- **Per-package gates:** `pnpm --filter @cadence/<pkg> typecheck | lint`, and `pnpm --filter @cadence/package-tests test <pkg>` (vitest path filter). Tests live in `packages/tests/<pkg>/<module>.test.ts` (contracts: size limits and update-carries-only-sent-fields are API promises); apps never re-test package rules.
 - **Whole workspace:** `pnpm typecheck` (turbo, all packages + apps).
 
 ---
@@ -254,8 +264,8 @@ sync. Add to it when you add a `TaskReadShape` branch.
 
 - Editing a Drizzle column without updating its `xRowSchema` → parity test fails
   (good — that's the point; fix the schema).
-- Aliasing the frontend's full `UserSettings` to `typeof SETTINGS_DEFAULTS` →
-  `as const` literals break boolean comparisons. Keep it derived via `DeepRequired`.
+- Aliasing `SettingsView` to `typeof SETTINGS_DEFAULTS` → `as const` literals
+  break boolean comparisons. Keep it derived via `DeepRequired`.
 - Adding `drizzle-orm`/`hono`/`react`/an app import to a package → `lint` fails.
   If you truly need DB/framework behavior, it doesn't belong in `packages/`.
 - Forgetting the `package.json#exports` sub-path → consumers can't resolve the

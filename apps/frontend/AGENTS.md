@@ -5,7 +5,7 @@ React Router v7 SPA (`ssr: false`, intentional) deployed as static assets on Clo
 ## 1. Non-Negotiables
 
 - Client-rendered SPA. Do not introduce SSR assumptions.
-- All server data flows through **TanStack Query**; all API calls through the typed Hono RPC client (`app/lib/api/client.ts`) — never raw `fetch` for backend calls.
+- All server data flows through **TanStack Query**; all API calls through the one typed Hono RPC client (`apiClient` in `app/lib/api/client.ts`, built on `authenticatedFetch`; `useApiClient()` returns it) — never raw `fetch` for backend calls and never `as any` on the client. Only the transports (`mutation-executor.ts` WAL replay, the assistant's `chat-transport.ts`) sit below it.
 - Reusable hooks → `app/hooks/`; non-UI logic → `app/lib/`; shared UI → `app/components/` grouped by domain; Radix always through `app/components/primitives/`, never imported raw into domain components.
 - No sterile SaaS styling: no white cards, harsh borders, gray dashboards. Prefer glass, shadow, ambient color, breathing room. Never hardcode a one-off hex when a semantic token belongs in `app/app.css`.
 - Notification settings fields are required in the settings schema — never optional.
@@ -41,7 +41,7 @@ app/
 ├── platform/         # WEB vs DESKTOP runtime boundary — see §11
 ├── stores/          # Zustand: assistant, focus-view, note-room, right-panel (holding),
 │                     # sidebar, subtask-open, tag-filter, task-completion, task-selection
-└── types/           # frontend-local types (e.g. settings.ts — the full UserSettings view type)
+└── types/           # frontend-local types (api.ts `ApiErrorResponse`; settings.ts re-exports the contract's `SettingsView` as `UserSettings`)
 ```
 
 ## 6. Design System (full detail: `docs/MANIFESTO.md` §5)
@@ -55,8 +55,9 @@ app/
 ## 7. Data & State
 
 - `useQuery`/`useMutation` only for server state — no `useEffect`-fetch-into-local-state without a specific non-caching reason.
-- Optimistic pattern (see `app/hooks/tasks/optimistic-helpers.ts`, `habits/optimistic-helpers.ts`): cancel in-flight queries → snapshot cache → update immediately → write the server's answer into every list (`reconcileTaskInCaches`) → rollback and invalidate on error. Task writes don't refetch on success, and invalidation only refetches what's on screen; hidden lists refetch when visited. Read one task with `useTask(id)`, never by loading whole state lists. Rate-limited reads are not retried; writes wait out `Retry-After`.
-- Query keys centralized in `app/lib/api/query-keys.ts` (domains: tasks, projects, inbox, tags, habits, ai) with differentiated `STALE_TIMES` — don't invent arbitrary per-hook caching windows.
+- `unwrapResponse(res)` takes its type from the RPC route: never pass a generic. A type that doesn't fit is route ↔ contract drift; fix the route (`tests/app/lib/api/rpc-parity.test.ts` pins each read route to its entity).
+- Optimistic pattern (`createOptimisticHelpers` per domain in `hooks/{tasks,habits,projects,tags}/optimistic-helpers.ts`; temp ids from `createTempId`): cancel in-flight queries → snapshot cache → update immediately → write the server's answer into every list (`reconcileTaskInCaches`) → rollback and invalidate on error. Task writes don't refetch on success, and invalidation only refetches what's on screen; hidden lists refetch when visited. Read one task with `useTask(id)`, never by loading whole state lists. Rate-limited reads are not retried; writes wait out `Retry-After`.
+- Query keys centralized in `app/lib/api/query-keys.ts` (domains: tasks, projects, inbox, tags, habits, location, weather, appearance, settings, ai) with differentiated `STALE_TIMES` — don't invent arbitrary per-hook caching windows.
 - Global query errors sign the user out on 401-ish failures and redirect to `/auth` — do not break this.
 - Local UI state: Zustand (`app/stores/`, see §5). `useSettings()` seeds from account-local storage only when cached data exists; query persistence waits for account identity before restoring. Startup reuses cached data, waits for missing workspace data, and gives optional weather/location/holiday/photo queries four seconds before falling back; failures stay recoverable. Keep durable preferences in Query, Zustand, or local cache.
 
