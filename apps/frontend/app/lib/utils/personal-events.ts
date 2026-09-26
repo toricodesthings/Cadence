@@ -1,5 +1,32 @@
+import type { CSSProperties } from "react";
 import type { PersonalEvent } from "../../types/settings";
+import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
 import { formatShortDate, toISODate } from "./date-format";
+
+const EVENT_DEFAULT_TONE = "var(--accent-nav-schedule)";
+
+/** Colour choices for an event: no colour (the schedule tint) first, then the list palette. "" means none. */
+export const EVENT_SWATCHES = [
+    { value: "", color: EVENT_DEFAULT_TONE, label: "Default" },
+    ...PROJECT_ACCENT_OPTIONS.map((option) => ({ value: option.value as string, color: option.varName as string, label: option.label as string })),
+];
+
+/** An event's picked tint, or null for none (and for keys no longer in the palette). */
+export function eventToneColor(color: string | null | undefined): string | null {
+    return PROJECT_ACCENT_OPTIONS.find((option) => option.value === color)?.varName ?? null;
+}
+
+/**
+ * CSS vars for an event's look. `--event-tone` tints surfaces; `--event-ink` and `--event-ink-soft`
+ * colour text. A picked colour is blended in oklab toward the theme's own text colour, so text keeps
+ * AA contrast in every theme (raw palette colours drop near 2:1 on Daylight). No colour keeps the schedule tint.
+ */
+export function eventToneStyle(color: string | null | undefined): CSSProperties {
+    const tone = eventToneColor(color);
+    return (tone
+        ? { "--event-tone": tone, "--event-ink": `color-mix(in oklab, ${tone} 45%, var(--color-twilight-text))`, "--event-ink-soft": `color-mix(in oklab, ${tone} 30%, var(--color-twilight-text-soft))` }
+        : { "--event-tone": EVENT_DEFAULT_TONE, "--event-ink": EVENT_DEFAULT_TONE, "--event-ink-soft": `color-mix(in srgb, ${EVENT_DEFAULT_TONE} 75%, transparent)` }) as CSSProperties;
+}
 
 export type PersonalEventSortMode = "next" | "alphabetical" | "month-day" | "reminders";
 

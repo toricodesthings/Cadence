@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { CalendarHeart } from "lucide-react";
 import { Composer, ComposerSubmit, ComposerTitle, type ComposerDraft } from "../shared/Composer";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
+import { ColourDot } from "../shared/ColourDot";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
 import type { PersonalEvent } from "../../types/settings";
 import { toISODate } from "../../lib/utils/date-format";
+import { EVENT_SWATCHES, eventToneStyle } from "../../lib/utils/personal-events";
 
 interface PersonalEventEditorDialogProps {
     open: boolean;
@@ -29,7 +31,7 @@ export function PersonalEventEditorDialog({ open, title, description, submitLabe
     );
 }
 
-/** The personal event composer: name and mark, date, milestone, reminder. */
+/** The personal event composer: name, mark and colour, date, milestone, reminder. */
 export function usePersonalEventComposer({
     open,
     initialDate,
@@ -49,6 +51,7 @@ export function usePersonalEventComposer({
     const titleRef = useRef<HTMLInputElement>(null);
     const [label, setLabel] = useState("");
     const [emoji, setEmoji] = useState("");
+    const [color, setColor] = useState("");
     const [eventDate, setEventDate] = useState(startDate);
     const [trackMilestone, setTrackMilestone] = useState(false);
     const [startedOn, setStartedOn] = useState(startDate);
@@ -63,6 +66,7 @@ export function usePersonalEventComposer({
     const reset = () => {
         setLabel("");
         setEmoji("");
+        setColor("");
         setEventDate(startDate);
         setTrackMilestone(false);
         setStartedOn(startDate);
@@ -78,6 +82,7 @@ export function usePersonalEventComposer({
             monthDay: eventDate.slice(5),
             notify,
             startedOn: trackMilestone ? startedOn : null,
+            color: color || null,
         });
         reset();
     };
@@ -87,7 +92,7 @@ export function usePersonalEventComposer({
         icon: CalendarHeart,
         tone: "schedule",
         subtitle: "Yearly personal event",
-        isDirty: Boolean(label.trim() || emoji.trim() || eventDate !== startDate || trackMilestone || startedOn !== startDate || !notify),
+        isDirty: Boolean(label.trim() || emoji.trim() || color || eventDate !== startDate || trackMilestone || startedOn !== startDate || !notify),
         discardTitle: "Discard this event?",
         footer: <ComposerSubmit onSubmit={handleSubmit} submitLabel={submitLabel} icon={CalendarHeart} tone="schedule" disabled={!label.trim()} />,
         reset,
@@ -103,7 +108,12 @@ export function usePersonalEventComposer({
                     maxLength={80}
                     aria-label="Event name"
                     enterKeyHint="done"
-                    leading={<EmojiMarkButton emoji={emoji || null} onChange={(next) => setEmoji(next ?? "")} fallback={<CalendarHeart size={18} className="text-accent-nav-schedule" aria-hidden="true" />} />}
+                    leading={(
+                        <span className="flex items-center" style={eventToneStyle(color)}>
+                            <EmojiMarkButton emoji={emoji || null} onChange={(next) => setEmoji(next ?? "")} fallback={<CalendarHeart size={18} className="text-[var(--event-ink)] transition-colors duration-300" aria-hidden="true" />} />
+                            <ColourDot options={EVENT_SWATCHES} value={color} onChange={setColor} label="Event colour" />
+                        </span>
+                    )}
                 />
 
                 <PersonalEventDetailsFields

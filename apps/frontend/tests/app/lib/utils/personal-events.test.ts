@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { personalEventSchema } from "@cadence/contracts/settings";
 import {
+    EVENT_SWATCHES,
+    eventToneColor,
+    eventToneStyle,
     getNextPersonalEventDate,
     getPersonalEventMilestoneLabel,
     getNormalizedMonthDay,
@@ -56,5 +60,28 @@ describe("personal event utilities", () => {
 
         expect(sorted.map((item) => item.event.id)).toEqual(["b", "a"]);
         expect(sorted[0].milestoneLabel).toBe("Marks 6 years");
+    });
+
+    it("treats a missing, null or unknown colour as no colour and keeps the schedule tint", () => {
+        for (const color of [undefined, null, "", "not-a-colour"]) {
+            expect(eventToneColor(color)).toBeNull();
+            expect(eventToneStyle(color)).toMatchObject({ "--event-tone": "var(--accent-nav-schedule)", "--event-ink": "var(--accent-nav-schedule)" });
+        }
+        expect(EVENT_SWATCHES[0]).toMatchObject({ value: "", label: "Default" });
+    });
+
+    it("blends a picked colour toward the theme text colour for readable ink", () => {
+        expect(eventToneColor("violet")).toBe("var(--color-violet)");
+        expect(eventToneStyle("violet")).toMatchObject({
+            "--event-tone": "var(--color-violet)",
+            "--event-ink": "color-mix(in oklab, var(--color-violet) 45%, var(--color-twilight-text))",
+        });
+    });
+
+    it("accepts stored events saved before colours existed", () => {
+        const legacy = { id: "a", label: "Mom", monthDay: "05-10", emoji: null, notify: true, startedOn: null };
+        expect(personalEventSchema.safeParse(legacy).success).toBe(true);
+        expect(personalEventSchema.safeParse({ ...legacy, color: null }).success).toBe(true);
+        expect(personalEventSchema.safeParse({ ...legacy, color: "teal" }).success).toBe(true);
     });
 });
