@@ -145,3 +145,26 @@ export function LoadingSkyMotion() {
         </>
     );
 }
+
+/**
+ * The loading sky's stars on their own, as a page backdrop (the consent page). Crops the
+ * star band (y 0–620) to cover its box; twinkles with the scene's global `ls-twinkle`.
+ */
+export function StarField({ className = "" }: { className?: string }) {
+    return (
+        <svg className={className} viewBox="0 0 1920 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <path d={starPath(STARS.filter((s) => !s.warm))} fill="#dfe8ff" opacity=".85" />
+            <path d={starPath(STARS.filter((s) => s.warm))} fill="#ffe9c4" opacity=".85" />
+            {TWINKLE_PAIRS.map(({ a, b, dur, delay }) => (
+                <g
+                    key={dur}
+                    className="motion-reduce:[animation:none]"
+                    style={{ animation: `ls-twinkle ${dur}s cubic-bezier(0.37, 0, 0.63, 1) ${delay}s infinite both` }}
+                >
+                    <circle cx={a[0]} cy={a[1]} r="1.4" fill="#dfe8ff" />
+                    <circle cx={b[0]} cy={b[1]} r="1.2" fill="#ffe9c4" />
+                </g>
+            ))}
+        </svg>
+    );
+}

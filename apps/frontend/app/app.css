@@ -2206,7 +2206,45 @@ a:active {
   animation: cadence-now-live-chip-sheen 4.6s linear infinite;
 }
 
+/* ── Consent card border — the now-line sheen running diagonally, top-left to bottom-right.
+   The band sits in the middle of a 300% gradient; sliding the position 100% → 0% carries it
+   across the card on a true 45°, pulsing like the Schedule sweep. ── */
+@keyframes cadence-diagonal-sheen {
+  0% {
+    background-position: 100% 100%;
+    opacity: 0.18;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+
+  100% {
+    background-position: 0% 0%;
+    opacity: 0.18;
+  }
+}
+
+.cadence-diagonal-sheen::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, transparent 44%, rgba(255, 247, 214, 0.08) 47%, rgba(255, 232, 168, 0.95) 50%, rgba(255, 247, 214, 0.08) 53%, transparent 56%) no-repeat;
+  background-size: 300% 300%;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: cadence-diagonal-sheen 4.6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .cadence-diagonal-sheen::after {
+    animation: none !important;
+    background-position: 50% 50%;
+    opacity: 0.45;
+  }
+
   .cadence-now-live-chip::after {
     animation: none !important;
     opacity: 0.45;
