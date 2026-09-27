@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Bring Cadence into your assistant.
+
+### Added
+- Connect Claude, or another assistant that supports MCP, to read your Cadence or add thoughts to Capture.
+- See your connected assistants in Settings › Integrations, and disconnect any of them in one click.
+
 ## [0.22.0] - 2026-09-26
 
 Quick commands in the assistant, a clear view of your limits, and colours for events.

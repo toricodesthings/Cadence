@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { mutationDedup } from "../db/schema";
 import type { Tx } from "../types/db";
 import type { Context } from "hono";
@@ -23,6 +23,10 @@ export async function checkIdempotency(
     idempotencyKey: string | undefined,
 ): Promise<string | null> {
     if (!idempotencyKey) return null;
+
+    // Serialize retries of the same key until this transaction ends, so a
+    // concurrent duplicate waits and then sees the first one's record.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${userId}:${idempotencyKey}`}, 0))`);
 
     const [existing] = await tx
         .select({ resultId: mutationDedup.resultId })

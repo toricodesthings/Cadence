@@ -224,6 +224,14 @@ export default function PrivacyPolicyRoute() {
                                 providers that help the product run, such as authentication and hosting services.
                             </p>
                             <p>
+                                <strong>Connected assistants.</strong> If you connect an outside assistant (such as
+                                Claude) in Settings › Integrations, it receives only what you approve on the consent
+                                screen: reading your tasks and their notes, lists, tags, captures, routines, personal
+                                events and schedule, adding new captures, or both. What it reads is then handled under
+                                that assistant provider&rsquo;s own terms. It cannot delete data or change settings.
+                                Disconnect stops new access immediately; it cannot recall what was already read.
+                            </p>
+                            <p>
                                 The settings UI also contains future-facing integration controls for Google Calendar,
                                 Apple Calendar, Notion, Obsidian, and ICS feeds, but those surfaces are explicitly marked
                                 <strong> coming soon</strong> in the current product. When those integrations become live,

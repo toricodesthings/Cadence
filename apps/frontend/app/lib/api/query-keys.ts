@@ -45,6 +45,10 @@ export const queryKeys = {
         usage: ["ai", "usage"] as const,
         image: (id: string) => ["ai", "image", id] as const,
     },
+    connections: {
+        all: ["connections"] as const,
+        request: (request: string) => ["connections", "request", request] as const,
+    },
 } as const;
 
 /** Differentiated stale times for each data type.

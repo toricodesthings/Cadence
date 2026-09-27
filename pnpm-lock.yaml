@@ -38,9 +38,15 @@ importers:
       '@cadence/nlp':
         specifier: workspace:*
         version: link:../../packages/nlp
+      '@cloudflare/workers-oauth-provider':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@hono/zod-validator':
         specifier: ^0.9.1
         version: 0.9.1(hono@4.13.9)(zod@4.6.5)
+      '@modelcontextprotocol/server':
+        specifier: ^2.1.0
+        version: 2.1.0
       '@openrouter/ai-sdk-provider':
         specifier: ^3.1.0
         version: 3.1.0(ai@7.0.116(zod@4.6.5))(zod@4.6.5)
@@ -758,6 +764,9 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
+
+  '@cloudflare/workers-oauth-provider@1.1.0':
+    resolution: {integrity: sha512-J3J7AZ/Iok8DyIeXobc6zk9vSj5oeQB1I6Jxe8OqgvlhTq6nm/9fKhdyjKba82tLzLCfEc0w8yy8s715TeNe6Q==}
 
   '@cloudflare/workers-types@5.20260922.1':
     resolution: {integrity: sha512-zZVBBFJan5Kw+flEgSHqqCZ0LvHPv5LvfP2igmQiLvZ4fFQYsI4epN9cGiCQqaCyhCzQuqWEyK1Lamzm3QJAmw==}
@@ -1518,6 +1527,14 @@ packages:
     peerDependencies:
       react: ^17.0.2 || ^18.0.0 || ^19.0
       react-dom: ^17.0.2 || ^18.0.0 || ^19.0
+
+  '@modelcontextprotocol/core@2.1.0':
+    resolution: {integrity: sha512-YdFj5gMRHr0gYNAhTbQDgjLHiEJdIAUYxomhKseUNye7ZGlISQmUoLh2sveFFCiQ7j2YMffT1kgSND0FSfIFjQ==}
+    engines: {node: '>=20'}
+
+  '@modelcontextprotocol/server@2.1.0':
+    resolution: {integrity: sha512-FdvwZU5N03O77Suh35JqjAqq5R1ZTEPFtwu6N4BgBq28qrQtrCnpbLL5U2pwYCuE194jAw0xnlOVmIqhfoYuUQ==}
+    engines: {node: '>=20'}
 
   '@neondatabase/auth-ui@0.3.0-beta':
     resolution: {integrity: sha512-//7s2nOR8ej0f8soXAlHSckjkrPPPSaH86pmSeMgRq9zHLvDymKuE/jhaoRVr2tgx1/BTviS7MdYzExaABxkjA==}
@@ -5907,6 +5924,8 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20260925.1':
     optional: true
 
+  '@cloudflare/workers-oauth-provider@1.1.0': {}
+
   '@cloudflare/workers-types@5.20260922.1': {}
 
   '@cloudflare/workers-types@5.20260926.1': {}
@@ -6446,6 +6465,15 @@ snapshots:
     dependencies:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
+
+  '@modelcontextprotocol/core@2.1.0':
+    dependencies:
+      zod: 4.6.5
+
+  '@modelcontextprotocol/server@2.1.0':
+    dependencies:
+      '@modelcontextprotocol/core': 2.1.0
+      zod: 4.6.5
 
   '@neondatabase/auth-ui@0.3.0-beta(6e1ba70d81b406beb77ea05c7ded9918)':
     dependencies:

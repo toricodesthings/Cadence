@@ -16,6 +16,7 @@ export default [
     route("tag/:tagId", "routes/tag.tsx"),
     route("terms", "routes/terms.tsx"),
     route("auth/:pathname", "routes/auth.tsx"),
+    route("connect", "routes/connect.tsx"),
     route("routines", "routes/routines.tsx"),
     route("habits", "routes/habits-redirect.tsx"),
     route("help-feedback", "routes/help-feedback.tsx"),

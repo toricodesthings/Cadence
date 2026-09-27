@@ -23,6 +23,8 @@ import { proxyRoutes } from "./domains/proxy/proxy.route";
 import { noteRoutes } from "./domains/notes/notes.route";
 import { aiRoutes } from "./domains/ai/ai.route";
 import { aiImageRoutes } from "./domains/ai/images/images.route";
+import { connectionRoutes } from "./domains/mcp/connections.route";
+import { isMcpRequest, mcpProvider } from "./domains/mcp/oauth";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -180,7 +182,8 @@ const apiApp = app
   .route("/api/v1/proxy", proxyRoutes)
   .route("/api/v1/debug", debugRoutes)
   .route("/api/v1/ai/images", aiImageRoutes)
-  .route("/api/v1/ai", aiRoutes);
+  .route("/api/v1/ai", aiRoutes)
+  .route("/api/v1/connections", connectionRoutes);
 
 // ── Type export for Hono RPC ──
 export type AppType = typeof apiApp;
@@ -188,7 +191,17 @@ export type AppType = typeof apiApp;
 import { handleOverdueCheck, pruneStaleMutations, pruneAiMemories, pruneAiImages } from "./cron/overdue-check";
 
 export default {
-  fetch: app.fetch,
+  // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:
+  // no app JWT, CORS or `{ data }` envelope. It shares only the per-IP flood limit.
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    if (!isMcpRequest(request, env)) return app.fetch(request, env, ctx);
+    const ip = request.headers.get("cf-connecting-ip") || "unknown";
+    if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: ip })).success) {
+      return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
+    }
+    if (!env.OAUTH_KV) return new Response("Connecting assistants isn't available right now.", { status: 503 });
+    return mcpProvider(env).fetch(request, env, ctx);
+  },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleOverdueCheck(env));
     ctx.waitUntil(pruneStaleMutations(env));

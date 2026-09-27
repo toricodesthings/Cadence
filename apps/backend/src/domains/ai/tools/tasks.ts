@@ -199,7 +199,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             subtasks: subs.map(toMinimalSubtask),
                             tags: tagRows.map(toMinimalTag),
                             note: {
-                                text: shown && fenceData({ nonce, kind: "note", trust: "untrusted", content: sanitizeUntrusted(shown, nonce) }),
+                                text: shown && (ctx.rawNotes ? shown : fenceData({ nonce, kind: "note", trust: "untrusted", content: sanitizeUntrusted(shown, nonce) })),
+                                ...(ctx.rawNotes && { source: "user-content" as const }),
                                 truncated: noteText.length > NOTE_READ_LIMIT,
                                 version: noteRow?.version ?? 0,
                             },

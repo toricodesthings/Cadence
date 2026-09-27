@@ -3,7 +3,8 @@
   "name": "cadence-backend",
   "main": "src/index.ts",
   "compatibility_date": "2026-02-23",
-  "compatibility_flags": ["nodejs_compat"],
+  // global_fetch_strictly_public: SSRF guard the OAuth provider needs to fetch CIMD client documents.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   // Prompt markdown (domains/ai/prompt/blocks) bundles as text.
   "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
   // Run next to Neon (aws-us-east-1): each request makes several sequential queries,
@@ -42,6 +43,14 @@
     }
   ],
 
+  // OAuth provider storage for outside assistants (MCP): clients, grants, token hashes.
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "d68a3b096ce74e7cac02963e67cbd10f"
+    }
+  ],
+
   "ratelimits": [
     // Per IP, before auth. Offices and mobile carriers put many people behind one IP,
     // so this only stops floods; the per-user limits below do the real work.
@@ -76,6 +85,11 @@
     {
       "pattern": "api.cadenceapp.cloud",
       "custom_domain": true
+    },
+    // The MCP server and its OAuth endpoints (domains/mcp).
+    {
+      "pattern": "mcp.cadenceapp.cloud",
+      "custom_domain": true
     }
   ],
 
@@ -95,6 +109,17 @@
           "bucket_name": "cadence-users-dev"
         }
       ],
+      "kv_namespaces": [
+        {
+          "binding": "OAUTH_KV",
+          "id": "5726b938ac8843a28102f9b2a7f1007c"
+        }
+      ],
+      // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
+      "vars": {
+        "MCP_ORIGIN": "http://localhost:8787",
+        "APP_ORIGIN": "http://localhost:8788"
+      },
       "ratelimits": [
         {
           "name": "RATE_LIMITER",

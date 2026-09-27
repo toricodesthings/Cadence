@@ -35,6 +35,8 @@ export interface AgentContext {
     locale?: string;
     /** The turn's data-fence nonce, for user text a tool returns (notes). */
     nonce?: string;
+    /** Return note text unfenced (MCP: the outside model owns its injection defence). */
+    rawNotes?: boolean;
     /** Keeps post-commit metrics alive after the response (the Worker's `waitUntil`). */
     waitUntil?: (promise: Promise<unknown>) => void;
 }

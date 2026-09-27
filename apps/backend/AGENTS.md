@@ -35,7 +35,7 @@ src/
 │   ├── validation.ts # apiValidator() wrapper
 │   ├── idempotency.ts, ownership.ts, metrics.ts, log.ts, request-log.ts, redis.ts, date-utils.ts
 ├── domains/           # tasks, habits, inbox, projects, tags, subtasks, sections, settings,
-│                       # notes, events, health, proxy, ai, debug — one folder each
+│                       # notes, events, health, proxy, ai, mcp, debug — one folder each
 ├── db/schema.ts       # Drizzle schema: tables, enums, indexes, RLS policies, relations (SOURCE OF TRUTH)
 ├── cron/overdue-check.ts
 └── types/             # env.ts (Env bindings), db.ts (DbClient/Tx aliases), text-modules.d.ts (.md imports)
@@ -62,6 +62,8 @@ src/
 
 `createRequestContext` (request ID) → `secureHeaders()` → body size limit (100KB, `/api/v1/*`; the two photo uploads, background and chat image, are exempt and capped on their own routes) → CORS allowlist → debug-route guard (404 in production, or unless `ENABLE_DEBUG_ROUTES=true`) → Tier-1 IP rate limit (pre-auth) → JWT auth (`userId` attached) → Tier-2 user rate limit (read/write) → Tier-3 admin rate limit (`/api/v1/debug/*`) → `apiValidator()` → handler: `getDbClient(c.env)` → `withRls(db, userId, fn)` → `{ data: ... }`.
 
+The MCP origin is a separate boundary, dispatched in the Worker's `fetch` before the Hono app (`isMcpRequest`: the `MCP_ORIGIN` host and `/mcp`, `/authorize`, `/oauth/*`, `/.well-known/oauth-*`): Tier-1 IP limit → `@cloudflare/workers-oauth-provider` (discovery, DCR/CIMD, token, revocation, bearer check on `/mcp`) → `serveMcp`. No app JWT, CORS or `{ data }` envelope there.
+
 Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, attaches request ID, never leaks stack traces/SQL.
 
 ## 5. Database Rules
@@ -75,9 +77,9 @@ Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, a
 
 ## 6. API Conventions
 
-- All routes under `/api/v1/`, no exceptions. Auth is always `Authorization: Bearer <JWT>` — never cookies/sessions.
+- All app routes under `/api/v1/`. Auth is always `Authorization: Bearer <JWT>` — never cookies/sessions. The one exception is the MCP origin (§9b): OAuth/MCP standards fix its paths, and its short-lived `__Host-` cookies only bind a consent flow to one browser.
 - Success envelope: `{ "data": {...} }` everywhere, including health/debug. Errors: the contract `ApiError` (`{ "error": { code, message, status, isRetryable, requestId, issues? } }`) via `AppError`; codes come from `ERROR_CODES` in `@cadence/contracts/common`. Task responses always carry `tagIds` (`toTask`/`withTagIds` in `tasks.service.ts`).
-- **Idempotency:** `Idempotency-Key` header — `getIdempotencyKey(c)` → `checkIdempotency(tx, userId, key)` (no-op if undefined) → mutate → `recordMutation(tx, userId, key)`. Supported on all POST endpoints in tasks/habits/inbox/projects/tags/subtasks/sections.
+- **Idempotency:** `Idempotency-Key` header — `getIdempotencyKey(c)` → `checkIdempotency(tx, userId, key)` (no-op if undefined; holds a transaction lock on the key so a concurrent retry waits, then sees the record) → mutate → `recordMutation(tx, userId, key)`. Supported on all POST endpoints in tasks/habits/inbox/projects/tags/subtasks/sections.
 - Read-heavy routes: `Cache-Control: private, max-age=0, stale-while-revalidate=5`.
 
 ## 7. Mounted Routes
@@ -95,13 +97,14 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 | events | `/events` | single + batch usage tracking |
 | proxy | `/proxy` | proxied external calls: weather, reverse/forward geocoding, approximate location (`GET /geo/approximate` from Cloudflare `request.cf`), holidays. Coordinates are rounded to 2 decimals before any upstream call. |
 | debug | `/debug` | clear + seed (non-prod only) |
+| connections | `/connections` | connected assistants (MCP): `GET /` active ones, `DELETE /:id` Disconnect; the consent page's `GET /requests/:request`, `POST …/approve` (scopes + browser zone → callback URL) and `POST …/decline` |
 | ai | `/ai`, `/ai/images` | `POST /chat` (streamed, persisted; a new message or approval answers), conversation CRUD (delete takes its images), `GET /usage`; images: `POST /` upload (WebP-only, 1MB, dedup per user + conversation), `POST /:id/report`, `GET /:id` own image, `DELETE /:id` while unsent |
 
 `AppType` (exported from `src/index.ts`) is the RPC contract the frontend types against — treat as a critical integration boundary.
 
 ## 8. Domain Model
 
-`src/db/schema.ts` is truth: **26 tables**, **14 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · infra (`mutationDedup`).
+`src/db/schema.ts` is truth: **27 tables**, **14 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · connected assistants (`mcpConnections`) · infra (`mutationDedup`).
 
 **Settings:** the contract's `userSettingsSchema` types the `users.settings` column; reads return `normalizeSettings` → `SettingsView` (stored over defaults). `settings.appearance.backgroundImage` is server-owned: `sanitizeBackgroundPatch` (`domains/settings/background-image.ts`) lets a PATCH change only accent/blur/brightness, never the photo's identity or existence. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant`: `persona` is the one voice setting (it picks `prompt/blocks/voice/<persona>.md`); `tone` and `verbosity` stay for back-compat but never reach the prompt; the rest (names, emoji, proactiveSuggestions, adaptiveTone) render into the prompt's Environment. Free-text fields (names, customInstructions) are sanitized + fenced before composition — never trust them raw in a prompt.
 
@@ -116,6 +119,12 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 - **Time:** `userClock` (`agent.ts`) turns the client's instant + IANA zone into the turn's clock: the prompt gets local wall-clock time to the minute with offset and weekday, tools get `ctx.timezone` + `ctx.today` (the user's local date). Tools speak local: `toMinimalTask(row, tz)` writes timed values as `…T14:00:00-04:00` and all-day values as `YYYY-MM-DD`; day windows are local dates matched with `taskLocalDay` (query a day wider, filter exactly). Never slice a UTC timestamp for "today". `localDay`, `addDaysToDate` and `isPausedOn` come from `@cadence/domain/repeats`; server-only zone helpers (`toZonedIso`, `atLocalDate`, `resolveTimeZone`) live in `platform/date-utils.ts`.
 - **Redis (`platform/redis.ts`, Upstash REST over HTTPS only):** `getRedis(env)` gates stream-resumption (in-flight SSE chunk log + abort flag) — returns `null` if unconfigured/insecure, and every resumption path must no-op gracefully on `null`. `getRateLimitRedis(env)` is a separate accessor for AI-specific rate limiting. Redis is a *cache*, never the source of truth — Postgres is. Built per-request (Workers rule), never a module global.
 
+## 9b. MCP (`src/domains/mcp`) — outside assistants
+
+- **Tokens:** `oauth.ts` configures `OAuthProvider` (KV `OAUTH_KV`; resource `${MCP_ORIGIN}/mcp`; scopes `cadence:read`, `cadence:capture` from `@cadence/contracts/connections`; DCR + CIMD; 30-day idle refresh). Neon Auth only signs the person in. `/authorize` validates the client, binds the request to the browser (`beginUpstream`) and redirects to the web app's `/connect?request=<state>`; the app's approve route stores a 5-minute approval and returns `/oauth/callback?state=…&approval=…`, which only finishes in the browser holding the binding cookie (`finishUpstream`). The callback writes an `mcp_connections` row, then `completeAuthorization` with props `{ userId, connectionId }`.
+- **Every call** (`server.ts` `serveMcp`) re-checks the active `mcp_connections` row (touching `lastUsedAt`), so Disconnect holds at once; the KV grant is revoked best-effort. Scopes = token ∩ row. "Today" uses settings' zone, or the browser zone saved at connect when settings say `local`.
+- **Catalog:** `CATALOG` wraps the AI tool factories directly (full zod schemas), never `buildToolRegistry`: the reads, `get_today` (`loadSnapshot`), help, and `capture_to_inbox` with a required `operationKey` (dedup key `mcp:<connectionId>:<key>`; same key, other text → error). Tools outside the scopes aren't registered. No other writes, no deletes, no `get_user_metrics`. `ctx.rawNotes` returns note text unfenced with `source: "user-content"`. Each call spends the user's read/write limiter; responses are `no-store`.
+
 ## 10. Debug Seed System (`src/domains/debug/`)
 
 `debug-seed.ts` (fixture builders) + `scenarios/index.ts` (`Scenario` registry: `name`, `version`, `seed(db, userId)`) + `scenarios/active-power-user.ts` (which also seeds `ai-showcase-conversation.ts`: one AI thread firing every tool through the real services, with waiting, approved, declined and unanswered cards; add new tools there). Routes: `POST /debug/clear` (wipes all user data, FK-safe order), `POST /debug/seed?scenario=`, `GET /debug/capabilities`. New scenario = new file in `scenarios/` + register in the index.
@@ -126,7 +135,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 ## 12. Auth (`platform/auth.ts`)
 
-Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed cache, retries transient failures), attaches `userId` from JWT `sub`, and before a write ensures the `users` row exists (once per user per isolate). Never introduce cookies/sessions/non-JWT auth without explicit design sign-off.
+Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed cache, retries transient failures), attaches `userId` from JWT `sub`, and before a write ensures the `users` row exists (once per user per isolate). Never introduce cookies/sessions/non-JWT auth without explicit design sign-off (the MCP OAuth boundary in §9b is the one signed-off exception; it never accepts app JWTs, and app routes never accept its tokens).
 
 ## 13. Background Jobs
 
@@ -142,6 +151,8 @@ Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` 
 | `USER_ASSETS` | Private R2 bucket for photo backgrounds and chat images (optional — absence answers 503 on upload). Deleting an account by hand also means deleting its `backgrounds/{userId}/` and `ai-images/{sha256(userId)}/` prefixes |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | AI stream resumption (optional — absence disables gracefully) |
 | `AI_RL_*` / `AI_IMAGES_*` | AI budget caps (5h/7d requests + tokens, concurrency; `AI_RL_IMAGES_24H` 20, `AI_IMAGES_PER_MESSAGE` 4, `AI_IMAGES_MAX_PENDING` 8), all optional |
+| `OAUTH_KV` | MCP OAuth provider storage (optional — absence answers 503 on the MCP origin) |
+| `MCP_ORIGIN` / `APP_ORIGIN` | MCP server origin (default `https://mcp.cadenceapp.cloud`, dev `http://localhost:8787`) and the web app hosting `/connect` (default the production dashboard) |
 | `TOOL_APPROVAL_SECRET` | HMAC key for assistant tool approvals (required in production; unset = unsigned, dev only) |
 | `DEPLOYMENT_STAGE` | `"production"` / `"staging"` / `"development"` |
 | `ENABLE_DEBUG_ROUTES` | must be `"true"` to enable debug endpoints |

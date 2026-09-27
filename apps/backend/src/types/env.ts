@@ -33,6 +33,14 @@ export interface Env {
     /** Private R2 bucket for photo backgrounds and chat images. When absent, their upload routes answer 503. */
     USER_ASSETS?: R2Bucket;
 
+    // ── MCP (outside assistants) ──
+    /** OAuth provider storage (clients, grants, token hashes). When absent, MCP answers 503. */
+    OAUTH_KV?: KVNamespace;
+    /** Public origin of the MCP server and its OAuth endpoints. Defaults to https://mcp.cadenceapp.cloud. */
+    MCP_ORIGIN?: string;
+    /** Origin of the web app that hosts the consent page. Defaults to the production dashboard. */
+    APP_ORIGIN?: string;
+
     // ── Rate limiting ──
     RATE_LIMITER: RateLimit;
     RATE_LIMITER_READ: RateLimit;

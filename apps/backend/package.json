@@ -7,7 +7,7 @@
 		"./types/*": "./src/types/*.ts"
 	},
 	"scripts": {
-		"dev": "dotenvx run -f .dev.vars -- wrangler dev --env dev",
+		"dev": "dotenvx run -f .dev.vars -- wrangler dev --env dev --local-upstream localhost:8787",
 		"deploy": "wrangler deploy --minify",
 		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
 		"check": "tsc --noEmit && vitest run",
@@ -27,7 +27,9 @@
 		"@cadence/contracts": "workspace:*",
 		"@cadence/domain": "workspace:*",
 		"@cadence/nlp": "workspace:*",
+		"@cloudflare/workers-oauth-provider": "^1.1.0",
 		"@hono/zod-validator": "^0.9.1",
+		"@modelcontextprotocol/server": "^2.1.0",
 		"@openrouter/ai-sdk-provider": "^3.1.0",
 		"@upstash/redis": "^1.39.0",
 		"ai": "^7.0.116",

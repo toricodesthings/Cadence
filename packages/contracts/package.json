@@ -18,7 +18,8 @@
     "./ai": "./src/ai.ts",
     "./events": "./src/events.ts",
     "./proxy": "./src/proxy.ts",
-    "./notification": "./src/notification.ts"
+    "./notification": "./src/notification.ts",
+    "./connections": "./src/connections.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

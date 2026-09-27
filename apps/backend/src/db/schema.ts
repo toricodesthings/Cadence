@@ -233,6 +233,27 @@ export const aiImages = pgTable('ai_images', {
     }),
 })).enableRLS();
 
+// 3f. MCP connections — an outside assistant the user let in (domains/mcp). The OAuth
+// provider keeps its tokens in KV; this row is the durable, revocable half every MCP
+// call checks, so Disconnect holds immediately (KV revocation is eventually consistent).
+export const mcpConnections = pgTable('mcp_connections', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    clientId: text('client_id').notNull(),
+    clientName: text('client_name').notNull(),
+    redirectUri: text('redirect_uri').notNull(),
+    scopes: text('scopes').array().notNull(),
+    timezone: text('timezone'),                                  // browser zone at connect; used when settings say "local"
+    createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
+    lastUsedAt: timestamptz('last_used_at'),
+    revokedAt: timestamptz('revoked_at'),
+}, (table) => ({
+    userIdIdx: index('mcp_connections_user_id_idx').on(table.userId),
+    rlsPolicy: pgPolicy('mcp_connections_owner_access', {
+        as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing,
+    }),
+})).enableRLS();
+
 // 4a. Task Sections (User-defined grouping headers, scoped to a project)
 // In kanban view each section becomes a column.
 export const taskSections = pgTable('task_sections', {

@@ -113,12 +113,15 @@ async function maybeRetrieveMemories(
     }
 }
 
+type SnapshotTools = Pick<ReturnType<typeof buildToolRegistry>,
+    "get_schedule_window" | "get_tasks" | "get_habit_status_today" | "get_inbox_items" | "get_events">;
+
 /**
  * Today at a glance: the reads most turns open with, run before the model starts
  * so "plan my afternoon" needs no read step. Same tools and shapes the model
  * already knows; a failed read is left out. Small caps keep it ~1k tokens.
  */
-export async function loadSnapshot(tools: ReturnType<typeof buildToolRegistry>, today: string): Promise<string> {
+export async function loadSnapshot(tools: SnapshotTools, today: string): Promise<string> {
     const read = async (t: { execute?: unknown }, input: object): Promise<any> => {
         const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, { toolCallId: "snapshot", messages: [] });
         return (result as { ok?: boolean })?.ok === false ? undefined : result;

@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
+import { ConnectedAssistants } from "../ConnectedAssistants";
 
 function StatusBadge({ connected }: { connected: boolean }) {
     return (
@@ -24,12 +25,16 @@ export function IntegrationsTab() {
 
     return (
         <div className="flex flex-col gap-10">
-            <h2 className="mb-2 flex items-center gap-2 text-2xl font-bold text-twilight-text">
-                Integrations
-                <span className="ml-2 rounded-full border border-accent-primary/30 bg-accent-primary/12 px-2 py-0.5 text-xs font-medium text-accent-primary">Coming Soon</span>
-            </h2>
+            <h2 className="mb-2 text-2xl font-bold text-twilight-text">Integrations</h2>
 
-            <div className="opacity-50 pointer-events-none">
+            <ConnectedAssistants />
+
+            <h3 className="flex items-center gap-2 text-lg font-semibold text-twilight-text">
+                Sync
+                <span className="rounded-full border border-accent-primary/30 bg-accent-primary/12 px-2 py-0.5 text-xs font-medium text-accent-primary">Coming Soon</span>
+            </h3>
+
+            <div className="opacity-50 pointer-events-none" aria-disabled="true">
 
             {/* ── Calendar sync preferences ── */}
             <SettingsSection title="Calendar sync preferences">
