@@ -10,7 +10,7 @@
  * We persist UIMessage fidelity only (see message-mapper.ts) — never
  * ModelMessages. See docs/ai_upgrade/08.
  */
-import { and, asc, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
 import { aiConversations, aiImages, aiMessages } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
 import type { ConversationDetail, ConversationListItem } from "@cadence/contracts/ai";
@@ -388,6 +388,22 @@ export async function listConversationImageIds(tx: Tx, userId: string, conversat
     return rows.map((row) => row.id);
 }
 
+/** The caller's archived threads, as a subquery. */
+const archivedIds = (tx: Tx, userId: string) =>
+    tx
+        .select({ id: aiConversations.id })
+        .from(aiConversations)
+        .where(and(eq(aiConversations.userId, userId), eq(aiConversations.archived, true)));
+
+/** Ids of the images in every archived thread (to delete their stored bytes first). */
+export async function listArchivedImageIds(tx: Tx, userId: string): Promise<string[]> {
+    const rows = await tx
+        .select({ id: aiImages.id })
+        .from(aiImages)
+        .where(and(eq(aiImages.userId, userId), inArray(aiImages.conversationId, archivedIds(tx, userId))));
+    return rows.map((row) => row.id);
+}
+
 /**
  * Mark a conversation as having a live producing stream. Set when production
  * starts so the resume GET can find the in-flight chunk-log (doc Update 4 §7.6).
@@ -466,4 +482,16 @@ export async function deleteConversation(
         .returning({ id: aiConversations.id });
 
     if (deleted.length === 0) throw new AppError(404, "NOT_FOUND", "Conversation not found");
+}
+
+/** Delete every archived thread, their messages (cascade) and image rows. Storage is the caller's job, before this. */
+export async function deleteArchivedConversations(tx: Tx, userId: string): Promise<number> {
+    await tx
+        .delete(aiImages)
+        .where(and(eq(aiImages.userId, userId), inArray(aiImages.conversationId, archivedIds(tx, userId))));
+    const deleted = await tx
+        .delete(aiConversations)
+        .where(and(eq(aiConversations.userId, userId), eq(aiConversations.archived, true)))
+        .returning({ id: aiConversations.id });
+    return deleted.length;
 }

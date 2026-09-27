@@ -8,6 +8,7 @@
  * e.g. "≈ 3 messages left · resets in 2h".
  */
 import type { AiUsage, AiUsageWindow } from "@cadence/contracts/ai";
+import { formatShortDateLabel, formatTime, toISODate } from "../utils/date-format";
 
 /** Show the hint when ≤ this fraction of a window's requests remain… */
 const LOW_REQUEST_FRACTION = 0.2;
@@ -50,6 +51,87 @@ export function formatReset(resetEpoch: number | null, nowMs: number): string | 
     if (deltaS < 3600) return `in ${Math.round(deltaS / 60)}m`;
     if (deltaS < 48 * 3600) return `in ${Math.round(deltaS / 3600)}h`;
     return `in ${Math.round(deltaS / 86400)}d`;
+}
+
+const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
+
+/**
+ * "Resets in 2 days 5 hours (on Sat, Sep 28, 3:00 PM)" — the exact countdown and
+ * moment for the usage view (the footer hint keeps the coarse `formatReset`).
+ */
+export function formatResetDetail(resetEpoch: number, nowMs: number): string {
+    const totalMin = Math.max(0, Math.floor((resetEpoch * 1000 - nowMs) / 60_000));
+    const days = Math.floor(totalMin / 1440);
+    const hours = Math.floor((totalMin % 1440) / 60);
+    const minutes = totalMin % 60;
+    const countdown =
+        totalMin < 1
+            ? "under a minute"
+            : days > 0
+              ? [plural(days, "day"), hours > 0 && plural(hours, "hour")].filter(Boolean).join(" ")
+              : hours > 0
+                ? [plural(hours, "hour"), minutes > 0 && plural(minutes, "minute")].filter(Boolean).join(" ")
+                : plural(minutes, "minute");
+    const at = new Date(resetEpoch * 1000);
+    return `Resets in ${countdown} (on ${formatShortDateLabel(toISODate(at))}, ${formatTime(at.toISOString())})`;
+}
+
+export interface UsageMeter {
+    id: "5h" | "7d" | "images";
+    label: string;
+    /** 0–1, how full the bar is. */
+    fraction: number;
+    headline: string;
+    /** What's left, in plain words. */
+    caption: string;
+    /** Countdown + date of the reset, or null when nothing has started the window. */
+    reset: string | null;
+    full: boolean;
+}
+
+function windowMeter(id: "5h" | "7d", label: string, window: AiUsageWindow, nowMs: number): UsageMeter {
+    const share = ({ used, limit }: { used: number; limit: number }) => (limit > 0 ? Math.min(1, used / limit) : 0);
+    const requests = share(window.requests);
+    // The tighter dimension decides when the server refuses, so it fills the bar.
+    const fraction = Math.max(requests, share(window.tokens));
+    const full = fraction >= 1;
+    const left = Math.max(0, window.requests.limit - window.requests.used);
+    const caption =
+        window.resetEpoch === null
+            ? "Starts with your next message"
+            : full
+              ? "Nothing left until it resets"
+              : requests >= fraction
+                ? `About ${plural(left, "message")} left`
+                : "Long replies use it up faster";
+    return {
+        id,
+        label,
+        fraction,
+        headline: full ? "Limit reached" : `${Math.round(fraction * 100)}% used`,
+        caption,
+        reset: window.resetEpoch === null ? null : formatResetDetail(window.resetEpoch, nowMs),
+        full,
+    };
+}
+
+/** The usage view's three meters, or null when the budget isn't available. */
+export function describeUsageMeters(usage: AiUsage | undefined, nowMs: number): UsageMeter[] | null {
+    if (!usage?.enabled) return null;
+    const { images } = usage;
+    return [
+        windowMeter("5h", "5-hour limit", usage.windows["5h"], nowMs),
+        windowMeter("7d", "Weekly limit", usage.windows["7d"], nowMs),
+        {
+            id: "images",
+            label: "Photos today",
+            fraction: images.limit > 0 ? Math.min(1, images.used / images.limit) : 0,
+            headline: `${images.used} of ${images.limit}`,
+            caption: `Up to ${images.perMessage} per message`,
+            reset: images.used > 0 && images.resetEpoch !== null ? formatResetDetail(images.resetEpoch, nowMs) : null,
+            full: images.used >= images.limit,
+        },
+    ];
 }
 
 /** Show the remaining image count once this few are left. */

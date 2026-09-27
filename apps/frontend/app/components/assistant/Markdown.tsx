@@ -4,8 +4,7 @@ import remarkGfm from "remark-gfm";
 import { useNavigate } from "react-router";
 import { ArrowRight } from "lucide-react";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
-import { getShellMode } from "../../hooks/ui/use-shell-mode";
-import { useAssistantStore } from "../../stores/assistant-store";
+import { useStepOutOfAssistant } from "../../hooks/ai/use-step-out-of-assistant";
 
 /**
  * Discord-flavoured markdown renderer for chat bubbles.
@@ -34,7 +33,7 @@ const LINK_CLASS =
 function AssistantLink({ href = "", children }: { href?: string; children?: ReactNode }) {
     const navigate = useNavigate();
     const { openSettings } = useUtilityNavigation();
-    const setAssistantPanelOpen = useAssistantStore((s) => s.setAssistantPanelOpen);
+    const stepOut = useStepOutOfAssistant();
     const settingsTab = href.startsWith("?settings=") ? new URLSearchParams(href).get("settings") : null;
 
     if (!settingsTab && !isInAppPath(href)) {
@@ -51,9 +50,7 @@ function AssistantLink({ href = "", children }: { href?: string; children?: Reac
             className={`${LINK_CLASS} inline-flex items-baseline gap-0.5`}
             onClick={(e) => {
                 e.preventDefault();
-                // Phone/tablet: the assistant sheet covers the page, so step out of the way.
-                const shell = getShellMode(window.innerWidth);
-                if (shell === "phone" || shell === "tablet") setAssistantPanelOpen(false);
+                stepOut();
                 if (settingsTab) openSettings(settingsTab);
                 else navigate(href);
             }}

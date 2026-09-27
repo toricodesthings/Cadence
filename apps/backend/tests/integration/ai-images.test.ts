@@ -163,6 +163,18 @@ describe("chat images", () => {
         expect((await rows(userId)).map((r) => r.conversation_id)).not.toContain(conversationId);
     });
 
+    it("clearing the archive deletes archived threads' images, storage and rows", async () => {
+        await withRls(getTestDb(), userId, (tx) => resolveOrCreateConversation(tx, userId, { conversationId }));
+        await upload();
+        await upload(userId, webp(5, 5), crypto.randomUUID()); // an active thread's image stays
+        const ai = apiAs(userId, "/ai", aiRoutes, env);
+        await ai("PATCH", `/conversations/${conversationId}`, { archived: true });
+
+        expect((await ai("DELETE", "/conversations/archived")).body.data).toEqual({ deleted: 1 });
+        expect(bucket.objects.size).toBe(1);
+        expect((await rows(userId)).map((r) => r.conversation_id)).not.toContain(conversationId);
+    });
+
     it("the cron sweeps unsent uploads after a day and images unused for 30 days", async () => {
         const orphan = (await upload(userId, webp(2, 2))).body.data.id;
         const stale = (await upload(userId, webp(3, 3))).body.data.id;

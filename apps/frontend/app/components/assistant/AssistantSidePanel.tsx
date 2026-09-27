@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
-import { X, ArrowUp, ArrowDown, History, SquarePen, Plus, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox, Loader2, AlertCircle } from "lucide-react";
+import { X, ArrowUp, ArrowDown, History, SquarePen, ImagePlus, Slash, Zap, ShieldCheck, ShieldOff, ChevronDown, Sunrise, AlarmClock, Inbox, Loader2, AlertCircle } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ResizableSidePanel } from "../shared/ResizableSidePanel";
 import { Tip, DropdownMenu } from "../primitives";
@@ -22,6 +22,11 @@ import { ChatMessage, ChatAvatar, AssistantText } from "./MessageBubble";
 import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt, type ReceiptState } from "./ReadReceipt";
 import { ConversationList } from "./ConversationList";
+import { UsageOverlay } from "./UsageOverlay";
+import { SlashCommandMenu, SLASH_MENU_ID, slashOptionId } from "./SlashCommandMenu";
+import { SLASH_COMMANDS, filterSlashCommands, matchSlashCommand, type SlashCommand } from "../../lib/ai/slash-commands";
+import { useStepOutOfAssistant } from "../../hooks/ai/use-step-out-of-assistant";
+import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { ChatErrorBubble } from "./ChatErrorBubble";
 import { ToolActivityChip, type ToolCall } from "./ToolActivityChip";
 import { ToolPart, isReadToolPart, safeToolName, getToolDescriptor } from "./tool-registry";
@@ -204,6 +209,17 @@ export function AssistantSidePanel({
     const clearPendingMessage = useAssistantStore(s => s.clearPendingMessage);
     useEffect(() => { if (pendingMessage) { setInput(pendingMessage); clearPendingMessage(); } }, [pendingMessage, clearPendingMessage]);
     const [inputNotice, setInputNotice] = useState<string | null>(null);
+    // Slash commands run in the app (no chat turn). Typing `/` opens the menu and
+    // narrows it; the `/` button opens all of it over a draft without touching the
+    // text. Escape hides the menu until the text changes.
+    const [usageOpen, setUsageOpen] = useState(false);
+    const [slashIndex, setSlashIndex] = useState(0);
+    const [slashDismissed, setSlashDismissed] = useState(false);
+    const [slashMenuForced, setSlashMenuForced] = useState(false);
+    const slashCommands: readonly SlashCommand[] = slashMenuForced ? SLASH_COMMANDS : slashDismissed ? [] : filterSlashCommands(input);
+    const activeSlash = slashCommands[Math.min(slashIndex, slashCommands.length - 1)];
+    const stepOutOfAssistant = useStepOutOfAssistant();
+    const { openSettings } = useUtilityNavigation();
     // A brand-new (client-minted) thread has no server row yet — skip the
     // load-by-id fetch for it so we don't 404 before its first turn is sent.
     const [isFreshThread, setIsFreshThread] = useState(false);
@@ -669,9 +685,56 @@ export function AssistantSidePanel({
         requestAnimationFrame(() => scrollToBottom());
     };
 
+    const openAssistantSettings = () => {
+        stepOutOfAssistant();
+        openSettings("assistant");
+    };
+
+    const closeUsage = () => {
+        setUsageOpen(false);
+        textareaRef.current?.focus();
+    };
+
+    const runSlashCommand = (command: SlashCommand) => {
+        // Clear only a typed `/word`; a draft under the button's menu stays.
+        if (/^\/\S*$/.test(input.trim())) setInput("");
+        setSlashIndex(0);
+        setSlashMenuForced(false);
+        if (command.id === "usage") {
+            setHistoryOpen(false);
+            setUsageOpen(true);
+        } else if (command.id === "clear") {
+            setUsageOpen(false);
+            handleNewChat();
+            textareaRef.current?.focus();
+        } else if (command.id === "history") {
+            setUsageOpen(false);
+            setHistoryOpen(true);
+        } else {
+            openAssistantSettings();
+        }
+    };
+
+    const toggleSlashMenu = () => {
+        textareaRef.current?.focus();
+        if (slashCommands.length > 0) {
+            // Open → close: drop a typed `/word`, or the button's menu.
+            if (!slashMenuForced) setInput("");
+            setSlashMenuForced(false);
+        } else if (!input.trim()) {
+            setInput("/");
+            setSlashDismissed(false);
+        } else {
+            setSlashMenuForced(true);
+        }
+        setSlashIndex(0);
+    };
+
     const handleSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();
-        submitText(input);
+        const command = matchSlashCommand(input);
+        if (command) runSlashCommand(command);
+        else submitText(input);
     };
 
     // Hard abort (doc Update 4 §8): hit the SERVER stop endpoint FIRST (real
@@ -832,7 +895,9 @@ export function AssistantSidePanel({
         if (isMobile) return;
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== "Escape") return;
-            if (historyOpen) {
+            if (usageOpen) {
+                closeUsage();
+            } else if (historyOpen) {
                 setHistoryOpen(false);
             } else if (assistantPanelOpen) {
                 toggleAssistantPanel();
@@ -840,7 +905,7 @@ export function AssistantSidePanel({
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [isMobile, assistantPanelOpen, toggleAssistantPanel, historyOpen, setHistoryOpen]);
+    }, [isMobile, assistantPanelOpen, toggleAssistantPanel, historyOpen, setHistoryOpen, usageOpen]);
 
     // Index of the most recent user message — drives the read receipt.
     const lastUserIndex = useMemo(() => {
@@ -981,7 +1046,10 @@ export function AssistantSidePanel({
                     </Tip>
                     <Tip label="Conversations" side="bottom">
                         <button
-                            onClick={() => setHistoryOpen(true)}
+                            onClick={() => {
+                                setUsageOpen(false);
+                                setHistoryOpen(true);
+                            }}
                             className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text cursor-pointer"
                             aria-label="Conversation history"
                         >
@@ -1197,6 +1265,12 @@ export function AssistantSidePanel({
                     ) : null}
                 </AnimatePresence>
 
+                <AnimatePresence>
+                    {slashCommands.length > 0 ? (
+                        <SlashCommandMenu commands={slashCommands} activeIndex={Math.min(slashIndex, slashCommands.length - 1)} onPick={runSlashCommand} />
+                    ) : null}
+                </AnimatePresence>
+
                 <div
                     className="rounded-[24px] border border-white/[0.08] bg-panel-raised/85 shadow-[0_18px_40px_-24px_rgba(0,0,0,0.7)] transition-colors focus-within:border-accent-primary/35"
                     onDragOver={(e) => {
@@ -1260,9 +1334,35 @@ export function AssistantSidePanel({
                         value={input}
                         onChange={(e) => {
                             setInput(e.target.value);
+                            setSlashIndex(0);
+                            setSlashDismissed(false);
+                            setSlashMenuForced(false);
                             if (inputNotice) setInputNotice(null);
                         }}
+                        aria-controls={activeSlash ? SLASH_MENU_ID : undefined}
+                        aria-activedescendant={activeSlash ? slashOptionId(activeSlash.id) : undefined}
                         onKeyDown={(e) => {
+                            if (activeSlash) {
+                                const n = slashCommands.length;
+                                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                                    e.preventDefault();
+                                    setSlashIndex((i) => (Math.min(i, n - 1) + (e.key === "ArrowDown" ? 1 : n - 1)) % n);
+                                    return;
+                                }
+                                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !coarse)) {
+                                    e.preventDefault();
+                                    runSlashCommand(activeSlash);
+                                    return;
+                                }
+                                if (e.key === "Escape") {
+                                    // Only the menu closes, not the panel.
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setSlashDismissed(true);
+                                    setSlashMenuForced(false);
+                                    return;
+                                }
+                            }
                             // Touch keyboards: Return is a newline; the send button sends.
                             if (e.key === "Enter" && !e.shiftKey && !coarse) {
                                 e.preventDefault();
@@ -1303,7 +1403,25 @@ export function AssistantSidePanel({
                                 aria-label={imageAllowance.label}
                                 className="flex h-9 w-9 items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text disabled:opacity-40 cursor-pointer"
                             >
-                                <Plus size={18} aria-hidden />
+                                <ImagePlus size={17} aria-hidden />
+                            </button>
+                        </Tip>
+                        <Tip label="Commands" side="top">
+                            <button
+                                type="button"
+                                // Keep the textarea focused so the menu's keys keep working.
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={toggleSlashMenu}
+                                aria-label="Commands"
+                                aria-expanded={slashCommands.length > 0}
+                                aria-controls={slashCommands.length > 0 ? SLASH_MENU_ID : undefined}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                                    slashCommands.length > 0
+                                        ? "bg-accent-primary/15 text-accent-primary"
+                                        : "text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                                }`}
+                            >
+                                <Slash size={15} aria-hidden />
                             </button>
                         </Tip>
 
@@ -1387,6 +1505,9 @@ export function AssistantSidePanel({
                         onSelect={handleSelectConversation}
                     />
                 ) : null}
+            </AnimatePresence>
+            <AnimatePresence>
+                {usageOpen ? <UsageOverlay onClose={closeUsage} onOpenSettings={openAssistantSettings} /> : null}
             </AnimatePresence>
         </div>
     );

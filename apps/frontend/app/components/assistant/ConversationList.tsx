@@ -13,6 +13,7 @@ import {
     useDeleteConversation,
 } from "../../hooks/ai/use-conversation-mutations";
 import { ConversationListItem } from "./ConversationListItem";
+import { ClearArchiveButton } from "./ClearArchiveButton";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
 /**
@@ -174,6 +175,9 @@ export function ConversationList({
                                                         onDelete={() => del.mutate(c.id)}
                                                     />
                                                 ))}
+                                                <div className="flex justify-center px-2 pb-1 pt-3">
+                                                    <ClearArchiveButton />
+                                                </div>
                                             </motion.div>
                                         ) : null}
                                     </AnimatePresence>

@@ -82,6 +82,19 @@ describe("rename, archive, delete", () => {
         expect(left).toBe(0);
     });
 
+    it("clears the archive: every archived thread goes, active ones and other users' stay", async () => {
+        const kept = await seedThread(userId);
+        const [a, b] = [await seedThread(userId), await seedThread(userId)];
+        const theirs = await seedThread(otherId);
+        for (const id of [a, b]) await ai("PATCH", `/conversations/${id}`, { archived: true });
+        await otherAi("PATCH", `/conversations/${theirs}`, { archived: true });
+
+        expect((await ai("DELETE", "/conversations/archived")).body.data).toEqual({ deleted: 2 });
+        expect((await ai("GET", "/conversations")).body.data.conversations.map((c: any) => c.id)).toEqual([kept]);
+        expect((await otherAi("GET", `/conversations/${theirs}`)).status).toBe(200);
+        expect((await ai("DELETE", "/conversations/archived")).body.data).toEqual({ deleted: 0 });
+    });
+
     it("treats another user's thread as not found for read, rename, and delete, and leaves it intact", async () => {
         const theirs = await seedThread(otherId);
 

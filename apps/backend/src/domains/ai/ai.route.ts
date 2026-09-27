@@ -36,6 +36,8 @@ import {
     renameOrArchiveConversation,
     deleteConversation,
     listConversationImageIds,
+    listArchivedImageIds,
+    deleteArchivedConversations,
     setActiveStream,
     finalizeActiveStream,
     setTitleIfEmpty,
@@ -665,6 +667,22 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return c.json({ data: result });
     },
     )
+    // ── Delete: clear the archive — every archived thread, messages and images ──
+    // Registered before `/conversations/:id` so "archived" never reaches the id route.
+    .delete("/conversations/archived", async (c) => {
+        const userId = c.get("userId");
+        const db = getDbClient(c.env);
+
+        // Storage first, as for one thread: if it fails, the rows stay and the clear can be retried.
+        const imageIds = await withRls(db, userId, (tx) => listArchivedImageIds(tx, userId));
+        if (imageIds.length > 0 && c.env.USER_ASSETS) {
+            const userKey = await hashIdentifier(userId);
+            await deleteImageObjects(c.env.USER_ASSETS, imageIds.map((imageId) => aiImageKey(userKey, imageId)));
+        }
+        const deleted = await withRls(db, userId, (tx) => deleteArchivedConversations(tx, userId));
+
+        return c.json({ data: { deleted } });
+    })
     // ── Delete: remove a thread (messages cascade) ───────────────────────
     .delete("/conversations/:id", apiValidator("param", uuidParamSchema), async (c) => {
     const userId = c.get("userId");

@@ -6,10 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Quick commands in the assistant, a clear view of your limits, and colours for events.
+
 ### Added
 - Give an event a colour, like a routine; its card on Events takes on a soft tint of it.
+- Type / in the assistant, or tap its new / button, for quick commands: /usage, /clear, /history and /settings.
+- /usage shows your assistant limits as bars, with a countdown and the date each one resets.
+- Clear archive deletes every archived assistant conversation at once, from history or Settings.
 
 ### Changed
+- Archive a conversation in one click from its row in the assistant's history.
 - The assistant starts answering sooner and looks things up in fewer steps.
 
 ### Fixed

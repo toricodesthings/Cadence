@@ -1,7 +1,7 @@
 /**
- * Conversation mutations (ai_frontend.md §5.1) — rename / archive / delete.
+ * Conversation mutations (ai_frontend.md §5.1) — rename / archive / delete / clear archive.
  *
- * All three are optimistic against the `queryKeys.ai.conversations` list cache
+ * All are optimistic against the `queryKeys.ai.conversations` list cache
  * and invalidate on settle, mirroring the domain-hook convention
  * (hooks/tasks/use-update-task.ts).
  */
@@ -105,6 +105,40 @@ export function useDeleteConversation() {
                 queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
             }
             toast.error(err instanceof Error ? err.message : "Couldn’t delete that conversation");
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
+    });
+}
+
+/** Delete every archived conversation (optimistic remove of all archived rows). */
+export function useClearArchive() {
+    const client = useApiClient();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async () => {
+            const res = await client.api.ai.conversations.archived.$delete();
+            return unwrapResponse(res);
+        },
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.ai.conversations });
+            const snapshot = patchList(queryClient, (rows) => rows.filter((r) => !r.archived));
+            return { snapshot };
+        },
+        onSuccess: ({ deleted }) => {
+            toast.success(
+                deleted === 0
+                    ? "The archive is already empty"
+                    : deleted === 1
+                      ? "Deleted 1 archived conversation"
+                      : `Deleted ${deleted} archived conversations`,
+            );
+        },
+        onError: (err, _vars, context) => {
+            if (context?.snapshot) {
+                queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
+            }
+            toast.error(err instanceof Error ? err.message : "Couldn’t clear the archive");
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
     });

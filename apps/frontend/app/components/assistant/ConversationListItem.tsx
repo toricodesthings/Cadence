@@ -27,7 +27,7 @@ function relativeTime(iso: string | null): string {
 
 /**
  * A single saved-conversation row (design §7.1–§7.2). Title + relative time +
- * an overflow menu (Rename inline / Archive / Delete). The whole row is a
+ * one-click Archive/Unarchive + an overflow menu (Rename inline / Delete). The whole row is a
  * button; the menu is a Radix dropdown for full keyboard nav.
  */
 export function ConversationListItem({
@@ -133,12 +133,23 @@ export function ConversationListItem({
                 </span>
             </button>
 
+            <Tip label={conversation.archived ? "Unarchive" : "Archive"} side="top">
+                <button
+                    type="button"
+                    onClick={() => onArchive(!conversation.archived)}
+                    className="ml-1.5 flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
+                    aria-label={`${conversation.archived ? "Unarchive" : "Archive"} “${title}”`}
+                >
+                    {conversation.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                </button>
+            </Tip>
+
             <DropdownMenu.Root>
                 <Tip label="Conversation options" side="top">
                     <DropdownMenu.Trigger asChild>
                         <button
                             type="button"
-                            className="ml-1.5 flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
+                            className="ml-0.5 flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
                             aria-label="Conversation options"
                         >
                             <MoreHorizontal size={16} />
@@ -149,22 +160,6 @@ export function ConversationListItem({
                     <DropdownMenu.Item onSelect={() => setEditing(true)} className="gap-2 text-[14px]">
                         <Pencil size={14} />
                         Rename
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                        onSelect={() => onArchive(!conversation.archived)}
-                        className="gap-2 text-[14px]"
-                    >
-                        {conversation.archived ? (
-                            <>
-                                <ArchiveRestore size={14} />
-                                Unarchive
-                            </>
-                        ) : (
-                            <>
-                                <Archive size={14} />
-                                Archive
-                            </>
-                        )}
                     </DropdownMenu.Item>
                     <DropdownMenu.Separator />
                     <DropdownMenu.Item
