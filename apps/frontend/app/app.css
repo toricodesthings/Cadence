@@ -1423,6 +1423,15 @@ a:active {
   box-shadow: 0 0 0 2px rgba(232, 164, 74, 0.32) !important;
 }
 
+/* The password eye sits inside its field, not as a bordered button. */
+.neon-auth-wrapper button[aria-label="Toggle password visibility"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: var(--color-twilight-text-soft) !important;
+}
+
 /* Fix Tailwind SVG reset causing massive icons in Auth components */
 .neon-auth-wrapper svg {
   width: 20px !important;

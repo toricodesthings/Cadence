@@ -12,6 +12,8 @@ import {
 } from "react-router";
 
 import { Loading } from "./components/shared/Loading";
+import { CardPage } from "./components/shared/CardPage";
+import { Button } from "./components/primitives/Button";
 import { Providers } from "./providers";
 import { RUNTIME_TARGET } from "./lib/env";
 import { LOADING_BOOT_SCRIPT } from "./lib/themes/season";
@@ -106,15 +108,15 @@ export function HydrateFallback() {
 }
 
 export function ErrorBoundary({ error }: { error: unknown }) {
-  let message = "Oops!";
+  let message = "Something went wrong";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
+    message = error.status === 404 ? "Page not found" : `Error ${error.status}`;
     details =
       error.status === 404
-        ? "The requested page could not be found."
+        ? "There's nothing at this address."
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;
@@ -122,28 +124,21 @@ export function ErrorBoundary({ error }: { error: unknown }) {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-twilight-base p-8 text-center text-twilight-text">
-      <div className="w-full max-w-xl space-y-6 rounded-3xl border border-twilight-border bg-twilight-surface/50 p-8 pt-10 shadow-2xl backdrop-blur-xl">
-        <h1 className="font-display text-4xl font-bold tracking-tight text-accent-primary/90">
-          {message}
-        </h1>
-        <p className="text-lg text-twilight-text-muted">{details}</p>
-        {stack && (
-          <div className="mt-8 overflow-hidden rounded-xl border border-twilight-border bg-twilight-surface-muted">
-            <pre className="w-full overflow-x-auto p-4 text-left text-[11px] leading-relaxed text-twilight-text-soft">
-              <code>{stack}</code>
-            </pre>
-          </div>
-        )}
-        <div className="pt-6">
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-xl bg-accent-primary/10 px-6 py-2.5 text-sm font-medium text-accent-primary transition-[background-color] hover:bg-accent-primary/20"
-          >
-            Return to Safety
-          </a>
-        </div>
-      </div>
-    </main>
+    <CardPage
+      title={message}
+      description={details}
+      actions={
+        // A plain link: the router itself may be what failed.
+        <Button asChild size="md">
+          <a href="/">Go home</a>
+        </Button>
+      }
+    >
+      {stack && (
+        <pre className="max-h-64 overflow-auto rounded-xl border border-twilight-border bg-twilight-surface-muted p-4 text-left text-[11px] leading-relaxed text-twilight-text-soft">
+          <code>{stack}</code>
+        </pre>
+      )}
+    </CardPage>
   );
 }

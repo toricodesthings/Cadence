@@ -12,6 +12,7 @@ import {
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { Button } from "../components/primitives/Button";
 import { Input } from "../components/primitives/Input";
+import { CardPage } from "../components/shared/CardPage";
 import {
     consumeDesktopAuthHandoff,
     DESKTOP_AUTH_STATE_PARAM,
@@ -37,12 +38,6 @@ function getMergedCallbackParams(location: { search: string; hash: string }) {
     }
 
     return params;
-}
-
-function CadenceAuthMark({ size = "h-14 w-14", rounded = "rounded-[1.4rem]" }: { size?: string; rounded?: string }) {
-    return (
-        <img src="/logo.png" alt="Cadence" className={`${size} ${rounded} object-cover`} />
-    );
 }
 
 function ProviderLogo({ provider }: { provider: "google" | "github" }) {
@@ -197,28 +192,17 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
     }, [isAuthenticated, navigate, redirectTo]);
 
     return (
-        <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
-            <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
-                <div className="mb-5 flex items-center justify-center">
-                    <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
-                </div>
-                <h1 className="font-display text-2xl font-semibold text-twilight-text">
-                    {errorMessage ? "Sign-in failed" : "Completing sign in"}
-                </h1>
-                <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
-                    {errorMessage
-                        ? errorMessage
-                        : "Cadence is restoring your session and returning you to the app."}
-                </p>
-                {errorMessage && (
-                    <div className="mt-6 flex justify-center">
-                        <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
-                            Back to sign in
-                        </Button>
-                    </div>
-                )}
-            </div>
-        </main>
+        <CardPage
+            title={errorMessage ? "Sign-in failed" : "Completing sign in"}
+            description={errorMessage ?? "Cadence is restoring your session and returning you to the app."}
+            actions={errorMessage ? (
+                <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
+                    Back to sign in
+                </Button>
+            ) : (
+                <Loader2 className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
+            )}
+        />
     );
 }
 
@@ -434,33 +418,22 @@ function WebAuthCallbackScreen({ authError }: { authError: string | null }) {
     }, [authError, beginAuthRecovery]);
 
     return (
-        <main className="flex min-h-dvh items-center justify-center bg-twilight px-6">
-            <div className="glass-surface w-full max-w-md rounded-[2rem] p-8 text-center shadow-2xl">
-                <div className="mb-5 flex items-center justify-center">
-                    <CadenceAuthMark size="h-10 w-10" rounded="rounded-2xl" />
-                </div>
-                <h1 className="font-display text-2xl font-semibold text-twilight-text">
-                    {timedOut ? "Sign-in didn't finish" : "Completing sign in"}
-                </h1>
-                <p className="mt-3 text-sm leading-relaxed text-twilight-text-soft">
-                    {timedOut
-                        ? "Cadence couldn't restore your session. Please try signing in again."
-                        : "Cadence is restoring your session and returning you to the app."}
-                    {authError && (
-                        <span className="mt-2 block font-mono text-xs opacity-70">{authError}</span>
-                    )}
-                </p>
-                <div className="mt-6 flex justify-center">
-                    {timedOut ? (
-                        <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
-                            Back to sign in
-                        </Button>
-                    ) : (
-                        <Loader2 className="animate-spin" aria-label="Restoring session" />
-                    )}
-                </div>
-            </div>
-        </main>
+        <CardPage
+            title={timedOut ? "Sign-in didn't finish" : "Completing sign in"}
+            description={<>
+                {timedOut
+                    ? "Cadence couldn't restore your session. Please try signing in again."
+                    : "Cadence is restoring your session and returning you to the app."}
+                {authError && <span className="mt-2 block font-mono text-xs opacity-70">{authError}</span>}
+            </>}
+            actions={timedOut ? (
+                <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
+                    Back to sign in
+                </Button>
+            ) : (
+                <Loader2 className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
+            )}
+        />
     );
 }
 
@@ -506,18 +479,14 @@ export default function AuthPage() {
                 .filter((button) => button.querySelector("svg"))
                 .filter((button) => !button.textContent?.trim());
 
-            iconOnlyButtons.forEach((button, index) => {
-                if (index === 0) {
-                    button.setAttribute("aria-label", "Continue with Google");
+            // The password eye sits beside its input; the rest are the providers, in order.
+            let provider = 0;
+            iconOnlyButtons.forEach((button) => {
+                if (button.parentElement?.querySelector("input")) {
+                    button.setAttribute("aria-label", "Toggle password visibility");
                     return;
                 }
-
-                if (index === 1) {
-                    button.setAttribute("aria-label", "Continue with GitHub");
-                    return;
-                }
-
-                button.setAttribute("aria-label", "Toggle password visibility");
+                button.setAttribute("aria-label", provider++ === 0 ? "Continue with Google" : "Continue with GitHub");
             });
         };
 
@@ -538,91 +507,67 @@ export default function AuthPage() {
     }
 
     return (
-        <main className="relative min-h-dvh overflow-hidden bg-twilight">
-            <div className="pointer-events-none absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%270 0 256 256%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.9%27 numOctaves=%274%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E")' }} />
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-[-12%] top-[8%] h-[24rem] w-[24rem] rounded-full bg-moonlit/10 blur-[120px]" />
-                <div className="absolute right-[-8%] top-[18%] h-[26rem] w-[26rem] rounded-full bg-accent-primary/8 blur-[130px]" />
-                <div className="absolute bottom-[-10%] left-1/2 h-[22rem] w-[34rem] -translate-x-1/2 rounded-full bg-white/[0.04] blur-[160px]" />
+        <CardPage
+            title={isSignUp ? "Create your account" : "Sign in to Cadence"}
+            description={isSignUp ? "Set up your workspace and start planning." : "Pick up where you left off."}
+        >
+            <div className="neon-auth-wrapper">
+                {IS_DESKTOP_RUNTIME ? (
+                    <DesktopAuthForm isSignUp={isSignUp} redirectTo={redirectTo} />
+                ) : (
+                    <AuthView
+                        view={isSignUp ? "SIGN_UP" : "SIGN_IN"}
+                        callbackURL={getAuthCallbackUrl(redirectTo)}
+                        redirectTo={redirectTo}
+                        socialLayout="horizontal"
+                        classNames={{
+                            base: "w-full max-w-none space-y-2.5 py-0",
+                            content: "px-0",
+                            header: "hidden",
+                            title: "hidden",
+                            description: "hidden",
+                            continueWith: "text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft",
+                            separator: "text-[11px] uppercase tracking-[0.22em] text-twilight-text-soft",
+                            footer: "hidden",
+                            footerLink: "hidden",
+                            form: {
+                                button: "min-h-10 rounded-[1rem] text-sm font-medium",
+                                primaryButton: "min-h-10 rounded-[1rem] bg-accent-primary text-twilight-void font-semibold",
+                                providerButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
+                                secondaryButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
+                                input: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text",
+                                label: "text-sm font-medium text-twilight-text",
+                                description: "text-sm leading-relaxed text-twilight-text-soft",
+                                forgotPasswordLink: "inline-flex min-h-0 items-center py-0 text-sm font-medium leading-none text-accent-primary hover:text-accent-primary",
+                                error: "text-sm text-feedback-error",
+                            },
+                        }}
+                        localization={{
+                            SIGN_IN: "Sign in to Cadence",
+                            SIGN_IN_DESCRIPTION: "",
+                            SIGN_IN_ACTION: "Sign in",
+                            SIGN_UP: "Create your account",
+                            SIGN_UP_DESCRIPTION: "",
+                            SIGN_UP_ACTION: "Create account",
+                            OR_CONTINUE_WITH: "Or continue with",
+                            NAME_DESCRIPTION: "The name that greets you inside Cadence.",
+                            FORGOT_PASSWORD: "Forgot password?",
+                        }}
+                    />
+                )}
             </div>
 
-            <section className="safe-top safe-bottom relative flex min-h-dvh items-start justify-center px-4 py-4 sm:px-6 sm:py-8 md:items-center">
-                <div className="w-full max-w-lg">
-                    <div className="glass-surface relative overflow-hidden rounded-[2.15rem] px-6 py-6 shadow-[0_36px_120px_rgba(0,0,0,0.38)] sm:px-7 sm:py-7">
-                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                        <div className="mb-4 flex flex-col items-center text-center">
-                            <CadenceAuthMark size="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" rounded="rounded-[1.45rem]" />
-                            <p className="mt-4 font-display text-[1.85rem] font-semibold leading-[1.02] text-twilight-text sm:text-[2.1rem]">
-                                {isSignUp ? "Create your account" : "Sign in to Cadence"}
-                            </p>
-                            <p className="mt-2.5 max-w-[22rem] text-sm leading-7 text-twilight-text-soft sm:text-[15px]">
-                                {isSignUp
-                                    ? "Set up your workspace and start planning."
-                                    : "Pick up where you left off."}
-                            </p>
-                        </div>
-
-                        <div className="neon-auth-wrapper">
-                            {IS_DESKTOP_RUNTIME ? (
-                                <DesktopAuthForm isSignUp={isSignUp} redirectTo={redirectTo} />
-                            ) : (
-                                <AuthView
-                                    view={isSignUp ? "SIGN_UP" : "SIGN_IN"}
-                                    callbackURL={getAuthCallbackUrl(redirectTo)}
-                                    redirectTo={redirectTo}
-                                    socialLayout="horizontal"
-                                    classNames={{
-                                        base: "w-full max-w-none space-y-2.5",
-                                        header: "hidden",
-                                        title: "hidden",
-                                        description: "hidden",
-                                        continueWith: "text-[11px] font-semibold uppercase tracking-[0.22em] text-twilight-text-soft",
-                                        separator: "text-[11px] uppercase tracking-[0.22em] text-twilight-text-soft",
-                                        footer: "hidden",
-                                        footerLink: "hidden",
-                                        form: {
-                                            button: "min-h-10 rounded-[1rem] text-sm font-medium",
-                                            primaryButton: "min-h-10 rounded-[1rem] bg-accent-primary text-twilight-void font-semibold",
-                                            providerButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 text-twilight-text",
-                                            secondaryButton: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-transparent text-twilight-text-soft",
-                                            input: "min-h-10 rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 px-4 text-twilight-text",
-                                            label: "text-sm font-medium text-twilight-text",
-                                            description: "text-sm leading-relaxed text-twilight-text-soft",
-                                            forgotPasswordLink: "inline-flex min-h-0 items-center py-0 text-sm font-medium leading-none text-accent-primary hover:text-accent-primary",
-                                            error: "text-sm text-feedback-error",
-                                        },
-                                    }}
-                                    localization={{
-                                        SIGN_IN: "Sign in to Cadence",
-                                        SIGN_IN_DESCRIPTION: "",
-                                        SIGN_IN_ACTION: "Sign in",
-                                        SIGN_UP: "Create your account",
-                                        SIGN_UP_DESCRIPTION: "",
-                                        SIGN_UP_ACTION: "Create account",
-                                        OR_CONTINUE_WITH: "Or continue with",
-                                        NAME_DESCRIPTION: "The name that greets you inside Cadence.",
-                                        FORGOT_PASSWORD: "Forgot password?",
-                                    }}
-                                />
-                            )}
-                        </div>
-
-                        <div className="mt-5 flex flex-col items-center justify-center gap-4 text-sm">
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-twilight-text-soft">
-                                    {isSignUp ? "Already have an account?" : "Don't have an account?"}
-                                </span>
-                                <Link
-                                    to={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
-                                    className="font-medium text-accent-primary transition-colors hover:text-accent-primary/80"
-                                >
-                                    {isSignUp ? "Sign in" : "Create an account"}
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
+            <p className="mt-5 flex items-center justify-center gap-1.5 text-sm">
+                <span className="text-twilight-text-soft">
+                    {isSignUp ? "Already have an account?" : "Don't have an account?"}
+                </span>
+                <Link
+                    to={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
+                    className="font-medium text-accent-primary transition-colors hover:text-accent-primary/80"
+                >
+                    {isSignUp ? "Sign in" : "Create an account"}
+                </Link>
+            </p>
+        </CardPage>
     );
 }

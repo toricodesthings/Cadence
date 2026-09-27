@@ -1,27 +1,20 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, ShieldCheck, TriangleAlert } from "lucide-react";
 import type { McpScope } from "@cadence/contracts/connections";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { Button } from "../components/primitives/Button";
 import { Switch } from "../components/primitives/Switch";
-import { StarField } from "../components/shared/loading/LoadingSky";
+import { CardPage, EASE, rise, stagger } from "../components/shared/CardPage";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { useAnswerConnectRequest, useConnectRequest } from "../hooks/core/use-connections";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { MCP_SCOPE_COPY } from "../lib/constants/mcp";
 
-const EASE = [0.16, 1, 0.3, 1] as const;
 /** How long the drawn check stays up before the browser returns to the assistant. */
 const SUCCESS_HOLD_MS = 1500;
-
-const stagger: Variants = { show: { transition: { staggerChildren: 0.06, delayChildren: 0.08 } } };
-const rise: Variants = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
-};
 
 /**
  * Consent for an outside assistant (MCP). The assistant sent the browser here from
@@ -172,29 +165,20 @@ export default function ConnectRoute() {
     }
 
     return (
-        <main className="relative flex min-h-dvh items-start justify-center bg-twilight px-4 py-6 safe-top safe-bottom md:items-center">
-            <StarField className="pointer-events-none fixed inset-0 h-full w-full" />
-            <motion.div
-                initial={{ opacity: 0, y: 16, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.6, ease: EASE }}
-                className="cadence-diagonal-sheen glass-surface relative w-full max-w-lg rounded-[1.75rem] px-5 py-6 shadow-[0_36px_120px_rgba(0,0,0,0.38)] sm:px-7"
-            >
-                <img src="/logo.png" alt="Cadence" className="mx-auto mb-4 h-10 w-10 rounded-[0.8rem] object-cover shadow-[0_8px_32px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)]" />
-                <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                        key={key}
-                        variants={stagger}
-                        initial="hidden"
-                        animate="show"
-                        exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
-                        className="flex flex-col gap-4"
-                    >
-                        {body}
-                    </motion.div>
-                </AnimatePresence>
-            </motion.div>
-        </main>
+        <CardPage>
+            <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                    key={key}
+                    variants={stagger}
+                    initial="hidden"
+                    animate="show"
+                    exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+                    className="flex flex-col gap-4"
+                >
+                    {body}
+                </motion.div>
+            </AnimatePresence>
+        </CardPage>
     );
 }
 
