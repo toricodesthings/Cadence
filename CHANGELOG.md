@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-26
+
 Quick commands in the assistant, a clear view of your limits, and colours for events.
 
 ### Added
