@@ -202,108 +202,6 @@ function PasswordChangeModal() {
     );
 }
 
-function TwoFactorModal() {
-    const [open, setOpen] = useState(false);
-    const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
-
-    const handleEnable = async () => {
-        setLoading(true);
-        // Using authClient.twoFactor methods (assuming standard better-auth plugin availability on Neon)
-        try {
-            // @ts-ignore
-            const { error, data } = await authClient.twoFactor.enable({ password });
-            if (error) {
-                toast.error(error.message || "Failed to enable 2FA.");
-            } else {
-                toast.success("2FA enabled successfully.");
-                if (data?.backupCodes) {
-                    setBackupCodes(data.backupCodes);
-                }
-            }
-        } catch (err: any) {
-            toast.error(err.message || "An unexpected error occurred.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleDisable = async () => {
-        setLoading(true);
-        try {
-            // @ts-ignore
-            const { error } = await authClient.twoFactor.disable({ password });
-            if (error) {
-                toast.error(error.message || "Failed to disable 2FA.");
-            } else {
-                toast.success("2FA disabled.");
-                setOpen(false);
-                setBackupCodes(null);
-                setPassword("");
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) { setPassword(""); setBackupCodes(null); } }}>
-            <Dialog.DialogTrigger asChild>
-                <Button variant="secondary" size="sm">
-                    Manage 2FA
-                </Button>
-            </Dialog.DialogTrigger>
-            <Dialog.DialogContent>
-                <Dialog.DialogHeader>
-                    <Dialog.DialogTitle>Two-Factor Authentication</Dialog.DialogTitle>
-                </Dialog.DialogHeader>
-                <div className="py-4 flex flex-col gap-4">
-                    {backupCodes ? (
-                        <div className="flex flex-col gap-3">
-                            <p className="text-sm text-green-400 font-semibold">2FA is now enabled!</p>
-                            <p className="text-xs text-warm-white/70">Please save these backup codes in a secure location. You will need them if you lose access to your authenticator device.</p>
-                            <div className="bg-black/40 p-3 rounded border border-twilight-border grid grid-cols-2 gap-2 max-h-40 overflow-y-auto font-mono text-sm text-warm-white">
-                                {backupCodes.map((code, i) => (
-                                    <span key={i} className="tracking-wider">{code}</span>
-                                ))}
-                            </div>
-                            <Button variant="secondary" onClick={() => setOpen(false)}>I have saved my backup codes</Button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-3">
-                            <p className="text-sm text-warm-white/70">Enter your password to configure Two-Factor Authentication.</p>
-                            <Input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Current Password"
-                            />
-                            <div className="flex gap-2 mt-2">
-                                <Button
-                                    variant="primary"
-                                    onClick={handleEnable}
-                                    disabled={loading || !password}
-                                >
-                                    Enable 2FA
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    className="text-red-400 hover:text-red-300"
-                                    onClick={handleDisable}
-                                    disabled={loading || !password}
-                                >
-                                    Disable 2FA
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </Dialog.DialogContent>
-        </Dialog.Dialog>
-    );
-}
-
 function OAuthConnectionsBlock() {
     const [accounts, setAccounts] = useState<any[] | null>(null);
     const [isPending, setIsPending] = useState(true);
@@ -401,7 +299,7 @@ function OAuthConnectionsBlock() {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-red-400/60 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover/acc:opacity-100 transition-all scale-95 group-hover/acc:scale-100 h-8 font-medium"
+                                className="text-red-400/60 hover:text-red-400 hover:bg-red-400/10 h-8 font-medium"
                                 onClick={async () => {
                                     setLoading(true);
                                     const { error } = await authClient.unlinkAccount({ providerId: acc.providerId });
@@ -455,28 +353,44 @@ function OAuthConnectionsBlock() {
     );
 }
 
+/**
+ * Better Auth only lists sessions for a "fresh" sign-in (freshAge, 1 day by default;
+ * Managed Neon Auth doesn't expose it). Past that, /list-sessions answers 403
+ * SESSION_NOT_FRESH, so we skip it and offer revokeOtherSessions, which has no freshness rule.
+ */
+const SESSION_LIST_FRESH_MS = 24 * 60 * 60 * 1000;
+
 function SessionsBlock() {
     const [sessions, setSessions] = useState<any[] | null>(null);
     const [isPending, setIsPending] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const { session: currentSession } = useAuthState();
     const [loading, setLoading] = useState(false);
+    const signedInAt = new Date(String(currentSession?.session.createdAt ?? "")).getTime();
+    const canList = !(Date.now() - signedInAt >= SESSION_LIST_FRESH_MS);
 
     React.useEffect(() => {
-        setIsPending(true);
-        // @ts-ignore
-        if (typeof authClient.listSessions === "function") {
-            authClient.listSessions().then((res: any) => {
-                setSessions(res?.data || []);
-                setIsPending(false);
-            }).catch(() => {
-                setSessions([]);
-                setIsPending(false);
-            });
-        } else {
-            setSessions([]);
+        if (!canList) {
             setIsPending(false);
+            return;
         }
-    }, []);
+        setIsPending(true);
+        authClient.listSessions().then((res) => {
+            if (res.error) setLoadError(true);
+            else setSessions(res.data ?? []);
+        }).catch(() => setLoadError(true)).finally(() => setIsPending(false));
+    }, [canList]);
+
+    const revokeOthers = async () => {
+        setLoading(true);
+        const { error } = await authClient.revokeOtherSessions();
+        setLoading(false);
+        if (error) toast.error("Couldn't sign out your other devices");
+        else {
+            toast.success("Signed out of every other device");
+            setSessions((current) => current?.filter((s) => s.id === currentSession?.session.id) ?? null);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-3">
@@ -486,6 +400,12 @@ function SessionsBlock() {
             <div className="bg-black/20 rounded-xl p-4 flex flex-col gap-3 border border-twilight-border">
                 {isPending ? (
                     <p className="text-sm text-warm-white/50">Loading sessions...</p>
+                ) : !canList ? (
+                    <p className="text-sm text-warm-white/50">
+                        For your security, other devices are listed only for a day after you sign in. Sign in again to see them one by one, or sign them all out below.
+                    </p>
+                ) : loadError ? (
+                    <p className="text-sm text-warm-white/50">Couldn't load your devices. Try again in a moment.</p>
                 ) : sessions && sessions.length > 0 ? (
                     sessions.map((sess: any) => {
                         const isCurrent = sess.id === currentSession?.session.id;
@@ -507,7 +427,7 @@ function SessionsBlock() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10 opacity-0 group-hover/session:opacity-100 transition-opacity"
+                                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                         onClick={async () => {
                                             setLoading(true);
                                             const { error } = await authClient.revokeSession({ token: sess.token });
@@ -529,6 +449,11 @@ function SessionsBlock() {
                 ) : (
                     <p className="text-sm text-warm-white/50">No sessions found.</p>
                 )}
+            </div>
+            <div>
+                <Button variant="secondary" size="sm" onClick={revokeOthers} disabled={loading}>
+                    Sign out all other devices
+                </Button>
             </div>
         </div>
     );
@@ -779,12 +704,6 @@ export function AccountTab() {
                     title="Change Password"
                 >
                     <PasswordChangeModal />
-                </SettingsRow>
-                <SettingsRow
-                    title="Two-Factor Authentication"
-                    description="Protect your account with an extra layer of security and generate backup codes."
-                >
-                    <TwoFactorModal />
                 </SettingsRow>
             </SettingsSection>
 
