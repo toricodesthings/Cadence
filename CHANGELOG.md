@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-28
+
 Bring Cadence into your assistant.
 
 ### Added
