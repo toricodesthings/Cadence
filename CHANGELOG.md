@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-09-28
+
 ### Changed
 - Error messages now say plainly what went wrong, with a Copy details button to send when you report a problem.
 
