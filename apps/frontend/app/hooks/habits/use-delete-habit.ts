@@ -3,10 +3,10 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { habitCache } from "./optimistic-helpers";
-import { toast } from "sonner";
 import { removeHabitFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useDeleteHabit() {
     const client = useApiClient();
@@ -43,7 +43,7 @@ export function useDeleteHabit() {
 
         onError: (err, _id, context) => {
             if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Couldn't delete routine");
+            toastError(err, "Couldn't delete routine");
         },
 
         onSettled: () => habitCache.invalidate(queryClient),

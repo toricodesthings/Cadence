@@ -11,6 +11,7 @@ import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useConnections(enabled = true) {
     const client = useApiClient();
@@ -29,7 +30,7 @@ export function useDisconnect() {
         mutationFn: async (id: string) =>
             unwrapResponse(await client.api.connections[":id"].$delete({ param: { id } })),
         onSuccess: () => toast.success("Disconnected"),
-        onError: () => toast.error("Couldn't disconnect. Try again."),
+        onError: (error) => toastError(error, "Couldn't disconnect"),
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.connections.all }),
     });
 }

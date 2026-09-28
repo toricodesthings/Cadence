@@ -13,6 +13,7 @@ import { useAuthState } from "../hooks/auth/use-auth-state";
 import { Button } from "../components/primitives/Button";
 import { Input } from "../components/primitives/Input";
 import { CardPage } from "../components/shared/CardPage";
+import { log } from "../lib/log";
 import {
     consumeDesktopAuthHandoff,
     DESKTOP_AUTH_STATE_PARAM,
@@ -126,13 +127,7 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
                     return;
                 } catch (error) {
                     if (active) {
-                        if (import.meta.env.DEV) {
-                            console.error("[cadence:oauth-callback] verifier recovery failed", {
-                                search: location.search,
-                                error,
-                            });
-                        }
-
+                        log.error("oauth-callback", "Couldn't restore your session after sign-in.", error);
                         setErrorMessage(getErrorMessage(error, "Cadence could not restore your session after the OAuth callback."));
                     }
                     return;
@@ -161,20 +156,13 @@ function DesktopAuthCallbackScreen({ redirectTo, location }: { redirectTo: strin
                 try {
                     await writeDesktopAuthSession(desktopSession);
                 } catch (error) {
-                    if (import.meta.env.DEV) {
-                        console.warn("[cadence:oauth-callback] desktop session persistence failed; continuing with live auth session", error);
-                    }
+                    log.warn("oauth-callback", "desktop session persistence failed; continuing with live auth session", error);
                 }
 
                 navigate(redirectTo, { replace: true });
             } catch (error) {
                 if (active) {
-                    if (import.meta.env.DEV) {
-                        console.error("[cadence:oauth-callback] verifier exchange failed", {
-                            search: location.search,
-                            error,
-                        });
-                    }
+                    log.error("oauth-callback", "Couldn't restore your session after sign-in.", error);
                     setErrorMessage(getErrorMessage(error, "Cadence could not restore your session after the OAuth callback."));
                 }
             }
@@ -254,7 +242,7 @@ function DesktopAuthForm({ isSignUp, redirectTo }: { isSignUp: boolean; redirect
 
             navigate(redirectTo, { replace: true });
         } catch (error) {
-            console.error("[cadence:email-auth] error:", error);
+            log.warn("email-auth", "sign-in failed", error);
             setErrorMessage(getErrorMessage(error, isSignUp
                 ? "Cadence could not create your account."
                 : "Cadence could not sign you in."));

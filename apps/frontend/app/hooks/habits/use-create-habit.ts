@@ -4,11 +4,11 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { habitCache } from "./optimistic-helpers";
 import type { Habit, InsertHabit } from "@cadence/contracts/habit";
-import { toast } from "sonner";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useCreateHabit() {
     const client = useApiClient();
@@ -94,7 +94,7 @@ export function useCreateHabit() {
 
         onError: (err, _input, context) => {
             if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Couldn't create routine");
+            toastError(err, "Couldn't create routine");
         },
 
         onSettled: () => habitCache.invalidate(queryClient),

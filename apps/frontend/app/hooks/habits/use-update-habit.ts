@@ -3,11 +3,11 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { habitCache } from "./optimistic-helpers";
 import type { Habit, UpdateHabit } from "@cadence/contracts/habit";
-import { toast } from "sonner";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { queryKeys } from "../../lib/api/query-keys";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useUpdateHabit() {
     const client = useApiClient();
@@ -91,7 +91,7 @@ export function useUpdateHabit() {
 
         onError: (err, _vars, context) => {
             if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Couldn't update routine");
+            toastError(err, "Couldn't update routine");
             habitCache.invalidate(queryClient);
         },
     });

@@ -119,7 +119,8 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
 	} else {
 		const body = await upstream.text();
 		const code = /"code"\s*:\s*"([A-Z_]+)"/.exec(body)?.[1] ?? `HTTP_${upstream.status}`;
-		console.warn("[cadence:auth-callback] verifier exchange failed", { status: upstream.status, code });
+		// An object, like the backend logger, so Workers Logs indexes each field.
+		console.warn({ event: "auth_callback_failed", source: "auth", status: upstream.status, code });
 		cleanUrl.searchParams.set(AUTH_ERROR_PARAM, code);
 	}
 
@@ -141,7 +142,7 @@ export default {
 			if (hasChallenge) {
 				return exchangeVerifier(request, env, url);
 			}
-			console.warn("[cadence:auth-callback] no challenge cookie on callback");
+			console.warn({ event: "auth_callback_no_challenge", source: "auth" });
 		}
 
 		return env.ASSETS.fetch(request);

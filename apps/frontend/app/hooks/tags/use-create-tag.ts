@@ -3,10 +3,10 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { Tag, CreateTagInput } from "@cadence/contracts/tag";
-import { toast } from "sonner";
 import { reconcileTagInCaches } from "../../lib/api/cache-sync";
 import { createTempId } from "../../lib/api/optimistic-id";
 import { tagCache } from "./optimistic-helpers";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Create a tag with optimistic insertion */
 export function useCreateTag() {
@@ -44,7 +44,7 @@ export function useCreateTag() {
 
         onError: (err, _input, context) => {
             if (context) tagCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to create tag");
+            toastError(err, "Couldn't create tag");
         },
 
         onSettled: () => tagCache.invalidate(queryClient),

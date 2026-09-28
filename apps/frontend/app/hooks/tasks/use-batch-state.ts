@@ -3,11 +3,11 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { taskCache } from "./optimistic-helpers";
 import type { Task, TaskState } from "@cadence/contracts/task";
-import { toast } from "sonner";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { chunk } from "../../lib/utils";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** The batch routes take at most 50 ids, so larger selections go as several calls. */
 async function inBatches<T>(taskIds: string[], send: (ids: string[]) => Promise<T[]>): Promise<T[]> {
@@ -44,7 +44,7 @@ export function useBatchStateTransition() {
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to update tasks");
+            toastError(err, "Couldn't update tasks");
             taskCache.invalidate(queryClient);
         },
     });
@@ -81,7 +81,7 @@ export function useBatchRescheduleTasks() {
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to reschedule tasks");
+            toastError(err, "Couldn't reschedule tasks");
             taskCache.invalidate(queryClient);
         },
     });
@@ -115,7 +115,7 @@ export function useBatchDeleteTasks() {
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to delete tasks");
+            toastError(err, "Couldn't delete tasks");
             taskCache.invalidate(queryClient);
         },
     });

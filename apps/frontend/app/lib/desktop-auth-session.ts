@@ -4,6 +4,7 @@ import {
     writeDesktopSecureSecret,
 } from "../platform/desktop-keyring";
 import { getDesktopStore, getWebStorage } from "../platform/runtime";
+import { log } from "./log";
 
 const DESKTOP_AUTH_STORE_NAME = "cadence_auth";
 const DESKTOP_AUTH_STORAGE_KEY = "desktop_oauth_session";
@@ -115,7 +116,7 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
 
         const jwt = await readDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY);
         if (!jwt) {
-            console.warn("[cadence:desktop-auth] native desktop auth metadata exists but secure JWT is missing");
+            log.error("desktop-auth", "Your saved desktop sign-in was incomplete, so you were signed out.");
             await adapter.del(DESKTOP_AUTH_STORAGE_KEY).catch(() => undefined);
             memoryCache = null;
             return memoryCache;
@@ -173,7 +174,7 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
             await adapter.del(DESKTOP_AUTH_STORAGE_KEY).catch(() => undefined);
             await clearDesktopSecureSecret(DESKTOP_AUTH_JWT_SECRET_KEY);
             memoryCache = null;
-            console.error("[cadence:desktop-auth] failed to persist desktop auth session to native store");
+            log.error("desktop-auth", "Couldn't save your desktop sign-in securely.");
             throw new Error("Cadence could not persist the desktop auth session securely.");
         }
     }

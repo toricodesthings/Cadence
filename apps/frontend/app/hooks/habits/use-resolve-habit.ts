@@ -4,12 +4,12 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { habitCache } from "./optimistic-helpers";
 import type { ResolveHabitAction, Habit } from "@cadence/contracts/habit";
-import { toast } from "sonner";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { stepDayStatus } from "@cadence/domain/repeats";
+import { toastError } from "../../lib/utils/error-toast";
 
 const latestResolveByCell = new Map<string, string>();
 
@@ -107,7 +107,7 @@ export function useResolveHabit(boundHabitId?: string) {
                 latestResolveByCell.delete(context.requestKey);
             }
             if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Couldn't update routine");
+            toastError(err, "Couldn't update routine");
         },
         onSettled: () => habitCache.invalidate(queryClient),
     });

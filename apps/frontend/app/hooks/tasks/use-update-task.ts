@@ -4,11 +4,11 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { taskCache } from "./optimistic-helpers";
 import type { Task, UpdateTaskInput } from "@cadence/contracts/task";
-import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Normalize date ranges so scheduledStart ≤ scheduledEnd */
 function normalizeDateRange<T extends Record<string, unknown>>(updates: T): T {
@@ -102,12 +102,7 @@ export function useUpdateTask() {
 
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            const message = err instanceof Error ? err.message : "Failed to update task";
-            if (/conflict|modified|stale/i.test(message)) {
-                toast.error("Task changed elsewhere. Reloading the latest version.");
-            } else {
-                toast.error(message || "Failed to update task");
-            }
+            toastError(err, "Couldn't update task");
             taskCache.invalidate(queryClient);
         },
     });

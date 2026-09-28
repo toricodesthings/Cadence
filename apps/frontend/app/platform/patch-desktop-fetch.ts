@@ -16,6 +16,7 @@
 
 import { isTauri } from "@tauri-apps/api/core";
 import { NEON_AUTH_URL, RUNTIME_TARGET, WEB_APP_BASE_URL } from "../lib/env";
+import { log } from "../lib/log";
 
 if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && isTauri()) {
     const NEON_AUTH_BASE = NEON_AUTH_URL.replace(/\/$/, "");
@@ -30,7 +31,7 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && isTauri()) 
             tauriFetchFn = mod.fetch as (input: Request) => Promise<Response>;
         })
         .catch((err) => {
-            console.error("[cadence:desktop-fetch] FAILED to load tauriFetch", err);
+            log.error("desktop-fetch", "Couldn't load the desktop network layer, so sign-in may not work.", err);
         });
 
     window.fetch = async function patchedFetch(
@@ -51,9 +52,7 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && isTauri()) 
         await tauriFetchReady;
 
         if (!tauriFetchFn) {
-            if (import.meta.env.DEV) {
-                console.warn("[cadence:desktop-fetch] tauriFetch unavailable, falling back for:", url);
-            }
+            log.warn("desktop-fetch", "tauriFetch unavailable, falling back", url);
             return nativeFetch(input, init);
         }
 
@@ -69,9 +68,7 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && isTauri()) 
         try {
             return await tauriFetchFn(request);
         } catch (err) {
-            if (import.meta.env.DEV) {
-                console.warn("[cadence:desktop-fetch] tauriFetch threw, falling back:", url, err);
-            }
+            log.warn("desktop-fetch", "tauriFetch threw, falling back", url, err);
             return nativeFetch(input, init);
         }
     } as typeof fetch;

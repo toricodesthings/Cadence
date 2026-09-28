@@ -3,10 +3,10 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { Project } from "@cadence/contracts/project";
-import { toast } from "sonner";
 import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { projectCache } from "./optimistic-helpers";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useUpdateProject() {
     const client = useApiClient();
@@ -42,7 +42,7 @@ export function useUpdateProject() {
 
         onError: (err, _input, context) => {
             if (context) projectCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to update list");
+            toastError(err, "Couldn't update list");
         },
 
         onSettled: () => projectCache.invalidate(queryClient),

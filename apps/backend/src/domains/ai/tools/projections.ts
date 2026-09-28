@@ -25,7 +25,8 @@ import { NOTE_READ_LIMIT } from "./drafts";
 export interface MinimalTask {
     id: string;
     title: string;
-    state: string;
+    /** Left out for an active Fixed block: it just passes, so "ACTIVE" would read as not done yet. */
+    state?: string;
     dueDate?: string;
     scheduledStart?: string;
     scheduledEnd?: string;
@@ -74,7 +75,7 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         // An expanded occurrence's id is "<series>::<start>"; the model acts on the series.
         id: row.seriesId ?? row.id,
         title: row.title,
-        state: row.state,
+        state: row.interactionMode === "timetable" && row.state === "ACTIVE" ? undefined : row.state,
         dueDate: show(row.dueDate),
         scheduledStart: show(row.scheduledStart),
         scheduledEnd: show(row.scheduledEnd),

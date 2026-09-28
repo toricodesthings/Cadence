@@ -13,6 +13,10 @@
   "vars": {
     "NEON_AUTH_BASE_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth"
   },
+  // Only worker.ts's auth-callback warnings; per-request invocation logs would be asset noise.
+  "observability": {
+    "logs": { "enabled": true, "invocation_logs": false }
+  },
   "preview_urls": false,
   "workers_dev": false,
   "routes": [

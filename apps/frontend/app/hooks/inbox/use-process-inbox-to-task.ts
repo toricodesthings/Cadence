@@ -11,6 +11,7 @@ import { isPersistedId } from "../../lib/api/optimistic-id";
 import { addDays, toISODate, placementLabel } from "../../lib/utils/date-format";
 import { useUnprocessInbox } from "./use-unprocess-inbox";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
+import { toastError } from "../../lib/utils/error-toast";
 
 interface ProcessInboxParams {
     inboxItemId: string;
@@ -116,7 +117,7 @@ export function useProcessInboxToTask() {
                     queryClient.setQueryData(key, data);
                 }
             }
-            toast.error(err.message || "Failed to process capture");
+            toastError(err, "Couldn't process capture");
         },
     });
 }

@@ -16,6 +16,7 @@ import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
 import { initWal } from "./lib/api/offline-wal";
 import { replayWal } from "./lib/api/mutation-executor";
+import { log } from "./lib/log";
 import {
     beginSocialSignIn,
     checkForAppUpdate,
@@ -99,12 +100,13 @@ function AccountProviders({ children }: { children: ReactNode }) {
             new QueryClient({
                 queryCache: new QueryCache({
                     onError: async (error, query) => {
+                        const queryKeyStr = JSON.stringify(query.queryKey);
                         if (!(error instanceof ApiErrorResponse) || !error.isAuthError) {
+                            log.warn("query", `${queryKeyStr} failed`, error);
                             return;
                         }
 
-                        const queryKeyStr = JSON.stringify(query.queryKey);
-                        console.warn("[cadence:query-cache] auth error for query:", queryKeyStr, error.code);
+                        log.debug("query", `auth error for ${queryKeyStr}`, error.code);
 
                         // Coalesce concurrent auth failures into a single recovery attempt.
                         if (recoveryInFlight.current) return;
@@ -112,7 +114,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         // If this specific query already failed once after a recovery
                         // attempt, don't loop — the issue isn't session-level.
                         if (retriedAfterRecovery.current.has(queryKeyStr)) {
-                            console.warn("[cadence:query-cache] query already retried after recovery, not looping:", queryKeyStr);
+                            log.debug("query", `${queryKeyStr} already retried after recovery, not looping`);
                             return;
                         }
 

@@ -4,10 +4,10 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
-import { toast } from "sonner";
 import { removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Delete a task with optimistic removal from all caches */
 export function useDeleteTask() {
@@ -41,7 +41,7 @@ export function useDeleteTask() {
 
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to delete task");
+            toastError(err, "Couldn't delete task");
             taskCache.invalidate(queryClient);
         },
     });

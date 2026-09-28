@@ -3,11 +3,11 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { Project, CreateProjectInput } from "@cadence/contracts/project";
-import { toast } from "sonner";
 import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
 import { createTempId } from "../../lib/api/optimistic-id";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { projectCache } from "./optimistic-helpers";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useCreateProject() {
     const client = useApiClient();
@@ -46,7 +46,7 @@ export function useCreateProject() {
 
         onError: (err, _input, context) => {
             if (context) projectCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to create list");
+            toastError(err, "Couldn't create list");
         },
 
         onSettled: () => projectCache.invalidate(queryClient),

@@ -13,6 +13,7 @@ import {
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { clearAuthJwtCache } from "../../lib/api/client";
 import { isWorkspacePath } from "../../lib/auth/workspace-path";
+import { log } from "../../lib/log";
 
 type AuthStatus =
     | "bootstrapping"
@@ -169,7 +170,7 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
                     return true;
                 }
             } catch (err) {
-                console.error("[cadence:auth-recovery] getSession threw:", err);
+                log.warn("auth-recovery", "getSession threw", err);
             } finally {
                 recoveryPromise.current = null;
             }

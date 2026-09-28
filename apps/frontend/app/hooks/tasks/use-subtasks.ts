@@ -5,10 +5,8 @@ import type { Subtask } from "@cadence/contracts/subtask";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { createTempId } from "../../lib/api/optimistic-id";
-import { toast } from "sonner";
-import { ApiErrorResponse } from "../../types/api";
-import { showRateLimitToast } from "../../lib/utils/rate-limit-toast";
 import { chunk } from "../../lib/utils";
+import { toastError } from "../../lib/utils/error-toast";
 
 const SUBTASKS_KEY = (taskId: string) => ["tasks", taskId, "subtasks"] as const;
 const BULK_SUBTASKS_KEY = (taskIds: string[]) => ["subtasks", "bulk", taskIds] as const;
@@ -163,12 +161,7 @@ export function useCreateSubtask(taskId: string) {
                 updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
             }
 
-            if (err instanceof ApiErrorResponse && err.status === 429) {
-                showRateLimitToast();
-                return;
-            }
-
-            toast.error(err.message || "Failed to add subtask");
+            toastError(err, "Couldn't add subtask");
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });

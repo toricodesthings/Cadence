@@ -9,6 +9,7 @@ import { Tip } from "../../primitives/Tooltip";
 import { useDeleteBackgroundImage, useBackgroundImageUrl } from "../../../hooks/ui/use-background-image";
 import { blurPixels } from "../../../lib/themes/image-palette";
 import { RangeSlider } from "./RangeSlider";
+import { toastError } from "../../../lib/utils/error-toast";
 
 interface PhotoBackgroundPanelProps {
     image: BackgroundImage;
@@ -206,7 +207,7 @@ export function PhotoBackgroundPanel({
                             onClick={() =>
                                 remove.mutate(undefined, {
                                     onSuccess: () => toast.success("Background deleted"),
-                                    onError: () => toast.error("Couldn't delete that photo."),
+                                    onError: (error) => toastError(error, "Couldn't delete that photo"),
                                 })
                             }
                         >

@@ -45,7 +45,10 @@ describe("Trash Undo", () => {
         const editor = setup();
         await act(async () => { await editor.result.current.mutateAsync("task-1"); });
         act(() => toast.mock.calls[0][1].action.onClick());
-        await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Restore failed"));
+        await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+            "Couldn't restore task",
+            expect.objectContaining({ description: "Something went wrong on our end. Try again." }),
+        ));
         expect(open).not.toHaveBeenCalled();
     });
 });

@@ -57,6 +57,7 @@ import { stopServerStream } from "../../lib/ai/stop-stream";
 import { deriveFallbackTitle } from "@cadence/domain/ai-title";
 import { CONVERSATION_TITLE_DATA_TYPE, type ConversationTitleData } from "@cadence/contracts/ai";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { log } from "../../lib/log";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
 import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 
@@ -270,15 +271,16 @@ export function AssistantSidePanel({
     // ── Transport (load-by-id, Phase 1) ──────────────────────────────────────
     // Always attach the session JWT — DefaultChatTransport calls fetch without our
     // `authenticated` flag, so we wrap it to opt every chat request into auth.
-    // Turn timeline in the console (Verbose level), the client half of the server's
-    // `ai_turn_timing` log: ms from send to the first time each milestone reaches the UI.
-    const turnTimingRef = useRef<{ t0: number; seen: Set<string> } | null>(null);
-    const markTurn = useCallback((step: string) => {
-        const turn = turnTimingRef.current;
-        if (!turn || turn.seen.has(step)) return;
-        turn.seen.add(step);
-        console.debug(`[cadence:ai-timing] +${Math.round(performance.now() - turn.t0)}ms ${step}`);
-    }, []);
+    // Dev only: one console line per turn, the client half of the server's `ai_turn`
+    // line (same names), in ms from send until each first reaches the UI.
+    // `skipParts` leaves out the parts a continuation (approval answers) already had.
+    const turnTimingRef = useRef<{
+        t0: number;
+        skipParts: number;
+        headersMs?: number;
+        ttftMs?: number;
+        firstTextMs?: number;
+    } | null>(null);
 
     // Writes run on the server mid-turn, so the workspace refreshes as each one lands
     // (and once more on finish for any the stream didn't show); each write refreshes once.
@@ -293,20 +295,20 @@ export function AssistantSidePanel({
             });
             if (landed.length === 0) return;
             landed.forEach((id) => refreshedWritesRef.current.add(id));
-            markTurn("workspace refresh");
             void hardRefreshWorkspaceCaches(queryClient);
         },
-        [queryClient, markTurn],
+        [queryClient],
     );
 
     const aiFetch = useMemo(
         () =>
             ((req: RequestInfo | URL, init?: RequestInit) =>
                 authenticatedFetch(req, { ...init, authenticated: true }).then((res) => {
-                    markTurn("response headers");
+                    const turn = turnTimingRef.current;
+                    if (turn) turn.headersMs ??= Math.round(performance.now() - turn.t0);
                     return res;
                 })) as typeof fetch,
-        [markTurn],
+        [],
     );
 
     // The conversation id + per-turn clientMessageId are read lazily by the
@@ -352,10 +354,7 @@ export function AssistantSidePanel({
             // runs what was approved and the assistant carries on in the same reply.
             sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
             // Writes run on the server now, so a reply that changed anything refreshes the workspace.
-            onFinish: ({ message }) => {
-                markTurn("onFinish");
-                refreshAfterWrites(message);
-            },
+            onFinish: ({ message }) => refreshAfterWrites(message),
             // The server streams the auto-title as a TRANSIENT data part on the first
             // turn (never persisted into parts) — surface it live to header + sidebar.
             onData: (part) => {
@@ -373,15 +372,26 @@ export function AssistantSidePanel({
     }, [status, messages, refreshAfterWrites]);
 
     useEffect(() => {
-        if (status === "submitted" && !turnTimingRef.current) turnTimingRef.current = { t0: performance.now(), seen: new Set() };
-        markTurn(`status ${status}`);
+        if (!import.meta.env.DEV) return;
         const last = messages.at(-1);
-        for (const part of last?.role === "assistant" ? last.parts : []) {
-            const tool = safeToolName(part);
-            markTurn(tool ? `${tool} ${(part as { state?: string }).state}` : part.type === "text" ? "first text" : part.type);
+        if (status === "submitted" && !turnTimingRef.current) {
+            turnTimingRef.current = { t0: performance.now(), skipParts: last?.role === "assistant" ? last.parts.length : 0 };
         }
-        if (status === "ready" || status === "error") turnTimingRef.current = null;
-    }, [status, messages, markTurn]);
+        const turn = turnTimingRef.current;
+        if (!turn) return;
+        const parts = last?.role === "assistant" ? last.parts.slice(turn.skipParts) : [];
+        const since = Math.round(performance.now() - turn.t0);
+        for (const part of parts) {
+            if ((part.type === "reasoning" || part.type === "text") && part.text) turn.ttftMs ??= since;
+            if (part.type === "text" && part.text) turn.firstTextMs ??= since;
+        }
+        if (status === "ready" || status === "error") {
+            const ms = (value?: number) => (value === undefined ? "–" : `${value}ms`);
+            const toolCalls = parts.filter((part) => safeToolName(part)).length;
+            log.debug("ai-turn", `${status} · headers ${ms(turn.headersMs)} · ttft ${ms(turn.ttftMs)} · first text ${ms(turn.firstTextMs)} · total ${since}ms · ${toolCalls} tool calls`);
+            turnTimingRef.current = null;
+        }
+    }, [status, messages]);
 
     // The live stream id for the active thread, hydrated from the conversation
     // read (`GET /conversations/:id` → `conversation.activeStreamId`). The Stop

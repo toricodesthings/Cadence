@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -9,7 +8,7 @@ export function useInbox(status: "clarifying" | "kept" = "clarifying") {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
 
-    const query = useQuery({
+    return useQuery({
         queryKey: status === "kept" ? queryKeys.inbox.notes : queryKeys.inbox.all,
         staleTime: STALE_TIMES.INBOX,
         enabled: authReady && isAuthenticated,
@@ -18,12 +17,4 @@ export function useInbox(status: "clarifying" | "kept" = "clarifying") {
             return unwrapResponse(res);
         },
     });
-
-    useEffect(() => {
-        if (query.error) {
-            console.error("[cadence:inbox-query] error", query.error);
-        }
-    }, [query.error]);
-
-    return query;
 }

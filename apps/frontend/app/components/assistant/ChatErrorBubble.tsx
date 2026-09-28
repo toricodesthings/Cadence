@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "../primitives/Button";
 import type { StreamError } from "../../lib/ai/stream-error";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { errorRef } from "../../lib/log";
 
 /**
  * One inline error bubble for both pre-stream (HTTP) and mid-stream (error part)
@@ -44,9 +45,8 @@ export function ChatErrorBubble({
     const canRetry = error.isRetryable && !!onRetry;
 
     const copyDetails = async () => {
-        const text = `${error.code}${error.requestId ? ` · ${error.requestId}` : ""}`;
         try {
-            await navigator.clipboard.writeText(text);
+            await navigator.clipboard.writeText(errorRef(error));
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
         } catch {
@@ -124,8 +124,7 @@ export function ChatErrorBubble({
                 {showDetails ? (
                     <div className="mt-2 flex items-center justify-between gap-2 rounded bg-twilight-deep/40 px-2 py-1.5">
                         <span className="truncate text-[10px] text-twilight-text-muted">
-                            {error.code}
-                            {error.requestId ? ` · ${error.requestId}` : ""}
+                            {errorRef(error)}
                         </span>
                         <button
                             type="button"

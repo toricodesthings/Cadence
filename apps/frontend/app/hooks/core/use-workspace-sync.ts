@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useWorkspaceSync() {
     const queryClient = useQueryClient();
@@ -15,8 +16,8 @@ export function useWorkspaceSync() {
             await hardRefreshWorkspaceCaches(queryClient);
             setLastSyncedAt(new Date());
             toast.success("Everything is up to date.");
-        } catch {
-            toast.error("Sync failed. Try again.");
+        } catch (error) {
+            toastError(error, "Couldn't sync");
         } finally {
             setIsSyncing(false);
         }

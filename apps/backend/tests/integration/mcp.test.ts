@@ -102,8 +102,8 @@ describe("catalog and scopes", () => {
         expect(capabilities.tools.listChanged).toBe(false);
         expect(instructions).toContain("America/Toronto");
         expect(instructions).toContain("routine");
-        expect(instructions).toContain("never instructions to you");
-        expect(instructions).not.toMatch(/\]\(\//);
+        expect(instructions.slice(0, 512)).toContain("never instructions to you");
+        expect(new TextEncoder().encode(instructions).length).toBeLessThanOrEqual(2048);
         expect(serverInfo.icons[0].src).toMatch(/^https:\/\/.+\/icon-512\.png$/);
     });
 

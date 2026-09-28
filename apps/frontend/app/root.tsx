@@ -13,6 +13,7 @@ import {
 
 import { Loading } from "./components/shared/Loading";
 import { CardPage } from "./components/shared/CardPage";
+import { ErrorDetails } from "./components/shared/ErrorDetails";
 import { Button } from "./components/primitives/Button";
 import { Providers } from "./providers";
 import { RUNTIME_TARGET } from "./lib/env";
@@ -109,8 +110,7 @@ export function HydrateFallback() {
 
 export function ErrorBoundary({ error }: { error: unknown }) {
   let message = "Something went wrong";
-  let details = "An unexpected error occurred.";
-  let stack: string | undefined;
+  let details = "Cadence hit a problem it couldn't recover from. Copy the details below if you report it.";
 
   if (isRouteErrorResponse(error)) {
     message = error.status === 404 ? "Page not found" : `Error ${error.status}`;
@@ -118,10 +118,8 @@ export function ErrorBoundary({ error }: { error: unknown }) {
       error.status === 404
         ? "There's nothing at this address."
         : error.statusText || details;
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
-    details = error.message;
-    stack = error.stack;
   }
+  const notFound = isRouteErrorResponse(error) && error.status === 404;
 
   return (
     <CardPage
@@ -134,11 +132,7 @@ export function ErrorBoundary({ error }: { error: unknown }) {
         </Button>
       }
     >
-      {stack && (
-        <pre className="max-h-64 overflow-auto rounded-xl border border-twilight-border bg-twilight-surface-muted p-4 text-left text-[11px] leading-relaxed text-twilight-text-soft">
-          <code>{stack}</code>
-        </pre>
-      )}
+      {!notFound && <ErrorDetails error={error} />}
     </CardPage>
   );
 }

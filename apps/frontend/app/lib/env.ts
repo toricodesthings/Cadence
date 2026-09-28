@@ -1,3 +1,5 @@
+import { log } from "./log";
+
 const DEV_API_BASE_URL = "http://localhost:8787";
 const DEV_NEON_AUTH_URL = "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth";
 const DEV_WEB_APP_BASE_URL = "http://localhost:8788";
@@ -40,15 +42,9 @@ export const WEB_APP_BASE_URL =
 if (import.meta.env.DEV && typeof window !== "undefined") {
     fetch(`${API_BASE_URL}/health`, { method: "GET" }).then((res) => {
         if (!res.ok) {
-            console.error(
-                `[cadence:dev] API health check returned ${res.status}. ` +
-                `Backend may not be running or VITE_API_BASE_URL (${API_BASE_URL}) is misconfigured.`,
-            );
+            log.error("dev", `API health check returned ${res.status}. Is the backend running, and is VITE_API_BASE_URL (${API_BASE_URL}) right?`);
         }
     }).catch(() => {
-        console.error(
-            `[cadence:dev] Cannot reach API at ${API_BASE_URL}. ` +
-            `Start the backend or fix VITE_API_BASE_URL in .env.`,
-        );
+        log.error("dev", `Cannot reach the API at ${API_BASE_URL}. Start the backend or fix VITE_API_BASE_URL in .env.`);
     });
 }

@@ -21,6 +21,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { redirectlessAuthClient } from "../lib/auth-client";
 import { WEB_APP_BASE_URL } from "../lib/env";
+import { log } from "../lib/log";
 import {
     DESKTOP_AUTH_STATE_PARAM,
     prepareDesktopAuthHandoff,
@@ -133,8 +134,9 @@ function publishOauthCallback(rawUrl: string) {
     oauthSubscribers.forEach((listener) => {
         listener(callbackUrl);
     });
-    } catch (error) {
-    console.error("[cadence:desktop-oauth] received invalid callback URL", { rawUrl, error });
+    } catch {
+    // Never log the URL or the parse error: both can carry the OAuth code.
+    log.error("desktop-oauth", "Sign-in returned a link Cadence couldn't read.");
     }
 }
 
@@ -148,8 +150,8 @@ async function ensureOauthListeners() {
         onOauthUrl((url) => {
         publishOauthCallback(url);
         }),
-        onOauthInvalidUrl((error) => {
-        console.error("[cadence:desktop-oauth] invalid localhost callback", error);
+        onOauthInvalidUrl(() => {
+        log.error("desktop-oauth", "Sign-in returned a link Cadence couldn't read.");
         }),
     ]).then(() => undefined);
     }
@@ -363,14 +365,7 @@ export const desktopRuntime = {
                 ? error
                 : new Error(typeof error === "string" ? error : JSON.stringify(error));
 
-            if (import.meta.env.DEV) {
-                console.error("[cadence:desktop-fetch] Native request failed", {
-                    url: request.url,
-                    method: request.method,
-                    error,
-                    message: normalizedError.message,
-                });
-            }
+            log.warn("desktop-fetch", `native ${request.method} ${request.url} failed`, error);
 
             throw normalizedError;
         }

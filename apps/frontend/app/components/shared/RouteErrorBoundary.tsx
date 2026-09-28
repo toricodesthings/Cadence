@@ -2,6 +2,7 @@ import { isRouteErrorResponse, useNavigate } from "react-router";
 import { RefreshCw, ArrowLeft } from "lucide-react";
 import { Button } from "../primitives/Button";
 import { CardPage } from "./CardPage";
+import { ErrorDetails } from "./ErrorDetails";
 
 /**
  * Default ErrorBoundary export for routes, so a failing view shows a calm
@@ -12,9 +13,10 @@ export function RouteErrorBoundary({ error }: { error: unknown }) {
 
     let heading = "Something went wrong";
     let detail = "This view couldn't load. Your other workspaces are still here.";
+    const notFound = isRouteErrorResponse(error) && error.status === 404;
 
     if (isRouteErrorResponse(error)) {
-        if (error.status === 404) {
+        if (notFound) {
             heading = "Not found";
             detail = "This page doesn't exist in your workspace.";
         } else {
@@ -37,6 +39,8 @@ export function RouteErrorBoundary({ error }: { error: unknown }) {
                     Reload
                 </Button>
             </>}
-        />
+        >
+            {!notFound && <ErrorDetails error={error} />}
+        </CardPage>
     );
 }

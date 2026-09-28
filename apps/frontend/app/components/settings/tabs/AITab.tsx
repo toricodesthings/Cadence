@@ -9,6 +9,7 @@ import { useApiClient } from "../../../hooks/auth/use-api-client";
 import { unwrapResponse } from "../../../lib/api/helpers";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { ShieldCheck, Trash2 } from "lucide-react";
+import { toastError } from "../../../lib/utils/error-toast";
 
 export function AITab() {
     const { data: settings } = useSettings();
@@ -41,7 +42,7 @@ export function AITab() {
             }
             toast.success("Cleared stored intelligence history.");
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Could not clear intelligence history.");
+            toastError(error, "Couldn't clear intelligence history");
         } finally {
             setIsClearingHistory(false);
         }

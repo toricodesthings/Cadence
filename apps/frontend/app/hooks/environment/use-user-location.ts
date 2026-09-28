@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toastError } from "../../lib/utils/error-toast";
 import type { LocationMode, SavedCity } from "@cadence/contracts/settings";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";
@@ -157,8 +157,8 @@ export function useUserLocation() {
                 },
             });
             return true;
-        } catch {
-            toast.error("Couldn’t save your location choice.");
+        } catch (error) {
+            toastError(error, "Couldn’t save your location choice");
             return false;
         }
     }, [saved?.promptDismissedAt, updateSettings]);

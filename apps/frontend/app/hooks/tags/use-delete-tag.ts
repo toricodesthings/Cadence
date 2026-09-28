@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
-import { toast } from "sonner";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { removeTagFromCaches } from "../../lib/api/cache-sync";
 import { tagCache } from "./optimistic-helpers";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Delete a tag, removing it from the list straight away */
 export function useDeleteTag() {
@@ -25,7 +25,7 @@ export function useDeleteTag() {
 
         onError: (err, _input, context) => {
             if (context) tagCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to delete tag");
+            toastError(err, "Couldn't delete tag");
         },
 
         onSettled: () => tagCache.invalidate(queryClient),

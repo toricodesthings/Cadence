@@ -8,6 +8,7 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { queryKeys } from "../../lib/api/query-keys";
 import { openTaskDetails } from "../../lib/actions/task-details";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Restore a task from trash (ARCHIVED → ACTIVE) */
 export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetailsOnSuccess?: boolean }) {
@@ -49,7 +50,7 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
 
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to restore task");
+            toastError(err, "Couldn't restore task");
             taskCache.invalidate(queryClient);
         },
     });

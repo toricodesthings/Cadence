@@ -5,7 +5,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { isPersistedId } from "../../lib/api/optimistic-id";
-import { toast } from "sonner";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useUpdateInboxItem() {
     const client = useApiClient();
@@ -52,7 +52,7 @@ export function useUpdateInboxItem() {
                     queryClient.setQueryData(key, data);
                 }
             }
-            toast.error(err.message || "Failed to update capture");
+            toastError(err, "Couldn't update capture");
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });

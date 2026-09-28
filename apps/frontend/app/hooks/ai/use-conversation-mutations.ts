@@ -11,6 +11,7 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toast } from "sonner";
 import type { ConversationListItem } from "@cadence/contracts/ai";
+import { toastError } from "../../lib/utils/error-toast";
 
 type ListSnapshot = ConversationListItem[] | undefined;
 
@@ -49,7 +50,7 @@ export function useRenameConversation() {
             if (context?.snapshot) {
                 queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
             }
-            toast.error(err instanceof Error ? err.message : "Couldn’t rename that conversation");
+            toastError(err, "Couldn’t rename that conversation");
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
     });
@@ -79,7 +80,7 @@ export function useArchiveConversation() {
             if (context?.snapshot) {
                 queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
             }
-            toast.error(err instanceof Error ? err.message : "Couldn’t update that conversation");
+            toastError(err, "Couldn’t update that conversation");
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
     });
@@ -104,7 +105,7 @@ export function useDeleteConversation() {
             if (context?.snapshot) {
                 queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
             }
-            toast.error(err instanceof Error ? err.message : "Couldn’t delete that conversation");
+            toastError(err, "Couldn’t delete that conversation");
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
     });
@@ -138,7 +139,7 @@ export function useClearArchive() {
             if (context?.snapshot) {
                 queryClient.setQueryData(queryKeys.ai.conversations, context.snapshot);
             }
-            toast.error(err instanceof Error ? err.message : "Couldn’t clear the archive");
+            toastError(err, "Couldn’t clear the archive");
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations }),
     });

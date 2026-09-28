@@ -3,10 +3,10 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { InboxItem } from "@cadence/contracts/inbox";
-import { toast } from "sonner";
 import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useDeleteInboxItem() {
     const client = useApiClient();
@@ -43,7 +43,7 @@ export function useDeleteInboxItem() {
                     queryClient.setQueryData(key, data);
                 }
             }
-            toast.error(err.message || "Failed to delete inbox item");
+            toastError(err, "Couldn't delete inbox item");
         },
 
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),

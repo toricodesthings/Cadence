@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { useRestoreTask } from "./use-restore-task";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Move a task to trash (ARCHIVED state) with optimistic removal from active caches */
 export function useArchiveTask() {
@@ -45,7 +46,7 @@ export function useArchiveTask() {
 
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to move task to trash");
+            toastError(err, "Couldn't move task to trash");
             taskCache.invalidate(queryClient);
         },
     });

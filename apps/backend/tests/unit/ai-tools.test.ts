@@ -50,6 +50,9 @@ describe("toMinimalTask", () => {
             recurrenceRule: "FREQ=WEEKLY",
         };
         expect(toMinimalTask(occurrence, "UTC")).toMatchObject({ id: "t1", fixedBlock: true, repeats: true });
+        // An active Fixed block just passes: no "ACTIVE" to read as not done yet.
+        expect(toMinimalTask({ ...occurrence, state: "ACTIVE" }, "UTC").state).toBeUndefined();
+        expect(toMinimalTask({ ...occurrence, state: "ARCHIVED" }, "UTC").state).toBe("ARCHIVED");
         expect(toMinimalTask(baseTask, "UTC").fixedBlock).toBeUndefined();
         expect(toMinimalTask(baseTask, "UTC").repeats).toBeUndefined();
     });

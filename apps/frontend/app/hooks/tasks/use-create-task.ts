@@ -4,14 +4,13 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { taskCache } from "./optimistic-helpers";
 import type { CreateTaskInput, Task } from "@cadence/contracts/task";
-import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { isRecurringTask } from "../../lib/utils/task/task-scheduling";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { ApiErrorResponse } from "../../types/api";
-import { showRateLimitToast } from "../../lib/utils/rate-limit-toast";
+import { toastError } from "../../lib/utils/error-toast";
 
 const createTaskIdempotencyKeys = new WeakMap<CreateTaskInput, string>();
 
@@ -134,11 +133,7 @@ export function useCreateTask() {
         onError: (err, _input, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
             taskCache.invalidate(queryClient);
-            if (err instanceof ApiErrorResponse && err.status === 429) {
-                showRateLimitToast("Slow down — too many tasks at once. Try again in a moment.");
-            } else {
-                toast.error(err.message || "Failed to create task");
-            }
+            toastError(err, "Couldn't create task");
         },
     });
 }

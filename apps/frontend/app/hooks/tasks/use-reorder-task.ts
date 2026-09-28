@@ -3,10 +3,10 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
-import { toast } from "sonner";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Reorder a task via fractional index — component handles optimistic array reorder */
 export function useReorderTask() {
@@ -60,7 +60,7 @@ export function useReorderTask() {
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || "Failed to reorder task");
+            toastError(err, "Couldn't reorder task");
             taskCache.invalidate(queryClient);
         },
     });

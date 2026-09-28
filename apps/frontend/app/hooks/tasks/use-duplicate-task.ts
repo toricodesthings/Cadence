@@ -5,6 +5,7 @@ import type { Task } from "@cadence/contracts/task";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { taskCache } from "./optimistic-helpers";
+import { toastError } from "../../lib/utils/error-toast";
 
 /** Duplicate a task — server generates new ID, appends "(copy)" to title */
 export function useDuplicateTask() {
@@ -29,7 +30,7 @@ export function useDuplicateTask() {
         },
 
         onError: (err) => {
-            toast.error(err.message || "Failed to duplicate task");
+            toastError(err, "Couldn't duplicate task");
         },
     });
 }

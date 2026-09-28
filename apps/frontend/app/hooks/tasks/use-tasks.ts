@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -20,7 +20,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     const { authReady, isAuthenticated } = useAuthState();
     const { enabled = true, keepPrevious, ...filterOptions } = options;
 
-    const query = useQuery({
+    return useQuery({
         queryKey: queryKeys.tasks.list(filterOptions),
         enabled: enabled && authReady && isAuthenticated,
         staleTime: STALE_TIMES.TASKS,
@@ -30,14 +30,6 @@ export function useTasks(options: UseTasksOptions = {}) {
             query: buildTasksQuery(filterOptions),
         })),
     });
-
-    useEffect(() => {
-        if (query.error) {
-            console.error("[cadence:tasks-query] error", query.error);
-        }
-    }, [query.error]);
-
-    return query;
 }
 
 const PAGE_SIZE = 100;

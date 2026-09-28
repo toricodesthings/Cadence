@@ -2,10 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
-import { toast } from "sonner";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { taskCache } from "../tasks/optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
+import { toastError } from "../../lib/utils/error-toast";
 
 type TaskTagVars = { taskId: string; tagId: string };
 
@@ -29,7 +29,7 @@ function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Pro
         },
         onError: (err, _vars, context) => {
             if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
-            toast.error(err.message || (adding ? "Failed to add tag" : "Failed to remove tag"));
+            toastError(err, adding ? "Couldn't add tag" : "Couldn't remove tag");
             taskCache.invalidate(queryClient);
         },
     });

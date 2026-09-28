@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toastError } from "../../lib/utils/error-toast";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -34,10 +34,10 @@ export function useUnprocessInbox() {
                 ...(old ?? []).filter((i) => i.id !== item.id),
             ]);
         },
-        onError: (_error, _variables, context) => {
+        onError: (error, _variables, context) => {
             for (const [key, value] of [...(context?.tasks ?? []), ...(context?.inbox ?? [])])
                 cache.setQueryData(key, value);
-            toast.error("Couldn't undo. Try again.");
+            toastError(error, "Couldn't undo");
         },
         onSettled: () => {
             cache.invalidateQueries({ queryKey: queryKeys.inbox.all });

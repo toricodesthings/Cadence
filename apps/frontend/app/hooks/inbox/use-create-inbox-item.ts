@@ -3,11 +3,11 @@ import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { InboxItem } from "@cadence/contracts/inbox";
-import { toast } from "sonner";
 import { reconcileInboxItemInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { createTempId } from "../../lib/api/optimistic-id";
+import { toastError } from "../../lib/utils/error-toast";
 
 export function useCreateInboxItem() {
     const client = useApiClient();
@@ -67,7 +67,7 @@ export function useCreateInboxItem() {
                     queryClient.setQueryData(key, data);
                 }
             }
-            toast.error(err.message || "Failed to add inbox item");
+            toastError(err, "Couldn't add inbox item");
         },
 
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),

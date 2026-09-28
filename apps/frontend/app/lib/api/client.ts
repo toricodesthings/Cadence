@@ -5,6 +5,7 @@ import { authClient } from "../auth-client";
 import { readDesktopAuthSession } from "../desktop-auth-session";
 import { API_BASE_URL, NEON_AUTH_URL } from "../env";
 import { platformFetch } from "../../platform/runtime";
+import { log } from "../log";
 
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
@@ -30,9 +31,7 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
     }).catch(() => null);
 
     if (!response?.ok) {
-        if (import.meta.env.DEV) {
-            console.warn("[cadence:api-auth] /token request failed", response?.status);
-        }
+        log.warn("api-auth", `/token request failed (${response?.status ?? "network"})`);
         return null;
     }
 
@@ -98,13 +97,7 @@ export async function authenticatedFetch(
         if (generation !== _authGeneration) token = null;
 
         if (!token) {
-            console.warn("[cadence:api-auth] authenticated request has no usable JWT", {
-                request: typeof input === "string"
-                    ? input
-                    : input instanceof URL
-                        ? input.toString()
-                        : input.url,
-            });
+            log.warn("api-auth", "authenticated request has no usable JWT", input instanceof Request ? input.url : String(input));
             throw new ApiErrorResponse({
                 status: 401,
                 code: "UNAUTHORIZED",
