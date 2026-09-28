@@ -43,6 +43,7 @@ export const processInboxItemSchema = z.object({
     scheduledEnd: flexibleDateTimeSchema.nullish(),
     isAllDay: z.boolean().nullish(),
     projectId: z.uuid().nullish(),
+    sectionId: z.uuid().nullish(),
     tagIds: z.array(z.uuid()).nullish(),
     priority: z.number().int().min(0).max(4).nullish(),
     effort: effortLevelSchema.nullish(),

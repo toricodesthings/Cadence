@@ -5,11 +5,15 @@ import { ProposalCard } from "./widgets/ProposalCard";
 import { TaskBatchCard } from "./widgets/TaskBatchCard";
 import { UpdateTasksCard } from "./widgets/UpdateTasksCard";
 import { SubtaskEditCard } from "./widgets/SubtaskEditCard";
-import { DeleteTasksCard, RescheduleCard, SetStateCard } from "./widgets/TaskListCards";
+import { DeleteTasksCard, DuplicateTasksCard, ReorderTasksCard, RescheduleCard, SetStateCard } from "./widgets/TaskListCards";
 import {
-    CreateEventCard, CreateProjectCard, CreateSectionsCard, CreateTagCard, DeleteEventCard, DeleteSectionCard,
-    CreateHabitCard, InboxStructureCard, LogHabitCard, UpdateEventCard, UpdateHabitCard, UpdateSectionCard,
+    CreateEventCard, CreateProjectCard, CreateSectionsCard, CreateTagCard, DeleteEventCard, DeleteHabitCard, DeleteSectionCard,
+    CreateHabitCard, LogHabitCard, UpdateEventCard, UpdateHabitCard, UpdateSectionCard,
 } from "./widgets/SmallCards";
+import { DeleteCapturesCard, InboxStructureCard, StructureCapturesCard, UpdateCapturesCard } from "./widgets/CaptureCards";
+import {
+    CreateFocusViewCard, DeleteFocusViewCard, DeleteProjectCard, DeleteTagCard, UpdateFocusViewCard, UpdateProjectCard, UpdateTagCard,
+} from "./widgets/OrganizeCards";
 import type { ToolRenderContext } from "./widgets/ApprovalCard";
 import { Sparkles } from "lucide-react";
 
@@ -42,34 +46,53 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     get_tags: { class: "read", label: "Checked your tags" },
     get_habits: { class: "read", label: "Looked at your routines" },
     get_habit_status_today: { class: "read", label: "Looked at your routines" },
+    get_habit_history: { class: "read", label: "Looked back at your routines" },
     get_inbox_items: { class: "read", label: "Looked through Capture" },
     get_user_metrics: { class: "read", label: "Took a look around" },
     get_schedule_window: { class: "read", label: "Scanned your schedule" },
     get_events: { class: "read", label: "Looked at your events" },
+    get_focus_views: { class: "read", label: "Looked at your focus views" },
     get_cadence_help: { class: "read", label: "Checked the Cadence guide" },
 
     // ── write → approval cards ────────────────────────────────────────────
     create_tasks: { class: "write", label: "Added tasks", render: (ctx) => <TaskBatchCard ctx={ctx} /> },
+    duplicate_tasks: { class: "write", label: "Copied tasks", render: (ctx) => <DuplicateTasksCard ctx={ctx} /> },
     update_tasks: { class: "write", label: "Changed tasks", render: (ctx) => <UpdateTasksCard ctx={ctx} /> },
+    reorder_tasks: { class: "write", label: "Reordered tasks", render: (ctx) => <ReorderTasksCard ctx={ctx} /> },
     edit_subtasks: { class: "write", label: "Changed a checklist", render: (ctx) => <SubtaskEditCard ctx={ctx} /> },
     set_task_state: { class: "write", label: "Moved tasks", render: (ctx) => <SetStateCard ctx={ctx} /> },
     delete_tasks: { class: "write", label: "Deleted tasks", render: (ctx) => <DeleteTasksCard ctx={ctx} /> },
     reschedule_tasks: { class: "write", label: "Rescheduled tasks", render: (ctx) => <RescheduleCard ctx={ctx} /> },
-    structure_inbox_item: { class: "write", label: "Structured a capture", render: (ctx) => <InboxStructureCard ctx={ctx} /> },
+    structure_captures: { class: "write", label: "Sorted captures", render: (ctx) => <StructureCapturesCard ctx={ctx} /> },
+    update_captures: { class: "write", label: "Changed captures", render: (ctx) => <UpdateCapturesCard ctx={ctx} /> },
+    delete_captures: { class: "write", label: "Deleted captures", render: (ctx) => <DeleteCapturesCard ctx={ctx} /> },
     create_project: { class: "write", label: "Made a list", render: (ctx) => <CreateProjectCard ctx={ctx} /> },
+    update_project: { class: "write", label: "Changed a list", render: (ctx) => <UpdateProjectCard ctx={ctx} /> },
+    delete_project: { class: "write", label: "Deleted a list", render: (ctx) => <DeleteProjectCard ctx={ctx} /> },
     create_sections: { class: "write", label: "Added sections", render: (ctx) => <CreateSectionsCard ctx={ctx} /> },
     update_section: { class: "write", label: "Changed a section", render: (ctx) => <UpdateSectionCard ctx={ctx} /> },
     delete_section: { class: "write", label: "Deleted a section", render: (ctx) => <DeleteSectionCard ctx={ctx} /> },
     create_tag: { class: "write", label: "Made a tag", render: (ctx) => <CreateTagCard ctx={ctx} /> },
+    update_tag: { class: "write", label: "Changed a tag", render: (ctx) => <UpdateTagCard ctx={ctx} /> },
+    delete_tag: { class: "write", label: "Deleted a tag", render: (ctx) => <DeleteTagCard ctx={ctx} /> },
     log_habit: { class: "write", label: "Logged a routine", render: (ctx) => <LogHabitCard ctx={ctx} /> },
     create_habit: { class: "write", label: "Added a routine", render: (ctx) => <CreateHabitCard ctx={ctx} /> },
     update_habit: { class: "write", label: "Changed a routine", render: (ctx) => <UpdateHabitCard ctx={ctx} /> },
+    delete_habit: { class: "write", label: "Deleted a routine", render: (ctx) => <DeleteHabitCard ctx={ctx} /> },
     create_event: { class: "write", label: "Added an event", render: (ctx) => <CreateEventCard ctx={ctx} /> },
     update_event: { class: "write", label: "Changed an event", render: (ctx) => <UpdateEventCard ctx={ctx} /> },
     delete_event: { class: "write", label: "Deleted an event", render: (ctx) => <DeleteEventCard ctx={ctx} /> },
+    create_focus_view: { class: "write", label: "Saved a focus view", render: (ctx) => <CreateFocusViewCard ctx={ctx} /> },
+    update_focus_view: { class: "write", label: "Changed a focus view", render: (ctx) => <UpdateFocusViewCard ctx={ctx} /> },
+    delete_focus_view: { class: "write", label: "Deleted a focus view", render: (ctx) => <DeleteFocusViewCard ctx={ctx} /> },
 
     // ── capture → quiet confirmation chip ─────────────────────────────────
     capture_to_inbox: { class: "capture", label: "Saved to your inbox" },
+};
+
+/** Writes the server no longer offers, still in older threads: they render with their old card. */
+const RETIRED_WRITES: Record<string, (ctx: ToolRenderContext) => React.ReactNode> = {
+    structure_inbox_item: (ctx) => <InboxStructureCard ctx={ctx} />,
 };
 
 /**
@@ -119,6 +142,8 @@ export function ToolPart({
     const toolName = safeToolName(part);
     const descriptor = toolName ? TOOL_REGISTRY[toolName] : undefined;
     if (toolName?.startsWith("propose_")) return <RetiredProposal applied={part?.output?.decision === "commit"} />;
+    const retired = toolName ? RETIRED_WRITES[toolName] : undefined;
+    if (retired) return <>{retired({ part, toolName: toolName!, answer, stale })}</>;
 
     if (!descriptor) {
         // Unknown / future tool → neutral chip.

@@ -4,13 +4,18 @@ import type { McpScope } from "@cadence/contracts/connections";
 export const MCP_SCOPE_COPY: Record<McpScope, { title: string; description: string; short: string }> = {
     "cadence:read": {
         title: "Read your Cadence",
-        description: "Tasks and their notes, lists, tags, captures, routines, personal events and your schedule.",
+        description: "Tasks and their notes, lists, tags, captures, routines, personal events, focus views and your schedule.",
         short: "Read",
     },
     "cadence:capture": {
         title: "Add to Capture",
         description: "Save new thoughts to Capture for you to sort. On its own it can't see anything else.",
         short: "Add to Capture",
+    },
+    "cadence:write": {
+        title: "Change your Cadence",
+        description: "Add, edit, complete and delete tasks, lists, tags, captures, routines, events and focus views, like Cadence's assistant.",
+        short: "Change",
     },
 };
 

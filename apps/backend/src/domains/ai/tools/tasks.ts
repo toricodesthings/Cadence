@@ -1,31 +1,43 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, desc, exists, ilike, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, ilike, inArray, isNotNull, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
+import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import { normalizeTaskFilters } from "../../tasks/task-filters";
 import { buildTaskWhereClause } from "../../tasks/tasks.route";
 import type { AgentContext } from "./index";
-import { safeExecute, clampLimit, once, MAX_LIST_LIMIT } from "./index";
+import { safeExecute, clampLimit, once } from "./index";
 import {
     toMinimalTask,
     toMinimalSubtask,
     toMinimalTag,
     resolveDueWindow,
-    taskLocalDay,
 } from "./projections";
 import { addDaysToDate } from "@cadence/domain/repeats";
 import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
 import { NOTE_READ_LIMIT, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
 import { hasTaskTemporalMutation, inferIsAllDay } from "@cadence/domain/task-temporal";
-import { AppError } from "../../../platform/errors";
+import { AppError, throwIfNotFound } from "../../../platform/errors";
+import { startOfLocalDay } from "../../../platform/date-utils";
 import type { Tx } from "../../../types/db";
-import { createTasks, deleteTasks, rescheduleTasks, setTaskState, trackTaskChanges, updateTasks } from "../../tasks/tasks.service";
+import {
+    createTasks,
+    deleteTasks,
+    duplicateTask,
+    reorderTasks,
+    rescheduleTasks,
+    rescheduleToDate,
+    setTaskState,
+    trackTaskChanges,
+    updateTasks,
+} from "../../tasks/tasks.service";
+import { findOrCreateTags } from "../../tags/tags.service";
 import { editSubtasks } from "../../subtasks/subtasks.service";
 import { writeNote } from "../../notes/notes.service";
 import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
+import { readFocusView } from "./focus-views";
 
 /** Columns returned by the minimal task projection — selected once, reused. */
 const minimalTaskColumns = {
@@ -44,7 +56,27 @@ const minimalTaskColumns = {
     waitingOn: tasks.waitingOn,
     interactionMode: tasks.interactionMode,
     recurrenceRule: tasks.recurrenceRule,
+    isPinned: tasks.isPinned,
+    reminderAt: tasks.reminderAt,
+    waitingReminder: tasks.waitingReminder,
+    notBefore: tasks.notBefore,
 } as const;
+
+const offsetSchema = z.number().int().min(0).max(100_000).optional().describe("From nextOffset; omit for the first page.");
+
+/**
+ * A task's day in the user's zone, in SQL: all-day values keep their stored date
+ * (a noon-UTC anchor), timed values take the day their start has locally. Same
+ * rule as `taskLocalDay`, so windows filter exactly and pages stay stable.
+ */
+export const localDaySql = (timezone: string) =>
+    sql`(CASE WHEN ${tasks.isAllDay}
+        THEN (coalesce(${tasks.dueDate}, ${tasks.scheduledStart}) AT TIME ZONE 'UTC')::date
+        ELSE (coalesce(${tasks.scheduledStart}, ${tasks.dueDate}) AT TIME ZONE ${timezone})::date END)`;
+
+/** Local midnight as an instant, for a `hideUntil` day. */
+const hideUntilInstant = (day: string | null | undefined, timezone: string) =>
+    day === undefined ? undefined : day === null ? null : startOfLocalDay(day, timezone).toISOString();
 
 export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     const track = ctx.waitUntil ?? (() => {});
@@ -67,12 +99,16 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             if (changes) trackTaskChanges(track, db, userId, changes);
             return result;
         });
+    const localDay = localDaySql(ctx.timezone);
+    const weekStartsOn = ctx.weekStart === "Monday" ? "Monday" : "Sunday";
+    const noDate = and(isNull(tasks.dueDate), isNull(tasks.scheduledStart));
+
     return {
         // ── R ──────────────────────────────────────────────────────────────────
         get_tasks: tool({
             description:
                 "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine. " +
-                "Leaves out Fixed blocks (see get_schedule_window). Returns minimal rows; more:true when the cap cut it off.",
+                "Leaves out Fixed blocks (see get_schedule_window). Rows carry tagIds. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z.object({
                 query: z.string().min(1).max(200).optional().describe("Words to find in titles and notes."),
                 state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional().describe("ARCHIVED = Trash."),
@@ -80,43 +116,67 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     .enum(["overdue", "today", "this_week", "this_month"])
                     .optional()
                     .describe("Local-date window; overdue = dated before today (repeating series excluded)."),
+                from: z.iso.date().optional().describe("Dated on or after this local day."),
+                to: z.iso.date().optional().describe("Dated on or before this local day."),
+                noDate: z.boolean().optional().describe("Only tasks with no date."),
                 projectId: z.uuid().optional().describe("One list only."),
+                sectionId: z.uuid().nullable().optional().describe("One section; null = no section (with projectId)."),
+                tagId: z.uuid().optional().describe("Only tasks with this tag."),
+                minPriority: z.number().int().min(1).max(4).optional().describe("At least this priority (3 = high and urgent)."),
+                pinned: z.boolean().optional(),
                 missingStructure: z.boolean().optional().describe("Only tasks with no date and no list."),
+                focusViewId: z.uuid().optional().describe("Apply a saved focus view's filters (get_focus_views)."),
+                sort: z
+                    .enum(["priority", "list", "date"])
+                    .optional()
+                    .describe("priority (default) · list = the list's own order (pinned first) · date = soonest first, undated last."),
+                offset: offsetSchema,
                 limit: z.number().int().min(1).max(50).default(20),
-            }),
+            }).refine((v) => v.sectionId === undefined || v.projectId, "sectionId needs projectId"),
             execute: async (args) =>
                 safeExecute("get_tasks", userId, async () => {
                     const limit = clampLimit(args.limit);
-                    const weekStartsOn = ctx.weekStart === "Monday" ? "Monday" : "Sunday";
-
-                    // Reuse the REST filter builder — no copy-pasted WHERE clauses (AGENTS §18).
-                    const filterInput: Record<string, unknown> = {
-                        state: args.state,
-                        projectId: args.projectId,
-                        hasNoDate: args.missingStructure || undefined,
-                        hasNoProject: args.missingStructure || undefined,
-                    };
-                    // The window is in the user's local dates. The DB filters by UTC day, and a
-                    // timed task's local day can differ by one, so query a day wider on each
-                    // side and keep exactly the tasks whose local day falls inside.
-                    const window = args.dueWindow ? resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn) : null;
-                    if (window?.from) {
-                        filterInput.scheduledRangeStart = addDaysToDate(window.from, -1);
-                        filterInput.scheduledRangeEnd = addDaysToDate(window.to, 1);
-                    } else if (window) {
-                        filterInput.effectiveOnOrBeforeDate = window.to;
-                    }
-                    const normalized = normalizeTaskFilters(filterInput as never);
-                    // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
-                    // checked off, so they never belong in a task list. get_schedule_window shows them.
-                    const conditions = [...buildTaskWhereClause(userId, normalized), ne(tasks.interactionMode, "timetable")];
-                    // Done and Trash only when asked for by name.
-                    if (!args.state) conditions.push(inArray(tasks.state, ["ACTIVE", "WAITING"]));
-                    // A series is stored at its first date; that date passing doesn't make it overdue.
-                    if (args.dueWindow === "overdue") conditions.push(isNull(tasks.recurrenceRule));
-
+                    const offset = args.offset ?? 0;
                     const db = getDbClient(env);
-                    const rows = await withRls(db, userId, async (tx) => {
+                    return withRls(db, userId, async (tx) => {
+                        // Reuse the REST filter builder — no copy-pasted WHERE clauses (AGENTS §18).
+                        const normalized = normalizeTaskFilters({
+                            state: args.state,
+                            projectId: args.projectId,
+                            isPinned: args.pinned,
+                            hasNoDate: args.missingStructure || args.noDate || undefined,
+                            hasNoProject: args.missingStructure || undefined,
+                        } as never);
+                        // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
+                        // checked off, so they never belong in a task list. get_schedule_window shows them.
+                        const conditions: (SQL | undefined)[] = [...buildTaskWhereClause(userId, normalized), ne(tasks.interactionMode, "timetable")];
+                        let sort = args.sort;
+                        let view: { name: string } | undefined;
+                        if (args.focusViewId) {
+                            const applied = await focusViewConditions(tx, args.focusViewId);
+                            conditions.push(...applied.conditions);
+                            view = { name: applied.name };
+                            sort ??= applied.sort;
+                            // A view's states replace the open-only default.
+                            if (!args.state && !applied.hasStates) conditions.push(inArray(tasks.state, ["ACTIVE", "WAITING"]));
+                        } else if (!args.state) {
+                            // Done and Trash only when asked for by name.
+                            conditions.push(inArray(tasks.state, ["ACTIVE", "WAITING"]));
+                        }
+                        if (args.dueWindow) {
+                            const window = resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn);
+                            if (window.from) conditions.push(gte(localDay, window.from));
+                            conditions.push(lte(localDay, window.to));
+                            // A series is stored at its first date; that date passing doesn't make it overdue.
+                            if (args.dueWindow === "overdue") conditions.push(isNull(tasks.recurrenceRule));
+                        }
+                        if (args.from) conditions.push(gte(localDay, args.from));
+                        if (args.to) conditions.push(lte(localDay, args.to));
+                        if (args.sectionId !== undefined) {
+                            conditions.push(args.sectionId === null ? isNull(tasks.sectionId) : eq(tasks.sectionId, args.sectionId));
+                        }
+                        if (args.tagId) conditions.push(hasAnyTag([args.tagId]));
+                        if (args.minPriority) conditions.push(gte(tasks.priority, args.minPriority));
                         if (args.query) {
                             // Escape LIKE wildcards so a model-supplied "%"/"_" matches literally.
                             const pattern = `%${args.query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
@@ -126,24 +186,29 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                                 .where(and(eq(taskNotes.taskId, tasks.id), ilike(taskNotes.body, pattern)));
                             conditions.push(or(ilike(tasks.title, pattern), ilike(tasks.content, pattern), exists(inNote)));
                         }
-                        return tx
+
+                        const order = {
+                            priority: [desc(tasks.priority), desc(tasks.createdAt)],
+                            list: [desc(tasks.isPinned), asc(tasks.orderIndex)],
+                            date: [sql`${localDay} asc nulls last`, sql`coalesce(${tasks.scheduledStart}, ${tasks.dueDate}) asc nulls last`],
+                        }[sort ?? "priority"];
+                        const rows = await tx
                             .select(minimalTaskColumns)
                             .from(tasks)
                             .where(and(...conditions))
-                            .orderBy(desc(tasks.priority), desc(tasks.createdAt))
-                            // ponytail: edge-day rows count toward this cap before the local-day
-                            // filter; a window holding more than 50 dated tasks may come back short.
-                            .limit(window ? MAX_LIST_LIMIT + 1 : limit + 1);
+                            .orderBy(...order, asc(tasks.id))
+                            .limit(limit + 1)
+                            .offset(offset);
+                        const shown = rows.slice(0, limit);
+                        const tagIds = await tagIdsFor(tx, shown.map((row) => row.id));
+                        const more = rows.length > limit;
+                        return {
+                            ...(view && { view }),
+                            tasks: shown.map((row) => toMinimalTask({ ...row, tagIds: tagIds.get(row.id) }, ctx.timezone)),
+                            count: shown.length,
+                            ...(more && { more, nextOffset: offset + limit }),
+                        };
                     });
-                    const matched = window
-                        ? rows.filter((row) => {
-                              const day = taskLocalDay(row, ctx.timezone);
-                              return day !== null && (!window.from || day >= window.from) && day <= window.to;
-                          })
-                        : rows;
-                    const shown = matched.slice(0, limit);
-                    const more = matched.length > limit || rows.length > MAX_LIST_LIMIT;
-                    return { tasks: shown.map((row) => toMinimalTask(row, ctx.timezone)), count: shown.length, ...(more && { more }) };
                 }),
         }),
 
@@ -215,19 +280,53 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         // keys each write, so a replayed call never writes twice.
         create_tasks: tool({
             description:
-                "Creates 1–20 tasks, each with optional checklist steps, tags and a note. Returns each taskId and its subtaskIds. " +
-                "Never for a task that already exists: use update_tasks.",
+                "Creates 1–20 tasks, each with optional checklist steps, tags (by id or name), a note, a reminder and a hide-until day. " +
+                "Returns each taskId and its subtaskIds. Never for a task that already exists: use update_tasks.",
             inputSchema: z.object({ tasks: z.array(taskDraftSchema).min(1).max(20) }),
             execute: async ({ tasks: drafts }, { toolCallId }) =>
                 write("create_tasks", toolCallId, async (tx) => {
-                    const created = await createTasks(tx, userId, drafts.map(({ fromImage: _quotes, ...draft }) => draft));
+                    // One lookup for every draft's tag names, so two drafts never make the same tag twice.
+                    const named = await tagIdsByName(tx, drafts.flatMap((draft) => draft.tagNames ?? []));
+                    const ready = drafts.map(({ fromImage: _quotes, tagNames = [], hideUntil, tagIds = [], ...draft }) => ({
+                        ...draft,
+                        tagIds: [...tagIds, ...tagNames.map((name) => named.get(name.trim().toLowerCase())!)],
+                        notBefore: hideUntilInstant(hideUntil, ctx.timezone),
+                    }));
+                    const created = await createTasks(tx, userId, ready);
+                    return { result: { created }, id: created[0].taskId, changes: { created: created.map((task) => task.taskId) } };
+                }),
+        }),
+
+        duplicate_tasks: tool({
+            description:
+                "Copies 1–20 tasks as new open ones (fields, list, tags and note; not checklist steps or reminders), " +
+                "optionally renamed or moved to another day (keeping the time). Returns each new taskId.",
+            inputSchema: z.object({
+                tasks: z.array(z.object({
+                    taskId: z.uuid(),
+                    title: z.string().min(1).max(500).optional().describe("The copy's title; default adds \"(copy)\"."),
+                    targetDate: z.iso.date().optional().describe("The copy's local day."),
+                })).min(1).max(20),
+            }),
+            execute: async ({ tasks: sources }, { toolCallId }) =>
+                write("duplicate_tasks", toolCallId, async (tx) => {
+                    const created: { taskId: string; title: string; from: string }[] = [];
+                    for (const { taskId, title, targetDate } of sources) {
+                        const copy = await duplicateTask(tx, userId, taskId, title);
+                        if (targetDate) {
+                            await tx.update(tasks).set(rescheduleToDate(copy, targetDate, ctx.timezone))
+                                .where(and(eq(tasks.id, copy.id), eq(tasks.userId, userId)));
+                        }
+                        created.push({ taskId: copy.id, title: copy.title, from: taskId });
+                    }
                     return { result: { created }, id: created[0].taskId, changes: { created: created.map((task) => task.taskId) } };
                 }),
         }),
 
         update_tasks: tool({
             description:
-                "Applies the same change to 1–50 tasks: only the fields that change, plus tags to add or remove. " +
+                "Applies the same change to 1–50 tasks: only the fields that change, plus tags to add (by id or name) or remove. " +
+                "Also sets or clears a reminder, a Waiting check-in, a hide-until day, pinning and Fixed. " +
                 "A title or note change is for one task. Returns how many changed.",
             inputSchema: z
                 .object({ taskIds: batchTaskIdsSchema, patch: taskPatchSchema })
@@ -238,12 +337,18 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 .refine(({ patch }) => patch.note === undefined || patch.noteVersion !== undefined, "note needs noteVersion from get_task_detail"),
             execute: async ({ taskIds, patch }, { toolCallId }) =>
                 write("update_tasks", toolCallId, async (tx) => {
-                    const { addTagIds, removeTagIds, note, appendNote, noteVersion, ...fields } = patch;
+                    const { addTagIds = [], addTagNames, removeTagIds, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, ...fields } = patch;
                     const isAllDay = inferIsAllDay(fields);
                     const rows = await updateTasks(tx, userId, {
                         taskIds,
-                        patch: { ...fields, ...(isAllDay !== undefined && { isAllDay }) },
-                        addTagIds,
+                        patch: {
+                            ...fields,
+                            ...(isAllDay !== undefined && { isAllDay }),
+                            ...(checkInAt !== undefined && { waitingReminder: checkInAt }),
+                            ...(hideUntil !== undefined && { notBefore: hideUntilInstant(hideUntil, ctx.timezone) }),
+                            ...(fixed !== undefined && { interactionMode: fixed ? "timetable" as const : "task" as const }),
+                        },
+                        addTagIds: [...addTagIds, ...(addTagNames?.length ? await findOrCreateTags(tx, userId, addTagNames) : [])],
                         removeTagIds,
                     });
                     if (note !== undefined || appendNote) await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion });
@@ -252,9 +357,28 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 }),
         }),
 
+        reorder_tasks: tool({
+            description:
+                "Places 1–50 tasks one after another, in the order given, in their list's own order: at the top or bottom, " +
+                "or right before or after another open task in that list. Other tasks keep their places.",
+            inputSchema: z
+                .object({
+                    taskIds: batchTaskIdsSchema.describe("In the order they should end up."),
+                    to: z.enum(["top", "bottom"]).optional(),
+                    beforeTaskId: z.uuid().optional(),
+                    afterTaskId: z.uuid().optional(),
+                })
+                .refine((v) => [v.to, v.beforeTaskId, v.afterTaskId].filter(Boolean).length === 1, "Send one of to, beforeTaskId or afterTaskId"),
+            execute: async ({ taskIds, to, beforeTaskId, afterTaskId }, { toolCallId }) =>
+                write("reorder_tasks", toolCallId, async (tx) => ({
+                    result: await reorderTasks(tx, userId, taskIds, to ? { to } : beforeTaskId ? { beforeTaskId } : { afterTaskId: afterTaskId! }),
+                    id: taskIds[0],
+                })),
+        }),
+
         edit_subtasks: tool({
             description:
-                "Adds, renames, ticks or removes a task's checklist steps in one go (subtask ids from get_task_detail). " +
+                "Adds, renames, ticks, removes or reorders a task's checklist steps in one go (subtask ids from get_task_detail). " +
                 "Added steps go at the end. Returns the new subtask ids and counts.",
             inputSchema: subtaskEditSchema,
             execute: async (input, { toolCallId }) =>
@@ -263,16 +387,17 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
 
         set_task_state: tool({
             description:
-                "Moves 1–50 tasks to Done, Trash (ARCHIVED, restorable), back to open (ACTIVE), or Waiting (with waitingOn). " +
+                "Moves 1–50 tasks to Done, Trash (ARCHIVED, restorable), back to open (ACTIVE), or Waiting (with waitingOn and an optional check-in). " +
                 "Returns how many changed.",
             inputSchema: z.object({
                 taskIds: batchTaskIdsSchema,
                 state: z.enum(["COMPLETE", "ARCHIVED", "ACTIVE", "WAITING"]),
                 waitingOn: waitingOnSchema.min(1).optional().describe("Who or what, with WAITING."),
+                checkInAt: taskPatchSchema.shape.checkInAt.unwrap().unwrap().optional().describe("With WAITING: when to check again, local time with offset."),
             }),
-            execute: async ({ taskIds, state, waitingOn }, { toolCallId }) =>
+            execute: async ({ taskIds, state, waitingOn, checkInAt }, { toolCallId }) =>
                 write("set_task_state", toolCallId, async (tx) => {
-                    const rows = await setTaskState(tx, userId, taskIds, state, waitingOn);
+                    const rows = await setTaskState(tx, userId, taskIds, state, waitingOn, checkInAt);
                     const changes = state === "COMPLETE" ? { completed: rows.map((row) => row.id) } : undefined;
                     return { result: { updated: rows.length }, id: taskIds[0], changes };
                 }),
@@ -305,7 +430,61 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 }),
         }),
     };
+
+    /** Tag ids keyed by lower-cased name, found or made in one pass. */
+    async function tagIdsByName(tx: Tx, names: string[]) {
+        const clean = names.map((name) => name.trim()).filter(Boolean);
+        const ids = await findOrCreateTags(tx, userId, clean);
+        return new Map(clean.map((name, i) => [name.toLowerCase(), ids[i]]));
+    }
+
+    /** Tasks carrying any of `tagIds`. */
+    function hasAnyTag(tagIds: string[]) {
+        return exists(
+            sql`(select 1 from ${taskTags} where ${taskTags.taskId} = ${tasks.id} and ${inArray(taskTags.tagId, tagIds)})`,
+        );
+    }
+
+    /**
+     * A saved focus view as SQL, with the same meaning as the app's `applyFocusView`:
+     * its due windows are "by then" (undated tasks stay in, except for overdue).
+     */
+    async function focusViewConditions(tx: Tx, id: string) {
+        const [row] = await tx
+            .select({ name: savedFocusViews.name, definition: savedFocusViews.definition })
+            .from(savedFocusViews)
+            .where(and(eq(savedFocusViews.id, id), eq(savedFocusViews.userId, userId)));
+        throwIfNotFound(row, "Focus view");
+        const view = readFocusView(row.definition);
+        if (!view) throw new AppError(400, "VALIDATION_ERROR", "That focus view can't be read");
+        const conditions: (SQL | undefined)[] = [];
+        if (view.states.length) conditions.push(inArray(tasks.state, view.states));
+        if (view.projectIds.length) conditions.push(inArray(tasks.projectId, view.projectIds));
+        if (view.tagIds.length) conditions.push(hasAnyTag(view.tagIds));
+        if (view.needsDate) conditions.push(noDate);
+        if (view.needsProject) conditions.push(isNull(tasks.projectId));
+        if (view.priorityMin !== null) conditions.push(gte(tasks.priority, view.priorityMin));
+        if (view.effortMax !== null) conditions.push(or(isNull(tasks.effort), lte(tasks.effort, view.effortMax)));
+        if (view.waitingOnly) conditions.push(isNotNull(tasks.waitingOn));
+        if (view.missingStructureOnly) conditions.push(or(noDate, isNull(tasks.projectId)));
+        if (view.dueWindow === "overdue") conditions.push(lt(localDay, ctx.today));
+        else if (view.dueWindow) conditions.push(or(noDate, lte(localDay, resolveDueWindow(view.dueWindow, ctx.today, weekStartsOn).to)));
+        const sort = ({ smart: "date", priority: "priority", manual: "list" } as const)[view.sortMode];
+        return { name: row.name, conditions, sort, hasStates: view.states.length > 0 };
+    }
 };
+
+/** Each task's tag ids, in one query. */
+export async function tagIdsFor(tx: Tx, taskIds: string[]) {
+    const byTask = new Map<string, string[]>();
+    if (!taskIds.length) return byTask;
+    const links = await tx
+        .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
+        .from(taskTags)
+        .where(inArray(taskTags.taskId, taskIds));
+    for (const link of links) byTask.set(link.taskId, [...(byTask.get(link.taskId) ?? []), link.tagId]);
+    return byTask;
+}
 
 /**
  * Rewrite or add to one task's note. The note the user sees is `task_notes.body`,

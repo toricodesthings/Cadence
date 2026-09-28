@@ -1,4 +1,4 @@
-import { Sparkles, Calendar, Clock, Check, ListChecks, Image as ImageIcon, Lock, Repeat } from "lucide-react";
+import { Sparkles, Calendar, Clock, Check, ListChecks, Image as ImageIcon, Lock, Repeat, Bell, EyeOff, Tag as TagIcon } from "lucide-react";
 import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup } from "./card-lookups";
@@ -17,6 +17,11 @@ export type TaskDraft = Partial<Pick<CreateTaskInput, "title" | "dueDate" | "sch
     subtasks?: string[];
     fixed?: boolean;
     note?: string;
+    /** Tags by name; a new name makes the tag. */
+    tagNames?: string[];
+    reminderAt?: string | null;
+    /** Hidden from lists until this local day. */
+    hideUntil?: string | null;
     /** Field → the exact words the image shows for it. */
     fromImage?: Partial<Record<Quoted, string>>;
 };
@@ -73,7 +78,12 @@ export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; comp
     );
 }
 
-/** Every field a draft sets, as pills: when, length, priority, effort, repeats, Fixed, destination, tags. */
+/** Tags named by the assistant (new ones are made when the change lands). */
+export function TagNamePills({ names, mark }: { names?: string[]; mark?: "add" }) {
+    return <>{names?.map((name) => <MetaPill key={name} icon={TagIcon}>{mark ? "+ " : ""}#{name}</MetaPill>)}</>;
+}
+
+/** Every field a draft sets, as pills: when, length, priority, effort, repeats, Fixed, reminder, hide-until, destination, tags. */
 export function DraftDetails({ draft }: { draft: TaskDraft }) {
     const lookupTags = useTagsLookup();
     const when = formatDraftWhen(draft);
@@ -83,7 +93,10 @@ export function DraftDetails({ draft }: { draft: TaskDraft }) {
         ? (getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats")
         : null;
     const tags = lookupTags(draft.tagIds ?? []);
-    if (!when && !draft.durationEstimate && !priority && !effort && !repeats && !draft.fixed && !draft.projectId && !draft.sectionId && tags.length === 0) return null;
+    const reminder = formatWhen(draft.reminderAt);
+    const hidden = formatWhen(draft.hideUntil);
+    if (!when && !draft.durationEstimate && !priority && !effort && !repeats && !draft.fixed && !reminder && !hidden
+        && !draft.projectId && !draft.sectionId && tags.length === 0 && !draft.tagNames?.length) return null;
     return (
         <div className="flex flex-wrap gap-1.5">
             {when ? <MetaPill icon={Calendar}>{when}</MetaPill> : null}
@@ -96,10 +109,13 @@ export function DraftDetails({ draft }: { draft: TaskDraft }) {
             {effort ? <MetaPill icon={effort.icon}>{effort.label} effort</MetaPill> : null}
             {repeats ? <MetaPill icon={Repeat}>{repeats}</MetaPill> : null}
             {draft.fixed ? <MetaPill icon={Lock}>Fixed</MetaPill> : null}
+            {reminder ? <MetaPill icon={Bell}>Remind {reminder}</MetaPill> : null}
+            {hidden ? <MetaPill icon={EyeOff}>Hidden until {hidden}</MetaPill> : null}
             <TaskDestination projectId={draft.projectId ?? undefined} sectionId={draft.sectionId ?? undefined} />
             {tags.map((tag) => (
                 <TagPill key={tag.id} tag={tag} />
             ))}
+            <TagNamePills names={draft.tagNames} />
         </div>
     );
 }

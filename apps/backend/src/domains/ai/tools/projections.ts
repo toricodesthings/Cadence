@@ -15,6 +15,7 @@ import type { TagRow as TagRecord } from "@cadence/contracts/tag";
 import type { TaskRow as TaskRecord } from "@cadence/contracts/task";
 import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
 import { toZonedIso } from "../../../platform/date-utils";
+import { NOTE_READ_LIMIT } from "./drafts";
 
 /**
  * A minimal task row as projected for the model. Keys at their default are left
@@ -38,6 +39,14 @@ export interface MinimalTask {
     fixedBlock?: true;
     /** Part of a repeating series; `id` is the series id. */
     repeats?: true;
+    tagIds?: string[];
+    pinned?: true;
+    /** When Cadence reminds the user, local time with offset. */
+    reminderAt?: string;
+    /** A Waiting task's check-in, local time with offset. */
+    checkInAt?: string;
+    /** Hidden from lists until this local day. */
+    hiddenUntil?: string;
 }
 
 /** The task columns the projection reads (a full row fits; `content` is dropped). */
@@ -45,9 +54,10 @@ export type TaskRow = Pick<
     TaskRecord,
     | "id" | "title" | "state" | "isAllDay" | "dueDate" | "scheduledStart" | "scheduledEnd"
     | "durationEstimate" | "priority" | "effort" | "projectId" | "waitingOn" | "interactionMode" | "recurrenceRule"
-> & Partial<Pick<TaskRecord, "sectionId" | "content">> & {
+> & Partial<Pick<TaskRecord, "sectionId" | "content" | "isPinned" | "reminderAt" | "waitingReminder" | "notBefore">> & {
     /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
     seriesId?: string;
+    tagIds?: string[];
 };
 
 /**
@@ -76,6 +86,11 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         waitingOn: row.waitingOn ?? undefined,
         fixedBlock: row.interactionMode === "timetable" || undefined,
         repeats: !!row.recurrenceRule || undefined,
+        tagIds: row.tagIds?.length ? row.tagIds : undefined,
+        pinned: row.isPinned || undefined,
+        reminderAt: row.reminderAt ? toZonedIso(new Date(row.reminderAt), timezone) : undefined,
+        checkInAt: row.waitingReminder ? toZonedIso(new Date(row.waitingReminder), timezone) : undefined,
+        hiddenUntil: row.notBefore ? localDay(new Date(row.notBefore), timezone) : undefined,
     };
 }
 
@@ -117,11 +132,18 @@ export interface MinimalHabit {
     recurrenceRule: string;
     /** Usual local time HH:MM; left out for any time. */
     targetTime?: string;
+    /** Weekday → HH:MM where a day differs from targetTime ("" = any time that day). */
+    dayTimes?: Record<string, string>;
+    colorAccent?: string;
+    projectId?: string;
+    tagIds?: string[];
     steps?: { id: string; title: string }[];
     currentStreak: number;
     longestStreak: number;
-    /** completed / (completed + skipped), 0..1, rounded to 2dp. 0 when no history. */
-    adherence: number;
+    /** Share of the last 30 days' due days that were done (skipped days don't count), 0..1, 2dp; left out with none due. */
+    adherence?: number;
+    /** Due days in the last 30 with nothing logged. */
+    missedLast30?: number;
     archived: boolean;
     /** True when the habit is paused on/through `currentDate` (caller-derived). */
     paused: boolean;
@@ -129,19 +151,17 @@ export interface MinimalHabit {
 
 export type HabitRow = Pick<
     HabitRecord,
-    "id" | "title" | "recurrenceRule" | "currentStreak" | "longestStreak" | "totalCompletions" | "totalSkips" | "archived" | "pausedUntil"
-> & Partial<Pick<HabitRecord, "emoji" | "targetTime" | "steps">>;
+    "id" | "title" | "recurrenceRule" | "currentStreak" | "longestStreak" | "archived" | "pausedUntil"
+> & Partial<Pick<HabitRecord, "emoji" | "targetTime" | "steps" | "targetTimes" | "colorAccent" | "projectId">> & { tagIds?: string[] };
 
 /**
- * Derive a habit's adherence rate from the denormalized completion/skip counts
- * already maintained on the `habits` row (server tracks these iteratively to
- * avoid COUNT(*) — see schema comment). adherence = completions / (completions +
- * skips); 0 when there is no resolved history. `currentDate` (YYYY-MM-DD) is used
- * only to compute the `paused` flag (paused from today through `pausedUntil`).
+ * Project a routine. `recent` is its last 30 days before today (from `habitDays`):
+ * adherence = done / (done + missed), skipped days neutral, so a day nobody
+ * logged counts against it (the stored totals never see those). `currentDate`
+ * (YYYY-MM-DD) sets the `paused` flag (paused from today through `pausedUntil`).
  */
-export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit {
-    const resolved = row.totalCompletions + row.totalSkips;
-    const adherence = resolved === 0 ? 0 : Math.round((row.totalCompletions / resolved) * 100) / 100;
+export function toMinimalHabit(row: HabitRow, currentDate: string, recent?: { done: number; missed: number }): MinimalHabit {
+    const counted = recent ? recent.done + recent.missed : 0;
     const today = currentDate.slice(0, 10);
     const paused = isPausedOn(row.pausedUntil, today, today);
     return {
@@ -150,28 +170,38 @@ export function toMinimalHabit(row: HabitRow, currentDate: string): MinimalHabit
         emoji: row.emoji ?? undefined,
         recurrenceRule: row.recurrenceRule,
         targetTime: row.targetTime || undefined,
+        dayTimes: row.targetTimes && Object.keys(row.targetTimes).length ? row.targetTimes : undefined,
+        // "lantern" is the default colour, left out like other defaults.
+        colorAccent: row.colorAccent && row.colorAccent !== "lantern" ? row.colorAccent : undefined,
+        projectId: row.projectId ?? undefined,
+        tagIds: row.tagIds?.length ? row.tagIds : undefined,
         steps: row.steps?.length ? row.steps.map(({ id, title }) => ({ id, title })) : undefined,
         currentStreak: row.currentStreak,
         longestStreak: row.longestStreak,
-        adherence,
+        adherence: counted ? Math.round((recent!.done / counted) * 100) / 100 : undefined,
+        missedLast30: recent?.missed || undefined,
         archived: row.archived,
         paused,
     };
 }
 
-export type InboxItemRow = Pick<InboxItemRecord, "id" | "rawText" | "captureKind" | "captureStatus" | "processed">;
+export type InboxItemRow = Pick<InboxItemRecord, "id" | "rawText" | "captureKind" | "captureStatus" | "processed"> &
+    Partial<Pick<InboxItemRecord, "placedTaskId">>;
 
-export type MinimalInboxItem = InboxItemRow & { isNote: boolean };
+export type MinimalInboxItem = Omit<InboxItemRow, "placedTaskId"> & { isNote: boolean; truncated?: true; taskId?: string };
 
-/** Project an inbox capture. `rawText` is the user's own short capture, kept verbatim. */
+/** Project an inbox capture: the user's own words, verbatim up to the note read limit (truncated:true past it). */
 export function toMinimalInboxItem(row: InboxItemRow): MinimalInboxItem {
     return {
         isNote: row.captureStatus === "kept",
         id: row.id,
-        rawText: row.rawText,
+        rawText: row.rawText.slice(0, NOTE_READ_LIMIT),
+        ...(row.rawText.length > NOTE_READ_LIMIT && { truncated: true as const }),
         captureKind: row.captureKind,
         captureStatus: row.captureStatus,
         processed: row.processed,
+        // The task it became, for Undo ("put it back in Capture").
+        taskId: row.placedTaskId ?? undefined,
     };
 }
 

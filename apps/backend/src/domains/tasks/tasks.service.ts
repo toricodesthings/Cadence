@@ -3,13 +3,14 @@
  * caller's RLS transaction and returns rows; metrics run after commit through
  * `trackTaskChanges`.
  */
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import type { BatchReschedule, EffortLevel, InsertTask, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
 import { hasTaskTemporalMutation, inferIsAllDay, normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
+import { ORDER_INDEX_GAP } from "@cadence/domain/ordering";
 import { subtasks, tasks, taskTags } from "../../db/schema";
-import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
+import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { assertOwnership } from "../../platform/ownership";
 import { atLocalDate } from "../../platform/date-utils";
 import { trackBatchCompletion, trackBatchEvents, trackReschedules } from "../../platform/metrics";
@@ -24,7 +25,7 @@ type TaskPatch = Omit<UpdateTask, "expectedUpdatedAt">;
 /** A task as the assistant drafts it: plain fields, plus checklist steps and a note. */
 export type TaskDraft = Partial<Pick<InsertTask,
     "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" |
-    "priority" | "effort" | "recurrenceRule" | "tagIds">> & {
+    "priority" | "effort" | "recurrenceRule" | "tagIds" | "reminderAt" | "notBefore">> & {
     title: string;
     subtasks?: string[];
     /** A class or shift that just passes (Fixed). */
@@ -150,6 +151,53 @@ export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
     return created;
 }
 
+/**
+ * Copy a task as a new open one: same fields, tags and note text, "(copy)" on
+ * the title unless one is given. Checklist steps and reminders aren't copied.
+ */
+export async function duplicateTask(tx: Tx, userId: string, id: string, title?: string) {
+    const [original] = await tx
+        .select()
+        .from(tasks)
+        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+    throwIfNotFound(original, "Task");
+
+    const [dup] = await tx
+        .insert(tasks)
+        .values({
+            userId,
+            projectId: original.projectId,
+            sectionId: original.sectionId,
+            title: title ?? `${original.title} (copy)`,
+            content: original.content,
+            state: "ACTIVE",
+            orderIndex: original.orderIndex + 0.001,
+            isAllDay: original.isAllDay,
+            dueDate: original.dueDate,
+            scheduledStart: original.scheduledStart,
+            scheduledEnd: original.scheduledEnd,
+            durationEstimate: original.durationEstimate,
+            timezoneLocked: original.timezoneLocked,
+            priority: original.priority,
+            effort: original.effort,
+            isPinned: false,
+            reminderAt: null,
+            reminderSilenced: false,
+            recurrenceRule: original.recurrenceRule,
+            interactionMode: original.interactionMode,
+        })
+        .returning();
+
+    const originalTags = await tx
+        .select({ tagId: taskTags.tagId })
+        .from(taskTags)
+        .where(eq(taskTags.taskId, id));
+    if (originalTags.length > 0) {
+        await tx.insert(taskTags).values(originalTags.map((tag) => ({ taskId: dup.id, tagId: tag.tagId })));
+    }
+    return toTask(dup, originalTags.map((tag) => tag.tagId));
+}
+
 // ── Update ────────────────────────────────────────────────────────────
 
 /** Apply a patch to one task. `expectedUpdatedAt` turns a stale edit into a 409. */
@@ -217,11 +265,23 @@ export async function updateTasks(
     return rows;
 }
 
-/** Move tasks to a state (Done, Trash, back to open, Waiting). Unknown ids are skipped. */
-export async function setTaskState(tx: Tx, userId: string, taskIds: string[], state: TaskState, waitingOn?: string | null) {
+/** Move tasks to a state (Done, Trash, back to open, Waiting, with its check-in). Unknown ids are skipped. */
+export async function setTaskState(
+    tx: Tx,
+    userId: string,
+    taskIds: string[],
+    state: TaskState,
+    waitingOn?: string | null,
+    waitingReminder?: string | null,
+) {
     return tx
         .update(tasks)
-        .set({ state, ...(waitingOn !== undefined && { waitingOn }), updatedAt: sql`NOW()` })
+        .set({
+            state,
+            ...(waitingOn !== undefined && { waitingOn }),
+            ...(waitingReminder !== undefined && { waitingReminder }),
+            updatedAt: sql`NOW()`,
+        })
         .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
         .returning();
 }
@@ -262,6 +322,57 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
                     .returning()
                     .then(([updated]) => updated)),
     );
+}
+
+/** Where `reorderTasks` puts its tasks: the top or bottom of their list, or next to another task. */
+export type TaskPlacement = { to: "top" | "bottom" } | { beforeTaskId: string } | { afterTaskId: string };
+
+/**
+ * Place tasks one after another, in the order given, within the manual order of
+ * the first task's list (no list = the unlisted tasks). Only the moved tasks
+ * change; they land between their new neighbours' order indexes.
+ */
+export async function reorderTasks(tx: Tx, userId: string, taskIds: string[], placement: TaskPlacement) {
+    const moving = await tx
+        .select({ id: tasks.id, projectId: tasks.projectId })
+        .from(tasks)
+        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+    if (moving.length !== new Set(taskIds).size) throwIfNotFound(undefined, "Task");
+    const projectId = moving.find((row) => row.id === taskIds[0])!.projectId;
+    const siblings = await tx
+        .select({ id: tasks.id, orderIndex: tasks.orderIndex })
+        .from(tasks)
+        .where(and(
+            eq(tasks.userId, userId),
+            projectId ? eq(tasks.projectId, projectId) : isNull(tasks.projectId),
+            inArray(tasks.state, ["ACTIVE", "WAITING"]),
+            notInArray(tasks.id, taskIds),
+        ))
+        .orderBy(asc(tasks.orderIndex));
+
+    let lo: number | undefined;
+    let hi: number | undefined;
+    if ("to" in placement) {
+        if (placement.to === "top") hi = siblings[0]?.orderIndex;
+        else lo = siblings.at(-1)?.orderIndex;
+    } else {
+        const anchorId = "beforeTaskId" in placement ? placement.beforeTaskId : placement.afterTaskId;
+        const at = siblings.findIndex((row) => row.id === anchorId);
+        if (at === -1) throw new AppError(400, "VALIDATION_ERROR", "The task to place next to must be another open task in the same list");
+        if ("beforeTaskId" in placement) [lo, hi] = [siblings[at - 1]?.orderIndex, siblings[at].orderIndex];
+        else [lo, hi] = [siblings[at].orderIndex, siblings[at + 1]?.orderIndex];
+    }
+    const n = taskIds.length;
+    const indexAt = (i: number) =>
+        lo !== undefined && hi !== undefined ? lo + ((hi - lo) * (i + 1)) / (n + 1)
+            : lo !== undefined ? lo + ORDER_INDEX_GAP * (i + 1)
+                : hi !== undefined ? hi - ORDER_INDEX_GAP * (n - i)
+                    : ORDER_INDEX_GAP * i;
+    // ponytail: halving the gap on every insert-between loses precision after ~50 moves
+    // into one spot; the REST reorder's full rebalance (orderedTaskIds) resets it.
+    await Promise.all(taskIds.map((id, i) =>
+        tx.update(tasks).set({ orderIndex: indexAt(i), updatedAt: sql`NOW()` }).where(and(eq(tasks.id, id), eq(tasks.userId, userId)))));
+    return { moved: n };
 }
 
 // ── Delete ────────────────────────────────────────────────────────────

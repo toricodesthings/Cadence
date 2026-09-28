@@ -10,7 +10,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { createTag } from "./tags.service";
+import { createTag, deleteTag, updateTag } from "./tags.service";
 
 export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -37,15 +37,7 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             const body = c.req.valid("json");
             const db = getDbClient(c.env);
 
-            const [updated] = await withRls(db, userId, (tx) =>
-                tx
-                    .update(tags)
-                    .set(body)
-                    .where(and(eq(tags.id, id), eq(tags.userId, userId)))
-                    .returning(),
-            );
-
-            throwIfNotFound(updated, "Tag");
+            const updated = await withRls(db, userId, (tx) => updateTag(tx, userId, id, body));
 
             return c.json({ data: updated });
         },
@@ -91,14 +83,7 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
 
-        const [deleted] = await withRls(db, userId, (tx) =>
-            tx
-                .delete(tags)
-                .where(and(eq(tags.id, id), eq(tags.userId, userId)))
-                .returning(),
-        );
-
-        throwIfNotFound(deleted, "Tag");
+        const deleted = await withRls(db, userId, (tx) => deleteTag(tx, userId, id));
 
         return c.json({ data: deleted });
     });

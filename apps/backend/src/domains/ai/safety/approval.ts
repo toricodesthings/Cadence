@@ -15,15 +15,16 @@ function isFree(toolName: string) {
 }
 
 /**
- * True when Auto should still wait: permanent deletes (tasks, events, sections), removing subtasks, a whole
- * note rewrite (it can remove text), and anything touching more than 5 tasks.
+ * True when Auto should still wait: permanent deletes (any `delete_*`: tasks, lists, tags, captures, routines,
+ * events, sections, focus views), removing subtasks, a whole note rewrite (it can remove text), and anything
+ * touching more than 5 tasks or captures.
  */
 export function needsTap(toolName: string, input: unknown): boolean {
-    const args = (input ?? {}) as { taskIds?: unknown[]; tasks?: unknown[]; remove?: unknown[]; patch?: { note?: unknown } };
+    const args = (input ?? {}) as { taskIds?: unknown[]; tasks?: unknown[]; items?: unknown[]; remove?: unknown[]; patch?: { note?: unknown } };
     if (toolName.startsWith("delete_")) return true;
     if (toolName === "edit_subtasks" && args.remove?.length) return true;
     if (toolName === "update_tasks" && args.patch?.note !== undefined) return true;
-    return (args.taskIds?.length ?? args.tasks?.length ?? 0) > AUTO_TASK_LIMIT;
+    return (args.taskIds?.length ?? args.tasks?.length ?? args.items?.length ?? 0) > AUTO_TASK_LIMIT;
 }
 
 /** The agent's `toolApproval` for one turn's approval mode. */

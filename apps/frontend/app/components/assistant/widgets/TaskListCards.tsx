@@ -1,11 +1,12 @@
 /**
- * Cards that act on a list of existing tasks: `set_task_state`, `delete_tasks`
- * and `reschedule_tasks`. Each lists the tasks as rows the user can untick.
+ * Cards that act on a list of existing tasks: `set_task_state`, `delete_tasks`,
+ * `reschedule_tasks`, `duplicate_tasks` and `reorder_tasks`. Each lists the tasks
+ * as rows the user can untick.
  */
 import { useState } from "react";
-import { CalendarClock, Check, CheckCircle2, AlertCircle, Trash2, Hourglass, RotateCcw, type LucideIcon } from "lucide-react";
+import { ArrowDownUp, CalendarClock, Check, CheckCircle2, Copy, AlertCircle, Trash2, Hourglass, RotateCcw, type LucideIcon } from "lucide-react";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
-import { useTaskTitleLookup } from "./card-lookups";
+import { formatWhen, useTaskTitleLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { parseLocalDate } from "../../../lib/utils/date-format";
 
@@ -69,8 +70,10 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
             doneText={copy.done(ctx.part?.output?.updated ?? titles.length, input.waitingOn)}
             declinedText="Left them as they were."
         >
-            {input.state === "WAITING" && input.waitingOn ? (
-                <p className="text-xs text-twilight-text-soft">Waiting on {input.waitingOn}</p>
+            {input.state === "WAITING" && (input.waitingOn || input.checkInAt) ? (
+                <p className="text-xs text-twilight-text-soft">
+                    {[input.waitingOn ? `Waiting on ${input.waitingOn}` : null, input.checkInAt ? `check in ${formatWhen(input.checkInAt)}` : null].filter(Boolean).join(" · ")}
+                </p>
             ) : null}
             {persona.terse && titles.length > 3 ? (
                 <p className="text-xs text-twilight-text-soft">{titles.length} tasks</p>
@@ -149,6 +152,60 @@ export function RescheduleCard({ ctx }: { ctx: ToolRenderContext }) {
         >
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Want me to push these to {day} so today’s lighter?</p>}
             <TaskRows rows={titles.map((title) => `${title} → ${day}`)} off={off} onToggle={onToggle} />
+        </ApprovalCard>
+    );
+}
+
+/** Card for `duplicate_tasks`: each copy with its title and, when moved, its day. */
+export function DuplicateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
+    const lookupTitle = useTaskTitleLookup();
+    const { off, onToggle, removed } = useUnticked(ctx);
+    const sources: { taskId: string; title?: string; targetDate?: string }[] = ctx.part?.input?.tasks ?? [];
+    const rows = sources.map((source) => {
+        const title = source.title ?? `${lookupTitle(source.taskId)} (copy)`;
+        return source.targetDate ? `${title} → ${dayLabel(source.targetDate)}` : title;
+    });
+    const kept = rows.length - off.size;
+    return (
+        <ApprovalCard
+            ctx={ctx}
+            eyebrow={rows.length > 1 ? `COPY ${rows.length} TASKS` : "COPY TASK"}
+            eyebrowGlyph={Copy}
+            ariaLabel={`Copy: ${rows.join(", ")}`}
+            primaryLabel={rows.length > 1 ? `Copy ${kept}` : "Copy it"}
+            primaryGlyph={Check}
+            removed={removed(rows)}
+            doneText={rows.length > 1 ? `Copied ${ctx.part?.output?.created?.length ?? rows.length} tasks.` : `Copied as “${rows[0]}”.`}
+        >
+            <TaskRows rows={rows} off={off} onToggle={onToggle} />
+        </ApprovalCard>
+    );
+}
+
+/** Card for `reorder_tasks`: the tasks in their new order and where they land. */
+export function ReorderTasksCard({ ctx }: { ctx: ToolRenderContext }) {
+    const lookupTitle = useTaskTitleLookup();
+    const input = ctx.part?.input ?? {};
+    const titles = ((input.taskIds ?? []) as string[]).map(lookupTitle);
+    const where = input.to === "top" ? "To the top of the list"
+        : input.to === "bottom" ? "To the bottom of the list"
+            : input.beforeTaskId ? `Before “${lookupTitle(input.beforeTaskId)}”`
+                : input.afterTaskId ? `After “${lookupTitle(input.afterTaskId)}”` : "New order";
+    return (
+        <ApprovalCard
+            ctx={ctx}
+            eyebrow="REORDER"
+            eyebrowGlyph={ArrowDownUp}
+            ariaLabel={`${where}: ${titles.join(", ")}`}
+            primaryLabel="Move"
+            primaryGlyph={Check}
+            doneText={`Moved ${titles.length === 1 ? `“${titles[0]}”` : `${titles.length} tasks`}.`}
+            declinedText="Left the order as it was."
+        >
+            <p className="text-xs text-twilight-text-soft">{where}</p>
+            <div className="rounded-lg bg-twilight-deep/40 px-2.5 py-1.5 text-[11px] text-twilight-text-soft">
+                {titles.map((title, i) => <p key={i} className="text-truncate-safe py-0.5">{i + 1}. {title}</p>)}
+            </div>
         </ApprovalCard>
     );
 }

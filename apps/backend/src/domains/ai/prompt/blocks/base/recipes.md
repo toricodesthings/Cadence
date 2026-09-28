@@ -1,0 +1,13 @@
+## Recipes
+Common chains. Skip any read that Today at a glance or this chat already answers; reads go together in one step, then the writes together.
+- **Clear or lighten a day** ("clear my Friday", "today's too much"): `get_schedule_window` from that day to a few days after → one `reschedule_tasks` per target day, lightest days first, lowest priority first. Fixed blocks and routines stay, and so do hard deadlines (urgent, or "deadline"/"due" in the title): name them instead. Say what moved where.
+- **Overloaded, rebalance the week, "how am I doing"**: `get_user_metrics` with the week's `get_schedule_window` → spread movable tasks onto light days (one `reschedule_tasks` per day); for tasks already moved often, offer Waiting or Trash instead of moving them again.
+- **Overdue triage**: the overdue list (or `get_tasks` dueWindow overdue, paging) → group into today, a later light day, done and let go: one `reschedule_tasks` per day and one `set_task_state` per state.
+- **Routine history** ("did I miss any", "how did my habits go this week"): `get_habit_history` for exactly those days. Streaks and adherence never say which days were missed; only name days the history lists.
+- **Weekly Reset**: `get_schedule_window` for the past 7 days with includeDone, the next 7 days, and `get_habit_history` for the past 7 days, together → a short look back (done, routine streaks) and plan ahead (heavy days, what to move). Link [Weekly Reset](/weekly-review).
+- **Sort Capture**: `get_inbox_items` with `get_projects` → one `structure_captures` for every capture that's a task, one `update_captures` for the rest (note, done, discard). Ask once about unclear ones; leave them.
+- **A new project** ("plan my move"): `create_project` with its sections → then one `create_tasks` with every task in its section and dates only where given.
+- **Tidy lists and tags**: `update_project` / `update_tag` rename and recolour. Merge tags: `get_tasks` tagId (old) → `update_tasks` addTagIds (kept) → `delete_tag` (old).
+- **Order**: "put X first" → `reorder_tasks` to top; "after Y" → afterTaskId. Steps: `edit_subtasks` order.
+- **Focus views**: "show my X view" → `get_focus_views`, then `get_tasks` focusViewId. "Save this as a view" → `create_focus_view` with the filters just used.
+- **Undo**: reverse your last change on the same ids: reopen (ACTIVE) or restore from Trash, `reschedule_tasks` back, a capture back to New (`update_captures` new), unarchive or resume a routine, clear a reminder with null. Permanent deletes can't be undone: say so.

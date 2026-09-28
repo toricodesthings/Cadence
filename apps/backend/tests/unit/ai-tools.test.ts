@@ -7,7 +7,6 @@ import {
     resolveDueWindow,
     taskLocalDay,
     type TaskRow,
-    type HabitRow,
 } from "../../src/domains/ai/tools/projections";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -93,37 +92,29 @@ describe("taskLocalDay", () => {
 });
 
 describe("toMinimalHabit", () => {
-    const habit: HabitRow = {
+    const habit = {
         id: "h1",
         title: "Meditate",
         recurrenceRule: "FREQ=DAILY",
         currentStreak: 4,
-        longestStreak: 12,
-        totalCompletions: 30,
-        totalSkips: 10,
+        longestStreak: 10,
         archived: false,
         pausedUntil: null,
     };
 
-    it("derives adherence = completions / (completions + skips), 2dp", () => {
-        expect(toMinimalHabit(habit, "2026-06-05").adherence).toBe(0.75);
+    it("derives adherence from the last 30 due days: done / (done + missed), 2dp", () => {
+        expect(toMinimalHabit(habit, "2026-06-05", { done: 3, missed: 1 })).toMatchObject({ adherence: 0.75, missedLast30: 1 });
     });
 
-    it("returns adherence 0 when there is no resolved history", () => {
-        const fresh = { ...habit, totalCompletions: 0, totalSkips: 0 };
-        expect(toMinimalHabit(fresh, "2026-06-05").adherence).toBe(0);
+    it("leaves adherence out when nothing was due, and a clean record has no missed count", () => {
+        expect(toMinimalHabit(habit, "2026-06-05", { done: 0, missed: 0 }).adherence).toBeUndefined();
+        expect(toMinimalHabit(habit, "2026-06-05", { done: 5, missed: 0 })).toMatchObject({ adherence: 1, missedLast30: undefined });
     });
 
     it("flags paused when currentDate is on/before pausedUntil", () => {
         expect(toMinimalHabit({ ...habit, pausedUntil: "2026-06-10" }, "2026-06-05").paused).toBe(true);
         expect(toMinimalHabit({ ...habit, pausedUntil: "2026-06-01" }, "2026-06-05").paused).toBe(false);
         expect(toMinimalHabit({ ...habit, pausedUntil: "2026-06-05" }, "2026-06-05T09:00Z").paused).toBe(true);
-    });
-
-    it("does not leak completion/skip raw counts in the projection", () => {
-        const result = toMinimalHabit(habit, "2026-06-05");
-        expect(result).not.toHaveProperty("totalCompletions");
-        expect(result).not.toHaveProperty("totalSkips");
     });
 });
 
@@ -156,7 +147,7 @@ describe("tool registry", () => {
         const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
 
         expect(frontend).toEqual(backend);
-        expect(backend).toHaveLength(30);
+        expect(backend).toHaveLength(44);
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {
@@ -202,6 +193,11 @@ describe("which calls wait for a tap", () => {
         expect(needsTap("edit_subtasks", { remove: [{ subtaskId: "s" }] })).toBe(true);
         expect(needsTap("update_tasks", { taskIds: ids(1), patch: { appendNote: "more" } })).toBe(false);
         expect(needsTap("update_tasks", { taskIds: ids(1), patch: { note: "rewritten" } })).toBe(true);
+        for (const name of ["delete_project", "delete_tag", "delete_captures", "delete_habit", "delete_focus_view"]) expect(needsTap(name, {})).toBe(true);
+        expect(needsTap("update_captures", { items: ids(5) })).toBe(false);
+        expect(needsTap("update_captures", { items: ids(6) })).toBe(true);
+        expect(needsTap("structure_captures", { items: ids(6) })).toBe(true);
+        expect(needsTap("reorder_tasks", { taskIds: ids(2), to: "top" })).toBe(false);
     });
 
     it("Full never waits, even on a permanent delete", () => {

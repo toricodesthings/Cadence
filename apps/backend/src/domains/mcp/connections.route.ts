@@ -10,9 +10,12 @@ import { apiValidator } from "../../platform/validation";
 import { resolveTimeZone } from "../../platform/date-utils";
 import type { AuthVariables } from "../../platform/auth";
 import type { Env } from "../../types/env";
-import { approveConnectRequest, declineConnectUrl, readConnectRequest, revokeConnection } from "./oauth";
+import { approveConnectRequest, declineConnectUrl, liveConnectionIds, readConnectRequest, revokeConnection } from "./oauth";
 
 // ── Utility ─────────────────────────────────────────────────────────────────
+
+/** KV lists lag new writes by up to a minute, so a just-made connection shows before its grant does. */
+const FRESH_MS = 10 * 60_000;
 
 /** The opaque `state` the MCP origin put in the consent link. */
 const requestParam = z.object({ request: z.string().min(16).max(512) });
@@ -50,14 +53,18 @@ export const connectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
     // GET /connections — active connected assistants, newest first
     .get("/", async (c) => {
         const userId = c.get("userId");
-        const rows = await withRls(getDbClient(c.env), userId, (tx) =>
-            tx
-                .select()
-                .from(mcpConnections)
-                .where(and(eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt)))
-                .orderBy(desc(mcpConnections.createdAt)),
-        );
-        const data: McpConnection[] = rows.map((row) => ({
+        const [rows, live] = await Promise.all([
+            withRls(getDbClient(c.env), userId, (tx) =>
+                tx
+                    .select()
+                    .from(mcpConnections)
+                    .where(and(eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt)))
+                    .orderBy(desc(mcpConnections.createdAt)),
+            ),
+            liveConnectionIds(c.env, userId),
+        ]);
+        const working = rows.filter((row) => !live || live.has(row.id) || Date.now() - Date.parse(row.createdAt) < FRESH_MS);
+        const data: McpConnection[] = working.map((row) => ({
             id: row.id,
             clientName: row.clientName,
             createdAt: row.createdAt,

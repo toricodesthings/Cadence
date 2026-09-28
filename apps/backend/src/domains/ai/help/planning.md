@@ -3,4 +3,5 @@
 - [Schedule](/schedule): day, week, month and year views (e.g. [this week](/schedule?view=week)). Drag tasks onto it to schedule them.
 - [Upcoming](/upcoming): what's coming up after today.
 - [Weekly Reset](/weekly-review): an optional look back and plan ahead, step by step.
+- **Focus views:** Focus on Today, Upcoming, a list or Capture filters tasks (list, tags, priority, effort, due window) with presets or a typed phrase; save one to reuse it. The assistant can show, save, change or delete them.
 - Shortcuts: `G` then `T` Today, `S` Schedule, `U` Upcoming, `W` Weekly Reset.

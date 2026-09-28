@@ -11,6 +11,21 @@ Bring Cadence into your assistant.
 ### Added
 - Connect Claude, or another assistant that supports MCP, to read your Cadence or add thoughts to Capture.
 - See your connected assistants in Settings › Integrations, and disconnect any of them in one click.
+- Let a connected assistant change anything Cadence's assistant can, from tasks and captures to focus views.
+- Ask the assistant to rename, recolour or delete lists and tags, and to tag tasks by name.
+- Ask the assistant to sort many captures at once, or keep, tick off, discard, restore or delete them.
+- Ask the assistant to set a reminder, a Waiting check-in or a hide-until day, or make a task Fixed.
+- Ask the assistant to copy tasks, reorder a list or a checklist, and reorder or delete routines.
+- Ask the assistant to show, save, change or delete focus views, and to colour events or routines.
+
+### Changed
+- The assistant finds tasks by tag, section, priority or dates, and reads long lists to the end.
+- The assistant plans busy weeks with every task in view, even on crowded days.
+
+### Fixed
+- The assistant checks which days you actually missed a routine instead of guessing from streaks.
+- Deleting a list now says what really happens: its tasks stay, with no list.
+- A duplicated task keeps its section and effort.
 
 ## [0.22.0] - 2026-09-26
 

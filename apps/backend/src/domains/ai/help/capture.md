@@ -7,5 +7,5 @@
 - The details menu has Make it a task (no day, opens task details), Keep as a note, and Discard. Placing, ticking, keeping and discarding offer Undo. Notes stay notes unless you ask to turn them into tasks.
 - Focus contains Order: Newest (default), Oldest or Priority, plus presets and a natural-language filter. Thoughts get priority from their words; Waiting and list-specific filters exclude thoughts.
 - Shift-click or Space selects rows; on phones long-press. The bulk bar gives selected items a day or discards them.
-- With five new thoughts, Sort these with Cadence opens a request in the assistant. Send it and the assistant drafts tasks from them; in Ask first each change waits for your tap.
+- With five new thoughts, Sort these with Cadence opens a request in the assistant. Send it and the assistant drafts tasks from them on one card (untick any you don't want), and can keep, tick off or discard the rest; in Ask first each change waits for your tap. Ask it to put a capture back and it returns to New.
 - Ctrl/Cmd+K searches thoughts too. On the desktop app Ctrl/Cmd+Shift+C opens quick capture (enable it in [Keyboard Shortcuts](?settings=shortcuts)).

@@ -33,7 +33,7 @@ export const MAX_HISTORY_TURNS = 40;
 export const MAX_OUTPUT_TOKENS = 2_048;
 
 /** Max tool-loop iterations per turn (bounds runaway tool spend). */
-export const MAX_TOOL_STEPS = 12;
+export const MAX_TOOL_STEPS = 15;
 
 const encoder = new TextEncoder();
 

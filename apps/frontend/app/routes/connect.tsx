@@ -143,7 +143,7 @@ export default function ConnectRoute() {
                 <motion.p variants={rise} className="flex gap-2.5 text-xs leading-5 text-twilight-text-muted">
                     <ShieldCheck size={14} className="mt-px shrink-0 text-twilight-text-soft" aria-hidden />
                     <span>
-                        It can't delete anything or change your settings. Disconnect anytime in Settings › Integrations;
+                        Your assistant asks you before each change. It can't change your settings. Disconnect anytime in Settings › Integrations;
                         that stops new access, not what it already read.
                     </span>
                 </motion.p>

@@ -1,6 +1,7 @@
 import {
     AuthorizationError,
     CimdFetchError,
+    OAuthError,
     OAuthProvider,
     getOAuthApi,
     type AuthRequest,
@@ -43,7 +44,7 @@ const APPROVAL_TTL = 300;
 // ── Utility ─────────────────────────────────────────────────────────────────
 
 export const mcpOrigin = (env: Env) => (env.MCP_ORIGIN ?? DEFAULT_MCP_ORIGIN).replace(/\/$/, "");
-const appOrigin = (env: Env) => (env.APP_ORIGIN ?? DEFAULT_APP_ORIGIN).replace(/\/$/, "");
+export const appOrigin = (env: Env) => (env.APP_ORIGIN ?? DEFAULT_APP_ORIGIN).replace(/\/$/, "");
 const requestKey = (hash: string) => `cadence:mcp-request:${hash}`;
 const approvalKey = (id: string) => `cadence:mcp-approval:${id}`;
 
@@ -68,8 +69,22 @@ function oauthOptions(env: Env): OAuthProviderOptions<Env> {
         },
         // A connection lasts while it's used: each refresh moves expiry 30 days out.
         refreshTokenIdleTTL: 30 * 24 * 60 * 60,
+        // Tokens are only issued while the connection row is active, so a disconnect whose KV
+        // revoke was missed, or a deleted account, ends the grant at its next refresh.
+        tokenExchangeCallback: async ({ userId, grantId, props }) => {
+            const connectionId = (props as McpProps).connectionId;
+            const [row] = await withRls(getDbClient(env), userId, (tx) =>
+                tx
+                    .select({ id: mcpConnections.id })
+                    .from(mcpConnections)
+                    .where(and(eq(mcpConnections.id, connectionId), eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt))),
+            );
+            if (row) return;
+            await oauthApi(env).revokeGrant(grantId, userId);
+            throw new OAuthError("invalid_grant", { description: "This connection was disconnected." });
+        },
         onError: ({ code, status, internal }) => {
-            logger.warn("mcp", "oauth_error", { code, status, internal: String(internal ?? "") });
+            logger.warn("mcp", "oauth_error", { code, status, category: internal?.category, reason: internal?.reason });
         },
     };
 }
@@ -87,7 +102,7 @@ export function mcpProvider(env: Env): OAuthProvider<Env> {
     return provider;
 }
 
-const oauthApi = (env: Env) => getOAuthApi(oauthOptions(env), env);
+export const oauthApi = (env: Env) => getOAuthApi(oauthOptions(env), env);
 
 /** Paths the MCP origin serves; everything else on the Worker is the app API. */
 const MCP_PATH = /^\/(mcp(\/|$)|authorize$|oauth\/|\.well-known\/oauth-)/;
@@ -183,13 +198,13 @@ async function authorize(request: Request, env: Env): Promise<Response> {
 
     const redirectHost = new URL(authRequest.redirectUri).hostname;
     const publisher = authRequest.clientId.startsWith("https://") ? new URL(authRequest.clientId).hostname : null;
-    const asked = authRequest.scope.filter((s): s is McpScope => (MCP_SCOPES as readonly string[]).includes(s));
     const view: McpConnectRequest = {
         clientName: client.clientName?.trim() || publisher || "An unnamed app",
         publisher,
         redirectHost,
         localRedirect: /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(redirectHost),
-        scopes: asked.length > 0 ? asked : ["cadence:read"],
+        // Everything starts ticked (clients differ in what they ask for); the person unticks what they don't want.
+        scopes: [...MCP_SCOPES],
     };
 
     // Consent happens in the web app before anything is issued; this only binds the
@@ -264,6 +279,24 @@ async function recordConnection(
         const [row] = await tx.insert(mcpConnections).values({ userId, ...values }).returning({ id: mcpConnections.id });
         return row.id;
     });
+}
+
+// ── Read ────────────────────────────────────────────────────────────────────
+
+/**
+ * Connections that still hold a live grant, or null when KV can't say. A row can
+ * outlive its grant (the client revoked its token, 30 idle days passed, it
+ * re-registered, or consent never finished); only the grant proves it still works.
+ */
+export async function liveConnectionIds(env: Env, userId: string): Promise<Set<string> | null> {
+    if (!env.OAUTH_KV) return null;
+    try {
+        const { items } = await oauthApi(env).listUserGrants(userId, { limit: 1000 });
+        const now = Math.floor(Date.now() / 1000);
+        return new Set(items.filter((grant) => !grant.expiresAt || grant.expiresAt > now).map((grant) => grant.metadata?.connectionId));
+    } catch {
+        return null;
+    }
 }
 
 // ── Delete ──────────────────────────────────────────────────────────────────

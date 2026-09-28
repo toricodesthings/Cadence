@@ -1,8 +1,9 @@
-import { Pencil, Check, Calendar, Clock, Hourglass, Pin, Repeat } from "lucide-react";
+import { Pencil, Check, Calendar, Clock, Hourglass, Pin, Repeat, Bell, BellOff, Eye, EyeOff, Lock, Unlock, CalendarClock } from "lucide-react";
 import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup, useTaskTitleLookup, useTaskLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
+import { TagNamePills } from "./TaskBatchCard";
 import { NoteDiff, useNoteProposal, type NoteProposal } from "./note-proposal";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
 import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
@@ -12,7 +13,15 @@ import type { UpdateTaskInput } from "@cadence/contracts/task";
 type TaskPatch = Partial<Pick<UpdateTaskInput,
     "title" | "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" | "priority" | "effort" |
     "waitingOn" | "isPinned" | "recurrenceRule">> &
-    NoteProposal & { addTagIds?: string[]; removeTagIds?: string[] };
+    NoteProposal & {
+        addTagIds?: string[];
+        removeTagIds?: string[];
+        addTagNames?: string[];
+        reminderAt?: string | null;
+        checkInAt?: string | null;
+        hideUntil?: string | null;
+        fixed?: boolean;
+    };
 
 /** Card for `update_tasks` (design §4.1): what changes, on one task or on rows the user can untick. */
 export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
@@ -70,9 +79,20 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
                 {patch.waitingOn ? <MetaPill icon={Hourglass}>Waiting on {patch.waitingOn}</MetaPill> : null}
                 {patch.isPinned !== undefined ? <MetaPill icon={Pin}>{patch.isPinned ? "Pin" : "Unpin"}</MetaPill> : null}
                 {patch.recurrenceRule !== undefined ? <MetaPill icon={Repeat}>{patch.recurrenceRule ? "Repeats" : "Stops repeating"}</MetaPill> : null}
+                {patch.reminderAt !== undefined ? (
+                    patch.reminderAt ? <MetaPill icon={Bell}>Remind {formatWhen(patch.reminderAt)}</MetaPill> : <MetaPill icon={BellOff}>No reminder</MetaPill>
+                ) : null}
+                {patch.checkInAt !== undefined ? (
+                    <MetaPill icon={CalendarClock}>{patch.checkInAt ? `Check in ${formatWhen(patch.checkInAt)}` : "No check-in"}</MetaPill>
+                ) : null}
+                {patch.hideUntil !== undefined ? (
+                    patch.hideUntil ? <MetaPill icon={EyeOff}>Hidden until {formatWhen(patch.hideUntil)}</MetaPill> : <MetaPill icon={Eye}>Always shown</MetaPill>
+                ) : null}
+                {patch.fixed !== undefined ? <MetaPill icon={patch.fixed ? Lock : Unlock}>{patch.fixed ? "Make it Fixed" : "Make it a task"}</MetaPill> : null}
                 {tags.map(({ tag, added }) => (
                     <TagPill key={tag.id} tag={tag} mark={added ? "add" : "remove"} />
                 ))}
+                <TagNamePills names={patch.addTagNames} mark="add" />
             </div>
             <NoteDiff diff={notes.diff} />
         </ApprovalCard>

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { isoDateTimeSchema } from "./common";
 
-/** What an outside assistant may do. Capture alone never reads existing data. */
-export const MCP_SCOPES = ["cadence:read", "cadence:capture"] as const;
+/** What an outside assistant may do. Capture alone never reads existing data; write changes it like Cadence's assistant does. */
+export const MCP_SCOPES = ["cadence:read", "cadence:capture", "cadence:write"] as const;
 export const mcpScopeSchema = z.enum(MCP_SCOPES);
 export type McpScope = z.infer<typeof mcpScopeSchema>;
 

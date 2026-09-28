@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
 import type { ProcessInboxItem } from "@cadence/contracts/inbox";
 import { normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
@@ -136,19 +136,21 @@ export async function processCapture(
         state: body.complete ? "COMPLETE" as const : "ACTIVE" as const,
         origin: body.complete ? "thought" as const : null,
         projectId: "projectId" in body ? body.projectId : inferred.projectId,
+        sectionId: body.sectionId ?? null,
         priority: inferred.priority ?? priority ?? 0,
         durationEstimate: inferred.durationEstimate ?? durationEstimate ?? null,
         effort: body.effort ?? null,
         recurrenceRule: inferred.recurrenceRule ?? recurrenceRule ?? null,
         waitingOn: inferred.waitingOn ?? waitingOn ?? null,
         ...temporalFields,
-        ...(body.complete ? { dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true, projectId: null, recurrenceRule: null } : {}),
+        ...(body.complete ? { dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true, projectId: null, sectionId: null, recurrenceRule: null } : {}),
     };
 
     validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.scheduledStart ?? null);
 
     await assertOwnership(tx, userId, {
         projectId: taskValues.projectId,
+        sectionId: taskValues.sectionId,
         tagIds: taskTagIds,
     });
 
@@ -189,4 +191,57 @@ export async function processCapture(
     await recordMutation(tx, userId, idempotencyKey, task.id);
 
     return { task: toTask(task, taskTagIds), alreadyProcessed: false };
+}
+
+// ── Update ────────────────────────────────────────────────────────────
+
+/**
+ * Put a capture back in New (Undo for placing, ticking, keeping or discarding).
+ * A task made from it moves to Trash, where it can still be restored.
+ */
+export async function unprocessCapture(tx: Tx, userId: string, id: string) {
+    const [capture] = await tx
+        .select()
+        .from(inboxItems)
+        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+        .for("update");
+    throwIfNotFound(capture, "Inbox item");
+    if (capture.placedTaskId) {
+        await tx
+            .update(tasks)
+            .set({ state: "ARCHIVED", updatedAt: sql`NOW()` })
+            .where(and(eq(tasks.id, capture.placedTaskId), eq(tasks.userId, userId)));
+    }
+    const [restored] = await tx
+        .update(inboxItems)
+        .set({ processed: false, captureStatus: "clarifying", placedTaskId: null })
+        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+        .returning();
+    return restored;
+}
+
+/** Keep a capture as a note or discard it (both restorable), and/or change its words. */
+export async function updateCapture(
+    tx: Tx,
+    userId: string,
+    id: string,
+    change: { rawText?: string; captureStatus?: "kept" | "discarded" },
+) {
+    const [row] = await tx
+        .update(inboxItems)
+        .set(change)
+        .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
+        .returning();
+    throwIfNotFound(row, "Inbox item");
+    return row;
+}
+
+// ── Delete ────────────────────────────────────────────────────────────
+
+/** Delete captures for good. Tasks made from them stay. Unknown ids are skipped. */
+export async function deleteCaptures(tx: Tx, userId: string, ids: string[]) {
+    return tx
+        .delete(inboxItems)
+        .where(and(eq(inboxItems.userId, userId), inArray(inboxItems.id, ids)))
+        .returning({ id: inboxItems.id });
 }

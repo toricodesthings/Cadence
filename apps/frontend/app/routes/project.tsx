@@ -365,7 +365,7 @@ export default function ProjectView() {
                     <AlertDialog.Header>
                         <AlertDialog.Title>Delete "{project?.name}"?</AlertDialog.Title>
                         <AlertDialog.Description>
-                            This will permanently delete the list and all its tasks. This action cannot be undone.
+                            This permanently deletes the list and its sections. Its tasks stay, with no list. This can’t be undone.
                         </AlertDialog.Description>
                     </AlertDialog.Header>
                     <AlertDialog.Footer>

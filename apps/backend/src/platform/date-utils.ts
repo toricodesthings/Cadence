@@ -55,8 +55,18 @@ export function toZonedIso(date: Date, timezone: string): string {
  * the local `date` (`YYYY-MM-DD`). 2:00 PM Friday → 2:00 PM Monday, across DST.
  */
 export function atLocalDate(instant: Date, date: string, timezone: string): Date {
-    const wallClockAsUtc = Date.parse(`${date}T${toZonedIso(instant, timezone).slice(11, 19)}Z`);
-    // The offset depends on the answer; a second pass settles a DST change between the days.
+    return atWallClock(`${date}T${toZonedIso(instant, timezone).slice(11, 19)}`, timezone);
+}
+
+/** The instant the local `date` (`YYYY-MM-DD`) begins in `timezone` (its midnight), across DST. */
+export function startOfLocalDay(date: string, timezone: string): Date {
+    return atWallClock(`${date}T00:00:00`, timezone);
+}
+
+/** The instant a wall-clock `YYYY-MM-DDTHH:MM:SS` shows in `timezone`. */
+function atWallClock(wallClock: string, timezone: string): Date {
+    const wallClockAsUtc = Date.parse(`${wallClock}Z`);
+    // The offset depends on the answer; a second pass settles a DST change.
     let result = wallClockAsUtc - utcOffsetMinutes(new Date(wallClockAsUtc), timezone) * 60_000;
     result = wallClockAsUtc - utcOffsetMinutes(new Date(result), timezone) * 60_000;
     return new Date(result);

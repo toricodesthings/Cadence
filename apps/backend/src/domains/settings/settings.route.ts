@@ -210,7 +210,8 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .select({ settings: users.settings })
                 .from(users)
                 .where(eq(users.id, userId))
-                .limit(1);
+                .limit(1)
+                .for("update"); // concurrent patches (and assistant event writes) must not drop each other's change
 
             // Normalize stored settings first, then merge in patch
             const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);

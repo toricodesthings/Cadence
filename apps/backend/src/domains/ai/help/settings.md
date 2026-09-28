@@ -7,7 +7,7 @@
 - [Tasks & Workflow](?settings=tasks): task defaults, views, routine streaks, Quick Add, smart features.
 - [Keyboard Shortcuts](?settings=shortcuts): key bindings and navigation shortcuts.
 - [Cadence Assistant](?settings=assistant): the assistant's name, voice and behavior.
-- [Integrations](?settings=integrations): Connected assistants, where outside assistants like Claude that can read your Cadence or add to Capture are listed, each with Disconnect. Calendar and notes sync are coming soon.
+- [Integrations](?settings=integrations): Connected assistants, where outside assistants like Claude that can read your Cadence, add to Capture or change your data are listed, each with Disconnect. Calendar and notes sync are coming soon.
 - [Intelligence & Privacy](?settings=ai): AI privacy, natural-language parsing, smart sort, focus views.
 - [Location & Weather](?settings=location): weather and holidays for your area.
 - [Data & Export](?settings=privacy): privacy preferences, data export, desktop updates.

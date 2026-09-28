@@ -4,7 +4,7 @@ import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { resolveTimeZone } from "../../platform/date-utils";
-import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
+import { localDay } from "@cadence/domain/repeats";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, habitListQuerySchema } from "@cadence/contracts/habit";
 import { uuidParamSchema } from "@cadence/contracts/common";
@@ -12,7 +12,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { createHabit, expandOccurrences, resolveHabit, updateHabit } from "./habits.service";
+import { createHabit, deleteHabit, habitDays, resolveHabit, updateHabit } from "./habits.service";
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/:id/resolve", apiValidator("param", uuidParamSchema), apiValidator("json", resolveHabitActionSchema), async (c) => {
@@ -77,8 +77,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { start, end, archived, timezone } = c.req.valid("query");
         const db = getDbClient(c.env);
 
-        const startDate = new Date(`${start}T00:00:00.000Z`);
-        const endDate = new Date(`${end}T23:59:59.999Z`);
         const tz = resolveTimeZone(timezone);
         const todayStr = localDay(new Date(), tz);
 
@@ -120,34 +118,22 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 tagsByHabit.set(t.habitId, arr);
             }
 
-            const logsByHabitDate: Record<string, typeof logs[0]> = {};
+            const logsByHabit = new Map<string, Map<string, (typeof logs)[number]>>();
             for (const log of logs) {
-                logsByHabitDate[`${log.habitId}_${log.targetDate}`] = log;
+                if (!logsByHabit.has(log.habitId)) logsByHabit.set(log.habitId, new Map());
+                logsByHabit.get(log.habitId)!.set(log.targetDate, log);
             }
 
             return userHabits.map((habit) => {
-                // Shown from the day before the routine was created ("I did it
-                // yesterday too"); earlier days only when they were logged.
-                const firstDay = addDaysToDate(localDay(habit.createdAt, tz), -1);
-                const dates = expandOccurrences(habit.recurrenceRule, habit.createdAt, startDate, endDate, tz)
-                    .filter((dateKey) => dateKey >= firstDay || logsByHabitDate[`${habit.id}_${dateKey}`]);
-
-                // Expand instances, respecting pause state
-                const logsHydrated = dates
-                    .filter(dateKey => !isPausedOn(habit.pausedUntil, dateKey, todayStr))
-                    .map((dateKey) => {
-                        const logKey = `${habit.id}_${dateKey}`;
-                        const existingLog = logsByHabitDate[logKey];
-
-                        return {
-                            id: existingLog?.id || `virt_${dateKey}`,
-                            habitId: habit.id,
-                            status: existingLog?.status || "PENDING",
-                            targetDate: dateKey,
-                            completedAt: existingLog?.completedAt || null,
-                            stepStatus: existingLog?.stepStatus ?? null,
-                        };
-                    });
+                const days = habitDays(habit, logsByHabit.get(habit.id) ?? new Map(), start, end, tz, todayStr);
+                const logsHydrated = days.map(({ date: dateKey, log: existingLog }) => ({
+                    id: existingLog?.id || `virt_${dateKey}`,
+                    habitId: habit.id,
+                    status: existingLog?.status || "PENDING",
+                    targetDate: dateKey,
+                    completedAt: existingLog?.completedAt || null,
+                    stepStatus: existingLog?.stepStatus ?? null,
+                }));
 
                 // Compute window summary
                 const completedInWindow = logsHydrated.filter(l => l.status === "COMPLETED").length;
@@ -156,7 +142,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
 
                 // Determine due-today and overdue status
-                const isDueToday = dates.includes(todayStr) && !isPausedOn(habit.pausedUntil, todayStr, todayStr);
+                const isDueToday = days.some((day) => day.date === todayStr);
                 const isOverdue = logsHydrated.some(l =>
                     l.status === "PENDING" && l.targetDate < todayStr
                 );
@@ -200,14 +186,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
 
-        const deleted = await withRls(db, userId, async (tx) => {
-            const [row] = await tx
-                .delete(habits)
-                .where(and(eq(habits.id, id), eq(habits.userId, userId)))
-                .returning();
-            return row;
-        });
-
-        throwIfNotFound(deleted, "Habit");
+        const deleted = await withRls(db, userId, (tx) => deleteHabit(tx, userId, id));
         return c.json({ data: deleted });
     });

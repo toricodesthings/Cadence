@@ -4,10 +4,10 @@
  *
  * Write-card states on display:
  * - approved (`output-available`): set_task_state, create_tasks, log_habit (in Auto),
- *   structure_inbox_item, create_project
+ *   structure_captures, create_project
  * - declined (`output-denied`): create_tag; not answered: reschedule_tasks
  * - waiting (`approval-requested`, last reply only): every other write tool (routine
- *   emoji, events, sections)
+ *   changes, events, sections, lists, tags, captures, copies, order, focus views)
  *
  * Read outputs go through the real `projections.ts` helpers and approved writes
  * through the real services, so both match what the live tools do. Seeded
@@ -15,7 +15,7 @@
  * TOOL_APPROVAL_SECRET is set.
  */
 
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { Tx } from "../../../types/db";
 import {
     aiConversations,
@@ -23,6 +23,7 @@ import {
     type habits,
     inboxItems,
     type projects,
+    savedFocusViews,
     type subtasks,
     type tags,
     tasks,
@@ -35,6 +36,8 @@ import { processCapture } from "../../inbox/inbox.service";
 import { createProject } from "../../projects/projects.service";
 import { routinesDue } from "../../ai/tools/calendar";
 import { toMinimalEvent } from "../../ai/tools/events";
+import { toMinimalFocusView } from "../../ai/tools/focus-views";
+import { HELP_TOPICS } from "../../ai/tools/help";
 import {
     toMinimalHabit,
     toMinimalInboxItem,
@@ -122,6 +125,14 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const strength = habit("Strength session");
     const transcript = inbox("Review customer interview");
     const prescription = inbox("Pick up prescription");
+    const teardown = inbox("Save the campaign teardown");
+    const askMaya = inbox("Ask Maya");
+    const homeReset = project("Home Reset");
+    const tag = (name: string) => find(refs.tags, (t) => t.name === name, `tag "${name}"`);
+    const followUp = tag("Follow-up");
+    const admin = tag("Admin");
+    const views = await db.select().from(savedFocusViews).where(eq(savedFocusViews.userId, userId)).orderBy(asc(savedFocusViews.orderIndex));
+    const overdueView = find(views, (v) => v.name === "Overdue Review", "focus view");
 
     // ── Side effects the conversation implies ───────────────────────────
     // capture_to_inbox writes immediately.
@@ -260,6 +271,10 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 read("get_habits", { includeArchived: false, limit: 20 }, {
                     habits: activeHabits.map((h) => toMinimalHabit(h, today)),
                 }),
+                read("get_habit_history", { start: seedDate(anchor, -2), end: seedDate(anchor, -1) }, {
+                    range: { start: seedDate(anchor, -2), end: seedDate(anchor, -1) },
+                    routines: routinesDue(activeHabits, seedDate(anchor, -2), seedDate(anchor, -1), today).map((h) => ({ habitId: h.id, title: h.title, due: h.days.length, missed: h.days })),
+                }),
                 step,
                 text("Good call resting your back. Here are both check-ins:"),
                 approved("log_habit", { habitId: hydrate.id, status: "COMPLETED", targetDate: today }, {
@@ -292,9 +307,8 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                         "The teardown deck feeds next quarter, so it could live in a new list once you say yes to it. " +
                         "I also suggested an **Errands** tag for things like the prescription.",
                 ),
-                approved("structure_inbox_item", { inboxItemId: transcript.id, ...transcriptDraft }, {
-                    taskId: transcriptTask.id,
-                    title: transcriptTask.title,
+                approved("structure_captures", { items: [{ inboxItemId: transcript.id, ...transcriptDraft }] }, {
+                    created: [{ inboxItemId: transcript.id, taskId: transcriptTask.id, title: transcriptTask.title }],
                 }),
                 approved("create_project", planningDraft, { projectId: planning.id, name: planning.name }),
                 declined("create_tag", { name: "Errands", color: "default" }, "Declined"),
@@ -375,6 +389,41 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 waiting("update_section", { sectionId: opsToday.id, name: "Now" }),
                 waiting("delete_section", { sectionId: opsLater.id }),
                 text(`I left **${launch.title}** alone. That 2 PM block is still your best focus time today.`),
+            ],
+        },
+        {
+            role: "user",
+            minute: 20,
+            parts: [text(
+                "Housekeeping: copy the slides task for next week, put the launch announcement at the top, remind me about Acme at 4, " +
+                    "rename Home Reset to Home, drop Spring Semester but keep its tasks, rename Follow-up to Chase, delete the Admin tag, " +
+                    "keep the teardown deck as a note, bin the Maya capture for good, delete Hydrate for good, " +
+                    "save a view of my urgent work, pin Overdue Review and drop the This Week view.",
+            )],
+        },
+        {
+            role: "assistant",
+            minute: 21,
+            parts: [
+                step,
+                read("get_focus_views", {}, { views: views.map(toMinimalFocusView) }),
+                read("get_tags", { query: "follow" }, { tags: [toMinimalTag(followUp)] }),
+                read("get_cadence_help", { topic: "organizing" }, { topic: "organizing", text: HELP_TOPICS.organizing }),
+                step,
+                text("Here's the whole tidy-up. Deleting Hydrate and the Maya capture is for good, so those wait for you either way."),
+                waiting("duplicate_tasks", { tasks: [{ taskId: slidesCreated[0].taskId, targetDate: seedDate(anchor, 9) }] }),
+                waiting("reorder_tasks", { taskIds: [launch.id], to: "top" }),
+                waiting("update_tasks", { taskIds: [acme.id], patch: { reminderAt: seedDateTime(anchor, 0, 16, 0), addTagNames: ["Legal"] } }),
+                waiting("update_project", { projectId: homeReset.id, patch: { name: "Home" } }),
+                waiting("delete_project", { projectId: project("Spring Semester").id, name: "Spring Semester", tasks: "keep" }),
+                waiting("update_tag", { tagId: followUp.id, patch: { name: "Chase" } }),
+                waiting("delete_tag", { tagId: admin.id, name: admin.name }),
+                waiting("update_captures", { items: [{ inboxItemId: teardown.id, action: "note" }] }),
+                waiting("delete_captures", { items: [{ inboxItemId: askMaya.id, text: askMaya.rawText }] }),
+                waiting("delete_habit", { habitId: hydrate.id, title: hydrate.title }),
+                waiting("create_focus_view", { name: "Urgent work", filters: { priorityMin: 4 }, pinned: true }),
+                waiting("update_focus_view", { focusViewId: overdueView.id, pinned: true }),
+                waiting("delete_focus_view", { focusViewId: find(views, (v) => v.name === "This Week", "focus view").id, name: "This Week" }),
             ],
         },
     ];

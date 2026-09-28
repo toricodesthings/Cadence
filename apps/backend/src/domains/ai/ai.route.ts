@@ -5,6 +5,8 @@ import {
     createUIMessageStreamResponse,
     generateId,
     UI_MESSAGE_STREAM_HEADERS,
+    type LanguageModelUsage,
+    type UIMessage,
 } from "ai";
 import { AI_ERROR_CODES, CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts/ai";
 import { apiValidator } from "../../platform/validation";
@@ -142,11 +144,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const userHash = await hashIdentifier(userId);
     const body = c.req.valid("json");
     const limits = resolveLimits(c.env);
-    // Where a turn spends its time: ms since the handler began at the first occurrence of
-    // each step and stream event (monotonic clock), logged once when the stream closes.
-    const t0 = performance.now();
-    const timing: Record<string, number> = { beforeHandler: Date.now() - (c as Context<any>).get("requestStartedAt") };
-    const mark = (step: string) => void (timing[step] ??= Math.round(performance.now() - t0));
+    // One `ai_turn` line per turn (written in onEnd), every time in ms since the request arrived.
+    const requestStartedAt: number = (c as Context<any>).get("requestStartedAt");
+    const since = () => Date.now() - requestStartedAt;
+    const turnTiming: { setupMs?: number; ttftMs?: number; firstTextMs?: number } = {};
 
     // Latest user message (load-by-id). Role is pinned to "user" at the schema
     // level — a crafted request can never persist an assistant/system row here.
@@ -211,7 +212,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             if (limits.failClosed) return aiRateLimitResponse(c, { retryAfterS: 30, limits });
         }
     }
-    mark("admitted");
 
     // The agent (user settings, memories, prompt, tools) needs nothing from the turn's
     // persistence, so build it alongside instead of after. Awaited below; the catch only
@@ -266,7 +266,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const isFirstTurn = isRerun ? priorRows.length <= 1 : priorRows.length === 0;
         return { conversationId: id, history: priorRows.map(rowToUIMessage), needsTitle: isFirstTurn && !title };
     });
-    mark("persisted");
 
     // Auto-title (first turn only): generate a short title in PARALLEL with the reply
     // and persist it via waitUntil — so it lands BEFORE the assistant finishes, never
@@ -298,11 +297,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 messageId: assistantMessageId,
                 model: modelId,
             });
-            logger.info("ai", "ai_stream_opened", { requestId, userHash, conversationId, streamId });
         } catch {
             logger.warn("ai", "ai_redis_unavailable", { op: "openStream" });
         }
-        mark("streamOpened");
     }
 
     // Tool-specialized UIMessage typing is internal to the SDK; the runtime shapes
@@ -325,7 +322,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey);
 
     const { agent, promptHash } = await agentReady;
-    mark("agentBuilt");
+    turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
 
     // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
     const abortController = new AbortController();
@@ -353,9 +350,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             const streamError = buildStreamError(error, requestId);
             // Server-side only: the provider's status + reason (never reaches the client).
             const upstream = error as { statusCode?: unknown; responseBody?: unknown };
-            logger.warn("ai", "ai_stream_error", {
+            // Provider outages, timeouts and our own bugs are errors; the rest (rate limits, stops) warn.
+            const level = ["AI_TIMEOUT", "AI_UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR"].includes(streamError.code) ? "error" : "warn";
+            logger[level]("ai", "ai_stream_error", {
                 requestId,
                 userHash,
+                model: modelId,
                 code: streamError.code,
                 images: imageCount || undefined,
                 upstreamStatus: upstream?.statusCode,
@@ -365,7 +365,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             return streamErrorToText(streamError);
         },
         onEnd: async ({ responseMessage, isAborted, finishReason }) => {
-            mark("onEnd");
+            const totalMs = since();
             abortController.abort(); // stop the fallback watcher loop
             // Terminal status drives the client's Retry affordance after reload (doc 09 §3.3).
             const status = isAborted ? "aborted" : finishReason === "error" ? "failed" : "complete";
@@ -381,7 +381,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             } catch {
                 logger.warn("ai", "ai_persist_failed", { requestId, userHash, conversationId });
             }
-            mark("replySaved");
             // Close the Redis log (TTLs shrink to a ~60s grace so a late re-attach can
             // still replay it) + authoritatively compare-and-finalize the pointer: clear
             // active_stream_id AND record this as last_stream_id/status, but only if it
@@ -393,7 +392,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 await withRls(db, userId, (tx) =>
                     finalizeActiveStream(tx, userId, conversationId, streamId, status),
                 ).catch(() => {});
-                logger.info("ai", "ai_stream_closed", { streamId, state: streamState });
             }
             // Settle the usage budget: reconcile the admission reserve to the ACTUAL
             // tokens the model reported (refund/top-up) and release the concurrency
@@ -405,6 +403,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     logger.warn("ai", "ai_ratelimit_settle_failed", { requestId, userHash }),
                 );
             }
+            logTurn(responseMessage, status, totalMs);
             // Post-turn memory extraction — flagged + non-blocking (never blocks the stream).
             c.executionCtx.waitUntil(
                 extractAndStoreMemories(c.env, userId, { conversationId, messages: uiMessages }).catch(() => {}),
@@ -433,23 +432,39 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
           })
         : agentStream;
 
-    // First occurrence of each chunk type as it leaves for the client; steps are numbered.
-    let steps = 0;
+    // TTFT as the client sees it: the first token (thinking or answer) and the first answer text.
     const timedStream = responseStream.pipeThrough(
         new TransformStream({
             transform(chunk, controller) {
-                mark(chunk.type === "start-step" ? `step${++steps}` : chunk.type);
+                if (chunk.type === "reasoning-delta" || chunk.type === "text-delta") turnTiming.ttftMs ??= since();
+                if (chunk.type === "text-delta") turnTiming.firstTextMs ??= since();
                 controller.enqueue(chunk);
             },
         }),
     );
-    let flushes = 0;
-    let flushMs = 0;
-    const logTiming = () => {
-        mark("closed");
-        logger.info("ai", "ai_turn_timing", { requestId, userHash, conversationId, flushes, flushMs, ...timing });
-    };
-    mark("responseReturned");
+    function logTurn(message: UIMessage, outcome: string, totalMs: number) {
+        const usage = (message.metadata as { totalUsage?: LanguageModelUsage } | undefined)?.totalUsage;
+        const outputTokens = usage?.outputTokens;
+        // Tool turns include tool run time here, so their speed reads low; compare like with like.
+        const streamS = turnTiming.ttftMs === undefined ? 0 : (totalMs - turnTiming.ttftMs) / 1000;
+        logger.info("ai", "ai_turn", {
+            requestId,
+            userHash,
+            conversationId,
+            model: modelId,
+            outcome,
+            steps: message.parts.filter((p) => p.type === "step-start").length,
+            toolCalls: message.parts.filter((p) => p.type.startsWith("tool-") || p.type === "dynamic-tool").length,
+            images: imageCount || undefined,
+            ...turnTiming,
+            totalMs,
+            inputTokens: usage?.inputTokens,
+            cachedInputTokens: usage?.inputTokenDetails?.cacheReadTokens,
+            outputTokens,
+            reasoningTokens: usage?.outputTokenDetails?.reasoningTokens,
+            tokensPerSec: outputTokens && streamS > 0 ? Math.round(outputTokens / streamS) : undefined,
+        });
+    }
 
     return createUIMessageStreamResponse({
         stream: timedStream,
@@ -463,7 +478,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     // disconnect (doc 08 §3 / doc 09 §3.2).
                     if (!redis) {
                         await stream.pipeTo(new WritableStream()).catch(() => {});
-                        logTiming();
                         return;
                     }
 
@@ -481,12 +495,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                         const blob = buf;
                         buf = "";
                         lastFlush = Date.now();
-                        const flushStart = performance.now();
                         const { abortRequested } = await flushChunks(redis, userKey, streamId, blob).catch(() => ({
                             abortRequested: false,
                         }));
-                        flushes++;
-                        flushMs += Math.round(performance.now() - flushStart);
                         if (abortRequested) abortController.abort(new Error("AI_ABORTED"));
                     };
                     try {
@@ -500,7 +511,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     } catch {
                         /* disconnect/abort — onFinish + closeStream still run */
                     }
-                    logTiming();
                 })(),
             );
         },
@@ -521,8 +531,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // grace-replay its just-finished chunk-log while it's still alive (~60s). When the
         // grace window has passed, readMeta returns null below → 204 and the client falls
         // back to the persisted DB message it already loaded via history.
-        const live = conversation!.activeStreamId;
-        const sid = live ?? conversation!.lastStreamId;
+        const sid = conversation!.activeStreamId ?? conversation!.lastStreamId;
         if (!sid) return new Response(null, { status: 204 }); // nothing live or recent → useChat no-op
 
         const userKey = await hashIdentifier(userId);
@@ -533,12 +542,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const meta = await readMeta(redis, userKey, sid).catch(() => null);
         if (!meta || meta.userId !== userId) return new Response(null, { status: 204 });
 
-        logger.info("ai", "ai_stream_resumed", {
-            userHash: userKey,
-            conversationId: id,
-            streamId: sid,
-            mode: live ? "live" : "grace",
-        });
         return new Response(buildResumeStream(redis, userKey, sid), { headers: UI_MESSAGE_STREAM_HEADERS });
     })
     // ── Stop: hard-abort the in-flight turn (real cross-isolate cancel) ──
@@ -567,11 +570,6 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             // (≤100ms) / fallback watcher (≤1s). Does NOT clear active_stream_id — the
             // producer's onFinish does the authoritative compare-and-clear (§7.9).
             await requestAbort(redis, userKey, sid).catch(() => {});
-            logger.info("ai", "ai_stream_abort_requested", {
-                userHash: userKey,
-                conversationId: id,
-                streamId: sid,
-            });
 
             // Optionally persist the partial snapshot the client already rendered, so a
             // refresh before the producer's own onFinish lands shows the partial text.

@@ -143,7 +143,9 @@ export function createRequestContext() {
         // Happy paths are intentionally silent — Cloudflare's invocation log
         // already covers 2xx/3xx. Skip too if an explicit failure log was
         // emitted (validation / onError), preventing a duplicate line.
-        if (status < 400 || c.get("logged")) {
+        // 401 (expired tokens) and unmatched-route 404s (scanners probing /.env)
+        // are routine; the invocation log still records their status.
+        if (status < 400 || status === 401 || status === 404 || c.get("logged")) {
             return;
         }
 

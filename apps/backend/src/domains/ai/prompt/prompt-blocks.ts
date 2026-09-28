@@ -6,7 +6,7 @@
  * {{placeholders}}; an unknown one throws (caught by the tests).
  *
  * Base order is load-bearing (authority, then cacheable prefix): identity, rules,
- * changes, reading intent, using tools, replies, Cadence primer.
+ * changes, reading intent, using tools, recipes, replies, Cadence primer.
  */
 import type { PromptBlocks } from "./prompt-blocks.schema";
 import identity from "./blocks/base/identity.md";
@@ -14,6 +14,7 @@ import rules from "./blocks/base/rules.md";
 import changes from "./blocks/base/changes.md";
 import readingIntent from "./blocks/base/reading-intent.md";
 import usingTools from "./blocks/base/using-tools.md";
+import recipes from "./blocks/base/recipes.md";
 import replies from "./blocks/base/replies.md";
 import cadencePrimer from "./blocks/base/cadence-primer.md";
 import secretary from "./blocks/voice/secretary.md";
@@ -29,7 +30,7 @@ import snapshot from "./blocks/user/snapshot.md";
 const t = (text: string) => text.trimEnd();
 
 export const PROMPT_BLOCKS: PromptBlocks = {
-    base: [identity, rules, changes, readingIntent, usingTools, replies, cadencePrimer].map(t),
+    base: [identity, rules, changes, readingIntent, usingTools, recipes, replies, cadencePrimer].map(t),
     voices: { secretary: t(secretary), coach: t(coach), minimalist: t(minimalist), companion: t(companion) },
     workloadHigh: t(workloadHigh),
     customInstructions: t(customInstructions),

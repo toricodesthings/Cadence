@@ -8,6 +8,7 @@ interface SubtaskEdit {
     add?: string[];
     update?: { subtaskId: string; title?: string; isComplete?: boolean }[];
     remove?: { subtaskId: string; title: string }[];
+    order?: string[];
 }
 
 /**
@@ -19,7 +20,7 @@ export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext }) {
     const input: SubtaskEdit = ctx.part?.input ?? {};
     const taskId = input.taskId ?? "";
     const lookupTitle = useTaskTitleLookup();
-    const { data: current } = useSubtasks(input.update?.length ? taskId : "");
+    const { data: current } = useSubtasks(input.update?.length || input.order?.length ? taskId : "");
     const { off, onToggle, removed } = useUnticked(ctx);
     const parent = taskId ? lookupTitle(taskId) : "this task";
     const nameOf = (id: string) => current?.find((s) => s.id === id)?.title ?? "a step";
@@ -35,9 +36,10 @@ export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext }) {
             return { label: `${name}: ${what}`, text: `${name}: ${what}`, remove: false };
         }),
         ...(input.remove ?? []).map((step) => ({ label: `Remove ${step.title}`, text: step.title, remove: true })),
+        ...(input.order?.length ? [{ label: "Reorder steps", text: `New order: ${input.order.map(nameOf).join(" → ")}`, remove: false }] : []),
     ];
     const onlyRemoves = rows.length > 0 && rows.every((row) => row.remove);
-    const onlyAdds = !input.update?.length && !input.remove?.length;
+    const onlyAdds = !input.update?.length && !input.remove?.length && !input.order?.length;
     const kept = rows.length - off.size;
 
     return (

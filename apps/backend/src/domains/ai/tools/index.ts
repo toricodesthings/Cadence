@@ -2,7 +2,7 @@ import { asSchema, jsonSchema } from "ai";
 import type { Env } from "../../../types/env";
 import { logger, hashIdentifier } from "../../../platform/log";
 import { AppError } from "../../../platform/errors";
-import { checkIdempotency, recordMutation } from "../../../platform/idempotency";
+import { checkIdempotency, recordMutation, storedResult } from "../../../platform/idempotency";
 import { DomainError } from "@cadence/domain/errors";
 import type { Tx } from "../../../types/db";
 import { taskTools } from "./tasks";
@@ -13,6 +13,7 @@ import { inboxTools } from "./inbox";
 import { calendarTools } from "./calendar";
 import { eventTools } from "./events";
 import { metricTools } from "./metrics";
+import { focusViewTools } from "./focus-views";
 import { helpTools } from "./help";
 
 /**
@@ -85,8 +86,9 @@ export async function safeExecute<T>(
 }
 
 /**
- * Run a write once per tool call, keyed by the call id: a replayed call returns
- * `{ deduped: true }` instead of writing again. `id` is any row the write touched.
+ * Run a write once per tool call, keyed by the call id: a replayed call gets the
+ * first call's result (its ids) plus `deduped: true` instead of writing again.
+ * `id` is any row the write touched.
  */
 export async function once<T>(
     tx: Tx,
@@ -94,9 +96,11 @@ export async function once<T>(
     toolCallId: string,
     write: () => Promise<{ result: T; id: string }>,
 ): Promise<T | { deduped: true }> {
-    if (await checkIdempotency(tx, userId, toolCallId)) return { deduped: true };
+    if (await checkIdempotency(tx, userId, toolCallId)) {
+        return { ...(await storedResult(tx, userId, toolCallId) as object | undefined), deduped: true } as T & { deduped: true };
+    }
     const { result, id } = await write();
-    await recordMutation(tx, userId, toolCallId, id);
+    await recordMutation(tx, userId, toolCallId, id, result);
     return result;
 }
 
@@ -129,12 +133,13 @@ export function buildToolRegistry(env: Env, userId: string, ctx: AgentContext) {
         ...calendarTools(env, userId, ctx),
         ...eventTools(env, userId, ctx),
         ...metricTools(env, userId, ctx),
+        ...focusViewTools(env, userId, ctx),
         ...helpTools(),
     });
 }
 
 /** Drop regex `pattern`s (and `$schema`) from a JSON schema, recursively. */
-function dropPatterns(node: unknown): unknown {
+export function dropPatterns(node: unknown): unknown {
     if (Array.isArray(node)) return node.map(dropPatterns);
     if (!node || typeof node !== "object") return node;
     return Object.fromEntries(

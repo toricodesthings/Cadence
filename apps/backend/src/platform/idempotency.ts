@@ -41,6 +41,15 @@ export async function checkIdempotency(
     return existing?.resultId ?? null;
 }
 
+/** What the first call under this key returned, when it was stored. */
+export async function storedResult(tx: Tx, userId: string, idempotencyKey: string): Promise<unknown> {
+    const [row] = await tx
+        .select({ result: mutationDedup.result })
+        .from(mutationDedup)
+        .where(and(eq(mutationDedup.userId, userId), eq(mutationDedup.clientMutationId, idempotencyKey)));
+    return row?.result ?? undefined;
+}
+
 /**
  * Record a mutation as processed for future dedup checks.
  */
@@ -49,11 +58,12 @@ export async function recordMutation(
     userId: string,
     idempotencyKey: string | undefined,
     resultId: string,
+    result?: unknown,
 ): Promise<void> {
     if (!idempotencyKey) return;
 
     await tx
         .insert(mutationDedup)
-        .values({ userId, clientMutationId: idempotencyKey, resultId })
+        .values({ userId, clientMutationId: idempotencyKey, resultId, result })
         .onConflictDoNothing();
 }

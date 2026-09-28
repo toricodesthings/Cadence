@@ -20,11 +20,11 @@
  * Level → console method → CF severity, and when to use each:
  *   error → console.error → "error"   5xx, unhandled throws, dependency outages
  *   warn  → console.warn  → "warning" 4xx client faults, invalid input, best-effort failures
- *   info  → console.info  → "info"    rare operational milestones (e.g. cron summaries)
+ *   info  → console.info  → "info"    `ai_turn` and the daily `cron_summary`, nothing else
  *
  * Happy paths (2xx/3xx) MUST NOT log — Cloudflare already emits an invocation
  * log per request (`invocation_logs`), so success coverage is free. Keep this
- * channel strictly signal: errors and warnings only.
+ * channel strictly signal: errors and warnings, plus one `ai_turn` per chat turn.
  */
 
 export type LogLevel = "error" | "warn" | "info";
@@ -80,9 +80,22 @@ export function issuesFromError(error: unknown): IssueSummary[] | undefined {
     return issues;
 }
 
+/** `path code: message` per issue, `; `-joined: one indexed string you can group and filter on. */
+function formatIssues(issues: IssueSummary[]): string {
+    return issues.map((i) => `${i.path ? `${i.path} ` : ""}${i.code}: ${i.message}`).join("; ");
+}
+
 function emit(level: LogLevel, source: LogSource, event: string, fields: LogFields) {
     // Object — not a string — so Workers Logs indexes each field. See module header.
-    const payload = { event, level, source, ...fields };
+    // Workers Logs doesn't index arrays of objects, so `issues` is flattened to a string.
+    const { issues } = fields;
+    const payload = {
+        event,
+        level,
+        source,
+        ...fields,
+        ...(Array.isArray(issues) ? { issues: formatIssues(issues as IssueSummary[]) } : {}),
+    };
     // LogLevel values are literally the console method names.
     console[level](payload);
 }

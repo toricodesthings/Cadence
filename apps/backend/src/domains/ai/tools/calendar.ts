@@ -1,12 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, between, eq, isNotNull, ne, or } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, lte, ne } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { tasks, habits } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
-import { safeExecute, clampLimit, MAX_LIST_LIMIT } from "./index";
+import { safeExecute, clampLimit } from "./index";
+import { localDaySql } from "./tasks";
 import { isDateOnly, normalizeStartBoundary, normalizeEndBoundary } from "@cadence/contracts/common";
 import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
 import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
@@ -15,6 +16,28 @@ import { expandOccurrences } from "../../habits/habits.service";
 
 /** Hard cap on the span a single schedule-window read may cover. */
 const MAX_RANGE_DAYS = 62;
+
+/** The task columns a schedule window projects. */
+const scheduleColumns = {
+    id: tasks.id,
+    title: tasks.title,
+    state: tasks.state,
+    isAllDay: tasks.isAllDay,
+    dueDate: tasks.dueDate,
+    scheduledStart: tasks.scheduledStart,
+    scheduledEnd: tasks.scheduledEnd,
+    durationEstimate: tasks.durationEstimate,
+    priority: tasks.priority,
+    effort: tasks.effort,
+    projectId: tasks.projectId,
+    sectionId: tasks.sectionId,
+    waitingOn: tasks.waitingOn,
+    interactionMode: tasks.interactionMode,
+    recurrenceRule: tasks.recurrenceRule,
+    orderIndex: tasks.orderIndex,
+    isPinned: tasks.isPinned,
+    reminderAt: tasks.reminderAt,
+} as const;
 
 /** Routines with the days they're due in [from, to], skipping paused days; none due → left out. */
 export function routinesDue(
@@ -31,20 +54,24 @@ export function routinesDue(
     });
 }
 
+/** Rows a window reads before expansion: plenty for ~2 months, a guard against runaway data. */
+const WINDOW_ROW_GUARD = 500;
+
 export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_schedule_window: tool({
         description:
             "Open tasks and the routines due on each day of a local date range (inclusive, up to ~2 months), " +
-            "for planning. Repeating tasks appear once per occurrence. fixedBlock:true = a class or shift: it " +
-            "takes that time, can't be checked off and is never overdue. more:true when the cap cut tasks off.",
+            "for planning, sorted by day and time. Repeating tasks appear once per occurrence. fixedBlock:true = a class or shift: it " +
+            "takes that time, can't be checked off and is never overdue. Tasks page with offset: more:true and nextOffset when there's more.",
         inputSchema: z.object({
             start: z.string().describe("First local date (a datetime is reduced to its local date)."),
             end: z.string().describe("Last local date."),
             includeDone: z.boolean().default(false).describe("Also tasks already done."),
+            offset: z.number().int().min(0).max(100_000).optional().describe("From nextOffset; omit for the first page."),
             limit: z.number().int().min(1).max(50).default(50),
         }),
-        execute: async ({ start, end, includeDone, limit }) =>
+        execute: async ({ start, end, includeDone, offset = 0, limit }) =>
             safeExecute("get_schedule_window", userId, async () => {
                 // Work in the user's local dates; a datetime is reduced to its local day.
                 const dayOf = (value: string) => (isDateOnly(value) ? value : localDay(value, ctx.timezone));
@@ -53,51 +80,29 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                 // Clamp the span server-side so a huge range can't be requested.
                 const maxTo = addDaysToDate(from, MAX_RANGE_DAYS);
                 if (to > maxTo) to = maxTo;
-                // The DB filters by UTC day; query a day wider and keep exact local days below.
-                const startIso = normalizeStartBoundary(addDaysToDate(from, -1));
-                const endIso = normalizeEndBoundary(addDaysToDate(to, 1));
                 const cap = clampLimit(limit, 50);
+                const localDayOf = localDaySql(ctx.timezone);
 
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
-                    const taskRows = await tx
-                        .select({
-                            id: tasks.id,
-                            title: tasks.title,
-                            state: tasks.state,
-                            isAllDay: tasks.isAllDay,
-                            dueDate: tasks.dueDate,
-                            scheduledStart: tasks.scheduledStart,
-                            scheduledEnd: tasks.scheduledEnd,
-                            durationEstimate: tasks.durationEstimate,
-                            priority: tasks.priority,
-                            effort: tasks.effort,
-                            projectId: tasks.projectId,
-                            waitingOn: tasks.waitingOn,
-                            interactionMode: tasks.interactionMode,
-                            recurrenceRule: tasks.recurrenceRule,
-                            orderIndex: tasks.orderIndex,
-                            isPinned: tasks.isPinned,
-                        })
+                    const open = and(
+                        eq(tasks.userId, userId),
+                        // Trash never, Done only when asked.
+                        ne(tasks.state, "ARCHIVED"),
+                        includeDone ? undefined : ne(tasks.state, "COMPLETE"),
+                    );
+                    // Dated one-offs in the window, matched on their exact local day in SQL.
+                    const dated = await tx
+                        .select(scheduleColumns)
                         .from(tasks)
-                        .where(
-                            and(
-                                eq(tasks.userId, userId),
-                                // Trash never, Done only when asked.
-                                ne(tasks.state, "ARCHIVED"),
-                                includeDone ? undefined : ne(tasks.state, "COMPLETE"),
-                                or(
-                                    between(tasks.scheduledStart, startIso, endIso),
-                                    between(tasks.dueDate, startIso, endIso),
-                                    // A repeating series is stored at its first date; expand below.
-                                    isNotNull(tasks.recurrenceRule),
-                                ),
-                            ),
-                        )
-                        .orderBy(tasks.scheduledStart)
-                        // ponytail: this row cap applies before expansion, so 50+ series/dated rows
-                        // could crowd each other out. Page by date if that ever bites.
-                        .limit(MAX_LIST_LIMIT);
+                        .where(and(open, isNull(tasks.recurrenceRule), gte(localDayOf, from), lte(localDayOf, to)))
+                        .limit(WINDOW_ROW_GUARD + 1);
+                    // A repeating series is stored at its first date; every one may land in the window.
+                    const series = await tx
+                        .select(scheduleColumns)
+                        .from(tasks)
+                        .where(and(open, isNotNull(tasks.recurrenceRule)))
+                        .limit(WINDOW_ROW_GUARD);
 
                     const habitRows = await tx
                         .select({
@@ -115,18 +120,24 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
 
                     // Same expansion as GET /tasks for a date range: each occurrence of a
                     // repeating series lands on its own day instead of the series' first date.
-                    const expanded = expandScheduleScopedTasks(taskRows, {
-                        scheduledRangeStart: startIso,
-                        scheduledRangeEnd: endIso,
+                    const expanded = expandScheduleScopedTasks(series, {
+                        scheduledRangeStart: normalizeStartBoundary(addDaysToDate(from, -1)),
+                        scheduledRangeEnd: normalizeEndBoundary(addDaysToDate(to, 1)),
                     });
-                    const inRange = expanded.filter((row) => {
-                        const day = taskLocalDay(row, ctx.timezone);
-                        return day !== null && day >= from && day <= to;
-                    });
+                    const when = (row: (typeof dated)[number]) => `${taskLocalDay(row, ctx.timezone)} ${row.isAllDay ? "" : row.scheduledStart ?? row.dueDate}`;
+                    const inRange = [
+                        ...dated.slice(0, WINDOW_ROW_GUARD),
+                        ...expanded.filter((row) => {
+                            const day = taskLocalDay(row, ctx.timezone);
+                            return day !== null && day >= from && day <= to;
+                        }),
+                    ].sort((a, b) => when(a).localeCompare(when(b)));
+                    const shown = inRange.slice(offset, offset + cap);
+                    const more = inRange.length > offset + cap || dated.length > WINDOW_ROW_GUARD;
                     return {
                         range: { start: from, end: to, timezone: ctx.timezone },
-                        tasks: inRange.slice(0, cap).map((row) => toMinimalTask(row, ctx.timezone)),
-                        more: inRange.length > cap || undefined,
+                        tasks: shown.map((row) => toMinimalTask(row, ctx.timezone)),
+                        ...(more && { more, nextOffset: offset + cap }),
                         routines: routinesDue(habitRows, from, to, ctx.today, ctx.timezone),
                     };
                 });

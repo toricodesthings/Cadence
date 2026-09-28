@@ -20,9 +20,10 @@
       "invocation_logs": true,
       "persist": true
     },
+    // Per-dependency timing (Hyperdrive, KV, R2, rate limits); 5% is plenty at this traffic.
     "traces": {
       "enabled": true,
-      "head_sampling_rate": 0.2,
+      "head_sampling_rate": 0.05,
       "persist": true
     }
   },

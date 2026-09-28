@@ -823,6 +823,8 @@ export const mutationDedup = pgTable(
             .notNull(),
         clientMutationId: text("client_mutation_id").notNull(),
         resultId: uuid("result_id"),
+        /** What the first call returned (assistant tools), so a retry gets the same ids back. */
+        result: jsonb("result"),
         createdAt: timestamptz("created_at")
             .default(sql`now()`)
             .notNull(),

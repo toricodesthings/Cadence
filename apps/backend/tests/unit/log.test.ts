@@ -31,6 +31,16 @@ describe("logger", () => {
             status: 503,
         });
     });
+
+    it("flattens issues into one string, since Workers Logs doesn't index arrays of objects", () => {
+        const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+        logger.error("http", "request_failed", {
+            issues: issuesFromError(new TypeError("boom", { cause: new Error("root cause") })),
+        });
+
+        expect(errorSpy.mock.calls[0][0]).toMatchObject({ issues: "TypeError: boom; cause Error: root cause" });
+    });
 });
 
 describe("issuesFromError", () => {

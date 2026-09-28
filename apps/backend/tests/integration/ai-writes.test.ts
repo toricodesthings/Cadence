@@ -158,12 +158,12 @@ describe("create_tasks", () => {
         expect(note.body).toBe("Three sources.");
     });
 
-    it("runs once per tool call: a replayed call writes nothing new", async () => {
+    it("runs once per tool call: a replayed call writes nothing new and returns the same ids", async () => {
         const input = { tasks: [{ title: "Once" }] };
-        await call("create_tasks", input, "call_same");
+        const first = await call("create_tasks", input, "call_same");
         const replay = await call("create_tasks", input, "call_same");
 
-        expect(replay).toEqual({ deduped: true });
+        expect(replay).toEqual({ ...first, deduped: true });
         expect(await allTasks()).toHaveLength(1);
     });
 });
@@ -248,15 +248,60 @@ describe("update_tasks, set_task_state, delete_tasks", () => {
     });
 });
 
-describe("structure_inbox_item", () => {
-    it("places a capture as a task with its steps and note, and never adds a date it wasn't given", async () => {
-        const inbox = apiAs(userId, "/inbox", inboxRoutes);
-        const item = (await inbox("POST", "", { rawText: "pay rent friday" })).body.data;
+describe("captures", () => {
+    const inbox = () => apiAs(userId, "/inbox", inboxRoutes);
+    const capture = async (rawText: string) => (await inbox()("POST", "", { rawText })).body.data.id as string;
 
-        const { taskId } = await call("structure_inbox_item", { inboxItemId: item.id, title: "Pay rent", subtasks: ["Log in to bank"], note: "Landlord's new account." });
+    it("places several captures at once, each in its own list and section, tagged by name, never adding a date it wasn't given", async () => {
+        const [rent, paper] = [await capture("pay rent friday"), await capture("essay draft")];
+        const { projectId, sections } = await call("create_project", { name: "School", sections: ["Essays", "Labs"] });
+        const { created } = await call("structure_captures", { items: [
+            { inboxItemId: rent, title: "Pay rent", subtasks: ["Log in to bank"], note: "Landlord's new account.", tagNames: ["Money"] },
+            { inboxItemId: paper, title: "Essay draft", projectId, sectionId: sections[0].sectionId, tagNames: ["money", "School"] },
+        ] });
 
-        expect((await api("GET", `/${taskId}`)).body.data).toMatchObject({ title: "Pay rent", dueDate: null, scheduledStart: null });
-        expect((await steps(taskId)).map((s) => s.title)).toEqual(["Log in to bank"]);
+        const [rentTask, paperTask] = await Promise.all(created.map(async (c: any) => (await api("GET", `/${c.taskId}`)).body.data));
+        expect(rentTask).toMatchObject({ title: "Pay rent", dueDate: null, scheduledStart: null, projectId: null });
+        expect(paperTask).toMatchObject({ projectId, sectionId: sections[0].sectionId });
+        // "money" matched the tag the first draft made; tags are never duplicated by case.
+        expect(paperTask.tagIds).toHaveLength(2);
+        expect(paperTask.tagIds).toContain(rentTask.tagIds[0]);
+        expect((await steps(rentTask.id)).map((s) => s.title)).toEqual(["Log in to bank"]);
+        expect((await call("get_inbox_items", {})).items).toEqual([]);
+        expect((await call("get_inbox_items", { includeProcessed: true })).items.map((i: any) => i.taskId).sort()).toEqual(created.map((c: any) => c.taskId).sort());
+    });
+
+    it("keeps, discards, ticks off, edits and restores captures, then deletes one for good", async () => {
+        const [note, junk, done, placed] = [await capture("book idea"), await capture("junk"), await capture("call mum"), await capture("buy milk")];
+        const { created } = await call("structure_captures", { items: [{ inboxItemId: placed, title: "Buy milk" }] });
+
+        const { results } = await call("update_captures", { items: [
+            { inboxItemId: note, action: "note", text: "Book idea: a lighthouse" },
+            { inboxItemId: junk, action: "discard" },
+            { inboxItemId: done, action: "done" },
+            { inboxItemId: placed, action: "new" },
+        ] });
+        expect(results.map((r: any) => r.status)).toEqual(["kept", "discarded", "done", "clarifying"]);
+        const completed = (await api("GET", `/${results[2].taskId}`)).body.data;
+        expect(completed).toMatchObject({ title: "call mum", state: "COMPLETE", origin: "thought" });
+        // Undo trashes the task the capture had become; it can still be restored from Trash.
+        expect((await api("GET", `/${created[0].taskId}`)).body.data.state).toBe("ARCHIVED");
+
+        const open = (await call("get_inbox_items", {})).items;
+        expect(open.map((i: any) => [i.rawText, i.isNote])).toEqual([["buy milk", false], ["Book idea: a lighthouse", true]]);
+
+        expect(await call("delete_captures", { items: [{ inboxItemId: junk, text: "junk" }] })).toEqual({ deleted: 1 });
+        expect((await call("get_inbox_items", { includeProcessed: true })).items.map((i: any) => i.id)).not.toContain(junk);
+        expect((await call("update_captures", { items: [{ inboxItemId: junk, action: "note" }] })).ok).toBe(false);
+    });
+
+    it("pages captures past the cap", async () => {
+        for (let i = 0; i < 7; i++) await capture(`thought ${i}`);
+        const first = await call("get_inbox_items", { limit: 5 });
+        expect(first).toMatchObject({ more: true, nextOffset: 5 });
+        const rest = await call("get_inbox_items", { limit: 5, offset: first.nextOffset });
+        expect(rest.items).toHaveLength(2);
+        expect(rest.more).toBeUndefined();
     });
 });
 
@@ -274,7 +319,7 @@ describe("events and routine emoji", () => {
         expect(events[0]).toMatchObject({ next: "2026-09-30", daysUntil: 7 });
         expect(events[2]).toMatchObject({ id: eventId, emoji: "🎂", next: "2027-03-14", years: 61 });
 
-        expect(await call("update_event", { eventId, patch: { emoji: "🌷", notify: false } })).toMatchObject({ emoji: "🌷", notify: false, label: "Mom's birthday" });
+        expect(await call("update_event", { eventId, patch: { emoji: "🌷", notify: false, color: "rose" } })).toMatchObject({ emoji: "🌷", notify: false, color: "rose", label: "Mom's birthday" });
         expect(await call("delete_event", { eventId })).toEqual({ deleted: "Mom's birthday" });
         const items = (await settings("GET", "")).body.data.calendar.personalEvents.items;
         expect(items.map((e: any) => e.label)).toEqual(["Anniversary", "Dup"]);

@@ -11,7 +11,8 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, once, MAX_LIST_LIMIT } from "./index";
 import { toMinimalProject } from "./projections";
-import { createProject } from "../../projects/projects.service";
+import { createProject, deleteProject, updateProject } from "../../projects/projects.service";
+import { checkIdempotency } from "../../../platform/idempotency";
 import { createSectionSchema } from "@cadence/contracts/section";
 import { insertProjectSchema } from "@cadence/contracts/project";
 
@@ -19,6 +20,7 @@ const SECTION_LIMIT = 200;
 const namePattern = (query: string) => `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
 const offsetSchema = z.number().int().min(0).max(2_147_483_647).optional();
 const sectionName = createSectionSchema.shape.name;
+const colorAccent = z.string().max(40).describe("Accent token, e.g. 'luminous-amber'.");
 
 async function findSection(tx: Tx, userId: string, sectionId: string) {
     const [row] = await tx
@@ -83,21 +85,24 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
 
     // ── W ──────────────────────────────────────────────────────────────────
     create_project: tool({
-        description: "Creates a list. Returns its projectId, for putting tasks in it.",
+        description: "Creates a list, optionally with its sections in order. Returns its projectId and sectionIds, for putting tasks in it.",
         inputSchema: z.object({
             name: insertProjectSchema.shape.name,
             emoji: z.string().max(8).optional(),
-            colorAccent: z
-                .string()
-                .max(40)
-                .optional()
-                .describe("Accent token, e.g. 'luminous-amber'."),
+            colorAccent: colorAccent.optional(),
+            sections: z.array(sectionName).max(20).optional().describe("Section names, in order."),
         }),
-        execute: async (input, { toolCallId }) =>
-            safeExecute("create_project", userId, async () => {
-                const row = await withRls(getDbClient(env), userId, (tx) => createProject(tx, userId, input, toolCallId));
-                return { projectId: row.id, name: row.name };
-            }),
+        execute: async ({ sections: names = [], ...input }, { toolCallId }) =>
+            safeExecute("create_project", userId, async () =>
+                withRls(getDbClient(env), userId, async (tx) => {
+                    const replayed = await checkIdempotency(tx, userId, toolCallId);
+                    const row = await createProject(tx, userId, input, toolCallId);
+                    const sections = replayed || !names.length ? [] : await tx
+                        .insert(taskSections)
+                        .values(names.map((name, orderIndex) => ({ userId, projectId: row.id, name, orderIndex })))
+                        .returning({ sectionId: taskSections.id, name: taskSections.name });
+                    return { projectId: row.id, name: row.name, ...(sections.length && { sections }), ...(replayed && { deduped: true }) };
+                })),
     }),
 
     // ── W ──────────────────────────────────────────────────────────────────
@@ -128,6 +133,27 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
     }),
 
     // ── U ──────────────────────────────────────────────────────────────────
+    update_project: tool({
+        description: "Renames a list or changes its emoji (null removes it) or colour. Send only what changes.",
+        inputSchema: z.object({
+            projectId: z.uuid(),
+            patch: z.object({
+                name: insertProjectSchema.shape.name.optional(),
+                emoji: z.string().max(8).nullable().optional(),
+                colorAccent: colorAccent.optional(),
+            }).refine((v) => Object.values(v).some((value) => value !== undefined), "Nothing to change"),
+        }),
+        execute: async ({ projectId, patch }, { toolCallId }) =>
+            safeExecute("update_project", userId, async () =>
+                withRls(getDbClient(env), userId, (tx) =>
+                    once(tx, userId, toolCallId, async () => {
+                        const row = await updateProject(tx, userId, projectId, patch);
+                        return { result: toMinimalProject(row), id: row.id };
+                    }),
+                ),
+            ),
+    }),
+
     update_section: tool({
         description: "Renames a section and/or moves it to a position in its list (1 = first). Its tasks stay in it.",
         inputSchema: z.object({
@@ -166,6 +192,26 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
     }),
 
     // ── D ──────────────────────────────────────────────────────────────────
+    delete_project: tool({
+        description:
+            "Deletes a list for good, with its sections (can't be undone). Its tasks are kept with no list, " +
+            "or with tasks:\"trash\" its open ones go to Trash. Echo the name. Returns the counts.",
+        inputSchema: z.object({
+            projectId: z.uuid(),
+            name: z.string().max(200),
+            tasks: z.enum(["keep", "trash"]).default("keep"),
+        }),
+        execute: async ({ projectId, tasks: fate }, { toolCallId }) =>
+            safeExecute("delete_project", userId, async () =>
+                withRls(getDbClient(env), userId, (tx) =>
+                    once(tx, userId, toolCallId, async () => {
+                        const { project, tasksTrashed, tasksUnlisted } = await deleteProject(tx, userId, projectId, { trashOpenTasks: fate === "trash" });
+                        return { result: { deleted: project.name, tasksUnlisted, tasksTrashed }, id: userId };
+                    }),
+                ),
+            ),
+    }),
+
     delete_section: tool({
         description: "Deletes a section for good. Its tasks are kept, unsectioned in the same list. Returns how many moved.",
         inputSchema: z.object({ sectionId: z.uuid() }),

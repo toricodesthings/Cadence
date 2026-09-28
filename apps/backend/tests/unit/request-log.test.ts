@@ -54,7 +54,7 @@ describe("request logging", () => {
             route: "/api/v1/tasks",
             status: 400,
             errorCode: "INVALID_REQUEST",
-            issues: [{ code: "invalid_type", message: "Expected string", path: "state" }],
+            issues: "state invalid_type: Expected string",
         });
         expect(payload.userHash).toHaveLength(16);
         expect(payload.userHash).not.toBe("user-123");

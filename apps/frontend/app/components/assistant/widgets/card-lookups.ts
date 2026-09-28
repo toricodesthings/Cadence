@@ -10,6 +10,7 @@ import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { Tag } from "@cadence/contracts/tag";
 import type { TaskSection } from "@cadence/contracts/section";
+import type { InboxItem } from "@cadence/contracts/inbox";
 
 /** The cached task itself (undefined when it isn't cached). */
 export function useTaskLookup() {
@@ -43,6 +44,18 @@ export function useSectionLookup() {
     return (id: string): TaskSection | undefined => {
         for (const [, sections] of queryClient.getQueriesData<TaskSection[]>({ queryKey: ["sections"] })) {
             const found = Array.isArray(sections) ? sections.find((s) => s.id === id) : undefined;
+            if (found) return found;
+        }
+        return undefined;
+    };
+}
+
+/** A capture from any cached Capture list (undefined when none is cached). */
+export function useCaptureLookup() {
+    const queryClient = useQueryClient();
+    return (id: string): InboxItem | undefined => {
+        for (const [, items] of queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all })) {
+            const found = Array.isArray(items) ? items.find((item) => item.id === id) : undefined;
             if (found) return found;
         }
         return undefined;

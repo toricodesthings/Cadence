@@ -22,6 +22,7 @@ const eventInput = z.object({
     emoji: eventFields.shape.emoji.optional().describe("One emoji, or null for none."),
     notify: eventFields.shape.notify.optional().describe("Remind on the day. Default true."),
     startedOn: eventFields.shape.startedOn.optional().describe("YYYY-MM-DD the first one happened (birth year, wedding day), to count years."),
+    color: eventFields.shape.color.describe("A routine colour key for its card tint, e.g. 'rose'; null = none."),
 });
 
 /** The event's next date on or after `today` (local YYYY-MM-DD); Feb 29 falls back to Feb 28. */
@@ -46,20 +47,23 @@ export function toMinimalEvent(event: PersonalEvent, today: string) {
         emoji: event.emoji ?? undefined,
         notify: event.notify ? undefined : false,
         startedOn: event.startedOn ?? undefined,
+        color: event.color ?? undefined,
         next,
         daysUntil: Math.round((Date.parse(next) - Date.parse(today)) / 86_400_000),
         years: years && years > 0 ? years : undefined,
     };
 }
 
-async function readSettings(tx: Tx, userId: string) {
-    const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
+/** `lock`: hold the row until `tx` ends, so concurrent settings writes can't drop each other's change. */
+async function readSettings(tx: Tx, userId: string, lock = false) {
+    const query = tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await (lock ? query.for("update") : query);
     return normalizeSettings((user?.settings ?? {}) as Record<string, any>);
 }
 
 /** Rewrite the user's event list inside `tx`; `change` gets the current items and returns the new ones. */
 async function writeEvents(tx: Tx, userId: string, change: (items: PersonalEvent[]) => PersonalEvent[]) {
-    const settings = await readSettings(tx, userId);
+    const settings = await readSettings(tx, userId, true);
     const personalEvents = settings.calendar.personalEvents;
     const items = change(personalEvents.items ?? []);
     if (items.length > MAX_EVENTS) throw new AppError(400, "VALIDATION_ERROR", `Events hold at most ${MAX_EVENTS}`);
@@ -92,6 +96,7 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             emoji: input.emoji ?? null,
                             notify: input.notify ?? true,
                             startedOn: input.startedOn ?? null,
+                            ...(input.color && { color: input.color }),
                         };
                         await writeEvents(tx, userId, (items) => [...items, event]);
                         // The dedup row points at the user: events live in their settings.
@@ -103,7 +108,7 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
 
     // ── U ──────────────────────────────────────────────────────────────────
     update_event: tool({
-        description: "Changes an event's label, date, emoji (null removes it), reminder or start date. Send only what changes.",
+        description: "Changes an event's label, date, emoji or colour (null removes either), reminder or start date. Send only what changes.",
         inputSchema: z.object({
             eventId: z.string().min(1).max(24),
             patch: eventInput.partial(),

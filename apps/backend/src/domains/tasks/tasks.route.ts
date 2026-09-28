@@ -25,7 +25,7 @@ import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
-import { createTask, deleteTasks, rescheduleTasks, setTaskState, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
+import { createTask, deleteTasks, duplicateTask, rescheduleTasks, setTaskState, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
 
 const taskTagParamSchema = z.object({
     id: z.uuid(),
@@ -122,48 +122,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 if (existing) return existing;
             }
 
-            const [original] = await tx
-                .select()
-                .from(tasks)
-                .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-
-            throwIfNotFound(original, "Task");
-
-            const [dup] = await tx
-                .insert(tasks)
-                .values({
-                    userId,
-                    projectId: original.projectId,
-                    title: `${original.title} (copy)`,
-                    content: original.content,
-                    state: "ACTIVE",
-                    orderIndex: original.orderIndex + 0.001,
-                    isAllDay: original.isAllDay,
-                    dueDate: original.dueDate,
-                    scheduledStart: original.scheduledStart,
-                    scheduledEnd: original.scheduledEnd,
-                    durationEstimate: original.durationEstimate,
-                    timezoneLocked: original.timezoneLocked,
-                    priority: original.priority,
-                    isPinned: false,
-                    reminderAt: null,
-                    reminderSilenced: false,
-                    recurrenceRule: original.recurrenceRule,
-                    interactionMode: original.interactionMode,
-                })
-                .returning();
-
-            const originalTags = await tx
-                .select({ tagId: taskTags.tagId })
-                .from(taskTags)
-                .where(eq(taskTags.taskId, id));
-
-            if (originalTags.length > 0) {
-                await tx.insert(taskTags).values(originalTags.map((tag) => ({ taskId: dup.id, tagId: tag.tagId })));
-            }
-
+            const dup = await duplicateTask(tx, userId, id);
             await recordMutation(tx, userId, idempotencyKey, dup.id);
-            return toTask(dup, originalTags.map((tag) => tag.tagId));
+            return dup;
         });
 
         return c.json({ data: duplicate }, 201);

@@ -16,6 +16,7 @@
 		"test:integration": "vitest run tests/integration",
 		"test:security": "vitest run tests/security",
 		"test:watch": "vitest",
+		"eval:assistant": "vitest run --config vitest.evals.config.ts",
 		"typecheck": "tsc --noEmit",
 		"lint": "oxlint .",
 		"db:generate": "drizzle-kit generate",

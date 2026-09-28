@@ -281,6 +281,13 @@
       "when": 1790475886401,
       "tag": "0039_flashy_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790614920982,
+      "tag": "0040_clever_professor_monster",
+      "breakpoints": true
     }
   ]
 }

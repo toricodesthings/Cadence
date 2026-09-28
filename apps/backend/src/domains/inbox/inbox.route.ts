@@ -4,14 +4,14 @@ import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
-import { inboxItems, inboxSections, tasks } from "../../db/schema";
+import { inboxItems, inboxSections } from "../../db/schema";
 import { inboxQuerySchema, insertInboxItemSchema, updateInboxItemSchema, insertInboxSectionSchema, updateInboxSectionSchema, processInboxItemSchema } from "@cadence/contracts/inbox";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { processCapture } from "./inbox.service";
+import { processCapture, unprocessCapture } from "./inbox.service";
 
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Atomic Inbox→Task Processing (Section 11.2C) ──
@@ -30,19 +30,7 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
-        const item = await withRls(db, userId, async (tx) => {
-            const [capture] = await tx.select().from(inboxItems)
-                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).for("update");
-            throwIfNotFound(capture, "Inbox item");
-            if (capture.placedTaskId) {
-                await tx.update(tasks).set({ state: "ARCHIVED", updatedAt: new Date().toISOString() })
-                    .where(and(eq(tasks.id, capture.placedTaskId), eq(tasks.userId, userId)));
-            }
-            const [restored] = await tx.update(inboxItems)
-                .set({ processed: false, captureStatus: "clarifying", placedTaskId: null })
-                .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId))).returning();
-            return restored;
-        });
+        const item = await withRls(db, userId, (tx) => unprocessCapture(tx, userId, id));
         return c.json({ data: item });
     })
     .post("/", apiValidator("json", insertInboxItemSchema), async (c) => {

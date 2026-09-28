@@ -17,7 +17,7 @@ export async function handleOverdueCheck(env: Env) {
         .from(tasks)
         .where(and(eq(tasks.state, "ACTIVE"), lt(tasks.dueDate, now)));
 
-    if (overdueTasks.length === 0) return;
+    if (overdueTasks.length === 0) return { overdueTasks: 0, overdueUsers: 0 };
 
     // Group by userId for batched RLS transactions
     const tasksByUser = new Map<string, string[]>();
@@ -26,11 +26,6 @@ export async function handleOverdueCheck(env: Env) {
         ids.push(task.id);
         tasksByUser.set(task.userId, ids);
     }
-
-    logger.info("cron", "overdue_check_started", {
-        tasks: overdueTasks.length,
-        users: tasksByUser.size,
-    });
 
     for (const [userId, taskIds] of tasksByUser) {
         // One upsert: a first delay creates the metrics row, later ones count up.
@@ -53,6 +48,7 @@ export async function handleOverdueCheck(env: Env) {
             });
         }
     }
+    return { overdueTasks: overdueTasks.length, overdueUsers: tasksByUser.size };
 }
 
 /**
@@ -68,9 +64,7 @@ export async function pruneStaleMutations(env: Env) {
         .where(lt(mutationDedup.createdAt, cutoff))
         .returning({ id: mutationDedup.id });
 
-    if (deleted.length > 0) {
-        logger.info("cron", "mutation_dedup_pruned", { pruned: deleted.length });
-    }
+    return deleted.length;
 }
 
 /**
@@ -90,14 +84,14 @@ export async function pruneAiMemories(env: Env) {
         .where(and(eq(aiMemories.type, "EPHEMERAL"), lt(aiMemories.expiresAt, now)))
         .limit(BATCH);
 
-    if (idsToDelete.length === 0) return;
+    if (idsToDelete.length === 0) return 0;
 
     const deleted = await db
         .delete(aiMemories)
         .where(inArray(aiMemories.id, idsToDelete.map((r) => r.id)))
         .returning({ id: aiMemories.id });
 
-    logger.info("cron", "memory_prune_summary", { pruned: deleted.length });
+    return deleted.length;
 }
 
 /**
@@ -108,7 +102,7 @@ export async function pruneAiMemories(env: Env) {
  */
 export async function pruneAiImages(env: Env) {
     const bucket = env.USER_ASSETS;
-    if (!bucket) return;
+    if (!bucket) return 0;
     const db = getDbClient(env);
     const BATCH = 1000;
     const orphanCutoff = new Date(Date.now() - ORPHAN_HOURS * 60 * 60 * 1000).toISOString();
@@ -138,5 +132,27 @@ export async function pruneAiImages(env: Env) {
         if (rows.length < BATCH) break;
     }
 
-    if (pruned > 0) logger.info("cron", "ai_image_prune_summary", { pruned });
+    return pruned;
+}
+
+/** The daily cron: every job runs even if another fails; one `cron_summary` line reports them all. */
+export async function runDailyCron(env: Env) {
+    const [overdue, mutations, memories, images] = await Promise.allSettled([
+        handleOverdueCheck(env),
+        pruneStaleMutations(env),
+        pruneAiMemories(env),
+        pruneAiImages(env),
+    ]);
+    const ok = <T>(result: PromiseSettledResult<T>) => (result.status === "fulfilled" ? result.value : undefined);
+    const failed = Object.entries({ overdue, mutations, memories, images }).filter(([, r]) => r.status === "rejected");
+    for (const [job, result] of failed) {
+        logger.error("cron", "cron_job_failed", { job, issues: issuesFromError((result as PromiseRejectedResult).reason) });
+    }
+    logger.info("cron", "cron_summary", {
+        ...ok(overdue),
+        prunedMutations: ok(mutations),
+        prunedMemories: ok(memories),
+        prunedImages: ok(images),
+        failed: failed.length,
+    });
 }

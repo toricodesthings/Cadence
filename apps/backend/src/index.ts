@@ -24,7 +24,7 @@ import { noteRoutes } from "./domains/notes/notes.route";
 import { aiRoutes } from "./domains/ai/ai.route";
 import { aiImageRoutes } from "./domains/ai/images/images.route";
 import { connectionRoutes } from "./domains/mcp/connections.route";
-import { isMcpRequest, mcpProvider } from "./domains/mcp/oauth";
+import { appOrigin, isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -188,24 +188,29 @@ const apiApp = app
 // ── Type export for Hono RPC ──
 export type AppType = typeof apiApp;
 
-import { handleOverdueCheck, pruneStaleMutations, pruneAiMemories, pruneAiImages } from "./cron/overdue-check";
+import { runDailyCron } from "./cron/overdue-check";
 
 export default {
   // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:
-  // no app JWT, CORS or `{ data }` envelope. It shares only the per-IP flood limit.
+  // no app JWT, CORS or `{ data }` envelope. It shares the per-IP flood limit, and
+  // the unauthenticated doors that store state get a tighter one.
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    const url = new URL(request.url);
+    // Clients that show a connector by its domain's favicon get Cadence's.
+    if (url.pathname === "/favicon.ico" && url.origin === mcpOrigin(env)) return Response.redirect(`${appOrigin(env)}/favicon.ico`, 301);
     if (!isMcpRequest(request, env)) return app.fetch(request, env, ctx);
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
-    if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: ip })).success) {
+    // Registration comes from assistants' servers (shared IPs), so it gets the roomier limit; /authorize comes from a person's browser.
+    // ponytail: per-IP only; key registration by client name too if one assistant's egress IP ever hits 120/min.
+    const doorLimiter = url.pathname === "/oauth/register" ? env.RATE_LIMITER_WRITE : url.pathname === "/authorize" ? env.RATE_LIMITER_ADMIN : undefined;
+    const limits = [env.RATE_LIMITER?.limit({ key: ip }), doorLimiter?.limit({ key: `${url.pathname}:${ip}` })];
+    if ((await Promise.all(limits)).some((result) => result && !result.success)) {
       return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
     }
     if (!env.OAUTH_KV) return new Response("Connecting assistants isn't available right now.", { status: 503 });
     return mcpProvider(env).fetch(request, env, ctx);
   },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(handleOverdueCheck(env));
-    ctx.waitUntil(pruneStaleMutations(env));
-    ctx.waitUntil(pruneAiMemories(env));
-    ctx.waitUntil(pruneAiImages(env));
+    ctx.waitUntil(runDailyCron(env));
   },
 };

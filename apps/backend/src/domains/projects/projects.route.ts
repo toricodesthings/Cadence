@@ -10,7 +10,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { createProject } from "./projects.service";
+import { createProject, deleteProject, updateProject } from "./projects.service";
 
 export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertProjectSchema), async (c) => {
@@ -29,17 +29,7 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const [updated] = await withRls(db, userId, (tx) =>
-            tx
-                .update(projects)
-                .set({
-                    ...body,
-                })
-                .where(and(eq(projects.id, id), eq(projects.userId, userId)))
-                .returning(),
-        );
-
-        throwIfNotFound(updated, "Project");
+        const updated = await withRls(db, userId, (tx) => updateProject(tx, userId, id, body));
 
         return c.json({ data: updated });
     })
@@ -78,14 +68,7 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const { id } = c.req.valid("param");
         const db = getDbClient(c.env);
 
-        const [deleted] = await withRls(db, userId, (tx) =>
-            tx
-                .delete(projects)
-                .where(and(eq(projects.id, id), eq(projects.userId, userId)))
-                .returning(),
-        );
+        const { project } = await withRls(db, userId, (tx) => deleteProject(tx, userId, id));
 
-        throwIfNotFound(deleted, "Project");
-
-        return c.json({ data: deleted });
+        return c.json({ data: project });
     });

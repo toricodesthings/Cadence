@@ -1,6 +1,6 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
 import type { InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
-import { habitOccurrences, habitRule, localDay, stepDayStatus } from "@cadence/domain/repeats";
+import { addDaysToDate, habitOccurrences, habitRule, isPausedOn, localDay, stepDayStatus } from "@cadence/domain/repeats";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, recordMutation } from "../../platform/idempotency";
@@ -25,6 +25,27 @@ export function expandOccurrences(recurrenceRule: string, createdAt: string, sta
         });
         return [];
     }
+}
+
+/**
+ * A routine's due days in [from, to] (local `YYYY-MM-DD`) with each day's log,
+ * exactly as Routines shows them: from the day before it was created ("I did it
+ * yesterday too"), earlier days only when logged; a pause hides today onward,
+ * never the past. Days without a log are open (today, later) or missed (before).
+ */
+export function habitDays<L extends { targetDate: string }>(
+    habit: { recurrenceRule: string; createdAt: string; pausedUntil: string | null },
+    logsByDate: Map<string, L>,
+    from: string,
+    to: string,
+    timeZone: string,
+    today: string,
+): { date: string; log: L | undefined }[] {
+    const firstDay = addDaysToDate(localDay(habit.createdAt, timeZone), -1);
+    return expandOccurrences(habit.recurrenceRule, habit.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`), timeZone)
+        .filter((date) => date >= firstDay || logsByDate.has(date))
+        .filter((date) => !isPausedOn(habit.pausedUntil, date, today))
+        .map((date) => ({ date, log: logsByDate.get(date) }));
 }
 
 /**
@@ -365,5 +386,32 @@ export async function updateHabit(tx: Tx, userId: string, id: string, { expected
         }
     }
 
+    return row;
+}
+
+/** Move a routine to `position` (1 = first) in the Routines order; past the end = last. */
+export async function moveHabit(tx: Tx, userId: string, id: string, position: number) {
+    const rows = await tx
+        .select({ id: habits.id })
+        .from(habits)
+        .where(eq(habits.userId, userId))
+        .orderBy(habits.sortOrder, habits.createdAt);
+    if (!rows.some((row) => row.id === id)) throwIfNotFound(undefined, "Habit");
+    const order = rows.map((row) => row.id).filter((rowId) => rowId !== id);
+    order.splice(Math.min(position - 1, order.length), 0, id);
+    // Pipelined on the transaction's connection, like the other batch writes.
+    await Promise.all(order.map((rowId, sortOrder) =>
+        tx.update(habits).set({ sortOrder }).where(and(eq(habits.id, rowId), eq(habits.userId, userId)))));
+}
+
+// ── Delete ────────────────────────────────────────────────────────────
+
+/** Delete a routine for good, with its whole history (logs and tags cascade). */
+export async function deleteHabit(tx: Tx, userId: string, id: string) {
+    const [row] = await tx
+        .delete(habits)
+        .where(and(eq(habits.id, id), eq(habits.userId, userId)))
+        .returning();
+    throwIfNotFound(row, "Habit");
     return row;
 }

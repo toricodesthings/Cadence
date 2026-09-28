@@ -1,23 +1,22 @@
 /**
  * Cards for the single-item writes: `create_project`, `create_tag`, `log_habit`,
- * the routine, event and section writes and `structure_inbox_item` (design §4.1).
+ * and the routine, event and section writes (design §4.1).
  */
-import { FolderPlus, TagIcon, Repeat, Inbox, Check, CalendarHeart, AlertCircle, Trash2, Columns3 } from "lucide-react";
+import { FolderPlus, TagIcon, Repeat, Check, CalendarHeart, AlertCircle, Trash2, Columns3 } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
 import { ApprovalCard, type ToolRenderContext } from "./ApprovalCard";
-import { DraftDetails, DraftNote, DraftQuotes, DraftSteps, type TaskDraft } from "./TaskBatchCard";
-import { useHabitLookup, useSectionLookup } from "./card-lookups";
+import { useHabitLookup, useSectionLookup, useTagsLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { useSettings } from "../../../hooks/core/use-settings";
 import { formatShortDate, formatTime } from "../../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import { getNextPersonalEventDate } from "../../../lib/utils/personal-events";
-import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 
 export function CreateProjectCard({ ctx }: { ctx: ToolRenderContext }) {
     const input = ctx.part?.input ?? {};
     const name: string = input.name ?? "this list";
+    const sections: string[] = input.sections ?? [];
     return (
         <ApprovalCard
             ctx={ctx}
@@ -28,7 +27,10 @@ export function CreateProjectCard({ ctx }: { ctx: ToolRenderContext }) {
             primaryGlyph={Check}
             doneText={`Created “${name}”.`}
         >
-            <IdentityBlock title={`${input.emoji ? `${input.emoji} ` : ""}${name}`} />
+            <IdentityBlock
+                title={`${input.emoji ? `${input.emoji} ` : ""}${name}`}
+                subtitle={sections.length ? `Sections: ${sections.join(" · ")}` : undefined}
+            />
         </ApprovalCard>
     );
 }
@@ -88,10 +90,17 @@ type RoutineDraft = {
     steps?: (string | { title: string })[] | null;
     pausedUntil?: string | null;
     archived?: boolean;
+    dayTimes?: Record<string, string> | null;
+    colorAccent?: string;
+    projectId?: string | null;
+    tagIds?: string[];
+    position?: number;
 };
 
+const WEEKDAY_NAMES: Record<string, string> = { MO: "Mon", TU: "Tue", WE: "Wed", TH: "Thu", FR: "Fri", SA: "Sat", SU: "Sun" };
+
 /** "Every weekday · 07:30 · 3 steps · reminder", from whatever the draft sets. */
-function routineSummary(draft: RoutineDraft) {
+function routineSummary(draft: RoutineDraft, tagNames: string[] = []) {
     return [
         draft.recurrenceRule ? getTaskRecurrenceSummary({ recurrenceRule: draft.recurrenceRule, scheduledStart: null, scheduledEnd: null })?.cadenceLabel ?? "Repeats" : null,
         draft.targetTime ? formatTime(`2000-01-01T${draft.targetTime}:00`) : draft.targetTime === null ? "Any time" : null,
@@ -99,11 +108,18 @@ function routineSummary(draft: RoutineDraft) {
         draft.reminderEnabled === true ? "Reminder on" : draft.reminderEnabled === false ? "Reminder off" : null,
         draft.pausedUntil ? `Paused until ${formatShortDate(draft.pausedUntil)}` : draft.pausedUntil === null ? "Resumed" : null,
         draft.archived === true ? "Archived" : draft.archived === false ? "Restored" : null,
+        draft.dayTimes ? Object.entries(draft.dayTimes).map(([day, time]) => `${WEEKDAY_NAMES[day] ?? day} ${time ? formatTime(`2000-01-01T${time}:00`) : "any time"}`).join(", ")
+            : draft.dayTimes === null ? "Same time every day" : null,
+        draft.colorAccent ? `Colour: ${draft.colorAccent}` : null,
+        tagNames.length ? tagNames.map((tag) => `#${tag}`).join(" ") : draft.tagIds?.length === 0 ? "No tags" : null,
+        draft.projectId === null ? "No list" : null,
+        draft.position ? (draft.position === 1 ? "Moved to the top" : `Moved to place ${draft.position}`) : null,
         draft.emoji === null ? "No emoji" : null,
     ].filter(Boolean).join(" · ") || undefined;
 }
 
 export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+    const lookupTags = useTagsLookup();
     const draft: RoutineDraft = ctx.part?.input ?? {};
     const name = draft.title ?? "this routine";
     return (
@@ -116,7 +132,11 @@ export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
             primaryGlyph={Check}
             doneText={`Added “${name}” to Routines.`}
         >
-            <IdentityBlock title={`${draft.emoji ? `${draft.emoji} ` : ""}${name}`} subtitle={routineSummary(draft)} />
+            <IdentityBlock
+                title={`${draft.emoji ? `${draft.emoji} ` : ""}${name}`}
+                subtitle={routineSummary(draft, lookupTags(draft.tagIds ?? []).map((tag) => tag.name))}
+            />
+            {draft.projectId ? <div className="flex flex-wrap gap-1.5"><TaskDestination projectId={draft.projectId} /></div> : null}
             {draft.description ? <p className="text-xs text-twilight-text-soft">{draft.description}</p> : null}
         </ApprovalCard>
     );
@@ -124,6 +144,7 @@ export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
 
 export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
     const lookupHabit = useHabitLookup();
+    const lookupTags = useTagsLookup();
     const input = ctx.part?.input ?? {};
     const habit = lookupHabit(input.habitId ?? "");
     const patch: RoutineDraft = input.patch ?? {};
@@ -141,14 +162,39 @@ export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext }) {
         >
             <IdentityBlock
                 title={`${emoji ? `${emoji} ` : ""}${name}`}
-                subtitle={routineSummary(patch) ?? (patch.title && habit && patch.title !== habit.title ? `Renamed from “${habit.title}”` : patch.emoji ? "New emoji" : undefined)}
+                subtitle={routineSummary(patch, lookupTags(patch.tagIds ?? []).map((tag) => tag.name)) ?? (patch.title && habit && patch.title !== habit.title ? `Renamed from “${habit.title}”` : patch.emoji ? "New emoji" : undefined)}
             />
             {patch.description ? <p className="text-xs text-twilight-text-soft">{patch.description}</p> : null}
+            {patch.projectId ? <div className="flex flex-wrap gap-1.5"><TaskDestination projectId={patch.projectId} /></div> : null}
         </ApprovalCard>
     );
 }
 
-type EventDraft = { label?: string; monthDay?: string; emoji?: string | null; notify?: boolean; startedOn?: string | null };
+/** `delete_habit` is permanent (history and streaks go too), so Auto still waits for this tap. */
+export function DeleteHabitCard({ ctx }: { ctx: ToolRenderContext }) {
+    const persona = useAssistantPersona();
+    const name: string = ctx.part?.input?.title ?? ctx.part?.output?.deleted ?? "this routine";
+    return (
+        <ApprovalCard
+            ctx={ctx}
+            tone="danger"
+            eyebrow="DELETE ROUTINE"
+            eyebrowGlyph={AlertCircle}
+            ariaLabel={`Delete routine: ${name}`}
+            primaryLabel="Delete it"
+            primaryGlyph={Trash2}
+            primaryVariant="cardDanger"
+            declineLabel="Keep it"
+            doneText={`Deleted “${name}” and its history.`}
+            declinedText="Kept it."
+        >
+            <IdentityBlock title={name} tone="danger" />
+            {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Its history and streaks go too. Archive keeps them.</p>}
+        </ApprovalCard>
+    );
+}
+
+type EventDraft = { label?: string; monthDay?: string; emoji?: string | null; notify?: boolean; startedOn?: string | null; color?: string | null };
 
 /** The event as it is now, from the settings cache. */
 function useEventLookup() {
@@ -165,6 +211,7 @@ function eventSubtitle(draft: EventDraft) {
         draft.monthDay ? `Every ${formatShortDate(getNextPersonalEventDate({ monthDay: draft.monthDay }))}` : null,
         draft.startedOn ? `since ${draft.startedOn.slice(0, 4)}` : null,
         draft.notify === false ? "no reminder" : null,
+        draft.color ? `colour: ${draft.color}` : draft.color === null ? "no colour" : null,
     ].filter(Boolean);
     return parts.join(" · ") || undefined;
 }
@@ -300,30 +347,6 @@ export function DeleteSectionCard({ ctx }: { ctx: ToolRenderContext }) {
         >
             <IdentityBlock title={name} tone="danger" />
             {persona.terse ? null : <p className="text-xs text-twilight-text-soft">Its tasks stay in the list, with no section.</p>}
-        </ApprovalCard>
-    );
-}
-
-/** Turns a capture into a task, with its checklist and note, in one transaction on the server. */
-export function InboxStructureCard({ ctx }: { ctx: ToolRenderContext }) {
-    const persona = useAssistantPersona();
-    const draft = normalizeTaskWriteTemporalInput((ctx.part?.input ?? {}) as TaskDraft);
-    const title = draft.title ?? "this capture";
-    return (
-        <ApprovalCard
-            ctx={ctx}
-            eyebrow="STRUCTURE THIS CAPTURE"
-            eyebrowGlyph={Inbox}
-            ariaLabel={`Structure capture: ${title}`}
-            primaryLabel="Make it a task"
-            primaryGlyph={Check}
-            doneText="Turned it into a task."
-            declinedText="Left it in Capture."
-        >
-            <IdentityBlock title={title} subtitle={!persona.terse && draft.note ? <DraftNote note={draft.note} /> : undefined} />
-            <DraftDetails draft={draft} />
-            <DraftSteps draft={draft} />
-            <DraftQuotes draft={draft} />
         </ApprovalCard>
     );
 }
