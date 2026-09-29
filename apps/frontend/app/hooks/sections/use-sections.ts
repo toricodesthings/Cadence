@@ -6,7 +6,8 @@ import type { Task } from "@cadence/contracts/task";
 import { queryKeys } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { createTempId } from "../../lib/api/optimistic-id";
+import { clientIdFor } from "../../lib/api/optimistic-id";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 
 function sectionsKey(projectId?: string | null) {
     return ["sections", projectId ?? "__none__"] as const;
@@ -33,18 +34,23 @@ export function useCreateSection(projectId?: string | null) {
     const key = sectionsKey(projectId);
 
     return useMutation({
-        mutationFn: async (input: { name: string; orderIndex: number }) => {
-            const res = await client.api.sections.$post({
-                json: { ...input, projectId: projectId ?? null },
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<{ name: string; orderIndex: number }, TaskSection>(
+            (input) => ({ type: "create_section", payload: { ...input, id: clientIdFor(input), projectId: projectId ?? null } }),
+            async (input) => {
+                const id = clientIdFor(input);
+                const res = await client.api.sections.$post(
+                    { json: { ...input, id, projectId: projectId ?? null } },
+                    { headers: { "Idempotency-Key": id } },
+                );
+                return unwrapResponse(res);
+            },
+        ),
         onMutate: async (newSection) => {
             await queryClient.cancelQueries({ queryKey: key });
             const previous = queryClient.getQueryData<TaskSection[]>(key);
 
             const optimistic: TaskSection = {
-                id: createTempId(),
+                id: clientIdFor(newSection),
                 userId: "",
                 projectId: projectId ?? null,
                 name: newSection.name,
@@ -64,8 +70,8 @@ export function useCreateSection(projectId?: string | null) {
                 queryClient.setQueryData(key, context.previous);
             }
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: key });
+        onSettled: (data, error) => {
+            if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: key });
         },
     });
 }
@@ -76,13 +82,10 @@ export function useUpdateSection(projectId?: string | null) {
     const key = sectionsKey(projectId);
 
     return useMutation({
-        mutationFn: async ({ id, ...updates }: { id: string; name?: string; orderIndex?: number }) => {
-            const res = await client.api.sections[":id"].$patch({
-                param: { id },
-                json: updates,
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<{ id: string; name?: string; orderIndex?: number }, TaskSection>(
+            ({ id, ...payload }) => ({ type: "update_section", id, payload }),
+            async ({ id, ...updates }) => unwrapResponse(await client.api.sections[":id"].$patch({ param: { id }, json: updates })),
+        ),
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: key });
             const previous = queryClient.getQueryData<TaskSection[]>(key);
@@ -102,8 +105,8 @@ export function useUpdateSection(projectId?: string | null) {
                 queryClient.setQueryData(key, context.previous);
             }
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: key });
+        onSettled: (data, error) => {
+            if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: key });
         },
     });
 }

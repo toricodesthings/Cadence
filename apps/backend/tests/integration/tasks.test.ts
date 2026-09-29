@@ -99,6 +99,21 @@ describe("creating tasks", () => {
         expect(retry.body.data.id).toBe(first.body.data.id);
         expect((await tasks("GET", "")).body.data).toHaveLength(1);
     });
+
+    it("keeps a client-chosen id, replays it once, and refuses one another account holds", async () => {
+        const id = crypto.randomUUID();
+        const headers = { "Idempotency-Key": id };
+
+        const first = await tasks("POST", "", { id, title: "Offline", orderIndex: 1 }, headers);
+        const replay = await tasks("POST", "", { id, title: "Offline", orderIndex: 1 }, headers);
+        const theirs = await otherTasks("POST", "", { id, title: "Taken", orderIndex: 1 }, headers);
+
+        expect(first.body.data.id).toBe(id);
+        expect(replay.body.data.id).toBe(id);
+        expect((await tasks("GET", "")).body.data).toHaveLength(1);
+        expect(theirs.status).toBe(409);
+        expect((await otherTasks("GET", "")).body.data).toEqual([]);
+    });
 });
 
 describe("listing tasks", () => {

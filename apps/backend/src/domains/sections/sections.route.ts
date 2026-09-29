@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
-import { getIdempotencyKey, checkIdempotency, recordMutation } from "../../platform/idempotency";
+import { getIdempotencyKey, checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { taskSections } from "../../db/schema";
 import type { Env } from "../../types/env";
@@ -30,10 +30,10 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 if (existing) return existing;
             }
 
-            const [row] = await tx
+            const [row] = await insertWithClientId(() => tx
                 .insert(taskSections)
                 .values({ ...body, userId })
-                .returning();
+                .returning());
 
             await recordMutation(tx, userId, idempotencyKey, row.id);
             return row;

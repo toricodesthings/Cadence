@@ -11,6 +11,7 @@ import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { ORDER_INDEX_GAP } from "@cadence/domain/ordering";
 import { subtasks, tasks, taskTags } from "../../db/schema";
 import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
+import { insertWithClientId } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { atLocalDate } from "../../platform/date-utils";
 import { trackBatchCompletion, trackBatchEvents, trackReschedules } from "../../platform/metrics";
@@ -111,10 +112,10 @@ export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds
     validateTaskRecurrenceRule(values.recurrenceRule, values.scheduledStart ?? null);
     await assertOwnership(tx, userId, { projectId: values.projectId ?? null, sectionId: values.sectionId, tagIds });
 
-    const [row] = await tx
+    const [row] = await insertWithClientId(() => tx
         .insert(tasks)
         .values({ ...values, interactionMode: values.interactionMode ?? suggestInteractionMode(values), userId })
-        .returning();
+        .returning());
     if (tagIds.length > 0) {
         await tx.insert(taskTags).values(tagIds.map((tagId) => ({ taskId: row.id, tagId })));
     }

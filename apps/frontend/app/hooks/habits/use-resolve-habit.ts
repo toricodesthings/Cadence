@@ -7,7 +7,7 @@ import type { ResolveHabitAction, Habit } from "@cadence/contracts/habit";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
-import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { stepDayStatus } from "@cadence/domain/repeats";
 import { toastError } from "../../lib/utils/error-toast";
 
@@ -109,6 +109,6 @@ export function useResolveHabit(boundHabitId?: string) {
             if (context?.snapshot) habitCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't update routine");
         },
-        onSettled: () => habitCache.invalidate(queryClient),
+        onSettled: (data, error) => !wasQueued(data, error) && habitCache.invalidate(queryClient),
     });
 }

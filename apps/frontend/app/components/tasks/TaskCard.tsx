@@ -28,6 +28,7 @@ import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/
 import type { Tag } from "@cadence/contracts/tag";
 import type { Subtask } from "@cadence/contracts/subtask";
 import type { Task } from "@cadence/contracts/task";
+import { PendingMark } from "../shared/PendingMark";
 
 interface TaskCardProps {
     task: Task;
@@ -355,6 +356,7 @@ export function TaskCard({
                                     } ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
                                 >
                                     {task.title}
+                                    <PendingMark id={task.id} />
                                 </span>
 
                                 {primaryCue ? (

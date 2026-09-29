@@ -30,13 +30,16 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void) {
         try {
             while (remaining.length) {
                 const text = remaining[0];
-                const item = savedCapture.current ?? (await create.mutateAsync(text));
-                if (asTask && item) {
-                    savedCapture.current = item;
+                // Offline the create is queued and returns nothing, but the id is ours,
+                // so "as task" can still be queued right behind it.
+                const id = savedCapture.current?.id ?? crypto.randomUUID();
+                const item = savedCapture.current ?? (await create.mutateAsync({ id, rawText: text }));
+                if (asTask) {
+                    savedCapture.current = item ?? savedCapture.current;
                     const { parse } = await import("@cadence/nlp/parse");
                     const parsed = parse({ input: text, sourceSurface: "inbox" });
                     await process.mutateAsync({
-                        inboxItemId: item.id,
+                        inboxItemId: id,
                         rawText: text,
                         title: parsed.cleanedTitle || text,
                     });

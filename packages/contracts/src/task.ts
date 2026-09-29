@@ -30,6 +30,8 @@ export const canonicalNlpEnvelopeSchema = z.object({
 
 // ── Input schemas (moved verbatim from backend tasks.schema.ts) ──
 export const insertTaskSchema = z.object({
+    /** Client-chosen id, so a task made offline can be edited before it syncs. */
+    id: z.uuid().optional(),
     title: z.string().min(1).max(500),
     content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.default("ACTIVE"),

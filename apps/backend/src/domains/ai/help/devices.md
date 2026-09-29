@@ -1,4 +1,4 @@
 # Devices
 - Cadence runs in the browser and as a desktop app. The desktop app checks for updates under Desktop app in [Data & Export](?settings=privacy) and has a system-wide quick capture (Ctrl/Cmd+Shift+C).
 - On iPhone or iPad, add Cadence to the Home Screen from Safari's Share menu to use it like an app.
-- Changes made offline are saved and sync when you're back online.
+- Cadence opens without a connection and shows about a week back and three weeks ahead. Changes made offline are saved on the device, show a small cloud mark, and sync when you're back online (on iPhone, the next time Cadence is open; on Android, even after it's closed). If one can't sync, a banner offers Review, where you can retry or discard it. The assistant, settings and photo uploads need a connection. Signing out with unsynced changes asks first, since it deletes them from the device. iPhone may clear a website's saved data after about a week without use, so open Cadence while online before then.

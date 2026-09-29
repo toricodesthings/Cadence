@@ -96,6 +96,15 @@ describe("workspace startup", () => {
         await waitFor(() => expect(screen.queryByTestId("startup")).toBeNull());
     });
 
+    it("opens a saved workspace offline even when this view has nothing saved", async () => {
+        onlineManager.setOnline(false);
+        const client = new QueryClient();
+        client.setQueryData(["projects"], "Saved lists");
+        mount(<Data name="tasks" load={async () => "Ready"} />, client);
+        await waitFor(() => expect(screen.queryByTestId("startup")).toBeNull());
+        expect(screen.queryByText("tasks pending")).not.toBeNull();
+    });
+
     it("does not bring startup back for navigation or subsequent requests", async () => {
         function Routes() {
             const navigate = useNavigate();

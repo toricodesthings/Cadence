@@ -5,11 +5,36 @@
 // URLs; v3 retires shells that could contain a one-time OAuth callback response.
 const CACHE_NAME = "cadence-shell-v3";
 const CACHE_PREFIX = "cadence-shell-";
+// Every web build asset, written in by react-router.config.ts `buildEnd`.
+const PRECACHE = /*__PRECACHE__*/[];
+// The asset list the cache was last pruned to, so an open older tab keeps its chunks.
+const MANIFEST_KEY = "/__cadence-precache__";
 
 function isHtml(response) {
     return response.ok && !response.redirected &&
         !/\bno-store\b/i.test(response.headers.get("cache-control") ?? "") &&
         response.headers.get("content-type")?.includes("text/html");
+}
+
+// Only immutable build assets belong in the asset cache. Public scripts,
+// /app/*.css and Vite module requests must always reach the network.
+const ASSET_TYPES = {
+    js: /^(text|application)\/(javascript|ecmascript)\b/i,
+    css: /^text\/css\b/i,
+    woff2: /^(font\/woff2|application\/font-woff2)\b/i,
+    png: /^image\/png\b/i,
+    ico: /^image\/(x-icon|vnd\.microsoft\.icon)\b/i,
+    svg: /^image\/svg\+xml\b/i,
+    webp: /^image\/webp\b/i,
+};
+
+function assetType(url) {
+    return url.search ? null : /^\/assets\/.+-[\w-]{8,}\.(js|css|woff2|png|ico|svg|webp)$/.exec(url.pathname)?.[1] ?? null;
+}
+
+// Never persist an error or the SPA's HTML fallback as CSS/JavaScript.
+function isAsset(type, response) {
+    return response.ok && !response.redirected && ASSET_TYPES[type].test(response.headers.get("content-type") ?? "");
 }
 
 // Offline support is best effort: a quota/write failure must not break loading.
@@ -19,8 +44,15 @@ function store(cache, request, response) {
 
 self.addEventListener("install", (event) => {
     event.waitUntil((async () => {
+        const cache = await caches.open(CACHE_NAME);
         const response = await fetch("/", { cache: "reload" });
-        if (isHtml(response)) await store(await caches.open(CACHE_NAME), "/", response);
+        if (isHtml(response)) await store(cache, "/", response);
+        await Promise.all(PRECACHE.map(async (path) => {
+            if (await cache.match(path)) return;
+            const type = assetType(new URL(path, self.location.origin));
+            const asset = await fetch(path).catch(() => null);
+            if (type && asset && isAsset(type, asset)) await store(cache, path, asset);
+        }));
         await self.skipWaiting();
     })());
 });
@@ -30,6 +62,19 @@ self.addEventListener("activate", (event) => {
         const keys = await caches.keys();
         await Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
             .map((key) => caches.delete(key)));
+
+        // Keep this build's assets and the previous build's; drop anything older.
+        const cache = await caches.open(CACHE_NAME);
+        const previous = await (await cache.match(MANIFEST_KEY))?.json().catch(() => null);
+        if (Array.isArray(previous) && PRECACHE.length) {
+            const keep = new Set([...previous, ...PRECACHE]);
+            const requests = await cache.keys();
+            await Promise.all(requests.map((request) => {
+                const { pathname } = new URL(request.url);
+                return pathname.startsWith("/assets/") && !keep.has(pathname) ? cache.delete(request) : null;
+            }));
+        }
+        if (PRECACHE.length) await store(cache, MANIFEST_KEY, Response.json(PRECACHE));
         await self.clients.claim();
     })());
 });
@@ -68,29 +113,100 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Only immutable build assets belong in the asset cache. Public scripts,
-    // /app/*.css and Vite module requests must always reach the network.
-    const asset = /^\/assets\/.+-[\w-]{8,}\.(js|css|woff2|png|ico|svg|webp)$/.exec(url.pathname);
-    if (!asset || url.search) return;
-    const contentTypes = {
-        js: /^(text|application)\/(javascript|ecmascript)\b/i,
-        css: /^text\/css\b/i,
-        woff2: /^(font\/woff2|application\/font-woff2)\b/i,
-        png: /^image\/png\b/i,
-        ico: /^image\/(x-icon|vnd\.microsoft\.icon)\b/i,
-        svg: /^image\/svg\+xml\b/i,
-        webp: /^image\/webp\b/i,
-    };
-    const isAsset = (response) => response.ok && !response.redirected &&
-        contentTypes[asset[1]].test(response.headers.get("content-type") ?? "");
+    const type = assetType(url);
+    if (!type) return;
 
     event.respondWith((async () => {
         const cache = await caches.open(CACHE_NAME);
         const cached = await cache.match(request);
-        if (cached && isAsset(cached)) return cached;
+        if (cached && isAsset(type, cached)) return cached;
         const response = await fetch(request);
-        // Never persist an error or the SPA's HTML fallback as CSS/JavaScript.
-        if (isAsset(response)) event.waitUntil(store(cache, request, response.clone()));
+        if (isAsset(type, response)) event.waitUntil(store(cache, request, response.clone()));
         return response;
+    })());
+});
+
+// ── Background Sync (Chromium/Android only) ──
+// Changes made offline sync after the app is closed. An open app replays them
+// itself, so it is only asked to. Otherwise this replays the app's queue
+// (idb-keyval's store) with the same locks and Idempotency-Keys the app uses,
+// and any failure it can retry rejects, so the browser tries again later.
+
+const WAL_PREFIX = "cadence-mutation-wal:";
+
+function idb(mode, run) {
+    return new Promise((resolve, reject) => {
+        const open = indexedDB.open("keyval-store");
+        open.onupgradeneeded = () => open.result.createObjectStore("keyval");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+            const tx = open.result.transaction("keyval", mode);
+            const request = run(tx.objectStore("keyval"));
+            tx.oncomplete = () => resolve(request.result);
+            tx.onerror = () => reject(tx.error);
+        };
+    });
+}
+
+async function changeQueue(userId, change) {
+    const key = WAL_PREFIX + userId;
+    await navigator.locks.request(`cadence-wal:${userId}`, async () => {
+        const next = change((await idb("readonly", (s) => s.get(key))) ?? []);
+        await idb("readwrite", (s) => (next.length ? s.put(next, key) : s.delete(key)));
+    });
+    new BroadcastChannel("cadence-wal").postMessage(userId);
+}
+
+async function replayQueue(userId) {
+    const response = await fetch("/api/auth/token", { credentials: "include", cache: "no-store" });
+    const { token } = response.ok ? await response.json() : {};
+    if (!token) throw new Error("No session");
+
+    for (;;) {
+        const entries = (await idb("readonly", (s) => s.get(WAL_PREFIX + userId))) ?? [];
+        if (entries.some((e) => e.status === "failed")) return; // The app shows and orders these.
+        const entry = entries.find((e) => e.status === "pending");
+        if (!entry) return;
+        if (!entry.requests) throw new Error("Queued by an older version"); // The app replays it.
+
+        for (const [index, request] of entry.requests.entries()) {
+            const key = request.key ?? entry.id;
+            const res = await fetch(request.url, {
+                method: request.method,
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Idempotency-Key": index ? `${key}:${index}` : key,
+                    ...(request.json !== undefined && { "Content-Type": "application/json" }),
+                },
+                body: request.json === undefined ? undefined : JSON.stringify(request.json),
+            });
+            if (res.ok || (res.status === 404 && !entry.op.type.startsWith("create_"))) continue;
+            if (res.status === 401 || res.status === 429 || res.status >= 500) throw new Error(`Retry later (${res.status})`);
+            if (res.status === 409) return; // A conflict: the app keeps both versions of a note.
+            const body = await res.json().catch(() => null);
+            await changeQueue(userId, (all) => all.map((e) => (e.id === entry.id
+                ? { ...e, status: "failed", error: body?.error?.message ?? `Request failed with status ${res.status}` }
+                : e)));
+            return;
+        }
+        await changeQueue(userId, (all) => all.filter((e) => e.id !== entry.id));
+    }
+}
+
+self.addEventListener("sync", (event) => {
+    if (event.tag !== "cadence-wal") return;
+    event.waitUntil((async () => {
+        const windows = await self.clients.matchAll({ type: "window" });
+        if (windows.length) {
+            for (const client of windows) client.postMessage({ type: "cadence-wal-replay" });
+            return;
+        }
+        const keys = await idb("readonly", (s) => s.getAllKeys());
+        for (const key of keys.filter((k) => typeof k === "string" && k.startsWith(WAL_PREFIX))) {
+            const userId = key.slice(WAL_PREFIX.length);
+            // Another replay (a tab opening right now) already holds it: let that one finish.
+            await navigator.locks.request(`cadence-wal-replay:${userId}`, { ifAvailable: true },
+                (lock) => (lock ? replayQueue(userId) : undefined));
+        }
     })());
 });

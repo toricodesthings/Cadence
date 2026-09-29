@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, and, desc } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
-import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
+import { checkIdempotency, getIdempotencyKey, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { withRls } from "../../platform/rls";
 import { inboxItems, inboxSections } from "../../db/schema";
@@ -47,10 +47,10 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             }
 
             await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
-            const [row] = await tx
+            const [row] = await insertWithClientId(() => tx
                 .insert(inboxItems)
                 .values({ ...body, userId })
-                .returning();
+                .returning());
 
             await recordMutation(tx, userId, idempotencyKey, row.id);
             return row;
@@ -72,10 +72,10 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 if (existing) return existing;
             }
 
-            const [row] = await tx
+            const [row] = await insertWithClientId(() => tx
                 .insert(inboxSections)
                 .values({ ...body, userId })
-                .returning();
+                .returning());
 
             await recordMutation(tx, userId, idempotencyKey, row.id);
             return row;

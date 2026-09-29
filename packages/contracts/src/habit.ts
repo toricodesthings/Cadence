@@ -24,6 +24,8 @@ export type StepStatus = z.infer<typeof stepStatusSchema>;
 // No .default()s on create schemas: an omitted field takes its DB column default, and
 // a default here would leak into the .partial() update schema and overwrite data.
 export const insertHabitSchema = z.object({
+    /** Client-chosen id, so a routine made offline can be logged before it syncs. */
+    id: z.uuid().optional(),
     title: z.string().min(1).max(255),
     description: z.string().max(10_000).nullable().optional(),
     notes: z.string().nullable().optional(),
@@ -42,7 +44,7 @@ export const insertHabitSchema = z.object({
 });
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
-export const updateHabitSchema = insertHabitSchema.partial().extend({
+export const updateHabitSchema = insertHabitSchema.omit({ id: true }).partial().extend({
     // Any timestamp text, like task/note updates: the server compares instants, so
     // an equivalent form (or a value cached before timestamps were unified) still matches.
     expectedUpdatedAt: z.string().optional(),

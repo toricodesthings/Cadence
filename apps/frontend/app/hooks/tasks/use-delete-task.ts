@@ -6,7 +6,7 @@ import { taskCache } from "./optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
 /** Delete a task with optimistic removal from all caches */
@@ -72,6 +72,6 @@ export function useEmptyTrash() {
             toastError(err, "Couldn't empty Trash");
         },
 
-        onSettled: () => taskCache.invalidate(queryClient),
+        onSettled: (data, error) => !wasQueued(data, error) && taskCache.invalidate(queryClient),
     });
 }

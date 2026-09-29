@@ -1,24 +1,18 @@
+const clientIds = new WeakMap<object, string>();
+
 /**
- * Optimistic (client-generated) entity IDs.
- *
- * When a mutation creates an entity, we insert an optimistic row into the cache
- * with a temporary id (`temp-<timestamp>`) so the UI updates instantly. That row
- * is later reconciled to the server row (with a real UUID) once the create
- * resolves. Until then the entity does not exist on the server, so any follow-up
- * mutation that targets it by id (process, patch, delete) would 400 with
- * "Invalid UUID".
- *
- * Use {@link isPersistedId} to gate such follow-up actions until the create has
- * been reconciled.
+ * The id a create sends as both the entity id and its Idempotency-Key. Stable
+ * per input object, so the optimistic row, the request, a retry and an offline
+ * replay all agree, and later edits can target it before it syncs (the server
+ * keeps it). An `id` already on the input wins.
  */
-const TEMP_ID_PREFIX = "temp-";
-
-/** Build an optimistic id for a not-yet-persisted entity. */
-export function createTempId(): string {
-    return `${TEMP_ID_PREFIX}${Date.now()}`;
-}
-
-/** True when `id` is a real server id (not a pending optimistic placeholder). */
-export function isPersistedId(id: string | null | undefined): boolean {
-    return typeof id === "string" && id.length > 0 && !id.startsWith(TEMP_ID_PREFIX);
+export function clientIdFor(input: object): string {
+    const given = (input as { id?: unknown }).id;
+    if (typeof given === "string" && given) return given;
+    let id = clientIds.get(input);
+    if (!id) {
+        id = crypto.randomUUID();
+        clientIds.set(input, id);
+    }
+    return id;
 }

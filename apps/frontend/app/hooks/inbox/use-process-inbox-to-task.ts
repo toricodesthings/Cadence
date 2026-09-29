@@ -7,7 +7,6 @@ import type { Task } from "@cadence/contracts/task";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
-import { isPersistedId } from "../../lib/api/optimistic-id";
 import { addDays, toISODate, placementLabel } from "../../lib/utils/date-format";
 import { useUnprocessInbox } from "./use-unprocess-inbox";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
@@ -58,13 +57,6 @@ export function useProcessInboxToTask() {
                 payload: { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete },
             }),
             async ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => {
-                if (!isPersistedId(inboxItemId)) {
-                    // Defensive: the capture hasn't been saved yet, so it has no
-                    // server id to process. Call sites disable the action while
-                    // pending; this guard keeps a stray keyboard shortcut from
-                    // firing a guaranteed 400 ("Invalid UUID").
-                    throw new Error("Still saving this capture — try again in a moment.");
-                }
                 const taskTitle = title?.trim() || rawText;
 
                 const taskRes = await client.api.inbox[":id"].process.$post({

@@ -11,17 +11,7 @@ import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { ApiErrorResponse } from "../../types/api";
 import { toastError } from "../../lib/utils/error-toast";
-
-const createTaskIdempotencyKeys = new WeakMap<CreateTaskInput, string>();
-
-function getCreateTaskIdempotencyKey(input: CreateTaskInput) {
-    const existingKey = createTaskIdempotencyKeys.get(input);
-    if (existingKey) return existingKey;
-
-    const nextKey = crypto.randomUUID();
-    createTaskIdempotencyKeys.set(input, nextKey);
-    return nextKey;
-}
+import { clientIdFor } from "../../lib/api/optimistic-id";
 
 /** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
@@ -36,15 +26,13 @@ export function useCreateTask() {
         mutationFn: withOfflineSupport<CreateTaskInput, Task>(
             (input) => ({
                 type: "create_task",
-                payload: {
-                    ...input,
-                    clientMutationId: crypto.randomUUID(),
-                },
+                payload: { ...input, id: clientIdFor(input) },
             }),
             async (input) => {
-                const idempotencyKey = getCreateTaskIdempotencyKey(input);
+                const id = clientIdFor(input);
                 const res = await client.api.tasks.$post({
                     json: {
+                        id,
                         title: input.title,
                         ...(input.content !== undefined && { content: input.content }),
                         orderIndex: input.orderIndex,
@@ -71,7 +59,7 @@ export function useCreateTask() {
                         ...(input.nlp && { nlp: input.nlp }),
                     },
                 }, {
-                    headers: { "Idempotency-Key": idempotencyKey },
+                    headers: { "Idempotency-Key": id },
                 });
                 return unwrapResponse(res);
             },
@@ -81,9 +69,9 @@ export function useCreateTask() {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
 
-            // Build an optimistic task with a temporary ID
+            // The optimistic row already has the id the server will keep.
             const optimisticTask: Task = {
-                id: crypto.randomUUID(),
+                id: clientIdFor(input),
                 userId: "",
                 projectId: input.projectId ?? null,
                 sectionId: input.sectionId ?? null,

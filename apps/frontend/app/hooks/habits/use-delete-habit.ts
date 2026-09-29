@@ -5,7 +5,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { habitCache } from "./optimistic-helpers";
 import { removeHabitFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
 export function useDeleteHabit() {
@@ -46,6 +46,6 @@ export function useDeleteHabit() {
             toastError(err, "Couldn't delete routine");
         },
 
-        onSettled: () => habitCache.invalidate(queryClient),
+        onSettled: (data, error) => !wasQueued(data, error) && habitCache.invalidate(queryClient),
     });
 }

@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
+import type { ApiClient } from "../../lib/api/client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { useAuthState } from "../auth/use-auth-state";
@@ -20,11 +21,18 @@ interface UseHabitsRangeOptions {
 export function useHabitsRange({ start, end, archived = false, enabled = true, timezone }: UseHabitsRangeOptions) {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
-    const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     return useQuery({
-        queryKey: [...queryKeys.habits.weekly({ start, end }), archived],
+        ...habitsRangeQueryOptions(client, { start, end, archived, timezone }),
         enabled: enabled && !!start && !!end && authReady && isAuthenticated,
+    });
+}
+
+/** One range's query; shared with the offline prefetch so their keys match. */
+export function habitsRangeQueryOptions(client: ApiClient, { start, end, archived = false, timezone }: Omit<UseHabitsRangeOptions, "enabled">) {
+    const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return queryOptions({
+        queryKey: [...queryKeys.habits.weekly({ start, end }), archived],
         staleTime: STALE_TIMES.HABITS,
         queryFn: async () => {
             const res = await client.api.habits.weekly.$get({

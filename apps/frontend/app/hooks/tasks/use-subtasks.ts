@@ -1,10 +1,11 @@
 import { keepPreviousData, useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
-import { unwrapResponse } from "../../lib/api/helpers";
+import { parseApiError, unwrapResponse } from "../../lib/api/helpers";
 import type { Subtask } from "@cadence/contracts/subtask";
 import { useAuthState } from "../auth/use-auth-state";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { createTempId } from "../../lib/api/optimistic-id";
+import { clientIdFor } from "../../lib/api/optimistic-id";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { chunk } from "../../lib/utils";
 import { toastError } from "../../lib/utils/error-toast";
 
@@ -13,17 +14,6 @@ const BULK_SUBTASKS_KEY = (taskIds: string[]) => ["subtasks", "bulk", taskIds] a
 
 type BulkSubtasksMap = Record<string, Subtask[]>;
 type CachedSubtask = Subtask & { __optimisticKey?: string };
-
-const createSubtaskIdempotencyKeys = new WeakMap<{ title: string; orderIndex: number }, string>();
-
-function getCreateSubtaskIdempotencyKey(input: { title: string; orderIndex: number }) {
-    const existingKey = createSubtaskIdempotencyKeys.get(input);
-    if (existingKey) return existingKey;
-
-    const nextKey = crypto.randomUUID();
-    createSubtaskIdempotencyKeys.set(input, nextKey);
-    return nextKey;
-}
 
 function sortSubtasks(items: CachedSubtask[]) {
     return [...items].sort((a, b) => a.orderIndex - b.orderIndex);
@@ -122,20 +112,23 @@ export function useCreateSubtask(taskId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (input: { title: string; orderIndex: number }) => {
-            const idempotencyKey = getCreateSubtaskIdempotencyKey(input);
-            const res = await api.api.tasks[":taskId"].subtasks.$post(
-                { param: { taskId }, json: { title: input.title, orderIndex: input.orderIndex } },
-                { headers: { "Idempotency-Key": idempotencyKey } },
-            );
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<{ title: string; orderIndex: number }, Subtask>(
+            (input) => ({ type: "create_subtask", taskId, payload: { id: clientIdFor(input), title: input.title, orderIndex: input.orderIndex } }),
+            async (input) => {
+                const id = clientIdFor(input);
+                const res = await api.api.tasks[":taskId"].subtasks.$post(
+                    { param: { taskId }, json: { id, title: input.title, orderIndex: input.orderIndex } },
+                    { headers: { "Idempotency-Key": id } },
+                );
+                return unwrapResponse(res);
+            },
+        ),
         onMutate: async (newSubtask) => {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
             const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
 
             const optimistic: CachedSubtask = {
-                id: createTempId(),
+                id: clientIdFor(newSubtask),
                 taskId,
                 title: newSubtask.title,
                 isComplete: false,
@@ -153,7 +146,7 @@ export function useCreateSubtask(taskId: string) {
             return { previous, optimisticId: optimistic.id };
         },
         onSuccess: (created, _newSubtask, context) => {
-            reconcileSingleSubtaskCache(queryClient, taskId, created, context?.optimisticId);
+            if (created) reconcileSingleSubtaskCache(queryClient, taskId, created, context?.optimisticId);
         },
         onError: (err, _new, context) => {
             if (context?.previous) {
@@ -163,7 +156,8 @@ export function useCreateSubtask(taskId: string) {
 
             toastError(err, "Couldn't add subtask");
         },
-        onSettled: () => {
+        onSettled: (data, error) => {
+            if (wasQueued(data, error)) return;
             queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
         },
     });
@@ -174,13 +168,10 @@ export function useUpdateSubtask(taskId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, ...updates }: { id: string; title?: string; isComplete?: boolean }) => {
-            const res = await api.api.subtasks[":id"].$patch({
-                param: { id },
-                json: updates,
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<{ id: string; title?: string; isComplete?: boolean }, Subtask>(
+            ({ id, ...payload }) => ({ type: "update_subtask", id, payload }),
+            async ({ id, ...updates }) => unwrapResponse(await api.api.subtasks[":id"].$patch({ param: { id }, json: updates })),
+        ),
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
             const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
@@ -197,7 +188,7 @@ export function useUpdateSubtask(taskId: string) {
             return { previous };
         },
         onSuccess: (updated) => {
-            reconcileSingleSubtaskCache(queryClient, taskId, updated);
+            if (updated) reconcileSingleSubtaskCache(queryClient, taskId, updated);
         },
         onError: (_err, _variables, context) => {
             if (context?.previous) {
@@ -205,7 +196,8 @@ export function useUpdateSubtask(taskId: string) {
                 updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
             }
         },
-        onSettled: () => {
+        onSettled: (data, error) => {
+            if (wasQueued(data, error)) return;
             queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
         },
     });
@@ -216,12 +208,14 @@ export function useDeleteSubtask(taskId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (id: string) => {
-            const res = await api.api.subtasks[":id"].$delete({
-                param: { id },
-            });
-            if (!res.ok) throw new Error("Failed to delete subtask");
-        },
+        mutationFn: withOfflineSupport<string, true>(
+            (id) => ({ type: "delete_subtask", id }),
+            async (id) => {
+                const res = await api.api.subtasks[":id"].$delete({ param: { id } });
+                if (!res.ok && res.status !== 404) throw await parseApiError(res);
+                return true;
+            },
+        ),
         onMutate: async (id) => {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
             const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
@@ -239,7 +233,8 @@ export function useDeleteSubtask(taskId: string) {
                 updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
             }
         },
-        onSettled: () => {
+        onSettled: (data, error) => {
+            if (wasQueued(data, error)) return;
             queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
         },
     });
@@ -250,13 +245,11 @@ export function useReorderSubtasks(taskId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, newOrderIndex }: { id: string; newOrderIndex: number; optimisticSubtasks?: Subtask[] }) => {
-            const res = await api.api.subtasks[":id"].reorder.$patch({
-                param: { id },
-                json: { orderIndex: newOrderIndex },
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<{ id: string; newOrderIndex: number; optimisticSubtasks?: Subtask[] }, Subtask>(
+            ({ id, newOrderIndex }) => ({ type: "reorder_subtask", id, payload: { orderIndex: newOrderIndex } }),
+            async ({ id, newOrderIndex }) =>
+                unwrapResponse(await api.api.subtasks[":id"].reorder.$patch({ param: { id }, json: { orderIndex: newOrderIndex } })),
+        ),
         onMutate: async (variables) => {
             await queryClient.cancelQueries({ queryKey: SUBTASKS_KEY(taskId) });
             const previous = queryClient.getQueryData<Subtask[]>(SUBTASKS_KEY(taskId));
@@ -282,7 +275,7 @@ export function useReorderSubtasks(taskId: string) {
             return { previous };
         },
         onSuccess: (updated) => {
-            reconcileSingleSubtaskCache(queryClient, taskId, updated);
+            if (updated) reconcileSingleSubtaskCache(queryClient, taskId, updated);
         },
         onError: (_err, _variables, context) => {
             if (context?.previous) {
@@ -290,7 +283,8 @@ export function useReorderSubtasks(taskId: string) {
                 updateBulkSubtasksCaches(queryClient, taskId, () => context.previous ?? []);
             }
         },
-        onSettled: () => {
+        onSettled: (data, error) => {
+            if (wasQueued(data, error)) return;
             queryClient.invalidateQueries({ queryKey: SUBTASKS_KEY(taskId), exact: true });
         },
     });

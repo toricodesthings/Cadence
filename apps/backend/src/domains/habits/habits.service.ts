@@ -3,7 +3,7 @@ import type { InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/cont
 import { addDaysToDate, habitOccurrences, habitRule, isPausedOn, localDay, stepDayStatus } from "@cadence/domain/repeats";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
-import { checkIdempotency, recordMutation } from "../../platform/idempotency";
+import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
 import { resolveTimeZone } from "../../platform/date-utils";
 import { logger, shorten, issuesFromError } from "../../platform/log";
@@ -224,10 +224,10 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
 
     await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
 
-    const [row] = await tx
+    const [row] = await insertWithClientId(() => tx
         .insert(habits)
         .values({ ...body, userId })
-        .returning();
+        .returning());
 
     if (tagIds && tagIds.length > 0) {
         await tx.insert(habitTags).values(tagIds.map((tagId) => ({ habitId: row.id, tagId, userId })));

@@ -9,6 +9,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { openTaskDetails } from "../../lib/actions/task-details";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { toastError } from "../../lib/utils/error-toast";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Restore a task from trash (ARCHIVED → ACTIVE) */
 export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetailsOnSuccess?: boolean }) {
@@ -17,17 +18,16 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
     const showSuccessToast = options?.showSuccessToast ?? true;
 
     return useMutation({
-        mutationFn: async (id: string) => {
-            const res = await client.api.tasks[":id"].$patch({
-                param: { id },
-                json: { state: "ACTIVE" },
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<string, Task>(
+            (id) => ({ type: "update_task", id, payload: { state: "ACTIVE" } }),
+            async (id) => unwrapResponse(await client.api.tasks[":id"].$patch({ param: { id }, json: { state: "ACTIVE" } })),
+        ),
 
         onMutate: async (id) => {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
+            // Kept so a restore queued offline can put the task back in its lists now.
+            const trashed = snapshot.flatMap(([, list]) => (Array.isArray(list) ? (list as Task[]) : [])).find((t) => t.id === id);
 
             // Remove from archived/trash cache optimistically
             queryClient.setQueriesData<Task[]>(
@@ -35,14 +35,13 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
                 (old) => transformListCache(old, (items) => items.filter((t) => t.id !== id)),
             );
 
-            return { snapshot };
+            return { snapshot, trashed };
         },
 
-        onSuccess: (task) => {
-            if (task) {
-                reconcileTaskInCaches(queryClient, task);
-                if (options?.openDetailsOnSuccess) openTaskDetails(task.id);
-            }
+        onSuccess: (task, id, context) => {
+            const restored = task ?? (context?.trashed && { ...context.trashed, state: "ACTIVE" as const });
+            if (restored) reconcileTaskInCaches(queryClient, restored);
+            if (options?.openDetailsOnSuccess) openTaskDetails(id);
             if (showSuccessToast) {
                 toast.success("Task restored");
             }

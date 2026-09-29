@@ -25,7 +25,6 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 import { MonthCalendar } from "../shared/DatePicker";
 import { placementLabel, relativeTime } from "../../lib/utils/date-format";
-import { isPersistedId } from "../../lib/api/optimistic-id";
 import { ThoughtMark } from "../tasks/ThoughtMark";
 import { TagSignal } from "../tasks/TagSignal";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -40,6 +39,7 @@ import * as Menu from "../primitives/DropdownMenu";
 import { PlaceDraggable, usePlaceTask } from "./PlaceSheet";
 import { DAY_PILL, DAY_PILL_PLAIN, DAY_PILL_SUGGESTED } from "./CaptureDayChips";
 import { toast } from "sonner";
+import { PendingMark } from "../shared/PendingMark";
 
 export function CaptureRow({
     item,
@@ -96,7 +96,7 @@ export function CaptureRow({
         | { title?: string; projectId?: string | null; tagIds?: string[] }
         | undefined;
     const title = task?.title ?? overrides?.title ?? item!.rawText;
-    const disabled = !isPersistedId(object.id) || process.isPending || status.isPending;
+    const disabled = process.isPending || status.isPending;
     const place = (date?: string, complete = false) => {
         if (disabled) return;
         if (task) {
@@ -294,7 +294,7 @@ export function CaptureRow({
                             onClick={onOpen}
                             className={`block min-h-11 w-full min-w-0 rounded-lg px-1 text-left font-sans font-normal text-twilight-text hover:text-twilight-text active:scale-100 ${COLLECTION_ROW_TITLE}`}
                         >
-                            <span className="line-clamp-2 break-words">{title}</span>
+                            <span className="line-clamp-2 break-words">{title}<PendingMark id={object.id} /></span>
                         </Button>
                         {(rowTags.length > 0 || (stacked && detected)) && (
                             <div className="flex flex-wrap items-center gap-1.5 px-1 pb-0.5">

@@ -51,7 +51,7 @@ describe("Capture composer", () => {
         fireEvent.click(screen.getByRole("button", { name: "Add as 3 thoughts?" }));
         await screen.findByRole("alert");
         expect(input.value).toBe("Second\nThird");
-        expect(create.mock.calls.map(c => c[0])).toEqual(["First", "Second"]);
+        expect(create.mock.calls.map(c => c[0].rawText)).toEqual(["First", "Second"]);
     });
     it("retries a failed task conversion without creating a second capture", async () => {
         create.mockResolvedValue({ id: "one" });

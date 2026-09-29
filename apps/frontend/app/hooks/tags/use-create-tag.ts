@@ -4,7 +4,8 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import type { Tag, CreateTagInput } from "@cadence/contracts/tag";
 import { reconcileTagInCaches } from "../../lib/api/cache-sync";
-import { createTempId } from "../../lib/api/optimistic-id";
+import { clientIdFor } from "../../lib/api/optimistic-id";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { tagCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
 
@@ -14,17 +15,20 @@ export function useCreateTag() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (input: CreateTagInput) => {
-            const res = await client.api.tags.$post({ json: input });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<CreateTagInput, Tag>(
+            (input) => ({ type: "create_tag", payload: { ...input, id: clientIdFor(input) } }),
+            async (input) => {
+                const id = clientIdFor(input);
+                return unwrapResponse(await client.api.tags.$post({ json: { ...input, id } }, { headers: { "Idempotency-Key": id } }));
+            },
+        ),
 
         onMutate: async (input) => {
             await tagCache.cancel(queryClient);
             const snapshot = tagCache.snapshot(queryClient);
 
             const optimisticTag: Tag = {
-                id: createTempId(),
+                id: clientIdFor(input),
                 userId: "",
                 name: input.name,
                 color: input.color ?? "default",
@@ -39,7 +43,7 @@ export function useCreateTag() {
         },
 
         onSuccess: (tag, _input, context) => {
-            reconcileTagInCaches(queryClient, tag, context?.optimisticId);
+            if (tag) reconcileTagInCaches(queryClient, tag, context?.optimisticId);
         },
 
         onError: (err, _input, context) => {
@@ -47,6 +51,6 @@ export function useCreateTag() {
             toastError(err, "Couldn't create tag");
         },
 
-        onSettled: () => tagCache.invalidate(queryClient),
+        onSettled: (data, error) => !wasQueued(data, error) && tagCache.invalidate(queryClient),
     });
 }

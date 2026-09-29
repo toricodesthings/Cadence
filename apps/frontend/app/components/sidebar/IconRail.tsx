@@ -35,6 +35,7 @@ import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
+import { useSignOut } from "../../hooks/auth/use-sign-out";
 import { useAssistantStore } from "../../stores/assistant-store";
 
 /** Nav item accent color definitions — per-concept wayfinding shades */
@@ -117,7 +118,8 @@ export function IconRail({
     const navigate = useNavigate();
     const api = useApiClient();
     const queryClient = useQueryClient();
-    const { session, authReady, completeSignOut } = useAuthState();
+    const { session, authReady } = useAuthState();
+    const { signOut, dialog: signOutDialog } = useSignOut();
     const { data: adminCapabilities } = useAdminCapabilities();
     const canUseDeveloperTools = adminCapabilities?.canUseDeveloperTools ?? false;
 
@@ -637,7 +639,7 @@ export function IconRail({
                         <div className="p-1">
                             <DropdownMenu.Item
                                 onSelect={() => {
-                                    void completeSignOut().catch((error) => {
+                                    void signOut().catch((error) => {
                                         toast.error(
                                             error instanceof Error
                                                 ? error.message
@@ -665,6 +667,7 @@ export function IconRail({
                     </Link>
                 </Tip>
             )}
+            {signOutDialog}
         </div>
     );
 }

@@ -6,6 +6,7 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { taskCache } from "../tasks/optimistic-helpers";
 import type { Task } from "@cadence/contracts/task";
 import { toastError } from "../../lib/utils/error-toast";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 type TaskTagVars = { taskId: string; tagId: string };
 
@@ -14,7 +15,10 @@ function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Pro
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: request,
+        mutationFn: withOfflineSupport<TaskTagVars, unknown>(
+            ({ taskId, tagId }) => ({ type: adding ? "add_task_tag" : "remove_task_tag", id: taskId, tagId }),
+            request,
+        ),
         onMutate: async ({ taskId, tagId }) => {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);

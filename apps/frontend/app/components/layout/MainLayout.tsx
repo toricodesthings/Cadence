@@ -18,6 +18,7 @@ import { Loading } from "../shared/Loading";
 import { DeferredMount } from "../shared/DeferredMount";
 import type { CSSProperties } from "react";
 import { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { useOfflineWindow } from "../../hooks/core/use-offline-window";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -277,6 +278,7 @@ export function MainLayout({
         if (deepLinkTag) navigate(`/tag/${encodeURIComponent(deepLinkTag)}`, { replace: true });
     }, [deepLinkTag, navigate]);
     useFocusViews();
+    useOfflineWindow();
     const { data: settings } = useSettings();
     const { view, setView } = useViewMode();
     const clearActiveFocusView = useFocusViewStore((state) => state.clearActiveDefinition);

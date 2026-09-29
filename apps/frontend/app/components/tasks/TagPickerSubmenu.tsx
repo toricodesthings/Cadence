@@ -40,10 +40,12 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
 
     const handleCreate = async (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && newTagName.trim()) {
-            const saved = await createTag.mutateAsync({ name: newTagName.trim(), color: selectedColor });
+            // Our own id, so the tag can be added even when the create is queued offline.
+            const id = crypto.randomUUID();
+            await createTag.mutateAsync({ id, name: newTagName.trim(), color: selectedColor });
             setNewTagName("");
             setSelectedColor("default");
-            onAdd(saved.id);
+            onAdd(id);
         }
     };
 
@@ -151,10 +153,11 @@ export function TagPickerSheet({ open, onClose, activeTagIds, onAdd, onRemove }:
 
     const create = async () => {
         if (!canCreate || createTag.isPending) return;
-        const saved = await createTag.mutateAsync({ name, color });
+        const id = crypto.randomUUID();
+        await createTag.mutateAsync({ id, name, color });
         setQuery("");
         setColor("default");
-        onAdd(saved.id);
+        onAdd(id);
     };
 
     return (

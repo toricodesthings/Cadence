@@ -4,12 +4,14 @@ import { isoDateTimeSchema } from "./common";
 // No .default()s on create schemas: an omitted field takes its DB column default, and
 // a default here would leak into the .partial() update schema and overwrite data.
 export const insertTagSchema = z.object({
+    /** Client-chosen id, so it can be used before it syncs. */
+    id: z.uuid().optional(),
     name: z.string().min(1).max(100),
     color: z.string().max(50).optional(),
 });
 export type InsertTag = z.infer<typeof insertTagSchema>;
 
-export const updateTagSchema = insertTagSchema.partial();
+export const updateTagSchema = insertTagSchema.omit({ id: true }).partial();
 export type UpdateTag = z.infer<typeof updateTagSchema>;
 
 export const taskTagSchema = z.object({

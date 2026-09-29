@@ -10,6 +10,7 @@ import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { AgendaRow } from "./AgendaRow";
 import { RoutineMark } from "../habits/RoutineMark";
 import { stepProgress } from "../habits/RoutineSteps";
+import { PendingMark } from "./PendingMark";
 
 /**
  * One routine in an agenda: its mark, its title, and a time only when it has
@@ -17,6 +18,7 @@ import { stepProgress } from "../habits/RoutineSteps";
  * the row doesn't repeat either. Today's tray and Upcoming share it.
  */
 export function RoutineAgendaRow({
+    id,
     title,
     emoji = null,
     timeLabel = null,
@@ -27,6 +29,8 @@ export function RoutineAgendaRow({
     onOpen,
     onComplete,
 }: {
+    /** The routine's id, for the not-synced mark. */
+    id?: string;
     title: string;
     /** The routine's colour (`routineTone`); moonlit when absent. */
     tone?: string;
@@ -93,6 +97,7 @@ export function RoutineAgendaRow({
             <div className="flex min-w-0 items-baseline gap-3">
                 <span className={`min-w-0 flex-1 truncate text-[15px] leading-snug ${done ? "text-twilight-text-muted line-through decoration-twilight-text-muted/60" : "text-twilight-text"}`}>
                     {title}
+                    <PendingMark id={id} />
                 </span>
                 {meta ? <span className="shrink-0 text-[12px] tabular-nums text-twilight-text-soft">{meta}</span> : null}
             </div>
@@ -146,6 +151,7 @@ export function RoutineAgendaList({ items, day, animate = false, columns = false
     const row = (item: RoutineAgendaItem) => (
         <RoutineAgendaRow
             key={item.habitId}
+            id={item.habitId}
             title={item.title}
             emoji={item.emoji}
             tone={item.tone}

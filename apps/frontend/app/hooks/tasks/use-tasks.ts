@@ -1,6 +1,7 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
+import type { ApiClient } from "../../lib/api/client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import type { Task } from "@cadence/contracts/task";
@@ -14,6 +15,18 @@ interface UseTasksOptions extends UseTasksFilterInput {
     keepPrevious?: boolean;
 }
 
+/** One task list's query; shared with the offline prefetch so their keys match. */
+export function tasksQueryOptions(client: ApiClient, filters: UseTasksFilterInput) {
+    return queryOptions({
+        queryKey: queryKeys.tasks.list(filters),
+        staleTime: STALE_TIMES.TASKS,
+        // Without a limit the server returns the whole list.
+        queryFn: async () => unwrapResponse(await client.api.tasks.$get({
+            query: buildTasksQuery(filters),
+        })),
+    });
+}
+
 /** Fetch tasks with server-side filtering — drives Today, Upcoming, and Calendar views */
 export function useTasks(options: UseTasksOptions = {}) {
     const client = useApiClient();
@@ -21,14 +34,9 @@ export function useTasks(options: UseTasksOptions = {}) {
     const { enabled = true, keepPrevious, ...filterOptions } = options;
 
     return useQuery({
-        queryKey: queryKeys.tasks.list(filterOptions),
+        ...tasksQueryOptions(client, filterOptions),
         enabled: enabled && authReady && isAuthenticated,
-        staleTime: STALE_TIMES.TASKS,
         placeholderData: keepPrevious ? keepPreviousData : undefined,
-        // Without a limit the server returns the whole list.
-        queryFn: async () => unwrapResponse(await client.api.tasks.$get({
-            query: buildTasksQuery(filterOptions),
-        })),
     });
 }
 

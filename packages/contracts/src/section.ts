@@ -6,6 +6,8 @@ export const sectionQuerySchema = z.object({
 });
 
 export const createSectionSchema = z.object({
+    /** Client-chosen id, so it can be used before it syncs. */
+    id: z.uuid().optional(),
     name: z.string().min(1).max(200),
     orderIndex: z.number(),
     projectId: z.uuid().nullable().optional(),

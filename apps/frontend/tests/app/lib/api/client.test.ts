@@ -97,6 +97,22 @@ describe("api/client", () => {
         expect(body.method).toBe("POST");
     });
 
+    it("reports no connection as a network error, never as signed out", async () => {
+        tokenFetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+        const { authenticatedFetch, clearAuthJwtCache } = await import("../../../../app/lib/api/client");
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true }))
+            .rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE", isAuthError: false });
+
+        clearAuthJwtCache();
+        tokenFetchMock.mockResolvedValue(Response.json({ token: "a.b.c" }));
+        platformFetchMock.mockRejectedValueOnce(new TypeError("Load failed"));
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+
+        // A captive portal answers with its own page.
+        platformFetchMock.mockResolvedValueOnce(new Response("<html>", { headers: { "content-type": "text/html" } }));
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+    });
+
     it("throws a typed auth error when no token is available", async () => {
         getSessionMock.mockResolvedValue({ data: null });
 

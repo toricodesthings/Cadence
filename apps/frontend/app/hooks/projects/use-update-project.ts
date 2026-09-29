@@ -7,22 +7,17 @@ import { reconcileProjectInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { projectCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 
 export function useUpdateProject() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({
-            id,
-            ...updates
-        }: { id: string; name?: string; colorAccent?: string; emoji?: string | null }) => {
-            const res = await client.api.projects[":id"].$patch({
-                param: { id },
-                json: updates,
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<{ id: string; name?: string; colorAccent?: string; emoji?: string | null }, Project>(
+            ({ id, ...payload }) => ({ type: "update_project", id, payload }),
+            async ({ id, ...updates }) => unwrapResponse(await client.api.projects[":id"].$patch({ param: { id }, json: updates })),
+        ),
 
         onMutate: async ({ id, ...updates }) => {
             await projectCache.cancel(queryClient);
@@ -37,7 +32,7 @@ export function useUpdateProject() {
         },
 
         onSuccess: (project) => {
-            reconcileProjectInCaches(queryClient, project);
+            if (project) reconcileProjectInCaches(queryClient, project);
         },
 
         onError: (err, _input, context) => {
@@ -45,6 +40,6 @@ export function useUpdateProject() {
             toastError(err, "Couldn't update list");
         },
 
-        onSettled: () => projectCache.invalidate(queryClient),
+        onSettled: (data, error) => !wasQueued(data, error) && projectCache.invalidate(queryClient),
     });
 }

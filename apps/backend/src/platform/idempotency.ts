@@ -2,6 +2,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { mutationDedup } from "../db/schema";
 import type { Tx } from "../types/db";
 import type { Context } from "hono";
+import { AppError } from "./errors";
 
 /**
  * Extract the idempotency key from the Idempotency-Key request header.
@@ -66,4 +67,21 @@ export async function recordMutation(
         .insert(mutationDedup)
         .values({ userId, clientMutationId: idempotencyKey, resultId, result })
         .onConflictDoNothing();
+}
+
+/**
+ * Run an insert that may carry a client-chosen id. Callers use that id as the
+ * idempotency key, so a retry by the same user never gets here; an id already
+ * taken can only be another account's row (RLS hides it), which answers 409.
+ */
+export async function insertWithClientId<T>(insert: () => Promise<T>): Promise<T> {
+    try {
+        return await insert();
+    } catch (error) {
+        const pg = ((error as { cause?: unknown }).cause ?? error) as { code?: string; constraint?: string; constraint_name?: string };
+        if (pg.code === "23505" && /_pkey$/.test(pg.constraint_name ?? pg.constraint ?? "")) {
+            throw new AppError(409, "CONFLICT", "That id is already in use");
+        }
+        throw error;
+    }
 }

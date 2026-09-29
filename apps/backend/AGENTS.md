@@ -79,7 +79,7 @@ Uncaught errors → `formatErrorResponse()`: extracts `AppError` code/message, a
 
 - All app routes under `/api/v1/`. Auth is always `Authorization: Bearer <JWT>` — never cookies/sessions. The one exception is the MCP origin (§9b): OAuth/MCP standards fix its paths, and its short-lived `__Host-` cookies only bind a consent flow to one browser.
 - Success envelope: `{ "data": {...} }` everywhere, including health/debug. Errors: the contract `ApiError` (`{ "error": { code, message, status, isRetryable, requestId, issues? } }`) via `AppError`; codes come from `ERROR_CODES` in `@cadence/contracts/common`. Task responses always carry `tagIds` (`toTask`/`withTagIds` in `tasks.service.ts`).
-- **Idempotency:** `Idempotency-Key` header — `getIdempotencyKey(c)` → `checkIdempotency(tx, userId, key)` (no-op if undefined; holds a transaction lock on the key so a concurrent retry waits, then sees the record) → mutate → `recordMutation(tx, userId, key)`. Supported on all POST endpoints in tasks/habits/inbox/projects/tags/subtasks/sections.
+- **Idempotency:** `Idempotency-Key` header — `getIdempotencyKey(c)` → `checkIdempotency(tx, userId, key)` (no-op if undefined; holds a transaction lock on the key so a concurrent retry waits, then sees the record) → mutate → `recordMutation(tx, userId, key)`. Supported on all POST endpoints in tasks/habits/inbox/projects/tags/subtasks/sections. Creates there also take an optional client-chosen `id` (clients send it as the key too, so offline replays are safe): insert through `insertWithClientId`, which turns an id another account holds into 409. Update schemas omit `id`.
 - Read-heavy routes: `Cache-Control: private, max-age=0, stale-while-revalidate=5`.
 
 ## 7. Mounted Routes

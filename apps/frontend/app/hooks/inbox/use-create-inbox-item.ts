@@ -5,32 +5,34 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { reconcileInboxItemInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { withOfflineSupport } from "../../lib/api/offline-mutation";
-import { createTempId } from "../../lib/api/optimistic-id";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
+
+/** `id` is chosen by the caller (`crypto.randomUUID()`), so it can place the capture before it syncs. */
+export interface NewCapture {
+    id: string;
+    rawText: string;
+}
 
 export function useCreateInboxItem() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: withOfflineSupport<string, InboxItem>(
-            (rawText) => ({
-                type: "create_inbox",
-                payload: { rawText, clientMutationId: crypto.randomUUID() },
-            }),
-            async (rawText) => {
-                const res = await client.api.inbox.$post({ json: { rawText } });
+        mutationFn: withOfflineSupport<NewCapture, InboxItem>(
+            (input) => ({ type: "create_inbox", payload: input }),
+            async (input) => {
+                const res = await client.api.inbox.$post({ json: input }, { headers: { "Idempotency-Key": input.id } });
                 return unwrapResponse(res);
             },
         ),
 
-        onMutate: async (rawText) => {
+        onMutate: async ({ id, rawText }) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
             const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
 
             const optimisticItem: InboxItem = {
-                id: createTempId(),
+                id,
                 userId: "",
                 rawText,
                 sectionId: null,
@@ -56,7 +58,7 @@ export function useCreateInboxItem() {
             return { snapshot, optimisticId: optimisticItem.id };
         },
 
-        onSuccess: (item, _rawText, context) => {
+        onSuccess: (item, _input, context) => {
             if (!item) return; // Queued offline
             reconcileInboxItemInCaches(queryClient, item, context?.optimisticId);
         },
@@ -70,6 +72,6 @@ export function useCreateInboxItem() {
             toastError(err, "Couldn't add inbox item");
         },
 
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
+        onSettled: (data, error) => !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
     });
 }

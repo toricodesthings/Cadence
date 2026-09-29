@@ -14,8 +14,8 @@ import { Toaster } from "./components/feedback/Toaster";
 import { WorkspaceStartup } from "./components/layout/WorkspaceStartup";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
-import { initWal } from "./lib/api/offline-wal";
-import { replayWal } from "./lib/api/mutation-executor";
+import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
+import { startWalSync } from "./lib/api/mutation-executor";
 import { log } from "./lib/log";
 import { CADENCE_BUILD_ID } from "./lib/constants/app-info";
 import {
@@ -31,6 +31,8 @@ import { publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
 
 /** v2: API timestamps unified to strict ISO; drop caches holding Postgres-text timestamps. */
 const QUERY_CACHE_VERSION = "v3";
+/** How long a saved workspace stays usable offline. gcTime matches it, or inactive views are dropped before they're saved. */
+const OFFLINE_CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 14;
 
 // Adapter for react-router-dom Link (using react-router v7)
 function Link({
@@ -142,12 +144,19 @@ function AccountProviders({ children }: { children: ReactNode }) {
                     queries: {
                         // Default to tasks stale time (most common query); hooks may override
                         staleTime: STALE_TIMES.TASKS,
-                        gcTime: 1000 * 60 * 10, // 10 minutes — keep for back-nav
-                        refetchOnWindowFocus: true, // Sync on tab return
+                        gcTime: OFFLINE_CACHE_MAX_AGE,
+                        // Queued changes replay first and refresh after, so a refetch now
+                        // would briefly undo them on screen.
+                        refetchOnWindowFocus: () => getWalSnapshot().every((e) => e.status === "failed"),
+                        refetchOnReconnect: false,
                         retry: (failureCount, error) => shouldRetry(failureCount, error, 3, false),
                         retryDelay,
                     },
                     mutations: {
+                        // Run offline too: withOfflineSupport queues everyday writes durably, and
+                        // online-only ones fail fast with "needs a connection". A paused mutation
+                        // would live only in memory and be lost when the app closes.
+                        networkMode: "always",
                         retry: (failureCount, error) => shouldRetry(failureCount, error, 2, true),
                         retryDelay,
                     },
@@ -160,21 +169,19 @@ function AccountProviders({ children }: { children: ReactNode }) {
         queryClient.removeQueries({ queryKey: ["settings"] });
     }, [queryClient, session]);
 
-    // Layer 1+4: Initialize the durable WAL and replay pending mutations on reconnect
+    // Load this account's queue of offline changes and keep replaying it.
+    const userId = session?.user.id ?? null;
     useEffect(() => {
-        initWal().then(() => {
-            // Replay any mutations that were queued while offline (previous session)
-            if (navigator.onLine) {
-                replayWal(queryClient);
-            }
+        let stop: (() => void) | undefined;
+        let active = true;
+        void initWal(userId).then(() => {
+            if (active && userId) stop = startWalSync(queryClient);
         });
-
-        const handleOnline = () => {
-            replayWal(queryClient);
+        return () => {
+            active = false;
+            stop?.();
         };
-        window.addEventListener("online", handleOnline);
-        return () => window.removeEventListener("online", handleOnline);
-    }, [queryClient]);
+    }, [queryClient, userId]);
 
     // Desktop deep-link callbacks only. On the web the browser is already on
     // /auth/callback, and re-navigating there after the account remount cancels
@@ -285,6 +292,32 @@ function AccountProviders({ children }: { children: ReactNode }) {
         };
     }, []);
 
+    // A screen's code failed to load: offline it wasn't saved yet; online the
+    // deploy moved on under this tab, so reload once onto the new build.
+    useEffect(() => {
+        const onPreloadError = (event: Event) => {
+            event.preventDefault();
+            if (!navigator.onLine) {
+                toast.info("This screen isn't available offline yet.", { id: "offline-chunk" });
+                return;
+            }
+            try {
+                if (sessionStorage.getItem("cadence-chunk-reload")) return;
+                sessionStorage.setItem("cadence-chunk-reload", "1");
+            } catch {
+                return;
+            }
+            window.location.reload();
+        };
+        window.addEventListener("vite:preloadError", onPreloadError);
+        return () => window.removeEventListener("vite:preloadError", onPreloadError);
+    }, []);
+
+    // Ask the browser not to evict the saved workspace and queued changes (best effort).
+    useEffect(() => {
+        if (!IS_DESKTOP_RUNTIME && userId) void navigator.storage?.persist?.().catch(() => {});
+    }, [userId]);
+
     const persistOptions = useMemo(
         () => ({
             // Do not discard the saved account cache while auth is unresolved.
@@ -293,7 +326,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                 restoreClient: async () => undefined,
                 removeClient: async () => {},
             },
-            maxAge: 1000 * 60 * 60 * 24, // 24 hours
+            maxAge: OFFLINE_CACHE_MAX_AGE,
             // Bump QUERY_CACHE_VERSION when cached server data changes shape; old caches are dropped.
             buster: `${QUERY_CACHE_VERSION}:${session?.user.id ?? ""}`,
             // Queries marked `meta: { persist: false }` (location, weather, AI thread history) stay in memory only.
@@ -383,10 +416,10 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         {/* App-wide so sheets and overlays mounted beside MainLayout can use `Tip`. */}
                         <TooltipProvider delayDuration={300}>
                             <WorkspaceStartup>{children}</WorkspaceStartup>
+                            <OfflineBanner />
                         </TooltipProvider>
                     </div>
                     <Toaster />
-                    <OfflineBanner />
                 </AuthUIProvider>
             </div>
         </PersistQueryClientProvider>

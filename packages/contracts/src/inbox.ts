@@ -9,6 +9,8 @@ export const captureStatusSchema = z.enum(["clarifying", "placed", "kept", "disc
 export const inboxAnalysisStatusSchema = z.enum(["pending", "parsed", "reviewed", "applied"]);
 
 export const insertInboxItemSchema = z.object({
+    /** Client-chosen id, so a capture made offline can be placed before it syncs. */
+    id: z.uuid().optional(),
     rawText: z.string().min(1).max(5_000),
     sectionId: z.uuid().optional(),
     orderIndex: z.number().optional(),
@@ -56,11 +58,13 @@ export const processInboxItemSchema = z.object({
 export type ProcessInboxItem = z.infer<typeof processInboxItemSchema>;
 
 export const insertInboxSectionSchema = z.object({
+    /** Client-chosen id, so it can be used before it syncs. */
+    id: z.uuid().optional(),
     name: z.string().min(1).max(200),
     orderIndex: z.number().optional(),
 });
 
-export const updateInboxSectionSchema = insertInboxSectionSchema.partial();
+export const updateInboxSectionSchema = insertInboxSectionSchema.omit({ id: true }).partial();
 
 // ── Row schemas (exact DB columns) ──
 export const inboxItemRowSchema = z.object({

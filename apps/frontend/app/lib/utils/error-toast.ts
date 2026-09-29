@@ -1,16 +1,15 @@
 import { toast } from "sonner";
-import { ApiErrorResponse } from "../../types/api";
+import { ApiErrorResponse, isNetworkFailure } from "../../types/api";
 import { errorRef, log } from "../log";
 
 function isNetworkError(error: unknown) {
-    // Chrome "Failed to fetch", Safari "Load failed", Firefox "NetworkError …".
-    return navigator.onLine === false
-        || (error instanceof TypeError && /fetch|load failed|network/i.test(error.message));
+    return navigator.onLine === false || isNetworkFailure(error);
 }
 
 /** Why it failed, in plain words from the kind of failure, never the raw server or browser text. */
-function reason(error: unknown): string {
-    if (isNetworkError(error)) return "Check your connection and try again.";
+export function reason(error: unknown): string {
+    // Everyday changes are queued offline, so anything reaching here needs the server.
+    if (isNetworkError(error)) return "This needs a connection. Try again once you're back online.";
     if (!(error instanceof ApiErrorResponse) || error.status >= 500 || error.code === "UNPARSEABLE_ERROR") {
         return "Something went wrong on our end. Try again.";
     }

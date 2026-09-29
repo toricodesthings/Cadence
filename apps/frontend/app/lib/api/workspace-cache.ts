@@ -27,3 +27,17 @@ export async function hardRefreshWorkspaceCaches(queryClient: QueryClient) {
         ),
     );
 }
+
+/** Refetch what's on screen and mark the rest stale, keeping it for offline use. */
+export async function invalidateWorkspaceCaches(queryClient: QueryClient) {
+    await Promise.all(
+        WORKSPACE_QUERY_PREFIXES.map((queryKey) =>
+            queryClient.invalidateQueries({ queryKey, refetchType: "active" }),
+        ),
+    );
+}
+
+/** Stop in-flight reads, so a fetch from before queued changes sync can't land over them. */
+export async function cancelWorkspaceQueries(queryClient: QueryClient) {
+    await Promise.all(WORKSPACE_QUERY_PREFIXES.map((queryKey) => queryClient.cancelQueries({ queryKey })));
+}

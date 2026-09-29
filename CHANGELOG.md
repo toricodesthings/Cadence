@@ -6,7 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Cadence keeps working without a connection and catches up when you're back.
+
 ### Added
+- Cadence opens without a connection, on phones and desktop, showing your last few weeks and the weeks ahead.
+- Changes you make offline show a small cloud mark until they sync.
+- A brief toast lets you know when you go offline and when you're back online.
+- Changes that can't sync are listed one by one, with why, and you can retry or discard each.
+- On Android, changes made offline sync even after you close the app.
+- Subtasks, notes, tags, lists, sections, Trash and Undo now work offline too.
 - When a new version of Cadence goes live, the web app shows a toast with a Reload button until you use it.
 - Signed up with Google or GitHub? Add a password in Settings with a code we email you, then sign in either way.
 - Forgot your password? Change it from Settings with a code sent to your email.
@@ -18,6 +26,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - On phones, the Schedule month folds and unfolds the moment you swipe, not after the list scrolls.
 
 ### Fixed
+- A weak connection no longer loses a change or signs you out; the change waits and syncs.
+- A task made offline can be edited, completed or moved before it syncs.
+- Offline changes no longer sync twice or into another account after switching accounts.
 - Errors in Profile & Security, like a wrong current password, now show a message instead of getting stuck on Saving.
 - Settings no longer lists your password as a connected account you can disconnect.
 

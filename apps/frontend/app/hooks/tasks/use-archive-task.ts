@@ -9,6 +9,7 @@ import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { useRestoreTask } from "./use-restore-task";
 import { toastError } from "../../lib/utils/error-toast";
+import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Move a task to trash (ARCHIVED state) with optimistic removal from active caches */
 export function useArchiveTask() {
@@ -17,13 +18,10 @@ export function useArchiveTask() {
     const restoreTask = useRestoreTask({ showSuccessToast: false, openDetailsOnSuccess: true });
 
     return useMutation({
-        mutationFn: async (id: string) => {
-            const res = await client.api.tasks[":id"].$patch({
-                param: { id },
-                json: { state: "ARCHIVED" },
-            });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<string, Task>(
+            (id) => ({ type: "update_task", id, payload: { state: "ARCHIVED" } }),
+            async (id) => unwrapResponse(await client.api.tasks[":id"].$patch({ param: { id }, json: { state: "ARCHIVED" } })),
+        ),
 
         onMutate: async (id) => {
             await taskCache.cancel(queryClient);
@@ -38,7 +36,7 @@ export function useArchiveTask() {
         },
 
         onSuccess: (task, id) => {
-            reconcileTaskInCaches(queryClient, task);
+            if (task) reconcileTaskInCaches(queryClient, task);
             toast("Task moved to trash", {
                 action: { label: "Undo", onClick: () => restoreTask.mutate(id) },
             });

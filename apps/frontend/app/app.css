@@ -1670,6 +1670,64 @@ a:active {
   width: 1rem;
 }
 
+/* Connection toasts: a status dot instead of an icon. Green pops in with one
+   soft ring on reconnect; gray settles quietly when the connection drops. */
+.cadence-toast--online {
+  --cadence-toast-accent: var(--color-feedback-success);
+}
+
+.cadence-toast--offline {
+  --cadence-toast-accent: var(--color-twilight-text-muted);
+}
+
+.connection-dot {
+  position: relative;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+  background: var(--cadence-toast-accent);
+  animation: connection-dot-in 420ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.cadence-toast--online .connection-dot {
+  box-shadow: 0 0 8px color-mix(in srgb, var(--cadence-toast-accent) 55%, transparent);
+}
+
+.cadence-toast--online .connection-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--cadence-toast-accent);
+  animation: connection-dot-ring 900ms cubic-bezier(0.23, 1, 0.32, 1) 120ms both;
+}
+
+.cadence-toast--offline .connection-dot {
+  animation-name: connection-dot-settle;
+}
+
+@keyframes connection-dot-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes connection-dot-ring {
+  from { opacity: 0.55; transform: scale(1); }
+  to { opacity: 0; transform: scale(2.8); }
+}
+
+@keyframes connection-dot-settle {
+  from { opacity: 0; transform: scale(1.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connection-dot,
+  .connection-dot::after {
+    animation: none;
+  }
+}
+
 /* When a description is present, span the icon across both rows */
 .cadence-toast:has(.cadence-toast__description) .cadence-toast__icon,
 .cadence-toast:has(.cadence-toast__buttonRow) .cadence-toast__icon {

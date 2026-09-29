@@ -5,6 +5,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { Tag, UpdateTag } from "@cadence/contracts/tag";
 import { tagCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 
 /** Rename or recolour a tag, optimistically in place */
 export function useUpdateTag() {
@@ -12,10 +13,10 @@ export function useUpdateTag() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, ...json }: UpdateTag & { id: string }) => {
-            const res = await client.api.tags[":id"].$patch({ param: { id }, json });
-            return unwrapResponse(res);
-        },
+        mutationFn: withOfflineSupport<UpdateTag & { id: string }, Tag>(
+            ({ id, ...payload }) => ({ type: "update_tag", id, payload }),
+            async ({ id, ...json }) => unwrapResponse(await client.api.tags[":id"].$patch({ param: { id }, json })),
+        ),
 
         onMutate: async ({ id, ...patch }) => {
             await tagCache.cancel(queryClient);
@@ -31,6 +32,6 @@ export function useUpdateTag() {
             toastError(err, "Couldn't update tag");
         },
 
-        onSettled: () => tagCache.invalidate(queryClient),
+        onSettled: (data, error) => !wasQueued(data, error) && tagCache.invalidate(queryClient),
     });
 }

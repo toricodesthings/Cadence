@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toastError } from "../../lib/utils/error-toast";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -11,8 +12,10 @@ export function useUnprocessInbox() {
     const client = useApiClient();
     const cache = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id }: { id: string; taskId: string; item?: InboxItem }) =>
-            unwrapResponse(await client.api.inbox[":id"].unprocess.$post({ param: { id } })),
+        mutationFn: withOfflineSupport<{ id: string; taskId: string; item?: InboxItem }, InboxItem>(
+            ({ id }) => ({ type: "unprocess_inbox", id }),
+            async ({ id }) => unwrapResponse(await client.api.inbox[":id"].unprocess.$post({ param: { id } })),
+        ),
         onMutate: async ({ taskId, item }) => {
             await Promise.all([
                 cache.cancelQueries({ queryKey: queryKeys.tasks.all }),
@@ -29,6 +32,7 @@ export function useUnprocessInbox() {
             return { tasks, inbox };
         },
         onSuccess: (item) => {
+            if (!item) return; // Queued offline: the optimistic row stays.
             cache.setQueryData<InboxItem[]>(queryKeys.inbox.all, (old) => [
                 item,
                 ...(old ?? []).filter((i) => i.id !== item.id),
@@ -39,7 +43,8 @@ export function useUnprocessInbox() {
                 cache.setQueryData(key, value);
             toastError(error, "Couldn't undo");
         },
-        onSettled: () => {
+        onSettled: (data, error) => {
+            if (wasQueued(data, error)) return;
             cache.invalidateQueries({ queryKey: queryKeys.inbox.all });
             cache.invalidateQueries({ queryKey: queryKeys.tasks.all });
         },

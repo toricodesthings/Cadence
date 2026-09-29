@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
-import { getIdempotencyKey, checkIdempotency, recordMutation } from "../../platform/idempotency";
+import { getIdempotencyKey, checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { tasks, subtasks } from "../../db/schema";
 import { insertSubtaskSchema, bulkSubtasksSchema, subtasksByTaskQuerySchema, updateSubtaskSchema, reorderSubtaskSchema } from "@cadence/contracts/subtask";
@@ -54,15 +54,16 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 if (existing) return existing;
             }
 
-            const [row] = await tx
+            const [row] = await insertWithClientId(() => tx
                 .insert(subtasks)
                 .values({
+                    id: body.id,
                     taskId,
                     userId,
                     title: body.title,
                     orderIndex: body.orderIndex,
                 })
-                .returning();
+                .returning());
 
             await recordMutation(tx, userId, idempotencyKey, row.id);
             return row;

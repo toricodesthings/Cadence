@@ -70,7 +70,7 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                                     Failed sync attempts need attention
                                 </div>
                                 <p className="mt-2">
-                                    Retry failed changes once connectivity is stable, or dismiss stale failures after you verify that the underlying data is already consistent.
+                                    Retry them once the connection is stable. To drop one, use Review in the banner at the top.
                                 </p>
                             </div>
                         ) : null}
@@ -88,15 +88,6 @@ export function SyncInspectorDialog({ open, onOpenChange }: { open: boolean; onO
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-3 border-t border-twilight-border px-6 py-4">
-                    {outbox.failed.length > 0 ? (
-                        <button
-                            type="button"
-                            onClick={() => outbox.dismissFailed()}
-                            className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text"
-                        >
-                            Dismiss failures
-                        </button>
-                    ) : null}
                     {outbox.failed.length > 0 ? (
                         <button
                             type="button"

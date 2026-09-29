@@ -23,10 +23,16 @@ export function useWorkspaceStartup(enabled: boolean) {
     const [pendingChunks, setPendingChunks] = useState(0);
     const trackRender = useCallback((change: number) => setPendingChunks((count) => count + change), []);
 
-    const blockers = useCallback(() => cache.getAll().filter((query) =>
-        needsInitialData(query) && !(OPTIONAL_DOMAINS.has(String(query.queryKey[0]))
-            && (slow || query.state.status === "error")),
-    ), [cache, slow]);
+    const blockers = useCallback(() => {
+        const queries = cache.getAll();
+        // Offline with a saved workspace: open it; a view without saved data says so itself.
+        const hasSavedWorkspace = queries.some((query) =>
+            query.state.data !== undefined && !OPTIONAL_DOMAINS.has(String(query.queryKey[0])));
+        return queries.filter((query) =>
+            needsInitialData(query)
+            && !(hasSavedWorkspace && query.state.fetchStatus === "paused")
+            && !(OPTIONAL_DOMAINS.has(String(query.queryKey[0])) && (slow || query.state.status === "error")));
+    }, [cache, slow]);
     const subscribe = useCallback((onChange: () => void) => cache.subscribe(onChange), [cache]);
     const snapshot = useCallback(() => {
         if (!enabled || complete) return "ready";

@@ -1,6 +1,6 @@
 import { hc } from "hono/client";
 import type { AppType } from "@cadence/backend";
-import { ApiErrorResponse } from "../../types/api";
+import { ApiErrorResponse, networkError } from "../../types/api";
 import { authClient } from "../auth-client";
 import { readDesktopAuthSession } from "../desktop-auth-session";
 import { API_BASE_URL, NEON_AUTH_URL } from "../env";
@@ -22,6 +22,8 @@ let _cachedJwtExpiry = 0;
 let _inflight: Promise<string | null> | null = null;
 let _authGeneration = 0;
 const JWT_CACHE_TTL_MS = 55_000; // 55 seconds — conservative under a typical 60s token lifetime
+// Weak signal should fail fast so the write can be queued, not hang for a minute.
+const REQUEST_TIMEOUT_MS = 20_000;
 
 async function _fetchAuthJwtOnce(): Promise<string | null> {
     const response = await fetch(`${NEON_AUTH_URL}/token`, {
@@ -30,8 +32,13 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
         cache: "no-store",
     }).catch(() => null);
 
-    if (!response?.ok) {
+    // No answer, or the auth service is down: that says nothing about the session.
+    if (!response || response.status >= 500) {
         log.warn("api-auth", `/token request failed (${response?.status ?? "network"})`);
+        throw networkError();
+    }
+    if (!response.ok) {
+        log.warn("api-auth", `/token request failed (${response.status})`);
         return null;
     }
 
@@ -111,7 +118,18 @@ export async function authenticatedFetch(
         }
     }
 
-    const response = await platformFetch(input, { ...requestInit, headers });
+    // Uploads and streams bring their own limits (streams pass a signal).
+    if (authenticated && !requestInit.signal && !(requestInit.body instanceof FormData || requestInit.body instanceof Blob)) {
+        requestInit.signal = AbortSignal.timeout?.(REQUEST_TIMEOUT_MS);
+    }
+
+    // Any rejection means no answer (the desktop transport rejects with its own errors),
+    // except a caller's own abort, like stopping an assistant reply.
+    const response = await platformFetch(input, { ...requestInit, headers }).catch((error: unknown) => {
+        throw error instanceof DOMException && error.name === "AbortError" ? error : networkError();
+    });
+    // A captive portal answers API calls with its own HTML page.
+    if (authenticated && response.headers.get("content-type")?.includes("text/html")) throw networkError();
 
     return response;
 }

@@ -3,8 +3,7 @@ import { useApiClient } from "../auth/use-api-client";
 import type { InboxItem, UpdateInboxItem } from "@cadence/contracts/inbox";
 import { queryKeys } from "../../lib/api/query-keys";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { withOfflineSupport } from "../../lib/api/offline-mutation";
-import { isPersistedId } from "../../lib/api/optimistic-id";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
 export function useUpdateInboxItem() {
@@ -18,10 +17,6 @@ export function useUpdateInboxItem() {
         >(
             ({ id, ...data }) => ({ type: "update_inbox", id, payload: data as Record<string, unknown> }),
             async ({ id, ...data }) => {
-                if (!isPersistedId(id)) {
-                    // The capture isn't saved yet — patching by a temp id would 400.
-                    throw new Error("Still saving this capture — try again in a moment.");
-                }
                 const res = await client.api.inbox[":id"].$patch({
                     param: { id },
                     json: data,
@@ -54,8 +49,8 @@ export function useUpdateInboxItem() {
             }
             toastError(err, "Couldn't update capture");
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
+        onSettled: (data, error) => {
+            if (!wasQueued(data, error)) queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
         },
     });
 }

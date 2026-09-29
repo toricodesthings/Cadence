@@ -115,4 +115,24 @@ describe("use-auth-state", () => {
         expect(authMocks.signOutMock).toHaveBeenCalledTimes(1);
         expect(localStorage.getItem("cadence:device-location:user-1")).toBeNull();
     });
+
+    it("opens the last account's workspace when the session can't be checked offline", async () => {
+        const refetch = vi.fn();
+        authMocks.useSessionMock.mockReturnValue({ data: { user: { id: "user-1", email: "a@b.c" }, session: { token: "jwt" } }, isPending: false, refetch });
+        const first = renderHook(() => useAuthState(), { wrapper });
+        await waitFor(() => expect(first.result.current.status).toBe("authenticated"));
+        first.unmount();
+
+        authMocks.useSessionMock.mockReturnValue({ data: null, isPending: false, error: { message: "Failed to fetch" }, refetch });
+        const { result } = renderHook(() => useAuthState(), { wrapper });
+
+        await waitFor(() => expect(result.current.status).toBe("offline"));
+        expect(result.current.session?.user.id).toBe("user-1");
+        expect(result.current.isAuthenticated).toBe(true);
+        expect(result.current.authReady).toBe(true);
+
+        authMocks.signOutMock.mockResolvedValue({ error: null });
+        await result.current.completeSignOut();
+        expect(localStorage.getItem("cadence-offline-identity")).toBeNull();
+    });
 });

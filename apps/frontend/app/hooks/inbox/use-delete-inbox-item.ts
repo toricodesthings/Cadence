@@ -5,7 +5,7 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { removeInboxItemFromCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
 export function useDeleteInboxItem() {
@@ -46,6 +46,6 @@ export function useDeleteInboxItem() {
             toastError(err, "Couldn't delete inbox item");
         },
 
-        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
+        onSettled: (data, error) => !wasQueued(data, error) && queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }),
     });
 }

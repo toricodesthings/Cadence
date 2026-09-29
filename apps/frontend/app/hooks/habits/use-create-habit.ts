@@ -7,8 +7,9 @@ import type { Habit, InsertHabit } from "@cadence/contracts/habit";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { toISODate } from "../../lib/utils/date-format";
-import { withOfflineSupport } from "../../lib/api/offline-mutation";
+import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
+import { clientIdFor } from "../../lib/api/optimistic-id";
 
 export function useCreateHabit() {
     const client = useApiClient();
@@ -18,12 +19,11 @@ export function useCreateHabit() {
         mutationFn: withOfflineSupport<InsertHabit, Habit>(
             (input) => ({
                 type: "create_habit",
-                payload: { ...input, clientMutationId: crypto.randomUUID() } as Record<string, unknown> & { clientMutationId: string },
+                payload: { ...input, id: clientIdFor(input) },
             }),
             async (input) => {
-                const res = await client.api.habits.$post({
-                    json: input,
-                });
+                const id = clientIdFor(input);
+                const res = await client.api.habits.$post({ json: { ...input, id } }, { headers: { "Idempotency-Key": id } });
                 return unwrapResponse(res);
             },
         ),
@@ -33,7 +33,7 @@ export function useCreateHabit() {
             const snapshot = habitCache.snapshot(queryClient);
 
             const optimisticHabit: Habit = {
-                id: crypto.randomUUID(),
+                id: clientIdFor(input),
                 userId: "",
                 title: input.title,
                 description: input.description ?? null,
@@ -97,6 +97,6 @@ export function useCreateHabit() {
             toastError(err, "Couldn't create routine");
         },
 
-        onSettled: () => habitCache.invalidate(queryClient),
+        onSettled: (data, error) => !wasQueued(data, error) && habitCache.invalidate(queryClient),
     });
 }

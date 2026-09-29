@@ -4,8 +4,8 @@ import type { ErrorCode } from "@cadence/contracts/common";
 
 export type { ApiResponse, ApiError } from "@cadence/contracts/common";
 
-/** A server code, or one the client makes when a response can't be read. */
-export type ClientErrorCode = ErrorCode | "UNKNOWN_ERROR" | "UNPARSEABLE_ERROR";
+/** A server code, or one the client makes when a response can't be read or the server can't be reached. */
+export type ClientErrorCode = ErrorCode | "UNKNOWN_ERROR" | "UNPARSEABLE_ERROR" | "NETWORK_UNAVAILABLE";
 
 export class ApiErrorResponse extends Error {
     status: number;
@@ -41,7 +41,23 @@ export class ApiErrorResponse extends Error {
         this.retryAfterSeconds = retryAfterSeconds;
     }
 
+    /** The request never reached the server (offline, weak signal, timeout, captive portal). Never an auth failure. */
+    get isNetworkError(): boolean {
+        return this.code === "NETWORK_UNAVAILABLE";
+    }
+
     get isRateLimited(): boolean {
         return this.status === 429 || this.code === "TOO_MANY_REQUESTS";
     }
+}
+
+export function networkError(message = "Can't reach Cadence right now"): ApiErrorResponse {
+    return new ApiErrorResponse({ status: 0, code: "NETWORK_UNAVAILABLE", message, isRetryable: true });
+}
+
+/** A write that failed before the server answered: safe to queue and replay later. */
+export function isNetworkFailure(error: unknown): boolean {
+    if (error instanceof ApiErrorResponse) return error.isNetworkError;
+    // fetch rejects with TypeError on a dropped connection; AbortSignal.timeout with TimeoutError.
+    return error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError");
 }

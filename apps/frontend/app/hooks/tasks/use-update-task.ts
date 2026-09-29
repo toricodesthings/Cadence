@@ -54,17 +54,9 @@ export function useUpdateTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<{ id: string } & UpdateTaskInput, Task>(
-            ({ id, ...raw }) => {
-                const updates = normalizeDateRange(raw);
-                return {
-                    type: "update_task",
-                    id,
-                    payload: {
-                        ...updates,
-                        ...(updates.expectedUpdatedAt ? {} : { expectedUpdatedAt: getExpectedUpdatedAt(id) }),
-                    },
-                };
-            },
+            // A queued edit replays without a version check: it carries only the
+            // fields the user touched, so the later write wins field by field.
+            ({ id, ...raw }) => ({ type: "update_task", id, payload: normalizeDateRange(raw) }),
             ({ id, ...raw }) => afterPreviousWrite(id, async (freshUpdatedAt) => {
                 const updates = normalizeDateRange(raw);
                 const res = await client.api.tasks[":id"].$patch({

@@ -2,6 +2,8 @@ import { z } from "zod";
 import { isoDateTimeSchema } from "./common";
 
 export const insertSubtaskSchema = z.object({
+    /** Client-chosen id, so it can be used before it syncs. */
+    id: z.uuid().optional(),
     title: z.string().min(1).max(500),
     orderIndex: z.number(),
 });

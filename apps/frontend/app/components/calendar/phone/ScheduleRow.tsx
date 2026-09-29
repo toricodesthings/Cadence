@@ -9,6 +9,7 @@ import { TaskCheckbox } from "../../tasks/TaskCheckbox";
 import { formatTime, getEffectiveTaskDate, toISODate } from "../../../lib/utils/date-format";
 import { isTimed, scheduleKind } from "../../../lib/utils/calendar/schedule-day";
 import { isRecurringTask, isRecurringTaskInstance } from "../../../lib/utils/task/task-scheduling";
+import { PendingMark } from "../../shared/PendingMark";
 
 /** Past this, a release commits; a flick past `FLICK` commits sooner. */
 const COMMIT = 88;
@@ -113,7 +114,7 @@ export function ScheduleRow({ task, routineEmoji, past = false, dragActive = fal
                 ariaLabel={`Open ${kind === "fixed" ? "fixed block" : "task"} ${task.title}${meta ? `, ${meta}` : ""}`}
                 className={`items-center py-1.5 ${kind === "fixed" ? "hover:bg-moonlit/[0.05]" : "hover:bg-white/[0.04]"}`}
             >
-                <span className="block truncate text-[15px] leading-snug text-twilight-text">{task.title}</span>
+                <span className="block truncate text-[15px] leading-snug text-twilight-text">{task.title}<PendingMark id={task.id} /></span>
                 {meta ? (
                     <span className={`block text-[12px] tabular-nums ${kind === "fixed" ? "text-moonlit" : "text-twilight-text-soft"}`}>
                         {meta}

@@ -39,7 +39,7 @@ describe("toastError", () => {
         expect(toast.error.mock.calls.map((call) => call[1].description)).toEqual([
             "It was changed somewhere else. Showing the latest version.",
             "It may have been deleted.",
-            "Check your connection and try again.",
+            "This needs a connection. Try again once you're back online.",
         ]);
     });
 
