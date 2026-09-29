@@ -9,10 +9,10 @@ import { loadWord } from "../../../lib/utils/task/day-load";
 import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
 
 const WEEKDAYS = weekdayLabels(1);
-/** Scrolling the list this far folds the month into the selected week. */
+/** Scrolling the list this far (wheel, keyboard) folds the month into the selected week. */
 const FOLD_AT = 12;
-/** Pulling down this far at the top of the list unfolds it. */
-const UNFOLD_PULL = 48;
+/** A vertical finger move this far is intent: up folds, down at the list's top unfolds. */
+const INTENT = 8;
 
 export interface MonthFoldProps extends ScheduleRowHandlers {
     year: number;
@@ -57,7 +57,10 @@ export function MonthFold({
     const todayIso = toISODate(new Date());
     const [folded, setFolded] = useState(false);
     const listRef = useRef<HTMLDivElement | null>(null);
-    const pullStart = useRef<number | null>(null);
+    /** Where the touch began, where it last was, and where the list first sat at its top. */
+    const touch = useRef<{ x: number; y: number; lastY: number; topY: number | null; onGrid: boolean } | null>(null);
+    /** Last finger direction; a fling that coasts to the top keeps it after the finger lifts. */
+    const direction = useRef<"up" | "down" | null>(null);
 
     const weeks = useMemo(() => {
         const cells: (string | null)[] = Array.from({ length: getFirstDayOfWeek(year, month) }, () => null);
@@ -68,6 +71,7 @@ export function MonthFold({
 
     // The list starts at the selected day, so a new selection starts at its top.
     useEffect(() => {
+        direction.current = null;
         listRef.current?.scrollTo({ top: 0 });
     }, [selectedIso]);
 
@@ -90,19 +94,34 @@ export function MonthFold({
     }, [groups, markers, month, selectedIso, year]);
 
     const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-        if (!folded && event.currentTarget.scrollTop > FOLD_AT) setFolded(true);
+        const top = event.currentTarget.scrollTop;
+        if (!folded && top > FOLD_AT) setFolded(true);
+        // A downward fling that coasts into the top opens the month as it lands.
+        else if (folded && top <= 0 && direction.current === "down") setFolded(false);
     };
+
+    const atTop = () => (listRef.current?.scrollTop ?? 0) <= 0;
 
     const handleTouchStart = (event: React.TouchEvent) => {
-        pullStart.current = (listRef.current?.scrollTop ?? 0) <= 0 ? event.touches[0].clientY : null;
+        const { clientX: x, clientY: y } = event.touches[0];
+        direction.current = null;
+        const onGrid = !listRef.current?.contains(event.target as Node);
+        touch.current = { x, y, lastY: y, topY: onGrid || atTop() ? y : null, onGrid };
     };
 
+    // Reads intent from the finger, not the scroll: the first few pixels decide.
     const handleTouchMove = (event: React.TouchEvent) => {
-        if (!folded || pullStart.current === null) return;
-        if (event.touches[0].clientY - pullStart.current > UNFOLD_PULL) {
-            pullStart.current = null;
-            setFolded(false);
-        }
+        const t = touch.current;
+        if (!t || dragActive) return;
+        const { clientX: x, clientY: y } = event.touches[0];
+        if (y !== t.lastY) direction.current = y < t.lastY ? "up" : "down";
+        t.lastY = y;
+        if (Math.abs(y - t.y) <= Math.abs(x - t.x)) return; // sideways swipes change the period
+        // On the grid a pull always opens it; in the list only once the list is at its top.
+        if (!t.onGrid && !atTop()) t.topY = null;
+        else if (t.topY === null || direction.current === "up") t.topY = y;
+        if (!folded && direction.current === "up" && t.y - y > INTENT) setFolded(true);
+        else if (folded && t.topY !== null && y - t.topY > INTENT) setFolded(false);
     };
 
     const handleWheel = (event: React.WheelEvent) => {
@@ -117,7 +136,7 @@ export function MonthFold({
     const rowTransition = reducedMotion ? { duration: 0 } : { type: "spring" as const, stiffness: 420, damping: 40 };
 
     return (
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex h-full min-h-0 flex-col" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove}>
             <div className="shrink-0 px-3 pt-1">
                 <div className="grid grid-cols-7" aria-hidden="true">
                     {WEEKDAYS.map((label, i) => (
@@ -195,8 +214,6 @@ export function MonthFold({
             <div
                 ref={listRef}
                 onScroll={handleScroll}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
                 onWheel={handleWheel}
                 className="touch-scroll-y min-h-0 flex-1 border-t border-twilight-border/40 px-3 pb-36"
             >
