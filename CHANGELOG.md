@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-09-28
+
 ### Changed
 - Empty Trash deletes everything in Trash at once, on desktop and phones, after you confirm.
 - On phones, tapping a task in Trash opens a small sheet with its full title, Restore and Delete.
