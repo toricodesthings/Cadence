@@ -59,10 +59,12 @@ import {
     settle,
     readUsage,
     readTotalTokens,
+    addStepSpend,
     emptyUsage,
     rateLimitHeaders,
     type AiLimits,
     type RemainingByWindow,
+    type TurnSpend,
 } from "./safety/rate-limit";
 import { extractAndStoreMemories } from "./memory/memory-write";
 import { aiImageKey, deleteImageObjects, hydrateImages, imageIdsIn, markSent, resolveTurnImages } from "./images/chat-images";
@@ -326,6 +328,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
     const abortController = new AbortController();
+    // Summed per step; saved with the reply and logged, never streamed to the client.
+    let spend: TurnSpend = {};
 
     // Fallback watcher covers SILENT stretches (long tool calls, no flushes); the
     // flush path (consumeSseStream below) is the PRIMARY abort signal (§7.4/§15.6).
@@ -342,10 +346,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         timeout: { totalMs: STREAM_TIMEOUT_MS, firstChunkMs: FIRST_CHUNK_TIMEOUT_MS },
         originalMessages: uiMessages as any,
         generateMessageId: () => assistantMessageId,
-        messageMetadata: ({ part }) =>
-            part.type === "finish"
+        messageMetadata: ({ part }) => {
+            if (part.type === "finish-step") spend = addStepSpend(spend, part);
+            return part.type === "finish"
                 ? ({ totalUsage: (part as any).totalUsage, model: modelId, promptHash } as any)
-                : undefined,
+                : undefined;
+        },
         onError: (error) => {
             const streamError = buildStreamError(error, requestId);
             // Server-side only: the provider's status + reason (never reaches the client).
@@ -374,7 +380,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 await withRls(db, userId, async (tx) => {
                     await saveAssistantMessage(tx, userId, conversationId, cleaned, {
                         status,
-                        metadata: cleaned.metadata,
+                        metadata: { ...cleaned.metadata, ...spend },
                     });
                     await touchConversation(tx, userId, conversationId, { model: modelId });
                 });
@@ -463,6 +469,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             outputTokens,
             reasoningTokens: usage?.outputTokenDetails?.reasoningTokens,
             tokensPerSec: outputTokens && streamS > 0 ? Math.round(outputTokens / streamS) : undefined,
+            ...spend,
         });
     }
 

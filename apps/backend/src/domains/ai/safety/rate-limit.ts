@@ -226,6 +226,22 @@ export function readTotalTokens(responseMessage: unknown): number {
     return Math.max(0, input + output);
 }
 
+/** What a turn cost OpenRouter's side: exact USD and the model that actually answered. */
+export type TurnSpend = { costUsd?: number; servedModel?: string };
+
+/**
+ * Add one finished step to the turn's spend. OpenRouter reports its exact charge on
+ * every response (`providerMetadata.openrouter.usage.cost`); `servedModel` differs
+ * from the requested model when OpenRouter falls back. No cost reported → stays unset.
+ */
+export function addStepSpend(spend: TurnSpend, step: { providerMetadata?: unknown; response?: { modelId?: string } }): TurnSpend {
+    const cost = (step.providerMetadata as { openrouter?: { usage?: { cost?: unknown } } } | undefined)?.openrouter?.usage?.cost;
+    return {
+        costUsd: typeof cost === "number" ? (spend.costUsd ?? 0) + cost : spend.costUsd,
+        servedModel: step.response?.modelId ?? spend.servedModel,
+    };
+}
+
 function buildRemaining(
     vals: {
         req5h: number;

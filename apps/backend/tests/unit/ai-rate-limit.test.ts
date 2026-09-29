@@ -7,6 +7,7 @@ import {
     settle,
     readUsage,
     readTotalTokens,
+    addStepSpend,
     emptyUsage,
     type AiLimits,
 } from "../../src/domains/ai/safety/rate-limit";
@@ -108,6 +109,24 @@ describe("readTotalTokens", () => {
     it("returns 0 when usage is absent (errored/aborted turn → reservation refunded)", () => {
         expect(readTotalTokens({ metadata: {} })).toBe(0);
         expect(readTotalTokens(null)).toBe(0);
+    });
+});
+
+describe("addStepSpend", () => {
+    const step = (cost: unknown, modelId?: string) => ({
+        providerMetadata: { openrouter: { usage: { cost } } },
+        response: { modelId },
+    });
+
+    it("sums OpenRouter's cost across steps and keeps the last served model", () => {
+        const spend = addStepSpend(addStepSpend({}, step(0.002, "google/gemini-3.8-flash")), step(0.0005, "google/gemini-3.7-flash"));
+        expect(spend.costUsd).toBeCloseTo(0.0025);
+        expect(spend.servedModel).toBe("google/gemini-3.7-flash");
+    });
+
+    it("leaves cost unset when no step reported one (unknown, not free)", () => {
+        expect(addStepSpend({}, { providerMetadata: undefined }).costUsd).toBeUndefined();
+        expect(addStepSpend({ costUsd: 0.001 }, step(undefined)).costUsd).toBe(0.001);
     });
 });
 
