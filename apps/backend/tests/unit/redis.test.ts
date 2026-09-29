@@ -8,7 +8,6 @@ const TOKEN = "test-token";
 
 function envWith(overrides: Partial<Env>): Env {
     return {
-        AI_STREAM_RESUME_ENABLED: "true",
         UPSTASH_REDIS_REST_URL: HTTPS_URL,
         UPSTASH_REDIS_REST_TOKEN: TOKEN,
         ...overrides,
@@ -16,11 +15,6 @@ function envWith(overrides: Partial<Env>): Env {
 }
 
 describe("getRedis", () => {
-    it("returns null when the flag is off", () => {
-        expect(getRedis(envWith({ AI_STREAM_RESUME_ENABLED: "false" }))).toBeNull();
-        expect(getRedis(envWith({ AI_STREAM_RESUME_ENABLED: undefined }))).toBeNull();
-    });
-
     it("returns null when url or token is missing", () => {
         expect(getRedis(envWith({ UPSTASH_REDIS_REST_URL: undefined }))).toBeNull();
         expect(getRedis(envWith({ UPSTASH_REDIS_REST_TOKEN: undefined }))).toBeNull();

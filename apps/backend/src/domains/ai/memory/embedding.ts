@@ -10,6 +10,8 @@
  */
 import { embed, embedMany } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { logger } from "../../../platform/log";
+import { addStepSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
 
 /** Dimensionality of the `ai_memories.embedding` column — embeddings MUST match. */
@@ -37,10 +39,11 @@ function getEmbeddingModelId(env: Env): string {
  * 4096 dims natively; `dimensions` truncates (Matryoshka) to the column's size, and
  * `require_parameters` keeps OpenRouter off any upstream that would ignore it.
  */
-function getEmbeddingModel(env: Env) {
+function getEmbeddingModel(env: Env, userHash?: string) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
     return openrouter.textEmbeddingModel(getEmbeddingModelId(env), {
-        provider: { require_parameters: true },
+        user: userHash,
+        provider: { require_parameters: true, data_collection: "deny" },
         extraBody: { dimensions: EMBEDDING_DIMENSIONS },
     });
 }
@@ -60,8 +63,22 @@ function assertDimensions(vector: number[]): number[] {
  * dimension mismatch — the caller (retrieval/extraction) decides whether to
  * swallow it (best-effort) or surface it.
  */
-export async function embedText(env: Env, text: string): Promise<number[]> {
-    const { embedding } = await embed({ model: getEmbeddingModel(env), value: text });
+export async function embedText(
+    env: Env,
+    text: string,
+    ctx: { requestId?: string; userHash?: string } = {},
+): Promise<number[]> {
+    const { embedding, usage, providerMetadata, response } = await embed({
+        model: getEmbeddingModel(env, ctx.userHash),
+        value: text,
+    });
+    // Same fields as `ai_turn` / `ai_title`, so all OpenRouter spend filters alike.
+    logger.info("ai", "ai_embedding", {
+        ...ctx,
+        model: getEmbeddingModelId(env),
+        inputTokens: usage?.tokens,
+        ...addStepSpend({}, { providerMetadata, response: { modelId: (response?.body as { model?: string } | undefined)?.model } }),
+    });
     return assertDimensions(embedding);
 }
 

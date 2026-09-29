@@ -38,11 +38,14 @@ const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
 const REASONING_EFFORT = "low";
 
 /** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
-function getModel(env: Env) {
+function getModel(env: Env, userHash: string) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
     return openrouter(getModelId(env), {
         models: [getModelId(env), FALLBACK_CHAT_MODEL],
         reasoning: { effort: REASONING_EFFORT },
+        user: userHash,
+        // Calendar, tasks and photos: only upstreams that don't retain or train on prompts.
+        provider: { data_collection: "deny" },
     });
 }
 
@@ -54,6 +57,7 @@ export interface AgentBuildOptions {
     approvalMode: ApprovalMode;
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // latest user message text — used for memory retrieval
+    requestId?: string;      // tags the turn's side-call log lines (embedding)
     waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
 }
 
@@ -96,17 +100,19 @@ async function loadUserContext(
 async function maybeRetrieveMemories(
     env: Env,
     userId: string,
+    userHash: string,
     persona: AssistantPersona,
     queryText: string | undefined,
+    requestId: string | undefined,
 ): Promise<RetrievedMemory[]> {
     if (!queryText || !isMemoryEnabled(env, persona.memoryEnabled)) return [];
     try {
-        const queryEmbedding = await embedText(env, queryText);
+        const queryEmbedding = await embedText(env, queryText, { requestId, userHash });
         const db = getDbClient(env);
         return await withRls(db, userId, (tx) => retrieveMemories(tx, userId, queryEmbedding));
     } catch (error) {
         logger.warn("ai", "memory_retrieval_failed", {
-            userHash: await hashIdentifier(userId),
+            userHash,
             issues: issuesFromError(error),
         });
         return [];
@@ -187,6 +193,7 @@ export async function getAgentInstance(
     opts: AgentBuildOptions,
 ): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string }> {
     const locale = opts.locale ?? "en";
+    const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
     const { burnoutIndex, persona, weekStart } = await loadUserContext(env, userId);
     const agentCtx: AgentContext = {
@@ -200,7 +207,7 @@ export async function getAgentInstance(
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
     const [memories, snapshot] = await Promise.all([
-        maybeRetrieveMemories(env, userId, persona, opts.queryText),
+        maybeRetrieveMemories(env, userId, userHash, persona, opts.queryText, opts.requestId),
         loadSnapshot(tools, clock.today),
     ]);
 
@@ -221,7 +228,7 @@ export async function getAgentInstance(
     );
 
     const agent = new ToolLoopAgent({
-        model: getModel(env),
+        model: getModel(env, userHash),
         instructions,
         tools,
         stopWhen: isStepCount(MAX_TOOL_STEPS),

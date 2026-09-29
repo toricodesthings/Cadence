@@ -10,7 +10,7 @@ export const healthRoutes = new Hono<{ Bindings: Env }>()
     })
     // Deploy-time connectivity smoke-check for Upstash (doc Update 4 §15.5). Kept
     // dark unless debug routes are explicitly enabled, so it never leaks config in
-    // production. Reports `disabled` (resumption off / unconfigured), `ok`, or
+    // production. Reports `disabled` (unconfigured), `ok`, or
     // `unavailable` (creds set but ping failed) — never echoes the url/token.
     .get("/redis", async (c) => {
         if (c.env.ENABLE_DEBUG_ROUTES?.trim().toLowerCase() !== "true") {

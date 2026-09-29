@@ -48,12 +48,10 @@ function buildRedisClient(env: Env): Redis | null {
 }
 
 /**
- * Returns a configured Upstash client for STREAM RESUMPTION, or null when that
- * feature is unconfigured/disabled. Gated behind `AI_STREAM_RESUME_ENABLED` so the
- * resumption paths no-op until rolled out.
+ * Returns a configured Upstash client for STREAM RESUMPTION, or null when Upstash
+ * is unconfigured (the resumption paths then no-op).
  */
 export function getRedis(env: Env): Redis | null {
-    if (env.AI_STREAM_RESUME_ENABLED?.trim() !== "true") return null;
     return buildRedisClient(env);
 }
 

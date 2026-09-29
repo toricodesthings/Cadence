@@ -225,6 +225,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         approvalMode: body.approvalMode,
         nonce,
         queryText: incomingText || undefined,
+        requestId,
         waitUntil: (promise) => c.executionCtx.waitUntil(promise),
     });
     agentReady.catch(() => {});
@@ -275,7 +276,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // `execute` below can await it without risk of hanging the response.
     const titlePromise = needsTitle
         ? (async () => {
-              const title = await generateConversationTitle(c.env, incomingText, imageIds.length > 0);
+              const title = await generateConversationTitle(c.env, incomingText, imageIds.length > 0, { requestId, userHash });
               c.executionCtx.waitUntil(
                   withRls(db, userId, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
               );

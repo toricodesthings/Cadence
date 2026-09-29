@@ -65,8 +65,6 @@ export interface Env {
     UPSTASH_REDIS_REST_URL?: string;
     /** Upstash Redis REST token. */
     UPSTASH_REDIS_REST_TOKEN?: string;
-    /** Master switch for resumable streams + hard abort. "true" enables. Default off until rolled out. */
-    AI_STREAM_RESUME_ENABLED?: string;
 
     // ── AI usage budget / rate limiting (reuses the Upstash REST client) ──
     // Always-on guardrail — there is NO enable flag. The 5-hour + 1-week × requests

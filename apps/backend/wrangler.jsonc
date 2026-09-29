@@ -94,6 +94,8 @@
     }
   ],
 
+  "vars": { "DEPLOYMENT_STAGE": "production" },
+
   "env": {
     "dev": {
       "name": "cadence-backend-dev",
@@ -118,6 +120,7 @@
       ],
       // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
       "vars": {
+        "DEPLOYMENT_STAGE": "development",
         "MCP_ORIGIN": "http://localhost:8787",
         "APP_ORIGIN": "http://localhost:8788"
       },

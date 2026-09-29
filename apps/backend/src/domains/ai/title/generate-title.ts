@@ -13,6 +13,7 @@ import { generateText } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { deriveFallbackTitle, normalizeTitle } from "@cadence/domain/ai-title";
 import { logger } from "../../../platform/log";
+import { addStepSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
 import titlePrompt from "./title-prompt.md";
 
@@ -33,7 +34,7 @@ export function getTitleModelId(env: Env): string {
  * Generate a short title for a new conversation from the user's first message.
  * Always returns a non-empty, length-clamped title.
  */
-export async function generateConversationTitle(env: Env, userText: string, hasImages = false): Promise<string> {
+export async function generateConversationTitle(env: Env, userText: string, hasImages = false, ctx: { requestId?: string; userHash?: string } = {}): Promise<string> {
     const fallback = deriveFallbackTitle(userText, hasImages);
 
     const apiKey = env.OPENROUTER_API_KEY;
@@ -43,14 +44,26 @@ export async function generateConversationTitle(env: Env, userText: string, hasI
         const openrouter = createOpenRouter({ apiKey });
         // OpenRouter fails over server-side when the primary is rate-limited (small free-tier
         // models often are); SDK retries would only burn the 4s budget in backoff.
-        const { text } = await generateText({
-            model: openrouter(getTitleModelId(env), { models: [getTitleModelId(env), TITLE_FALLBACK_MODEL] }),
+        const { text, usage, providerMetadata, response } = await generateText({
+            model: openrouter(getTitleModelId(env), {
+                models: [getTitleModelId(env), TITLE_FALLBACK_MODEL],
+                user: ctx.userHash,
+                provider: { data_collection: "deny" },
+            }),
             instructions: titlePrompt.trimEnd(),
             prompt: userText.slice(0, INPUT_CHAR_CAP),
             temperature: 0.3,
             maxOutputTokens: 16,
             maxRetries: 0,
             abortSignal: AbortSignal.timeout(TITLE_TIMEOUT_MS),
+        });
+        // Same fields as `ai_turn` (model, tokens, costUsd, servedModel) so both filter alike.
+        logger.info("ai", "ai_title", {
+            ...ctx,
+            model: getTitleModelId(env),
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+            ...addStepSpend({}, { providerMetadata, response }),
         });
         return normalizeTitle(text) || fallback;
     } catch (error) {
