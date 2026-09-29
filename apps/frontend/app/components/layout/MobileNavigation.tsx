@@ -46,7 +46,7 @@ export function MobileHeaderActions({ onSearch, children }: { onSearch: () => vo
     const { pathname } = useLocation();
     const { unreadCount } = useNotificationCenter();
     const { openNotifications } = useUtilityNavigation();
-    return <div className="flex shrink-0 items-center">
+    return <div className="flex shrink-0 items-center gap-2">
         {children}
         {pathname === "/browse" && <Tip label="Search"><button type="button" onClick={onSearch} aria-label="Search" className="mobile-icon-button"><Search size={20} aria-hidden="true" /></button></Tip>}
         <Tip label="Notifications"><button type="button" onClick={openNotifications} aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"} className="mobile-icon-button relative">

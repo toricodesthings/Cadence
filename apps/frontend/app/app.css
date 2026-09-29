@@ -2550,6 +2550,16 @@ a:active {
 }
 .mobile-icon-button:hover,
 .mobile-icon-button:active { background: var(--color-twilight-surface); }
+/* Phone header controls: iOS-style glass capsules. The fill is a background-image
+   so a control's own tint (an active Focus view) still shows through. */
+.header-glass button {
+  border: 1px solid color-mix(in srgb, var(--color-twilight-text) 14%, transparent);
+  border-radius: 9999px;
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-twilight-text) 9%, transparent), color-mix(in srgb, var(--color-twilight-text) 3%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 14%, transparent), 0 4px 14px rgb(0 0 0 / 0.16);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+}
 .utility-sheet-content button, .utility-sheet-content a, .mobile-tab-bar a { cursor: pointer; }
 .mobile-page-scroll { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
 /* While typing, the keyboard covers the home indicator: a sheet drops its

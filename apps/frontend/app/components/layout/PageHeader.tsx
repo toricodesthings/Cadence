@@ -93,33 +93,38 @@ export function PhoneHeaderIdentity({ eyebrow, title, meta, backLabel }: {
 }
 
 /** Phone page header: one row. The label above the title zooms out when `backLabel` is set; `options` open under a sliders icon. */
-export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, actions, options }: {
-    eyebrow: string;
-    title: string;
+export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, leading, actions, options, children }: {
+    eyebrow?: ReactNode;
+    title: ReactNode;
     /** Quiet line under the title, e.g. "Today · light". */
     meta?: string | null;
     backLabel?: string | null;
     onZoomOut?: () => void;
+    leading?: ReactNode;
     actions?: ReactNode;
     options?: ReactNode;
+    /** A row under the title (e.g. page controls). */
+    children?: ReactNode;
 }) {
     const identity = <PhoneHeaderIdentity eyebrow={eyebrow} title={title} meta={meta} backLabel={backLabel} />;
 
     return (
         <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-2`}>
             <div className="flex min-h-[52px] items-center gap-2">
+                {leading ? <div className="header-glass -ml-1 flex shrink-0 items-center">{leading}</div> : null}
                 <h1 className="min-w-0 flex-1">
                     {backLabel && onZoomOut ? (
                         <button
                             type="button"
                             onClick={onZoomOut}
-                            aria-label={`${title}. Back to ${backLabel}`}
+                            aria-label={typeof title === "string" ? `${title}. Back to ${backLabel}` : undefined}
                             className="-mx-1 flex min-h-11 max-w-full cursor-pointer rounded-xl px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
                             {identity}
                         </button>
                     ) : identity}
                 </h1>
+                <div className="header-glass flex shrink-0 items-center gap-2">
                 {actions}
                 {options && (
                     <Popover.Root>
@@ -137,7 +142,9 @@ export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, ac
                         </Popover.Content>
                     </Popover.Root>
                 )}
+                </div>
             </div>
+            {children ? <div className="mt-2">{children}</div> : null}
         </header>
     );
 }

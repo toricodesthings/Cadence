@@ -13,7 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Changed
 - On phones, Routines has Schedule's header: Week/Month live under the options icon and Today floats bottom left.
-- On phones, every page header now uses the same larger title style as Schedule.
+- On phones, every page header now matches Schedule's, with a three-line menu button and glass-outlined buttons.
 
 ### Fixed
 - Errors in Profile & Security, like a wrong current password, now show a message instead of getting stuck on Saving.

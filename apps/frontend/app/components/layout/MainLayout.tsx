@@ -6,7 +6,7 @@ import { MobileHeaderActions, MobileTabBar } from "./MobileNavigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router";
 import * as Tooltip from "../primitives/Tooltip";
-import { Download, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus, RefreshCw, WifiOff } from "lucide-react";
+import { Download, Menu, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus, RefreshCw, WifiOff } from "lucide-react";
 import { useSidebarStore } from "../../stores/sidebar-store";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useRightPanelStore, type RailView } from "../../stores/right-panel-store";
@@ -34,7 +34,7 @@ import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
 import { CompactPageControls } from "../shared/CompactPageControls";
-import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhoneHeaderIdentity } from "./PageHeader";
+import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "./PageHeader";
 import { ContextualAddOrb } from "../shared/ContextualAddOrb";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 import { useMutationOutbox } from "../../lib/api/mutation-outbox";
@@ -654,10 +654,27 @@ export function MainLayout({
         icon: shellHeader?.icon,
         accentColor: shellHeader?.accentColor,
     };
-    // Phone headers share Schedule's type (no icon, large display title); tablet keeps the compact row.
-    const headerIdentity = shell.isPhone
-        ? <h1 className="min-w-0 flex-1"><PhoneHeaderIdentity eyebrow={headerIdentityProps.eyebrow} title={headerTitle} /></h1>
-        : <PageHeaderIdentity {...headerIdentityProps} />;
+    /* Compact shells have no sidebar, so every route keeps the workspace menu
+       (Today, Upcoming, projects, tags) one tap away from the header. */
+    const workspaceMenuButton = compactHeaderLeading ?? (
+        <Tooltip.Tip label="Workspace menu"><button
+            type="button"
+            onClick={() => setWorkspaceMenuOpen(true)}
+            aria-label="Open workspace menu"
+            aria-haspopup="dialog"
+            aria-expanded={workspaceMenuOpen}
+            className="mobile-icon-button shrink-0"
+        ><Menu size={20} aria-hidden="true" /></button></Tooltip.Tip>
+    );
+    const compactHeaderActions = <MobileHeaderActions onSearch={openSearch}>{compactHeaderRightInline ? headerRight : null}</MobileHeaderActions>;
+    const compactControls = (headerCenter || (headerRight && !compactHeaderRightInline)) ? (
+        <CompactPageControls
+            primaryControl={headerCenter}
+            secondaryControl={compactHeaderRightInline ? undefined : headerRight}
+            sticky
+            compressedOnScroll
+        />
+    ) : null;
 
     const canCloseRail = shell.isWide && location.pathname !== "/" &&
         (assistantInRail || (sidePanelPresent && Boolean(onCloseSidePanel)));
@@ -711,37 +728,22 @@ export function MainLayout({
                     <div className="flex min-w-0 flex-1 flex-col min-h-0">
                     {/* Off phone the header is a single row, so it takes the shared
                         height and its bottom border lines up with side-panel headers. */}
-                    {!hideHeader && (shell.isCompact ? (
+                    {!hideHeader && (shell.isPhone ? (
+                        <PhonePageHeader eyebrow={shellHeader?.eyebrow} title={headerTitle} leading={workspaceMenuButton} actions={compactHeaderActions}>
+                            {compactControls}
+                        </PhonePageHeader>
+                    ) : shell.isCompact ? (
                         <header className={PAGE_HEADER_SURFACE}>
                             <div className="safe-header-top px-4 pb-3">
                                 <div className="flex w-full flex-col gap-2">
                                     <div className="flex min-h-11 items-center justify-between gap-3 sm:min-h-12">
                                         <div className="flex min-w-0 flex-1 items-center gap-2">
-                                            {compactHeaderLeading ?? (
-                                                /* Compact shells have no sidebar, so every route keeps
-                                                   the workspace menu (Today, Upcoming, projects, tags)
-                                                   one tap away from the header. */
-                                                <Tooltip.Tip label="Workspace menu"><button
-                                                    type="button"
-                                                    onClick={() => setWorkspaceMenuOpen(true)}
-                                                    aria-label="Open workspace menu"
-                                                    aria-haspopup="dialog"
-                                                    aria-expanded={workspaceMenuOpen}
-                                                    className="mobile-icon-button -ml-1 shrink-0"
-                                                ><PanelLeftOpen size={20} aria-hidden="true" /></button></Tooltip.Tip>
-                                            )}
-                                            {headerIdentity}
+                                            <span className="-ml-1">{workspaceMenuButton}</span>
+                                            <PageHeaderIdentity {...headerIdentityProps} />
                                         </div>
-                                        <MobileHeaderActions onSearch={openSearch}>{compactHeaderRightInline ? headerRight : null}</MobileHeaderActions>
+                                        {compactHeaderActions}
                                     </div>
-                                    {(headerCenter || (headerRight && !compactHeaderRightInline)) && (
-                                        <CompactPageControls
-                                            primaryControl={headerCenter}
-                                            secondaryControl={compactHeaderRightInline ? undefined : headerRight}
-                                            sticky
-                                            compressedOnScroll
-                                        />
-                                    )}
+                                    {compactControls}
                                 </div>
                             </div>
                         </header>

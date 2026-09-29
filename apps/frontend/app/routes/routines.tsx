@@ -36,11 +36,12 @@ const NAV_BUTTON = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted 
 type DisplayMode = "week" | "month";
 type ViewMode = "active" | "archived";
 
-function weekRangeLabel(weekDates: Date[]) {
+/** "Sep 27 – Oct 3", or "Sep 6 – 12" inside one month. */
+function weekRange(weekDates: Date[]) {
     const [first, last] = [weekDates[0], weekDates[6]];
     const start = first.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const end = first.getMonth() === last.getMonth() ? String(last.getDate()) : last.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `Week of ${start}–${end}`;
+    return `${start} – ${end}`;
 }
 
 export default function Routines() {
@@ -159,7 +160,12 @@ export default function Routines() {
     );
 
     const headingDate = displayMode === "week" ? weekDates[0] : periodDate;
-    const phoneTitle = String(headingDate.getFullYear()) === todayIso.slice(0, 4) ? MONTH_NAMES[headingDate.getMonth()] : heading;
+    const inThisYear = String(headingDate.getFullYear()) === todayIso.slice(0, 4);
+    // Phone: the title names what's on screen (the week, or the month), so the
+    // header stays two lines like every other page.
+    const phoneTitle = displayMode === "week"
+        ? inThisYear ? weekRange(weekDates) : `${weekRange(weekDates)}, ${headingDate.getFullYear()}`
+        : inThisYear ? MONTH_NAMES[headingDate.getMonth()] : heading;
 
     // On a desktop week the grid's today column already is today's check-in, so
     // the band shows only where today is scattered (month cards, phone cards).
@@ -196,8 +202,7 @@ export default function Routines() {
                         <PhonePageHeader
                             eyebrow="Routines"
                             title={phoneTitle}
-                            meta={displayMode === "week" ? weekRangeLabel(weekDates) : null}
-                            actions={<div className="flex shrink-0 items-center">
+                            actions={<div className="flex shrink-0 items-center gap-2">
                                 <button type="button" onClick={() => handleNavigate(-1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Previous ${periodWord}`}>
                                     <ChevronLeft size={15} aria-hidden="true" />
                                 </button>
@@ -216,7 +221,7 @@ export default function Routines() {
                             accentColor={HABITS_ACCENT}
                             eyebrow="Routines"
                             title={heading}
-                            meta={displayMode === "week" ? weekRangeLabel(weekDates) : undefined}
+                            meta={displayMode === "week" ? `Week of ${weekRange(weekDates)}` : undefined}
                             actions={<>
                                 <PeriodNav unit={periodWord} isCurrent={isCurrentPeriod} onNavigate={handleNavigate} onToday={handleToday} />
                                 <Select value={displayMode} onValueChange={(value) => setDisplay(value as DisplayMode)}>
