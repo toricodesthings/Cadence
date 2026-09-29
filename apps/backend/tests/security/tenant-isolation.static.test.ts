@@ -31,8 +31,8 @@ const USER_SCOPED_TABLES = [
     "users", "userMetrics", "aiMemories", "aiConversations", "aiMessages", "taskSections",
     "projects", "tasks", "tags", "taskTags", "inboxItems", "inboxSections", "habits",
     "habitTags", "habitLogs", "subtasks", "taskNotes", "taskMetrics", "usageEvents",
-    "notificationState", "suggestions", "mutationDedup", "taskNlpMetadata",
-    "taskNlpMetadataHistory", "savedFocusViews", "aiImages", "mcpConnections",
+    "notificationState", "mutationDedup", "taskNlpMetadata",
+    "savedFocusViews", "aiImages", "mcpConnections",
 ];
 
 /**

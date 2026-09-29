@@ -8,6 +8,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Added
 - When a new version of Cadence goes live, the web app shows a toast with a Reload button until you use it.
+- Signed up with Google or GitHub? Add a password in Settings with a code we email you, then sign in either way.
+- Forgot your password? Change it from Settings with a code sent to your email.
+
+### Fixed
+- Errors in Profile & Security, like a wrong current password, now show a message instead of getting stuck on Saving.
+- Settings no longer lists your password as a connected account you can disconnect.
+
+### Removed
+- The Edit button next to your email in Settings, which couldn't change your email yet.
 
 ## [0.23.2] - 2026-09-28
 

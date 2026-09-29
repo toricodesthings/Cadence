@@ -3,7 +3,7 @@ import { and, between, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
 import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
-import { tasks, tags, taskTags, taskNlpMetadata, taskNlpMetadataHistory } from "../../db/schema";
+import { tasks, tags, taskTags, taskNlpMetadata } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
@@ -183,18 +183,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     .limit(1);
 
                 if (existing[0]) {
-                    await tx.insert(taskNlpMetadataHistory).values({
-                        taskId: existing[0].taskId,
-                        userId: existing[0].userId,
-                        parserVersion: existing[0].parserVersion,
-                        sourceSurface: existing[0].sourceSurface,
-                        rawInput: existing[0].rawInput,
-                        cleanedTitle: existing[0].cleanedTitle,
-                        parseResult: existing[0].parseResult as unknown as Record<string, unknown>,
-                        confidenceTier: existing[0].confidenceTier,
-                        isCurrent: false,
-                    });
-
                     const [updated] = await tx
                         .update(taskNlpMetadata)
                         .set({

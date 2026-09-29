@@ -3,7 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
-import { inboxItems, notificationState, savedFocusViews, taskNlpMetadata, taskNlpMetadataHistory, users } from "../../db/schema";
+import { inboxItems, notificationState, savedFocusViews, taskNlpMetadata, users } from "../../db/schema";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
@@ -82,7 +82,6 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         const db = getDbClient(c.env);
 
         await withRls(db, userId, async (tx) => {
-            await tx.delete(taskNlpMetadataHistory).where(eq(taskNlpMetadataHistory.userId, userId));
             await tx.delete(taskNlpMetadata).where(eq(taskNlpMetadata.userId, userId));
             await tx.delete(notificationState).where(eq(notificationState.userId, userId));
 

@@ -1,7 +1,7 @@
 /**
- * Real Postgres for integration tests: PGlite (WASM Postgres, in-process) with
- * every journaled migration from `drizzle/` applied, so routes run their actual
- * SQL, RLS policies, constraints, idempotency, and ownership checks.
+ * Real Postgres for integration tests: PGlite (WASM Postgres, in-process) migrated
+ * by drizzle's own migrator from `drizzle/`, so routes run their actual SQL, RLS
+ * policies, grants, constraints, idempotency, and ownership checks.
  *
  * Usage in an integration test file:
  *
@@ -14,7 +14,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import { drizzle } from "drizzle-orm/pglite";
-import { readFileSync } from "node:fs";
+import { migrate } from "drizzle-orm/pglite/migrator";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as schema from "../../src/db/schema";
@@ -24,31 +24,15 @@ const MIGRATIONS_DIR = join(fileURLToPath(import.meta.url), "../../../drizzle");
 let client: PGlite | undefined;
 let db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
-/** Applies migrations the way `drizzle-kit migrate` does: journal entries, in order. */
-async function applyMigrations(pg: PGlite) {
-    const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as { entries: { tag: string }[] };
-    for (const { tag } of journal.entries) {
-        // exec() runs multi-statement text; some hand-written migrations put several
-        // statements in one breakpoint chunk, which drizzle's prepared-statement migrator rejects.
-        await pg.exec(readFileSync(join(MIGRATIONS_DIR, `${tag}.sql`), "utf8").replaceAll("--> statement-breakpoint", ""));
-    }
-}
-
 export async function startTestDb() {
     client = new PGlite({ extensions: { vector } });
-    await client.exec("CREATE EXTENSION IF NOT EXISTS vector;");
-    await applyMigrations(client);
-    // Superusers bypass RLS. Run as a plain role so policies apply as in production,
-    // and in UTC like Neon so timestamp text matches what production returns.
-    await client.exec(`
-        CREATE ROLE app_user NOLOGIN;
-        GRANT USAGE ON SCHEMA public TO app_user;
-        GRANT ALL ON ALL TABLES IN SCHEMA public TO app_user;
-        GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO app_user;
-        SET ROLE app_user;
-        SET TIME ZONE 'UTC';
-    `);
+    // As on Neon, the worker's role exists before the first migration, which grants it table access.
+    await client.exec("CREATE ROLE api_worker NOLOGIN;");
     db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: MIGRATIONS_DIR });
+    // Superusers bypass RLS. Run as the worker's role so policies and grants apply as in production,
+    // and in UTC like Neon so timestamp text matches what production returns.
+    await client.exec("SET ROLE api_worker; SET TIME ZONE 'UTC';");
 }
 
 /** Stands in for `getDbClient(env)`; the drizzle API is the same across drivers. */
@@ -68,7 +52,7 @@ export async function asOwner<T>(fn: (pg: PGlite) => Promise<T>): Promise<T> {
     try {
         return await fn(client);
     } finally {
-        await client.exec("SET ROLE app_user;");
+        await client.exec("SET ROLE api_worker;");
     }
 }
 

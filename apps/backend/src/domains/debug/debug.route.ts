@@ -17,11 +17,9 @@ import {
     projects,
     savedFocusViews,
     subtasks,
-    suggestions,
     tags,
     taskMetrics,
     taskNlpMetadata,
-    taskNlpMetadataHistory,
     taskNotes,
     taskSections,
     tasks,
@@ -58,7 +56,6 @@ function requireAdmin(c: Context<{ Bindings: Env; Variables: AuthVariables }>) {
 async function clearUserData(db: RlsClient, userId: string) {
     // Standalone leaf tables
     await db.delete(savedFocusViews).where(eq(savedFocusViews.userId, userId));
-    await db.delete(suggestions).where(eq(suggestions.userId, userId));
     await db.delete(usageEvents).where(eq(usageEvents.userId, userId));
     await db.delete(mutationDedup).where(eq(mutationDedup.userId, userId));
     // AI threads: messages (child) → memories (provenance FK is set-null) → conversations
@@ -68,7 +65,6 @@ async function clearUserData(db: RlsClient, userId: string) {
     await db.delete(userMetrics).where(eq(userMetrics.userId, userId));
 
     // Task children (before tasks)
-    await db.delete(taskNlpMetadataHistory).where(eq(taskNlpMetadataHistory.userId, userId));
     await db.delete(taskNlpMetadata).where(eq(taskNlpMetadata.userId, userId));
     await db.delete(taskNotes).where(eq(taskNotes.userId, userId));
     await db.delete(taskMetrics).where(eq(taskMetrics.userId, userId));

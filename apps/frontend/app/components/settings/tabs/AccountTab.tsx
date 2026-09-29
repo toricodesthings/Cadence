@@ -2,7 +2,10 @@ import React, { useState } from "react";
 import { Camera, UserRound } from "lucide-react";
 import { Button, Input } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
-import { authClient } from "../../../lib/auth-client";
+import { useQueryClient } from "@tanstack/react-query";
+import { authClient, authError } from "../../../lib/auth-client";
+import { queryKeys } from "../../../lib/api/query-keys";
+import { useLinkedAccounts } from "../../../hooks/auth/use-linked-accounts";
 import { beginSocialLink, getAuthCallbackUrl } from "../../../platform/runtime";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { useAuthState } from "../../../hooks/auth/use-auth-state";
@@ -67,90 +70,6 @@ function FieldEditorModal({
                     >
                         {loading ? "Saving..." : "Save Changes"}
                     </Button>
-                </Dialog.DialogFooter>
-            </Dialog.DialogContent>
-        </Dialog.Dialog>
-    );
-}
-
-// Neon Auth runs email verification in OTP mode, so authClient.changeEmail's link flow
-// silently sends nothing for verified users (every OAuth user). Use the OTP change flow.
-function EmailChangeModal({ currentEmail, onChanged }: { currentEmail: string; onChanged: () => Promise<unknown> }) {
-    const [open, setOpen] = useState(false);
-    const [newEmail, setNewEmail] = useState("");
-    const [otp, setOtp] = useState("");
-    const [codeSent, setCodeSent] = useState(false);
-    const [loading, setLoading] = useState(false);
-
-    const sendCode = async () => {
-        setLoading(true);
-        const { error } = await authClient.emailOtp.requestEmailChange({ newEmail });
-        setLoading(false);
-        if (error) return toast.error(error.message || "Failed to send code");
-        setCodeSent(true);
-        toast.success(`Code sent to ${newEmail}`);
-    };
-
-    const confirm = async () => {
-        setLoading(true);
-        const { error } = await authClient.emailOtp.changeEmail({ newEmail, otp });
-        setLoading(false);
-        if (error) return toast.error(error.message || "Invalid code");
-        toast.success("Email updated");
-        setOpen(false);
-        await onChanged();
-    };
-
-    return (
-        <Dialog.Dialog
-            open={open}
-            onOpenChange={(isOpen) => {
-                setOpen(isOpen);
-                if (isOpen) { setNewEmail(""); setOtp(""); setCodeSent(false); }
-            }}
-        >
-            <Dialog.DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="min-h-11 min-w-11 opacity-100 transition-opacity">Edit</Button>
-            </Dialog.DialogTrigger>
-            <Dialog.DialogContent>
-                <Dialog.DialogHeader>
-                    <Dialog.DialogTitle>Change Email</Dialog.DialogTitle>
-                </Dialog.DialogHeader>
-                <div className="py-4 flex flex-col gap-3">
-                    <Input
-                        type="email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        placeholder="new@example.com"
-                        disabled={codeSent}
-                        autoFocus
-                    />
-                    {codeSent && (
-                        <Input
-                            value={otp}
-                            onChange={(e) => setOtp(e.target.value.trim())}
-                            placeholder="Code from your new inbox"
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            autoFocus
-                        />
-                    )}
-                </div>
-                <Dialog.DialogFooter>
-                    <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
-                    {codeSent ? (
-                        <Button variant="primary" onClick={confirm} disabled={loading || !otp}>
-                            {loading ? "Verifying..." : "Confirm"}
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="primary"
-                            onClick={sendCode}
-                            disabled={loading || !newEmail || newEmail.toLowerCase() === currentEmail.toLowerCase()}
-                        >
-                            {loading ? "Sending..." : "Send Code"}
-                        </Button>
-                    )}
                 </Dialog.DialogFooter>
             </Dialog.DialogContent>
         </Dialog.Dialog>
@@ -224,89 +143,167 @@ function BirthdayEditorModal({
     );
 }
 
-function PasswordChangeModal() {
+const MIN_PASSWORD_LENGTH = 8; // Better Auth's default minPasswordLength
+
+function PasswordField({ id, label, hint, ...props }: React.ComponentProps<typeof Input> & { id: string; label: string; hint?: string }) {
+    return (
+        <div className="flex flex-col gap-2">
+            <label htmlFor={id} className="text-sm font-semibold text-twilight-text">{label}</label>
+            <Input id={id} type="password" aria-describedby={hint ? `${id}-hint` : undefined} {...props} />
+            {hint && <p id={`${id}-hint`} className="text-xs text-twilight-text-soft">{hint}</p>}
+        </div>
+    );
+}
+
+/**
+ * Changes the password with the current one, or sets one with a code emailed to the account
+ * address. The code path covers OAuth-only accounts (the OTP reset creates the credential
+ * account) and anyone who forgot their current password.
+ */
+function PasswordModal({ email, hasPassword }: { email: string; hasPassword: boolean }) {
+    const queryClient = useQueryClient();
     const [open, setOpen] = useState(false);
+    const [useCode, setUseCode] = useState(!hasPassword);
+    const [codeSent, setCodeSent] = useState(false);
     const [currentPassword, setCurrentPassword] = useState("");
+    const [otp, setOtp] = useState("");
     const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
 
+    const reset = () => {
+        setUseCode(!hasPassword);
+        setCodeSent(false);
+        setCurrentPassword("");
+        setOtp("");
+        setNewPassword("");
+        setConfirmPassword("");
+    };
+    const mismatch = confirmPassword.length > 0 && confirmPassword !== newPassword;
+    const canSave = newPassword.length >= MIN_PASSWORD_LENGTH
+        && newPassword === confirmPassword
+        && (useCode ? codeSent && otp.length > 0 : currentPassword.length > 0);
+
+    const sendCode = async () => {
+        setLoading(true);
+        const error = await authError(authClient.emailOtp.requestPasswordReset({ email }));
+        setLoading(false);
+        if (error) return void toast.error(error.message || "Couldn't send the code");
+        setCodeSent(true);
+        toast.success(`Code sent to ${email}`);
+    };
+
+    const save = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!canSave) return;
+        setLoading(true);
+        const error = await authError(useCode
+            ? authClient.emailOtp.resetPassword({ email, otp, password: newPassword })
+            : authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true }));
+        setLoading(false);
+        if (error) return void toast.error(error.message || "Couldn't save your password");
+        toast.success(hasPassword ? "Password changed" : "Password set. You can also sign in with your email now.");
+        setOpen(false);
+        void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
+    };
+
     return (
-        <Dialog.Dialog open={open} onOpenChange={setOpen}>
+        <Dialog.Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (isOpen) reset(); }}>
             <Dialog.DialogTrigger asChild>
-                <Button variant="secondary" size="sm">
-                    Update Password
+                <Button variant="secondary" size="sm" className="w-full sm:w-auto">
+                    {hasPassword ? "Change password" : "Set a password"}
                 </Button>
             </Dialog.DialogTrigger>
             <Dialog.DialogContent>
-                <Dialog.DialogHeader>
-                    <Dialog.DialogTitle>Change Password</Dialog.DialogTitle>
-                </Dialog.DialogHeader>
-                <div className="py-4 flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-semibold text-twilight-text">Current Password</label>
-                        <Input
-                            type="password"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="Current Password"
-                        />
+                <form onSubmit={save}>
+                    <Dialog.DialogHeader>
+                        <Dialog.DialogTitle>{hasPassword ? "Change password" : "Set a password"}</Dialog.DialogTitle>
+                        <Dialog.DialogDescription>
+                            {useCode
+                                ? `We'll email a code to ${email} to confirm it's you.`
+                                : "Other devices will be signed out."}
+                        </Dialog.DialogDescription>
+                    </Dialog.DialogHeader>
+                    <div className="py-4 flex flex-col gap-4">
+                        {/* Lets password managers tie the new password to the right account. */}
+                        <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
+                        {useCode ? (
+                            codeSent ? (
+                                <PasswordField
+                                    id="password-otp"
+                                    label="Code"
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value.trim())}
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    hint={`Check ${email}.`}
+                                    autoFocus
+                                />
+                            ) : (
+                                <Button type="button" variant="secondary" onClick={sendCode} disabled={loading}>
+                                    {loading ? "Sending..." : "Email me a code"}
+                                </Button>
+                            )
+                        ) : (
+                            <div className="flex flex-col gap-2">
+                                <PasswordField
+                                    id="password-current"
+                                    label="Current password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    autoComplete="current-password"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    className="self-start cursor-pointer rounded text-xs font-medium text-accent-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary"
+                                    onClick={() => setUseCode(true)}
+                                >
+                                    Forgot your password?
+                                </button>
+                            </div>
+                        )}
+                        {(!useCode || codeSent) && (
+                            <>
+                                <PasswordField
+                                    id="password-new"
+                                    label="New password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    minLength={MIN_PASSWORD_LENGTH}
+                                    hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+                                />
+                                <PasswordField
+                                    id="password-confirm"
+                                    label="Confirm new password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    aria-invalid={mismatch}
+                                    hint={mismatch ? "Passwords don't match." : undefined}
+                                />
+                            </>
+                        )}
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-semibold text-twilight-text">New Password</label>
-                        <Input
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="New Password"
-                        />
-                    </div>
-                </div>
-                <Dialog.DialogFooter>
-                    <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
-                    <Button
-                        variant="primary"
-                        onClick={async () => {
-                            setLoading(true);
-                            const { error } = await authClient.changePassword({ newPassword, currentPassword, revokeOtherSessions: true });
-                            setLoading(false);
-                            if (error) {
-                                toast.error(error.message || "Failed to change password");
-                            } else {
-                                toast.success("Password changed successfully");
-                                setOpen(false);
-                            }
-                        }}
-                        disabled={loading || !currentPassword || !newPassword}
-                    >
-                        {loading ? "Saving..." : "Update Password"}
-                    </Button>
-                </Dialog.DialogFooter>
+                    <Dialog.DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+                        <Button type="submit" variant="primary" disabled={loading || !canSave}>
+                            {loading && (!useCode || codeSent) ? "Saving..." : "Save password"}
+                        </Button>
+                    </Dialog.DialogFooter>
+                </form>
             </Dialog.DialogContent>
         </Dialog.Dialog>
     );
 }
 
 function OAuthConnectionsBlock() {
-    const [accounts, setAccounts] = useState<any[] | null>(null);
-    const [isPending, setIsPending] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: allAccounts, isPending } = useLinkedAccounts();
+    const accounts = allAccounts?.filter((a) => a.providerId !== "credential");
     const [loading, setLoading] = useState(false);
-
-    React.useEffect(() => {
-        setIsPending(true);
-        // @ts-ignore Let's assume listAccounts exists on authClient, if not gracefully fail
-        if (typeof authClient.listAccounts === "function") {
-            authClient.listAccounts().then((res: any) => {
-                setAccounts(res?.data || []);
-                setIsPending(false);
-            }).catch(() => {
-                setAccounts([]);
-                setIsPending(false);
-            });
-        } else {
-            setAccounts([]);
-            setIsPending(false);
-        }
-    }, []);
 
     const obfuscateId = (id: string) => {
         if (!id) return "";
@@ -364,7 +361,7 @@ function OAuthConnectionsBlock() {
                 </div>
             ) : accounts && accounts.length > 0 ? (
                 <div className="flex flex-col gap-1">
-                    {accounts.map((acc: any) => (
+                    {accounts.map((acc) => (
                         <div key={acc.id} className="flex justify-between items-center gap-3 group/acc [&>div:first-child]:min-w-0 [&>div:first-child]:break-words px-3 py-3 rounded-xl hover:bg-white/[0.03] transition-all border border-transparent hover:border-twilight-border">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center border border-twilight-border group-hover/acc:bg-white/[0.06] transition-colors">
@@ -386,12 +383,12 @@ function OAuthConnectionsBlock() {
                                 className="text-red-400/60 hover:text-red-400 hover:bg-red-400/10 h-8 font-medium"
                                 onClick={async () => {
                                     setLoading(true);
-                                    const { error } = await authClient.unlinkAccount({ providerId: acc.providerId });
+                                    const error = await authError(authClient.unlinkAccount({ providerId: acc.providerId }));
                                     setLoading(false);
-                                    if (error) toast.error("Failed to unlink account");
+                                    if (error) toast.error(error.message || "Failed to unlink account");
                                     else {
                                         toast.success(`Unlinked ${acc.providerId}`);
-                                        setAccounts(accounts.filter(a => a.id !== acc.id));
+                                        void queryClient.invalidateQueries({ queryKey: queryKeys.auth.accounts });
                                     }
                                 }}
                                 disabled={loading}
@@ -412,7 +409,7 @@ function OAuthConnectionsBlock() {
                     variant="secondary"
                     size="sm"
                     className="h-9 px-4 gap-2 font-medium"
-                    disabled={loading || accounts?.some((a: any) => a.providerId === 'google')}
+                    disabled={loading || accounts?.some((a) => a.providerId === 'google')}
                     onClick={async () => {
                         await beginSocialLink("google", getAuthCallbackUrl(window.location.pathname));
                     }}
@@ -424,7 +421,7 @@ function OAuthConnectionsBlock() {
                     variant="secondary"
                     size="sm"
                     className="h-9 px-4 gap-2 font-medium"
-                    disabled={loading || accounts?.some((a: any) => a.providerId === 'github')}
+                    disabled={loading || accounts?.some((a) => a.providerId === 'github')}
                     onClick={async () => {
                         await beginSocialLink("github", getAuthCallbackUrl(window.location.pathname));
                     }}
@@ -467,7 +464,7 @@ function SessionsBlock() {
 
     const revokeOthers = async () => {
         setLoading(true);
-        const { error } = await authClient.revokeOtherSessions();
+        const error = await authError(authClient.revokeOtherSessions());
         setLoading(false);
         if (error) toast.error("Couldn't sign out your other devices");
         else {
@@ -514,7 +511,7 @@ function SessionsBlock() {
                                         className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                         onClick={async () => {
                                             setLoading(true);
-                                            const { error } = await authClient.revokeSession({ token: sess.token });
+                                            const error = await authError(authClient.revokeSession({ token: sess.token }));
                                             setLoading(false);
                                             if (error) toast.error("Failed to log out device");
                                             else {
@@ -573,7 +570,7 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
     const handleSave = async () => {
         if (!previewImage) return;
         setLoading(true);
-        const { error } = await authClient.updateUser({ image: previewImage });
+        const error = await authError(authClient.updateUser({ image: previewImage }));
         setLoading(false);
         if (error) {
             toast.error(error.message || "Failed to update profile picture");
@@ -639,13 +636,24 @@ export function AccountTab() {
     const { refetch: refetchSession } = authClient.useSession();
     const user = session?.user;
 
+    const { data: accounts, isError: accountsError } = useLinkedAccounts();
+    const hasPassword = accounts?.some((a) => a.providerId === "credential") ?? false;
+    const providers = accounts?.filter((a) => a.providerId !== "credential").map((a) => a.providerId.charAt(0).toUpperCase() + a.providerId.slice(1));
+    const passwordDescription = accountsError
+        ? "Couldn't load your sign-in methods. Try again in a moment."
+        : !accounts
+        ? "Loading..."
+        : hasPassword
+            ? "Use it with your email to sign in. Changing it signs out your other devices."
+            : `You sign in with ${providers?.join(" or ") || "a linked account"}. Add a password to also sign in with your email.`;
+
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
 
     const profileSettings = settings?.profile || { pronouns: "", birthday: null };
 
     const handleUpdateUser = async (field: "name" | "image", value: string) => {
-        const { error } = await authClient.updateUser({ [field]: value });
+        const error = await authError(authClient.updateUser({ [field]: value }));
         if (error) {
             toast.error(error.message || `Failed to update ${field}`);
         } else {
@@ -748,7 +756,7 @@ export function AccountTab() {
                                     {!authReady ? "..." : (user?.email || "No email provided")}
                                 </p>
                             </div>
-                            <EmailChangeModal currentEmail={user?.email || ""} onChanged={refetchSession} />
+                            {/* Neon Auth doesn't support email changes yet (changeEmail is disabled server-side). */}
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>
@@ -768,11 +776,9 @@ export function AccountTab() {
                 </div>
             </div>
 
-            <SettingsSection title="Password and Authentication">
-                <SettingsRow
-                    title="Change Password"
-                >
-                    <PasswordChangeModal />
+            <SettingsSection title="Password">
+                <SettingsRow title="Password" description={passwordDescription}>
+                    {user?.email && accounts && <PasswordModal email={user.email} hasPassword={hasPassword} />}
                 </SettingsRow>
             </SettingsSection>
 

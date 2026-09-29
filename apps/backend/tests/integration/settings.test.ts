@@ -128,7 +128,7 @@ describe("notification state", () => {
 });
 
 describe("clearing intelligence history", () => {
-    it("wipes NLP history, dismissals, and inbox analysis for the caller only", async () => {
+    it("wipes NLP parses, dismissals, and inbox analysis for the caller only", async () => {
         const tasks = apiAs(userId, "/tasks", taskRoutes);
         const inbox = apiAs(userId, "/inbox", inboxRoutes);
         const { body: task } = await tasks("POST", "", { title: "T", orderIndex: 1, nlp: { rawInput: "T tomorrow", sourceSurface: "quick_add", dateStyle: "mdy" } });
@@ -143,10 +143,9 @@ describe("clearing intelligence history", () => {
 
         const counts = await asOwner(async (pg) => ({
             metadata: (await pg.query<{ n: number }>("SELECT count(*)::int n FROM task_nlp_metadata WHERE user_id = $1", [userId])).rows[0].n,
-            history: (await pg.query<{ n: number }>("SELECT count(*)::int n FROM task_nlp_metadata_history WHERE user_id = $1", [userId])).rows[0].n,
             inbox: (await pg.query("SELECT analysis_status, analysis_summary FROM inbox_items WHERE id = $1", [item.data.id])).rows[0],
         }));
-        expect(counts).toEqual({ metadata: 0, history: 0, inbox: { analysis_status: "pending", analysis_summary: null } });
+        expect(counts).toEqual({ metadata: 0, inbox: { analysis_status: "pending", analysis_summary: null } });
         expect((await settings("GET", "")).body.data.tasks.intelligence.dismissedEntityIds).toEqual([]);
         expect((await settings("GET", "/notification-state")).body.data).toEqual([]);
         expect((await tasks("GET", `/${task.data.id}`)).status).toBe(200);

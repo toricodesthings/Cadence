@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
-import { users, projects, tags, taskNlpMetadata, taskNlpMetadataHistory } from "../../db/schema";
+import { users, projects, tags, taskNlpMetadata } from "../../db/schema";
 import type { Tx } from "../../types/db";
 
 function confidenceRank(confidence: "high" | "medium" | "low" | undefined) {
@@ -181,18 +181,6 @@ export async function persistNlpSnapshot(
     };
 
     if (existing) {
-        await tx.insert(taskNlpMetadataHistory).values({
-            taskId: existing.taskId,
-            userId: existing.userId,
-            parserVersion: existing.parserVersion,
-            sourceSurface: existing.sourceSurface,
-            rawInput: existing.rawInput,
-            cleanedTitle: existing.cleanedTitle,
-            parseResult: existing.parseResult as unknown as Record<string, unknown>,
-            confidenceTier: existing.confidenceTier,
-            isCurrent: false,
-        });
-
         const [row] = await tx
             .update(taskNlpMetadata)
             .set(updateValues)

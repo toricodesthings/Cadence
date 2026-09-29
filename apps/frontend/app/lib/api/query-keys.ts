@@ -45,6 +45,9 @@ export const queryKeys = {
         usage: ["ai", "usage"] as const,
         image: (id: string) => ["ai", "image", id] as const,
     },
+    auth: {
+        accounts: ["auth", "accounts"] as const,
+    },
     connections: {
         all: ["connections"] as const,
         request: (request: string) => ["connections", "request", request] as const,

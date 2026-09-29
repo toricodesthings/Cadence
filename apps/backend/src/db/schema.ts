@@ -13,6 +13,7 @@ import {
     vector,
     index,
     uniqueIndex,
+    check,
     pgPolicy,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
@@ -148,7 +149,6 @@ export const aiMemories = pgTable('ai_memories', {
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => {
     return {
-        userIdIdx: index('ai_memories_user_id_idx').on(table.userId),
         userTypeIdx: index('ai_memories_user_type_idx').on(table.userId, table.type),
         expiresIdx: index('ai_memories_expires_idx').on(table.expiresAt),
         dedupeUnique: uniqueIndex('ai_memories_user_dedupe_unique').on(table.userId, table.dedupeHash),
@@ -340,14 +340,16 @@ export const tasks = pgTable('tasks', {
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => {
     return {
-        userIdIdx: index('tasks_user_id_idx').on(table.userId),
-        userStateIdx: index('tasks_user_state_idx').on(table.userId, table.state),
-        scheduledStartIdx: index('tasks_scheduled_start_idx').on(table.scheduledStart),
-        dueDateIdx: index('tasks_due_date_idx').on(table.dueDate),
-        stateIdx: index('tasks_state_idx').on(table.state),
-        sortOrderIdx: index('tasks_sort_order_idx').on(table.isPinned, table.orderIndex),
-        notBeforeIdx: index('tasks_not_before_idx').on(table.notBefore),
-        effortIdx: index('tasks_effort_idx').on(table.effort),
+        // Every read is one user's: lists in manual order, Done/Trash newest first, date windows.
+        userListIdx: index('tasks_user_list_idx').on(table.userId, table.state, table.isPinned.desc(), table.orderIndex),
+        userUpdatedIdx: index('tasks_user_updated_idx').on(table.userId, table.state, table.updatedAt),
+        userAnchorIdx: index('tasks_user_anchor_idx').on(table.userId, sql`coalesce(${table.scheduledStart}, ${table.dueDate})`),
+        userSeriesIdx: index('tasks_user_series_idx').on(table.userId).where(sql`${table.recurrenceRule} IS NOT NULL`),
+        // The daily cron's sweep across all users.
+        overdueIdx: index('tasks_overdue_idx').on(table.dueDate).where(sql`${table.state} = 'ACTIVE'`),
+        projectIdIdx: index('tasks_project_id_idx').on(table.projectId),
+        sectionIdIdx: index('tasks_section_id_idx').on(table.sectionId),
+        effortCheck: check('tasks_effort_check', sql`effort IS NULL OR effort BETWEEN 1 AND 3`),
         rlsPolicy: pgPolicy("tasks_owner_access", {
             as: "permissive",
             for: "all",

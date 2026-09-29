@@ -15,3 +15,8 @@ export const authClient = createAuthClient(NEON_AUTH_URL, {
 export const redirectlessAuthClient = createAuthClient(NEON_AUTH_URL, {
     adapter: BetterAuthReactAdapter(),
 });
+
+/** Neon's client throws on a non-2xx instead of returning `{ error }`: resolves to the error either way, null on success. */
+export function authError(call: Promise<{ error: unknown }>): Promise<{ message?: string } | null> {
+    return call.then((res) => res.error as { message?: string } | null, (err: unknown) => err as { message?: string });
+}

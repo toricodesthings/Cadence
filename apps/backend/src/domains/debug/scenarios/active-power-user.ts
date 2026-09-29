@@ -760,9 +760,6 @@ export async function seed(db: Tx, userId: string) {
                 surface: "schedule",
                 input_method: "click",
             },
-            route: "/schedule",
-            surface: "schedule",
-            inputMethod: "click",
         },
         {
             userId,
@@ -772,9 +769,6 @@ export async function seed(db: Tx, userId: string) {
                 surface: "quick_add",
                 object_type: "capture",
             },
-            route: "/tasks",
-            surface: "quick_add",
-            objectType: "capture",
         },
         {
             userId,
@@ -784,9 +778,6 @@ export async function seed(db: Tx, userId: string) {
                 confidence_tier: "high",
                 latency_ms: 148,
             },
-            surface: "quick_add",
-            confidenceTier: "high",
-            latencyMs: 148,
         },
         {
             userId,
@@ -796,9 +787,6 @@ export async function seed(db: Tx, userId: string) {
                 surface: "inline_add",
                 object_type: "task",
             },
-            route: "/tasks",
-            surface: "inline_add",
-            objectType: "task",
         },
         {
             userId,
@@ -808,9 +796,6 @@ export async function seed(db: Tx, userId: string) {
                 object_type: "task",
                 outcome: "complete",
             },
-            route: "/tasks",
-            objectType: "task",
-            outcome: "complete",
         },
         {
             userId,
@@ -821,10 +806,6 @@ export async function seed(db: Tx, userId: string) {
                 object_type: "task",
                 outcome: "timed",
             },
-            route: "/schedule",
-            inputMethod: "dnd",
-            objectType: "task",
-            outcome: "timed",
         },
         {
             userId,
@@ -834,9 +815,6 @@ export async function seed(db: Tx, userId: string) {
                 input_method: "context_menu",
                 object_type: "event",
             },
-            route: "/events",
-            inputMethod: "context_menu",
-            objectType: "event",
         },
         {
             userId,
@@ -846,9 +824,6 @@ export async function seed(db: Tx, userId: string) {
                 object_type: "task",
                 outcome: "due_today",
             },
-            route: "/tasks",
-            objectType: "task",
-            outcome: "due_today",
         },
     ]);
 

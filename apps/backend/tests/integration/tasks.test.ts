@@ -352,18 +352,14 @@ describe("task tags", () => {
 });
 
 describe("reparsing quick-add text", () => {
-    it("stores the new parse as current and keeps the previous one in history", async () => {
+    it("replaces the stored parse with the new one", async () => {
         const task = await create({ title: "T" });
 
         expect((await tasks("POST", `/${task.id}/reparse`, { rawInput: "call mom tomorrow" })).status).toBe(201);
         expect((await tasks("POST", `/${task.id}/reparse`, { rawInput: "call mom friday" })).status).toBe(201);
 
-        const [current, history] = await asOwner(async (pg) => [
-            (await pg.query("SELECT raw_input FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows,
-            (await pg.query("SELECT raw_input FROM task_nlp_metadata_history WHERE task_id = $1", [task.id])).rows,
-        ]);
+        const current = await asOwner(async (pg) => (await pg.query("SELECT raw_input FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows);
         expect(current).toEqual([{ raw_input: "call mom friday" }]);
-        expect(history).toEqual([{ raw_input: "call mom tomorrow" }]);
     });
 });
 
