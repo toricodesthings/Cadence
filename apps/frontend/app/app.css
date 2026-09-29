@@ -2622,10 +2622,12 @@ a:active {
     -webkit-backdrop-filter: blur(12px) saturate(1.4);
     backdrop-filter: blur(12px) saturate(1.4);
   }
-  /* In a tight row (options toggles, list section headers) a 44px bubble
+  /* In a tight row (options toggles, section headers, notification actions; toggles too) a 44px bubble
      crowds the row: a transparent border insets a 32px disc, same tap area. */
   button.glass-inset.glass-inset.glass-inset { /* outranks the glass selector above */
     border: 6px solid transparent;
+    border-radius: 9999px;
+    background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-twilight-text) 9%, transparent), color-mix(in srgb, var(--color-twilight-text) 3%, transparent));
     background-clip: padding-box;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-twilight-text) 14%, transparent), inset 0 1.5px 0 color-mix(in srgb, white 12%, transparent);
     -webkit-backdrop-filter: none;

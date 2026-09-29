@@ -41,7 +41,7 @@ export function NotificationRow({ notification: n, onOpen, onToggleRead, onDismi
                 {compact && <span className="mt-1 flex items-center gap-2 text-xs text-twilight-text-muted"><RelativeTime iso={n.triggerAt} />{n.read ? <Check size={13} aria-label="Read" /> : <span className="size-1.5 rounded-full bg-accent-primary" aria-label="Unread" />}</span>}
             </span>
         </button>
-        <Tip label="Dismiss notification"><button type="button" onClick={onDismiss} className="mobile-icon-button self-start" aria-label={`Dismiss notification: ${n.title}`}><X size={17} aria-hidden="true" /></button></Tip>
+        <Tip label="Dismiss notification"><button type="button" onClick={onDismiss} className="mobile-icon-button glass-inset self-start" aria-label={`Dismiss notification: ${n.title}`}><X size={17} aria-hidden="true" /></button></Tip>
         {!compact && <div className="col-span-full mt-2 flex flex-wrap items-center justify-between gap-x-2">
             <span className="flex flex-wrap items-center gap-2 text-xs text-twilight-text-muted tabular-nums">
                 <RelativeTime iso={n.triggerAt} />
@@ -49,13 +49,13 @@ export function NotificationRow({ notification: n, onOpen, onToggleRead, onDismi
             </span>
             <div className="ml-auto flex items-center gap-1">
                 {onToggleRead && <Tip label={`${n.read ? "Read · " : ""}${readAction}`}>
-                    <button type="button" className={`mobile-icon-button ${n.read ? "text-twilight-text-soft" : "text-accent-primary"}`} aria-label={`${readAction}: ${n.title}`} aria-pressed={n.read} onClick={onToggleRead}>
+                    <button type="button" className={`mobile-icon-button glass-inset ${n.read ? "text-twilight-text-soft" : "text-accent-primary"}`} aria-label={`${readAction}: ${n.title}`} aria-pressed={n.read} onClick={onToggleRead}>
                         {n.read ? <Check size={18} aria-hidden="true" /> : <Circle size={16} aria-hidden="true" />}
                     </button>
                 </Tip>}
                 {onDefer && <DropdownMenu.Root>
                     <Tip label="Remind me later"><DropdownMenu.Trigger asChild>
-                        <button type="button" className="mobile-icon-button" aria-label={`Defer notification: ${n.title}`}><Timer size={18} aria-hidden="true" /></button>
+                        <button type="button" className="mobile-icon-button glass-inset" aria-label={`Defer notification: ${n.title}`}><Timer size={18} aria-hidden="true" /></button>
                     </DropdownMenu.Trigger></Tip>
                     <DropdownMenu.Content align="end" aria-label="Remind me later" onCloseAutoFocus={(event) => {
                         if (!pendingDefer.current) return;
