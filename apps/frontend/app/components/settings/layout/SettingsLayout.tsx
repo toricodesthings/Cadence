@@ -32,14 +32,14 @@ export function SettingsRow({
     className?: string;
 }) {
     return (
-        <div className={cn("flex flex-col gap-4 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4 sm:flex-row sm:items-start sm:justify-between", className)}>
+        <div className={cn("flex flex-col gap-4 rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] p-4 sm:flex-row sm:items-center sm:justify-between", className)}>
             <div className="flex flex-1 flex-col gap-1 pr-0 sm:pr-6">
                 <h4 className="text-base font-medium text-twilight-text">{title}</h4>
                 {description && (
                     <p className="text-sm leading-relaxed text-twilight-text-soft">{description}</p>
                 )}
             </div>
-            <div className="w-full sm:w-auto sm:min-w-[12rem]">{children}</div>
+            <div className="w-full sm:flex sm:w-auto sm:min-w-[12rem] sm:justify-end">{children}</div>
         </div>
     );
 }

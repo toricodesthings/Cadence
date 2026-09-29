@@ -1,7 +1,7 @@
 /**
- * Real Postgres for integration tests: PGlite (WASM Postgres, in-process) migrated
- * by drizzle's own migrator from `drizzle/`, so routes run their actual SQL, RLS
- * policies, grants, constraints, idempotency, and ownership checks.
+ * Real Postgres for integration tests: PGlite (WASM Postgres, in-process) loaded
+ * from the snapshot `global-setup.ts` migrates once per run, so routes run their
+ * actual SQL, RLS policies, grants, constraints, idempotency, and ownership checks.
  *
  * Usage in an integration test file:
  *
@@ -14,22 +14,17 @@
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { inject } from "vitest";
 import * as schema from "../../src/db/schema";
-
-const MIGRATIONS_DIR = join(fileURLToPath(import.meta.url), "../../../drizzle");
 
 let client: PGlite | undefined;
 let db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
 export async function startTestDb() {
-    client = new PGlite({ extensions: { vector } });
-    // As on Neon, the worker's role exists before the first migration, which grants it table access.
-    await client.exec("CREATE ROLE api_worker NOLOGIN;");
+    // The migrated database global-setup.ts built once for this run.
+    client = new PGlite({ extensions: { vector }, loadDataDir: new Blob([readFileSync(inject("testDbSnapshot"))]) });
     db = drizzle(client, { schema });
-    await migrate(db, { migrationsFolder: MIGRATIONS_DIR });
     // Superusers bypass RLS. Run as the worker's role so policies and grants apply as in production,
     // and in UTC like Neon so timestamp text matches what production returns.
     await client.exec("SET ROLE api_worker; SET TIME ZONE 'UTC';");

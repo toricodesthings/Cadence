@@ -13,6 +13,7 @@ export default defineConfig({
         environment: "node",
         restoreMocks: true,
         include: ["tests/**/*.test.ts"],
+        globalSetup: ["tests/helpers/global-setup.ts"],
         server: { deps: { inline: ["@cloudflare/workers-oauth-provider"] } },
     },
 });
