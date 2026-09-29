@@ -73,12 +73,12 @@ const SPRING_CLOUDS = ([[300, 220, 420, 50], [800, 175, 520, 60], [1400, 270, 38
     ([cx, base, w, h], i) => cloud(cx, base, w, h, 81 + i),
 );
 
-/** Two-tone cloud: a shadowed underside nudged down-right (warmed by the valley glow on low clouds), a moonlit crest nudged up-left, then the body. */
+/** Glassy cloud: a faint underside nudged down-right (warmed by the valley glow on low clouds), a thin specular crest peeking above, then the body; the tile's group opacity makes the whole cloud translucent. */
 function Cloud({ d, low }: { d: string; low?: boolean }) {
     return (
         <>
-            <path d={d} fill={low ? "color-mix(in srgb, var(--ls-cloud-base) 80%, var(--loading-sky-glow))" : "var(--ls-cloud-base)"} opacity=".45" transform="translate(3 6)" />
-            <path d={d} fill="var(--ls-cloud-rim)" opacity=".6" transform="translate(-4 -7)" />
+            <path d={d} fill={low ? "color-mix(in srgb, var(--ls-cloud-base) 80%, var(--loading-sky-glow))" : "var(--ls-cloud-base)"} opacity=".28" transform="translate(3 6)" />
+            <path d={d} fill="url(#ls-cloud-edge)" transform="translate(-1.5 -2.5)" />
             <path d={d} fill="url(#ls-cloud-grad)" />
         </>
     );
@@ -130,7 +130,7 @@ export function LoadingSkyMotion() {
             <div className="ls-cloud">
                 <div className="ls-band" style={cssVars({ "--dur": "480s", "--delay": "-170s" })}>
                     <svg viewBox="0 120 3840 300" preserveAspectRatio="none">
-                        <g id="ls-cloud-tile" opacity=".8" filter="url(#ls-blur-cloud)">
+                        <g id="ls-cloud-tile" opacity=".62" filter="url(#ls-blur-cloud)">
                             {DRIFT_CLOUDS.map((d, i) => (
                                 // Every other cloud is optional: winter keeps a clearer sky
                                 <g key={d} className={i % 2 ? "ls-cloud-opt" : undefined}>

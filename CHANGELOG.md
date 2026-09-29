@@ -6,6 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- The loading screen is calmer: a quieter logo halo, softer lanterns and leaves, and glassier clouds.
+
 ## [0.24.0] - 2026-09-28
 
 Cadence keeps working without a connection and catches up when you're back.

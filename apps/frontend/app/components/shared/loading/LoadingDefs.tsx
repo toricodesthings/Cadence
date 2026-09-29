@@ -240,6 +240,12 @@ export function LoadingDefs() {
                 <stop offset=".35" stopColor="var(--ls-cloud-top)" />
                 <stop offset="1" stopColor="var(--ls-cloud-base)" />
             </linearGradient>
+            {/* Specular rim: bright along the crest, gone by the underside (liquid-glass edge) */}
+            <linearGradient id="ls-cloud-edge" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="var(--ls-cloud-rim)" stopOpacity=".85" />
+                <stop offset=".45" stopColor="var(--ls-cloud-rim)" stopOpacity=".2" />
+                <stop offset=".75" stopColor="var(--ls-cloud-rim)" stopOpacity="0" />
+            </linearGradient>
 
             {blur("ls-blur-far", 5)}
             {blur("ls-blur-distant", 2.6)}

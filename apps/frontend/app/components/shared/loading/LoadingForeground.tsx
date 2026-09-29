@@ -38,17 +38,17 @@ export function LoadingForeground({ title, children }: { title?: string; childre
 
     return (
         <div className="relative z-10 flex flex-col items-center text-center mt-20">
-            <div className="ls-logo-block mb-10 relative flex items-center justify-center">
+            <div className="ls-enter ls-logo-block mb-6 relative flex items-center justify-center">
                 <div className="ls-aura-core absolute top-1/2 left-1/2 w-64 h-64 pointer-events-none" />
                 <HaloRing variant="b" dash={RING_B} sparks={[300]} />
-                <HaloRing variant="a" dash={RING_A} sparks={[0, 62]} />
+                <HaloRing variant="a" dash={RING_A} sparks={[0]} />
                 <div className="ls-aura-inner absolute top-1/2 left-1/2 w-28 h-28 pointer-events-none" />
                 <div className="ls-logo-beat relative z-10">
                     <img src="/logo.png" alt="Cadence Logo" className="ls-logo block w-24 h-24 object-contain" />
                 </div>
             </div>
 
-            <h2 className="ls-wordmark font-display font-medium relative" data-loading-title={title ? "" : undefined}>
+            <h2 className="ls-enter ls-wordmark font-display font-medium relative" data-loading-title={title ? "" : undefined}>
                 <span className="sr-only" role="status">{title ?? "Cadence"}</span>
                 <span className="ls-wordmark-halo" aria-hidden="true" />
                 <span className="ls-rule ls-rule-l" aria-hidden="true" />
@@ -61,8 +61,8 @@ export function LoadingForeground({ title, children }: { title?: string; childre
                 <span className="ls-rule ls-rule-r" aria-hidden="true" />
             </h2>
 
-            <div className="loading-dots mt-8 flex items-center justify-center gap-2.5 relative z-10">
-                {[0, 140, 280].map((delay) => (
+            <div className="ls-enter loading-dots mt-6 flex items-center justify-center gap-2.5 relative z-10">
+                {[0, 220, 440].map((delay) => (
                     <span key={delay} className="ls-dot w-1.5 h-1.5 rounded-full" style={{ animationDelay: `${delay}ms` }} />
                 ))}
             </div>

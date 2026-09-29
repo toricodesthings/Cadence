@@ -152,7 +152,7 @@
 .ls-lanterns {
     position: absolute;
     inset: 0;
-    opacity: var(--ls-lantern-opacity);
+    opacity: calc(var(--ls-lantern-opacity) * 0.8);
     pointer-events: none;
 }
 
@@ -227,6 +227,8 @@
     left: var(--x);
     opacity: var(--o);
 }
+
+.ls-leaf { opacity: calc(var(--o) * 0.75); }
 
 /* Falling leaf: the box falls at a steady rate and swings on a sine; the leaf inside spins and flips in time with the swing. */
 .ls-leaf {
@@ -380,7 +382,7 @@
     translate: -50% -50%;
     mix-blend-mode: screen;
     background: radial-gradient(circle, var(--ls-aura-a) 0%, var(--ls-aura-b) 40%, transparent 70%);
-    animation: var(--ls-still, ls-pulse 4.8s var(--ls-ease-sine) infinite);
+    animation: var(--ls-still, ls-pulse 7s var(--ls-ease-sine) infinite);
 }
 
 .ls-aura-inner {
@@ -399,7 +401,7 @@
     translate: -50% -50%;
     overflow: visible;
     pointer-events: none;
-    opacity: var(--ls-aura-ring-o);
+    opacity: calc(var(--ls-aura-ring-o) * 0.75);
     mix-blend-mode: var(--ls-aura-blend);
 }
 
@@ -411,18 +413,18 @@
 .ls-halo-ring-a {
     width: 7.75rem;
     height: 7.75rem;
-    animation: var(--ls-still, ls-spin 26s linear infinite);
+    animation: var(--ls-still, ls-spin 48s linear infinite);
 }
 
 .ls-halo-ring-b {
     width: 9.5rem;
     height: 9.5rem;
-    animation: var(--ls-still, ls-spin-rev 42s linear infinite);
+    animation: var(--ls-still, ls-spin-rev 72s linear infinite);
 }
 
 /* The logo breathes: a slow swell and lift, the inner glow brightening with it */
 .ls-logo-block {
-    --ls-beat: 3.2s;
+    --ls-beat: 5s;
 }
 
 .ls-logo-beat {
@@ -491,12 +493,19 @@
     to { transform: translateZ(calc(-1 * var(--ls-wordmark-depth))) rotateX(90deg); }
 }
 
+/* Logo, wordmark, dots settle in one after another (ease-out-quint) */
+.ls-enter {
+    animation: var(--ls-still, ls-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--ls-enter-delay, 0ms) backwards);
+}
+.ls-wordmark.ls-enter { --ls-enter-delay: 90ms; }
+.loading-dots.ls-enter { --ls-enter-delay: 220ms; }
+
 /* Thin rules flanking the wordmark, fading away from it */
 .ls-rule {
     flex: none;
     width: clamp(2rem, 4vw, 4.5rem);
     height: 1px;
-    opacity: 0.55;
+    opacity: 0.4;
 }
 
 .ls-rule-l { background: linear-gradient(90deg, transparent, var(--loading-text)); }
@@ -505,6 +514,10 @@
 @media (max-width: 480px) {
     .ls-rule { display: none; }
     .ls-wordmark { text-indent: 0; }
+    /* Phones: one quiet ring, and the block shrinks to it */
+    .ls-halo-ring-b { display: none; }
+    .ls-logo-block { min-height: 8.5rem; }
+    .ls-aura-core { scale: 0.75; }
 }
 
 /* The warm valley glow the wordmark sits in; keeps it ≥ 4.5:1 over mid-value daylight ridges. */
@@ -524,7 +537,7 @@
     background-color: var(--accent-primary, #FFD166);
     box-shadow: var(--ls-dot-glow);
     opacity: var(--ls-dot-o, 1);
-    animation: var(--ls-still, ls-breath 1s cubic-bezier(0.33, 0, 0.2, 1) infinite);
+    animation: var(--ls-still, ls-breath 1.6s var(--ls-ease-sine) infinite);
 }
 
 /* ── Crops ── */
@@ -648,7 +661,7 @@
 }
 
 @keyframes ls-pulse {
-    50% { opacity: 0.5; }
+    50% { opacity: 0.65; }
 }
 
 @keyframes ls-spin {
@@ -661,7 +674,7 @@
 
 @keyframes ls-beat {
     0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-3px) scale(1.04); }
+    50% { transform: translateY(-2px) scale(1.02); }
 }
 
 @keyframes ls-glow-breath {
@@ -670,6 +683,10 @@
 }
 
 @keyframes ls-breath {
-    0%, 100% { transform: translateY(0); opacity: 0.45; }
-    40% { transform: translateY(-4px); opacity: 1; }
+    0%, 100% { transform: translateY(0); opacity: 0.35; }
+    45% { transform: translateY(-2px); opacity: 0.9; }
+}
+
+@keyframes ls-enter {
+    from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
 }
