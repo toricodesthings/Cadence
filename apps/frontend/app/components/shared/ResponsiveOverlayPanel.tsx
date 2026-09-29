@@ -18,6 +18,8 @@ interface ResponsiveOverlayPanelProps {
      * auto-scrolling body. Used by surfaces like the assistant that manage their
      * own scroll + composer. */
     fill?: boolean;
+    /** Phone peek sheets: size to the content (still capped) instead of the fixed tall height. */
+    fit?: boolean;
 }
 
 const SWIPE_THRESHOLD = 80;
@@ -49,6 +51,7 @@ export function ResponsiveOverlayPanel({
     showHeader = false,
     mode = "peek",
     fill = false,
+    fit = false,
 }: ResponsiveOverlayPanelProps) {
     const shell = useShellMode();
     const isMobile = shell.isCompact;
@@ -208,13 +211,13 @@ export function ResponsiveOverlayPanel({
                             dragConstraints={{ top: 0 }}
                             dragElastic={0.15}
                             onDragEnd={isPeekMobile ? handleDragEnd : undefined}
-                            style={isPeekMobile ? { height: "min(92dvh, 52rem)", width: "100%", maxWidth: shell.isTablet ? "48rem" : undefined, marginInline: "auto" } : undefined}
+                            style={isPeekMobile ? { height: fit ? "auto" : "min(92dvh, 52rem)", maxHeight: "min(92dvh, 52rem)", width: "100%", maxWidth: shell.isTablet ? "48rem" : undefined, marginInline: "auto" } : undefined}
                             className={[
                                 "mobile-sheet-shell layer-route-overlay surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40",
                                 isMobile
                                     ? isFocus
                                         ? "safe-bottom safe-top inset-0 border-none"
-                                        : "safe-bottom fixed inset-x-0 bottom-0 top-auto h-[min(92dvh,48rem)] rounded-t-[2rem] border-t border-twilight-border"
+                                        : `safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`
                                     : "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border",
                             ].join(" ")}
                         >
@@ -261,7 +264,7 @@ export function ResponsiveOverlayPanel({
             </AnimatePresence>,
             portalNode,
         );
-    }, [ariaLabel, children, dragControls, fill, handleDragEnd, handleKeyDown, isFocus, isMobile, isPeekMobile, labelId, onClose, open, portalNode, reducedMotion, shell.isTablet, showHeader, title]);
+    }, [ariaLabel, children, dragControls, fill, fit, handleDragEnd, handleKeyDown, isFocus, isMobile, isPeekMobile, labelId, onClose, open, portalNode, reducedMotion, shell.isTablet, showHeader, title]);
 
     return overlay;
 }

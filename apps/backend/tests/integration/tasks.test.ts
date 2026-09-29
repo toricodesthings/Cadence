@@ -375,6 +375,21 @@ describe("reading and deleting", () => {
         expect((await tasks("GET", `/${task.id}`)).status).toBe(404);
     });
 
+    it("empties Trash: only the caller's trashed tasks go", async () => {
+        const [trashed, open] = [await create({ title: "Trashed" }), await create({ title: "Open" })];
+        const theirs = await create({ title: "Theirs" }, otherTasks);
+        await tasks("PATCH", "/batch/state", { taskIds: [trashed.id], state: "ARCHIVED" });
+        await otherTasks("PATCH", "/batch/state", { taskIds: [theirs.id], state: "ARCHIVED" });
+
+        const { status, body } = await tasks("DELETE", "/trash");
+
+        expect(status).toBe(200);
+        expect(body.data).toEqual({ deleted: 1 });
+        expect((await tasks("GET", `/${trashed.id}`)).status).toBe(404);
+        expect((await tasks("GET", `/${open.id}`)).status).toBe(200);
+        expect((await otherTasks("GET", `/${theirs.id}`)).status).toBe(200);
+    });
+
     it("treats another user's task as not found everywhere, and leaves it intact", async () => {
         const theirs = await create({ title: "Theirs" }, otherTasks);
         const id = theirs.id;

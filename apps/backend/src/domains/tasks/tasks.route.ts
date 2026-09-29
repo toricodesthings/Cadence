@@ -25,7 +25,7 @@ import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
-import { createTask, deleteTasks, duplicateTask, rescheduleTasks, setTaskState, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
+import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
 
 const taskTagParamSchema = z.object({
     id: z.uuid(),
@@ -536,6 +536,14 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         const deleted = await withRls(db, userId, (tx) => deleteTasks(tx, userId, taskIds));
         return c.json({ data: deleted.map((row) => toTask(row, [])) });
+    })
+    // Empty Trash. Registered before `/:id` so "trash" never reaches the id route.
+    .delete("/trash", async (c) => {
+        const userId = c.get("userId");
+        const db = getDbClient(c.env);
+
+        const deleted = await withRls(db, userId, (tx) => deleteTrashedTasks(tx, userId));
+        return c.json({ data: { deleted } });
     })
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");

@@ -48,7 +48,7 @@ export function ConversationList({
             animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
             transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-            className="absolute inset-0 z-10 flex flex-col bg-panel/95 backdrop-blur-xl"
+            className="absolute inset-0 z-10 flex flex-col bg-panel"
             role="dialog"
             aria-label="Saved conversations"
         >
@@ -144,7 +144,7 @@ export function ConversationList({
                                     <button
                                         type="button"
                                         onClick={() => setShowArchived((v) => !v)}
-                                        className="flex w-full items-center gap-1 rounded-lg px-3 py-2 text-[12px] text-twilight-text-muted transition-colors hover:text-twilight-text-soft cursor-pointer"
+                                        className="flex w-full items-center gap-1 rounded-lg px-3 py-2 text-[12px] text-twilight-text-muted transition-colors hover:text-twilight-text-soft cursor-pointer pointer-coarse:min-h-11 pointer-coarse:text-[13px]"
                                     >
                                         {showArchived ? (
                                             <ChevronDown size={14} />

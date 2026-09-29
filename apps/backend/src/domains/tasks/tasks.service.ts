@@ -384,3 +384,12 @@ export async function deleteTasks(tx: Tx, userId: string, taskIds: string[]) {
         .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
         .returning();
 }
+
+/** Empty Trash: permanently delete every trashed task. Returns how many went. */
+export async function deleteTrashedTasks(tx: Tx, userId: string) {
+    const deleted = await tx
+        .delete(tasks)
+        .where(and(eq(tasks.userId, userId), eq(tasks.state, "ARCHIVED")))
+        .returning({ id: tasks.id });
+    return deleted.length;
+}

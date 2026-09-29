@@ -29,7 +29,9 @@ export const Viewport = forwardRef<
     <RadixScrollArea.Viewport
         ref={ref}
         data-slot="scroll-area-viewport"
-        className={`h-full min-h-0 ${className}`}
+        // Radix wraps content in `display: table`, which grows to fit its widest row
+        // and defeats `truncate`. Every Cadence scroll area is vertical, so block it.
+        className={`h-full min-h-0 [&>div]:block! ${className}`}
         {...props}
     />
 ));

@@ -88,7 +88,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 | Domain | Mount | Notes |
 |---|---|---|
-| tasks | `/tasks` | CRUD, reorder, batch state/reschedule/delete (≤50 ids; reschedule to a value, or to a local `date` keeping each task's time), duplicate, tag associations. Lists have no default limit; Done and Trash come newest first so their pages can send one |
+| tasks | `/tasks` | CRUD, reorder, batch state/reschedule/delete (≤50 ids; reschedule to a value, or to a local `date` keeping each task's time), `DELETE /trash` empties Trash (registered before `/:id`), duplicate, tag associations. Lists have no default limit; Done and Trash come newest first so their pages can send one |
 | projects, tags, sections | `/projects`, `/tags`, `/sections` | CRUD |
 | inbox | `/inbox` | items + sections CRUD; clarifying or kept reads, stable newest first; atomic process/complete + unprocess Undo |
 | subtasks, notes | nested under `/tasks/:taskId/*` + standalone PATCH/DELETE; `GET /subtasks?taskIds=a,b` (≤200) reads many tasks' subtasks, `POST /subtasks/bulk` stays for older desktop builds |

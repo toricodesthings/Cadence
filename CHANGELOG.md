@@ -7,6 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ## [Unreleased]
 
 ### Changed
+- Empty Trash deletes everything in Trash at once, on desktop and phones, after you confirm.
+- On phones, tapping a task in Trash opens a small sheet with its full title, Restore and Delete.
 - On phones, the workspace menu, Browse and Settings share one calmer list style with matching icons.
 - Board column tabs on phones are one compact switcher, with room above them on every page.
 
@@ -16,6 +18,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Lists in the phone workspace menu no longer hide an invisible, tappable ⋯ button.
 - Tapping outside the phone + menu closes it, and Trash, Completed and Weekly Reset no longer show it.
 - Phone pages start with even spacing under the header, and Events no longer repeats its title.
+- Assistant history no longer shows the chat through it, and long titles no longer push its buttons off screen.
 
 ## [0.23.1] - 2026-09-28
 

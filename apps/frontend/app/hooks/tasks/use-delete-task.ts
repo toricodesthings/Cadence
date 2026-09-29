@@ -46,3 +46,32 @@ export function useDeleteTask() {
         },
     });
 }
+
+/** Empty Trash: every trashed task goes for good (the server deletes them all, loaded or not). */
+export function useEmptyTrash() {
+    const client = useApiClient();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async () => unwrapResponse(await client.api.tasks.trash.$delete()),
+
+        onMutate: async () => {
+            await taskCache.cancel(queryClient);
+            const snapshot = taskCache.snapshot(queryClient);
+
+            queryClient.setQueriesData<Task[]>(
+                { queryKey: queryKeys.tasks.all },
+                (old) => transformListCache(old, (items) => items.filter((t) => t.state !== "ARCHIVED")),
+            );
+
+            return { snapshot };
+        },
+
+        onError: (err, _input, context) => {
+            if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
+            toastError(err, "Couldn't empty Trash");
+        },
+
+        onSettled: () => taskCache.invalidate(queryClient),
+    });
+}
