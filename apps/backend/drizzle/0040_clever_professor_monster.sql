@@ -1,1 +1,0 @@
-ALTER TABLE "mutation_dedup" ADD COLUMN "result" jsonb;

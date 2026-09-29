@@ -104,7 +104,7 @@ Public: `GET /health`. Protected (all `/api/v1/`):
 
 ## 8. Domain Model
 
-`src/db/schema.ts` is truth: **27 tables**, **14 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`, `taskNlpMetadataHistory`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `suggestions`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · connected assistants (`mcpConnections`) · infra (`mutationDedup`).
+`src/db/schema.ts` is truth: **25 tables**, **12 pgEnums**. Groups: identity (`users`, `userMetrics`) · tasks ecosystem (`projects`, `taskSections`, `tasks`, `subtasks`, `tags`, `taskTags`, `taskMetrics`, `taskNotes`, `taskNlpMetadata`) · inbox (`inboxItems`, `inboxSections`) · habits (`habits`, `habitLogs`, `habitTags`) · intelligence (`aiMemories`, `usageEvents`, `savedFocusViews`, `notificationState`) · AI assistant (`aiConversations`, `aiMessages`, `aiImages`) · connected assistants (`mcpConnections`) · infra (`mutationDedup`).
 
 **Settings:** the contract's `userSettingsSchema` types the `users.settings` column; reads return `normalizeSettings` → `SettingsView` (stored over defaults). `settings.appearance.backgroundImage` is server-owned: `sanitizeBackgroundPatch` (`domains/settings/background-image.ts`) lets a PATCH change only accent/blur/brightness, never the photo's identity or existence. Notification fields (`browser`, `taskReminders`, `habitReminders`, `dueDateAlerts`) are required. `settings.assistant`: `persona` is the one voice setting (it picks `prompt/blocks/voice/<persona>.md`); `tone` and `verbosity` stay for back-compat but never reach the prompt; the rest (names, emoji, proactiveSuggestions, adaptiveTone) render into the prompt's Environment. Free-text fields (names, customInstructions) are sanitized + fenced before composition — never trust them raw in a prompt.
 
@@ -139,7 +139,7 @@ Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed c
 
 ## 13. Background Jobs
 
-Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` (overdue active tasks → `task_metrics.delay_count`) + `pruneStaleMutations(env)` + `pruneAiMemories(env)` + `pruneAiImages(env)` (unsent chat images after a day, others 30 days after last use; storage before rows). Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
+Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` (overdue active tasks → `task_metrics.delay_count`) + `pruneStaleMutations(env)` + `pruneAiMemories(env)` + `pruneAiImages(env)` (unsent chat images after a day, others 30 days after last use; storage before rows) + `pruneUsageEvents(env)` (opt-in diagnostics past 90 days). Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
 
 ## 14. Environment & Bindings
 

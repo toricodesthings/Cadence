@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, between, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { and, between, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { z } from "zod";
 import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
@@ -68,17 +68,18 @@ export function buildTaskWhereClause(userId: string, filters: NormalizedTaskFilt
         conditions.push(eq(tasks.projectId, filters.projectId));
     }
 
-    if (filters.scheduledDate) {
-        const start = `${filters.scheduledDate}T00:00:00.000Z`;
-        const end = `${filters.scheduledDate}T23:59:59.999Z`;
-        conditions.push(or(between(tasks.scheduledStart, start, end), between(tasks.dueDate, start, end)));
-    }
-
-    if (filters.scheduledRangeStart && filters.scheduledRangeEnd) {
+    // A date window: tasks anchored inside it, plus repeating series started by its end.
+    // `expandScheduleScopedTasks` makes the final cut and expands the series.
+    const window = filters.scheduledDate
+        ? { start: `${filters.scheduledDate}T00:00:00.000Z`, end: `${filters.scheduledDate}T23:59:59.999Z` }
+        : filters.scheduledRangeStart && filters.scheduledRangeEnd
+            ? { start: filters.scheduledRangeStart, end: filters.scheduledRangeEnd }
+            : undefined;
+    if (window) {
         conditions.push(
             or(
-                between(tasks.scheduledStart, filters.scheduledRangeStart, filters.scheduledRangeEnd),
-                between(tasks.dueDate, filters.scheduledRangeStart, filters.scheduledRangeEnd),
+                between(sql`coalesce(${tasks.scheduledStart}, ${tasks.dueDate})`, window.start, window.end),
+                and(isNotNull(tasks.recurrenceRule), lte(tasks.scheduledStart, window.end)),
             ),
         );
     }
@@ -433,17 +434,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         const items = await withRls(db, userId, async (tx) => {
             const scheduleScoped = isScheduleScopedTaskQuery(query);
-            const conditions = buildTaskWhereClause(
-                userId,
-                scheduleScoped
-                    ? {
-                        ...query,
-                        scheduledDate: undefined,
-                        scheduledRangeStart: undefined,
-                        scheduledRangeEnd: undefined,
-                    }
-                    : query,
-            );
+            const conditions = buildTaskWhereClause(userId, query);
             // Done and Trash page newest first; open lists keep their manual order.
             const newestFirst = query.state === "COMPLETE" || query.state === "ARCHIVED";
             const returnedTasks = await tx.query.tasks.findMany({

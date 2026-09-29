@@ -1,6 +1,6 @@
 import { eq, and, lt, sql, inArray, isNull, or } from "drizzle-orm";
 import { getDbClient } from "../platform/db";
-import { tasks, taskMetrics, mutationDedup, aiMemories, aiImages } from "../db/schema";
+import { tasks, taskMetrics, mutationDedup, aiMemories, aiImages, usageEvents } from "../db/schema";
 import { aiImageKey, deleteImageObjects, IMAGE_RETENTION_DAYS, ORPHAN_HOURS } from "../domains/ai/images/chat-images";
 import { withRls } from "../platform/rls";
 import { computeWorkloadSignals } from "../platform/metrics";
@@ -63,6 +63,21 @@ export async function pruneStaleMutations(env: Env) {
         .delete(mutationDedup)
         .where(lt(mutationDedup.createdAt, cutoff))
         .returning({ id: mutationDedup.id });
+
+    return deleted.length;
+}
+
+export const USAGE_EVENT_RETENTION_DAYS = 90;
+
+/** Deletes usage diagnostics older than the retention window, so the table stays ~90 days per user. */
+export async function pruneUsageEvents(env: Env) {
+    const db = getDbClient(env);
+    const cutoff = new Date(Date.now() - USAGE_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    const deleted = await db
+        .delete(usageEvents)
+        .where(lt(usageEvents.createdAt, cutoff))
+        .returning({ id: usageEvents.id });
 
     return deleted.length;
 }
@@ -137,14 +152,15 @@ export async function pruneAiImages(env: Env) {
 
 /** The daily cron: every job runs even if another fails; one `cron_summary` line reports them all. */
 export async function runDailyCron(env: Env) {
-    const [overdue, mutations, memories, images] = await Promise.allSettled([
+    const [overdue, mutations, memories, images, usage] = await Promise.allSettled([
         handleOverdueCheck(env),
         pruneStaleMutations(env),
         pruneAiMemories(env),
         pruneAiImages(env),
+        pruneUsageEvents(env),
     ]);
     const ok = <T>(result: PromiseSettledResult<T>) => (result.status === "fulfilled" ? result.value : undefined);
-    const failed = Object.entries({ overdue, mutations, memories, images }).filter(([, r]) => r.status === "rejected");
+    const failed = Object.entries({ overdue, mutations, memories, images, usage }).filter(([, r]) => r.status === "rejected");
     for (const [job, result] of failed) {
         logger.error("cron", "cron_job_failed", { job, issues: issuesFromError((result as PromiseRejectedResult).reason) });
     }
@@ -153,6 +169,7 @@ export async function runDailyCron(env: Env) {
         prunedMutations: ok(mutations),
         prunedMemories: ok(memories),
         prunedImages: ok(images),
+        prunedUsageEvents: ok(usage),
         failed: failed.length,
     });
 }

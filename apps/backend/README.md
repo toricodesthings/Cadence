@@ -55,7 +55,6 @@ src/
 │   ├── settings/   settings.route.ts, settings-defaults.ts
 │   ├── notes/      notes.route.ts
 │   ├── events/     events.route.ts, events.schema.ts
-│   ├── suggestions/ suggestions.route.ts, suggestions.schema.ts
 │   ├── health/     health.route.ts
 │   ├── proxy/      proxy.route.ts (proxied external API calls, e.g. geolocation/holidays)
 │   ├── ai/         ai.route.ts, agent.ts, tools/ — the AI assistant's chat endpoint and tool calls

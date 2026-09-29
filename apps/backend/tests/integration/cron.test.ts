@@ -3,7 +3,7 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
-import { handleOverdueCheck, pruneAiMemories, pruneStaleMutations } from "../../src/cron/overdue-check";
+import { handleOverdueCheck, pruneAiMemories, pruneStaleMutations, pruneUsageEvents } from "../../src/cron/overdue-check";
 
 const env = {} as any;
 
@@ -71,5 +71,14 @@ describe("pruning", () => {
             "expired core",
             "live ephemeral",
         ]);
+    });
+
+    it("drops usage events past the 90-day retention and keeps newer ones", async () => {
+        const userId = await createUser();
+        await sql("INSERT INTO usage_events (user_id, event, created_at) VALUES ($1, 'old', NOW() - interval '91 days'), ($1, 'new', NOW() - interval '89 days')", [userId]);
+
+        await runCron(pruneUsageEvents);
+
+        expect(await sql("SELECT event FROM usage_events WHERE user_id = $1", [userId])).toEqual([{ event: "new" }]);
     });
 });

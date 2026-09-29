@@ -45,7 +45,6 @@ export { userSettingsSchema as UserSettingsSchema, type UserSettings };
 export const taskStateEnum = pgEnum('task_state', ['ACTIVE', 'WAITING', 'COMPLETE', 'ARCHIVED']);
 export const taskInteractionModeEnum = pgEnum('task_interaction_mode', ['task', 'timetable']);
 export const memoryTypeEnum = pgEnum('memory_type', ['CORE', 'EPHEMERAL']);
-export const suggestionStatusEnum = pgEnum('suggestion_status', ['PENDING', 'ACCEPTED', 'DISMISSED']);
 export const habitStatusEnum = pgEnum('habit_status', ['COMPLETED', 'SKIPPED', 'PENDING']);
 export const captureKindEnum = pgEnum('capture_kind', ['task', 'thought', 'reference', 'unknown']);
 export const captureStatusEnum = pgEnum('capture_status', ['clarifying', 'placed', 'kept', 'discarded']);
@@ -57,7 +56,6 @@ export const sourceSurfaceEnum = pgEnum('source_surface', [
     'task_edit_title', 'task_edit_note', 'focus_view_composer',
     'inbox_card', 'inbox',
 ]);
-export const suggestionTypeEnum = pgEnum('suggestion_type', ['lighten_today', 'suggested_cleanup', 'move_overdue']);
 export const focusViewSourceEnum = pgEnum('focus_view_source', ['preset', 'composed', 'manual']);
 
 // AI assistant enums (see docs/ai_upgrade 08 — persistence)
@@ -152,6 +150,7 @@ export const aiMemories = pgTable('ai_memories', {
         userTypeIdx: index('ai_memories_user_type_idx').on(table.userId, table.type),
         expiresIdx: index('ai_memories_expires_idx').on(table.expiresAt),
         dedupeUnique: uniqueIndex('ai_memories_user_dedupe_unique').on(table.userId, table.dedupeHash),
+        sourceConversationIdx: index('ai_memories_source_conversation_id_idx').on(table.sourceConversationId).where(sql`${table.sourceConversationId} IS NOT NULL`),
         embeddingIdx: index('ai_memories_embedding_hnsw_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
         rlsPolicy: pgPolicy("ai_memories_owner_access", {
             as: "permissive",
@@ -183,7 +182,6 @@ export const aiConversations = pgTable('ai_conversations', {
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
 }, (table) => ({
-    userIdIdx: index('ai_conversations_user_id_idx').on(table.userId),
     userRecentIdx: index('ai_conversations_user_recent_idx').on(table.userId, table.lastMessageAt),
     rlsPolicy: pgPolicy('ai_conversations_owner_access', {
         as: 'permissive', for: 'all', using: rlsUsing, withCheck: rlsUsing,
@@ -341,8 +339,8 @@ export const tasks = pgTable('tasks', {
 }, (table) => {
     return {
         // Every read is one user's: lists in manual order, Done/Trash newest first, date windows.
-        userListIdx: index('tasks_user_list_idx').on(table.userId, table.state, table.isPinned.desc(), table.orderIndex),
-        userUpdatedIdx: index('tasks_user_updated_idx').on(table.userId, table.state, table.updatedAt),
+        userListIdx: index('tasks_user_list_idx').on(table.userId, table.state, table.isPinned.desc().nullsFirst(), table.orderIndex),
+        userUpdatedIdx: index('tasks_user_updated_idx').on(table.userId, table.state, table.updatedAt, table.id),
         userAnchorIdx: index('tasks_user_anchor_idx').on(table.userId, sql`coalesce(${table.scheduledStart}, ${table.dueDate})`),
         userSeriesIdx: index('tasks_user_series_idx').on(table.userId).where(sql`${table.recurrenceRule} IS NOT NULL`),
         // The daily cron's sweep across all users.
@@ -459,6 +457,8 @@ export const inboxItems = pgTable('inbox_items', {
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, (table) => ({
     userIdIdx: index('inbox_items_user_id_idx').on(table.userId),
+    sectionIdIdx: index('inbox_items_section_id_idx').on(table.sectionId),
+    placedTaskIdx: index('inbox_items_placed_task_id_idx').on(table.placedTaskId).where(sql`${table.placedTaskId} IS NOT NULL`),
     rlsPolicy: pgPolicy("inbox_items_owner_access", {
         as: "permissive",
         for: "all",
@@ -555,6 +555,7 @@ export const habitTags = pgTable("habit_tags", {
 }, (table) => ({
     uniquePair: uniqueIndex("habit_tags_unique_pair").on(table.habitId, table.tagId),
     tagIdIdx: index("habit_tags_tag_id_idx").on(table.tagId),
+    userIdIdx: index("habit_tags_user_id_idx").on(table.userId),
     rlsPolicy: pgPolicy("habit_tags_owner_access", {
         as: "permissive",
         for: "all",
@@ -594,10 +595,6 @@ export const habitLogs = pgTable(
     },
     (table) => {
         return {
-            habitDateIdx: index('habit_logs_habit_date_idx').on(
-                table.habitId,
-                table.targetDate,
-            ),
             habitDateUnique: uniqueIndex('habit_logs_habit_date_unique').on(
                 table.habitId,
                 table.targetDate,
@@ -711,7 +708,7 @@ export const taskMetrics = pgTable(
     }),
 ).enableRLS();
 
-// 13. Usage Events (Lightweight telemetry for AI-readiness)
+// 13. Usage Events (opt-in diagnostics; the daily cron deletes events older than USAGE_EVENT_RETENTION_DAYS)
 export const usageEvents = pgTable(
     "usage_events",
     {
@@ -721,23 +718,13 @@ export const usageEvents = pgTable(
             .notNull(),
         event: text("event").notNull(), // e.g. "task.complete", "task.reschedule", "habit.complete"
         metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-        // ── Formalized telemetry contract (§11.3) ──
-        surface: text("surface"), // e.g. "today", "schedule", "inbox"
-        route: text("route"), // route path at event time
-        inputMethod: text("input_method"), // "click", "keyboard", "context_menu", "dnd"
-        objectType: text("object_type"), // "task", "habit", "event", "capture", "project"
-        confidenceTier: text("confidence_tier"), // "high", "medium", "low" when relevant
-        outcome: text("outcome"), // success/failure/cancel
-        latencyMs: integer("latency_ms"), // action latency when relevant
-        selectionCount: integer("selection_count"), // for batch operations
         createdAt: timestamptz("created_at")
             .default(sql`now()`)
             .notNull(),
     },
     (table) => ({
         userIdIdx: index("usage_events_user_id_idx").on(table.userId),
-        eventIdx: index("usage_events_event_idx").on(table.event),
-        createdAtIdx: index("usage_events_created_at_idx").on(table.createdAt),
+        createdAtIdx: index("usage_events_created_at_idx").on(table.createdAt), // retention sweep
         rlsPolicy: pgPolicy("usage_events_owner_access", {
             as: "permissive",
             for: "all",
@@ -774,39 +761,8 @@ export const notificationState = pgTable(
     (table) => ({
         userObjectTriggerIdx: uniqueIndex("notification_state_user_object_trigger_unique")
             .on(table.userId, table.objectId, table.triggerId),
-        userIdIdx: index("notification_state_user_id_idx").on(table.userId),
         deferredUntilIdx: index("notification_state_deferred_until_idx").on(table.deferredUntil),
         rlsPolicy: pgPolicy("notification_state_owner_access", {
-            as: "permissive",
-            for: "all",
-            using: rlsUsing,
-            withCheck: rlsUsing,
-        }),
-    }),
-).enableRLS();
-
-// 14. Suggestions (AI-generated advice, never autonomous)
-export const suggestions = pgTable(
-    "suggestions",
-    {
-        id: uuid("id").defaultRandom().primaryKey(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
-        type: suggestionTypeEnum("type").notNull(),
-        title: text("title").notNull(),
-        body: text("body"),
-        status: suggestionStatusEnum("status").default("PENDING").notNull(),
-        relatedTaskIds: jsonb("related_task_ids").$type<string[]>().default([]),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
-        resolvedAt: timestamptz("resolved_at"),
-    },
-    (table) => ({
-        userIdIdx: index("suggestions_user_id_idx").on(table.userId),
-        statusIdx: index("suggestions_status_idx").on(table.status),
-        rlsPolicy: pgPolicy("suggestions_owner_access", {
             as: "permissive",
             for: "all",
             using: rlsUsing,
@@ -887,55 +843,6 @@ export const taskNlpMetadata = pgTable(
         taskIdIdx: uniqueIndex("task_nlp_metadata_task_id_unique").on(table.taskId),
         userIdIdx: index("task_nlp_metadata_user_id_idx").on(table.userId),
         rlsPolicy: pgPolicy("task_nlp_metadata_owner_access", {
-            as: "permissive",
-            for: "all",
-            using: rlsUsing,
-            withCheck: rlsUsing,
-        }),
-    }),
-).enableRLS();
-
-export const taskNlpMetadataHistory = pgTable(
-    "task_nlp_metadata_history",
-    {
-        id: uuid("id").defaultRandom().primaryKey(),
-        taskId: uuid("task_id")
-            .references(() => tasks.id, { onDelete: "cascade" })
-            .notNull(),
-        userId: uuid("user_id")
-            .references(() => users.id, { onDelete: "cascade" })
-            .notNull(),
-        parserVersion: text("parser_version").default("2.0.0").notNull(),
-        sourceSurface: sourceSurfaceEnum("source_surface").default("quick_add").notNull(),
-        rawInput: text("raw_input").notNull(),
-        cleanedTitle: text("cleaned_title").notNull(),
-        parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
-        confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
-        // ── Resolved columns (mirror of task_nlp_metadata) ──
-        resolvedDueDate: timestamptz("resolved_due_date"),
-        resolvedScheduledStart: timestamptz("resolved_scheduled_start"),
-        resolvedScheduledEnd: timestamptz("resolved_scheduled_end"),
-        resolvedRecurrenceRule: text("resolved_recurrence_rule"),
-        resolvedProjectId: uuid("resolved_project_id"),
-        resolvedTagIds: jsonb("resolved_tag_ids").$type<string[]>(),
-        resolvedPriority: text("resolved_priority"),
-        resolvedDurationMinutes: integer("resolved_duration_minutes"),
-        resolvedWaitingOn: text("resolved_waiting_on"),
-        needsReview: boolean("needs_review").default(false).notNull(),
-        reviewReason: text("review_reason"),
-        entityCount: integer("entity_count").default(0).notNull(),
-        highConfidenceEntityCount: integer("high_confidence_entity_count").default(0).notNull(),
-        mediumConfidenceEntityCount: integer("medium_confidence_entity_count").default(0).notNull(),
-        lowConfidenceEntityCount: integer("low_confidence_entity_count").default(0).notNull(),
-        isCurrent: boolean("is_current").default(false).notNull(),
-        createdAt: timestamptz("created_at")
-            .default(sql`now()`)
-            .notNull(),
-    },
-    (table) => ({
-        taskIdIdx: index("task_nlp_metadata_history_task_id_idx").on(table.taskId),
-        userIdIdx: index("task_nlp_metadata_history_user_id_idx").on(table.userId),
-        rlsPolicy: pgPolicy("task_nlp_metadata_history_owner_access", {
             as: "permissive",
             for: "all",
             using: rlsUsing,

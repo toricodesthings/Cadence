@@ -146,6 +146,22 @@ describe("listing tasks", () => {
         ]);
     });
 
+    it("returns tasks anchored in a date window and series running into it, and nothing else", async () => {
+        const timed = (start: string, extra: Record<string, unknown> = {}) => ({
+            isAllDay: false, scheduledStart: start, scheduledEnd: start.replace("T09", "T10"), ...extra,
+        });
+        await create({ title: "W timed", ...timed("2027-05-12T09:00:00.000Z") });
+        await create({ title: "W due", dueDate: "2027-05-13" });
+        await create({ title: "W before", dueDate: "2027-05-01" });
+        await create({ title: "W after", dueDate: "2027-05-20" });
+        await create({ title: "W weekly", ...timed("2027-04-07T09:00:00.000Z", { recurrenceRule: "FREQ=WEEKLY" }) });
+        await create({ title: "W starts later", ...timed("2027-06-01T09:00:00.000Z", { recurrenceRule: "FREQ=DAILY" }) });
+
+        const { body } = await tasks("GET", "?state=ACTIVE&scheduledRangeStart=2027-05-10&scheduledRangeEnd=2027-05-16");
+
+        expect(titles(body.data).filter((title: string) => title.startsWith("W ")).sort()).toEqual(["W due", "W timed", "W weekly"]);
+    });
+
     it("rejects half a range with a structured 400", async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
         const { status, body } = await tasks("GET", "?scheduledRangeStart=2026-03-01");
