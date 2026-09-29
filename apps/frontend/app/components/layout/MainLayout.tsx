@@ -34,7 +34,7 @@ import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useBatchStateTransition } from "../../hooks/tasks/use-batch-state";
 import { toast } from "sonner";
 import { CompactPageControls } from "../shared/CompactPageControls";
-import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "./PageHeader";
+import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhoneHeaderIdentity } from "./PageHeader";
 import { ContextualAddOrb } from "../shared/ContextualAddOrb";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 import { useMutationOutbox } from "../../lib/api/mutation-outbox";
@@ -654,7 +654,10 @@ export function MainLayout({
         icon: shellHeader?.icon,
         accentColor: shellHeader?.accentColor,
     };
-    const headerIdentity = <PageHeaderIdentity {...headerIdentityProps} compact={shell.isPhone} />;
+    // Phone headers share Schedule's type (no icon, large display title); tablet keeps the compact row.
+    const headerIdentity = shell.isPhone
+        ? <h1 className="min-w-0 flex-1"><PhoneHeaderIdentity eyebrow={headerIdentityProps.eyebrow} title={headerTitle} /></h1>
+        : <PageHeaderIdentity {...headerIdentityProps} />;
 
     const canCloseRail = shell.isWide && location.pathname !== "/" &&
         (assistantInRail || (sidePanelPresent && Boolean(onCloseSidePanel)));

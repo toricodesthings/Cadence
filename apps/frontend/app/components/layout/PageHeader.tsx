@@ -65,6 +65,33 @@ export function PageHeader({
     );
 }
 
+/** Phone header type: eyebrow (or the zoom-out label), a large display title, and a quiet meta line. */
+export function PhoneHeaderIdentity({ eyebrow, title, meta, backLabel }: {
+    eyebrow?: ReactNode;
+    title: ReactNode;
+    meta?: ReactNode;
+    backLabel?: string | null;
+}) {
+    return (
+        <span className="flex min-w-0 flex-col gap-0.5 text-left">
+            {backLabel || eyebrow ? (
+                <span className="flex items-center gap-0.5 text-[12px] font-semibold uppercase leading-none tracking-[0.14em] text-twilight-text-muted">
+                    {backLabel ? (
+                        <>
+                            <ChevronLeft size={14} aria-hidden="true" className="-ml-1 text-accent-primary" />
+                            <span className="text-accent-primary normal-case tracking-normal">{backLabel}</span>
+                        </>
+                    ) : eyebrow}
+                </span>
+            ) : null}
+            <span className="truncate font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
+                {title}
+            </span>
+            {meta ? <span className="truncate text-[12.5px] text-twilight-text-soft">{meta}</span> : null}
+        </span>
+    );
+}
+
 /** Phone page header: one row. The label above the title zooms out when `backLabel` is set; `options` open under a sliders icon. */
 export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, actions, options }: {
     eyebrow: string;
@@ -76,22 +103,7 @@ export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, ac
     actions?: ReactNode;
     options?: ReactNode;
 }) {
-    const identity = (
-        <span className="flex min-w-0 flex-col gap-0.5 text-left">
-            <span className="flex items-center gap-0.5 text-[12px] font-semibold uppercase leading-none tracking-[0.14em] text-twilight-text-muted">
-                {backLabel ? (
-                    <>
-                        <ChevronLeft size={14} aria-hidden="true" className="-ml-1 text-accent-primary" />
-                        <span className="text-accent-primary normal-case tracking-normal">{backLabel}</span>
-                    </>
-                ) : eyebrow}
-            </span>
-            <span className="truncate font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
-                {title}
-            </span>
-            {meta ? <span className="truncate text-[12.5px] text-twilight-text-soft">{meta}</span> : null}
-        </span>
-    );
+    const identity = <PhoneHeaderIdentity eyebrow={eyebrow} title={title} meta={meta} backLabel={backLabel} />;
 
     return (
         <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-2`}>
