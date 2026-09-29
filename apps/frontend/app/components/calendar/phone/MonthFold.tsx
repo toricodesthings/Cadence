@@ -125,7 +125,7 @@ export function MonthFold({
     };
 
     const handleWheel = (event: React.WheelEvent) => {
-        if (folded && event.deltaY < -20 && (listRef.current?.scrollTop ?? 0) <= 0) setFolded(false);
+        if (folded && event.deltaY < -20 && atTop()) setFolded(false);
     };
 
     const handleCell = (iso: string) => {

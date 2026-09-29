@@ -2614,7 +2614,7 @@ a:active {
    The fill is a background-image so a control's own tint still shows through. */
 @media (max-width: 767px) {
   .header-glass button,
-  button:is([aria-label], :has(> .sr-only)):has(> svg):not(:has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed]) {
+  button:is([aria-label], :has(> .sr-only)):has(> svg):not(.glass-inset, :has(> :not(svg, .sr-only)), [class*="gap-"], [role="radio"], [role="checkbox"], [aria-checked], [aria-pressed]) {
     border: 1px solid color-mix(in srgb, var(--color-twilight-text) 14%, transparent);
     border-radius: 9999px;
     background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-twilight-text) 9%, transparent), color-mix(in srgb, var(--color-twilight-text) 3%, transparent));
@@ -2622,16 +2622,14 @@ a:active {
     -webkit-backdrop-filter: blur(12px) saturate(1.4);
     backdrop-filter: blur(12px) saturate(1.4);
   }
-  /* In a tight row (options toggles, section headers, notification actions; toggles too) a 44px bubble
-     crowds the row: a transparent border insets a 32px disc, same tap area. */
-  button.glass-inset.glass-inset.glass-inset { /* outranks the glass selector above */
+  /* In a tight row (schedule options, section headers, notification actions,
+     toggles included) a 44px bubble crowds the row: a transparent border insets a 32px disc, same tap area. */
+  button.glass-inset {
     border: 6px solid transparent;
     border-radius: 9999px;
     background-image: linear-gradient(180deg, color-mix(in srgb, var(--color-twilight-text) 9%, transparent), color-mix(in srgb, var(--color-twilight-text) 3%, transparent));
     background-clip: padding-box;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-twilight-text) 14%, transparent), inset 0 1.5px 0 color-mix(in srgb, white 12%, transparent);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 }
 .utility-sheet-content button, .utility-sheet-content a, .mobile-tab-bar a { cursor: pointer; }
