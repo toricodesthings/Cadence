@@ -27,8 +27,8 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { useMinuteClock } from "../hooks/ui/use-realtime-clock";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "../components/layout/PageHeader";
-import { PeriodNav, PeriodTodayButton } from "../components/layout/PeriodNav";
+import { PageHeader, PhonePageHeader, PhoneViewPicker } from "../components/layout/PageHeader";
+import { PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
 
 const HABITS_ACCENT = "var(--accent-nav-habits, var(--accent-primary))";
 const NAV_BUTTON = "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
@@ -126,31 +126,40 @@ export default function Routines() {
 
     const setDisplay = (mode: DisplayMode) => { setDirection(0); setDisplayMode(mode); };
 
+    const optionsBody = (
+        <div className="space-y-4">
+            <div>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Show</h4>
+                <SegmentedControl
+                    ariaLabel="Which routines"
+                    value={viewMode}
+                    onChange={setViewMode}
+                    options={[{ value: "active", label: "Active" }, { value: "archived", label: "Archived" }]}
+                />
+            </div>
+            <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
+                <span>Show streaks</span>
+                <Switch checked={showStreaks} onCheckedChange={(value) => updateSettings.mutate({ tasks: { showStreaks: value } })} />
+            </label>
+        </div>
+    );
+
     // Same as Schedule: a gear at the far right opens a small panel of view options.
     const options = (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button type="button" className={`${NAV_BUTTON} ${shell.isPhone ? "touch-target rounded-full" : ""}`} aria-label="Routine view options">
+                <button type="button" className={NAV_BUTTON} aria-label="Routine view options">
                     <Settings size={16} aria-hidden="true" />
                 </button>
             </Popover.Trigger>
-            <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] space-y-4 p-3">
-                <div>
-                    <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-twilight-text-muted">Show</h4>
-                    <SegmentedControl
-                        ariaLabel="Which routines"
-                        value={viewMode}
-                        onChange={setViewMode}
-                        options={[{ value: "active", label: "Active" }, { value: "archived", label: "Archived" }]}
-                    />
-                </div>
-                <label className="flex items-center justify-between rounded-xl border border-twilight-border/40 bg-white/[0.03] px-3 py-2 text-sm text-twilight-text-soft">
-                    <span>Show streaks</span>
-                    <Switch checked={showStreaks} onCheckedChange={(value) => updateSettings.mutate({ tasks: { showStreaks: value } })} />
-                </label>
+            <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">
+                {optionsBody}
             </Popover.Content>
         </Popover.Root>
     );
+
+    const headingDate = displayMode === "week" ? weekDates[0] : periodDate;
+    const phoneTitle = String(headingDate.getFullYear()) === todayIso.slice(0, 4) ? MONTH_NAMES[headingDate.getMonth()] : heading;
 
     // On a desktop week the grid's today column already is today's check-in, so
     // the band shows only where today is scattered (month cards, phone cards).
@@ -183,34 +192,24 @@ export default function Routines() {
             <div className="flex h-full overflow-hidden">
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     {shell.isPhone ? (
-                        <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-3`}>
-                            {/* Same two rows as Schedule: identity + period nav +
-                                options on top, view switcher + Today below. */}
-                            <div className="flex min-h-[44px] items-center gap-2">
-                                <div className="min-w-0 flex-1">
-                                    <PageHeaderIdentity compact icon={<Flame size={16} aria-hidden="true" />} accentColor={HABITS_ACCENT} eyebrow="Routines" title={heading} />
-                                </div>
-                                <div className="flex shrink-0 items-center gap-0.5">
-                                    <button type="button" onClick={() => handleNavigate(-1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Previous ${periodWord}`}>
-                                        <ChevronLeft size={15} aria-hidden="true" />
-                                    </button>
-                                    <button type="button" onClick={() => handleNavigate(1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Next ${periodWord}`}>
-                                        <ChevronRight size={15} aria-hidden="true" />
-                                    </button>
-                                </div>
-                                {options}
-                            </div>
-                            <div className="mt-1.5 flex items-center gap-1">
-                                <SegmentedControl
-                                    ariaLabel="Routine view"
-                                    size="sm"
-                                    value={displayMode}
-                                    onChange={setDisplay}
-                                    options={[{ value: "week", label: "Week" }, { value: "month", label: "Month" }]}
-                                />
-                                <PeriodTodayButton compact isCurrent={isCurrentPeriod} onToday={handleToday} />
-                            </div>
-                        </header>
+                        // Same as Schedule: Week/Month live under the sliders icon, Today floats bottom left.
+                        <PhonePageHeader
+                            eyebrow="Routines"
+                            title={phoneTitle}
+                            meta={displayMode === "week" ? weekRangeLabel(weekDates) : null}
+                            actions={<div className="flex shrink-0 items-center">
+                                <button type="button" onClick={() => handleNavigate(-1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Previous ${periodWord}`}>
+                                    <ChevronLeft size={15} aria-hidden="true" />
+                                </button>
+                                <button type="button" onClick={() => handleNavigate(1)} className={`${NAV_BUTTON} touch-target rounded-full`} aria-label={`Next ${periodWord}`}>
+                                    <ChevronRight size={15} aria-hidden="true" />
+                                </button>
+                            </div>}
+                            options={<div className="space-y-4">
+                                <PhoneViewPicker value={displayMode} onChange={setDisplay} options={[{ value: "week", label: "Week" }, { value: "month", label: "Month" }]} />
+                                {optionsBody}
+                            </div>}
+                        />
                     ) : (
                         <PageHeader
                             icon={<Flame size={18} aria-hidden="true" />}
@@ -288,6 +287,7 @@ export default function Routines() {
                     </ResponsiveOverlayPanel>
                 )}
 
+                <PeriodTodayPill show={shell.isPhone && !isCurrentPeriod} reducedMotion={reducedMotion} onToday={handleToday} />
                 {shell.isCompact ? <ContextualAddOrb directCapture directLabel="Add routine" onOpen={() => setIsCreateOpen(true)} /> : null}
             </div>
         </MainLayout>

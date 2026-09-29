@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { SegmentedControl } from "../primitives/SegmentedControl";
-import { ChevronLeft, ChevronRight, Plus, Settings, SlidersHorizontal, CalendarHeart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, CalendarHeart } from "lucide-react";
 import {
     Snowflake, CloudSnow, Wind, CloudRain,
     SunDim, Sun, Waves, Flame,
@@ -11,7 +11,7 @@ import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
 import { getDateFormatConfig, MONTH_NAMES } from "../../lib/utils/date-format";
 import * as Popover from "../primitives/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
-import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity } from "../layout/PageHeader";
+import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "../layout/PageHeader";
 import { PeriodNav, PeriodTodayButton } from "../layout/PeriodNav";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
@@ -176,59 +176,9 @@ export function ScheduleHeader({
     const clock = useRealtimeClock();
 
     if (phone) {
-        // ── Phone: one row. Period changes are swipes and taps on the calendar
-        //    itself; the label above the title zooms out (Day → Month → Year).
-        const identity = (
-            <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                <span className="flex items-center gap-0.5 text-[12px] font-semibold uppercase leading-none tracking-[0.14em] text-twilight-text-muted">
-                    {phone.backLabel ? (
-                        <>
-                            <ChevronLeft size={14} aria-hidden="true" className="-ml-1 text-accent-primary" />
-                            <span className="text-accent-primary normal-case tracking-normal">{phone.backLabel}</span>
-                        </>
-                    ) : "Schedule"}
-                </span>
-                <span className="truncate font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
-                    {phone.title}
-                </span>
-                {phone.meta ? <span className="truncate text-[12.5px] text-twilight-text-soft">{phone.meta}</span> : null}
-            </span>
-        );
-
-        return (
-            <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-2`}>
-                <div className="flex min-h-[52px] items-center gap-2">
-                    <h1 className="min-w-0 flex-1">
-                        {phone.backLabel && phone.onZoomOut ? (
-                            <button
-                                type="button"
-                                onClick={phone.onZoomOut}
-                                aria-label={`${phone.title}. Back to ${phone.backLabel}`}
-                                className="-mx-1 flex min-h-11 max-w-full cursor-pointer rounded-xl px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                            >
-                                {identity}
-                            </button>
-                        ) : identity}
-                    </h1>
-                    {overflowContent && (
-                        <Popover.Root>
-                            <Popover.Trigger asChild>
-                                <button
-                                    type="button"
-                                    className="btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
-                                    aria-label="View and display options"
-                                >
-                                    <SlidersHorizontal size={18} aria-hidden="true" />
-                                </button>
-                            </Popover.Trigger>
-                            <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">
-                                {overflowContent}
-                            </Popover.Content>
-                        </Popover.Root>
-                    )}
-                </div>
-            </header>
-        );
+        // Phone: one row. Period changes are swipes and taps on the calendar
+        // itself; the label above the title zooms out (Day → Month → Year).
+        return <PhonePageHeader eyebrow="Schedule" {...phone} options={overflowContent} />;
     }
 
     if (compact) {

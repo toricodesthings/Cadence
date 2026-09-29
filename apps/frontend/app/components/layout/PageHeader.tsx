@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { ChevronLeft, SlidersHorizontal } from "lucide-react";
+import * as Popover from "../primitives/Popover";
 
 /** Surface shared by every page header (desktop bar and compact variants). */
 export const PAGE_HEADER_SURFACE =
@@ -60,5 +62,97 @@ export function PageHeader({
                 {actions ? <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div> : null}
             </div>
         </header>
+    );
+}
+
+/** Phone page header: one row. The label above the title zooms out when `backLabel` is set; `options` open under a sliders icon. */
+export function PhonePageHeader({ eyebrow, title, meta, backLabel, onZoomOut, actions, options }: {
+    eyebrow: string;
+    title: string;
+    /** Quiet line under the title, e.g. "Today · light". */
+    meta?: string | null;
+    backLabel?: string | null;
+    onZoomOut?: () => void;
+    actions?: ReactNode;
+    options?: ReactNode;
+}) {
+    const identity = (
+        <span className="flex min-w-0 flex-col gap-0.5 text-left">
+            <span className="flex items-center gap-0.5 text-[12px] font-semibold uppercase leading-none tracking-[0.14em] text-twilight-text-muted">
+                {backLabel ? (
+                    <>
+                        <ChevronLeft size={14} aria-hidden="true" className="-ml-1 text-accent-primary" />
+                        <span className="text-accent-primary normal-case tracking-normal">{backLabel}</span>
+                    </>
+                ) : eyebrow}
+            </span>
+            <span className="truncate font-display text-[22px] font-semibold leading-tight tracking-tight text-twilight-text">
+                {title}
+            </span>
+            {meta ? <span className="truncate text-[12.5px] text-twilight-text-soft">{meta}</span> : null}
+        </span>
+    );
+
+    return (
+        <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-2`}>
+            <div className="flex min-h-[52px] items-center gap-2">
+                <h1 className="min-w-0 flex-1">
+                    {backLabel && onZoomOut ? (
+                        <button
+                            type="button"
+                            onClick={onZoomOut}
+                            aria-label={`${title}. Back to ${backLabel}`}
+                            className="-mx-1 flex min-h-11 max-w-full cursor-pointer rounded-xl px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            {identity}
+                        </button>
+                    ) : identity}
+                </h1>
+                {actions}
+                {options && (
+                    <Popover.Root>
+                        <Popover.Trigger asChild>
+                            <button
+                                type="button"
+                                className="btn-icon touch-target rounded-full text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                                aria-label="View and display options"
+                            >
+                                <SlidersHorizontal size={18} aria-hidden="true" />
+                            </button>
+                        </Popover.Trigger>
+                        <Popover.Content side="bottom" align="end" className="w-[min(20rem,calc(100vw-2rem))] p-3">
+                            {options}
+                        </Popover.Content>
+                    </Popover.Root>
+                )}
+            </div>
+        </header>
+    );
+}
+
+/** The view choice at the top of a phone header's options; picking one closes the popover. */
+export function PhoneViewPicker<T extends string>({ value, options, onChange }: {
+    value: T;
+    options: { value: T; label: string }[];
+    onChange: (value: T) => void;
+}) {
+    return (
+        <div role="radiogroup" aria-label="View" className="grid auto-cols-fr grid-flow-col gap-1 rounded-2xl border border-twilight-border/40 p-1">
+            {options.map((option) => (
+                <Popover.Close asChild key={option.value}>
+                    <button
+                        type="button"
+                        role="radio"
+                        aria-checked={value === option.value}
+                        onClick={() => onChange(option.value)}
+                        className={`min-h-11 cursor-pointer rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
+                            value === option.value ? "bg-accent-primary/20 text-accent-primary" : "text-twilight-text-soft hover:bg-white/[0.05]"
+                        }`}
+                    >
+                        {option.label}
+                    </button>
+                </Popover.Close>
+            ))}
+        </div>
     );
 }

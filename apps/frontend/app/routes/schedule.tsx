@@ -6,6 +6,8 @@ import { Switch } from "../components/primitives/Switch";
 import { Tip } from "../components/primitives";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
+import { PhoneViewPicker } from "../components/layout/PageHeader";
+import { PeriodTodayPill } from "../components/layout/PeriodNav";
 import {
     DndContext,
     DragOverlay,
@@ -69,7 +71,7 @@ import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { LocationNotice } from "../components/location/LocationNotice";
-import { CalendarCheck, Feather, Plus, Wrench } from "lucide-react";
+import { Feather, Plus, Wrench } from "lucide-react";
 import * as Popover from "../components/primitives/Popover";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
@@ -1030,23 +1032,11 @@ export default function Schedule() {
     /** Phone ⋯: which zoom level, what to show (in the user's words), and relief for today. */
     const phoneOptions = (
         <div className="space-y-4">
-            <div role="radiogroup" aria-label="View" className="grid grid-cols-3 gap-1 rounded-2xl border border-twilight-border/40 p-1">
-                {(["day", "month", "year"] as const).map((mode) => (
-                    <Popover.Close asChild key={mode}>
-                        <button
-                            type="button"
-                            role="radio"
-                            aria-checked={viewMode === mode}
-                            onClick={() => handleViewMode(mode)}
-                            className={`min-h-11 cursor-pointer rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
-                                viewMode === mode ? "bg-accent-primary/20 text-accent-primary" : "text-twilight-text-soft hover:bg-white/[0.05]"
-                            }`}
-                        >
-                            {mode === "day" ? "Day" : mode === "month" ? "Month" : "Year"}
-                        </button>
-                    </Popover.Close>
-                ))}
-            </div>
+            <PhoneViewPicker
+                value={viewMode}
+                onChange={handleViewMode}
+                options={[{ value: "day", label: "Day" }, { value: "month", label: "Month" }, { value: "year", label: "Year" }]}
+            />
 
             <div>
                 <h4 className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted">Show</h4>
@@ -1330,30 +1320,14 @@ export default function Schedule() {
 
                 {/* Compact shells get the same bottom-right orb every other page
                     uses; the dock owns the centre, so a centred pill collided. */}
-                <AnimatePresence>
-                    {shell.isPhone && isOffToday ? (
-                        <motion.div
-                            key="back-to-today"
-                            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.96 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.96 }}
-                            transition={reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
-                            className="layer-floating-bar mobile-floating-action fixed bottom-5 left-4"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (viewMode === "year") handleViewMode("month");
-                                    handleToday();
-                                }}
-                                className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-twilight-border/60 bg-panel-raised/90 px-4 text-sm font-medium text-twilight-text shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-md transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                            >
-                                <CalendarCheck size={16} className="text-accent-primary" aria-hidden="true" />
-                                Today
-                            </button>
-                        </motion.div>
-                    ) : null}
-                </AnimatePresence>
+                <PeriodTodayPill
+                    show={shell.isPhone && isOffToday}
+                    reducedMotion={Boolean(reducedMotion)}
+                    onToday={() => {
+                        if (viewMode === "year") handleViewMode("month");
+                        handleToday();
+                    }}
+                />
 
                 {shell.isCompact ? (
                     <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end sm:right-5">

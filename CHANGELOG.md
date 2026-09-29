@@ -11,6 +11,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Signed up with Google or GitHub? Add a password in Settings with a code we email you, then sign in either way.
 - Forgot your password? Change it from Settings with a code sent to your email.
 
+### Changed
+- On phones, Routines has Schedule's header: Week/Month live under the options icon and Today floats bottom left.
+
 ### Fixed
 - Errors in Profile & Security, like a wrong current password, now show a message instead of getting stuck on Saving.
 - Settings no longer lists your password as a connected account you can disconnect.
