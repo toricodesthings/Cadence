@@ -427,7 +427,7 @@ export default function TodayRoute() {
                 accentColor: "var(--accent-nav-today, var(--accent-primary))",
             }}
         >
-            <PageContent width="default" className="shrink-0 empty:hidden">
+            <PageContent width="default" className="shrink-0 pb-0 empty:hidden">
                 <ActiveFilterBar placement="body" />
                 {!isLoading && totalVisible === 0 ? <DayEventRows events={todayDayEvents} className="pb-2" /> : null}
                 {view === "kanban" ? spine : null}
