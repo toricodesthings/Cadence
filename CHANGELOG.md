@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+- When a new version of Cadence goes live, the web app shows a toast with a Reload button until you use it.
+
 ## [0.23.2] - 2026-09-28
 
 ### Changed

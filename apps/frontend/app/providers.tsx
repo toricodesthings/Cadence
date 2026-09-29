@@ -17,6 +17,7 @@ import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
 import { initWal } from "./lib/api/offline-wal";
 import { replayWal } from "./lib/api/mutation-executor";
 import { log } from "./lib/log";
+import { CADENCE_BUILD_ID } from "./lib/constants/app-info";
 import {
     beginSocialSignIn,
     checkForAppUpdate,
@@ -252,6 +253,37 @@ function AccountProviders({ children }: { children: ReactNode }) {
             active = false;
         };
     }, [authReady]);
+
+    // Web only (desktop ships its own updater): when a newer build is live, keep a
+    // Reload toast up until the user acts on it.
+    useEffect(() => {
+        if (IS_DESKTOP_RUNTIME || !import.meta.env.PROD) return;
+
+        let shown = false;
+        const check = async () => {
+            if (shown || document.visibilityState !== "visible") return;
+            try {
+                const response = await fetch("/version.json", { cache: "no-store" });
+                const { buildId } = (await response.json()) as { buildId?: string };
+                if (!buildId || buildId === CADENCE_BUILD_ID) return;
+            } catch {
+                return; // Offline or mid-deploy: try again later.
+            }
+            shown = true;
+            toast.info("A new version of Cadence is available.", {
+                id: "app-update",
+                duration: Number.POSITIVE_INFINITY,
+                action: { label: "Reload", onClick: () => window.location.reload() },
+            });
+        };
+
+        const interval = window.setInterval(check, 10 * 60 * 1000);
+        document.addEventListener("visibilitychange", check);
+        return () => {
+            window.clearInterval(interval);
+            document.removeEventListener("visibilitychange", check);
+        };
+    }, []);
 
     const persistOptions = useMemo(
         () => ({

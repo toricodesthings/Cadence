@@ -4,16 +4,26 @@ import { defineConfig } from "vite";
 import { readReleaseInfo } from "./release-info.ts";
 
 const release = readReleaseInfo(new URL("../../", import.meta.url));
+// Unique per build, so every deploy (not only releases) tells open tabs to reload.
+const buildId = Date.now().toString(36);
 
 export default defineConfig(({ mode }) => ({
   plugins: [
     tailwindcss(),
     ...(mode === "test" ? [] : [reactRouter()]),
+    {
+      name: "cadence-build-id",
+      apply: "build",
+      generateBundle() {
+        this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ buildId }) });
+      },
+    },
   ],
   // Version + in-app changelog come from the root package.json / CHANGELOG.md (see release-info.ts).
   define: {
     __CADENCE_PUBLIC_VERSION__: JSON.stringify(release.version),
     __CADENCE_CHANGELOG__: JSON.stringify(release.changelog),
+    __CADENCE_BUILD_ID__: JSON.stringify(buildId),
   },
   // Dev cold-start stability. Heavy deps below are imported inside lazy route
   // modules, so Vite would otherwise discover them only on first navigation —
