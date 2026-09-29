@@ -13,7 +13,7 @@ import { generateText } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { deriveFallbackTitle, normalizeTitle } from "@cadence/domain/ai-title";
 import { logger } from "../../../platform/log";
-import { addStepSpend } from "../safety/rate-limit";
+import { addStepSpend, type TurnSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
 import titlePrompt from "./title-prompt.md";
 
@@ -30,12 +30,20 @@ export function getTitleModelId(env: Env): string {
     return env.AI_TITLE_MODEL?.trim() || DEFAULT_TITLE_MODEL;
 }
 
+/** What the title call cost: saved on the first assistant row (`metadata.titleSpend`) and logged as `ai_title`. */
+export type TitleSpend = TurnSpend & { model: string; inputTokens?: number; outputTokens?: number };
+
 /**
  * Generate a short title for a new conversation from the user's first message.
- * Always returns a non-empty, length-clamped title.
+ * Always returns a non-empty, length-clamped title; `spend` is set only when the model ran.
  */
-export async function generateConversationTitle(env: Env, userText: string, hasImages = false, ctx: { requestId?: string; userHash?: string } = {}): Promise<string> {
-    const fallback = deriveFallbackTitle(userText, hasImages);
+export async function generateConversationTitle(
+    env: Env,
+    userText: string,
+    hasImages = false,
+    ctx: { requestId?: string; userHash?: string } = {},
+): Promise<{ title: string; spend?: TitleSpend }> {
+    const fallback = { title: deriveFallbackTitle(userText, hasImages) };
 
     const apiKey = env.OPENROUTER_API_KEY;
     if (!apiKey || !userText.trim()) return fallback;
@@ -48,7 +56,6 @@ export async function generateConversationTitle(env: Env, userText: string, hasI
             model: openrouter(getTitleModelId(env), {
                 models: [getTitleModelId(env), TITLE_FALLBACK_MODEL],
                 user: ctx.userHash,
-                provider: { data_collection: "deny" },
             }),
             instructions: titlePrompt.trimEnd(),
             prompt: userText.slice(0, INPUT_CHAR_CAP),
@@ -58,14 +65,14 @@ export async function generateConversationTitle(env: Env, userText: string, hasI
             abortSignal: AbortSignal.timeout(TITLE_TIMEOUT_MS),
         });
         // Same fields as `ai_turn` (model, tokens, costUsd, servedModel) so both filter alike.
-        logger.info("ai", "ai_title", {
-            ...ctx,
+        const spend: TitleSpend = {
             model: getTitleModelId(env),
             inputTokens: usage?.inputTokens,
             outputTokens: usage?.outputTokens,
             ...addStepSpend({}, { providerMetadata, response }),
-        });
-        return normalizeTitle(text) || fallback;
+        };
+        logger.info("ai", "ai_title", { ...ctx, ...spend });
+        return { title: normalizeTitle(text) || fallback.title, spend };
     } catch (error) {
         logger.warn("ai", "title_generation_failed", {
             reason: error instanceof Error ? error.message.slice(0, 117) : "unknown_error",

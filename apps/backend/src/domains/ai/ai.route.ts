@@ -276,11 +276,11 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // `execute` below can await it without risk of hanging the response.
     const titlePromise = needsTitle
         ? (async () => {
-              const title = await generateConversationTitle(c.env, incomingText, imageIds.length > 0, { requestId, userHash });
+              const { title, spend } = await generateConversationTitle(c.env, incomingText, imageIds.length > 0, { requestId, userHash });
               c.executionCtx.waitUntil(
                   withRls(db, userId, (tx) => setTitleIfEmpty(tx, userId, conversationId, title)).catch(() => {}),
               );
-              return title;
+              return { title, spend };
           })()
         : null;
 
@@ -324,7 +324,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // references (never base64).
     const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey);
 
-    const { agent, promptHash } = await agentReady;
+    const { agent, promptHash, embeddingSpend } = await agentReady;
     turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
 
     // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
@@ -377,11 +377,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             // Terminal status drives the client's Retry affordance after reload (doc 09 §3.3).
             const status = isAborted ? "aborted" : finishReason === "error" ? "failed" : "complete";
             try {
+                const titleSpend = (await titlePromise)?.spend; // always resolves, ≤4s
                 const cleaned = stripNonceFromMessage(responseMessage as any, nonce);
                 await withRls(db, userId, async (tx) => {
                     await saveAssistantMessage(tx, userId, conversationId, cleaned, {
                         status,
-                        metadata: { ...cleaned.metadata, ...spend },
+                        metadata: { ...cleaned.metadata, ...spend, titleSpend, embeddingSpend },
                     });
                     await touchConversation(tx, userId, conversationId, { model: modelId });
                 });
@@ -427,7 +428,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         ? createUIMessageStream({
               execute: async ({ writer }) => {
                   writer.merge(agentStream);
-                  const title = await titlePromise;
+                  const { title } = await titlePromise;
                   if (title) {
                       writer.write({
                           type: CONVERSATION_TITLE_DATA_TYPE,

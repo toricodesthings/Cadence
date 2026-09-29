@@ -11,7 +11,7 @@
 import { embed, embedMany } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { logger } from "../../../platform/log";
-import { addStepSpend } from "../safety/rate-limit";
+import { addStepSpend, type TurnSpend } from "../safety/rate-limit";
 import type { Env } from "../../../types/env";
 
 /** Dimensionality of the `ai_memories.embedding` column — embeddings MUST match. */
@@ -43,7 +43,7 @@ function getEmbeddingModel(env: Env, userHash?: string) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
     return openrouter.textEmbeddingModel(getEmbeddingModelId(env), {
         user: userHash,
-        provider: { require_parameters: true, data_collection: "deny" },
+        provider: { require_parameters: true },
         extraBody: { dimensions: EMBEDDING_DIMENSIONS },
     });
 }
@@ -58,8 +58,11 @@ function assertDimensions(vector: number[]): number[] {
     return vector;
 }
 
+/** What an embedding call cost: saved on the assistant row (`metadata.embeddingSpend`) and logged as `ai_embedding`. */
+export type EmbeddingSpend = TurnSpend & { model: string; inputTokens?: number };
+
 /**
- * Embed a single text. Returns a 1536-dim vector. Throws on failure or a
+ * Embed a single text. Returns a 1536-dim vector plus what the call cost. Throws on failure or a
  * dimension mismatch — the caller (retrieval/extraction) decides whether to
  * swallow it (best-effort) or surface it.
  */
@@ -67,19 +70,19 @@ export async function embedText(
     env: Env,
     text: string,
     ctx: { requestId?: string; userHash?: string } = {},
-): Promise<number[]> {
+): Promise<{ embedding: number[]; spend: EmbeddingSpend }> {
     const { embedding, usage, providerMetadata, response } = await embed({
         model: getEmbeddingModel(env, ctx.userHash),
         value: text,
     });
     // Same fields as `ai_turn` / `ai_title`, so all OpenRouter spend filters alike.
-    logger.info("ai", "ai_embedding", {
-        ...ctx,
+    const spend: EmbeddingSpend = {
         model: getEmbeddingModelId(env),
         inputTokens: usage?.tokens,
         ...addStepSpend({}, { providerMetadata, response: { modelId: (response?.body as { model?: string } | undefined)?.model } }),
-    });
-    return assertDimensions(embedding);
+    };
+    logger.info("ai", "ai_embedding", { ...ctx, ...spend });
+    return { embedding: assertDimensions(embedding), spend };
 }
 
 /** Batch embedding via `embedMany`. Each vector is validated to be 1536-dim. */

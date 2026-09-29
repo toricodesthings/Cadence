@@ -14,7 +14,7 @@ import { HELP_TOPICS } from "./tools/help";
 import { approvalFor } from "./safety/approval";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
-import { isMemoryEnabled, embedText } from "./memory/embedding";
+import { isMemoryEnabled, embedText, type EmbeddingSpend } from "./memory/embedding";
 import { retrieveMemories, type RetrievedMemory } from "./memory/memory-retrieval";
 import type { Env } from "../../types/env";
 import { resolveTimeZone, toZonedIso } from "../../platform/date-utils";
@@ -44,8 +44,6 @@ function getModel(env: Env, userHash: string) {
         models: [getModelId(env), FALLBACK_CHAT_MODEL],
         reasoning: { effort: REASONING_EFFORT },
         user: userHash,
-        // Calendar, tasks and photos: only upstreams that don't retain or train on prompts.
-        provider: { data_collection: "deny" },
     });
 }
 
@@ -104,18 +102,21 @@ async function maybeRetrieveMemories(
     persona: AssistantPersona,
     queryText: string | undefined,
     requestId: string | undefined,
-): Promise<RetrievedMemory[]> {
-    if (!queryText || !isMemoryEnabled(env, persona.memoryEnabled)) return [];
+): Promise<{ memories: RetrievedMemory[]; spend?: EmbeddingSpend }> {
+    if (!queryText || !isMemoryEnabled(env, persona.memoryEnabled)) return { memories: [] };
+    let spend: EmbeddingSpend | undefined; // kept if the similarity query fails after the paid embed
     try {
-        const queryEmbedding = await embedText(env, queryText, { requestId, userHash });
+        const embedded = await embedText(env, queryText, { requestId, userHash });
+        spend = embedded.spend;
         const db = getDbClient(env);
-        return await withRls(db, userId, (tx) => retrieveMemories(tx, userId, queryEmbedding));
+        const memories = await withRls(db, userId, (tx) => retrieveMemories(tx, userId, embedded.embedding));
+        return { memories, spend };
     } catch (error) {
         logger.warn("ai", "memory_retrieval_failed", {
             userHash,
             issues: issuesFromError(error),
         });
-        return [];
+        return { memories: [], spend };
     }
 }
 
@@ -191,7 +192,7 @@ export async function getAgentInstance(
     env: Env,
     userId: string,
     opts: AgentBuildOptions,
-): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string }> {
+): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string; embeddingSpend?: EmbeddingSpend }> {
     const locale = opts.locale ?? "en";
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
@@ -206,7 +207,7 @@ export async function getAgentInstance(
         waitUntil: opts.waitUntil,
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
-    const [memories, snapshot] = await Promise.all([
+    const [{ memories, spend: embeddingSpend }, snapshot] = await Promise.all([
         maybeRetrieveMemories(env, userId, userHash, persona, opts.queryText, opts.requestId),
         loadSnapshot(tools, clock.today),
     ]);
@@ -239,5 +240,5 @@ export async function getAgentInstance(
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
     });
 
-    return { agent, modelId: getModelId(env), promptHash: await getPromptHash(tools) };
+    return { agent, modelId: getModelId(env), promptHash: await getPromptHash(tools), embeddingSpend };
 }

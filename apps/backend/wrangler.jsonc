@@ -94,7 +94,13 @@
     }
   ],
 
-  "vars": { "DEPLOYMENT_STAGE": "production" },
+  // AI_*_MODEL override the chat, title and memory-embedding models (unset or empty = the built-in default in domains/ai).
+  "vars": {
+    "DEPLOYMENT_STAGE": "production",
+    "AI_CHAT_MODEL": "google/gemini-3.8-flash",
+    "AI_TITLE_MODEL": "google/gemma-3-27b-it",
+    "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b"
+  },
 
   "env": {
     "dev": {
@@ -121,6 +127,9 @@
       // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
       "vars": {
         "DEPLOYMENT_STAGE": "development",
+        "AI_CHAT_MODEL": "google/gemini-3.8-flash",
+        "AI_TITLE_MODEL": "google/gemma-3-27b-it",
+        "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
         "MCP_ORIGIN": "http://localhost:8787",
         "APP_ORIGIN": "http://localhost:8788"
       },
