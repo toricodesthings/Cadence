@@ -1386,7 +1386,7 @@ export function AssistantSidePanel({
                         placeholder={`Message ${assistantName}…`}
                         aria-label={`Message ${assistantName}`}
                         // ≥16px on touch prevents iOS Safari from zooming on focus.
-                        className={`block max-h-[140px] w-full resize-none bg-transparent px-4 pb-1 pt-3 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${coarse || isMobile ? "text-base" : "text-[14px]"}`}
+                        className={`block max-h-[140px] w-full resize-none bg-transparent px-4 pb-1 pt-3 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${coarse || isMobile ? "mb-2.5 text-base" : "text-[14px]"}`}
                     />
 
                     <div className="flex items-center gap-1 px-2 pb-2">
