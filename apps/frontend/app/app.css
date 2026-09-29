@@ -2591,7 +2591,8 @@ body:has(.compact-navigation-shell) .mobile-floating-action {
 .mobile-settings-content > div > h2:first-child { display: none; }
 .utility-sheet-header h2:focus, [data-sheet-heading]:focus { box-shadow: none; }
 .utility-sheet-content input,
-.utility-sheet-content select { font-size: max(1rem, 16px); }
+.utility-sheet-content select,
+.utility-sheet-content textarea { font-size: max(1rem, 16px); } /* under 16px, iOS zooms on focus */
 .utility-sheet-content { -webkit-overflow-scrolling: touch; }
 .utility-sheet-content, .utility-sheet-header {
   padding-left: max(1rem, env(safe-area-inset-left));
