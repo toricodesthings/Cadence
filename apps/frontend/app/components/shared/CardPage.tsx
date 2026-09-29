@@ -22,7 +22,7 @@ export function CardPage({ title, description, actions, children }: {
     children?: ReactNode;
 }) {
     return (
-        <main className="relative flex min-h-dvh items-start justify-center bg-twilight px-4 py-6 safe-top safe-bottom md:items-center">
+        <main className="relative flex min-h-dvh items-center justify-center bg-twilight px-4 py-6 safe-top safe-bottom">
             <StarField className="pointer-events-none fixed inset-0 h-full w-full" />
             <motion.div
                 initial={{ opacity: 0, y: 16, scale: 0.98 }}

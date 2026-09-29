@@ -12,7 +12,7 @@ import {
 import { replayWal, retryAndReplay } from "./mutation-executor";
 import { invalidateWorkspaceCaches } from "./workspace-cache";
 
-function useWalEntries() {
+export function useWalEntries() {
     return useSyncExternalStore(subscribeWal, getWalSnapshot, getWalServerSnapshot);
 }
 

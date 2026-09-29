@@ -41,11 +41,6 @@ export class ApiErrorResponse extends Error {
         this.retryAfterSeconds = retryAfterSeconds;
     }
 
-    /** The request never reached the server (offline, weak signal, timeout, captive portal). Never an auth failure. */
-    get isNetworkError(): boolean {
-        return this.code === "NETWORK_UNAVAILABLE";
-    }
-
     get isRateLimited(): boolean {
         return this.status === 429 || this.code === "TOO_MANY_REQUESTS";
     }
@@ -55,9 +50,12 @@ export function networkError(message = "Can't reach Cadence right now"): ApiErro
     return new ApiErrorResponse({ status: 0, code: "NETWORK_UNAVAILABLE", message, isRetryable: true });
 }
 
-/** A write that failed before the server answered: safe to queue and replay later. */
+/**
+ * The request never reached the server (offline, weak signal, timeout, captive
+ * portal): safe to queue and replay later. Never an auth failure.
+ */
 export function isNetworkFailure(error: unknown): boolean {
-    if (error instanceof ApiErrorResponse) return error.isNetworkError;
+    if (error instanceof ApiErrorResponse) return error.code === "NETWORK_UNAVAILABLE";
     // fetch rejects with TypeError on a dropped connection; AbortSignal.timeout with TimeoutError.
     return error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError");
 }

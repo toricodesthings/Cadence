@@ -20,12 +20,7 @@ export async function hardRefreshWorkspaceCaches(queryClient: QueryClient) {
             queryClient.removeQueries({ queryKey, type: "inactive" }),
         ),
     );
-
-    await Promise.all(
-        WORKSPACE_QUERY_PREFIXES.map((queryKey) =>
-            queryClient.invalidateQueries({ queryKey, refetchType: "active" }),
-        ),
-    );
+    await invalidateWorkspaceCaches(queryClient);
 }
 
 /** Refetch what's on screen and mark the rest stale, keeping it for offline use. */

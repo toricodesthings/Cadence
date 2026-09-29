@@ -1499,25 +1499,16 @@ a:active {
   margin-left: 0.25rem;
   padding: 0.2rem 0.6rem;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 0.65rem;
   border: 1px solid color-mix(in srgb, var(--offline-accent) 18%, var(--color-twilight-border));
-  background: color-mix(in srgb, var(--offline-accent) 10%, transparent);
+  background: color-mix(in srgb, var(--offline-accent) 16%, transparent);
   color: var(--color-twilight-text);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .offline-banner__action:hover {
-  background: color-mix(in srgb, var(--offline-accent) 18%, transparent);
-}
-
-.offline-banner__action--primary {
-  background: color-mix(in srgb, var(--offline-accent) 16%, transparent);
-  font-weight: 700;
-}
-
-.offline-banner__action--primary:hover {
   background: color-mix(in srgb, var(--offline-accent) 24%, transparent);
 }
 

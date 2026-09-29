@@ -17,11 +17,10 @@ import { reason } from "../utils/error-toast";
 
 const api = apiClient.api;
 
-/** Keys only older builds queued; the server would strip them anyway. */
-function without<T extends object>(payload: T, ...keys: string[]): T {
-    const copy = { ...payload } as Record<string, unknown>;
-    for (const key of keys) delete copy[key];
-    return copy as T;
+/** A replay mustn't send the version check (see toRequests). */
+function without<T extends object>(payload: T, key: string): T {
+    const { [key]: _, ...rest } = payload as Record<string, unknown>;
+    return rest as T;
 }
 
 /**
@@ -34,7 +33,7 @@ export function toRequests(op: MutationOp): WalRequest[] {
     const url = (u: URL) => u.href;
     switch (op.type) {
         case "create_task":
-            return [{ method: "POST", url: url(api.tasks.$url()), json: without(op.payload, "clientMutationId"), key: op.payload.id }];
+            return [{ method: "POST", url: url(api.tasks.$url()), json: op.payload, key: op.payload.id }];
         case "update_task":
             return [{ method: "PATCH", url: url(api.tasks[":id"].$url({ param: { id: op.id } })), json: without(op.payload, "expectedUpdatedAt") }];
         case "delete_task":
@@ -51,7 +50,7 @@ export function toRequests(op: MutationOp): WalRequest[] {
             // Older builds queued more than the route's 50-id cap.
             return chunk(op.payload.taskIds, 50).map((taskIds) => ({ method: "POST", url: url(api.tasks.batch.delete.$url()), json: { taskIds } }));
         case "create_inbox":
-            return [{ method: "POST", url: url(api.inbox.$url()), json: without(op.payload, "clientMutationId"), key: op.payload.id }];
+            return [{ method: "POST", url: url(api.inbox.$url()), json: op.payload, key: op.payload.id }];
         case "update_inbox":
             return [{ method: "PATCH", url: url(api.inbox[":id"].$url({ param: { id: op.id } })), json: op.payload }];
         case "delete_inbox":
@@ -61,13 +60,13 @@ export function toRequests(op: MutationOp): WalRequest[] {
             return [{ method: "POST", url: url(api.inbox[":id"].process.$url({ param: { id: inboxItemId } })), json: { ...rest, title: title?.trim() || rawText } }];
         }
         case "create_inbox_section":
-            return [{ method: "POST", url: url(api.inbox.sections.$url()), json: without(op.payload, "clientMutationId") }];
+            return [{ method: "POST", url: url(api.inbox.sections.$url()), json: op.payload }];
         case "update_inbox_section":
             return [{ method: "PATCH", url: url(api.inbox.sections[":id"].$url({ param: { id: op.id } })), json: op.payload }];
         case "delete_inbox_section":
             return [{ method: "DELETE", url: url(api.inbox.sections[":id"].$url({ param: { id: op.id } })) }];
         case "create_habit":
-            return [{ method: "POST", url: url(api.habits.$url()), json: without(op.payload, "clientMutationId"), key: op.payload.id }];
+            return [{ method: "POST", url: url(api.habits.$url()), json: op.payload, key: op.payload.id }];
         case "update_habit":
             return [{ method: "PATCH", url: url(api.habits[":id"].$url({ param: { id: op.id } })), json: without(op.payload, "expectedUpdatedAt") }];
         case "delete_habit":
@@ -176,7 +175,7 @@ async function replayOne(entry: WalEntry): Promise<EntryResult> {
     }
 }
 
-export type ReplayOutcome = "done" | "offline" | "idle";
+type ReplayOutcome = "done" | "offline" | "idle";
 
 /**
  * Replay pending entries in order, one tab at a time. A network failure stops

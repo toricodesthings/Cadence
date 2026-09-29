@@ -32,8 +32,9 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
         cache: "no-store",
     }).catch(() => null);
 
-    // No answer, or the auth service is down: that says nothing about the session.
-    if (!response || response.status >= 500) {
+    // No answer, the auth service is down, or a captive portal's page: that says
+    // nothing about the session.
+    if (!response || response.status >= 500 || response.headers.get("content-type")?.includes("text/html")) {
         log.warn("api-auth", `/token request failed (${response?.status ?? "network"})`);
         throw networkError();
     }

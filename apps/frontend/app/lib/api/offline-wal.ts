@@ -170,10 +170,6 @@ export function getWalServerSnapshot(): WalEntry[] {
     return [];
 }
 
-export function getWalUserId(): string | null {
-    return userId;
-}
-
 // ── Initialization ──
 
 /** Load this account's queue; `null` (signed out) empties the in-memory view. */

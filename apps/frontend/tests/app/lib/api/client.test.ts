@@ -111,6 +111,12 @@ describe("api/client", () => {
         // A captive portal answers with its own page.
         platformFetchMock.mockResolvedValueOnce(new Response("<html>", { headers: { "content-type": "text/html" } }));
         await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+
+        // ...including to the token request, which must not read as signed out.
+        clearAuthJwtCache();
+        tokenFetchMock.mockResolvedValueOnce(new Response("<html>", { headers: { "content-type": "text/html" } }));
+        await expect(authenticatedFetch("/api/tasks", { authenticated: true })).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+        expect(getSessionMock).not.toHaveBeenCalled();
     });
 
     it("throws a typed auth error when no token is available", async () => {

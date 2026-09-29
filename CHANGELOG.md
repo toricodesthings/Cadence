@@ -6,9 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Choose the loading screen scene in Appearance, or leave it on Auto to follow the season.
+
 ### Changed
 
 - The loading screen is calmer: a quieter logo halo, softer lanterns and leaves, and glassier clouds.
+
+### Fixed
+
+- Wi-Fi with a sign-in page (hotels, cafés) or a dropped connection no longer signs you out.
 
 ## [0.24.0] - 2026-09-28
 
@@ -32,6 +40,7 @@ Cadence keeps working without a connection and catches up when you're back.
 - On phones, the Schedule month folds and unfolds the moment you swipe, not after the list scrolls.
 
 ### Fixed
+- On phones, the sign-in page and similar screens now sit centered instead of hugging the top.
 - A weak connection no longer loses a change or signs you out; the change waits and syncs.
 - A task made offline can be edited, completed or moved before it syncs.
 - Offline changes no longer sync twice or into another account after switching accounts.

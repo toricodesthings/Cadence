@@ -83,24 +83,14 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         }
 
         let active = true;
-
-        void readDesktopAuthSession().then((stored) => {
-            if (!active) {
-                return;
-            }
-
+        const apply = (stored: StoredDesktopAuthSession | null) => {
+            if (!active) return;
             setDesktopSession(stored);
             setDesktopSessionLoaded(true);
-        });
+        };
 
-        const unsubscribe = subscribeDesktopAuthSession((stored) => {
-            if (!active) {
-                return;
-            }
-
-            setDesktopSession(stored);
-            setDesktopSessionLoaded(true);
-        });
+        void readDesktopAuthSession().then(apply);
+        const unsubscribe = subscribeDesktopAuthSession(apply);
 
         return () => {
             active = false;

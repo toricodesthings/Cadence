@@ -72,14 +72,14 @@ function isStoredDesktopAuthSession(value: unknown): value is StoredDesktopAuthS
         && isDesktopAuthSessionData(session.data);
 }
 
-function isPersistedDesktopAuthSessionMetadata(value: unknown): value is Omit<StoredDesktopAuthSession, "jwt"> {
-    if (!value || typeof value !== "object") {
-        return false;
+function parseStoredSession(raw: string | null | undefined): StoredDesktopAuthSession | null {
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw) as unknown;
+        return isStoredDesktopAuthSession(parsed) ? parsed : null;
+    } catch {
+        return null;
     }
-
-    const session = value as Record<string, unknown>;
-    return typeof session.persistedAt === "number"
-        && isDesktopAuthSessionData(session.data);
 }
 
 function emitDesktopAuthSessionChange(session: StoredDesktopAuthSession | null) {
@@ -109,7 +109,7 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
     const adapter = await getDesktopStore(DESKTOP_AUTH_STORE_NAME);
     if (adapter) {
         const stored = await adapter.get<unknown>(DESKTOP_AUTH_STORAGE_KEY);
-        if (!isPersistedDesktopAuthSessionMetadata(stored)) {
+        if (!stored || typeof stored !== "object") {
             memoryCache = null;
             return memoryCache;
         }
@@ -127,26 +127,12 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
         return memoryCache;
     }
 
-    const storage = getWebStorage();
-    if (!storage) {
-        memoryCache = null;
-        return memoryCache;
-    }
-
     try {
-        const raw = storage.getItem(DESKTOP_AUTH_STORAGE_KEY);
-        if (!raw) {
-            memoryCache = null;
-            return memoryCache;
-        }
-
-        const parsed = JSON.parse(raw) as unknown;
-        memoryCache = isStoredDesktopAuthSession(parsed) ? parsed : null;
-        return memoryCache;
+        memoryCache = parseStoredSession(getWebStorage()?.getItem(DESKTOP_AUTH_STORAGE_KEY));
     } catch {
-        memoryCache = null;
-        return memoryCache;
+        memoryCache = null; // Storage blocked.
     }
+    return memoryCache;
 }
 
 export async function writeDesktopAuthSession(session: StoredDesktopAuthSession): Promise<void> {
@@ -179,13 +165,7 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
         }
     }
 
-    const storage = getWebStorage();
-    if (storage) {
-        storage.setItem(DESKTOP_AUTH_STORAGE_KEY, JSON.stringify(session));
-        emitDesktopAuthSessionChange(session);
-        return;
-    }
-
+    getWebStorage()?.setItem(DESKTOP_AUTH_STORAGE_KEY, JSON.stringify(session));
     emitDesktopAuthSessionChange(session);
 }
 
@@ -215,21 +195,7 @@ export function subscribeDesktopAuthSession(listener: (session: StoredDesktopAut
     };
 
     const handleStorageEvent = (event: StorageEvent) => {
-        if (event.key !== DESKTOP_AUTH_STORAGE_KEY) {
-            return;
-        }
-
-        if (!event.newValue) {
-            listener(null);
-            return;
-        }
-
-        try {
-            const parsed = JSON.parse(event.newValue) as unknown;
-            listener(isStoredDesktopAuthSession(parsed) ? parsed : null);
-        } catch {
-            listener(null);
-        }
+        if (event.key === DESKTOP_AUTH_STORAGE_KEY) listener(parseStoredSession(event.newValue));
     };
 
     window.addEventListener(DESKTOP_AUTH_EVENT, handleCustomEvent as EventListener);

@@ -35,7 +35,7 @@ describe("Appearance organization", () => {
     it("orders presets, accents, backgrounds and intensity, with one background source picker", () => {
         setup();
         expect(screen.getAllByRole("heading", { level: 3 }).map((el) => el.textContent)).toEqual([
-            "Theme", "Curated Themes", "Accent Palette", "Background", "Accent intensity", "Motion", "Density",
+            "Theme", "Curated Themes", "Accent Palette", "Background", "Accent intensity", "Loading screen", "Motion", "Density",
         ]);
         expect(within(screen.getByRole("group", { name: "Background source" })).getAllByRole("button")).toHaveLength(2);
         expect(screen.getByRole("button", { name: "Theme default" })).toBeTruthy();
@@ -65,5 +65,14 @@ describe("Appearance organization", () => {
             themePreset: "spring-bloom", theme: "twilight", palette: "rose", backgroundMode: "theme",
             backgroundColor: null, backgroundGradient: null,
         } });
+    });
+});
+
+describe("Loading screen scene", () => {
+    it("saves the picked scene, independent of the theme", () => {
+        setup();
+        expect(screen.getByRole("button", { name: "Auto loading scene" }).getAttribute("aria-pressed")).toBe("true");
+        fireEvent.click(screen.getByRole("button", { name: "Winter loading scene" }));
+        expect(state.mutate).toHaveBeenCalledWith({ appearance: { loadingSeason: "winter" } });
     });
 });

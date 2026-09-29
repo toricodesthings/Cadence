@@ -130,7 +130,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                                 queryClient.invalidateQueries({ queryKey: query.queryKey });
                                 // Allow a fresh retry after a cooldown.
                                 setTimeout(() => retriedAfterRecovery.current.delete(queryKeyStr), 10_000);
-                            } else if (error.code !== "AUTH_PROVIDER_UNAVAILABLE") {
+                            } else if (error.code !== "AUTH_PROVIDER_UNAVAILABLE" && navigator.onLine) {
                                 await signOutRef.current();
                                 navigateRef.current("/auth/sign-in", { replace: true });
                             }

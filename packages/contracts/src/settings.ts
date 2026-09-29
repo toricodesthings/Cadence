@@ -150,6 +150,8 @@ export const userSettingsSchema = z.object({
             "summer-coast", "autumn-hearth", "winter-frost",
             "midnight-garden", "golden-hour", "custom"
         ]).optional(),
+        // Loading screen scene; "auto" follows the calendar season.
+        loadingSeason: z.enum(["auto", "spring", "summer", "autumn", "winter"]).optional(),
         backgroundMode: z.enum(["theme", "custom", "image"]).optional(),
         backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
         backgroundGradient: z.string().nullable().optional(),
@@ -386,6 +388,7 @@ export const SETTINGS_DEFAULTS = {
         density: "comfortable" as const,
         palette: "lantern" as const,
         themePreset: "default" as const,
+        loadingSeason: "auto" as const,
         backgroundMode: "theme" as const,
         backgroundColor: null as string | null,
         backgroundGradient: null as string | null,

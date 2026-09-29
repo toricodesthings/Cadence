@@ -67,7 +67,7 @@ export function OfflineBanner() {
             return (
                 <div role="status" aria-live="polite" className="offline-banner offline-banner--failed">
                     {changes(outbox.failed.length)} didn&apos;t sync
-                    <button type="button" onClick={() => setReviewing(true)} className="offline-banner__action offline-banner__action--primary">
+                    <button type="button" onClick={() => setReviewing(true)} className="offline-banner__action">
                         Review
                     </button>
                 </div>

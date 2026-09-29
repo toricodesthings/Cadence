@@ -8,6 +8,7 @@ import { ThemeModeCard } from "../appearance/ThemeModeCard";
 import { PalettePicker } from "../appearance/PalettePicker";
 import { ThemeCarousel } from "../appearance/ThemeCarousel";
 import { BackgroundSettings } from "../appearance/BackgroundSettings";
+import { LoadingScenePicker } from "../appearance/LoadingScenePicker";
 import { SegmentedControl } from "../../primitives/SegmentedControl";
 import { THEME_PRESETS, type ThemePresetId } from "../../../lib/themes/theme-presets";
 import type { PaletteId } from "../../../lib/themes/accent-palettes";
@@ -25,6 +26,7 @@ export function AppearanceTab() {
         density: "comfortable" as const,
         palette: "lantern" as const,
         themePreset: "default" as const,
+        loadingSeason: "auto" as const,
         backgroundMode: "theme" as const,
         backgroundColor: null as string | null,
         backgroundGradient: null as string | null,
@@ -179,6 +181,15 @@ export function AppearanceTab() {
                         ]}
                     />
                 </div>
+            </SettingsSection>
+
+            {/* ── Loading screen ── */}
+            <SettingsSection title="Loading screen">
+                <p className="text-sm text-twilight-text-muted">The scene you see while Cadence opens. Auto changes with the seasons.</p>
+                <LoadingScenePicker
+                    value={appearance.loadingSeason ?? "auto"}
+                    onChange={(loadingSeason) => updateSettings.mutate({ appearance: { loadingSeason } })}
+                />
             </SettingsSection>
 
             {/* ── Motion ── */}

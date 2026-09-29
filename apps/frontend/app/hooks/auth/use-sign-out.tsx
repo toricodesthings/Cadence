@@ -1,7 +1,8 @@
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import * as AlertDialog from "../../components/primitives/AlertDialog";
 import { Button } from "../../components/primitives/Button";
-import { clearWal, getWalServerSnapshot, getWalSnapshot, subscribeWal } from "../../lib/api/offline-wal";
+import { clearWal } from "../../lib/api/offline-wal";
+import { useWalEntries } from "../../lib/api/mutation-outbox";
 import { useAuthState } from "./use-auth-state";
 
 /**
@@ -11,7 +12,7 @@ import { useAuthState } from "./use-auth-state";
  */
 export function useSignOut() {
     const { completeSignOut } = useAuthState();
-    const total = useSyncExternalStore(subscribeWal, getWalSnapshot, getWalServerSnapshot).length;
+    const total = useWalEntries().length;
     const [asking, setAsking] = useState(false);
     const [pending, setPending] = useState(false);
 

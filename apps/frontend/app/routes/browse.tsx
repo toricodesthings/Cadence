@@ -1,6 +1,7 @@
-import { CalendarHeart, CheckCircle2, ChevronRight, History, LayoutGrid, LifeBuoy, Settings, Sprout, Trash2 } from "lucide-react";
+import { CalendarHeart, CheckCircle2, ChevronRight, History, LayoutGrid, LifeBuoy, RefreshCw, Settings, Sprout, Trash2 } from "lucide-react";
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { useSettings } from "../hooks/core/use-settings";
+import { useWorkspaceSync } from "../hooks/core/use-workspace-sync";
 import { useUtilityNavigation } from "../hooks/ui/use-utility-navigation";
 import { MainLayout } from "../components/layout/MainLayout";
 import { NAV_GROUP, NavigationRow } from "../components/layout/NavigationRow";
@@ -43,10 +44,17 @@ function ProfileCard({ onOpen }: { onOpen: () => void }) {
 export default function BrowsePage() {
     const { openSettings } = useUtilityNavigation();
     const { data: userSettings } = useSettings();
+    const { sync, isSyncing } = useWorkspaceSync();
 
     return <MainLayout
         requireAuth
         hideContextualOrb
+        compactHeaderRightInline
+        headerRight={
+            <button type="button" onClick={() => void sync()} disabled={isSyncing} aria-label="Sync workspace" className="mobile-icon-button text-twilight-text-soft disabled:opacity-50">
+                <RefreshCw size={18} className={isSyncing ? "sync-spin" : ""} aria-hidden="true" />
+            </button>
+        }
         shellHeader={{
             title: "Browse",
             eyebrow: "Everything else",

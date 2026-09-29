@@ -35,6 +35,7 @@ export function useThemeSync() {
     const density = settings?.appearance?.density ?? "comfortable";
     const palette = settings?.appearance?.palette ?? "lantern";
     const themePreset = settings?.appearance?.themePreset ?? "default";
+    const loadingSeason = settings?.appearance?.loadingSeason ?? "auto";
     const backgroundMode = settings?.appearance?.backgroundMode ?? "theme";
     const backgroundColor = settings?.appearance?.backgroundColor ?? null;
     const backgroundGradient = settings?.appearance?.backgroundGradient ?? null;
@@ -132,8 +133,12 @@ export function useThemeSync() {
         } else {
             root.setAttribute("data-theme-preset", themePreset);
         }
-        root.setAttribute("data-loading-season", resolveLoadingSeason(themePreset));
     }, [themePreset]);
+
+    // ── Loading scene season (its own setting, never the theme) ──
+    useEffect(() => {
+        document.documentElement.setAttribute("data-loading-season", resolveLoadingSeason(loadingSeason));
+    }, [loadingSeason]);
 
     // ── Custom background sync ──
     const customBgTokens = useMemo(() => {
@@ -228,10 +233,10 @@ export function useThemeSync() {
     useEffect(() => {
         try {
             localStorage.setItem("cadence-appearance", JSON.stringify({
-                theme: effectiveTheme, palette, themePreset, backgroundMode, motion,
+                theme: effectiveTheme, palette, themePreset, backgroundMode, motion, loadingSeason,
             }));
         } catch { /* quota exceeded — non-critical */ }
-    }, [effectiveTheme, palette, themePreset, backgroundMode, motion]);
+    }, [effectiveTheme, palette, themePreset, backgroundMode, motion, loadingSeason]);
 
     // ── Date/time format sync ──
     useEffect(() => {
