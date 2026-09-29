@@ -239,6 +239,7 @@ export default function WeeklyReview() {
     return (
         <MainLayout
             requireAuth
+            hideContextualOrb
             customSidebar={showSidebar ? <WeeklyResetSidebar currentStep={currentStep} compact={shell.isLaptop} onExit={handleExit} /> : undefined}
             hideHeader
         >

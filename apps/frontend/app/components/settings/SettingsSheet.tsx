@@ -1,25 +1,33 @@
 import { useEffect, useRef } from "react";
-import { ChevronRight, Info, UserRound, type LucideIcon } from "lucide-react";
+import { Info, UserRound, type LucideIcon } from "lucide-react";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
+import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { flushAllPendingSettingsMutations } from "../../hooks/core/use-settings";
 import { UtilitySheet } from "../shared/UtilitySheet";
+import { NAV_GROUP, NAV_GROUP_LABEL, NavigationRow } from "../layout/NavigationRow";
 import { SettingsContent, SETTINGS_CATEGORIES } from "./SettingsContent";
 import { SignOutButton } from "./SignOutButton";
 
-function SettingsItem({ label, icon: Icon, onClick, description }: {
-    label: string; icon: LucideIcon; onClick: () => void; description?: string;
-}) {
-    return <button type="button" onClick={onClick} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-twilight-text transition-colors hover:bg-twilight-surface active:bg-twilight-surface cursor-pointer">
-        <Icon size={20} className="shrink-0 text-twilight-text-soft" aria-hidden="true" />
-        <span className="min-w-0 flex-1"><span className="block">{label}</span>{description && <span className="mt-1 block truncate text-xs text-twilight-text-soft">{description}</span>}</span>
-        <ChevronRight size={16} className="shrink-0 text-twilight-text-soft" aria-hidden="true" />
-    </button>;
+type MenuGroup = { label: string; items: Array<{ id: string; label: string; icon: LucideIcon }> };
+
+/** The menu's categories under their headings; Profile and About sit apart, and phones skip Shortcuts. */
+function menuGroups(isPhone: boolean): MenuGroup[] {
+    const groups: MenuGroup[] = [];
+    for (const item of SETTINGS_CATEGORIES) {
+        if (item.isHeader) groups.push({ label: item.label, items: [] });
+        else if (item.id && item.icon && item.id !== "account" && item.id !== "about" && !(isPhone && item.id === "shortcuts")) {
+            groups.at(-1)?.items.push({ id: item.id, label: item.label, icon: item.icon });
+        }
+    }
+    return groups.filter((group) => group.items.length > 0);
 }
 
 export function SettingsSheet() {
     const { settings, openSettings, close } = useUtilityNavigation();
     const { session } = useAuthState();
+    const shell = useShellMode();
+    const profileLine = session?.user.name ?? session?.user.email;
     const lastTab = useRef(settings ?? "menu");
     useEffect(() => { if (settings) lastTab.current = settings; }, [settings]);
     const activeTab = settings ?? lastTab.current;
@@ -32,17 +40,25 @@ export function SettingsSheet() {
 
     return <UtilitySheet open={settings !== null} title={category?.label ?? "Settings"} onClose={handleClose} onBack={category ? () => navigateTo("menu") : undefined}>
         {category?.id ? <div className="mobile-settings-content"><SettingsContent activeTab={category.id} /></div> : <>
-            <div className="rounded-2xl bg-twilight-surface/60">
-                <SettingsItem label="Profile & Security" description={session?.user.name ?? session?.user.email ?? undefined} icon={UserRound} onClick={() => navigateTo("account")} />
+            <div className={NAV_GROUP}>
+                <NavigationRow icon={UserRound} onClick={() => navigateTo("account")}>
+                    <span className="block">Profile & Security</span>
+                    {profileLine ? <span className="block truncate text-xs text-twilight-text-soft">{profileLine}</span> : null}
+                </NavigationRow>
             </div>
-            <nav aria-label="Settings categories" className="rounded-2xl bg-twilight-surface/40 p-1">
-                {SETTINGS_CATEGORIES.map((item, index) => {
-                    if (item.isHeader) return index === 0 ? null : <h3 key={item.label} className="px-3 pb-1 pt-4 text-xs font-medium text-twilight-text-soft">{item.label}</h3>;
-                    if (!item.id || !item.icon || item.id === "account" || item.id === "about") return null;
-                    return <SettingsItem key={item.id} label={item.label} icon={item.icon} onClick={() => navigateTo(item.id!)} />;
-                })}
-            </nav>
-            <SettingsItem label="About Cadence" icon={Info} onClick={() => navigateTo("about")} />
+            {menuGroups(shell.isPhone).map((group) => (
+                <section key={group.label} className="space-y-1.5">
+                    <h3 className={NAV_GROUP_LABEL}>{group.label}</h3>
+                    <nav aria-label={group.label} className={NAV_GROUP}>
+                        {group.items.map((item) => (
+                            <NavigationRow key={item.id} icon={item.icon} onClick={() => navigateTo(item.id)}>{item.label}</NavigationRow>
+                        ))}
+                    </nav>
+                </section>
+            ))}
+            <div className={NAV_GROUP}>
+                <NavigationRow icon={Info} onClick={() => navigateTo("about")}>About Cadence</NavigationRow>
+            </div>
             <SignOutButton />
         </>}
     </UtilitySheet>;

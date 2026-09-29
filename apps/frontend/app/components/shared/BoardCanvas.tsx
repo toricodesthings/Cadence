@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
 import { ChipScroller } from "./ChipScroller";
+import { SegmentedControl } from "../primitives/SegmentedControl";
 
 export interface BoardColumn {
     id: string;
@@ -128,29 +129,26 @@ export function BoardCanvas({
         const activeColumn = columns.find((column) => column.id === activeColumnId) ?? columns[0];
 
         return (
-            <div className={["flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4", className].join(" ").trim()}>
+            <div className={["flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-3", className].join(" ").trim()}>
                 <div className="flex items-center gap-2">
-                <ChipScroller className={`-ml-4 min-w-0 flex-1 pb-1 pl-4 ${compactTrailing ? "" : "-mr-4 pr-4"}`}>
-                    {columns.map((column) => (
-                        <button
-                            key={column.id}
-                            type="button"
-                            onClick={() => setActiveColumnId(column.id)}
-                            aria-pressed={activeColumn.id === column.id}
-                            className={`touch-target inline-flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-4 text-sm font-medium transition-colors ${
-                                activeColumn.id === column.id
-                                    ? "border-accent-primary/30 bg-accent-primary/14 text-accent-primary"
-                                    : "border-twilight-border/45 bg-white/[0.03] text-twilight-text-soft"
-                            }`}
-                        >
-                            <span>{column.title}</span>
-                            <span className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] tabular-nums">
-                                {column.count}
-                            </span>
-                        </button>
-                    ))}
+                <ChipScroller className={`-ml-4 min-w-0 flex-1 pl-4 ${compactTrailing ? "" : "-mr-4 pr-4"}`}>
+                    <SegmentedControl
+                        ariaLabel="Columns"
+                        className="shrink-0"
+                        value={activeColumn.id}
+                        onChange={setActiveColumnId}
+                        options={columns.map((column) => ({
+                            value: column.id,
+                            label: (
+                                <>
+                                    {column.title}
+                                    <span className="text-[12px] font-normal tabular-nums">{column.count}</span>
+                                </>
+                            ),
+                        }))}
+                    />
                 </ChipScroller>
-                {compactTrailing ? <div className="shrink-0 pb-1">{compactTrailing}</div> : null}
+                {compactTrailing ? <div className="shrink-0">{compactTrailing}</div> : null}
                 </div>
 
                 <div className="min-h-0 flex-1">

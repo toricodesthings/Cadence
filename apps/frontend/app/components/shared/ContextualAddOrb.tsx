@@ -22,13 +22,27 @@ export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = 
 
     return (
         <div className="layer-floating-bar pointer-events-none mobile-floating-action fixed bottom-5 right-4 flex flex-col items-end gap-3 sm:right-5">
+            {/* Scrim: dims the page under the menu, and a tap anywhere off it closes it. */}
+            <AnimatePresence>
+                {open ? (
+                    <motion.div
+                        key="scrim"
+                        aria-hidden="true"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setOpen(false)}
+                        className="pointer-events-auto fixed inset-0 bg-twilight-void/60"
+                    />
+                ) : null}
+            </AnimatePresence>
             <AnimatePresence>
                 {open ? (
                     <motion.div
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 12 }}
-                        className="pointer-events-auto flex flex-col items-end gap-2"
+                        className="pointer-events-auto relative flex flex-col items-end gap-2"
                     >
                         {OPTIONS.map(({ tab, label, icon: Icon }, index) => (
                             <motion.button
@@ -58,7 +72,7 @@ export function ContextualAddOrb({ onOpen, directCapture = false, directLabel = 
                 type="button"
                 onClick={() => directCapture ? onOpen("capture") : setOpen((value) => !value)}
                 aria-label={directCapture ? directLabel : open ? "Close quick add menu" : "Open quick add menu"}
-                className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-[var(--primary-foreground)] shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full border border-accent-primary/20 bg-accent-primary text-[var(--primary-foreground)] shadow-[0_24px_54px_color-mix(in_srgb,var(--accent-primary)_34%,transparent)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
             >
                 {open ? <X size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
             </button></Tip>

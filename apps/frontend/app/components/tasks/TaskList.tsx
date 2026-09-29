@@ -33,6 +33,7 @@ interface TaskListProps {
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
     cardVariant?: "list" | "board";
+    className?: string;
     rationaleByTaskId?: Record<string, string | null | undefined>;
     /** False where a manual order means nothing (Today, Upcoming, tag pages): no drag, no grip. */
     reorderable?: boolean;
@@ -66,6 +67,7 @@ export function TaskList({
     selectedTaskId,
     onSelectTask,
     cardVariant = "list",
+    className = "",
     rationaleByTaskId,
     reorderable = true,
 }: TaskListProps) {
@@ -156,7 +158,7 @@ export function TaskList({
             onDragEnd={handleDragEnd}
         >
             <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                <div className={`flex flex-col ${cardVariant === "board" ? "gap-2.5" : "mt-4 gap-2"}`}>
+                <div className={`flex flex-col ${cardVariant === "board" ? "gap-2.5" : "gap-2"} ${className}`}>
                     {tasks.map((task) => (
                         <TaskContextMenuWrapper key={task.id} task={task} onRename={() => {
                             onSelectTask?.(task.id);

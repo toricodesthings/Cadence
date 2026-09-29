@@ -137,7 +137,7 @@ export function ConversationListItem({
                 <button
                     type="button"
                     onClick={() => onArchive(!conversation.archived)}
-                    className="ml-1.5 flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
+                    className="ml-1.5 flex h-7 w-7 min-w-7 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
                     aria-label={`${conversation.archived ? "Unarchive" : "Archive"} “${title}”`}
                 >
                     {conversation.archived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
@@ -149,7 +149,7 @@ export function ConversationListItem({
                     <DropdownMenu.Trigger asChild>
                         <button
                             type="button"
-                            className="ml-0.5 flex h-7 w-7 min-w-7 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
+                            className="ml-0.5 flex h-7 w-7 min-w-7 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-lg text-twilight-text-muted opacity-0 transition-opacity hover:bg-twilight-surface-hover hover:text-twilight-text group-hover:opacity-100 focus-visible:opacity-100 touch-reveal cursor-pointer"
                             aria-label="Conversation options"
                         >
                             <MoreHorizontal size={16} />

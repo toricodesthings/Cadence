@@ -184,6 +184,7 @@ export function SectionedTaskList({
                         <div className="flex-1 h-px bg-gradient-to-r from-twilight-border/20 to-transparent" />
                     </div>
                     <TaskList
+                        className="mt-4"
                         tasks={ungroupedTasks}
                         selectedTaskId={selectedTaskId}
                         onSelectTask={onSelectTask}
@@ -300,13 +301,14 @@ export function SectionedTaskList({
                                 >
                                     {sectionTasks.length > 0 ? (
                                         <TaskList
+                                            className="mt-4"
                                             tasks={sectionTasks}
                                             selectedTaskId={selectedTaskId}
                                             onSelectTask={onSelectTask}
                                             rationaleByTaskId={rationaleByTaskId}
                                         />
                                     ) : (
-                                        <div className="py-4 px-6 text-[12px] text-twilight-text-muted/40 italic">
+                                        <div className="py-4 px-6 text-[12px] text-twilight-text-muted/90 italic">
                                             No tasks in this section
                                         </div>
                                     )}

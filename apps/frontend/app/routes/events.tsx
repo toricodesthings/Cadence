@@ -142,9 +142,10 @@ export default function EventsRoute() {
         >
             <ScrollAreaWrapper>
                 <PageContent width="full" className="space-y-6">
-                    <section className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-end sm:justify-between">
+                    <section className={`flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${shell.isCompact ? "" : "pt-6"}`}>
                         <div className="space-y-1">
-                            <h1 className="font-display text-2xl font-semibold tracking-tight text-twilight-text">
+                            {/* Compact headers already title the page. */}
+                            <h1 className={shell.isCompact ? "sr-only" : "font-display text-2xl font-semibold tracking-tight text-twilight-text"}>
                                 Your Personal Events
                             </h1>
                             <p className="text-sm text-twilight-text-soft">

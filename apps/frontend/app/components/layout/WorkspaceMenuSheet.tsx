@@ -2,11 +2,11 @@ import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import { useState, type ReactNode } from "react";
 import { useMatch, useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarRange, LayoutDashboard, Plus } from "lucide-react";
+import { CalendarRange, Inbox, Plus, Sunrise } from "lucide-react";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { EmojiPickerPopover } from "../shared/EmojiPickerPopover";
-import { NavigationRow } from "./NavigationRow";
-import { ProjectLink } from "../sidebar/ProjectLink";
+import { NAV_GROUP, NAV_GROUP_LABEL, NavigationRow } from "./NavigationRow";
+import { PlainNavCount } from "../sidebar/PlainNavCount";
 import { TagBubble } from "../sidebar/TagBubble";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
@@ -18,8 +18,6 @@ import { PROJECT_ACCENT_OPTIONS } from "../../lib/constants/colors";
 import { Swatches, TAG_SWATCHES } from "../shared/Swatches";
 import { resolveAccentColor } from "../../lib/utils/color-resolver";
 
-const GROUP = "rounded-2xl border border-twilight-border bg-twilight-surface/40";
-const SECTION_LABEL = "text-[12px] font-semibold uppercase tracking-[0.12em] text-twilight-text-muted";
 const INPUT = "min-h-12 w-full min-w-0 flex-1 rounded-2xl border border-twilight-border bg-white/[0.04] px-4 text-base text-twilight-text outline-none placeholder:text-twilight-text-muted/80 focus:border-accent-primary/40";
 
 type View = "menu" | "project" | "tag";
@@ -30,6 +28,18 @@ function CreateForm({ onSubmit, disabled, label, children }: { onSubmit: () => v
             {children}
             <Button type="submit" variant="primary" size="md" disabled={disabled} className="min-h-12 w-full">{label}</Button>
         </form>
+    );
+}
+
+function SectionHeading({ label, onAdd, addLabel }: { label: string; onAdd: () => void; addLabel: string }) {
+    return (
+        <div className="flex items-center justify-between gap-2 pr-1">
+            <h3 className={NAV_GROUP_LABEL}>{label}</h3>
+            <Button variant="ghost" size="icon" onClick={onAdd} aria-label={addLabel}
+                className="rounded-full text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text">
+                <Plus size={18} aria-hidden="true" />
+            </Button>
+        </div>
     );
 }
 
@@ -96,64 +106,49 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
             <motion.div key={view} initial={{ opacity: 0, x: reduceMotion ? 0 : view === "menu" ? -40 : 40 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }} className="space-y-5">
             {view !== "menu" ? forms[view] : <>
-            <nav aria-label="Task views" className={GROUP}>
-                <NavigationRow to="/" icon={LayoutDashboard} onClick={close}>Capture · {captureCount}</NavigationRow>
-                <NavigationRow to="/today" icon={LayoutDashboard} onClick={close}>Today</NavigationRow>
-                <NavigationRow to="/upcoming" icon={CalendarRange} onClick={close}>Upcoming</NavigationRow>
+            <nav aria-label="Task views" className={NAV_GROUP}>
+                <NavigationRow to="/" icon={Inbox} tone="var(--accent-nav-capture, var(--accent-primary))" detail={<PlainNavCount count={captureCount} />} onClick={close}>Capture</NavigationRow>
+                <NavigationRow to="/today" icon={Sunrise} tone="var(--accent-nav-today, var(--accent-primary))" onClick={close}>Today</NavigationRow>
+                <NavigationRow to="/upcoming" icon={CalendarRange} tone="var(--accent-nav-upcoming, var(--accent-primary))" onClick={close}>Upcoming</NavigationRow>
             </nav>
 
-            <section aria-label="Lists" className={`${GROUP} px-3 py-3`}>
-                <div className="mb-1 flex items-center justify-between gap-2 px-1">
-                    <h3 className={SECTION_LABEL}>Lists</h3>
-                    <Button variant="ghost" size="icon" onClick={() => openForm("project")} aria-label="Create list"
-                        className="rounded-2xl text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text">
-                        <Plus size={16} aria-hidden="true" />
-                    </Button>
-                </div>
+            <section className="space-y-1.5">
+                <SectionHeading label="Lists" onAdd={() => openForm("project")} addLabel="Create list" />
                 {projectsLoading ? (
-                    <div className="flex flex-col gap-3 px-1 py-2" aria-label="Loading lists">
+                    <div className={`${NAV_GROUP} flex flex-col gap-3 px-4 py-4`} aria-label="Loading lists">
                         <Skeleton className="h-4 w-3/4 rounded-xl" />
                         <Skeleton className="h-4 w-1/2 rounded-xl" />
                     </div>
                 ) : !projects || projects.length === 0 ? (
-                    <p className="px-1 py-2 text-[13px] leading-relaxed text-twilight-text-muted/90">
+                    <p className="px-4 text-[13px] leading-relaxed text-twilight-text-soft/90">
                         No lists yet. Create one to organize your tasks.
                     </p>
                 ) : (
-                    <div className="flex flex-col gap-0.5" onClick={close}>
+                    <nav aria-label="Lists" className={NAV_GROUP}>
                         {projects.map((project) => (
-                            <ProjectLink
+                            <NavigationRow
                                 key={project.id}
-                                id={project.id}
-                                label={project.name}
-                                emoji={project.emoji}
-                                color={resolveAccentColor(project.colorAccent)}
-                                href={`/project/${project.id}`}
-                            />
+                                to={`/project/${project.id}`}
+                                onClick={close}
+                                leading={project.emoji
+                                    ? <span className="text-[17px] leading-none">{project.emoji}</span>
+                                    : <span className="size-2.5 rounded-full" style={{ backgroundColor: resolveAccentColor(project.colorAccent) }} />}
+                            >
+                                {project.name}
+                            </NavigationRow>
                         ))}
-                    </div>
+                    </nav>
                 )}
             </section>
 
-            <section aria-label="Tags" className={`${GROUP} px-3 py-3`}>
-                <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                    <h3 className={SECTION_LABEL}>Tags</h3>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openForm("tag")}
-                        aria-label="Create tag"
-                        className="rounded-2xl text-twilight-text-muted hover:bg-white/[0.04] hover:text-twilight-text"
-                    >
-                        <Plus size={16} aria-hidden="true" />
-                    </Button>
-                </div>
+            <section aria-label="Tags" className="space-y-1.5">
+                <SectionHeading label="Tags" onAdd={() => openForm("tag")} addLabel="Create tag" />
                 {tags.length === 0 ? (
-                    <p className="px-1 pb-1 text-[13px] leading-relaxed text-twilight-text-muted/90">
+                    <p className="px-4 text-[13px] leading-relaxed text-twilight-text-soft/90">
                         No tags yet. Each tag gets a page of its tasks.
                     </p>
                 ) : (
-                    <div className="flex min-w-0 flex-wrap gap-2 px-1">
+                    <div className={`${NAV_GROUP} flex min-w-0 flex-wrap gap-2 p-3`}>
                         {tags.map((tag) => (
                             <TagBubble
                                 key={tag.id}

@@ -73,6 +73,90 @@ function FieldEditorModal({
     );
 }
 
+// Neon Auth runs email verification in OTP mode, so authClient.changeEmail's link flow
+// silently sends nothing for verified users (every OAuth user). Use the OTP change flow.
+function EmailChangeModal({ currentEmail, onChanged }: { currentEmail: string; onChanged: () => Promise<unknown> }) {
+    const [open, setOpen] = useState(false);
+    const [newEmail, setNewEmail] = useState("");
+    const [otp, setOtp] = useState("");
+    const [codeSent, setCodeSent] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const sendCode = async () => {
+        setLoading(true);
+        const { error } = await authClient.emailOtp.requestEmailChange({ newEmail });
+        setLoading(false);
+        if (error) return toast.error(error.message || "Failed to send code");
+        setCodeSent(true);
+        toast.success(`Code sent to ${newEmail}`);
+    };
+
+    const confirm = async () => {
+        setLoading(true);
+        const { error } = await authClient.emailOtp.changeEmail({ newEmail, otp });
+        setLoading(false);
+        if (error) return toast.error(error.message || "Invalid code");
+        toast.success("Email updated");
+        setOpen(false);
+        await onChanged();
+    };
+
+    return (
+        <Dialog.Dialog
+            open={open}
+            onOpenChange={(isOpen) => {
+                setOpen(isOpen);
+                if (isOpen) { setNewEmail(""); setOtp(""); setCodeSent(false); }
+            }}
+        >
+            <Dialog.DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="min-h-11 min-w-11 opacity-100 transition-opacity">Edit</Button>
+            </Dialog.DialogTrigger>
+            <Dialog.DialogContent>
+                <Dialog.DialogHeader>
+                    <Dialog.DialogTitle>Change Email</Dialog.DialogTitle>
+                </Dialog.DialogHeader>
+                <div className="py-4 flex flex-col gap-3">
+                    <Input
+                        type="email"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        placeholder="new@example.com"
+                        disabled={codeSent}
+                        autoFocus
+                    />
+                    {codeSent && (
+                        <Input
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value.trim())}
+                            placeholder="Code from your new inbox"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            autoFocus
+                        />
+                    )}
+                </div>
+                <Dialog.DialogFooter>
+                    <Button variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
+                    {codeSent ? (
+                        <Button variant="primary" onClick={confirm} disabled={loading || !otp}>
+                            {loading ? "Verifying..." : "Confirm"}
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="primary"
+                            onClick={sendCode}
+                            disabled={loading || !newEmail || newEmail.toLowerCase() === currentEmail.toLowerCase()}
+                        >
+                            {loading ? "Sending..." : "Send Code"}
+                        </Button>
+                    )}
+                </Dialog.DialogFooter>
+            </Dialog.DialogContent>
+        </Dialog.Dialog>
+    );
+}
+
 function BirthdayEditorModal({
     initialValue,
     onSave,
@@ -570,15 +654,6 @@ export function AccountTab() {
         }
     };
 
-    const handleUpdateEmail = async (val: string) => {
-        const { error } = await authClient.changeEmail({ newEmail: val });
-        if (error) {
-            toast.error(error.message || "Failed to update email");
-        } else {
-            toast.success("Check your new email to verify the address change");
-        }
-    };
-
     const handleUpdateSettings = async (field: "pronouns" | "birthday", value: string | null) => {
         updateSettings.mutate({ profile: { ...profileSettings, [field]: value } });
     };
@@ -673,13 +748,7 @@ export function AccountTab() {
                                     {!authReady ? "..." : (user?.email || "No email provided")}
                                 </p>
                             </div>
-                            <FieldEditorModal
-                                title="Change Email"
-                                initialValue={user?.email || ""}
-                                onSave={async (val) => await handleUpdateEmail(val)}
-                                placeholder="new@example.com"
-                                type="email"
-                            />
+                            <EmailChangeModal currentEmail={user?.email || ""} onChanged={refetchSession} />
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>

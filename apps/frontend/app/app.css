@@ -152,7 +152,7 @@
   --duration-normal: 200ms;
   --duration-smooth: 300ms;
   --duration-expressive: 450ms;
-  --cadence-page-padding-y: 0.5rem;
+  --cadence-page-padding-y: 0.75rem;
   --cadence-page-padding-y-desktop: 0.75rem;
   --cadence-planner-gap: 1rem;
   --z-shell-base: 10;
@@ -2552,6 +2552,13 @@ a:active {
 .mobile-icon-button:active { background: var(--color-twilight-surface); }
 .utility-sheet-content button, .utility-sheet-content a, .mobile-tab-bar a { cursor: pointer; }
 .mobile-page-scroll { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+/* While typing, the keyboard covers the home indicator: a sheet drops its
+   safe-area pad so its composer sits flush on the keyboard. */
+@media (pointer: coarse) {
+  .mobile-sheet-shell:has(:is(textarea, [contenteditable="true"], input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="date"], [type="time"], [type="datetime-local"], [type="button"], [type="submit"])):focus) {
+    padding-bottom: 0;
+  }
+}
 /* The floating dock leaves a visible gap to the screen's bottom edge. */
 .mobile-tab-bar.safe-bottom { padding-bottom: max(0.875rem, env(safe-area-inset-bottom)); }
 body:has(.compact-navigation-shell) .mobile-floating-action {

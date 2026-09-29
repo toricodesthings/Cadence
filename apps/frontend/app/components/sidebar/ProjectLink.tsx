@@ -194,7 +194,7 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                     <DropdownMenu.Trigger asChild>
                         <button
                             aria-label={`Open actions for list ${label}`}
-                            className="btn-icon -my-2 -mr-2 shrink-0 text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
+                            className="btn-icon -my-2 -mr-2 shrink-0 text-twilight-text-muted opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 touch-reveal hover:bg-white/[0.05] hover:text-twilight-text focus-visible:opacity-100"
                             onClick={(e) => e.preventDefault()}
                         >
                             <MoreHorizontal size={13} aria-hidden="true" />

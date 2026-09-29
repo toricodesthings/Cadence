@@ -1254,12 +1254,8 @@ export function AssistantSidePanel({
             {/* Composer */}
             <form
                 onSubmit={handleSubmit}
-                className="shrink-0 px-3 pt-2"
-                style={{
-                    paddingBottom: isMobile
-                        ? "max(0.75rem, env(safe-area-inset-bottom))"
-                        : "0.75rem",
-                }}
+                // The mobile sheet shell already pads for the home indicator.
+                className="shrink-0 px-3 pb-3 pt-2"
             >
                 {/* Offline / input-cap notice (design §8.4 / §9.4) */}
                 <AnimatePresence>

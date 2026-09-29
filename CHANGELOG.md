@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+- On phones, the workspace menu, Browse and Settings share one calmer list style with matching icons.
+- Board column tabs on phones are one compact switcher, with room above them on every page.
+
+### Fixed
+- Changing your email in Settings now works: we send a code to the new address, and you enter it to confirm.
+- The assistant on phones no longer leaves a gap under the message box, most of all while typing.
+- Lists in the phone workspace menu no longer hide an invisible, tappable ⋯ button.
+- Tapping outside the phone + menu closes it, and Trash, Completed and Weekly Reset no longer show it.
+- Phone pages start with even spacing under the header, and Events no longer repeats its title.
+
 ## [0.23.1] - 2026-09-28
 
 ### Changed

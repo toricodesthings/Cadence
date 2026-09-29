@@ -49,6 +49,7 @@ export default function CompletedView() {
     return (
         <MainLayout
             requireAuth
+            hideContextualOrb
             sidePanel={sidePanel}
             sidePanelActive={Boolean(selectedTaskId)}
             onCloseSidePanel={() => setSelectedTaskId(null)}
