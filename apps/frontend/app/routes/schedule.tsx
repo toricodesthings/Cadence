@@ -1046,7 +1046,7 @@ export default function Schedule() {
                 {showRow("Holidays", holidayOverlay.enabled, (val) => holidayOverlay.setEnabled(val), holidayOverlay.enabled ? (
                     <button
                         type="button"
-                        className="btn-icon rounded-lg text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                        className="btn-icon glass-inset rounded-lg text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
                         onClick={(e) => { e.preventDefault(); navigate("?settings=location"); }}
                         aria-label="Configure holiday location"
                     >
@@ -1056,7 +1056,7 @@ export default function Schedule() {
                 {showRow("Events", personalEvents.enabled, (val) => personalEvents.setEnabled(val), personalEvents.enabled ? (
                     <button
                         type="button"
-                        className="btn-icon rounded-lg text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                        className="btn-icon glass-inset rounded-lg text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
                         onClick={(e) => { e.preventDefault(); handleManageEvents(); }}
                         aria-label="Manage events"
                     >

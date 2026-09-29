@@ -251,7 +251,7 @@ export function SectionedTaskList({
                                     <button
                                         type="button"
                                         onClick={() => onManageSections(section.id)}
-                                        className="mobile-icon-button"
+                                        className="mobile-icon-button glass-inset"
                                         aria-label={`Edit section ${section.name}`}
                                     >
                                         <MoreHorizontal size={18} aria-hidden="true" />
