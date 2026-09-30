@@ -22,7 +22,7 @@ React 19 · React Router v7 (SPA mode) · Cloudflare Workers + Wrangler assets �
 
 ## 4. Routes (`app/routes.ts`)
 
-`/` (Capture — thoughts and tasks with no day), `/today`, `/schedule`, `/events`, `/upcoming`, `/completed`, `/trash`, `/project/:projectId`, `/tag/:tagId`, `/routines` (`/habits` redirects), `/weekly-review`, `/auth/:pathname`, `/desktop/quick-capture` (desktop-only capture window), plus `/browse`, `/changelog`, `/privacy-policy`, `/terms`, `/help-feedback`. Primary routes call `useRouteFocus()` to restore keyboard focus on navigation.
+`/` (Capture — thoughts and tasks with no day), `/today`, `/schedule`, `/events`, `/upcoming`, `/completed`, `/trash`, `/project/:projectId`, `/tag/:tagId`, `/routines` (`/habits` redirects), `/weekly-review`, `/auth/:pathname`, `/desktop/quick-capture` (desktop-only capture window), plus `/browse`, `/changelog`, `/help-feedback`. The privacy policy and terms live on the landing site (`CADENCE_PRIVACY_URL` / `CADENCE_TERMS_URL` in `lib/constants/app-info.ts`): in-app links use `components/shared/ExternalLink.tsx` (system browser on desktop), and the old `/privacy-policy` and `/terms` routes redirect there. Primary routes call `useRouteFocus()` to restore keyboard focus on navigation.
 
 ## 5. Source Layout
 

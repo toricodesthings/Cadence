@@ -1,12 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ArrowUpRight, ChevronDown, CircleCheck, Code2, Download, Globe, Heart, LifeBuoy, Monitor, RefreshCw, ScrollText, Smartphone, Tag } from "lucide-react";
+import { ArrowUpRight, ChevronDown, CircleCheck, Code2, Download, FileText, Globe, Heart, LifeBuoy, Monitor, RefreshCw, ScrollText, ShieldCheck, Smartphone, Tag } from "lucide-react";
 import { isToday } from "date-fns";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { Button } from "../../primitives/Button";
+import { ExternalLink } from "../../shared/ExternalLink";
 import { UpdateDialog } from "../../desktop/UpdateDialog";
 import { SettingsSection } from "../layout/SettingsLayout";
-import { CADENCE_PUBLIC_VERSION, CADENCE_REPOSITORY_URL } from "../../../lib/constants/app-info";
+import { CADENCE_PRIVACY_URL, CADENCE_PUBLIC_VERSION, CADENCE_REPOSITORY_URL, CADENCE_TERMS_URL } from "../../../lib/constants/app-info";
 import { formatShortDateTime, formatTime } from "../../../lib/utils/date-format";
 import { checkForAppUpdate, IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 import { publishAvailableDesktopUpdate, useAvailableDesktopUpdate, useLastUpdateCheck } from "../../../platform/desktop-update-state";
@@ -160,6 +161,21 @@ export function AboutTab() {
                             <LifeBuoy size={20} className="text-accent-primary" aria-hidden="true" />
                             Help & Feedback
                         </Link>
+                    </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Button asChild variant="card" size="card">
+                        <ExternalLink href={CADENCE_PRIVACY_URL}>
+                            <ShieldCheck size={20} className="text-accent-primary" aria-hidden="true" />
+                            <span className="inline-flex items-center gap-1">Privacy Policy <ArrowUpRight size={13} aria-hidden="true" /></span>
+                        </ExternalLink>
+                    </Button>
+                    <Button asChild variant="card" size="card">
+                        <ExternalLink href={CADENCE_TERMS_URL}>
+                            <FileText size={20} className="text-accent-primary" aria-hidden="true" />
+                            <span className="inline-flex items-center gap-1">Terms of Service <ArrowUpRight size={13} aria-hidden="true" /></span>
+                        </ExternalLink>
                     </Button>
                 </div>
             </SettingsSection>

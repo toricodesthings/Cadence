@@ -151,6 +151,14 @@ pnpm db:studio   # Open Drizzle Studio
 
 ---
 
+## License
+
+Cadence is licensed under the [GNU Affero General Public License v3.0](./LICENSE). You can read, run, and modify it freely, including hosting your own instance. If you run a modified version as a network service, the AGPL requires you to offer your users its source.
+
+The license covers the code only. The Cadence name and logo are not licensed for reuse: rename a fork before you host it. The hosted instance at cadenceapp.cloud is governed by its own [Terms](https://cadenceapp.cloud/terms) and [Privacy Policy](https://cadenceapp.cloud/privacy); a self-hosted instance answers for its own.
+
+---
+
 ## Stack
 
 | Layer | Technology |

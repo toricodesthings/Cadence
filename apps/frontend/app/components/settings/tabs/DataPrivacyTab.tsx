@@ -6,6 +6,7 @@ import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { toast } from "sonner";
+import { DeleteAccountDialog } from "../DeleteAccountDialog";
 
 export function DataPrivacyTab() {
     const { data: settings } = useSettings();
@@ -123,12 +124,12 @@ export function DataPrivacyTab() {
                     </AlertDialog.Root>
                 </SettingsRow>
 
-                <div className="rounded-[1.4rem] border border-white/[0.04] bg-white/[0.015] p-4">
-                    <h4 className="text-base font-medium text-twilight-text mb-1">Account deletion</h4>
-                    <p className="text-sm leading-relaxed text-twilight-text-soft">
-                        To permanently delete your account and all associated data, please contact support. This action is irreversible and will be processed manually.
-                    </p>
-                </div>
+                <SettingsRow
+                    title="Delete account"
+                    description="Permanently erase your account and everything in it. This cannot be undone."
+                >
+                    <DeleteAccountDialog />
+                </SettingsRow>
             </SettingsSection>
         </div>
     );

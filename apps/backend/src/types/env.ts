@@ -33,6 +33,15 @@ export interface Env {
     /** Private R2 bucket for photo backgrounds and chat images. When absent, their upload routes answer 503. */
     USER_ASSETS?: R2Bucket;
 
+    // ── Account deletion ──
+    // Neon Auth has no self-service delete, so the backend removes the identity through the Neon API.
+    // All three are needed; without them POST /account/delete answers 503 and nothing is deleted.
+    /** Neon API key allowed to delete auth users on the project below (a project-scoped key is best). */
+    NEON_API_KEY?: string;
+    NEON_PROJECT_ID?: string;
+    /** The branch that holds Neon Auth (the production branch). */
+    NEON_BRANCH_ID?: string;
+
     // ── MCP (outside assistants) ──
     /** OAuth provider storage (clients, grants, token hashes). When absent, MCP answers 503. */
     OAUTH_KV?: KVNamespace;

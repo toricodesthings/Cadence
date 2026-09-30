@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Check, Loader2, Lock, Sparkles, Trash2, Upload, Pipette } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "react-router";
+import { ExternalLink } from "../../shared/ExternalLink";
+import { CADENCE_PRIVACY_URL } from "../../../lib/constants/app-info";
 import type { BackgroundImage } from "@cadence/contracts/settings";
 import { cn } from "../../../lib/utils";
 import * as AlertDialog from "../../primitives/AlertDialog";
@@ -69,9 +70,9 @@ export function PhotoBackgroundPanel({
             <span>
                 Kept in private storage and shown only to you. Location and camera details are stripped before it
                 leaves this device.{" "}
-                <Link to="/privacy-policy" className="underline underline-offset-2 hover:text-twilight-text-soft">
+                <ExternalLink href={CADENCE_PRIVACY_URL} className="underline underline-offset-2 hover:text-twilight-text-soft">
                     How Cadence handles it
-                </Link>
+                </ExternalLink>
                 .
             </span>
         </p>

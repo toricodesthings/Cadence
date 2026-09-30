@@ -14,6 +14,7 @@
 @import "./components/hero/hero.css";
 @import "./components/journey/journey.css";
 @import "./components/cloud-pass.css";
+@import "./components/legal/legal.css";
 
 @source "./**/*.{ts,tsx}";
 

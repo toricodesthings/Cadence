@@ -301,6 +301,21 @@ export async function liveConnectionIds(env: Env, userId: string): Promise<Set<s
 
 // ── Delete ──────────────────────────────────────────────────────────────────
 
+/** Account deletion: drops every grant this person has given, so no assistant's tokens can refresh (best effort, like `revokeConnection`). */
+export async function revokeAllGrants(env: Env, userId: string): Promise<void> {
+    if (!env.OAUTH_KV) return;
+    try {
+        const oauth = oauthApi(env);
+        const { items } = await oauth.listUserGrants(userId, { limit: 1000 });
+        await Promise.all(items.map((grant) => oauth.revokeGrant(grant.id, userId)));
+    } catch (error) {
+        logger.warn("mcp", "grant_revoke_failed", {
+            userHash: await hashIdentifier(userId),
+            code: error instanceof Error ? error.name : "UnknownError",
+        });
+    }
+}
+
 /**
  * Disconnect. The row is what every MCP call checks, so this holds at once; the
  * KV grant is removed too so its tokens stop refreshing (best effort: KV is

@@ -1,0 +1,697 @@
+/*
+ * The legal pages (components/legal/LegalPage.tsx): the landing's night, made for reading. A masthead under
+ * twinkling stars, a lit "In short" panel (the journey's .panel frame), then one section per clause, each in
+ * the next season's palette through [data-season] (app.css). Motion follows the page's rules: entrances gate
+ * on `var(--hero-still, …)` so reduced motion lands on the base rule, loops end in `var(--hero-loop, running)`,
+ * and everything animated is transform or opacity only. Scroll-bound motion needs animation-timeline; without
+ * it the page simply reads still.
+ */
+
+.legal {
+  /* [data-season] re-tints the accent against this, as it does under .hero and .journey */
+  --hero-light: var(--accent-primary);
+  --legal-ink: var(--color-twilight-text-soft);
+}
+
+/* ── Reading progress: a hairline of lantern light drawn along the top edge as the page scrolls ── */
+.legal-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  height: 2px;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+@supports (animation-timeline: scroll()) {
+  .legal-progress {
+    animation: var(--hero-still, legal-progress linear both);
+    animation-timeline: scroll(root block);
+  }
+}
+
+/* ── Masthead ── */
+.legal-masthead {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  padding: clamp(3rem, 9vw, 6.5rem) 1.5rem clamp(3.5rem, 8vw, 5.5rem);
+  text-align: center;
+}
+
+/* The ground it stands on dissolves into the page rather than ending in an edge */
+.legal-masthead::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 40%;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, var(--color-twilight-void));
+}
+
+.legal-masthead-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 44rem;
+  margin-inline: auto;
+}
+
+/* Two sets of stars twinkling out of phase: each layer only ever changes opacity */
+.legal-stars {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.legal-stars-a {
+  background-image:
+    radial-gradient(circle at 8% 22%, #fff 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 17% 64%, var(--hero-star-warm) 0 1.5px, transparent 2.6px),
+    radial-gradient(circle at 26% 12%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 34% 48%, var(--hero-star-cool) 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 47% 18%, #fff 0 1.5px, transparent 2.6px),
+    radial-gradient(circle at 58% 70%, var(--hero-star-warm) 0 1.2px, transparent 2.2px),
+    radial-gradient(circle at 69% 10%, #fff 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 78% 52%, var(--hero-star-cool) 0 1.5px, transparent 2.6px),
+    radial-gradient(circle at 88% 26%, #fff 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 94% 74%, var(--hero-star-warm) 0 1px, transparent 2px);
+  animation: var(--hero-still, legal-twinkle 5.2s var(--ease-sine) infinite alternate both var(--hero-loop, running));
+}
+
+.legal-stars-b {
+  background-image:
+    radial-gradient(circle at 4% 48%, var(--hero-star-cool) 0 1px, transparent 2px),
+    radial-gradient(circle at 13% 86%, #fff 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 22% 34%, var(--hero-star-warm) 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 31% 76%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 42% 6%, var(--hero-star-cool) 0 1.5px, transparent 2.6px),
+    radial-gradient(circle at 53% 40%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 64% 84%, var(--hero-star-cool) 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 73% 30%, var(--hero-star-warm) 0 1.4px, transparent 2.4px),
+    radial-gradient(circle at 84% 8%, #fff 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 96% 46%, var(--hero-star-warm) 0 1.2px, transparent 2.2px);
+  animation: var(--hero-still, legal-twinkle 7.4s var(--ease-sine) -2.6s infinite alternate both var(--hero-loop, running));
+}
+
+/* The moon's glow, low behind the title: painted once, then only breathing in opacity */
+.legal-moon {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: -1;
+  width: min(56rem, 140%);
+  height: 26rem;
+  translate: -50% -38%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--hero-moon-halo) 26%, transparent), transparent);
+  animation: var(--hero-still, legal-breath 9s var(--ease-sine) infinite alternate both var(--hero-loop, running));
+}
+
+/* The staggered arrival of the masthead's lines */
+.legal-in {
+  animation: var(--hero-still, legal-rise calc(800ms * var(--hero-dur-scale)) var(--ease-out-expo) calc(var(--i) * 110ms * var(--hero-dur-scale)) both);
+}
+
+.legal-eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+  color: var(--hero-crest);
+}
+
+.legal-title {
+  margin-top: 0.9rem;
+  font-size: clamp(2.5rem, 6.4vw, 4.5rem);
+  font-weight: 500;
+  line-height: 1.03;
+  text-wrap: balance;
+  color: var(--color-twilight-text);
+  text-shadow: var(--hero-text-glow);
+}
+
+.legal-crest {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(15rem, 60%);
+  margin-top: 1.5rem;
+  color: var(--hero-crest);
+}
+
+.legal-crest span {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, var(--hero-crest-line));
+}
+
+.legal-crest span:last-child {
+  background: linear-gradient(270deg, transparent, var(--hero-crest-line));
+}
+
+.legal-crest svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.legal-lede {
+  max-width: 34rem;
+  margin-top: 1.4rem;
+  font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
+  line-height: 1.6;
+  text-wrap: pretty;
+  color: var(--color-twilight-text-soft);
+}
+
+.legal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.6rem;
+}
+
+.legal-meta span {
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--color-twilight-border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--color-twilight-text-soft);
+  background: color-mix(in srgb, var(--color-twilight-surface) 45%, transparent);
+}
+
+/* ── Layout: contents beside the text on wide screens, folded above it on narrow ones ── */
+.legal-layout {
+  display: grid;
+  gap: 2rem;
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: 0 1.5rem 5rem;
+}
+
+@media (min-width: 1024px) {
+  .legal-layout {
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 4rem;
+  }
+}
+
+.legal-toc {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .legal-toc {
+    display: block;
+    position: sticky;
+    top: 1.5rem;
+    align-self: start;
+    max-height: calc(100dvh - 3rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    padding-block: 0.25rem;
+  }
+
+  .legal-toc-mobile {
+    display: none;
+  }
+}
+
+.legal-toc-title,
+.legal-toc-mobile summary {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--hero-crest);
+}
+
+.legal-toc-list {
+  margin-top: 0.75rem;
+  border-left: 1px solid var(--color-twilight-border);
+}
+
+.legal-toc-link {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  margin-left: -1px;
+  padding: 0.55rem 0.5rem 0.55rem 1rem;
+  border-left: 1px solid transparent;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--color-twilight-text-soft);
+  transition:
+    color var(--duration-normal) var(--ease-out-quart),
+    border-color var(--duration-normal) var(--ease-out-quart),
+    background-color var(--duration-normal) var(--ease-out-quart);
+}
+
+.legal-toc-num {
+  flex: none;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--color-twilight-text-muted);
+  transition: color var(--duration-normal) var(--ease-out-quart);
+}
+
+.legal-toc-link:hover {
+  color: var(--color-twilight-text);
+  border-left-color: var(--accent-primary);
+  background: linear-gradient(90deg, var(--accent-primary-soft), transparent);
+}
+
+.legal-toc-link:hover .legal-toc-num {
+  color: var(--accent-primary);
+}
+
+.legal-toc-mobile {
+  border: 1px solid var(--color-twilight-border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--color-twilight-surface) 50%, transparent);
+}
+
+.legal-toc-mobile summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3rem;
+  padding: 0 1.1rem;
+  list-style: none;
+  border-radius: 1rem;
+}
+
+.legal-toc-mobile summary::-webkit-details-marker {
+  display: none;
+}
+
+.legal-toc-mobile summary::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.25rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  rotate: 45deg;
+  transition: rotate var(--duration-smooth) var(--ease-out-expo);
+}
+
+.legal-toc-mobile[open] summary::after {
+  rotate: 225deg;
+}
+
+.legal-toc-mobile .legal-toc-list {
+  margin: 0 0.5rem 0.75rem;
+}
+
+/* ── In short: the journey's lit-glass frame, holding the gist ── */
+.legal-doc {
+  min-width: 0;
+}
+
+.legal-panel {
+  position: relative;
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent-primary) 10%, transparent), transparent 70%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-twilight-surface) 90%, transparent),
+      color-mix(in srgb, var(--color-twilight-deep) 95%, transparent)
+    );
+  box-shadow:
+    0 40px 80px -40px color-mix(in srgb, var(--color-twilight-void) 90%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-twilight-text) 10%, transparent);
+}
+
+.legal-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-primary) 45%, var(--color-twilight-text)),
+    color-mix(in srgb, var(--accent-primary) 28%, transparent) 40%,
+    var(--color-twilight-border) 80%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.legal-panel-title {
+  margin-bottom: 1.1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--hero-crest);
+}
+
+.legal-panel li {
+  align-items: flex-start;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+}
+
+.legal-panel .glint-star {
+  margin-top: 0.4rem;
+}
+
+.legal-panel-note {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-twilight-border);
+  font-size: 0.8125rem;
+  color: var(--color-twilight-text-soft);
+}
+
+@supports (animation-timeline: view()) {
+  .legal-panel {
+    animation: var(--hero-still, legal-rise linear both);
+    animation-timeline: view();
+    animation-range: entry 0% entry 60%;
+  }
+}
+
+/* ── Sections ── */
+.legal-section {
+  position: relative;
+  margin-top: clamp(2.75rem, 6vw, 4.25rem);
+  padding-top: clamp(2.75rem, 6vw, 4.25rem);
+  scroll-margin-top: 1.5rem;
+}
+
+/* The rule between clauses: a hairline in the section's season, with its star where the rule begins */
+.legal-section::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-primary) 70%, transparent), var(--color-twilight-border) 55%, transparent);
+  transform-origin: 0 50%;
+}
+
+.legal-section::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0.8rem;
+  aspect-ratio: 1;
+  translate: 0 -50%;
+  clip-path: polygon(50% 0, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%);
+  background: radial-gradient(circle closest-side, white 0 14%, var(--accent-primary) 55%, transparent);
+}
+
+.legal-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.legal-section-head h2 {
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  font-weight: 500;
+  line-height: 1.15;
+  text-wrap: balance;
+  color: var(--color-twilight-text);
+}
+
+/* The number is the season's light: lit in the section's accent with a soft halo */
+.legal-num {
+  flex: none;
+  font-size: clamp(1.1rem, 2vw, 1.4rem);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--accent-primary);
+  text-shadow: 0 0 1.25rem var(--accent-glow), 0 0 0.3rem var(--accent-glow);
+}
+
+.legal-body {
+  max-width: 44rem;
+  margin-top: 1.4rem;
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: var(--legal-ink);
+}
+
+.legal-body > * + * {
+  margin-top: 1.1rem;
+}
+
+.legal-body p {
+  text-wrap: pretty;
+}
+
+.legal-body strong {
+  font-weight: 600;
+  color: var(--color-twilight-text);
+}
+
+.legal-body code {
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--color-twilight-border);
+  border-radius: 0.4rem;
+  font-size: 0.875em;
+  color: var(--color-twilight-text);
+  background: color-mix(in srgb, var(--color-twilight-surface) 60%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.legal-body a {
+  overflow-wrap: anywhere;
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color var(--duration-normal) var(--ease-out-quart);
+}
+
+.legal-body a:hover {
+  text-decoration-color: var(--accent-primary);
+}
+
+.legal-sub {
+  margin-top: 1.9rem !important;
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--color-twilight-text);
+}
+
+.legal-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.legal-list li {
+  position: relative;
+  padding-left: 1.6rem;
+}
+
+.legal-list li::before {
+  content: "";
+  position: absolute;
+  left: 0.15rem;
+  top: 0.68em;
+  width: 0.4rem;
+  height: 0.4rem;
+  rotate: 45deg;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ── Tables: real tables wide, stacked cards on phones ── */
+.legal-table-wrap {
+  max-width: none;
+  overflow-x: auto;
+  border: 1px solid var(--color-twilight-border);
+  border-radius: 1.1rem;
+  background: color-mix(in srgb, var(--color-twilight-surface-muted) 70%, transparent);
+}
+
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.legal-table th {
+  padding: 0.85rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  border-bottom: 1px solid var(--color-twilight-border);
+}
+
+.legal-table td {
+  padding: 0.85rem 1rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-twilight-border);
+}
+
+.legal-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.legal-table td:first-child {
+  font-weight: 500;
+  color: var(--color-twilight-text);
+}
+
+@media (max-width: 720px) {
+  /* The stacked cells carry their own labels (data-label), so the header row is not needed */
+  .legal-table thead {
+    display: none;
+  }
+
+  .legal-table,
+  .legal-table tbody,
+  .legal-table tr,
+  .legal-table td {
+    display: block;
+  }
+
+  .legal-table tr {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--color-twilight-border);
+  }
+
+  .legal-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .legal-table td {
+    padding: 0.4rem 1rem;
+    border: 0;
+  }
+
+  .legal-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-twilight-text-muted);
+  }
+
+  .legal-table td:first-child::before {
+    display: none;
+  }
+}
+
+/* ── Gaps: what is missing, said plainly, in the moonlit tint (cool where the season is warm) ── */
+.legal-gap {
+  position: relative;
+  padding: 1.1rem 1.25rem 1.2rem 1.4rem;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 28%, transparent);
+  border-radius: 1.1rem;
+  font-size: 1rem;
+  line-height: 1.65;
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent-secondary) 10%, transparent), transparent 65%),
+    color-mix(in srgb, var(--color-twilight-surface-muted) 70%, transparent);
+}
+
+.legal-gap::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 1rem;
+  bottom: 1rem;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, transparent, var(--accent-secondary), transparent);
+}
+
+.legal-gap-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-secondary);
+}
+
+.legal-gap .glint-star {
+  background: radial-gradient(circle closest-side, white 0 14%, var(--accent-secondary) 55%, transparent);
+}
+
+/* ── Sections arrive on scroll; the progress bar, panel and sections share one rise ── */
+@supports (animation-timeline: view()) {
+  .legal-section-head,
+  .legal-body > * {
+    animation: var(--hero-still, legal-rise linear both);
+    animation-timeline: view();
+    animation-range: entry 0% entry 45%;
+  }
+
+  .legal-section::before {
+    animation: var(--hero-still, legal-draw linear both);
+    animation-timeline: view();
+    animation-range: entry 0% entry 70%;
+  }
+}
+
+.legal-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: clamp(3rem, 7vw, 5rem);
+  padding-top: 2rem;
+  border-top: 1px solid var(--color-twilight-border);
+}
+
+@keyframes legal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+@keyframes legal-draw {
+  from { transform: scaleX(0); }
+}
+
+@keyframes legal-progress {
+  to { transform: scaleX(1); }
+}
+
+@keyframes legal-twinkle {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+@keyframes legal-breath {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}

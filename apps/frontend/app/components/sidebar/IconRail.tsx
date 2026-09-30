@@ -36,6 +36,8 @@ import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useSignOut } from "../../hooks/auth/use-sign-out";
 import { useAssistantStore } from "../../stores/assistant-store";
+import { CADENCE_PRIVACY_URL, CADENCE_TERMS_URL } from "../../lib/constants/app-info";
+import { openExternalUrl } from "../../platform/runtime";
 
 /** Nav item accent color definitions — per-concept wayfinding shades */
 const NAV_LINKS = [
@@ -95,12 +97,14 @@ const PROFILE_SUPPORT_LINKS: Array<{
     label: string;
     icon: typeof Info;
     to?: string;
+    /** Leaves the app: opens in the browser (the legal pages live on the landing site). */
+    href?: string;
     settingsTab?: "about";
 }> = [
     { settingsTab: "about", icon: Info, label: "About" },
     { to: "/changelog", icon: History, label: "Changelog" },
-    { to: "/privacy-policy", icon: ShieldCheck, label: "Privacy & Policy" },
-    { to: "/terms", icon: FileText, label: "Terms & Conditions" },
+    { href: CADENCE_PRIVACY_URL, icon: ShieldCheck, label: "Privacy Policy" },
+    { href: CADENCE_TERMS_URL, icon: FileText, label: "Terms of Service" },
     { to: "/help-feedback", icon: LifeBuoy, label: "Help & Feedback" },
 ];
 
@@ -621,11 +625,14 @@ export function IconRail({
                                 <Settings size={16} className="text-twilight-text-muted" aria-hidden="true" />
                                 <span>Preferences</span>
                             </DropdownMenu.Item>
-                            {PROFILE_SUPPORT_LINKS.map(({ to, settingsTab, icon: Icon, label }) => (
+                            {PROFILE_SUPPORT_LINKS.map(({ to, href, settingsTab, icon: Icon, label }) => (
                                 <DropdownMenu.Item
-                                    key={to ?? settingsTab}
+                                    key={to ?? href ?? settingsTab}
                                     className="flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors"
-                                    onSelect={() => navigate(settingsTab ? `?settings=${settingsTab}` : to!)}
+                                    onSelect={() => {
+                                        if (href) void openExternalUrl(href);
+                                        else navigate(settingsTab ? `?settings=${settingsTab}` : to!);
+                                    }}
                                 >
                                     <Icon size={16} className="text-twilight-text-muted" aria-hidden="true" />
                                     <span>{label}</span>

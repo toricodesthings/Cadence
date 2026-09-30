@@ -89,6 +89,22 @@ jobs:
             fi
           fi
 
+      # This version's CHANGELOG.md section becomes the GitHub release body and the
+      # update notes in latest.json. "### " is stripped: the app shows it as plain text.
+      - name: Read release notes from CHANGELOG.md
+        shell: bash
+        run: |
+          {
+            echo "RELEASE_NOTES<<CADENCE_RELEASE_NOTES_END"
+            tr -d '\r' < CHANGELOG.md | awk -v heading="## [${RELEASE_TAG#v}]" '
+              index($0, heading) == 1 { found = 1; next }
+              found && /^## / { exit }
+              !found { next }
+              $0 == "" { blank = printed; next }
+              { if (blank) print ""; blank = 0; printed = 1; sub(/^### /, ""); print }'
+            echo "CADENCE_RELEASE_NOTES_END"
+          } >> "$GITHUB_ENV"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
 
@@ -194,6 +210,7 @@ jobs:
           releaseName: Cadence Desktop ${{ env.RELEASE_TAG }}
           releaseDraft: ${{ env.RELEASE_DRAFT }}
           prerelease: ${{ env.RELEASE_PRERELEASE }}
+          releaseBody: ${{ env.RELEASE_NOTES }}
           releaseCommitish: ${{ github.sha }}
           includeUpdaterJson: true
           updaterJsonPreferNsis: true

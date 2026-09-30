@@ -64,6 +64,9 @@ export const ERROR_CODES = [
     "IMAGE_TOO_LARGE",
     "UNSUPPORTED_IMAGE",
     "STORAGE_UNAVAILABLE",
+    // Account
+    "ACCOUNT_DELETION_UNAVAILABLE",
+    "REAUTH_FAILED",
     // Assistant
     "AI_RATE_LIMITED",
     "AI_IMAGE_LIMITED",

@@ -3,11 +3,11 @@ import {
   CHANGELOG_URL,
   FOOTER,
   ISSUES_URL,
-  PRIVACY_URL,
+  PRIVACY_PATH,
   REPO_URL,
   SIGN_IN_URL,
   SITE_NAME,
-  TERMS_URL,
+  TERMS_PATH,
 } from "~/lib/site";
 
 /*
@@ -35,8 +35,8 @@ const GROUPS = [
   {
     title: "The fine print",
     links: [
-      { label: "Privacy", href: PRIVACY_URL },
-      { label: "Terms", href: TERMS_URL },
+      { label: "Privacy Policy", href: PRIVACY_PATH },
+      { label: "Terms of Service", href: TERMS_PATH },
     ],
   },
 ];

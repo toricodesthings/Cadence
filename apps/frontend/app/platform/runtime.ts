@@ -124,6 +124,11 @@ export async function beginSocialLink(provider: SocialProvider, callbackURL?: st
     return (await loadPlatformRuntime()).beginSocialLink(provider, callbackURL);
 }
 
+/** Opens a URL in the system browser (desktop) or a new tab (web). */
+export async function openExternalUrl(url: string): Promise<void> {
+    return (await loadPlatformRuntime()).openExternalUrl(url);
+}
+
 export async function platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     return (await loadPlatformRuntime()).platformFetch(input, init);
 }

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router";
+import { ExternalLink } from "../../shared/ExternalLink";
+import { CADENCE_PRIVACY_URL } from "../../../lib/constants/app-info";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Compass, EyeOff, LocateFixed, MapPin, Search, SlidersHorizontal, type LucideIcon } from "lucide-react";
@@ -137,9 +138,9 @@ export function LocationTab() {
                         A precise position stays cached on this device for up to 7 days and is cleared when you sign out.
                     </p>
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Link to="/privacy-policy" className="text-accent-primary hover:underline">
+                        <ExternalLink href={CADENCE_PRIVACY_URL} className="text-accent-primary hover:underline">
                             Privacy policy
-                        </Link>
+                        </ExternalLink>
                         <Button type="button" variant="secondary" size="sm" onClick={handleForget}>
                             Forget saved location
                         </Button>

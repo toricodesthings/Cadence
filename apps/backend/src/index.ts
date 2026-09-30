@@ -24,6 +24,7 @@ import { noteRoutes } from "./domains/notes/notes.route";
 import { aiRoutes } from "./domains/ai/ai.route";
 import { aiImageRoutes } from "./domains/ai/images/images.route";
 import { connectionRoutes } from "./domains/mcp/connections.route";
+import { accountRoutes } from "./domains/account/account.route";
 import { appOrigin, isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
@@ -183,7 +184,8 @@ const apiApp = app
   .route("/api/v1/debug", debugRoutes)
   .route("/api/v1/ai/images", aiImageRoutes)
   .route("/api/v1/ai", aiRoutes)
-  .route("/api/v1/connections", connectionRoutes);
+  .route("/api/v1/connections", connectionRoutes)
+  .route("/api/v1/account", accountRoutes);
 
 // ── Type export for Hono RPC ──
 export type AppType = typeof apiApp;

@@ -5,9 +5,10 @@ import { MainLayout } from "../components/layout/MainLayout";
 import { PageContent } from "../components/layout/PageLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { Button } from "../components/primitives/Button";
+import { ExternalLink } from "../components/shared/ExternalLink";
 import { SupportFactGrid, SupportPageLayout, SupportSection } from "../components/support/SupportPageLayout";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import { CADENCE_ISSUES_URL, CADENCE_PUBLIC_VERSION } from "../lib/constants/app-info";
+import { CADENCE_ISSUES_URL, CADENCE_PRIVACY_URL, CADENCE_PUBLIC_VERSION, CADENCE_TERMS_URL } from "../lib/constants/app-info";
 
 export default function HelpFeedbackRoute() {
     useRouteFocus();
@@ -68,7 +69,7 @@ export default function HelpFeedbackRoute() {
                                 {
                                     label: "Policy links",
                                     value: "In-app",
-                                    detail: "About, Changelog, Privacy, and Terms are all reachable from the profile menu.",
+                                    detail: "About, Changelog, Privacy, and Terms are all reachable from the profile menu; the last two open in your browser.",
                                 },
                             ]}
                         />
@@ -144,29 +145,33 @@ export default function HelpFeedbackRoute() {
                                         body: "A short product note with version, logo, and open-source posture.",
                                     },
                                     {
-                                        to: "/privacy-policy",
-                                        title: "Privacy & Policy",
+                                        href: CADENCE_PRIVACY_URL,
+                                        title: "Privacy Policy",
                                         body: "What Cadence stores, what stays local, and how optional permissions are used.",
                                     },
                                     {
-                                        to: "/terms",
-                                        title: "Terms & Conditions",
+                                        href: CADENCE_TERMS_URL,
+                                        title: "Terms of Service",
                                         body: "Beta-use terms, ownership, acceptable use, and service disclaimers.",
                                     },
-                                ].map((item) => (
-                                    <Link
-                                        key={item.to}
-                                        to={item.to}
-                                        className="rounded-[1.35rem] border border-white/[0.06] bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.05]"
-                                    >
-                                        <h3 className="font-display text-lg font-semibold tracking-tight text-twilight-text">
-                                            {item.title}
-                                        </h3>
-                                        <p className="mt-2 text-sm leading-6 text-twilight-text-soft">
-                                            {item.body}
-                                        </p>
-                                    </Link>
-                                ))}
+                                ].map((item) => {
+                                    const className = "rounded-[1.35rem] border border-white/[0.06] bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.05]";
+                                    const content = (
+                                        <>
+                                            <h3 className="font-display text-lg font-semibold tracking-tight text-twilight-text">
+                                                {item.title}
+                                            </h3>
+                                            <p className="mt-2 text-sm leading-6 text-twilight-text-soft">
+                                                {item.body}
+                                            </p>
+                                        </>
+                                    );
+                                    return item.href ? (
+                                        <ExternalLink key={item.title} href={item.href} className={className}>{content}</ExternalLink>
+                                    ) : (
+                                        <Link key={item.title} to={item.to!} className={className}>{content}</Link>
+                                    );
+                                })}
                             </div>
                         </SupportSection>
                     </SupportPageLayout>

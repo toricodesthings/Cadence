@@ -3,8 +3,9 @@ export const SITE_URL = "https://cadenceapp.cloud";
 export const APP_URL = "https://dashboard.cadenceapp.cloud";
 export const SIGN_IN_URL = `${APP_URL}/auth/sign-in`;
 export const SIGN_UP_URL = `${APP_URL}/auth/sign-up`;
-export const PRIVACY_URL = `${APP_URL}/privacy-policy`;
-export const TERMS_URL = `${APP_URL}/terms`;
+/** The legal pages live on this site; the app and its About tab link here. */
+export const PRIVACY_PATH = "/privacy";
+export const TERMS_PATH = "/terms";
 export const CHANGELOG_URL = `${APP_URL}/changelog`;
 export const REPO_URL = "https://github.com/toricodesthings/Cadence";
 export const ISSUES_URL = `${REPO_URL}/issues`;

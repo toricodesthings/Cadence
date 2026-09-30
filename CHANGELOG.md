@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- You can delete your account yourself in Settings > Data & Export by typing a confirmation; it cannot be undone.
+
+### Changed
+
+- Cadence is now licensed under the AGPL-3.0.
+- Privacy Policy and Terms of Service were rewritten and moved to cadenceapp.cloud, linked from the footer and About.
+- Privacy Policy and Terms of Service open in your browser from the profile menu, About, and Help & Feedback.
+
 ## [0.25.4] - 2026-09-30
 
 ### Changed
