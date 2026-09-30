@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-09-30
+
 ### Changed
 
 - On desktop, layout scale now runs from 75% to 150% in thirteen steps, picked from the header or Appearance.
