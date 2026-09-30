@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-09-30
+
 Pick the loading screen's scene, and the assistant is faster and cheaper to run.
 
 ### Added
