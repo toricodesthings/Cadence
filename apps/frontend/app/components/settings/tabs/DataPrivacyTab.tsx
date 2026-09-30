@@ -7,6 +7,8 @@ import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { toast } from "sonner";
 import { checkForAppUpdate, IS_DESKTOP_RUNTIME, type AvailableAppUpdate } from "../../../platform/runtime";
+import { useAvailableDesktopUpdate } from "../../../platform/desktop-update-state";
+import { log } from "../../../lib/log";
 
 export function DataPrivacyTab() {
     const { data: settings } = useSettings();
@@ -14,7 +16,8 @@ export function DataPrivacyTab() {
     const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
     const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
     const [isInstallingUpdate, setIsInstallingUpdate] = useState(false);
-    const [availableUpdate, setAvailableUpdate] = useState<AvailableAppUpdate | null>(null);
+    // An update found at startup opens its dialog straight away (the header chip lands here).
+    const [availableUpdate, setAvailableUpdate] = useState<AvailableAppUpdate | null>(useAvailableDesktopUpdate());
 
     const privacy = settings?.privacy ?? SETTINGS_DEFAULTS.privacy;
 
@@ -52,7 +55,8 @@ export function DataPrivacyTab() {
 
         try {
             await availableUpdate.install();
-        } catch {
+        } catch (error) {
+            log.error("desktop-update", "Couldn't install the update.", error);
             toast.error("Cadence could not install the downloaded update.");
         } finally {
             setIsInstallingUpdate(false);

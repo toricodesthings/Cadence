@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- On desktop, the header's Update button now opens the install dialog instead of only opening Settings.
+- On desktop, signing in with Google or GitHub no longer fails the first time with an "already used" error.
+
 ## [0.25.1] - 2026-09-30
 
 ### Changed

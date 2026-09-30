@@ -127,7 +127,9 @@ async function stopOauthServer() {
 function publishOauthCallback(rawUrl: string) {
     try {
     const callbackUrl = new URL(rawUrl);
-    latestOauthCallback = callbackUrl;
+    // Kept only while nobody is listening; a delivered callback must not be
+    // replayed when the app remounts for the signed-in account.
+    latestOauthCallback = oauthSubscribers.size === 0 ? callbackUrl : null;
 
     void stopOauthServer();
 
