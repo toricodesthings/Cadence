@@ -1,5 +1,5 @@
 # Cadence Desktop — Rust lint + a debug build per OS. The smoke suite builds the
-# debug binary itself, so Linux/Windows build via e2e; macOS (no WebDriver) just builds.
+# debug binary itself, so Linux/Windows build via e2e. macOS is not a target yet.
 # Frontend-only changes don't trigger this; run it by hand (workflow_dispatch) when needed.
 
 name: Cadence Desktop
@@ -41,7 +41,6 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-latest
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -74,7 +73,6 @@ jobs:
         run: pnpm --filter @cadence/desktop typecheck
 
       - name: Install tauri-driver
-        if: runner.os != 'macOS'
         run: cargo install tauri-driver --locked
 
       # The runner's stock msedgedriver tracks Edge, not WebView2; a mismatch fails with
@@ -94,7 +92,3 @@ jobs:
       - name: Build + smoke test
         if: runner.os == 'Windows'
         run: pnpm --filter @cadence/desktop e2e:smoke
-
-      - name: Build
-        if: runner.os == 'macOS'
-        run: pnpm --filter @cadence/desktop build:debug

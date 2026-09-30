@@ -1,32 +1,24 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Cadence Desktop Release
 #
-# Builds and publishes signed, production desktop installers for all platforms
-# whenever a release tag `v*` is pushed (`pnpm release` creates it), or on
-# manual dispatch. The version comes from the root package.json at that tag.
-#
-# Trigger examples
-#   pnpm release
-#   GitHub Actions → "Run workflow" dispatch (see inputs below)
+# Builds the desktop installers and publishes them, with the updater manifest
+# (latest.json), as a GitHub Release whenever a `v*` tag is pushed
+# (`pnpm release` creates it), or on manual dispatch. The version comes from the
+# root package.json at that tag. Installed apps update from
+# releases/latest/download/latest.json, so tag pushes publish immediately
+# (not as drafts); tags with a `-` (v1.0.0-beta.1) become pre-releases, which
+# the updater ignores.
 #
 # Platform matrix
-#   Linux   — ubuntu-22.04   (AppImage + deb)
-#   Windows — windows-latest (NSIS + MSI)
-#   macOS   — macos-14       (Apple Silicon, .dmg + .app)
-#   macOS   — macos-14       (Intel, cross-compiled .dmg + .app)
+#   Windows — windows-latest (NSIS installer)
+#   Linux and macOS are not built yet.
 #
-# Required secrets
-#   TAURI_SIGNING_PRIVATE_KEY        — Tauri updater private key
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD (optional)
-#   WINDOWS_CERTIFICATE              — Base64-encoded PFX for code-signing
-#   WINDOWS_CERTIFICATE_PASSWORD
-#   WINDOWS_CERTIFICATE_THUMBPRINT
-#   APPLE_CERTIFICATE                — Base64-encoded p12/cert for notarization
-#   APPLE_CERTIFICATE_PASSWORD
-#   APPLE_API_KEY                    — App Store Connect API key ID
-#   APPLE_API_ISSUER                 — App Store Connect issuer UUID
-#   APPLE_API_PRIVATE_KEY            — App Store Connect API private key (.p8)
-#   APPLE_SIGNING_IDENTITY
+# Secrets
+#   TAURI_SIGNING_PRIVATE_KEY          — updater private key (required)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD — its password, if it has one
+#   WINDOWS_CERTIFICATE                — optional: base64 PFX for Authenticode;
+#   WINDOWS_CERTIFICATE_PASSWORD         without it the installer is unsigned
+#   WINDOWS_CERTIFICATE_THUMBPRINT       (SmartScreen warns on first install)
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: Cadence Desktop Release
@@ -72,18 +64,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
-            target: aarch64-apple-darwin
-            cache_key: macos-arm64
-          - runner: macos-14
-            target: x86_64-apple-darwin
-            cache_key: macos-x86_64
           - runner: windows-latest
             target: ""
             cache_key: windows
-          - runner: ubuntu-22.04
-            target: ""
-            cache_key: linux
 
     steps:
       - name: Checkout
@@ -98,7 +81,7 @@ jobs:
             echo "RELEASE_PRERELEASE=${{ inputs.prerelease }}" >> "$GITHUB_ENV"
           else
             echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-            echo "RELEASE_DRAFT=true"             >> "$GITHUB_ENV"
+            echo "RELEASE_DRAFT=false"            >> "$GITHUB_ENV"
             if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
               echo "RELEASE_PRERELEASE=true"  >> "$GITHUB_ENV"
             else
@@ -146,39 +129,26 @@ jobs:
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
         run: |
-          missing=()
-          [ -n "${TAURI_SIGNING_PRIVATE_KEY}" ] || missing+=("TAURI_SIGNING_PRIVATE_KEY")
-
-          if [ "${RUNNER_OS}" = "Windows" ]; then
-            [ -n "${WINDOWS_CERTIFICATE}" ]             || missing+=("WINDOWS_CERTIFICATE")
-            [ -n "${WINDOWS_CERTIFICATE_PASSWORD}" ]    || missing+=("WINDOWS_CERTIFICATE_PASSWORD")
-            [ -n "${WINDOWS_CERTIFICATE_THUMBPRINT}" ]  || missing+=("WINDOWS_CERTIFICATE_THUMBPRINT")
-          fi
-
-          if [ "${RUNNER_OS}" = "macOS" ]; then
-            [ -n "${APPLE_CERTIFICATE}" ]         || missing+=("APPLE_CERTIFICATE")
-            [ -n "${APPLE_CERTIFICATE_PASSWORD}" ] || missing+=("APPLE_CERTIFICATE_PASSWORD")
-            [ -n "${APPLE_API_KEY}" ]             || missing+=("APPLE_API_KEY")
-            [ -n "${APPLE_API_ISSUER}" ]          || missing+=("APPLE_API_ISSUER")
-            [ -n "${APPLE_API_PRIVATE_KEY}" ]     || missing+=("APPLE_API_PRIVATE_KEY")
-          fi
-
-          if (( ${#missing[@]} )); then
-            printf '::error::Missing required signing secrets: %s\n' "${missing[*]}" >&2
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
+            echo "::error::Missing required secret TAURI_SIGNING_PRIVATE_KEY (updater signing key)." >&2
             exit 1
           fi
 
-      - name: Import Windows signing certificate
+      - name: Check for Windows code-signing certificate
         if: runner.os == 'Windows'
+        shell: bash
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+        run: |
+          if [ -n "${WINDOWS_CERTIFICATE}" ]; then
+            echo "WINDOWS_SIGN=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::WINDOWS_CERTIFICATE not set; the installer will be unsigned."
+          fi
+
+      - name: Import Windows signing certificate
+        if: runner.os == 'Windows' && env.WINDOWS_SIGN == 'true'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -190,7 +160,7 @@ jobs:
           Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
 
       - name: Write Windows signing configuration
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.WINDOWS_SIGN == 'true'
         shell: bash
         env:
           WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
@@ -211,29 +181,12 @@ jobs:
           }
           EOF
 
-      - name: Materialize App Store Connect API key
-        if: runner.os == 'macOS'
-        shell: bash
-        env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
-        run: |
-          key_path="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY}.p8"
-          printf '%s' "${APPLE_API_PRIVATE_KEY}" > "${key_path}"
-          echo "APPLE_API_KEY_PATH=${key_path}" >> "$GITHUB_ENV"
-
       - name: Build and publish release artifacts
         uses: tauri-apps/tauri-action@v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           projectPath: apps/desktop
           tagName: ${{ env.RELEASE_TAG }}
