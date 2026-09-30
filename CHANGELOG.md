@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.6] - 2026-09-30
+
 ### Added
 
 - Email my data in Settings > Data & Export sends you a JSON copy of everything in your account.
