@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.4] - 2026-09-30
+
 ### Changed
 
 - The desktop "Sign-in complete" browser page now matches the sign-in card, with the logo and a soft entrance animation.
