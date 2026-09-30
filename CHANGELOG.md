@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-09-30
+
 ### Fixed
 
 - On desktop, the header's Update button now opens the install dialog instead of only opening Settings.
