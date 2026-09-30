@@ -1,6 +1,6 @@
 [package]
 name = "cadence-desktop"
-version = "0.25.4"
+version = "0.25.5"
 description = "Cadence desktop shell"
 authors = ["Cadence"]
 license = "AGPL-3.0-only"
