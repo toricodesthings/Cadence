@@ -6,7 +6,8 @@ import { MobileHeaderActions, MobileTabBar } from "./MobileNavigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router";
 import * as Tooltip from "../primitives/Tooltip";
-import { Download, Menu, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus, RefreshCw, WifiOff } from "lucide-react";
+import * as DropdownMenu from "../primitives/DropdownMenu";
+import { Download, Menu, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, Plus } from "lucide-react";
 import { useSidebarStore } from "../../stores/sidebar-store";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useRightPanelStore, type RailView } from "../../stores/right-panel-store";
@@ -19,7 +20,6 @@ import { DeferredMount } from "../shared/DeferredMount";
 import type { CSSProperties } from "react";
 import { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useOfflineWindow } from "../../hooks/core/use-offline-window";
-import { useOnlineStatus } from "../../hooks/core/use-online-status";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDocumentMeta } from "../../hooks/core/use-document-meta";
@@ -38,10 +38,9 @@ import { CompactPageControls } from "../shared/CompactPageControls";
 import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "./PageHeader";
 import { ContextualAddOrb } from "../shared/ContextualAddOrb";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
-import { useMutationOutbox } from "../../lib/api/mutation-outbox";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
-import { useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
+import { DESKTOP_LAYOUT_SCALE_DEFAULT, DESKTOP_LAYOUT_SCALES, useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
 import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { setDiagnosticsEnabled } from "../../lib/api/track-event";
@@ -123,76 +122,67 @@ interface ShellHeaderConfig {
     accentColor?: string;
 }
 
-function DesktopHeaderStatus({
-    onOpenPrivacySettings,
-    onOpenSyncInspector,
-}: {
-    onOpenPrivacySettings: () => void;
-    onOpenSyncInspector: () => void;
-}) {
-    const isOnline = useOnlineStatus();
-    const outbox = useMutationOutbox();
+/** Shared look of the desktop header's chips; matches the Focus trigger beside them. */
+const HEADER_CHIP = "hidden h-9 shrink-0 items-center rounded-xl border text-[13px] font-medium transition-colors lg:flex";
+const HEADER_CHIP_STEP = "flex h-full w-8 cursor-pointer items-center justify-center text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-40";
+
+function DesktopHeaderStatus({ onOpenPrivacySettings }: { onOpenPrivacySettings: () => void }) {
     const update = useAvailableDesktopUpdate();
     const { layoutScale, setLayoutScale, stepLayoutScale } = useDesktopLayoutScale();
 
-    const syncLabel = !isOnline
-        ? outbox.pending > 0
-            ? `${outbox.pending} queued`
-            : "Offline"
-        : outbox.replaying > 0
-            ? `Syncing ${outbox.replaying}`
-            : outbox.failed.length > 0
-                ? `${outbox.failed.length} failed`
-                : outbox.pending > 0
-                    ? `${outbox.pending} pending`
-                    : "Up to date";
-
     return (
-        <div className="flex items-center gap-1.5">
-            <button
-                type="button"
-                onClick={onOpenSyncInspector}
-                className="hidden h-7 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 text-[11px] font-medium tracking-[0.12em] text-twilight-text-soft transition-colors hover:bg-white/[0.06] lg:flex"
-            >
-                {!isOnline ? <WifiOff size={12} aria-hidden="true" /> : <RefreshCw size={12} aria-hidden="true" className={outbox.replaying > 0 ? "sync-spin" : ""} />}
-                <span className="uppercase">{syncLabel}</span>
-            </button>
-
+        <div className="flex items-center gap-2">
             {update ? (
                 <button
                     type="button"
                     onClick={onOpenPrivacySettings}
-                    className="hidden h-7 items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 text-[11px] font-medium tracking-[0.12em] text-accent-primary transition-colors hover:bg-accent-primary/16 lg:flex"
+                    className={`${HEADER_CHIP} cursor-pointer gap-1.5 border-accent-primary/25 bg-accent-primary/15 px-3 text-accent-primary hover:bg-accent-primary/20`}
                 >
-                    <Download size={12} aria-hidden="true" />
-                    <span className="uppercase">Update {update.version}</span>
+                    <Download size={14} aria-hidden="true" />
+                    Update {update.version}
                 </button>
             ) : null}
 
-            <div className="hidden h-7 items-center rounded-full border border-white/[0.08] bg-white/[0.04] px-0.5 lg:flex">
-                <button
-                    type="button"
-                    onClick={() => void stepLayoutScale(-1)}
-                    aria-label="Decrease layout scale"
-                    className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
-                >
-                    <Minus size={12} aria-hidden="true" />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => void setLayoutScale("default")}
-                    className="h-[22px] rounded-full px-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
-                >
-                    {layoutScale}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => void stepLayoutScale(1)}
-                    aria-label="Increase layout scale"
-                    className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text"
-                >
-                    <Plus size={12} aria-hidden="true" />
-                </button>
+            <div role="group" aria-label="Layout scale" className={`${HEADER_CHIP} overflow-hidden border-twilight-border/30 bg-white/[0.03]`}>
+                <Tooltip.Tip label="Smaller" side="bottom">
+                    <button
+                        type="button"
+                        onClick={() => void stepLayoutScale(-1)}
+                        disabled={layoutScale === DESKTOP_LAYOUT_SCALES[0]}
+                        aria-label="Decrease layout scale"
+                        className={HEADER_CHIP_STEP}
+                    >
+                        <Minus size={14} aria-hidden="true" />
+                    </button>
+                </Tooltip.Tip>
+                <DropdownMenu.Root>
+                    <DropdownMenu.Trigger
+                        aria-label={`Layout scale: ${layoutScale}%`}
+                        className={`${HEADER_CHIP_STEP} w-auto min-w-12 px-1.5 tabular-nums text-twilight-text-soft`}
+                    >
+                        {layoutScale}%
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="center" sideOffset={6} className="min-w-[8.5rem]">
+                        <DropdownMenu.RadioGroup value={String(layoutScale)} onValueChange={(value) => void setLayoutScale(Number(value))}>
+                            {DESKTOP_LAYOUT_SCALES.map((scale) => (
+                                <DropdownMenu.RadioItem key={scale} value={String(scale)} className="min-h-9 tabular-nums">
+                                    {scale}%{scale === DESKTOP_LAYOUT_SCALE_DEFAULT ? " · Default" : ""}
+                                </DropdownMenu.RadioItem>
+                            ))}
+                        </DropdownMenu.RadioGroup>
+                    </DropdownMenu.Content>
+                </DropdownMenu.Root>
+                <Tooltip.Tip label="Larger" side="bottom">
+                    <button
+                        type="button"
+                        onClick={() => void stepLayoutScale(1)}
+                        disabled={layoutScale === DESKTOP_LAYOUT_SCALES[DESKTOP_LAYOUT_SCALES.length - 1]}
+                        aria-label="Increase layout scale"
+                        className={HEADER_CHIP_STEP}
+                    >
+                        <Plus size={14} aria-hidden="true" />
+                    </button>
+                </Tooltip.Tip>
             </div>
         </div>
     );
@@ -398,7 +388,7 @@ export function MainLayout({
         },
         onLayoutScaleReset: () => {
             if (IS_DESKTOP_RUNTIME) {
-                void setLayoutScale("default");
+                void setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT);
             }
         },
         onShortcutReference: () => setShortcutsRefOpen((o) => !o),
@@ -520,7 +510,7 @@ export function MainLayout({
                     void stepLayoutScale(-1);
                     break;
                 case "layout-scale-reset":
-                    void setLayoutScale("default");
+                    void setLayoutScale(DESKTOP_LAYOUT_SCALE_DEFAULT);
                     break;
             }
         }).then((dispose) => {
@@ -643,10 +633,7 @@ export function MainLayout({
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
     const desktopStatus = IS_DESKTOP_RUNTIME && shell.isDesktop
         ? (
-            <DesktopHeaderStatus
-                onOpenPrivacySettings={() => navigate("?settings=privacy")}
-                onOpenSyncInspector={() => setSyncInspectorOpen(true)}
-            />
+            <DesktopHeaderStatus onOpenPrivacySettings={() => navigate("?settings=privacy")} />
         )
         : null;
 

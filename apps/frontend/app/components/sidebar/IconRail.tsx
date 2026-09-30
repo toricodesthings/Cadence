@@ -31,7 +31,6 @@ import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { useRoutineDueCount } from "../../hooks/habits/use-routine-due-count";
 import { NotificationPreview } from "../notifications/NotificationPreview";
-import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 import { useAdminCapabilities } from "../../hooks/auth/use-admin-capabilities";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
@@ -391,7 +390,7 @@ export function IconRail({
                 </button>
             </Tip>
 
-            {!IS_DESKTOP_RUNTIME && <SyncButton />}
+            <SyncButton />
 
             <div className="flex-1" />
 

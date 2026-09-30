@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
-import { useDesktopLayoutScale } from "../../../hooks/ui/use-desktop-layout-scale";
+import { DESKTOP_LAYOUT_SCALES, useDesktopLayoutScale } from "../../../hooks/ui/use-desktop-layout-scale";
 import { IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 import { ThemeModeCard } from "../appearance/ThemeModeCard";
 import { PalettePicker } from "../appearance/PalettePicker";
@@ -237,19 +237,18 @@ export function AppearanceTab() {
                     >
                         <div className="w-full sm:max-w-[18rem]">
                             <Select
-                                value={layoutScale}
+                                value={String(layoutScale)}
                                 onValueChange={(val) => {
-                                    void setLayoutScale(val as typeof layoutScale);
+                                    void setLayoutScale(Number(val));
                                 }}
                             >
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="compact">Compact</SelectItem>
-                                    <SelectItem value="default">Default</SelectItem>
-                                    <SelectItem value="comfortable">Comfortable</SelectItem>
-                                    <SelectItem value="large">Large</SelectItem>
+                                    {DESKTOP_LAYOUT_SCALES.map((scale) => (
+                                        <SelectItem key={scale} value={String(scale)}>{scale}%</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

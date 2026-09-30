@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- On desktop, layout scale now runs from 75% to 150% in thirteen steps, picked from the header or Appearance.
+
+### Removed
+
+- On desktop, the header's "Up to date" pill is gone; sync news shows in the banner, and Sync is in the rail.
+
 ## [0.25.0] - 2026-09-30
 
 Pick the loading screen's scene, and the assistant is faster and cheaper to run.
@@ -28,79 +36,78 @@ Pick the loading screen's scene, and the assistant is faster and cheaper to run.
 Cadence keeps working without a connection and catches up when you're back.
 
 ### Added
-- Cadence opens without a connection, on phones and desktop, showing your last few weeks and the weeks ahead.
-- Changes you make offline show a small cloud mark until they sync.
-- A brief toast lets you know when you go offline and when you're back online.
-- Changes that can't sync are listed one by one, with why, and you can retry or discard each.
-- On Android, changes made offline sync even after you close the app.
-- Subtasks, notes, tags, lists, sections, Trash and Undo now work offline too.
-- When a new version of Cadence goes live, the web app shows a toast with a Reload button until you use it.
-- Signed up with Google or GitHub? Add a password in Settings with a code we email you, then sign in either way.
-- Forgot your password? Change it from Settings with a code sent to your email.
+
+- Cadence opens offline on phones and desktop, showing your last few weeks and the weeks ahead.
+- Tasks, subtasks, notes, tags, lists and Trash all work offline, and changes show a cloud mark until they sync.
+- Changes that can't sync are listed with the reason, and you can retry or discard each.
+- A toast tells you when you go offline and when you're back.
+- On Android, offline changes sync even after you close the app.
+- A toast with a Reload button appears when a new version of Cadence goes live.
+- Add or reset your password from Settings with an emailed code, including if you signed up with Google or GitHub.
 
 ### Changed
-- On phones, Routines has Schedule's header: Week/Month live under the options icon and Today floats bottom left.
-- On phones, every page header now matches Schedule's, with a three-line menu button and glass-outlined buttons.
-- On phones, every icon-only button, from sheet close buttons to the assistant, uses the same glass outline.
-- On phones, the Schedule month folds and unfolds the moment you swipe, not after the list scrolls.
+
+- On phones, every page header now matches Schedule's, and icon-only buttons share one glass outline.
+- On phones, the Schedule month folds and unfolds the moment you swipe.
 
 ### Fixed
-- On phones, the sign-in page and similar screens now sit centered instead of hugging the top.
+
 - A weak connection no longer loses a change or signs you out; the change waits and syncs.
-- A task made offline can be edited, completed or moved before it syncs.
 - Offline changes no longer sync twice or into another account after switching accounts.
-- Errors in Profile & Security, like a wrong current password, now show a message instead of getting stuck on Saving.
+- Errors in Profile & Security, like a wrong password, now show a message instead of sticking on Saving.
+- On phones, the sign-in page and similar screens sit centered instead of hugging the top.
 - Settings no longer lists your password as a connected account you can disconnect.
 
 ### Removed
+
 - The Edit button next to your email in Settings, which couldn't change your email yet.
 
 ## [0.23.2] - 2026-09-28
 
+Trash, phone menus and email changes get tidier.
+
 ### Changed
-- Empty Trash deletes everything in Trash at once, on desktop and phones, after you confirm.
-- On phones, tapping a task in Trash opens a small sheet with its full title, Restore and Delete.
-- On phones, the workspace menu, Browse and Settings share one calmer list style with matching icons.
-- Board column tabs on phones are one compact switcher, with room above them on every page.
+
+- Empty Trash deletes everything in Trash at once, after you confirm.
+- On phones, tapping a task in Trash opens a sheet with its full title, Restore and Delete.
+- On phones, the workspace menu, Browse and Settings share one calmer list style.
 
 ### Fixed
-- Changing your email in Settings now works: we send a code to the new address, and you enter it to confirm.
-- The assistant on phones no longer leaves a gap under the message box, most of all while typing.
-- Lists in the phone workspace menu no longer hide an invisible, tappable ⋯ button.
-- Tapping outside the phone + menu closes it, and Trash, Completed and Weekly Reset no longer show it.
-- Phone pages start with even spacing under the header, and Events no longer repeats its title.
+
+- Changing your email in Settings now works: enter the code we send to the new address.
+- The assistant on phones no longer leaves a gap under the message box.
+- Tapping outside the phone + menu closes it, and lists in the workspace menu no longer hide an invisible button.
 - Assistant history no longer shows the chat through it, and long titles no longer push its buttons off screen.
 
 ## [0.23.1] - 2026-09-28
 
+Clearer error messages.
+
 ### Changed
-- Error messages now say plainly what went wrong, with a Copy details button to send when you report a problem.
+
+- Errors say plainly what went wrong, with a Copy details button to send when you report a problem.
 
 ### Removed
-- The Two-Factor Authentication button in Settings, which couldn't turn 2FA on yet.
 
-### Fixed
-- Active Devices in Settings no longer shows an empty list, and you can sign out all other devices at once.
+- The Two-Factor Authentication button in Settings, which couldn't turn 2FA on yet.
 
 ## [0.23.0] - 2026-09-28
 
 Bring Cadence into your assistant.
 
 ### Added
+
 - Connect Claude, or another assistant that supports MCP, to read your Cadence or add thoughts to Capture.
 - See your connected assistants in Settings › Integrations, and disconnect any of them in one click.
-- Let a connected assistant change anything Cadence's assistant can, from tasks and captures to focus views.
-- Ask the assistant to rename, recolour or delete lists and tags, and to tag tasks by name.
-- Ask the assistant to sort many captures at once, or keep, tick off, discard, restore or delete them.
-- Ask the assistant to set a reminder, a Waiting check-in or a hide-until day, or make a task Fixed.
-- Ask the assistant to copy tasks, reorder a list or a checklist, and reorder or delete routines.
-- Ask the assistant to show, save, change or delete focus views, and to colour events or routines.
+- A connected assistant can change anything Cadence's assistant can, from tasks and captures to focus views.
+- Ask the assistant to manage lists, tags, captures, reminders, routines, focus views and event colours.
 
 ### Changed
-- The assistant finds tasks by tag, section, priority or dates, and reads long lists to the end.
-- The assistant plans busy weeks with every task in view, even on crowded days.
+
+- The assistant finds tasks by tag, section, priority or dates, and plans busy weeks with every task in view.
 
 ### Fixed
+
 - The assistant checks which days you actually missed a routine instead of guessing from streaks.
 - Deleting a list now says what really happens: its tasks stay, with no list.
 - A duplicated task keeps its section and effort.
@@ -110,24 +117,28 @@ Bring Cadence into your assistant.
 Quick commands in the assistant, a clear view of your limits, and colours for events.
 
 ### Added
-- Give an event a colour, like a routine; its card on Events takes on a soft tint of it.
-- Type / in the assistant, or tap its new / button, for quick commands: /usage, /clear, /history and /settings.
-- /usage shows your assistant limits as bars, with a countdown and the date each one resets.
-- Clear archive deletes every archived assistant conversation at once, from history or Settings.
+
+- Give an event a colour, like a routine.
+- Type / in the assistant for quick commands: /usage, /clear, /history and /settings.
+- /usage shows your assistant limits as bars, with the date each one resets.
+- Clear archive deletes every archived assistant conversation at once.
 
 ### Changed
-- Archive a conversation in one click from its row in the assistant's history.
+
+- Archive a conversation in one click from the assistant's history.
 - The assistant starts answering sooner and looks things up in fewer steps.
 
 ### Fixed
-- Your lists now update the moment the assistant changes something, not after it finishes replying.
-- Opening a task while the assistant is open now shows its details on top, and closing them brings the assistant back.
+
+- Your lists update the moment the assistant changes something, not after it finishes replying.
+- Opening a task while the assistant is open shows its details on top; closing them brings the assistant back.
 
 ## [0.21.2] - 2026-09-25
 
-The assistant can now shape your events, sections and routines, plus behind the scene improvements.
+The assistant can now shape your events, sections and routines.
 
 ### Added
+
 - The assistant can add, change and delete your events, and give them an emoji.
 - The assistant can add, rename, reorder and delete sections in a list, and sort tasks into them.
 - The assistant can create routines, and change, pause or archive them, steps and emoji included.
@@ -137,10 +148,12 @@ The assistant can now shape your events, sections and routines, plus behind the 
 Routines can have steps: tick them off one at a time, or all at once.
 
 ### Added
+
 - Give a routine a few steps, like water, stretch, journal, and it stays one routine.
 - Tick or skip a routine's steps one by one; the day counts once every step is done or skipped.
 
 ### Changed
+
 - Click an open task, capture, event or routine again to close its details.
 
 ## [0.21.0] - 2026-09-24
@@ -148,80 +161,80 @@ Routines can have steps: tick them off one at a time, or all at once.
 Routines get a proper home: check off any day, see your week at a glance, and shape them your way.
 
 ### Added
+
 - Check off any past day of a routine, from the week, the month, or its history.
 - Give each routine its own colour.
-- Routines can repeat every few days or every other week.
-- Pause a routine for 3 days, a week, two weeks, or until a date you pick.
+- Routines can repeat every few days or every other week, and be paused for a while or until a date.
 
 ### Changed
+
 - The Routines page opens on today, with one-tap check-ins and a calmer week and month.
 - On phones, tap a routine day to check it off; press and hold to skip or clear.
-- The Routines page no longer shows a "routines open today" pop-up; today's routines sit at the top instead.
-- Pages load and changes save faster, especially for people far from the US East Coast.
-- Tasks on Today, Upcoming and Lists sit a little further apart, so each one reads on its own.
-- Effort always shows as a battery and priority as rising signal bars, wherever they appear.
-- Subtasks open from a clear line showing progress and what's next, and stay open after a reload.
-- Open subtasks hang under their task as a tree that's easier to read, with Add subtask at the end.
-- Events on Today and Upcoming sit at the top of their day, in list and board, and open on the Events page.
+- Pages load and changes save faster, especially far from the US East Coast.
+- Effort always shows as a battery and priority as signal bars, wherever they appear.
+- Open subtasks hang under their task as an easier-to-read tree, and stay open after a reload.
+- Events on Today and Upcoming sit at the top of their day and open on the Events page.
 
 ### Fixed
-- The installed iPhone app fills the whole screen again, with no empty strip at the bottom or blur at the top.
-- Pausing a routine no longer hides the days you already checked this week.
-- Routine reminders no longer fire after you've checked in, or on days the routine isn't due.
-- Checking off an earlier day no longer resets your streak.
-- Skipping a routine day no longer breaks its streak; a skip is a rest, not a miss.
+
+- The installed iPhone app fills the whole screen again.
+- Skipping a routine day or checking an earlier one no longer breaks or resets its streak.
 - Routine streaks count your day in your own time zone, not UTC.
-- The Routines week no longer jumps to a different start day after loading.
-- Today, Upcoming, Lists and tags show every task instead of stopping at 50; Completed and Trash have Show older.
-- A task's tags no longer disappear for a moment after you edit or complete it.
-- Deleting a large selection of tasks no longer brings some of them back.
-- Subtasks show again in search and on large lists and boards.
-- Today, Upcoming and tag pages no longer show drag handles that did nothing.
-- Subtasks the assistant adds now show on the task right away, without reloading the page.
-- The assistant finds matching list sections in larger workspaces and shows the destination before approval.
-- Upcoming labels its later group "Next 7 Days" instead of "Next Week", since it covers the coming seven days.
-- Notifications with two buttons show them side by side under the message, without a close X on top.
+- Routine reminders no longer fire after you've checked in, or on days the routine isn't due.
+- Pausing a routine no longer hides the days you already checked this week.
+- Today, Upcoming, Lists and tags show every task instead of stopping at 50.
+- Deleting many tasks no longer brings some back, and subtasks show again in search and large lists.
+- Subtasks the assistant adds show on the task right away, without reloading.
+- Upcoming labels its later group "Next 7 Days" instead of "Next Week".
 
 ## [0.20.0] - 2026-09-24
 
 Show the assistant a photo, like a whiteboard, a syllabus or a screenshot, and it turns what it sees into tasks.
 
 ### Added
-- Send the assistant photos — it reads them and turns what it sees into tasks.
+
+- Send the assistant photos: it reads them and turns what it sees into tasks.
 - Settings → Cadence Assistant shows how many photos you've sent today.
 
 ### Changed
+
 - The subtask chip on a task turns green with a tick once every subtask is done.
 
 ### Fixed
-- Assistant errors that happen before a reply starts now say what went wrong instead of a generic line.
-- On mid-size screens, the icon rail now shows when the sidebar is hidden, so you can always get around.
-- "No day yet" tasks in Capture show and expand their subtasks just like tasks in a list, with Add subtask in ⋮.
-- A Capture row's "just now" time no longer wraps and makes its row taller.
+
+- Assistant errors that happen before a reply starts now say what went wrong.
+- On mid-size screens, the icon rail shows when the sidebar is hidden, so you can always get around.
+- "No day yet" tasks in Capture show and expand their subtasks like tasks in a list.
 
 ## [0.19.0] - 2026-09-24
 
 Hand the assistant a list and it sets everything up in one go, with one tap to approve.
 
 ### Added
-- On phones, manage sections from a Sections button beside the board chips, under the list, or a section's ⋯.
-- The assistant can add several tasks at once, with their checklists, repeats and Fixed blocks, in one card.
-- The assistant can add, tick off or remove many subtasks, or change many tasks, in one card.
+
+- The assistant can add or change many tasks and subtasks at once, in one card.
+- On phones, manage sections from a Sections button beside the board chips or a section's ⋯.
 
 ### Changed
+
 - After you approve, the assistant keeps going, so "make a list and put these in it" happens in one go.
 - Untick rows on an assistant card to leave them out; it offers the rest again.
 
 ### Fixed
+
 - A list whose sections are all empty now shows its sections instead of "No tasks in this list".
 
 ## [0.18.3] - 2026-09-23
 
+Small tag and task-detail tweaks.
+
 ### Changed
+
 - Remove a tag from a task or thought by clicking it; an × appears on hover.
 - List and Section in task details open a proper menu on desktop, and thought details match the task layout.
 
 ### Fixed
+
 - The reminder time in task details no longer gets squeezed next to its switch.
 
 ## [0.18.2] - 2026-09-23
@@ -229,158 +242,138 @@ Hand the assistant a list and it sets everything up in one go, with one tap to a
 Capture keeps up with you, and Projects are now Lists: jot it, tick it off or give it a day in one move.
 
 ### Added
+
 - Tick off anything in Capture straight away; it shows in Completed marked as a thought.
-- Sort Capture by newest, oldest or priority, and use Focus views there like on Today.
-- Paste several lines into Capture and add them as separate thoughts in one go.
-- Keep a thought as a note in Capture, so ideas don't have to become tasks.
+- Sort Capture by newest, oldest or priority, use Focus views, and switch between rows and a board.
+- Paste several lines into Capture to add them as separate thoughts.
+- Keep a thought as a note, so ideas don't have to become tasks.
 - Pick a list and tags for a thought before giving it a day.
-- Select several things in Capture and give them a day, or discard them, together.
+- Select several things in Capture and place or discard them together.
 - "Sort these with Cadence" asks the assistant to group your thoughts; you approve each suggestion.
-- Thoughts older than two weeks fold into Older, out of the way but still there.
-- Search now finds thoughts in Capture too.
-- Capture on desktop can show rows or a board, like Today and Upcoming.
+- Thoughts older than two weeks fold into Older, and search now finds thoughts too.
 - On desktop, drag a tag from the sidebar onto a Capture row to tag it.
+
 ### Changed
-- Lists show a plain task count in the sidebar, matching Capture.
-- The notification bell shows your unread count on desktop and mobile, hiding it when everything is read.
-- Routines shows how many are still due today, clearing as you complete or skip them.
-- Capture counts, Routine indicators, and notification bells share a softly highlighted badge design.
-- Capture's input is a lantern-lit field that glows when you type, with a Capture button and key hints.
-- Tags on a thought or task show right on its Capture row, no need to open it.
-- Projects are now called Lists, in the app and in the assistant; a list shows as rows or a board.
-- Capture uses Today and Upcoming's card styling, with New and No day yet groups and shared day buttons.
-- On your phone, the Capture sheet stays open after each thought so you can add several in a row.
-- "Open full task editor" is now "Make it a task": no day is set and you can undo it.
+
+- Projects are now called Lists, in the app and in the assistant.
+- Capture uses Today and Upcoming's card styling, and shows a thought's tags right on its row.
+- Capture's input is a lantern-lit field that glows when you type.
 - Capture suggests the day you typed or your lightest day, instead of always Today.
+- "Open full task editor" is now "Make it a task": no day is set and you can undo it.
+- On phones, the Capture sheet stays open after each thought so you can add several in a row.
+- The notification bell and Routines show unread and still-due counts, clearing as you go.
+
 ### Fixed
-- Notification and Routine counts use softer badge backgrounds with clearer, higher-contrast numbers.
-- Capture rows are more compact, with one suggested day, shared button typography, and clearer spacing.
-- The Capture count in the sidebar now matches what's on the page.
-- New thoughts stay at the top of Capture instead of jumping to the bottom once saved.
-- "Later" no longer puts a thought on a day it spotted in the text; it keeps it with no day.
-- Picking a detected date like "tomorrow at 3pm" now keeps the time.
-- "Before March" or "before Friday" now means the day before, and the word leaves the title with the date.
-- Keyboard shortcuts on Capture (1, 2, 3, Enter, Backspace) now work, and the hints only show on the focused row.
-- ⌘ Enter in the Capture field now adds the line straight as a task, as the hint says.
-- Esc in the Capture field no longer erases what you typed.
-- Discarding or placing a thought can now be undone from the toast.
-- Title edits in a thought's details are kept when you close them.
-- The Place panel no longer cuts off the weekend and its buttons.
-- On your phone, the Capture sheet opens with the keyboard ready.
-- The assistant no longer treats thoughts you discarded as still waiting in Capture.
-- Text on main amber buttons is dark again, so labels are readable everywhere.
-- Undo in toasts sits beside the message instead of wrapping underneath it.
-- The Place panel's title and hint are no longer hidden behind the panel switcher.
+
+- New thoughts stay at the top of Capture instead of jumping to the bottom.
+- "Later" keeps a thought with no day instead of using a date found in the text.
+- Picking a detected date like "tomorrow at 3pm" keeps the time, and "before Friday" means the day before.
+- Capture's keyboard shortcuts work, and Esc no longer erases what you typed.
+- Discarding or placing a thought can be undone from the toast.
+- The Capture count in the sidebar matches what's on the page.
+- Text on amber buttons is dark again, so labels are readable everywhere.
 
 ## [0.18.1] - 2026-09-23
 
 The assistant gets to the point, sounds like the voice you picked, and can explain any part of Cadence.
 
 ### Added
+
 - Ask the assistant how anything in Cadence works or where it lives, and it explains and links you there.
 - A new Full approval mode lets the assistant apply every change, permanent deletes included, without asking.
 
 ### Changed
-- The assistant's four voices (Secretary, Coach, Minimalist, Companion) now each sound clearly different.
-- The assistant talks more like a friend: short, relaxed replies unless you ask for more.
-- The assistant no longer asks in chat before showing a suggestion card.
-- Asking the assistant to delete a task now moves it to Trash unless you say permanently.
+
+- The assistant's four voices now sound clearly different, and it talks like a friend: short, relaxed replies.
+- Asking the assistant to delete a task moves it to Trash unless you say permanently.
 
 ### Fixed
+
 - Auto mode now waits for your tap before permanently deleting anything.
 
 ## [0.18.0] - 2026-09-23
 
+The assistant shows its work and can edit subtasks and tags.
+
 ### Added
-- Tap the assistant's "Looked a few things up" chip to see exactly which lookups it ran and with what.
-- The assistant can add, edit, tick off or delete subtasks, and add, remove or swap tags, after you confirm.
-- Assistant task cards mark tags being added (+) or removed (−), each in the tag's own colour.
-- In Week and Day view, whatever the current-time line is passing through glows with a shimmering border.
+
+- Tap the assistant's "Looked a few things up" chip to see which lookups it ran.
+- The assistant can edit subtasks and tags after you confirm, with tag changes marked + or − on its cards.
+- In Week and Day view, whatever the current-time line passes through glows with a shimmering border.
 
 ### Fixed
-- Assistant suggestion cards no longer squeeze to a narrow box when they arrive without a reply above them.
-- Correcting the assistant right after it adds something ("wait, 6pm") now updates that item instead of adding a copy.
-- The assistant now knows Urgent is a priority level above High, instead of treating High as the ceiling.
-- The assistant can now see and set a task's effort level (Low/Medium/High); it had no access to it before.
-- Saying a task is "hard" or "very easy" now sets its effort level, shown as a chip on the suggestion card.
-- A task suggestion or update now shows its priority as a small colored icon by the title, matching the task list.
-- The assistant no longer treats fixed blocks like classes as overdue tasks, and sees each repeat on its own day.
-- Tasks timed for late evening now show on Today instead of going missing when that time is past midnight UTC.
-- The time dropdown in create and edit dialogs scrolls again instead of staying stuck on the first few times.
-- Setting a block's end to its start time (4pm–4pm) now moves the end an hour later instead of making it 24 hours.
-- Typing a time on desktop and pressing Enter now keeps what you typed instead of snapping back or resetting to 0:00.
+
+- Correcting the assistant right after it adds something ("wait, 6pm") updates that item instead of adding a copy.
+- The assistant knows Urgent is above High, and can see and set a task's effort level.
+- The assistant no longer treats fixed blocks like classes as overdue, and sees each repeat on its own day.
+- Tasks timed for late evening show on Today instead of going missing past midnight UTC.
+- The time dropdown in create and edit dialogs scrolls again.
+- Setting a block's end equal to its start moves the end an hour later, not 24 hours.
+- Typing a time on desktop and pressing Enter keeps what you typed.
 
 ## [0.17.0] - 2026-09-23
 
 Tags are now a real place to visit on your phone.
 
 ### Added
-- On your phone, each tag has its own page of tasks, where you can add, rename, recolour or delete it.
+
+- On phones, each tag has its own page where you can add, rename, recolour or delete it.
 - Add Cadence to your iPhone or iPad Home Screen from Safari for a full-screen app with its own icon.
-- On your phone, add, rename and delete a project's sections from one Sections sheet.
-- The assistant has an Auto mode that applies its suggested changes without asking; Ask first stays the default.
-- You can add images to an assistant message (preview only for now; they aren't sent yet).
-- On your phone, press and hold an assistant message to copy, edit or regenerate it.
+- On phones, manage a project's sections from one Sections sheet.
+- The assistant has an Auto mode that applies suggested changes without asking; Ask first stays the default.
+- On phones, press and hold an assistant message to copy, edit or regenerate it.
 
 ### Changed
-- On your phone, tags are picked from a thumb-sized sheet where you can also make new ones.
-- On your phone, projects look like Today, and the add button opens the Schedule-style composer for that section.
-- On your phone, the add button on Events adds an event directly; the button at the top is gone.
-- On your phone, adding an event opens the same draggable sheet as Schedule, with your phone's own date picker.
-- Date and time fields now match everywhere: your device's own pickers on touch, one calendar and time list otherwise.
-- Quick Add now uses the shared composer: a sheet on phones, drafts kept per tab, and a prompt before discarding.
-- Creation and notification dialogs now show an icon beside their title and a faint accent-colour glow.
-- The assistant has a fresh look: its own sigil icon, softer replies, a roomier composer and a jump-to-latest button.
-- The assistant's lookups now show in the order they happened, above the reply they led to.
+
+- On phones, tags are picked from a thumb-sized sheet, and projects look like Today.
+- Date and time fields match everywhere: your device's pickers on touch, one calendar and time list otherwise.
+- Quick Add uses the shared composer: a sheet on phones, with drafts kept per tab.
+- The assistant has a fresh look: its own sigil icon, softer replies and a jump-to-latest button.
 
 ### Fixed
-- On your phone, tapping a tag no longer sends you back to Capture.
-- Cadence no longer gets stuck loading when the assistant's last conversation was deleted; it starts a new one.
-- After a reload, the assistant shows its latest replies instead of an older saved copy of the conversation.
-- The assistant's task-update suggestions now name the task instead of saying “this task”.
-- Section and control tabs in a narrow window now scroll with a mouse wheel or drag.
-- Tasks in a deleted section move to Unsectioned right away instead of disappearing until a refresh.
-- Reminders now show as notifications in the Home Screen app on iPhone and iPad.
+
+- Cadence no longer gets stuck loading when the assistant's last conversation was deleted.
+- Reminders show as notifications in the Home Screen app on iPhone and iPad.
 - Headers and the dock stay clear of the notch, status bar and home indicator.
-- Assistant message buttons no longer overlap the lookup chip or crowd the next message.
-- Assistant read receipts now show read only once it actually starts on your message, not the moment you send.
+- Tasks in a deleted section move to Unsectioned right away instead of vanishing until a refresh.
+- After a reload, the assistant shows its latest replies, and read receipts show only once it starts on your message.
+- On phones, tapping a tag no longer sends you back to Capture.
 
 ## [0.16.0] - 2026-09-22
 
 Schedule on your phone opens on your day, keeps the month out of the way, and puts everything within reach.
 
 ### Added
-- Swipe a task on your phone's Schedule to finish it, or to move it to tomorrow or another day, with Undo.
+
+- Swipe a task on your phone's Schedule to finish it or move it to another day, with Undo.
 - Free time between plans shows as space you can tap to fill.
-- "Lighten today" moves the rest of today's tasks to tomorrow or clears their dates in one step, with Undo.
-- Ready tasks from Holding can be placed on the day you're viewing, straight from Schedule.
+- "Lighten today" moves the rest of today's tasks to tomorrow or clears their dates, with Undo.
+- Place ready tasks from Holding on the day you're viewing, straight from Schedule.
 - A "Show fixed blocks" switch, alongside the ones for tasks and routines.
 
 ### Changed
-- On phones, Month folds into your week as you scroll, so the day's plans get the whole screen.
-- On phones, Day view names the day and shows your week above it; the separate Week view is gone.
+
+- On phones, Month folds into your week as you scroll, and Day view shows your week above it; Week view is gone.
 - On phones, Day, Month and Year zoom into each other: tap the label above the title to zoom out.
-- Fixed blocks, routines and tasks each look like what they are on your phone's Schedule.
 - Adding to Schedule on a phone starts with one line; "lunch with Sam fri 1pm" fills in the day and time.
-- Year view on phones opens on the current month; tap a month to open it.
 
 ### Fixed
+
 - Days with only routines no longer show as open in Month view on phones.
-- Past times no longer fade on days that haven't happened yet.
 - Undo right after a change no longer fails with "Task changed elsewhere".
-- Opening a routine from Schedule on a phone or tablet no longer leaves the page.
-- The assistant now knows your local date and time, so "today" and "tomorrow" are right late in the evening.
-- The assistant quotes task times in your time zone instead of UTC.
+- The assistant knows your local date and time, so "today" and "tomorrow" are right late in the evening.
 - Assistant suggestion cards show the right day and include the time for timed tasks.
 
 ## [0.15.1] - 2026-09-22
 
-Timezone-aware dates and task reliability
+Timezone-aware dates and task reliability.
 
 ### Changed
-- Settings now shows the time zone Cadence uses (your device's) instead of a lock option that had no effect.
+
+- Settings shows the time zone Cadence uses (your device's) instead of a lock option that had no effect.
 
 ### Fixed
+
 - Dragging tasks into a new order now saves instead of failing.
 - "Today" and quick due dates no longer land on the wrong day late in the evening or early morning.
 - Moving a timed block on the schedule keeps it on the day you dropped it in every time zone.
@@ -389,29 +382,26 @@ Timezone-aware dates and task reliability
 
 ## [0.15.0] - 2026-09-21
 
-Routines replace Habits, and Today gets a day strip
+Routines replace Habits, and Today gets a day strip.
 
 ### Added
 
-- Today opens with a day strip of timed things, like classes and shifts, showing what's on now and what's next.
-- Routines can have an emoji. Hover any routine or event emoji to change or remove it.
-- A routine can have a different time on some days, like 7:00 on Mondays and any time on Saturdays.
+- Today opens with a day strip of timed things, like classes and shifts.
+- Routines can have an emoji, and a different time on some days, like 7:00 on Mondays.
 - Repeats ask "If you miss one…": still owed (a task), let it go (a routine), or it just passes (a fixed block).
 - Repeats named like a class, shift or meeting, with a start and end time, start out as fixed blocks.
-- A Settings switch (Tasks → Routine streaks) hides routine streaks everywhere.
+- A Settings switch hides routine streaks everywhere.
 
 ### Changed
 
 - Habits are now called Routines everywhere. Old /habits links still work.
-- Today lists each routine once, with its time, and folds finished ones into "2 done".
+- Today lists each routine once and folds finished ones into "2 done"; missed routines no longer pile up.
 - "Needs attention" is now "Still open", in a calmer colour, and only shows when a task carries over.
-- Creating a routine now works like adding to the schedule, with extras folded under More options.
-- Missed routines let go instead of piling up on Today, Upcoming and in reminders.
-- The active tag filter now sits in the page header. Click it to clear.
+- Creating a routine works like adding to the schedule, with extras under More options.
 
 ### Removed
 
-- The Rhythms column on Today. Fixed blocks moved to the day strip, and routines to the Routines list.
+- The Rhythms column on Today: fixed blocks moved to the day strip, and routines to the Routines list.
 
 ### Fixed
 
@@ -420,7 +410,7 @@ Routines replace Habits, and Today gets a day strip
 
 ## [0.14.4] - 2026-09-21
 
-A new phone layout, with one-tap placing
+A new phone layout, with one-tap placing.
 
 ### Changed
 
@@ -428,19 +418,12 @@ A new phone layout, with one-tap placing
 - A workspace menu with Today, Upcoming, projects and tags opens from the left of every phone header.
 - Browse opens with a profile card and one tap through to Profile & Security.
 - Adding on a phone always uses the round button in the bottom-right, clear of the dock.
-- Search, schedule creation and routine creation open as swipe-up sheets you can flick away.
-- The Habits header on a phone now matches Schedule and Capture.
-- Toasts on phones are smaller, sit at the top of the screen and can be flicked away.
-- Sort and view controls open in a small menu instead of taking over the phone screen.
-- Upcoming uses the same task cards as Today, with routines grouped under each day.
-- A task's ⋮ menu on a phone is now Pin, Duplicate and Trash. Everything else lives in task details.
-- Task details can now change a task's project, section and reminder.
-- Adding a project or tag on a phone opens a full-size form with big colour swatches.
+- Search and creation open as swipe-up sheets you can flick away, and toasts sit at the top.
+- Upcoming uses the same task cards as Today, and a task's ⋮ menu is Pin, Duplicate and Trash.
+- Task details can change a task's project, section and reminder.
 - Place waiting captures on Today, Tomorrow or the lightest day in one tap, with Undo.
 - On desktop, Capture's side panel is now a Place panel: drag tasks onto a day this week or next.
-- Tasks that already have a date no longer sit in "Ready to place".
-- The phone calendar follows your finger as you swipe between days, weeks or months.
-- Board columns sit closer to the top, and long lists scroll again on phones.
+- The phone calendar follows your finger as you swipe, and long lists scroll again.
 
 ### Fixed
 
@@ -448,7 +431,7 @@ A new phone layout, with one-tap placing
 
 ## [0.14.3] - 2026-09-18
 
-A floating glass dock
+A floating glass dock.
 
 ### Changed
 
@@ -456,7 +439,7 @@ A floating glass dock
 
 ## [0.14.2] - 2026-09-17
 
-A proper editor for fixed time blocks
+A proper editor for fixed time blocks.
 
 ### Added
 
@@ -466,39 +449,30 @@ A proper editor for fixed time blocks
 ### Changed
 
 - Time pickers accept any typed minute, like 2:37 PM or 14:37, and use the built-in picker on phones.
-- The schedule popover's time section is a simple From/To row, so end times can change there too.
-- The Duration tab is always all-day. Times only live on Deadline.
 - "Not before" is now "Hide until", with a plain date picker.
 
 ### Fixed
 
-- Editing a task's time no longer fails with a server error on some tasks.
-- Editing the same task's time again no longer triggers a false "modified by another client" conflict.
+- Editing a task's time no longer fails or shows a false "modified by another client" conflict.
 
 ## [0.14.1] - 2026-09-16
 
-One look for headers, panels and dialogs
+One look for headers, panels and dialogs.
 
 ### Changed
 
-- Habit names and details are larger in the weekly grid, with a wider name column.
-- Schedule and Habits header buttons are full height, and the view switcher is now a dropdown.
 - Every page header shares one design, with a small label above the title.
 - Events has its own icon in the navigation rail, and its page is simpler.
-- The desktop notification preview has softer glass and a roomier empty state.
 
 ### Fixed
 
 - Panels, cards and dialogs take their colour from your background instead of grey or navy.
-- The side panel for tasks, habits, events and captures is a darker glass that follows your theme.
-- Rename and delete dialogs now match, and project rename buttons are no longer squished.
-- Dialogs use a soft, blurred glass that matches your background.
+- Dialogs and menus use a soft, blurred glass that matches your background.
 - Phone sign-in retries before giving up, and shows a recovery message instead of spinning.
-- Glass blur is back on menus, previews and other glass surfaces.
 
 ## [0.14.0] - 2026-09-16
 
-Bottom tabs on phones, and a full notification panel
+Bottom tabs on phones, and a full notification panel.
 
 ### Added
 
@@ -507,7 +481,7 @@ Bottom tabs on phones, and a full notification panel
 ### Changed
 
 - Phones and tablets get bottom tabs, with the assistant in the middle.
-- Capture on a phone has separate tabs and an Add sheet. Focus and Controls open as sheets.
+- Capture on a phone has separate tabs and an Add sheet; Focus and Controls open as sheets.
 - Settings and Notifications open as swipe-down panels, with Profile & Security inside Settings.
 
 ### Fixed
@@ -516,13 +490,12 @@ Bottom tabs on phones, and a full notification panel
 
 ## [0.13.0] - 2026-09-16
 
-One shared editor for tasks, events and habits
+One shared editor for tasks, events and habits.
 
 ### Changed
 
 - Tasks, events and habits share one editor layout that saves changes in place.
 - Capture clarification uses the shared editor, keeping its suggestions and placement tools.
-- On cadenceapp.cloud, Emilie's sigil and the "Start now" seal are drawn in the logo's colours.
 
 ### Fixed
 
@@ -531,34 +504,30 @@ One shared editor for tasks, events and habits
 - Resizing the Today and Upcoming panels no longer clips their contents or close button.
 - Recurring timetables can be moved to Trash by right-clicking a calendar block.
 - Photo backgrounds no longer flash when switching pages.
-- On cadenceapp.cloud, the constellation is one connected figure, drawn line by line as you scroll.
-- On cadenceapp.cloud, the "Start now" seal has more room and the footer glow is softer.
 
 ## [0.12.0] - 2026-09-15
 
-Photo backgrounds, and a calmer task panel
+Photo backgrounds, and a calmer task panel.
 
 ### Added
 
 - Use your own photo as the background, with preview, crop, blur and brightness.
 - Photo mode picks an accent for you, samples one from the image, or lets you choose your own.
 - Photos are stored privately, without camera or location data.
-- On cadenceapp.cloud, Get started rolls a bank of clouds across the screen on the way to sign-up.
 
 ### Changed
 
 - Task details are grouped into Status, When, Weight and Organize, each with a short summary.
 - The assistant is now called Emilie by default. If you renamed her, she keeps your name.
-- The welcome page has new words: "Built for the real you, not the perfect one."
 
 ### Fixed
 
-- Weekly Reset, calendar cards, notifications and Settings now adapt to your background colours.
+- Weekly Reset, calendar cards, notifications and Settings adapt to your background colours.
 - Task panel buttons are no longer hidden, and long titles no longer get cut off on phones.
 
 ## [0.11.1] - 2026-09-13
 
-One location setting you control
+One location setting you control.
 
 ### Added
 
@@ -569,8 +538,6 @@ One location setting you control
 
 - Weather and holidays share one location, using your approximate area by default.
 - Weather on Home can be turned off without turning off location.
-- Holidays pick your country from your time zone first.
-- Precise location finds you faster and uses less battery.
 
 ### Removed
 
@@ -584,23 +551,21 @@ One location setting you control
 
 ## [0.11.0] - 2026-09-13
 
-A moonlit loading screen
+A moonlit loading screen.
 
 ### Changed
 
 - The loading screen is a moonlit autumn valley that follows your season, theme and motion setting.
 - "Captured" confirmations now appear as a regular notification.
-- The Schedule's Add task and Add event window is roomier, with Mon–Sun weekday buttons.
 
 ### Fixed
 
 - Closing Capture's side panel slides it shut instead of snapping.
-- Header lines now line up across every page.
 - A task added from the Schedule's Day view appears right away.
 
 ## [0.10.0] - 2026-09-12
 
-Habit fixes and cleanup
+Habit fixes and cleanup.
 
 ### Removed
 
@@ -614,7 +579,7 @@ Habit fixes and cleanup
 
 ## [0.9.1] - 2026-09-11
 
-Under-the-hood upgrades for a faster, sturdier Cadence
+Under-the-hood upgrades for a faster, sturdier Cadence.
 
 ### Changed
 
@@ -626,7 +591,7 @@ Under-the-hood upgrades for a faster, sturdier Cadence
 
 ## [0.9.0] - 2026-09-10
 
-Your assistant now names conversations and shows its work
+Your assistant now names conversations and shows its work.
 
 ### Added
 
@@ -636,7 +601,7 @@ Your assistant now names conversations and shows its work
 
 ## [0.8.1] - 2026-06-25
 
-Assistant fixes
+Assistant fixes.
 
 ### Fixed
 
@@ -644,7 +609,7 @@ Assistant fixes
 
 ## [0.8.0] - 2026-06-17
 
-Meet the Cadence assistant
+Meet the Cadence assistant.
 
 ### Added
 
@@ -658,7 +623,7 @@ Meet the Cadence assistant
 
 ## [0.7.1] - 2026-06-05
 
-Behind-the-scenes cleanup
+Behind-the-scenes cleanup.
 
 ### Changed
 
@@ -666,7 +631,7 @@ Behind-the-scenes cleanup
 
 ## [0.7.0] - 2026-03-26
 
-Better themes and personalization
+Better themes and personalization.
 
 ### Changed
 
@@ -674,7 +639,7 @@ Better themes and personalization
 
 ## [0.6.0] - 2026-03-24
 
-Events and small tweaks
+Events and small tweaks.
 
 ### Added
 
@@ -682,7 +647,7 @@ Events and small tweaks
 
 ## [0.5.0] - 2026-03-20
 
-Cadence understands natural language
+Cadence understands natural language.
 
 ### Added
 
@@ -690,7 +655,7 @@ Cadence understands natural language
 
 ## [0.4.0] - 2026-03-19
 
-Holding that actually holds
+Holding that actually holds.
 
 ### Changed
 
@@ -698,7 +663,7 @@ Holding that actually holds
 
 ## [0.3.0] - 2026-03-17
 
-Task and planner improvements
+Task and planner improvements.
 
 ### Added
 
@@ -706,7 +671,7 @@ Task and planner improvements
 
 ## [0.2.0] - 2026-03-16
 
-Major bug fixes
+Major bug fixes.
 
 ### Fixed
 
@@ -714,7 +679,7 @@ Major bug fixes
 
 ## [0.1.0] - 2026-03-15
 
-Initial release
+Initial release.
 
 ### Added
 

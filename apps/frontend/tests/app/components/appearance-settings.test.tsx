@@ -23,7 +23,8 @@ vi.mock("../../../app/hooks/ui/use-background-image", () => ({
     useBackgroundImageUrl: () => "blob:stored-photo",
 }));
 vi.mock("../../../app/hooks/ui/use-desktop-layout-scale", () => ({
-    useDesktopLayoutScale: () => ({ layoutScale: "default", setLayoutScale: vi.fn() }),
+    DESKTOP_LAYOUT_SCALES: [100],
+    useDesktopLayoutScale: () => ({ layoutScale: 100, setLayoutScale: vi.fn() }),
 }));
 
 function setup() {

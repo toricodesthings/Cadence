@@ -219,7 +219,7 @@ export function useThemeSync() {
     useEffect(() => {
         const root = document.documentElement;
 
-        if (!IS_DESKTOP_RUNTIME || layoutScale === "default") {
+        if (!IS_DESKTOP_RUNTIME || layoutScale === 100) {
             root.style.removeProperty("font-size");
             root.style.removeProperty("--desktop-layout-scale");
             return;
