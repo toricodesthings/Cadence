@@ -98,7 +98,8 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                                     key={tag.id}
                                     onClick={(e: React.MouseEvent) => {
                                         e.preventDefault(); // Keep menu open for multi-tag selection
-                                        isActive ? onRemove(tag.id) : onAdd(tag.id);
+                                        if (isActive) onRemove(tag.id);
+                                        else onAdd(tag.id);
                                     }}
                                     className="flex items-center gap-2"
                                 >

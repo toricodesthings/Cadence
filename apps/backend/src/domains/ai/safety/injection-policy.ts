@@ -64,6 +64,7 @@ export function fenceData(args: {
 }
 
 /** Matches control chars except \n (\x0A) and \t (\x09). */
+// oxlint-disable-next-line no-control-regex -- stripping control chars is the point
 const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
 /**

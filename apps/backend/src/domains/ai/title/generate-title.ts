@@ -8,6 +8,7 @@
  * deterministic title derived from the user's text, so a thread is never left
  * untitled. The system prompt is title-prompt.md (edit and push to change it).
  */
+// oxlint-disable-next-line triple-slash-reference -- the frontend typecheck compiles this file without backend src/types
 /// <reference path="../../../types/text-modules.d.ts" />
 import { generateText } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";

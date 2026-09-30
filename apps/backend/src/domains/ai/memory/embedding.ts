@@ -86,7 +86,7 @@ export async function embedText(
 }
 
 /** Batch embedding via `embedMany`. Each vector is validated to be 1536-dim. */
-async function embedTexts(env: Env, texts: string[]): Promise<number[][]> {
+export async function embedTexts(env: Env, texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
     const { embeddings } = await embedMany({ model: getEmbeddingModel(env), values: texts });
     return embeddings.map(assertDimensions);

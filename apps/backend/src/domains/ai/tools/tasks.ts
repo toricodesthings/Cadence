@@ -15,7 +15,6 @@ import {
     toMinimalTag,
     resolveDueWindow,
 } from "./projections";
-import { addDaysToDate } from "@cadence/domain/repeats";
 import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
 import { NOTE_READ_LIMIT, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
 import { hasTaskTemporalMutation, inferIsAllDay } from "@cadence/domain/task-temporal";

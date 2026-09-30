@@ -198,50 +198,49 @@ export class FakeRedis {
     // ── pipeline ──
     pipeline() {
         const ops: Array<() => unknown> = [];
-        const self = this;
         const p = {
-            hset(key: string, kv: Record<string, unknown>) {
-                self.commandLog.push("hset");
-                ops.push(() => self._hset(key, kv));
+            hset: (key: string, kv: Record<string, unknown>) => {
+                this.commandLog.push("hset");
+                ops.push(() => this._hset(key, kv));
                 return p;
             },
-            set(key: string, val: unknown, opts?: SetOpts) {
-                self.commandLog.push("set");
-                ops.push(() => self._set(key, val, opts));
+            set: (key: string, val: unknown, opts?: SetOpts) => {
+                this.commandLog.push("set");
+                ops.push(() => this._set(key, val, opts));
                 return p;
             },
-            get(key: string) {
-                self.commandLog.push("get");
-                ops.push(() => self._get(key));
+            get: (key: string) => {
+                this.commandLog.push("get");
+                ops.push(() => this._get(key));
                 return p;
             },
-            del(key: string) {
-                self.commandLog.push("del");
-                ops.push(() => self._del(key));
+            del: (key: string) => {
+                this.commandLog.push("del");
+                ops.push(() => this._del(key));
                 return p;
             },
-            expire(key: string, ttl: number, opt?: ExpireOpt) {
-                self.commandLog.push("expire");
-                ops.push(() => self._expire(key, ttl, opt));
+            expire: (key: string, ttl: number, opt?: ExpireOpt) => {
+                this.commandLog.push("expire");
+                ops.push(() => this._expire(key, ttl, opt));
                 return p;
             },
-            pttl(key: string) {
-                self.commandLog.push("pttl");
-                ops.push(() => self._pttl(key));
+            pttl: (key: string) => {
+                this.commandLog.push("pttl");
+                ops.push(() => this._pttl(key));
                 return p;
             },
-            xadd(key: string, id: string, entries: Record<string, unknown>, _opts?: unknown) {
-                self.commandLog.push("xadd");
-                ops.push(() => self._xadd(key, id, entries));
+            xadd: (key: string, id: string, entries: Record<string, unknown>, _opts?: unknown) => {
+                this.commandLog.push("xadd");
+                ops.push(() => this._xadd(key, id, entries));
                 return p;
             },
-            xrange(key: string, start: string, end: string, count?: number) {
-                self.commandLog.push("xrange");
-                ops.push(() => self._xrange(key, start, end, count));
+            xrange: (key: string, start: string, end: string, count?: number) => {
+                this.commandLog.push("xrange");
+                ops.push(() => this._xrange(key, start, end, count));
                 return p;
             },
-            async exec() {
-                self.requests += 1;
+            exec: async () => {
+                this.requests += 1;
                 return ops.map((op) => op());
             },
         };

@@ -66,7 +66,7 @@ function toVectorLiteral(embedding: number[]): string {
  * salience (capped at 1) and `updatedAt` instead of inserting a near-duplicate.
  * Caller wraps in `withRls` and supplies `tx`.
  */
-async function upsertMemory(
+export async function upsertMemory(
     tx: Tx,
     userId: string,
     input: MemoryWriteInput,

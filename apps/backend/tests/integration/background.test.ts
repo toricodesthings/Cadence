@@ -92,7 +92,7 @@ describe("background routes", () => {
     it("rejects files that are not WebP without storing anything", async () => {
         const res = await createApp().request(
             "/settings/background",
-            { method: "POST", body: uploadForm(new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...new Array(30).fill(0)])) },
+            { method: "POST", body: uploadForm(new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...Array.from({ length: 30 }, () => 0)])) },
             { USER_ASSETS: bucket },
         );
         expect(res.status).toBe(415);

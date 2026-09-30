@@ -10,7 +10,7 @@ import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
 import { settingsRoutes } from "../../src/domains/settings/settings.route";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
 import { withRls } from "../../src/platform/rls";
-import { habits, projects, taskSections } from "../../src/db/schema";
+import { projects, taskSections } from "../../src/db/schema";
 
 let userId: string;
 let call: (name: string, input: unknown, toolCallId?: string) => Promise<any>;

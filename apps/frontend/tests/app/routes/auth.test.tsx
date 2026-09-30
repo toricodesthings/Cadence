@@ -13,7 +13,8 @@ const authState = vi.hoisted(() => ({
 vi.mock("@neondatabase/auth/react/ui", () => ({
     AuthView: ({ view }: { view: "SIGN_IN" | "SIGN_UP" }) => (
         <div data-testid="auth-view" data-view={view}>
-            {[0, 1, 2].map((i) => <button key={i} type="button"><svg aria-hidden="true" /></button>)}
+            <div>{[0, 1].map((i) => <button key={i} type="button"><svg aria-hidden="true" /></button>)}</div>
+            <div><input type="password" /><button type="button"><svg aria-hidden="true" /></button></div>
         </div>
     ),
 }));

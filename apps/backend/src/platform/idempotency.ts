@@ -79,7 +79,7 @@ export async function insertWithClientId<T>(insert: () => Promise<T>): Promise<T
         return await insert();
     } catch (error) {
         const pg = ((error as { cause?: unknown }).cause ?? error) as { code?: string; constraint?: string; constraint_name?: string };
-        if (pg.code === "23505" && /_pkey$/.test(pg.constraint_name ?? pg.constraint ?? "")) {
+        if (pg.code === "23505" && (pg.constraint_name ?? pg.constraint ?? "").endsWith("_pkey")) {
             throw new AppError(409, "CONFLICT", "That id is already in use");
         }
         throw error;
