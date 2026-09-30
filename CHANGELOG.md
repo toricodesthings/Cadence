@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.3] - 2026-09-30
+
 ### Fixed
 
 - On desktop, signing out now works instead of flickering between screens and leaving you signed in.
