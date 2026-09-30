@@ -45,7 +45,7 @@ CSP is defined separately in `tauri.conf.json` (`app.security.csp`) from the web
 
 ## 5. Updater & Distribution
 
-`tauri.conf.json#bundle`: targets `appimage`/`dmg`/`nsis`, `createUpdaterArtifacts: true`. The `updater` plugin checks `https://github.com/toricodesthings/Cadence/releases/latest/download/latest.json`, verified against the embedded `pubkey`. A release is produced by `pnpm release` at the repo root (tags `vX.Y.Z`, which is what the desktop build pipeline should key off) — never hand-roll a release artifact outside that flow.
+`tauri.conf.json#bundle`: targets `appimage`/`dmg`/`nsis`, `createUpdaterArtifacts: true`. The `updater` plugin checks `https://github.com/toricodesthings/Cadence/releases/latest/download/latest.json`, verified against the embedded `pubkey`. A release is produced by `pnpm release` at the repo root: the `vX.Y.Z` tag triggers `.github/workflows/cadence-desktop-release.yml`, which builds Windows only (Linux/macOS not yet), signs the update with the `TAURI_SIGNING_PRIVATE_KEY` secret (required), Authenticode-signs only if `WINDOWS_CERTIFICATE*` secrets exist, and publishes the release non-draft so `latest.json` is live. Never hand-roll a release artifact outside that flow.
 
 ## 6. Dev Workflow
 
