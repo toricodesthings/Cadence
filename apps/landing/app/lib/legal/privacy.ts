@@ -499,7 +499,7 @@ export const PRIVACY: LegalDoc = {
         { kind: "sub", title: "Deleting your account" },
         {
           kind: "p",
-          text: "Settings, under Data & Export, has a **Delete account** button. You must type a confirmation phrase before it works. It is permanent: nothing can be restored afterwards, not by you and not by the maintainer.",
+          text: "Settings, under Data & Export, has a **Delete account** button. You must type a confirmation phrase and confirm it is you, with your password or, for Google and GitHub accounts, a code emailed to you. It is permanent: nothing can be restored afterwards, not by you and not by the maintainer.",
         },
         {
           kind: "list",

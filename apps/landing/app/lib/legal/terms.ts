@@ -222,7 +222,7 @@ export const TERMS: LegalDoc = {
         },
         {
           kind: "p",
-          text: "You can sign out and stop using Cadence whenever you like. You can delete your account yourself in Settings, under Data & Export: type a confirmation phrase and everything in it is erased. Deletion is permanent. Nothing can be restored afterwards, not by you and not by the maintainer.",
+          text: "You can sign out and stop using Cadence whenever you like. You can delete your account yourself in Settings, under Data & Export: type a confirmation phrase, confirm it is you with your password or an emailed code, and everything in it is erased. Deletion is permanent. Nothing can be restored afterwards, not by you and not by the maintainer.",
         },
         {
           kind: "sub",
