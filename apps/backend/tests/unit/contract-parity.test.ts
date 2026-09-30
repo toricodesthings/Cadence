@@ -17,6 +17,7 @@ import {
     notificationState,
     savedFocusViews,
     mcpConnections,
+    dataExports,
 } from "../../src/db/schema";
 import type { taskRowSchema } from "@cadence/contracts/task";
 import type { projectRowSchema } from "@cadence/contracts/project";
@@ -29,6 +30,7 @@ import type { taskNoteRowSchema } from "@cadence/contracts/note";
 import type { notificationStateRowSchema } from "@cadence/contracts/notification";
 import type { savedFocusViewRowSchema } from "@cadence/contracts/settings";
 import type { aiConversationRowSchema, aiImageRowSchema, aiMessageRowSchema } from "@cadence/contracts/ai";
+import type { dataExportRowSchema } from "@cadence/contracts/account";
 import type { mcpConnectionRowSchema } from "@cadence/contracts/connections";
 
 // Compile-time guardrails, enforced by `tsc --noEmit` (vitest itself cannot fail
@@ -54,4 +56,5 @@ test("every contract row schema matches its Drizzle table", () => {
     expectTypeOf<z.infer<typeof notificationStateRowSchema>>().toEqualTypeOf<typeof notificationState.$inferSelect>();
     expectTypeOf<z.infer<typeof savedFocusViewRowSchema>>().toEqualTypeOf<typeof savedFocusViews.$inferSelect>();
     expectTypeOf<z.infer<typeof mcpConnectionRowSchema>>().toEqualTypeOf<typeof mcpConnections.$inferSelect>();
+    expectTypeOf<z.infer<typeof dataExportRowSchema>>().toEqualTypeOf<typeof dataExports.$inferSelect>();
 });

@@ -41,6 +41,7 @@ import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { useAvailableDesktopUpdate } from "../../platform/desktop-update-state";
 import { DESKTOP_LAYOUT_SCALE_DEFAULT, DESKTOP_LAYOUT_SCALES, useDesktopLayoutScale } from "../../hooks/ui/use-desktop-layout-scale";
+import { LegalConsentGate } from "../legal/LegalConsentGate";
 import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
 import { setDiagnosticsEnabled } from "../../lib/api/track-event";
@@ -885,6 +886,7 @@ export function MainLayout({
             </Suspense>
             <Suspense fallback={null}>
                 <DeferredMount active={new URLSearchParams(location.search).has("settings")}><SettingsDialog /></DeferredMount>
+                <LegalConsentGate />
             </Suspense>
             <Suspense fallback={null}>
                 <DeferredMount active={new URLSearchParams(location.search).has("notifications")}><NotificationsSheet /></DeferredMount>

@@ -16,7 +16,7 @@ export const TERMS: LegalDoc = {
     "The AI assistant can be wrong. It makes changes only as you allow, and you are responsible for what you approve.",
     "An outside assistant you connect acts as you, within the access you gave. Disconnect any time.",
     "Use Cadence lawfully and without attacking or overloading it. Either side can end the relationship.",
-    "You can delete your account yourself in Settings, permanently and with no way to restore it. Automated data export is not built yet.",
+    "You can delete your account yourself in Settings, permanently and with no way to restore it. You can also have a JSON copy of your data emailed to you.",
   ],
   sections: [
     {
@@ -41,8 +41,8 @@ export const TERMS: LegalDoc = {
         },
         {
           kind: "gap",
-          title: "Undecided: minimum age, and how you accept",
-          text: "The 16-year minimum is the maintainer's proposal to be confirmed, and sign-up does not check age. Sign-up also does not currently ask you to tick or link these terms, so acceptance rests on using Cadence.",
+          title: "How you accept, and what is undecided",
+          text: "Sign-up asks you to tick two boxes before you can continue: that you are 16 or older, and that you accept these Terms and the Privacy Policy. If you instead create an account with Google or GitHub from the sign-in page, Cadence asks the same thing in a panel before you can use the app, and you can sign out instead. Cadence records when you accepted and which version of this page you accepted. Your age is your own word and is not verified, and the 16-year minimum is the maintainer's proposal that still needs confirming.",
         },
       ],
     },
@@ -207,8 +207,8 @@ export const TERMS: LegalDoc = {
         },
         {
           kind: "gap",
-          title: "Getting your data out is manual",
-          text: "The app's Request data export button only records a date in your own settings and does not start an export or notify anyone. To get a copy of your data, ask the maintainer (see Contact). Do not count on a fast answer; there is no promised turnaround.",
+          title: "Getting your data out is automatic but limited",
+          text: "The **Email my data** button (Settings, Data & Export) emails a JSON copy of your data to your account's address, at most once an hour. It leaves out photos you uploaded and your sign-in profile details, it is a snapshot and not a backup, and delivery to your inbox is not guaranteed. Cadence keeps a record of each request (address, time, result) until you delete your account. If it fails, try again after an hour or ask the maintainer (see Contact); there is no promised turnaround. More in the Privacy Policy.",
         },
       ],
     },
@@ -280,12 +280,12 @@ export const TERMS: LegalDoc = {
       blocks: [
         {
           kind: "p",
-          text: "Cadence changes, and these terms may need to as well. When they change, this page is updated and the date at the top moves. Material changes will be listed in the in-app changelog, and the new terms apply from then. If you keep using Cadence after a change you accept it; if you do not, stop using it and delete your account.",
+          text: "Cadence changes, and these terms may need to as well. When they change, this page is updated and the date at the top moves. Material changes will be listed in the in-app changelog, and the new terms apply from then. When the changes are material, Cadence asks you to accept the new version before you continue. If you keep using Cadence after a change you accept it; if you do not, stop using it and delete your account.",
         },
         {
           kind: "gap",
           title: "No direct notice",
-          text: "Cadence does not send email, so there is no email notice of changes. The in-app changelog and this page are the places to look.",
+          text: "Cadence emails you only a data export you ask for, never notices, so there is no email notice of changes. The in-app changelog and this page are the places to look.",
         },
       ],
     },
@@ -346,8 +346,8 @@ export const TERMS: LegalDoc = {
           items: [
             "This text has not been reviewed by a lawyer.",
             "No legal entity exists yet; the maintainer is an individual and is looking into whether to form one.",
-            "Governing law (Ontario, Canada) and the minimum age (16) are proposals awaiting confirmation; sign-up has no age check and does not ask you to accept these terms.",
-            "Automated data export is not built: the Request data export button records only a date. Account deletion is self-service but new.",
+            "Governing law (Ontario, Canada) and the minimum age (16) are proposals awaiting confirmation, and your age is self-declared and not verified.",
+            "Data export is emailed automatically but leaves out uploaded photos and sign-in profile details, and delivery is not guaranteed. Account deletion is self-service but new.",
             "No private contact address, no appeal process, and no promised response time.",
             "No uptime, backup or recovery promise of any kind.",
             "AI providers' data retention and training could not be verified from the code; see the Privacy Policy.",

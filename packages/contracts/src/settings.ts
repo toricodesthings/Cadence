@@ -288,8 +288,9 @@ export const userSettingsSchema = z.object({
         usageDiagnostics: z.boolean().optional(),
         crashReports: z.boolean().optional(),
         storeRecentSearches: z.boolean().optional(),
-        exportFormat: z.enum(["json", "csv"]).optional(),
-        lastExportRequestedAt: z.string().nullable().optional(),
+        // When the person confirmed they are 16+ and accepted the Terms and Privacy Policy, and which revision
+        legalAcceptedAt: z.string().nullable().optional(),
+        legalVersion: z.string().nullable().optional(),
     }).optional(),
     assistant: z.object({
         persona: z.enum(["secretary", "coach", "minimalist", "companion"]).optional(),
@@ -308,6 +309,9 @@ export const userSettingsSchema = z.object({
 });
 
 export type UserSettings = z.infer<typeof userSettingsSchema>;
+
+/** The revision of the Terms and Privacy Policy people accept (their `updated` date on cadenceapp.cloud). Bumping it asks everyone to accept again. */
+export const LEGAL_VERSION = "2026-09-30";
 
 // ── Deep-partial utility (Zod 4 removed .deepPartial()) ──
 
@@ -516,8 +520,8 @@ export const SETTINGS_DEFAULTS = {
         usageDiagnostics: true,
         crashReports: true,
         storeRecentSearches: true,
-        exportFormat: "json" as const,
-        lastExportRequestedAt: null as string | null,
+        legalAcceptedAt: null as string | null,
+        legalVersion: null as string | null,
     },
     assistant: {
         persona: "secretary" as const,

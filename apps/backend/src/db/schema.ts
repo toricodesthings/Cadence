@@ -881,3 +881,31 @@ export const savedFocusViews = pgTable(
         }),
     }),
 ).enableRLS();
+
+// ── 18. Data Exports (the record of each emailed copy of a person's data; erased with the account) ──
+export const dataExports = pgTable(
+    "data_exports",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        email: text("email").notNull(), // where it was sent, as the sign-in account had it then
+        status: text("status").$type<"pending" | "sent" | "failed">().default("pending").notNull(),
+        bytes: integer("bytes"), // size of the attached file once built
+        requestedAt: timestamptz("requested_at")
+            .default(sql`now()`)
+            .notNull(),
+        completedAt: timestamptz("completed_at"),
+    },
+    (table) => ({
+        userRequestedIdx: index("data_exports_user_requested_idx").on(table.userId, table.requestedAt),
+        statusCheck: check("data_exports_status_check", sql`status IN ('pending', 'sent', 'failed')`),
+        rlsPolicy: pgPolicy("data_exports_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();

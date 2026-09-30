@@ -1,4 +1,5 @@
 import { expectTypeOf, test } from "vitest";
+import type { DataExport } from "@cadence/contracts/account";
 import type { ConversationDetail, ConversationListItem } from "@cadence/contracts/ai";
 import type { McpConnectRequest, McpConnection } from "@cadence/contracts/connections";
 import type { Habit } from "@cadence/contracts/habit";
@@ -41,6 +42,7 @@ test("every read route returns its contract entity", () => {
     expectTypeOf<Data<Api["proxy"]["weather"]["$get"]>>().toEqualTypeOf<WeatherReading>();
     expectTypeOf<Data<Api["connections"]["$get"]>>().toEqualTypeOf<McpConnection[]>();
     expectTypeOf<Data<Api["connections"]["requests"][":request"]["$get"]>>().toEqualTypeOf<McpConnectRequest>();
+    expectTypeOf<NonNullable<Data<Api["account"]["export"]["$get"]>>>().toEqualTypeOf<DataExport>();
     expectTypeOf<Data<Api["proxy"]["geocode"]["reverse"]["$get"]>>().toEqualTypeOf<RegionInfo>();
     expectTypeOf<Data<Api["proxy"]["geocode"]["search"]["$get"]>>().toEqualTypeOf<CityResult[]>();
     expectTypeOf<Data<Api["proxy"]["geo"]["approximate"]["$get"]>>().toEqualTypeOf<ApproximatePlace>();

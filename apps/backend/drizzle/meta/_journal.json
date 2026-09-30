@@ -22,6 +22,13 @@
       "when": 1790645121777,
       "tag": "0002_indexes_and_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790792540918,
+      "tag": "0003_data_exports",
+      "breakpoints": true
     }
   ]
 }

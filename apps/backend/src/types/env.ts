@@ -42,6 +42,10 @@ export interface Env {
     /** The branch that holds Neon Auth (the production branch). */
     NEON_BRANCH_ID?: string;
 
+    // ── Data export ──
+    /** Email Sending binding (`send_email`) that mails people their data export. When absent, POST /account/export answers 503. */
+    EMAIL?: SendEmail;
+
     // ── MCP (outside assistants) ──
     /** OAuth provider storage (clients, grants, token hashes). When absent, MCP answers 503. */
     OAUTH_KV?: KVNamespace;

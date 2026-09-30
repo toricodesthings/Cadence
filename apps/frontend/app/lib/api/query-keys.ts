@@ -48,6 +48,7 @@ export const queryKeys = {
     auth: {
         accounts: ["auth", "accounts"] as const,
     },
+    dataExport: ["data-export"] as const,
     connections: {
         all: ["connections"] as const,
         request: (request: string) => ["connections", "request", request] as const,

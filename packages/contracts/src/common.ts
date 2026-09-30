@@ -67,6 +67,7 @@ export const ERROR_CODES = [
     // Account
     "ACCOUNT_DELETION_UNAVAILABLE",
     "REAUTH_FAILED",
+    "DATA_EXPORT_UNAVAILABLE",
     // Assistant
     "AI_RATE_LIMITED",
     "AI_IMAGE_LIMITED",

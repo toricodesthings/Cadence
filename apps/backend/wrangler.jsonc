@@ -44,6 +44,9 @@
     }
   ],
 
+  // Email Sending: mails people their data export (domains/account). mail.cadenceapp.cloud is the onboarded sending domain
+  "send_email": [{ "name": "EMAIL" }],
+
   // OAuth provider storage for outside assistants (MCP): clients, grants, token hashes.
   "kv_namespaces": [
     {
@@ -125,6 +128,7 @@
           "id": "5726b938ac8843a28102f9b2a7f1007c"
         }
       ],
+      "send_email": [{ "name": "EMAIL", "remote": true }],
       // MCP and its OAuth endpoints share the dev server's origin; consent opens the local web app.
       "vars": {
         "DEPLOYMENT_STAGE": "development",

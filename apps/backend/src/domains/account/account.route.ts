@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { deleteAccountSchema } from "@cadence/contracts/account";
-import { users } from "../../db/schema";
+import { deleteAccountSchema, type DataExport } from "@cadence/contracts/account";
+import { dataExports, users } from "../../db/schema";
 import type { AuthVariables } from "../../platform/auth";
 import { getDbClient } from "../../platform/db";
 import { AppError } from "../../platform/errors";
@@ -12,6 +12,12 @@ import { apiValidator } from "../../platform/validation";
 import type { Env } from "../../types/env";
 import { backgroundPrefix } from "../settings/background-image";
 import { revokeAllGrants } from "../mcp/oauth";
+import { deliverExport } from "./data-export.service";
+
+/** One export an hour: each one reads every table, and the file goes to an inbox that may be shared or slow. */
+const EXPORT_COOLDOWN_MS = 60 * 60 * 1000;
+
+const exportColumns = { id: dataExports.id, email: dataExports.email, status: dataExports.status, requestedAt: dataExports.requestedAt, completedAt: dataExports.completedAt };
 
 /** Deletes every object under `prefix` (R2 lists 1,000 keys a page and deletes at most 1,000 per call). */
 async function deletePrefix(bucket: R2Bucket, prefix: string): Promise<void> {
@@ -113,4 +119,31 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         logger.info("auth", "account_deleted", { userHash });
         return c.json({ data: { deleted: true } }, 200);
+    })
+    // POST /account/export — emails the person a JSON copy of all their data, at the address they signed up with. Answers at once; the email follows.
+    .post("/export", async (c) => {
+        const userId = c.get("userId");
+        const email = c.get("userEmail");
+        if (!c.env.EMAIL) throw new AppError(503, "DATA_EXPORT_UNAVAILABLE", "Data export is not available right now");
+        if (!email) throw new AppError(400, "VALIDATION_ERROR", "Your account has no email address to send the export to");
+
+        const since = new Date(Date.now() - EXPORT_COOLDOWN_MS).toISOString();
+        const request = await withRls(getDbClient(c.env), userId, async (tx) => {
+            const [recent] = await tx.select({ id: dataExports.id }).from(dataExports)
+                .where(and(eq(dataExports.userId, userId), gt(dataExports.requestedAt, since), inArray(dataExports.status, ["pending", "sent"])))
+                .limit(1);
+            if (recent) throw new AppError(429, "TOO_MANY_REQUESTS", "You asked for an export in the last hour. Check your inbox, or try again later");
+            const [row] = await tx.insert(dataExports).values({ userId, email }).returning(exportColumns);
+            return row;
+        });
+
+        c.executionCtx.waitUntil(deliverExport(c.env, { id: request.id, userId, email }, c.get("requestId")));
+        return c.json({ data: request satisfies DataExport }, 202);
+    })
+    // GET /account/export — the latest request, or null when there has never been one.
+    .get("/export", async (c) => {
+        const userId = c.get("userId");
+        const [latest] = await withRls(getDbClient(c.env), userId, (tx) =>
+            tx.select(exportColumns).from(dataExports).where(eq(dataExports.userId, userId)).orderBy(desc(dataExports.requestedAt)).limit(1));
+        return c.json({ data: (latest ?? null) satisfies DataExport | null }, 200);
     });

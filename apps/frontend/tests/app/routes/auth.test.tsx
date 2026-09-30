@@ -1,7 +1,8 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AuthPage from "../../../app/routes/auth";
+import { takeSignUpTicks } from "../../../app/lib/legal-consent";
 
 const authState = vi.hoisted(() => ({
     beginAuthRecovery: vi.fn(),
@@ -133,5 +134,22 @@ describe("auth route", () => {
 
         expect(screen.getByText("Create your account")).toBeTruthy();
         expect(screen.queryByText("A quiet space for your brightest thoughts")).toBeNull();
+    });
+
+    it("keeps sign-up disabled until both the 16+ and the terms boxes are ticked, and leaves sign-in ungated", () => {
+        localStorage.clear();
+        const { unmount } = renderAuthPage("/auth/sign-up");
+        const social = screen.getAllByRole("button")[0]!;
+        expect(social.matches(":disabled")).toBe(true);
+        fireEvent.click(screen.getByRole("checkbox", { name: /16 years old or older/ }));
+        expect(social.matches(":disabled")).toBe(true);
+        fireEvent.click(screen.getByRole("checkbox", { name: /accept the Terms of Service and Privacy Policy/ }));
+        expect(social.matches(":disabled")).toBe(false);
+        // The ticks survive the round trip through Google/GitHub so the new account isn't asked again
+        expect(takeSignUpTicks()).not.toBeNull();
+        unmount();
+
+        renderAuthPage("/auth/sign-in");
+        expect(screen.queryByRole("checkbox")).toBeNull();
     });
 });

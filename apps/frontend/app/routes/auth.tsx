@@ -12,6 +12,8 @@ import {
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { Button } from "../components/primitives/Button";
 import { Input } from "../components/primitives/Input";
+import { ConsentCheck, LegalLinks } from "../components/shared/ConsentCheck";
+import { rememberSignUpTicks } from "../lib/legal-consent";
 import { CardPage } from "../components/shared/CardPage";
 import { log } from "../lib/log";
 import {
@@ -429,6 +431,9 @@ export default function AuthPage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { authReady, isAuthenticated } = useAuthState();
+    const [isAdult, setIsAdult] = useState(false);
+    const [accepted, setAccepted] = useState(false);
+    const ready = isAdult && accepted;
     const { pathname, state, search } = location;
     const searchParams = new URLSearchParams(search);
     const isSignUp = pathname === "/auth/sign-up";
@@ -448,6 +453,10 @@ export default function AuthPage() {
                 ? "Create your Cadence account and enter a calm workspace for tasks, routines, and weekly resets."
                 : "Sign in to Cadence and return to your calm planning workspace.",
     );
+
+    useEffect(() => {
+        if (isSignUp) rememberSignUpTicks(ready);
+    }, [isSignUp, ready]);
 
     useEffect(() => {
         if (!authReady || !isAuthenticated) {
@@ -499,7 +508,15 @@ export default function AuthPage() {
             title={isSignUp ? "Create your account" : "Sign in to Cadence"}
             description={isSignUp ? "Set up your workspace and start planning." : "Pick up where you left off."}
         >
-            <div className="neon-auth-wrapper">
+            {isSignUp && (
+                <div className="mb-4 space-y-2">
+                    <ConsentCheck checked={isAdult} onChange={setIsAdult}>I confirm I'm 16 years old or older.</ConsentCheck>
+                    <ConsentCheck checked={accepted} onChange={setAccepted}>I accept the <LegalLinks />.</ConsentCheck>
+                </div>
+            )}
+
+            {/* Until both boxes are ticked, every control inside (email form, Google, GitHub) is natively disabled */}
+            <fieldset disabled={isSignUp && !ready} className={`neon-auth-wrapper m-0 min-w-0 border-0 p-0 transition-opacity ${isSignUp && !ready ? "opacity-50" : ""}`}>
                 {IS_DESKTOP_RUNTIME ? (
                     <DesktopAuthForm isSignUp={isSignUp} redirectTo={redirectTo} />
                 ) : (
@@ -543,7 +560,7 @@ export default function AuthPage() {
                         }}
                     />
                 )}
-            </div>
+            </fieldset>
 
             <p className="mt-5 flex items-center justify-center gap-1.5 text-sm">
                 <span className="text-twilight-text-soft">

@@ -16,7 +16,7 @@ export const PRIVACY: LegalDoc = {
     "Your workspace lives in a Neon Postgres database, separated per account by row-level security. Cloudflare runs the servers.",
     "If you message the assistant, that message, related tasks and notes, and any photos you attach go to AI model providers through OpenRouter. Their retention and training terms are not something this project can verify.",
     "Usage diagnostics are on by default (you can switch them off) and record which actions you use, not your text. The Crash reports switch currently does nothing.",
-    "You can delete your account yourself in Settings: it is permanent and cannot be undone. Automated data export is not built yet.",
+    "You can delete your account yourself in Settings: it is permanent and cannot be undone. You can also have a JSON copy of your data emailed to you from the same place.",
     "Cadence sets only the cookies needed to keep you signed in. This website sets none.",
   ],
   sections: [
@@ -26,7 +26,7 @@ export const PRIVACY: LegalDoc = {
       blocks: [
         {
           kind: "p",
-          text: "Cadence is built and run by one person, the maintainer (GitHub: [toricodesthings](https://github.com/toricodesthings)), based in Toronto, Ontario, Canada. The maintainer decides what data Cadence collects and why, so in privacy-law terms they are the party responsible for it.",
+          text: "Cadence is built and run by one person, the maintainer (GitHub: [toricodesthings](https://github.com/toricodesthings)), based in Ottawa, Ontario, Canada. The maintainer decides what data Cadence collects and why, so in privacy-law terms they are the party responsible for it.",
         },
         {
           kind: "p",
@@ -67,7 +67,7 @@ export const PRIVACY: LegalDoc = {
               "Until you delete it. Trash is not emptied automatically",
             ],
             [
-              "Settings and profile: preferences, pronouns, birthday, assistant name and instructions, privacy switches, chosen location",
+              "Settings and profile: preferences, pronouns, birthday, assistant name and instructions, privacy switches, chosen location, and when you accepted the Terms and Privacy Policy (and which version)",
               "Make the app work your way",
               "Neon Postgres",
               "Neon, Cloudflare",
@@ -144,6 +144,13 @@ export const PRIVACY: LegalDoc = {
               "90 days. On by default",
             ],
             [
+              "Data-export records: the address a copy was emailed to, when, whether it was sent, and the file size (never the file itself)",
+              "Show you your last export, and keep a record that one was made",
+              "Neon Postgres",
+              "Neon",
+              "Until you delete your account",
+            ],
+            [
               "Connected-assistant records and sign-in tokens",
               "Let an outside assistant in, and cut it off",
               "Postgres; Cloudflare KV",
@@ -185,8 +192,8 @@ export const PRIVACY: LegalDoc = {
           rows: [
             [
               "Cloudflare",
-              "Runs the web app, API, connected-assistant server and this site. Private storage (R2), token storage (KV), database connection pooling, rate limiting, logs",
-              "All traffic to Cadence, including your IP address. Stored photos and assistant tokens",
+              "Runs the web app, API, connected-assistant server and this site. Private storage (R2), token storage (KV), database connection pooling, rate limiting, logs, and the email service that sends your data export",
+              "All traffic to Cadence, including your IP address. Stored photos and assistant tokens. The data-export email, with your data attached, while it is delivered",
               "Global network. The API runs near the database in US East",
             ],
             [
@@ -253,7 +260,7 @@ export const PRIVACY: LegalDoc = {
         {
           kind: "gap",
           title: "Sign-in emails",
-          text: "Some sign-in steps send email (for example a password-reset code). Cadence's own servers send no email. Which service delivers these messages on behalf of Neon Auth was not verifiable from the project.",
+          text: "Some sign-in steps send email (for example a password-reset code). Which service delivers these messages on behalf of Neon Auth was not verifiable from the project. Separately, Cadence's own servers send one kind of email: the data export you ask for, described under Keeping, deleting and getting a copy, sent through Cloudflare's email service from mail.cadenceapp.cloud.",
         },
       ],
     },
@@ -476,7 +483,7 @@ export const PRIVACY: LegalDoc = {
             "No selling of data, and nothing shared for advertising.",
             "No access to your contacts, camera or microphone. Photos come only from the file picker when you choose one.",
             "No precise location unless you choose it.",
-            "No email sent by Cadence's own servers, and no push-notification server. Reminders are raised by the app itself.",
+            "No marketing or notification email, and no push-notification server: the only email Cadence's own servers send is a data export you ask for. Reminders are raised by the app itself.",
             "No use of your content to train models by Cadence's own code.",
           ],
         },
@@ -505,7 +512,7 @@ export const PRIVACY: LegalDoc = {
           kind: "list",
           items: [
             "It deletes your photos (background and assistant photos) from storage and disconnects every connected assistant.",
-            "It deletes your workspace in one step: tasks, notes, lists, routines, events, settings, assistant conversations, diagnostics events and connection records all hang off your account and go with it.",
+            "It deletes your workspace in one step: tasks, notes, lists, routines, events, settings, assistant conversations, diagnostics events, export records and connection records all hang off your account and go with it.",
             "It removes your sign-in account (email, name, profile picture, password or linked Google and GitHub login) from Neon Auth.",
             "It clears the copy kept on the device you deleted from. Other devices keep a cached copy until they sign out or another account signs in there.",
           ],
@@ -517,9 +524,22 @@ export const PRIVACY: LegalDoc = {
         },
         { kind: "sub", title: "Getting a copy of your data" },
         {
+          kind: "p",
+          text: "Settings, under Data & Export, has an **Email my data** button. It starts an automatic export: within a few minutes Cadence emails a single JSON file to the address you sign in with. You can ask once an hour. No one reviews the request, and it needs no separate proof of identity beyond being signed in.",
+        },
+        {
+          kind: "list",
+          items: [
+            "In the file: your workspace as stored, meaning tasks, notes, subtasks, lists, sections, tags, routines and their logs, captures, saved views, settings, assistant conversations, connected-assistant records, reminder state and usage diagnostics, plus your account id and email.",
+            "Not in the file: photos you uploaded (your background, images sent to the assistant), sign-in details held by Neon Auth (name, profile picture, password, linked logins), assistant-memory embedding vectors, and the internal keys Cadence uses to avoid repeating a change.",
+            "Cadence keeps a record of each request: the address, the time, whether it was sent, and the file size. It does not keep the file. The record is erased with your account.",
+            "It is a snapshot, not a backup, and it is not meant to be re-imported into Cadence.",
+          ],
+        },
+        {
           kind: "gap",
-          title: "Automated export is not built",
-          text: "Settings has a Request data export button, but it only writes today's date into your own settings. It notifies no one and starts no export, despite what the screen says about being contacted. To get a copy, contact the maintainer as described under Contact.",
+          title: "Email is not a private channel",
+          text: "The file goes to the address on your account as plain, unencrypted email, and anyone with access to that inbox can read it. Cloudflare's email service handles the message on its way; whether it keeps a copy or logs about it, and for how long, was not verified. \"Sent\" means Cadence handed the message to that service: Cadence cannot see whether it reached your inbox, so check spam. The work runs in the background of your request without a retry queue, so if it is interrupted the request can stay \"preparing\" and nothing arrives; you can ask again after an hour. A file over about 20 MB cannot be emailed and the export fails. In any of these cases, contact the maintainer as described under Contact.",
         },
       ],
     },
@@ -566,8 +586,8 @@ export const PRIVACY: LegalDoc = {
         },
         {
           kind: "gap",
-          title: "No age check",
-          text: "Sign-up has no age check, and the 16-year minimum is the maintainer's proposal that still needs confirming. Google and GitHub sign-in have their own age rules.",
+          title: "Age is self-declared",
+          text: "Sign-up, and the panel shown to accounts created with Google or GitHub from the sign-in page, ask you to confirm you are 16 or older. Cadence does not verify it, and the 16-year minimum is the maintainer's proposal that still needs confirming. Google and GitHub sign-in have their own age rules.",
         },
       ],
     },
@@ -602,12 +622,12 @@ export const PRIVACY: LegalDoc = {
         { kind: "sub", title: "How to use them" },
         {
           kind: "p",
-          text: "Contact the maintainer as described under Contact. You may be asked to show the request really comes from you. The maintainer will try to answer within 30 days. Requests are free unless they are plainly abusive.",
+          text: "To see or take a copy of your data, use **Email my data**, described under Keeping, deleting and getting a copy. For anything else, contact the maintainer as described under Contact. You may be asked to show the request really comes from you. The maintainer will try to answer within 30 days. Requests are free unless they are plainly abusive.",
         },
         {
           kind: "gap",
           title: "Deadlines and process are a proposal",
-          text: "The 30-day response time is a target, not a measured service level. Export is manual today, as described above.",
+          text: "The 30-day response time is a target, not a measured service level. It applies to requests made to the maintainer; the export button is automatic, usually arrives within minutes, and has no promised speed.",
         },
       ],
     },
@@ -643,7 +663,7 @@ export const PRIVACY: LegalDoc = {
           items: [
             "This text has not been reviewed by a lawyer.",
             "No legal entity, privacy officer, or private contact email exists yet; the maintainer is researching whether to form an entity.",
-            "Automated data export is not built (the Request data export button only records a date). Account deletion is self-service but new, and does not reach provider backups or logs.",
+            "Data export is emailed automatically, but leaves out uploaded photos and sign-in profile details, and Cadence cannot see whether the email reaches your inbox. Account deletion is self-service but new, and does not reach provider backups or logs.",
             "Most data has no automatic expiry: tasks, notes, Trash, conversations and accounts stay until deleted.",
             "AI providers' retention and training practices could not be verified from the code, and the region of several services is unknown.",
             "Usage diagnostics are on by default and tied to your account, even though the app calls them anonymous.",
@@ -652,7 +672,7 @@ export const PRIVACY: LegalDoc = {
             "Assistant memory is an unfinished stub and currently stores nothing.",
             "Whether Cloudflare's analytics or security cookies are active at the network edge could not be verified.",
             "No data processing agreements were reviewed, and there has been no independent security audit.",
-            "The minimum age of 16 is a proposal, and sign-up does not check age.",
+            "The minimum age of 16 is a proposal, and your age is self-declared and not verified.",
           ],
         },
       ],

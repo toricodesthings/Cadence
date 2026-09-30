@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Email my data in Settings > Data & Export sends you a JSON copy of everything in your account.
+- Sign-up asks you to confirm you're 16 or older and accept the Terms; new Google and GitHub accounts do too.
+
 ## [0.25.5] - 2026-09-30
 
 ### Added
