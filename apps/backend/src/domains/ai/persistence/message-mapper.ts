@@ -149,11 +149,27 @@ function keepReasoningDetail(detail: unknown): boolean {
     return !!d.signature;
 }
 
-function cleanMeta(meta: unknown): unknown {
+function cleanMeta(meta: unknown, keep: (detail: unknown) => boolean): unknown {
     const details = (meta as { openrouter?: { reasoning_details?: unknown } } | undefined)?.openrouter?.reasoning_details;
     if (!Array.isArray(details)) return meta;
     const m = meta as { openrouter: Record<string, unknown> };
-    return { ...m, openrouter: { ...m.openrouter, reasoning_details: details.filter(keepReasoningDetail) } };
+    return { ...m, openrouter: { ...m.openrouter, reasoning_details: details.filter(keep) } };
+}
+
+/** Rewrite one message's reasoning details through `keep`, leaving every other part as it was. */
+function filterReasoning<T extends { parts: unknown[] }>(msg: T, keep: (detail: unknown) => boolean): T {
+    return {
+        ...msg,
+        parts: msg.parts.map((part) => {
+            const p = part as { providerMetadata?: unknown; callProviderMetadata?: unknown };
+            if (!p || typeof p !== "object" || (!p.providerMetadata && !p.callProviderMetadata)) return part;
+            return {
+                ...p,
+                ...(p.providerMetadata ? { providerMetadata: cleanMeta(p.providerMetadata, keep) } : {}),
+                ...(p.callProviderMetadata ? { callProviderMetadata: cleanMeta(p.callProviderMetadata, keep) } : {}),
+            };
+        }),
+    };
 }
 
 /**
@@ -164,18 +180,25 @@ function cleanMeta(meta: unknown): unknown {
  * that tool calls depend on) are kept.
  */
 export function dropUnsignedReasoning<T extends { parts: unknown[] }>(messages: T[]): T[] {
-    return messages.map((msg) => ({
-        ...msg,
-        parts: msg.parts.map((part) => {
-            const p = part as { providerMetadata?: unknown; callProviderMetadata?: unknown };
-            if (!p || typeof p !== "object" || (!p.providerMetadata && !p.callProviderMetadata)) return part;
-            return {
-                ...p,
-                ...(p.providerMetadata ? { providerMetadata: cleanMeta(p.providerMetadata) } : {}),
-                ...(p.callProviderMetadata ? { callProviderMetadata: cleanMeta(p.callProviderMetadata) } : {}),
-            };
-        }),
-    }));
+    return messages.map((msg) => filterReasoning(msg, keepReasoningDetail));
+}
+
+/**
+ * Drop reasoning left by a DIFFERENT model than the one running this turn. A
+ * thought signature is issued by one model family and means nothing to another,
+ * so once `model-router` switches a thread mid-conversation the earlier turns'
+ * signed reasoning must not be replayed. A message with no recorded model is
+ * left alone — pre-routing history, where the thread only ever had one model.
+ */
+export function dropForeignReasoning<T extends { parts: unknown[]; metadata?: unknown }>(
+    messages: T[],
+    modelId: string,
+): T[] {
+    return messages.map((msg) => {
+        const producedBy = (msg.metadata as { model?: unknown } | undefined)?.model;
+        if (typeof producedBy !== "string" || producedBy === modelId) return msg;
+        return filterReasoning(msg, () => false);
+    });
 }
 
 /** A read result's row lists shrink to their ids; other fields stay as they were. */

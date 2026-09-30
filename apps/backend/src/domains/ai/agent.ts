@@ -14,19 +14,12 @@ import { HELP_TOPICS } from "./tools/help";
 import { approvalFor } from "./safety/approval";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { MAX_OUTPUT_TOKENS, MAX_TOOL_STEPS } from "./safety/input-guard";
+import { getModelId } from "./model-router";
 import { isMemoryEnabled, embedText, type EmbeddingSpend } from "./memory/embedding";
 import { retrieveMemories, type RetrievedMemory } from "./memory/memory-retrieval";
 import type { Env } from "../../types/env";
 import { resolveTimeZone, toZonedIso } from "../../platform/date-utils";
 import { localDay } from "@cadence/domain/repeats";
-
-/** Default chat model: cost-effective, low-latency. Overridable via AI_CHAT_MODEL. */
-const DEFAULT_CHAT_MODEL = "google/gemini-3.8-flash";
-
-/** The model id used for the current request (config, never hard-coded in prose). */
-export function getModelId(env: Env): string {
-    return env.AI_CHAT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
-}
 
 /** Served by OpenRouter when the chat model is unavailable or rate-limited. */
 const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
@@ -37,11 +30,14 @@ const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
  */
 const REASONING_EFFORT = "low";
 
-/** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
-function getModel(env: Env, userHash: string) {
+/**
+ * Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip).
+ * A basic model that fails over lands on the standard model before the last-resort fallback.
+ */
+function getModel(env: Env, modelId: string, userHash: string) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
-    return openrouter(getModelId(env), {
-        models: [getModelId(env), FALLBACK_CHAT_MODEL],
+    return openrouter(modelId, {
+        models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
         reasoning: { effort: REASONING_EFFORT },
         user: userHash,
     });
@@ -53,6 +49,7 @@ export interface AgentBuildOptions {
     currentDate: string;     // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
     approvalMode: ApprovalMode;
+    modelId?: string;        // the router's pick for this turn (model-router.ts); default the standard model
     nonce: string;           // per-request data-fence nonce (safety/injection-policy)
     queryText?: string;      // latest user message text — used for memory retrieval
     requestId?: string;      // tags the turn's side-call log lines (embedding)
@@ -194,6 +191,7 @@ export async function getAgentInstance(
     opts: AgentBuildOptions,
 ): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string; embeddingSpend?: EmbeddingSpend }> {
     const locale = opts.locale ?? "en";
+    const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
     const clock = userClock(opts.timezone, opts.currentDate);
     const { burnoutIndex, persona, weekStart } = await loadUserContext(env, userId);
@@ -229,7 +227,7 @@ export async function getAgentInstance(
     );
 
     const agent = new ToolLoopAgent({
-        model: getModel(env, userHash),
+        model: getModel(env, modelId, userHash),
         instructions,
         tools,
         stopWhen: isStepCount(MAX_TOOL_STEPS),
@@ -240,5 +238,5 @@ export async function getAgentInstance(
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
     });
 
-    return { agent, modelId: getModelId(env), promptHash: await getPromptHash(tools), embeddingSpend };
+    return { agent, modelId, promptHash: await getPromptHash(tools), embeddingSpend };
 }

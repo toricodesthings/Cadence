@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     rowToUIMessage,
     dropUnsignedReasoning,
+    dropForeignReasoning,
     compactOldReads,
     applyApprovals,
     settleUnanswered,
@@ -85,6 +86,36 @@ describe("uiMessageToRow", () => {
     });
 });
 
+
+describe("dropForeignReasoning", () => {
+    // Signed, so dropUnsignedReasoning keeps it — only the model switch removes it.
+    const meta = () => ({
+        openrouter: { reasoning_details: [{ type: "reasoning.text", format: "google-gemini-v1", text: "t", signature: "sig" }], other: 1 },
+    });
+    const msg = (model: string | undefined) => ({
+        role: "assistant",
+        metadata: model === undefined ? {} : { model },
+        parts: [{ type: "reasoning", text: "r", providerMetadata: meta() }],
+    });
+    const details = (m: { parts: unknown[] }) => (m.parts[0] as any).providerMetadata.openrouter.reasoning_details;
+
+    it("drops signed reasoning left by a different model", () => {
+        const [out] = dropForeignReasoning([msg("cheap/model")], "std/model");
+        expect(details(out)).toEqual([]);
+        // Everything else in the provider metadata survives.
+        expect((out.parts[0] as any).providerMetadata.openrouter.other).toBe(1);
+    });
+
+    it("keeps reasoning the current model produced itself", () => {
+        const [out] = dropForeignReasoning([msg("std/model")], "std/model");
+        expect(details(out)).toHaveLength(1);
+    });
+
+    it("leaves pre-routing history (no recorded model) alone", () => {
+        const [out] = dropForeignReasoning([msg(undefined)], "std/model");
+        expect(details(out)).toHaveLength(1);
+    });
+});
 
 describe("dropUnsignedReasoning", () => {
     const details = [

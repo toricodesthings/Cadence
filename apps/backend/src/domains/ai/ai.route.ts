@@ -24,7 +24,8 @@ import {
     conversationPatchSchema,
     stopStreamSchema,
 } from "@cadence/contracts/ai";
-import { getAgentInstance, getModelId } from "./agent";
+import { getAgentInstance } from "./agent";
+import { pickChatModel } from "./model-router";
 import {
     resolveOrCreateConversation,
     loadConversationMessages,
@@ -48,7 +49,7 @@ import { generateConversationTitle } from "./title/generate-title";
 import { openStream, closeStream, flushChunks, requestAbort, readMeta } from "./streaming/resume-store";
 import { startAbortWatcher } from "./streaming/abort-watcher";
 import { buildResumeStream } from "./streaming/replay";
-import { applyApprovals, compactOldReads, dropUnsignedReasoning, rowToUIMessage, settleUnanswered } from "./persistence/message-mapper";
+import { applyApprovals, compactOldReads, dropForeignReasoning, dropUnsignedReasoning, rowToUIMessage, settleUnanswered } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
 import { assertMessageWithinCaps, clampHistory, MAX_HISTORY_TURNS } from "./safety/input-guard";
 import { buildStreamError, streamErrorToText, AI_ERROR_MESSAGES } from "./safety/stream-error";
@@ -162,7 +163,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     const db = getDbClient(c.env);
     const nonce = makeFenceNonce();
-    const modelId = getModelId(c.env);
+    const modelId = pickChatModel(c.env, { text: incomingText, imageCount: imageIds.length });
     const clientMessageId = body.clientMessageId ?? getIdempotencyKey(c);
 
     // Resumption + hard abort (doc Update 4). Null when unconfigured/disabled →
@@ -223,6 +224,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         currentDate: body.currentDate,
         locale: body.locale,
         approvalMode: body.approvalMode,
+        modelId,
         nonce,
         queryText: incomingText || undefined,
         requestId,
@@ -316,8 +318,10 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     const turn = incoming
         ? [...settleUnanswered(history.filter((m) => m.id !== incoming.id)), incoming]
         : [...settleUnanswered(history.slice(0, -1)), history.at(-1)!];
+    // A turn that switched models (model-router) must not replay the previous
+    // model's thought signatures — they belong to a family this one never used.
     const uiMessages = compactOldReads(
-        dropUnsignedReasoning(clampHistory(turn.filter((m) => m.role !== "system"))),
+        dropForeignReasoning(dropUnsignedReasoning(clampHistory(turn.filter((m) => m.role !== "system"))), modelId),
     ) as ChatMessage[];
     // Recent `cadence-image:` references become data URLs for the model; older or
     // expired ones a text stub. Memory extraction and the stored reply keep the
