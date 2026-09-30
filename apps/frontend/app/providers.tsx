@@ -250,7 +250,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
             publishAvailableDesktopUpdate(update);
 
             toast.info(`Cadence ${update.version} is ready to install.`, {
-                description: "Open Settings > Privacy & Data to review release notes and apply the update.",
+                description: "Open Settings > About Cadence to review release notes and apply the update.",
             });
         }).catch(() => {
             hasCheckedForUpdates.current = false;

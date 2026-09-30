@@ -40,6 +40,7 @@ interface SingleInstancePayload {
     cwd: string;
 }
 
+/** Static page served by the local OAuth listener (no React here): mirrors CardPage's logo + header, in the original warm palette. */
 const OAUTH_CALLBACK_SUCCESS_HTML = `<!doctype html>
 <html lang="en">
     <head>
@@ -52,42 +53,120 @@ const OAUTH_CALLBACK_SUCCESS_HTML = `<!doctype html>
                 font-family: Outfit, system-ui, sans-serif;
                 background: #110f19;
                 color: #f5efe6;
+                --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            * {
+                box-sizing: border-box;
             }
 
             body {
                 margin: 0;
-                min-height: 100vh;
-                display: grid;
-                place-items: center;
+                min-height: 100dvh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 1.5rem 1rem;
                 background:
                     radial-gradient(circle at top, rgba(245, 192, 111, 0.18), transparent 34%),
                     linear-gradient(180deg, #171327, #0d0a14);
             }
 
             main {
-                width: min(28rem, calc(100vw - 3rem));
-                padding: 2rem;
+                position: relative;
+                width: 100%;
+                max-width: 32rem;
+                padding: 1.5rem 1.25rem;
                 border-radius: 1.75rem;
                 background: rgba(23, 19, 39, 0.82);
                 border: 1px solid rgba(255, 255, 255, 0.08);
-                box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+                box-shadow: 0 36px 120px rgba(0, 0, 0, 0.38);
+                backdrop-filter: blur(24px);
                 text-align: center;
+                animation: card-in 0.6s var(--ease) both;
+            }
+
+            /* Diagonal light sweep along the border, same as the app's cards */
+            main::after {
+                content: "";
+                position: absolute;
+                inset: -1px;
+                padding: 1px;
+                border-radius: inherit;
+                pointer-events: none;
+                background: linear-gradient(135deg, transparent 44%, rgba(255, 247, 214, 0.08) 47%, rgba(255, 232, 168, 0.95) 50%, rgba(255, 247, 214, 0.08) 53%, transparent 56%) no-repeat;
+                background-size: 300% 300%;
+                mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+                animation: sheen 4.6s linear infinite;
+            }
+
+            img {
+                display: block;
+                width: 2.5rem;
+                height: 2.5rem;
+                margin: 0 auto 1rem;
+                border-radius: 0.8rem;
+                object-fit: cover;
+                box-shadow: 0 8px 32px rgba(245, 192, 111, 0.22);
+            }
+
+            h1,
+            p {
+                animation: rise 0.5s var(--ease) both;
             }
 
             h1 {
-                margin: 0 0 0.75rem;
-                font-size: 1.5rem;
+                margin: 0;
+                font-size: 1.45rem;
+                font-weight: 600;
+                line-height: 1.25;
+                letter-spacing: -0.01em;
+                text-wrap: balance;
+                animation-delay: 0.14s;
             }
 
             p {
-                margin: 0;
+                margin: 0.5rem auto 0;
+                max-width: 24rem;
+                font-size: 0.875rem;
+                line-height: 1.5rem;
                 color: rgba(245, 239, 230, 0.78);
-                line-height: 1.6;
+                text-wrap: pretty;
+                animation-delay: 0.2s;
+            }
+
+            @keyframes card-in {
+                from { opacity: 0; transform: translateY(16px) scale(0.98); }
+            }
+
+            @keyframes rise {
+                from { opacity: 0; transform: translateY(10px); }
+            }
+
+            @keyframes sheen {
+                0% { background-position: 100% 100%; opacity: 0.18; }
+                50% { opacity: 0.9; }
+                100% { background-position: 0% 0%; opacity: 0.18; }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                main,
+                h1,
+                p {
+                    animation: none;
+                }
+
+                main::after {
+                    animation: none;
+                    background-position: 50% 50%;
+                    opacity: 0.45;
+                }
             }
         </style>
     </head>
     <body>
         <main>
+            <img src="${WEB_APP_BASE_URL}/logo.png" alt="Cadence" onerror="this.remove()" />
             <h1>Sign-in complete</h1>
             <p>Cadence received the secure callback. You can return to the desktop app.</p>
         </main>

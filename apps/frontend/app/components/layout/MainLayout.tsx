@@ -126,7 +126,7 @@ interface ShellHeaderConfig {
 const HEADER_CHIP = "hidden h-9 shrink-0 items-center rounded-xl border text-[13px] font-medium transition-colors lg:flex";
 const HEADER_CHIP_STEP = "flex h-full w-8 cursor-pointer items-center justify-center text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/50 disabled:pointer-events-none disabled:opacity-40";
 
-function DesktopHeaderStatus({ onOpenPrivacySettings }: { onOpenPrivacySettings: () => void }) {
+function DesktopHeaderStatus({ onOpenAbout }: { onOpenAbout: () => void }) {
     const update = useAvailableDesktopUpdate();
     const { layoutScale, setLayoutScale, stepLayoutScale } = useDesktopLayoutScale();
 
@@ -135,7 +135,7 @@ function DesktopHeaderStatus({ onOpenPrivacySettings }: { onOpenPrivacySettings:
             {update ? (
                 <button
                     type="button"
-                    onClick={onOpenPrivacySettings}
+                    onClick={onOpenAbout}
                     className={`${HEADER_CHIP} cursor-pointer gap-1.5 border-accent-primary/25 bg-accent-primary/15 px-3 text-accent-primary hover:bg-accent-primary/20`}
                 >
                     <Download size={14} aria-hidden="true" />
@@ -633,7 +633,7 @@ export function MainLayout({
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
     const desktopStatus = IS_DESKTOP_RUNTIME && shell.isDesktop
         ? (
-            <DesktopHeaderStatus onOpenPrivacySettings={() => navigate("?settings=privacy")} />
+            <DesktopHeaderStatus onOpenAbout={() => navigate("?settings=about")} />
         )
         : null;
 
