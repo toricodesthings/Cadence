@@ -189,6 +189,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
+          tauriScript: pnpm tauri
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: Cadence Desktop ${{ env.RELEASE_TAG }}
           releaseDraft: ${{ env.RELEASE_DRAFT }}
