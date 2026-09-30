@@ -27,7 +27,8 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.10.3", features = [] }
 tauri-plugin-deep-link = "2.4.7"
-tauri-plugin-http = "2.5.7"
+# unsafe-headers: Neon Auth only trusts the web app's Origin, so the frontend sets it (patch-desktop-fetch.ts).
+tauri-plugin-http = { version = "2.5.7", features = ["unsafe-headers"] }
 tauri-plugin-log = "2"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-opener = "2.5.3"

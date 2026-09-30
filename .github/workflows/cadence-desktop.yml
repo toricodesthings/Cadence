@@ -81,7 +81,8 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           cargo install --git https://github.com/chippers/msedgedriver-tool
-          & "$HOME/.cargo/bin/msedgedriver-tool.exe" $PWD.Path >> $env:GITHUB_PATH
+          & "$HOME/.cargo/bin/msedgedriver-tool.exe"
+          $PWD.Path >> $env:GITHUB_PATH
 
       - name: Build + smoke test
         if: runner.os == 'Linux'

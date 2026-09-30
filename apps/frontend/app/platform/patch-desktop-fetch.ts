@@ -25,10 +25,10 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && isTauri()) 
     const nativeFetch = window.fetch.bind(window);
 
     // Eagerly start loading the Tauri HTTP module so it's ready when needed
-    let tauriFetchFn: ((input: Request) => Promise<Response>) | null = null;
+    let tauriFetchFn: typeof fetch | null = null;
     const tauriFetchReady = import("@tauri-apps/plugin-http")
         .then((mod) => {
-            tauriFetchFn = mod.fetch as (input: Request) => Promise<Response>;
+            tauriFetchFn = mod.fetch as typeof fetch;
         })
         .catch((err) => {
             log.error("desktop-fetch", "Couldn't load the desktop network layer, so sign-in may not work.", err);
@@ -61,12 +61,9 @@ if (RUNTIME_TARGET === "desktop" && typeof window !== "undefined" && isTauri()) 
         if (!headers.has("Origin")) headers.set("Origin", AUTH_ORIGIN);
         if (!headers.has("Referer")) headers.set("Referer", AUTH_REFERER);
 
-        const request = input instanceof Request
-            ? new Request(input, { ...init, headers })
-            : new Request(url, { ...init, headers });
-
+        // Headers go in `init`: a `Request` silently drops Origin and Referer.
         try {
-            return await tauriFetchFn(request);
+            return await tauriFetchFn(input, { ...init, headers });
         } catch (err) {
             log.warn("desktop-fetch", "tauriFetch threw, falling back", url, err);
             return nativeFetch(input, init);

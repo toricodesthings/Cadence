@@ -213,8 +213,9 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         await clearDesktopAuthSession().catch(() => {
             // Ignore desktop fallback cleanup failures during sign out.
         });
-        await authClient.signOut().catch(() => {
+        await authClient.signOut().catch((err: unknown) => {
             // Desktop OAuth fallback may not have an SDK-backed session to revoke.
+            log.error("sign-out", "Couldn't end your session on the server.", err);
         });
         setRecoveredSession(null);
         setDesktopSession(null);

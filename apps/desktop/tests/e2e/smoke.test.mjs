@@ -81,22 +81,23 @@ describe("Cadence desktop smoke suite", () => {
     await navigateTo("/auth/sign-in");
 
     const heading = await driver.wait(
-      until.elementLocated(By.xpath("//h1[contains(., 'Step into your Cadence')]")),
+      until.elementLocated(By.xpath("//h1[contains(., 'Sign in to Cadence')]")),
       15000,
     );
 
-    expect(await heading.getText()).to.contain("Step into your Cadence");
+    expect(await heading.getText()).to.contain("Sign in to Cadence");
   });
 
+  // No pending sign-in, so the callback must refuse rather than hang.
   it("renders the auth callback route safely", async () => {
     await navigateTo("/auth/callback?redirectTo=%2F");
 
     const heading = await driver.wait(
-      until.elementLocated(By.xpath("//h1[contains(., 'Completing sign in')]")),
+      until.elementLocated(By.xpath("//h1[contains(., 'Sign-in failed')]")),
       15000,
     );
 
-    expect(await heading.getText()).to.equal("Completing sign in");
+    expect(await heading.getText()).to.equal("Sign-in failed");
   });
 
   it("handles auth callback deep links through single-instance handoff", async () => {
