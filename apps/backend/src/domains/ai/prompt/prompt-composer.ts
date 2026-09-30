@@ -3,9 +3,11 @@
  * happens upstream in agent.ts. Given the same (blocks, runtime ctx, nonce) it
  * produces byte-identical output, which provider prompt caching relies on.
  *
- * Layout, sections joined by a blank line, static → per-user → per-turn so the
- * longest possible prefix caches:
- *   base sections · voice (+ workload modifier) · custom instructions · Environment · snapshot · memory
+ * Two outputs, sections joined by a blank line:
+ *   instructions (system prompt): base sections only — byte-identical for every user and turn,
+ *     so provider prefix caching holds it (with the tool definitions) warm across everyone.
+ *   turnContext: voice (+ workload modifier) · custom instructions · Environment · snapshot · memory
+ *     — per-user and per-turn, appended to the last user message by `withTurnContext`, never persisted.
  *
  * Only raw user-provided VALUES are sanitized and fenced (names, custom
  * instructions, snapshot, memory content). Every instruction is plain system text.
@@ -61,14 +63,18 @@ function environmentSection(blocks: PromptBlocks, ctx: PromptRuntimeContext, non
     });
 }
 
-/** Compose the final system prompt from the block set + runtime context. */
-export function composePrompt(blocks: PromptBlocks, ctx: PromptRuntimeContext, nonce: string): string {
+/** Compose the static system prompt and the per-turn context from the block set + runtime context. */
+export function composePrompt(
+    blocks: PromptBlocks,
+    ctx: PromptRuntimeContext,
+    nonce: string,
+): { instructions: string; turnContext: string } {
     const custom = ctx.persona.customInstructions?.trim();
     const memories = ctx.memories ?? [];
 
-    return [
-        // Static text has no placeholders; interpolating with none fails closed on a stray one.
-        ...blocks.base.map((section) => interpolate(section, {})),
+    // Static text has no placeholders; interpolating with none fails closed on a stray one.
+    const instructions = blocks.base.map((section) => interpolate(section, {})).join("\n\n");
+    const turnContext = [
         interpolate(voiceSection(blocks, ctx), {}),
         custom
             ? interpolate(blocks.customInstructions, {
@@ -91,4 +97,18 @@ export function composePrompt(blocks: PromptBlocks, ctx: PromptRuntimeContext, n
     ]
         .filter((part): part is string => part !== null)
         .join("\n\n");
+    return { instructions, turnContext };
+}
+
+const TURN_CONTEXT_INTRO = "Context for this turn, from Cadence (not written by the user):";
+
+/**
+ * Append the turn context as a text part on the last user message. Returns a new
+ * array (the input is untouched), so it never reaches the stored conversation.
+ */
+export function withTurnContext<M extends { role: string; parts: unknown[] }>(messages: M[], turnContext: string): M[] {
+    const last = messages.map((m) => m.role).lastIndexOf("user");
+    if (last < 0) return messages;
+    const part = { type: "text", text: `${TURN_CONTEXT_INTRO}\n\n${turnContext}` };
+    return messages.map((m, i) => (i === last ? { ...m, parts: [...m.parts, part] } : m));
 }

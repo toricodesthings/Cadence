@@ -147,15 +147,47 @@ export function dropPatterns(node: unknown): unknown {
     );
 }
 
+/** Validation-only bounds the model can't act on; batch caps are already stated in each description. */
+const BOUNDS = new Set(["minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems"]);
+
+/**
+ * Shrink a JSON schema for the model (validation still runs on the full zod schema): drop
+ * {@link BOUNDS}, fold `anyOf: [X, null]` into `type: [X, "null"]` and a union of same-type
+ * literals into an `enum`. `$ref`/`$defs` are left alone: providers handle them inconsistently.
+ */
+export function slimSchema(node: unknown): unknown {
+    if (Array.isArray(node)) return node.map(slimSchema);
+    if (!node || typeof node !== "object") return node;
+    const out: Record<string, any> = {};
+    for (const [key, value] of Object.entries(node)) {
+        if (BOUNDS.has(key)) continue;
+        // `properties` maps field names to schemas: recurse per field, never filter the names.
+        out[key] = key === "properties" && value && typeof value === "object"
+            ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, slimSchema(schema)]))
+            : slimSchema(value);
+    }
+    const { anyOf, ...rest } = out;
+    if (!Array.isArray(anyOf) || anyOf.length < 2) return out;
+    const literals = anyOf.every((b) => b && "const" in b && typeof b.type === "string" && b.type === anyOf[0].type && Object.keys(b).length === 2);
+    if (literals) return { ...rest, type: anyOf[0].type, enum: anyOf.map((b) => b.const) };
+    const nonNull = anyOf.filter((b) => b?.type !== "null");
+    const [only] = nonNull;
+    if (nonNull.length === 1 && typeof only.type === "string" && !("enum" in only) && !("const" in only)) {
+        return { ...only, ...rest, type: [only.type, "null"] };
+    }
+    return { ...rest, anyOf };
+}
+
 /**
  * The model sees each input schema without the long regex `pattern`s that zod
  * emits for dates and uuids (`format` already says "date"/"uuid"), which were
- * most of the tool tokens. Calls are still validated against the full zod schema.
+ * most of the tool tokens, and slimmed further by {@link slimSchema}. Calls are
+ * still validated against the full zod schema.
  */
 function withoutPatterns<T extends Record<string, { inputSchema: unknown }>>(tools: T): T {
     for (const t of Object.values(tools)) {
         const full = asSchema(t.inputSchema as Parameters<typeof asSchema>[0]);
-        t.inputSchema = jsonSchema(async () => dropPatterns(await full.jsonSchema) as never, {
+        t.inputSchema = jsonSchema(async () => slimSchema(dropPatterns(await full.jsonSchema)) as never, {
             validate: (value) => full.validate!(value),
         });
     }

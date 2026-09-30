@@ -63,7 +63,6 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
     set_task_state: { class: "write", label: "Moved tasks", render: (ctx) => <SetStateCard ctx={ctx} /> },
     delete_tasks: { class: "write", label: "Deleted tasks", render: (ctx) => <DeleteTasksCard ctx={ctx} /> },
     reschedule_tasks: { class: "write", label: "Rescheduled tasks", render: (ctx) => <RescheduleCard ctx={ctx} /> },
-    structure_captures: { class: "write", label: "Sorted captures", render: (ctx) => <StructureCapturesCard ctx={ctx} /> },
     update_captures: { class: "write", label: "Changed captures", render: (ctx) => <UpdateCapturesCard ctx={ctx} /> },
     delete_captures: { class: "write", label: "Deleted captures", render: (ctx) => <DeleteCapturesCard ctx={ctx} /> },
     create_project: { class: "write", label: "Made a list", render: (ctx) => <CreateProjectCard ctx={ctx} /> },
@@ -93,6 +92,7 @@ const TOOL_REGISTRY: Record<string, ToolDescriptor> = {
 /** Writes the server no longer offers, still in older threads: they render with their old card. */
 const RETIRED_WRITES: Record<string, (ctx: ToolRenderContext) => React.ReactNode> = {
     structure_inbox_item: (ctx) => <InboxStructureCard ctx={ctx} />,
+    structure_captures: (ctx) => <StructureCapturesCard ctx={ctx} />,
 };
 
 /**

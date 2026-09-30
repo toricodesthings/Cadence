@@ -42,13 +42,7 @@ export const helpTools = () => ({
     get_cadence_help: tool({
         description:
             "The Cadence guide: how a feature works, where it lives, and in-app links to copy. " +
-            "Topics: tasks (create, edit, Waiting, done, Trash, Undo) · dates-and-times (due vs scheduled, typing dates, dragging, overdue) · " +
-            "repeats (Fixed vs Routine vs repeating task, making each) · routines (done/skip, pause, archive, streaks) · " +
-            "capture (thoughts, quick capture, sorting) · organizing (lists, sections, tags) · " +
-            "planning (Today, Schedule, Upcoming, Weekly Reset) · events (personal events) · " +
-            "assistant (what you can do, approval modes, voices, memory) · settings (every Settings tab) · " +
-            "shortcuts (keyboard) · devices (desktop, Home Screen, offline) · privacy-and-data (export, account deletion, AI data). " +
-            "Call two topics in parallel when a question spans both.",
+            "Pick the topic by name; call two in parallel when a question spans both.",
         inputSchema: z.object({
             topic: z.enum(Object.keys(HELP_TOPICS) as [HelpTopic, ...HelpTopic[]]),
         }),

@@ -7,7 +7,7 @@ vi.mock("../../src/domains/ai/safety/injection-policy", () => ({
     sanitizeUntrusted: (text: string, _nonce: string) => `SANITIZED(${text})`,
 }));
 
-import { composePrompt, isWorkloadHigh } from "../../src/domains/ai/prompt/prompt-composer";
+import { composePrompt, isWorkloadHigh, withTurnContext } from "../../src/domains/ai/prompt/prompt-composer";
 import { PROMPT_BLOCKS } from "../../src/domains/ai/prompt/prompt-blocks";
 import type { AssistantPersona, PromptRuntimeContext } from "../../src/domains/ai/prompt/prompt-blocks.schema";
 
@@ -37,7 +37,12 @@ function ctx(overrides: Partial<PromptRuntimeContext> = {}, personaOverrides: Pa
     };
 }
 
-const compose = (c: PromptRuntimeContext) => composePrompt(PROMPT_BLOCKS, c, "N");
+const parts = (c: PromptRuntimeContext) => composePrompt(PROMPT_BLOCKS, c, "N");
+/** The whole prompt the model sees: static instructions, then the turn context. */
+const compose = (c: PromptRuntimeContext) => {
+    const { instructions, turnContext } = parts(c);
+    return `${instructions}\n\n${turnContext}`;
+};
 
 describe("isWorkloadHigh", () => {
     it("is high only above 70 with adaptive tone on", () => {
@@ -58,12 +63,28 @@ describe("composePrompt", () => {
         expect(out).not.toMatch(/^# [A-Z &]+$/m);
     });
 
-    it("keeps the static prefix byte-identical across users and turns", () => {
-        const a = compose(ctx());
-        const b = compose(ctx({ now: "2026-09-24 08:00 -04:00 (Thursday)", approvalMode: "full" }, { persona: "coach", assistantName: "Jeeves" }));
-        const prefix = PROMPT_BLOCKS.base.join("\n\n");
-        expect(a.startsWith(prefix)).toBe(true);
-        expect(b.startsWith(prefix)).toBe(true);
+    it("keeps the instructions byte-identical across users and turns, with nothing volatile in them", () => {
+        const a = parts(ctx({ snapshot: "{}", memories: [{ id: "1", content: "m", type: "CORE", salience: 0.9 }] }, { customInstructions: "Be brief" }));
+        const b = parts(ctx({ now: "2026-09-24 08:00 -04:00 (Thursday)", approvalMode: "full" }, { persona: "coach", assistantName: "Jeeves" }));
+        expect(a.instructions).toBe(PROMPT_BLOCKS.base.join("\n\n"));
+        expect(b.instructions).toBe(a.instructions);
+        expect(a.instructions).not.toMatch(/\{\{|FENCE_N|## Voice|## Environment|## Today at a glance/);
+        expect(a.turnContext).not.toBe(b.turnContext);
+    });
+
+    it("appends the turn context to the last user message without mutating the input", () => {
+        const msgs = [
+            { role: "user", parts: [{ type: "text", text: "first" }] },
+            { role: "assistant", parts: [{ type: "text", text: "ok" }] },
+            { role: "user", parts: [{ type: "text", text: "second" }] },
+            { role: "assistant", parts: [] },
+        ];
+        const out = withTurnContext(msgs, "CTX");
+        expect(out[2]!.parts).toHaveLength(2);
+        expect((out[2]!.parts[1] as { text: string }).text).toContain("CTX");
+        expect(out[0]).toBe(msgs[0]);
+        expect(msgs[2]!.parts).toHaveLength(1);
+        expect(withTurnContext([msgs[1]!], "CTX")).toEqual([msgs[1]]);
     });
 
     it("states the assistant's name once, in the fenced Environment names", () => {

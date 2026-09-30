@@ -25,6 +25,7 @@ import {
     stopStreamSchema,
 } from "@cadence/contracts/ai";
 import { getAgentInstance } from "./agent";
+import { withTurnContext } from "./prompt/prompt-composer";
 import { pickChatModel } from "./model-router";
 import {
     resolveOrCreateConversation,
@@ -328,7 +329,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // references (never base64).
     const { messages: modelMessages, hydrated: imageCount } = await hydrateImages(uiMessages, c.env.USER_ASSETS, userKey);
 
-    const { agent, promptHash, embeddingSpend } = await agentReady;
+    const { agent, promptHash, embeddingSpend, turnContext } = await agentReady;
     turnTiming.setupMs = since(); // auth, budget, DB, prompt build: everything before the model call
 
     // Cross-isolate stop (Redis) aborts through this; the SDK `timeout` below owns the ceilings.
@@ -344,7 +345,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     const agentStream = await createAgentUIStream({
         agent,
-        uiMessages: modelMessages as unknown[],
+        uiMessages: withTurnContext(modelMessages as { role: string; parts: unknown[] }[], turnContext),
         abortSignal: abortController.signal,
         // Hard ceilings cancel the upstream model call (no zombie spend, doc 09 §3.1);
         // firstChunkMs fails a hung provider fast instead of waiting out the whole turn.

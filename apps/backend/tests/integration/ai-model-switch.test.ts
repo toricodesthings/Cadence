@@ -65,6 +65,7 @@ beforeEach(() => {
         agent: new ToolLoopAgent({ model: scriptedModel(), tools: {} }) as never,
         modelId: "unused",
         promptHash: "hash",
+        turnContext: "",
     });
 });
 

@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Pick the loading screen's scene, and the assistant is faster and cheaper to run.
+
 ### Added
 
 - Choose the loading screen scene in Appearance, or leave it on Auto to follow the season.
@@ -13,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 ### Changed
 
 - The loading screen is calmer: a quieter logo halo, softer lanterns and leaves, and glassier clouds.
+- The assistant is faster and cheaper to run, with every tool and ability kept.
 
 ### Fixed
 

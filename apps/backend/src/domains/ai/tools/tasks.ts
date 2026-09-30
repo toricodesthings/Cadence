@@ -34,6 +34,7 @@ import {
     updateTasks,
 } from "../../tasks/tasks.service";
 import { findOrCreateTags } from "../../tags/tags.service";
+import { processCapture } from "../../inbox/inbox.service";
 import { editSubtasks } from "../../subtasks/subtasks.service";
 import { writeNote } from "../../notes/notes.service";
 import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
@@ -281,18 +282,40 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         create_tasks: tool({
             description:
                 "Creates 1–20 tasks, each with optional checklist steps, tags (by id or name), a note, a reminder and a hide-until day. " +
+                "With inboxItemId the task is made from that capture, which leaves Capture (no date given = no date). " +
                 "Returns each taskId and its subtaskIds. Never for a task that already exists: use update_tasks.",
-            inputSchema: z.object({ tasks: z.array(taskDraftSchema).min(1).max(20) }),
+            inputSchema: z.object({
+                tasks: z.array(taskDraftSchema.extend({
+                    inboxItemId: z.uuid().optional().describe("The capture this task is made from."),
+                }).refine(
+                    (d) => !d.inboxItemId || [d.fixed, d.reminderAt, d.hideUntil].every((v) => v === undefined),
+                    "A task from a capture takes no fixed, reminder or hide-until",
+                )).min(1).max(20),
+            }),
             execute: async ({ tasks: drafts }, { toolCallId }) =>
                 write("create_tasks", toolCallId, async (tx) => {
                     // One lookup for every draft's tag names, so two drafts never make the same tag twice.
                     const named = await tagIdsByName(tx, drafts.flatMap((draft) => draft.tagNames ?? []));
-                    const ready = drafts.map(({ fromImage: _quotes, tagNames = [], hideUntil, tagIds = [], ...draft }) => ({
-                        ...draft,
-                        tagIds: [...tagIds, ...tagNames.map((name) => named.get(name.trim().toLowerCase())!)],
-                        notBefore: hideUntilInstant(hideUntil, ctx.timezone),
-                    }));
-                    const created = await createTasks(tx, userId, ready);
+                    const created: { taskId: string; title: string; subtaskIds?: string[]; inboxItemId?: string }[] = [];
+                    for (const { fromImage: _quotes, tagNames = [], hideUntil, tagIds = [], inboxItemId, ...draft } of drafts) {
+                        const allTagIds = [...tagIds, ...tagNames.map((name) => named.get(name.trim().toLowerCase())!)];
+                        if (!inboxItemId) {
+                            created.push(...await createTasks(tx, userId, [{ ...draft, tagIds: allTagIds, notBefore: hideUntilInstant(hideUntil, ctx.timezone) }]));
+                            continue;
+                        }
+                        const { subtasks: steps, note, fixed: _fixed, reminderAt: _reminder, ...fields } = draft;
+                        const { task } = await processCapture(tx, userId, inboxItemId, {
+                            ...fields,
+                            // Explicit nulls: the capture's own words never add a date, list or tags.
+                            dueDate: fields.dueDate ?? null,
+                            scheduledStart: fields.scheduledStart ?? null,
+                            isAllDay: inferIsAllDay(fields) ?? true,
+                            projectId: fields.projectId ?? null,
+                            sectionId: fields.sectionId ?? null,
+                            tagIds: allTagIds,
+                        }, { subtasks: steps, note });
+                        created.push({ inboxItemId, taskId: task.id, title: task.title });
+                    }
                     return { result: { created }, id: created[0].taskId, changes: { created: created.map((task) => task.taskId) } };
                 }),
         }),

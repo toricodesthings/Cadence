@@ -10,7 +10,7 @@ import {
 } from "../../src/domains/ai/tools/projections";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT } from "../../src/domains/ai/tools/index";
+import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT, slimSchema } from "../../src/domains/ai/tools/index";
 import { taskDraftSchema } from "../../src/domains/ai/tools/drafts";
 import { approvalFor, needsTap } from "../../src/domains/ai/safety/approval";
 
@@ -150,7 +150,7 @@ describe("tool registry", () => {
         const frontend = [...registry.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]).sort();
 
         expect(frontend).toEqual(backend);
-        expect(backend).toHaveLength(44);
+        expect(backend).toHaveLength(43);
     });
 
     it("sends the model schemas without regex patterns, but still validates calls in full", async () => {
@@ -161,6 +161,28 @@ describe("tool registry", () => {
         expect((await schema.validate!({ taskIds: ["not-a-uuid"], targetDate: "2026-10-01" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01T14:00" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" })).success).toBe(true);
+    });
+
+    it("slims schemas: no bounds, nullable unions and literal unions folded", () => {
+        expect(slimSchema({
+            type: "object",
+            properties: {
+                minimum: { type: "string", minLength: 1, maxLength: 9 },
+                due: { anyOf: [{ type: "string", format: "date" }, { type: "null" }], description: "d" },
+                kind: { anyOf: [{ type: "string", enum: ["a"] }, { type: "null" }] },
+                priority: { anyOf: [0, 1, 2].map((n) => ({ type: "number", const: n })) },
+                ids: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 20 },
+            },
+        })).toEqual({
+            type: "object",
+            properties: {
+                minimum: { type: "string" },
+                due: { type: ["string", "null"], format: "date", description: "d" },
+                kind: { anyOf: [{ type: "string", enum: ["a"] }, { type: "null" }] },
+                priority: { type: "number", enum: [0, 1, 2] },
+                ids: { type: "array", items: { type: "string" } },
+            },
+        });
     });
 
     it("takes only the repeat rules the Routines picker can show", async () => {
@@ -199,7 +221,7 @@ describe("which calls wait for a tap", () => {
         for (const name of ["delete_project", "delete_tag", "delete_captures", "delete_habit", "delete_focus_view"]) expect(needsTap(name, {})).toBe(true);
         expect(needsTap("update_captures", { items: ids(5) })).toBe(false);
         expect(needsTap("update_captures", { items: ids(6) })).toBe(true);
-        expect(needsTap("structure_captures", { items: ids(6) })).toBe(true);
+        expect(needsTap("create_tasks", { tasks: ids(6) })).toBe(true);
         expect(needsTap("reorder_tasks", { taskIds: ids(2), to: "top" })).toBe(false);
     });
 

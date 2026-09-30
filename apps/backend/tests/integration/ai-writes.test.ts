@@ -255,7 +255,7 @@ describe("captures", () => {
     it("places several captures at once, each in its own list and section, tagged by name, never adding a date it wasn't given", async () => {
         const [rent, paper] = [await capture("pay rent friday"), await capture("essay draft")];
         const { projectId, sections } = await call("create_project", { name: "School", sections: ["Essays", "Labs"] });
-        const { created } = await call("structure_captures", { items: [
+        const { created } = await call("create_tasks", { tasks: [
             { inboxItemId: rent, title: "Pay rent", subtasks: ["Log in to bank"], note: "Landlord's new account.", tagNames: ["Money"] },
             { inboxItemId: paper, title: "Essay draft", projectId, sectionId: sections[0].sectionId, tagNames: ["money", "School"] },
         ] });
@@ -273,7 +273,7 @@ describe("captures", () => {
 
     it("keeps, discards, ticks off, edits and restores captures, then deletes one for good", async () => {
         const [note, junk, done, placed] = [await capture("book idea"), await capture("junk"), await capture("call mum"), await capture("buy milk")];
-        const { created } = await call("structure_captures", { items: [{ inboxItemId: placed, title: "Buy milk" }] });
+        const { created } = await call("create_tasks", { tasks: [{ inboxItemId: placed, title: "Buy milk" }] });
 
         const { results } = await call("update_captures", { items: [
             { inboxItemId: note, action: "note", text: "Book idea: a lighthouse" },

@@ -4,7 +4,7 @@
  *
  * Write-card states on display:
  * - approved (`output-available`): set_task_state, create_tasks, log_habit (in Auto),
- *   structure_captures, create_project
+ *   create_tasks from a capture, create_project
  * - declined (`output-denied`): create_tag; not answered: reschedule_tasks
  * - waiting (`approval-requested`, last reply only): every other write tool (routine
  *   changes, events, sections, lists, tags, captures, copies, order, focus views)
@@ -307,7 +307,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                         "The teardown deck feeds next quarter, so it could live in a new list once you say yes to it. " +
                         "I also suggested an **Errands** tag for things like the prescription.",
                 ),
-                approved("structure_captures", { items: [{ inboxItemId: transcript.id, ...transcriptDraft }] }, {
+                approved("create_tasks", { tasks: [{ inboxItemId: transcript.id, ...transcriptDraft }] }, {
                     created: [{ inboxItemId: transcript.id, taskId: transcriptTask.id, title: transcriptTask.title }],
                 }),
                 approved("create_project", planningDraft, { projectId: planning.id, name: planning.name }),

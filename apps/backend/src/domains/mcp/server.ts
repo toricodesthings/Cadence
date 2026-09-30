@@ -70,7 +70,6 @@ const CATALOG: Record<string, { scope: McpScope | null; effect: Effect; destruct
     set_task_state: { scope: "cadence:write", effect: "write", destructive: true },
     reschedule_tasks: { scope: "cadence:write", effect: "write", destructive: true },
     delete_tasks: { scope: "cadence:write", effect: "write", destructive: true },
-    structure_captures: { scope: "cadence:write", effect: "write" },
     update_captures: { scope: "cadence:write", effect: "write", destructive: true },
     delete_captures: { scope: "cadence:write", effect: "write", destructive: true },
     create_project: { scope: "cadence:write", effect: "write" },

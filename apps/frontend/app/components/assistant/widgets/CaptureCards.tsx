@@ -1,8 +1,8 @@
 /**
- * Cards for Capture writes: `structure_captures` (captures → tasks),
- * `update_captures` (keep, discard, tick off, back to New, new words) and
- * `delete_captures`. `InboxStructureCard` renders the retired
- * `structure_inbox_item` in older threads.
+ * Cards for Capture writes: `update_captures` (keep, discard, tick off, back to
+ * New, new words) and `delete_captures`. `StructureCapturesCard` and
+ * `InboxStructureCard` render the retired `structure_captures` and
+ * `structure_inbox_item` in older threads (captures now become tasks via `create_tasks`).
  */
 import { AlertCircle, Archive, Check, CheckCircle2, Inbox, NotebookPen, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
@@ -14,7 +14,7 @@ import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-sc
 
 type CaptureDraft = TaskDraft & { inboxItemId?: string };
 
-/** Card for `structure_captures`: one capture whole, or several as rows the user can untick. */
+/** Retired `structure_captures` (still in older threads): one capture whole, or several as rows the user can untick. */
 export function StructureCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);

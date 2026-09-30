@@ -10,13 +10,9 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalInboxItem } from "./projections";
-import { NOTE_READ_LIMIT, taskDraftSchema } from "./drafts";
-import { inferIsAllDay } from "@cadence/domain/task-temporal";
+import { NOTE_READ_LIMIT } from "./drafts";
 import { deleteCaptures, processCapture, unprocessCapture, updateCapture } from "../../inbox/inbox.service";
-import { findOrCreateTags } from "../../tags/tags.service";
 import { insertInboxItemSchema } from "@cadence/contracts/inbox";
-
-const captureDraftSchema = taskDraftSchema.omit({ fixed: true, reminderAt: true, hideUntil: true }).extend({ inboxItemId: z.uuid() });
 
 export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -56,36 +52,6 @@ export const inboxTools = (env: Env, userId: string, _ctx: AgentContext) => ({
                 const more = rows.length > cap;
                 return { items: rows.slice(0, cap).map(toMinimalInboxItem), ...(more && { more, nextOffset: offset + cap }) };
             }),
-    }),
-
-    // ── W ──────────────────────────────────────────────────────────────────
-    structure_captures: tool({
-        description:
-            "Turns 1–20 captures into tasks, each with its own fields, list and section, checklist steps, tags (by id or name) and note; " +
-            "each capture leaves Capture. No date given = the task has no date. Returns each taskId.",
-        inputSchema: z.object({ items: z.array(captureDraftSchema).min(1).max(20) }),
-        execute: async ({ items }, { toolCallId }) =>
-            safeExecute("structure_captures", userId, async () =>
-                withRls(getDbClient(env), userId, (tx) =>
-                    once(tx, userId, toolCallId, async () => {
-                        const created: { inboxItemId: string; taskId: string; title: string }[] = [];
-                        for (const { inboxItemId, subtasks, note, fromImage: _quotes, tagNames, ...draft } of items) {
-                            const { task } = await processCapture(tx, userId, inboxItemId, {
-                                ...draft,
-                                // Explicit nulls: the capture's own words never add a date, list or tags.
-                                dueDate: draft.dueDate ?? null,
-                                scheduledStart: draft.scheduledStart ?? null,
-                                isAllDay: inferIsAllDay(draft) ?? true,
-                                projectId: draft.projectId ?? null,
-                                sectionId: draft.sectionId ?? null,
-                                tagIds: [...(draft.tagIds ?? []), ...(tagNames?.length ? await findOrCreateTags(tx, userId, tagNames) : [])],
-                            }, { subtasks, note });
-                            created.push({ inboxItemId, taskId: task.id, title: task.title });
-                        }
-                        return { result: { created }, id: created[0].taskId };
-                    }),
-                ),
-            ),
     }),
 
     // ── W (additive: never waits for approval) ──────────────────────────────

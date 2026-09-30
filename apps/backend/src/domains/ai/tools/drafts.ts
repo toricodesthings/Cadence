@@ -18,11 +18,11 @@ const tagNames = z.array(insertTagSchema.shape.name).max(20);
 const reminderAt = insertTaskSchema.shape.reminderAt.describe("When to remind the user: local time with offset.");
 const hideUntil = z.iso.date().describe("Hide it from lists until this local day.");
 const when = {
-    dueDate: insertTaskSchema.shape.dueDate.describe("A deadline, only when one is given: YYYY-MM-DD, or local time with its UTC offset; null clears."),
+    dueDate: insertTaskSchema.shape.dueDate.describe("A deadline, only when one is given; null clears."),
     scheduledStart: insertTaskSchema.shape.scheduledStart.describe(
-        "When they plan to do it: YYYY-MM-DD for the day, or local time with its UTC offset for a time block; null clears.",
+        "When they plan to do it: a day, or a time for a time block; null clears.",
     ),
-    scheduledEnd: insertTaskSchema.shape.scheduledEnd.describe("The time block's end: local time with its UTC offset."),
+    scheduledEnd: insertTaskSchema.shape.scheduledEnd.describe("The time block's end."),
     recurrenceRule: insertTaskSchema.shape.recurrenceRule.describe(
         "Repeats, as an RRULE, e.g. FREQ=WEEKLY;BYDAY=MO,WE; null stops it. Things done for their own sake are routines (create_habit).",
     ),

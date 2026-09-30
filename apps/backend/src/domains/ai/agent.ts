@@ -39,6 +39,9 @@ function getModel(env: Env, modelId: string, userHash: string) {
     return openrouter(modelId, {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
         reasoning: { effort: REASONING_EFFORT },
+        // DeepInfra is the cheapest endpoint and its prefix cache only hits on a sticky route, so
+        // no `:nitro` / throughput sort. Fallbacks stay on: an outage costs the cache, not the turn.
+        provider: { order: ["DeepInfra"], allow_fallbacks: true },
         user: userHash,
     });
 }
@@ -167,8 +170,7 @@ function getPromptHash(tools: ToolSet): Promise<string> {
 /**
  * The user's clock for this turn. The model is shown local wall-clock time to the
  * minute with its offset and weekday ("2026-09-21 22:30 -04:00 (Monday)"), never a
- * UTC "Z" instant it would misread as local. Minute precision keeps the prompt
- * byte-identical within a minute (provider caching). Tools get the zone + local date.
+ * UTC "Z" instant it would misread as local. Tools get the zone + local date.
  */
 export function userClock(timezone: string | undefined, currentDate: string) {
     const tz = resolveTimeZone(timezone);
@@ -181,15 +183,16 @@ export function userClock(timezone: string | undefined, currentDate: string) {
 }
 
 /**
- * Assemble the per-request agent: composed system prompt (Base + Auxiliary) +
- * the full RLS-scoped tool surface. Returns the agent, the resolved model id and
- * the prompt hash (for message metadata / conversation.model).
+ * Assemble the per-request agent: the static system prompt + the full RLS-scoped
+ * tool surface. Returns the agent, the resolved model id, the prompt hash (for
+ * message metadata / conversation.model) and the per-turn context, which the
+ * caller appends to the last user message (`withTurnContext`).
  */
 export async function getAgentInstance(
     env: Env,
     userId: string,
     opts: AgentBuildOptions,
-): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string; embeddingSpend?: EmbeddingSpend }> {
+): Promise<{ agent: ToolLoopAgent<never, ReturnType<typeof buildToolRegistry>>; modelId: string; promptHash: string; turnContext: string; embeddingSpend?: EmbeddingSpend }> {
     const locale = opts.locale ?? "en";
     const modelId = opts.modelId ?? getModelId(env);
     const userHash = await hashIdentifier(userId);
@@ -210,7 +213,7 @@ export async function getAgentInstance(
         loadSnapshot(tools, clock.today),
     ]);
 
-    const instructions = composePrompt(
+    const { instructions, turnContext } = composePrompt(
         PROMPT_BLOCKS,
         {
             timezone: clock.timezone,
@@ -238,5 +241,5 @@ export async function getAgentInstance(
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
     });
 
-    return { agent, modelId, promptHash: await getPromptHash(tools), embeddingSpend };
+    return { agent, modelId, promptHash: await getPromptHash(tools), turnContext, embeddingSpend };
 }

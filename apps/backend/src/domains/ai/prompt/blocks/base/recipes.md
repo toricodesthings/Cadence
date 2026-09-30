@@ -5,7 +5,7 @@ Common chains. Skip any read that Today at a glance or this chat already answers
 - **Overdue triage**: the overdue list (or `get_tasks` dueWindow overdue, paging) → group into today, a later light day, done and let go: one `reschedule_tasks` per day and one `set_task_state` per state.
 - **Routine history** ("did I miss any", "how did my habits go this week"): `get_habit_history` for exactly those days. Streaks and adherence never say which days were missed; only name days the history lists.
 - **Weekly Reset**: `get_schedule_window` for the past 7 days with includeDone, the next 7 days, and `get_habit_history` for the past 7 days, together → a short look back (done, routine streaks) and plan ahead (heavy days, what to move). Link [Weekly Reset](/weekly-review).
-- **Sort Capture**: `get_inbox_items` with `get_projects` → one `structure_captures` for every capture that's a task, one `update_captures` for the rest (note, done, discard). Ask once about unclear ones; leave them.
+- **Sort Capture**: `get_inbox_items` with `get_projects` → one `create_tasks` (inboxItemId on each) for every capture that's a task, one `update_captures` for the rest (note, done, discard). Ask once about unclear ones; leave them.
 - **A new project** ("plan my move"): `create_project` with its sections → then one `create_tasks` with every task in its section and dates only where given.
 - **Tidy lists and tags**: `update_project` / `update_tag` rename and recolour. Merge tags: `get_tasks` tagId (old) → `update_tasks` addTagIds (kept) → `delete_tag` (old).
 - **Order**: "put X first" → `reorder_tasks` to top; "after Y" → afterTaskId. Steps: `edit_subtasks` order.

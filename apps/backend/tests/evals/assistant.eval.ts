@@ -71,9 +71,10 @@ async function converse(userId: string, turns: string[]): Promise<Run> {
     let tokens = 0;
     const started = Date.now();
     for (const turn of turns) {
-        const { agent } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: NOW, approvalMode: "full", nonce: "evalnonce", queryText: turn });
+        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: NOW, approvalMode: "full", nonce: "evalnonce", queryText: turn });
         messages.push({ role: "user", content: turn });
-        const result = await agent.generate({ messages });
+        // Like production: this turn's context rides on the newest user message, never stored in history.
+        const result = await agent.generate({ messages: [...messages.slice(0, -1), { role: "user", content: `${turn}\n\n${turnContext}` }] });
         for (const [i, step] of result.steps.entries()) {
             for (const call of step.toolCalls) {
                 const output = step.toolResults.find((r: any) => r.toolCallId === call.toolCallId)?.output;
@@ -211,9 +212,9 @@ const SCENARIOS: Scenario[] = [
         turns: ["sort my capture. keep the newsletter idea as a note, the rest are tasks"],
         check: async (run, t) => {
             const items = (await t("get_inbox_items", {})).items as any[];
-            const structured = called(run, "structure_captures");
+            const structured = called(run, "create_tasks");
             return [
-                ...need(structured.length === 1 && structured[0].input.items.length === 4, `one structure_captures with 4 (got ${structured.map((c) => c.input.items.length)})`),
+                ...need(structured.length === 1 && structured[0].input.tasks.filter((d: any) => d.inboxItemId).length === 4, `one create_tasks with 4 captures (got ${structured.map((c) => c.input.tasks.length)})`),
                 ...need(items.length === 1 && items[0].isNote, "only the note is left, kept as a note"),
             ];
         },
