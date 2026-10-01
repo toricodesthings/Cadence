@@ -40,7 +40,10 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - windows-latest
+          # Not windows-latest: its newer WebView2 (150+) never opens the DevTools port msedgedriver
+          # waits for, so every session fails with "DevToolsActivePort file doesn't exist".
+          # Unpin once actions/runner-images#14738 is fixed.
+          - windows-2022
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
