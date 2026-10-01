@@ -30,10 +30,11 @@ let driver;
 let tauriDriver;
 
 before(async function () {
-  this.timeout(300000);
+  this.timeout(600000); // includes the debug build, which is cold on CI
 
   buildDesktopDebugBinary();
-  tauriDriver = spawn(tauriDriverBinary, [], {
+  const nativeDriver = process.env.TAURI_NATIVE_DRIVER;
+  tauriDriver = spawn(tauriDriverBinary, nativeDriver ? ["--native-driver", nativeDriver] : [], {
     stdio: [null, process.stdout, process.stderr],
     shell: false,
   });

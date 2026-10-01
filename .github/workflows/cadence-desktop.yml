@@ -83,6 +83,11 @@ jobs:
           cargo install --git https://github.com/chippers/msedgedriver-tool
           & "$HOME/.cargo/bin/msedgedriver-tool.exe"
           $PWD.Path >> $env:GITHUB_PATH
+          # Pin tauri-driver to this exact binary so the stock Edge driver can never win on PATH.
+          "TAURI_NATIVE_DRIVER=$($PWD.Path)\msedgedriver.exe" >> $env:GITHUB_ENV
+          # Log both versions so a mismatch is obvious in the run output.
+          & "$($PWD.Path)\msedgedriver.exe" --version
+          (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}').pv
 
       - name: Build + smoke test
         if: runner.os == 'Linux'
