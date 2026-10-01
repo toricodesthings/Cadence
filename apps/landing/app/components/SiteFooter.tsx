@@ -13,8 +13,7 @@ import {
 /*
  * The ground under everything, standing on the finale valley's last hills. It carries the page's own
  * vocabulary (the mark, the wordmark's treatment, the crest, the crest's gold for the group headings)
- * and says nothing the page has already said: the vows own "free" and "open source", the Prelude owns
- * "the whole year", so the footer's own lines are a sign-off and the way back up.
+ * and carries the source and privacy links beneath the finale's single invitation.
  */
 const GROUPS = [
   {
@@ -28,7 +27,7 @@ const GROUPS = [
   {
     title: "The code",
     links: [
-      { label: "GitHub", href: REPO_URL },
+      { label: "Open source", href: REPO_URL },
       { label: "Report an issue", href: ISSUES_URL },
     ],
   },

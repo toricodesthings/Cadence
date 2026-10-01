@@ -6,6 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- The landing hero and final invitation pair copper accents with peach, coral and pink blossoms.
+- The feature sections carry a hint of coral, with a smoother branch transition into the final invitation.
+- The landing page showcases more of Cadence, with clearer feature stories and refreshed Constellations.
+- The final signup invitation has glass, matching star accents, a delicate blossom and a warmer valley closer beneath it.
+
 ## [0.25.6] - 2026-09-30
 
 ### Added

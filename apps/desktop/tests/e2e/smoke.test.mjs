@@ -1,129 +1,70 @@
-import os from "node:os";
-import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { after, before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { expect } from "chai";
-import { after, before, describe, it } from "mocha";
 import { Builder, By, Capabilities, until } from "selenium-webdriver";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const desktopRoot = path.resolve(__dirname, "../..");
-const application = path.resolve(
-  desktopRoot,
-  "src-tauri",
-  "target",
-  "debug",
-  process.platform === "win32" ? "cadence-desktop.exe" : "cadence-desktop",
-);
-const tauriDriverBinary =
-  process.env.TAURI_DRIVER_PATH
-  ?? path.resolve(
-    os.homedir(),
-    ".cargo",
-    "bin",
-    process.platform === "win32" ? "tauri-driver.exe" : "tauri-driver",
-  );
-const pnpmBinary = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const packageManagerExecPath = process.env.npm_execpath;
+// Built by `pnpm e2e:smoke` (build:debug with VITE_DESKTOP_E2E=true) before this runs.
+const application = fileURLToPath(new URL(
+  `../../src-tauri/target/debug/cadence-desktop${process.platform === "win32" ? ".exe" : ""}`,
+  import.meta.url,
+));
 
 let driver;
 let tauriDriver;
 
-before(async function () {
-  this.timeout(600000); // includes the debug build, which is cold on CI
-
-  buildDesktopDebugBinary();
+before(async () => {
   const nativeDriver = process.env.TAURI_NATIVE_DRIVER;
-  tauriDriver = spawn(tauriDriverBinary, nativeDriver ? ["--native-driver", nativeDriver] : [], {
-    stdio: [null, process.stdout, process.stderr],
-    shell: false,
+  tauriDriver = spawn("tauri-driver", nativeDriver ? ["--native-driver", nativeDriver] : [], {
+    stdio: ["ignore", "inherit", "inherit"],
   });
-
   await waitForWebDriverServer();
 
   const capabilities = new Capabilities();
   capabilities.set("tauri:options", { application });
   capabilities.setBrowserName("wry");
+  driver = await new Builder().usingServer("http://127.0.0.1:4444/").withCapabilities(capabilities).build();
 
-  driver = await new Builder()
-    .usingServer("http://127.0.0.1:4444/")
-    .withCapabilities(capabilities)
-    .build();
+  await waitForBridge();
+}, { timeout: 120000 });
 
-  await driver.manage().setTimeouts({
-    implicit: 0,
-    pageLoad: 30000,
-    script: 30000,
-  });
-
-  await driver.wait(
-    async () =>
-      Boolean(
-        await driver.executeScript("return window.__CADENCE_DESKTOP_E2E__?.runtimeTarget === 'desktop';"),
-      ),
-    20000,
-    "Cadence desktop test bridge did not become available.",
-  );
-});
-
-after(async function () {
-  await closeSession();
+after(async () => {
+  await driver?.quit().catch(() => {});
+  tauriDriver?.kill();
 });
 
 describe("Cadence desktop smoke suite", () => {
   it("boots the shared frontend in desktop runtime", async () => {
-    expect(await driver.getTitle()).to.contain("Cadence");
-    expect(
-      await driver.executeScript("return window.__CADENCE_DESKTOP_E2E__?.runtimeTarget ?? null;"),
-    ).to.equal("desktop");
+    assert.match(await driver.getTitle(), /Cadence/);
   });
 
+  // Headings fade in from opacity 0 (CardPage), and getText() returns only visible
+  // text, so read textContent instead.
   it("renders the auth entry route", async () => {
     await navigateTo("/auth/sign-in");
-
-    const heading = await driver.wait(
-      until.elementLocated(By.xpath("//h1[contains(., 'Sign in to Cadence')]")),
-      15000,
-    );
-
-    expect(await heading.getText()).to.contain("Sign in to Cadence");
+    const heading = await driver.wait(until.elementLocated(By.xpath("//h1[contains(., 'Sign in to Cadence')]")), 15000);
+    assert.match(await heading.getAttribute("textContent"), /Sign in to Cadence/);
   });
 
   // No pending sign-in, so the callback must refuse rather than hang.
   it("renders the auth callback route safely", async () => {
     await navigateTo("/auth/callback?redirectTo=%2F");
-
-    const heading = await driver.wait(
-      until.elementLocated(By.xpath("//h1[contains(., 'Sign-in failed')]")),
-      15000,
-    );
-
-    expect(await heading.getText()).to.equal("Sign-in failed");
+    const heading = await driver.wait(until.elementLocated(By.xpath("//h1[contains(., 'Sign-in failed')]")), 15000);
+    assert.equal(await heading.getAttribute("textContent"), "Sign-in failed");
   });
 
   it("handles auth callback deep links through single-instance handoff", async () => {
     await navigateTo("/auth/sign-in");
 
     const deepLinkUrl = await callBridge("getAuthCallbackUrl", "/from-e2e");
-    expect(deepLinkUrl).to.equal("cadence://auth/callback?redirectTo=%2Ffrom-e2e");
+    assert.equal(deepLinkUrl, "cadence://auth/callback?redirectTo=%2Ffrom-e2e");
 
-    spawn(application, [deepLinkUrl], {
-      detached: false,
-      shell: false,
-      stdio: "ignore",
-      windowsHide: true,
-    });
+    spawn(application, [deepLinkUrl], { stdio: "ignore", windowsHide: true });
 
     await driver.wait(
       async () => {
-        const location = await driver.executeScript(
-          "return window.location.pathname + window.location.search;",
-        );
-        return (
-          typeof location === "string"
-          && location.startsWith("/auth/callback")
-          && location.includes("redirectTo=%2Ffrom-e2e")
-        );
+        const location = await driver.executeScript("return location.pathname + location.search;");
+        return location.startsWith("/auth/callback") && location.includes("redirectTo=%2Ffrom-e2e");
       },
       20000,
       "Cadence did not process the deep-link callback.",
@@ -132,129 +73,63 @@ describe("Cadence desktop smoke suite", () => {
 
   it("uses native HTTP transport for API health checks", async () => {
     const health = await callBridge("healthCheck");
-
-    expect(health.ok).to.equal(true);
-    expect(health.status).to.equal(200);
-    expect(health.data).to.include({ status: "ok" });
+    assert.equal(health.ok, true);
+    assert.equal(health.status, 200);
+    // The API wraps every body in a `data` envelope.
+    assert.equal(health.data.data.status, "ok");
   });
 
-  it("checks notification and updater APIs without crashing", async () => {
-    const permission = await callBridge("getNotificationPermission");
-    expect(["default", "granted", "denied"]).to.include(permission);
+  // Sign-in and sign-out ride on this patch (0.25.2/0.25.3); unpatched, the webview's fetch is
+  // CORS-blocked and throws. Signed out, get-session answers 200 with no session.
+  it("routes Neon Auth requests through the patched native fetch", async () => {
+    assert.equal(await callBridge("authFetchStatus"), 200);
+  });
 
-    const updateCheck = await callBridge("checkForUpdates");
-    expect(updateCheck).to.have.property("available");
+  it("round-trips the native store", async () => {
+    assert.equal(await callBridge("storeRoundTrip", "e2e-probe"), "e2e-probe");
+  });
+
+  it("reads notification permission", async () => {
+    assert.ok(["default", "granted", "denied"].includes(await callBridge("getNotificationPermission")));
+  });
+
+  // The bridge turns every updater failure into { available: false, error }, so assert no error.
+  // Needs the published latest.json on GitHub to be reachable.
+  it("checks for updates without error", async () => {
+    const update = await callBridge("checkForUpdates");
+    assert.equal(update.error, undefined);
   });
 });
 
-function buildDesktopDebugBinary() {
-  const commonOptions = {
-    cwd: desktopRoot,
-    stdio: "inherit",
-    shell: false,
-    env: {
-      ...process.env,
-      VITE_DESKTOP_E2E: "true",
-      TAURI_WEBVIEW_AUTOMATION:
-        process.env.TAURI_WEBVIEW_AUTOMATION ?? (process.platform === "linux" ? "true" : ""),
-    },
-  };
-
-  const result = packageManagerExecPath
-    ? spawnSync(process.execPath, [packageManagerExecPath, "run", "build:debug"], commonOptions)
-    : spawnSync(pnpmBinary, ["run", "build:debug"], {
-      ...commonOptions,
-      shell: process.platform === "win32",
-    });
-
-  if (result.error) {
-    throw new Error(`Desktop debug build failed before launch: ${result.error.message}`);
-  }
-
-  if (result.status !== 0) {
-    throw new Error(`Desktop debug build failed with exit code ${result.status ?? "unknown"}.`);
-  }
-}
-
 async function waitForWebDriverServer() {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    try {
-      const response = await fetch("http://127.0.0.1:4444/status");
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // Keep waiting until the driver responds.
-    }
-
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    if (await fetch("http://127.0.0.1:4444/status").then((r) => r.ok, () => false)) return;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-
   throw new Error("tauri-driver did not become ready on http://127.0.0.1:4444.");
 }
 
+// The bridge is installed once the app boots, so it is gone right after any reload.
+function waitForBridge() {
+  return driver.wait(
+    () => driver.executeScript("return window.__CADENCE_DESKTOP_E2E__?.runtimeTarget === 'desktop';"),
+    20000,
+    "Cadence desktop test bridge did not become available.",
+  );
+}
+
 async function navigateTo(route) {
-  await driver.executeScript("window.location.assign(arguments[0]);", route);
+  await driver.executeScript("location.assign(arguments[0]);", route);
   await driver.wait(
-    async () => {
-      const location = await driver.executeScript(
-        "return window.location.pathname + window.location.search;",
-      );
-      return typeof location === "string" && location === route;
-    },
+    async () => (await driver.executeScript("return location.pathname + location.search;")) === route,
     15000,
     `Cadence did not navigate to ${route}.`,
   );
+  await waitForBridge();
 }
 
-async function callBridge(method, ...args) {
-  const result = await driver.executeAsyncScript(
-    `
-      const method = arguments[0];
-      const args = arguments[1];
-      const done = arguments[arguments.length - 1];
-      const bridge = window.__CADENCE_DESKTOP_E2E__;
-
-      if (!bridge || typeof bridge[method] !== "function") {
-        done({ ok: false, error: "Cadence desktop test bridge is unavailable." });
-        return;
-      }
-
-      Promise.resolve(bridge[method](...(args || [])))
-        .then((value) => done({ ok: true, value }))
-        .catch((error) => {
-          done({
-            ok: false,
-            error: error && typeof error === "object" && "message" in error
-              ? String(error.message)
-              : String(error),
-          });
-        });
-    `,
-    method,
-    args,
-  );
-
-  if (!result?.ok) {
-    throw new Error(result?.error ?? `Bridge call ${method} failed.`);
-  }
-
-  return result.value;
-}
-
-async function closeSession() {
-  if (driver) {
-    try {
-      await driver.quit();
-    } catch {
-      // Ignore shutdown failures so the driver process can still be cleaned up.
-    }
-
-    driver = undefined;
-  }
-
-  if (tauriDriver) {
-    tauriDriver.kill();
-    tauriDriver = undefined;
-  }
+// executeScript awaits a returned promise; a rejection surfaces as a JavaScriptError.
+function callBridge(method, ...args) {
+  return driver.executeScript("return window.__CADENCE_DESKTOP_E2E__[arguments[0]](...arguments[1]);", method, args);
 }

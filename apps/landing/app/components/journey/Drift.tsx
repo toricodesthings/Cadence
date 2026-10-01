@@ -22,7 +22,7 @@ const SET: Record<DriftKind, { count: number; dur: readonly [number, number]; se
   leaf: { count: 7, dur: [13, 19], seed: 41 },
   snow: { count: 8, dur: [17, 25], seed: 43 },
   mote: { count: 6, dur: [9, 14], seed: 47 },
-  fall: { count: 14, dur: [13, 21], seed: 53 },
+  fall: { count: 14, dur: [24, 40], seed: 53 },
 };
 
 export function Drift({ kind, className }: { kind: DriftKind; className?: string }) {
@@ -31,7 +31,8 @@ export function Drift({ kind, className }: { kind: DriftKind; className?: string
   const motes = Array.from({ length: count }, (_, i) => {
     const u = (i + 0.15 + rand() * 0.7) / count;
     // Lanterns keep to the flanks, clear of the words in the middle
-    const x = flank ? (u < 0.5 ? 3 + u * 44 : 75 + (u - 0.5) * 44) : 3 + u * 94;
+    const atEdge = flank || (kind === "fall" && i % 5 === 0);
+    const x = atEdge ? (u < 0.5 ? 3 + u * 44 : 75 + (u - 0.5) * 44) : 3 + u * 94;
     const dur = d0 + rand() * (d1 - d0);
     return cssVars({
       "--x": `${n1(x)}%`,
@@ -45,7 +46,7 @@ export function Drift({ kind, className }: { kind: DriftKind; className?: string
   return (
     <div className={["drift", `drift-${kind}`, className].filter(Boolean).join(" ")} aria-hidden="true">
       {motes.map((style, i) => (
-        <span key={i} style={style} />
+        <span key={i} style={style} data-depth={kind === "fall" ? (i % 5 === 0 ? "near" : i % 2 === 0 ? "far" : "middle") : undefined} />
       ))}
     </div>
   );

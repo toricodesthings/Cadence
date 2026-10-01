@@ -201,6 +201,89 @@
   --hero-lamp: color-mix(in srgb, var(--hero-light) 85%, white);
 }
 
+/* One logo accent for the home page's scenery, independent of each chapter's seasonal tint. */
+.hero:not(.lost),
+.journey {
+  --accent-ember: color-mix(in srgb, var(--color-solstice) 85%, var(--accent-primary));
+}
+
+/* A trace of copper through the features; these resolved colours also start the crown's joining gradients. */
+.journey {
+  --hero-branch-light: color-mix(in srgb, var(--hero-light) 78%, var(--accent-ember));
+  --hero-branch-wood: color-mix(in srgb, var(--hero-branch-light) 22%, var(--hero-bark));
+  --hero-branch-lit: color-mix(in srgb, var(--hero-branch-light) 36%, var(--hero-bark));
+  --hero-branch-heart: color-mix(in srgb, var(--hero-branch-light) 78%, var(--hero-lamp));
+  --hero-branch-rim: color-mix(in srgb, color-mix(in srgb, var(--accent-secondary) 90%, var(--accent-ember)) 32%, transparent);
+}
+
+.journey > .jsec {
+  --hero-wood: var(--hero-branch-wood);
+  --hero-wood-lit: var(--hero-branch-lit);
+  --hero-wood-heart: var(--hero-branch-heart);
+  --hero-wood-rim: var(--hero-branch-rim);
+  --hero-petal: color-mix(in srgb, color-mix(in srgb, var(--color-personal) 45%, var(--color-twilight-text)) 85%, var(--accent-ember));
+}
+
+/* Opening and closing scenes carry the stronger copper, coral and pink treatment. */
+.hero:not(.lost),
+.finale {
+  --hero-ember: var(--accent-ember);
+  --hero-ember-soft: color-mix(in srgb, var(--accent-ember) 24%, transparent);
+  --hero-wood: color-mix(in srgb, var(--accent-ember) 30%, var(--hero-bark));
+  --hero-wood-lit: color-mix(in srgb, var(--accent-ember) 54%, var(--hero-bark));
+  --hero-wood-heart: color-mix(in srgb, var(--accent-ember) 82%, var(--hero-lamp));
+  --hero-wood-rim: color-mix(in srgb, var(--accent-ember) 40%, transparent);
+  --hero-petal: color-mix(in srgb, var(--accent-ember) 72%, var(--color-twilight-text));
+  --hero-petal-shade: color-mix(in srgb, var(--color-solstice) 60%, var(--color-personal));
+  --hero-petal-core: color-mix(in srgb, var(--accent-primary) 65%, var(--color-twilight-text));
+  --hero-sigil-coral: color-mix(in srgb, var(--accent-ember) 88%, var(--color-twilight-text));
+  --hero-sigil-orange: var(--accent-ember);
+}
+
+.hero:not(.lost) {
+  --hero-horizon-core: color-mix(in srgb, var(--accent-ember) 28%, transparent);
+  --hero-dusk-horizon: color-mix(in srgb, var(--color-twilight-surface) 60%, var(--accent-ember));
+  --hero-land-haze: color-mix(in srgb, var(--hero-dusk-horizon) 70%, var(--accent-ember));
+  --hero-crest: color-mix(in srgb, var(--accent-ember) 75%, var(--hero-lamp));
+  --hero-crest-line: color-mix(in srgb, var(--accent-ember) 60%, transparent);
+}
+
+.hero:not(.lost) .hero-flower,
+.finale-crown .seg-flower {
+  scale: 1.12;
+}
+
+/* Two in every five flower groups carry the rose tint; keep the same mix at every viewport size. */
+.hero:not(.lost) .hero-bough > svg:last-of-type > g:is(:nth-of-type(5n + 1), :nth-of-type(5n + 2)) .hero-flower,
+.finale-crown .bough-seg > g:is(:nth-of-type(5n + 1), :nth-of-type(5n + 2)) .seg-flower {
+  --hero-petal: color-mix(in srgb, var(--palette-rose) 68%, var(--color-twilight-text));
+  --hero-petal-shade: color-mix(in srgb, var(--color-personal) 72%, var(--hero-bark));
+}
+
+/* Both invitations share the same copper glass and rim over the base ButtonLink treatment. */
+.hero-action.button-lantern,
+.finale-action.button-lantern {
+  --button-halo: color-mix(in srgb, var(--accent-ember) 36%, transparent);
+  --button-gem: color-mix(in srgb, var(--accent-ember) 80%, var(--color-twilight-deep));
+  --button-rim: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-primary) 55%, white),
+    color-mix(in srgb, var(--accent-ember) 65%, transparent) 45%,
+    color-mix(in srgb, var(--accent-ember) 28%, transparent)
+  );
+}
+
+.hero-action.button-lantern::before,
+.finale-action.button-lantern::before {
+  background:
+    radial-gradient(120% 110% at 45% 0%, color-mix(in srgb, var(--accent-ember) 36%, transparent), transparent 72%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-ember) 35%, var(--color-twilight-deep)),
+      color-mix(in srgb, var(--accent-ember) 14%, var(--color-twilight-void))
+    );
+}
+
 /* === PALETTE INDIRECTION — Lantern defaults (reference --accent-*, not --color-lantern) === */
 :root {
   --accent-primary: var(--color-lantern);

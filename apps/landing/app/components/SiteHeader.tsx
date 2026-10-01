@@ -1,4 +1,4 @@
-import { SIGN_IN_URL, SIGN_UP_URL, SITE_NAME } from "~/lib/site";
+import { SIGN_IN_URL, SIGN_UP_LABEL, SIGN_UP_URL, SITE_NAME } from "~/lib/site";
 
 import { ButtonLink } from "./ButtonLink";
 import { ArrowIcon } from "./icons";
@@ -38,7 +38,7 @@ export function SiteHeader({ className }: { className?: string }) {
           Sign in
         </ButtonLink>
         <ButtonLink href={SIGN_UP_URL} data-cloud="" className="max-sm:px-3.5">
-          Get started
+          {SIGN_UP_LABEL}
           {/* Phones drop the arrow so the header stays on one line */}
           <ArrowIcon className="button-icon button-arrow max-sm:hidden" />
         </ButtonLink>

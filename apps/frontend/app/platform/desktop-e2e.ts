@@ -1,7 +1,8 @@
-import { API_BASE_URL } from "../lib/env";
+import { API_BASE_URL, NEON_AUTH_URL } from "../lib/env";
 import {
   checkForAppUpdate,
   getAuthCallbackUrl,
+  getDesktopStore,
   getNotificationPermission,
   IS_DESKTOP_RUNTIME,
   platformFetch,
@@ -28,6 +29,8 @@ declare global {
       getAuthCallbackUrl: (redirectTo?: string) => string;
       getNotificationPermission: () => ReturnType<typeof getNotificationPermission>;
       healthCheck: () => Promise<DesktopBridgeHealthCheck>;
+      authFetchStatus: () => Promise<number>;
+      storeRoundTrip: (value: string) => Promise<string | undefined>;
       checkForUpdates: () => Promise<DesktopBridgeUpdateCheck>;
     };
   }
@@ -55,6 +58,18 @@ export function installDesktopE2EBridge() {
         status: response.status,
         data,
       };
+    },
+    // Plain fetch, so it goes through patch-desktop-fetch; the webview's own fetch is CORS-blocked here.
+    async authFetchStatus() {
+      return (await fetch(`${NEON_AUTH_URL}/get-session`)).status;
+    },
+    async storeRoundTrip(value) {
+      const store = await getDesktopStore("e2e");
+      if (!store) throw new Error("Native store unavailable.");
+      await store.set("probe", value);
+      const read = await store.get<string>("probe");
+      await store.del("probe");
+      return read;
     },
     async checkForUpdates() {
       try {

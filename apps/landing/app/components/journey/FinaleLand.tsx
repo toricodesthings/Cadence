@@ -5,9 +5,9 @@ import { cssVars, n1, polyline, pt, risingEdges, yAt, type Pt } from "~/lib/geom
  * The finale's valley: the hero's drawing language, another place, and the page's warmest picture. One summit
  * with a shrine light, a still lake in the middle distance holding the lights, the village on the west bank, a
  * hamlet of lit houses on the east (the loading screen's cottages: warm windows, a string of lights between the
- * eaves, smoke off two chimneys), and two lantern boats out on the water. Same band (1920×300, `xMidYMax slice`),
- * same aerial perspective and haze. The lamps wake one by one as the valley comes into view (on its own view
- * timeline, journey.css) in a sibling <svg>, so the flicker never repaints the hills; the boats drift, the smoke
+ * eaves, smoke off two chimneys), and two lantern boats out on the water. A shared 1920×300 canvas keeps
+ * the painting and its lights aligned as the closer mobile crop follows the hamlet. The lamps wake one by one
+ * on the valley's view timeline (journey.css), in a sibling <svg>, so the flicker never repaints the hills; the boats drift, the smoke
  * rises and each reflection shimmers in a layer of its own, so nothing that moves shares a box with the hills.
  */
 
@@ -30,8 +30,11 @@ const KNOLL = ridgeLine([[180, 320], [250, 268], [340, 252], [440, 256], [530, 2
 /** A ridge that spans only part of the band, closed straight down past its bottom edge. */
 const bankFill = (line: readonly Pt[]) => `${polyline(line)}L${line[line.length - 1][0]},${H + 2}L${line[0][0]},${H + 2}Z`;
 
-const MID_TREES = grove(MID_W, 210, 18, 220, 17, 61) + grove(MID_E, 1560, 20, 240, 18, 67);
-const NEAR_TREES = grove(NEAR_W, 110, 14, 190, 28, 71) + grove(NEAR_W, 610, 5, 56, 21, 73) + grove(NEAR_E, 1700, 14, 200, 30, 79);
+const FAR_TREES = grove(FAR, 680, 12, 180, 11, 83) + grove(FAR, 1230, 16, 240, 12, 89);
+const MID_TREES = grove(MID_W, 210, 18, 220, 17, 61) + grove(MID_W, 610, 10, 135, 15, 97) +
+  grove(MID_E, 1220, 9, 100, 15, 101) + grove(MID_E, 1560, 20, 240, 18, 67);
+const NEAR_TREES = grove(NEAR_W, 110, 14, 190, 28, 71) + grove(NEAR_W, 610, 5, 56, 21, 73) +
+  grove(NEAR_E, 1290, 5, 46, 23, 103) + grove(NEAR_E, 1630, 6, 64, 25, 107) + grove(NEAR_E, 1760, 14, 200, 30, 79);
 
 /** A house: walls under a gable with eaves, its windows set in the wall facing us. */
 type House = { body: string; windows: Pt[]; ridge: string; chimney?: Pt };
@@ -134,126 +137,140 @@ const BAND = { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMax slice", 
 export function FinaleLand() {
   return (
     <div className="finale-land" aria-hidden="true">
-      <svg {...BAND}>
-        <defs>
-          <Grad id="fl-distant" top="var(--hero-land-distant)" base="var(--hero-land-haze)" />
-          <Grad id="fl-far" top="var(--hero-land-far)" base="var(--hero-land-haze)" />
-          <Grad id="fl-mid" top="var(--hero-land-mid)" base="var(--hero-land-far)" />
-          <Grad id="fl-near" top="var(--hero-land-near)" base="var(--color-twilight-void)" />
-          <Grad id="fl-knoll" top="color-mix(in srgb, var(--hero-land-near) 60%, var(--color-twilight-void))" base="var(--color-twilight-void)" />
-          <Grad id="fl-lake" top="color-mix(in srgb, var(--hero-land-haze) 45%, var(--hero-land-far))" base="var(--color-twilight-void)" />
-          <Mist id="fl-mist" color="var(--hero-land-haze)" />
-          <radialGradient id="fl-dawn">
-            <stop offset="0" stopColor="var(--hero-lamp)" stopOpacity=".16" />
-            <stop offset="1" stopColor="var(--hero-lamp)" stopOpacity="0" />
-          </radialGradient>
-          <filter id="fl-soft" x="-5%" y="-20%" width="110%" height="140%">
-            <feGaussianBlur stdDeviation="1.3" />
-          </filter>
-        </defs>
+      <div className="finale-land-scene">
+        <svg {...BAND}>
+          <defs>
+            <Grad id="fl-distant" top="var(--hero-land-distant)" base="var(--hero-land-haze)" />
+            <Grad id="fl-far" top="var(--hero-land-far)" base="var(--hero-land-haze)" />
+            <Grad id="fl-mid" top="var(--hero-land-mid)" base="var(--hero-land-far)" />
+            <Grad id="fl-near" top="var(--hero-land-near)" base="var(--color-twilight-void)" />
+            <Grad id="fl-knoll" top="color-mix(in srgb, var(--hero-land-near) 60%, var(--color-twilight-void))" base="var(--color-twilight-void)" />
+            <Grad id="fl-lake" top="color-mix(in srgb, var(--hero-land-haze) 45%, var(--hero-land-far))" base="var(--color-twilight-void)" />
+            <Mist id="fl-mist" color="var(--hero-land-haze)" />
+            <Mist id="fl-water-mist" color="var(--hero-land-rim)" />
+            <radialGradient id="fl-dawn">
+              <stop offset="0" stopColor="var(--hero-lamp)" stopOpacity=".24" />
+              <stop offset="1" stopColor="var(--hero-lamp)" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="fl-hearth">
+              <stop offset="0" stopColor="var(--hero-sigil-orange)" stopOpacity=".2" />
+              <stop offset=".45" stopColor="var(--hero-sigil-coral)" stopOpacity=".07" />
+              <stop offset="1" stopColor="var(--hero-sigil-coral)" stopOpacity="0" />
+            </radialGradient>
+            <filter id="fl-soft" x="-5%" y="-20%" width="110%" height="140%">
+              <feGaussianBlur stdDeviation="1.3" />
+            </filter>
+          </defs>
 
-        <g filter="url(#fl-soft)">
-          <path d={ridgeFill(SPIRES)} fill="url(#fl-distant)" />
-          <path d={risingEdges(SPIRES)} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1.4" strokeLinecap="round" opacity=".22" />
-        </g>
-        <path d={ridgeFill(FAR)} fill="url(#fl-far)" />
-        <path d={risingEdges(FAR)} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1.2" strokeLinecap="round" opacity=".18" />
-        <rect y="132" width={W} height="70" fill="url(#fl-mist)" />
-
-        <path d={bankFill(MID_W) + bankFill(MID_E) + MID_TREES} fill="url(#fl-mid)" />
-
-        {/* The lake: still water in front of the mid hills from the water line down, hidden at the sides by the
-            near banks, so its only edge is the shore. It holds the first light and a few ripples */}
-        <rect y={WATER} width={W} height={H - WATER + 2} fill="url(#fl-lake)" />
-        <ellipse cx="1000" cy={WATER + 6} rx="380" ry="12" fill="url(#fl-dawn)" />
-        <path
-          d={`M660,${WATER + 14}H880M1040,${WATER + 20}H1300M760,${WATER + 30}H960M1110,${WATER + 42}H1250`}
-          stroke="var(--hero-land-rim)"
-          strokeWidth=".8"
-          strokeLinecap="round"
-          opacity=".12"
-        />
-
-        <path d={bankFill(NEAR_W) + bankFill(NEAR_E) + NEAR_TREES + HOUSES.map((c) => c.body).join("")} fill="url(#fl-near)" />
-        {/* The moon on the near roofs, the same rim the ridges take */}
-        <path d={HAMLET.map((c) => c.ridge).join("")} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1" strokeLinecap="round" opacity=".3" />
-        {/* The lane's string of lights: the wire here, its bulbs with the other lamps */}
-        <path d={STRING_WIRE} fill="none" stroke="var(--hero-land-near)" strokeWidth=".9" opacity=".8" />
-        <path d={bankFill(KNOLL)} fill="url(#fl-knoll)" />
-      </svg>
-
-      <svg {...BAND} className="hero-lamps">
-        <defs>
-          <radialGradient id="fl-lamp">
-            <stop offset="0" stopColor="var(--hero-lamp)" stopOpacity=".55" />
-            <stop offset="1" stopColor="var(--hero-lamp)" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        {LIGHTS.map(([x, y, r], k) => (
-          <g key={k} className="fl-lamp" style={cssVars({ "--k": k })}>
-            <circle cx={x} cy={y} r={r * 5.5} fill="url(#fl-lamp)" />
-            <circle cx={x} cy={y} r={r} fill="var(--hero-lamp)" />
+          <g filter="url(#fl-soft)">
+            <path d={ridgeFill(SPIRES)} fill="url(#fl-distant)" />
+            <path d={risingEdges(SPIRES)} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1.4" strokeLinecap="round" opacity=".22" />
           </g>
-        ))}
-        {/* The hamlet's windows: squares of warm light, each in its own spill, waking after the far village */}
-        {HAMLET.flatMap((c, i) =>
-          c.windows.map(([x, y], j) => (
-            <g key={`${i}-${j}`} className="fl-lamp" style={cssVars({ "--k": LIGHTS.length + i })}>
-              <circle cx={x} cy={y + 1} r="9" fill="url(#fl-lamp)" />
-              <rect x={n1(x - 1.8)} y={n1(y - 1.4)} width="3.6" height="4.4" rx=".6" fill="var(--hero-lamp)" />
-            </g>
-          )),
-        )}
-      </svg>
+          <path d={ridgeFill(FAR) + FAR_TREES} fill="url(#fl-far)" />
+          <path d={risingEdges(FAR)} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1.2" strokeLinecap="round" opacity=".18" />
+          <rect y="132" width={W} height="70" fill="url(#fl-mist)" />
 
-      {/* The string's bulbs glimmer on their own clocks. HTML boxes, not SVG children: an animated SVG child
-          repaints its whole <svg> every frame, a box's opacity is composited */}
-      <div className="fl-bulbs">
-        {BULB_AT.map(({ dx, b, k }) => (
-          <span key={k} style={cssVars({ "--dx": `${dx}%`, "--b": `${b}%`, "--k": k })} />
-        ))}
-      </div>
+          <path d={bankFill(MID_W) + bankFill(MID_E) + MID_TREES} fill="url(#fl-mid)" />
 
-      {/* Each boat drifts in its own box, carrying its lamp and the streak it lays on the water */}
-      {BOATS.map(({ x, y, s, cls }) => (
-        <div key={cls} className={`fl-boat ${cls}`}>
-          <svg {...BAND}>
-            <g transform={`translate(${x} ${y}) scale(${s})`}>
-              <rect x="-1.5" y="2" width="3" height="18" rx="1.5" fill="url(#fl-streak)" opacity=".7" />
-              <path d="M-23,0Q0,7 24,0L18,5Q0,9 -17,5Z" fill="var(--hero-land-near)" />
-              <path d="M0,0V-10" stroke="var(--hero-land-near)" strokeWidth="1.4" />
-              <circle cy="-10" r="9" fill="url(#fl-lamp)" />
-              <circle cy="-10" r="1.6" fill="var(--hero-lamp)" />
+          {/* The lake: still water in front of the mid hills from the water line down, hidden at the sides by the
+              near banks, so its only edge is the shore. It holds the first light and a few ripples */}
+          <rect y={WATER} width={W} height={H - WATER + 2} fill="url(#fl-lake)" />
+          <ellipse cx="1000" cy={WATER + 6} rx="380" ry="12" fill="url(#fl-dawn)" />
+          <ellipse cx="1110" cy="251" rx="175" ry="33" fill="url(#fl-hearth)" />
+          <rect x="650" y="207" width="660" height="22" fill="url(#fl-water-mist)" opacity=".22" />
+          <path
+            d={`M660,${WATER + 14}H880M1040,${WATER + 20}H1300M760,${WATER + 30}H960M1110,${WATER + 42}H1250M880,260H985M1045,272H1160M810,283H925`}
+            stroke="var(--hero-land-rim)"
+            strokeWidth=".8"
+            strokeLinecap="round"
+            opacity=".2"
+          />
+
+          <path d={bankFill(NEAR_W) + bankFill(NEAR_E) + NEAR_TREES + HOUSES.map((c) => c.body).join("")} fill="url(#fl-near)" />
+          {/* Local pools of lamplight tie the windows to the ground around their homes. */}
+          <ellipse cx="390" cy="242" rx="155" ry="45" fill="url(#fl-hearth)" />
+          <ellipse cx="1435" cy="244" rx="190" ry="60" fill="url(#fl-hearth)" />
+          <path d="M1325,272Q1410,254 1490,264T1610,256" fill="none" stroke="var(--hero-lamp)" strokeWidth="1.2" opacity=".18" />
+          {/* The moon on the near roofs, the same rim the ridges take */}
+          <path d={HAMLET.map((c) => c.ridge).join("")} fill="none" stroke="var(--hero-land-rim)" strokeWidth="1" strokeLinecap="round" opacity=".3" />
+          {/* The lane's string of lights: the wire here, its bulbs with the other lamps */}
+          <path d={STRING_WIRE} fill="none" stroke="var(--hero-land-near)" strokeWidth=".9" opacity=".8" />
+          <path d={bankFill(KNOLL)} fill="url(#fl-knoll)" />
+        </svg>
+
+        <svg {...BAND} className="hero-lamps">
+          <defs>
+            <radialGradient id="fl-lamp">
+              <stop offset="0" stopColor="var(--hero-lamp)" stopOpacity=".55" />
+              <stop offset="1" stopColor="var(--hero-lamp)" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          {LIGHTS.map(([x, y, r], k) => (
+            <g key={k} className="fl-lamp" style={cssVars({ "--k": k })}>
+              <circle cx={x} cy={y} r={r * 5.5} fill="url(#fl-lamp)" />
+              <circle cx={x} cy={y} r={r} fill="var(--hero-lamp)" />
             </g>
-          </svg>
+          ))}
+          {/* The hamlet's windows: squares of warm light, each in its own spill, waking after the far village */}
+          {HAMLET.flatMap((c, i) =>
+            c.windows.map(([x, y], j) => (
+              <g key={`${i}-${j}`} className="fl-lamp" style={cssVars({ "--k": LIGHTS.length + i })}>
+                <circle cx={x} cy={y + 1} r="9" fill="url(#fl-lamp)" />
+                <rect x={n1(x - 1.8)} y={n1(y - 1.4)} width="3.6" height="4.4" rx=".6" fill="var(--hero-lamp)" />
+              </g>
+            )),
+          )}
+        </svg>
+
+        {/* The string's bulbs glimmer on their own clocks. HTML boxes, not SVG children: an animated SVG child
+            repaints its whole <svg> every frame, a box's opacity is composited */}
+        <div className="fl-bulbs">
+          {BULB_AT.map(({ dx, b, k }) => (
+            <span key={k} style={cssVars({ "--dx": `${dx}%`, "--b": `${b}%`, "--k": k })} />
+          ))}
         </div>
-      ))}
 
-      {/* The reflections flicker with the lamps (the wrapper) and shimmer on their own clocks, each in its own
-          <svg>: an animated SVG child repaints on the main thread every frame, an <svg> box fades composited */}
-      <div className="fl-reflect hero-lamps">
-        {REFLECTIONS.map(([x, len], k) => (
-          <svg key={x} {...BAND} className="fl-shimmer" style={cssVars({ "--k": k })}>
-            {k === 0 && (
-              <defs>
-                <linearGradient id="fl-streak" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="var(--hero-lamp)" stopOpacity=".5" />
-                  <stop offset="1" stopColor="var(--hero-lamp)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-            )}
-            <rect x={x - 1.5} y={WATER + 1} width="3" height={len} rx="1.5" fill="url(#fl-streak)" />
-          </svg>
+        {/* Each boat drifts in its own box, carrying its lamp and the streak it lays on the water */}
+        {BOATS.map(({ x, y, s, cls }) => (
+          <div key={cls} className={`fl-boat ${cls}`}>
+            <svg {...BAND}>
+              <g transform={`translate(${x} ${y}) scale(${s})`}>
+                <rect x="-1.5" y="2" width="3" height="18" rx="1.5" fill="url(#fl-streak)" opacity=".7" />
+                <path d="M-23,0Q0,7 24,0L18,5Q0,9 -17,5Z" fill="var(--hero-land-near)" />
+                <path d="M0,0V-10" stroke="var(--hero-land-near)" strokeWidth="1.4" />
+                <circle cy="-10" r="9" fill="url(#fl-lamp)" />
+                <circle cy="-10" r="1.6" fill="var(--hero-lamp)" />
+              </g>
+            </svg>
+          </div>
         ))}
-      </div>
 
-      {/* Chimney smoke: three soft puffs per chimney, rising and thinning. CSS, so the hills never repaint */}
-      <div className="fl-smoke">
-        {SMOKE.flatMap(({ dx, b, k }) =>
-          [0, 1, 2].map((i) => (
-            <span key={`${k}-${i}`} style={cssVars({ "--dx": `${dx}%`, "--b": `${b}%`, "--k": k * 3 + i })} />
-          )),
-        )}
+        {/* The reflections flicker with the lamps (the wrapper) and shimmer on their own clocks, each in its own
+            <svg>: an animated SVG child repaints on the main thread every frame, an <svg> box fades composited */}
+        <div className="fl-reflect hero-lamps">
+          {REFLECTIONS.map(([x, len], k) => (
+            <svg key={x} {...BAND} className="fl-shimmer" style={cssVars({ "--k": k })}>
+              {k === 0 && (
+                <defs>
+                  <linearGradient id="fl-streak" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="var(--hero-lamp)" stopOpacity=".5" />
+                    <stop offset="1" stopColor="var(--hero-lamp)" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+              )}
+              <rect x={x - 1.5} y={WATER + 1} width="3" height={len} rx="1.5" fill="url(#fl-streak)" />
+            </svg>
+          ))}
+        </div>
+
+        {/* Chimney smoke: three soft puffs per chimney, rising and thinning. CSS, so the hills never repaint */}
+        <div className="fl-smoke">
+          {SMOKE.flatMap(({ dx, b, k }) =>
+            [0, 1, 2].map((i) => (
+              <span key={`${k}-${i}`} style={cssVars({ "--dx": `${dx}%`, "--b": `${b}%`, "--k": k * 3 + i })} />
+            )),
+          )}
+        </div>
       </div>
     </div>
   );

@@ -21,20 +21,20 @@ The introduction site on the root domain (`cadenceapp.cloud`). React Router v8 *
 
 ```text
 app/
-├── app.css            # Mirrored brand tokens, hero scene tokens, base rules, ambient-backdrop utility
+├── app.css            # Mirrored brand/scene tokens, copper hero/finale, softly warmed feature bough, base rules
 ├── root.tsx, routes.ts
 ├── routes/            # home.tsx, terms.tsx, privacy.tsx (both render components/legal/LegalPage; the footer and the app's About tab link to them)
-├── components/        # ButtonLink (layered lit-glass buttons, styles in app.css), icons, SiteHeader, SiteFooter (mark, wordmark, crest, link groups; `.footer-*`
+├── components/        # ButtonLink (lit-glass buttons; `ornate={false}` simplifies ornament, `sideAccents` retains paired rim gems), icons, SiteHeader, SiteFooter (mark, wordmark, crest, link groups; `.footer-*`
 │                      # in app.css), CursorGlow, NotFound (the 404: the hero's sky and portrait boughs; `.lost` in hero.css, so it beats the unlayered
 │                      # `.hero` tokens), CloudPass + cloud-pass.css (sign-up links marked `data-cloud` roll canvas-painted cloud banks over the screen, then navigate)
 │   ├── hero/          # Hero (intro release, settle, offscreen pause, parallax effects), HeroSky (+ moon, which sets on the hero's scroll; comets), HeroLandscape (its ridge helpers are
 │   │                  # shared with FinaleLand), HeroBough, HeroWordmark, hero.css (intro + return-visit entrance)
 │   ├── legal/         # LegalPage (masthead, contents, "In short" panel, one seasonal section per clause; renders a LegalDoc) + legal.css
 │   └── journey/       # Journey (deepening sticky sky, mist, Prelude, the offscreen pause), BoughSegment (weeping-bough segment per section,
-│                      # joined head to tail, behind all UI; ends in the crown; gutter strand on narrow screens), Foliage (what each season's tips carry),
+│                      # joined head to tail, behind all UI; fades into the copper crown; gutter strand on narrow screens), Foliage (what each season's tips carry),
 │                      # Chapter, Emilie (keystone chapter), Constellation (the star chart: its <ul> placed over the drawing on wide screens),
-│                      # Finale (crown, moon, blinking sky, the seal: its one link, vows) + FinaleLand (second valley: hamlet, boats, smoke, lights),
-│                      # Sigil (rings of light; plum-crest `blossom` variant for the seal), Drift (particle sets), Panel, journey.css (scroll-timeline motion)
+│                      # Finale (crown, soft sky, glass signup link and one reassurance) + FinaleLand (wooded valley, lamplit hamlet, boats; shared canvas for mobile crop),
+│                      # Sigil (rings of light; still `blossom` backdrop), Drift (particle sets; finale depth layers), Panel, journey.css (scroll-timeline motion)
 └── lib/               # site.ts (URLs + copy), legal/ (terms.ts, privacy.ts: the documents as data, shape in types.ts; edit the text there, never in LegalPage), cloudflare.ts (request context), intro.ts (head script: intro hold + return-visit flag),
                        # geometry.ts (deterministic helpers), branch.ts (bough generator), viewport.ts (which sections are on screen:
                        # cached bounds + scroll, no IntersectionObserver), away.ts (`data-away` on <html> while the tab is hidden or unfocused)

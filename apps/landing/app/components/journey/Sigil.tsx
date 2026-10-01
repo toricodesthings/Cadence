@@ -8,8 +8,6 @@ const star = (x: number, y: number, r: number) =>
 
 const QUARTERS = [0, 90, 180, 270];
 const TICKS = [30, 60, 120, 150, 210, 240, 300, 330];
-/** The plum crest's five axes: a petal on each, a notch (and a star) between them. */
-const FIFTHS = [0, 72, 144, 216, 288];
 
 /**
  * The umebachi, the plum-blossom crest: five overlapping petals, outer arc to outer arc, notching where
@@ -18,14 +16,7 @@ const FIFTHS = [0, 72, 144, 216, 288];
 const UMEBACHI =
   "M-36.8,-50.7A38,38 0 1,1 36.8,-50.7A38,38 0 1,1 59.6,19.4A38,38 0 1,1 0,62.7A38,38 0 1,1 -59.6,19.4A38,38 0 1,1 -36.8,-50.7Z";
 
-/*
- * A sigil of light: the buttons' aura grown into rings, in the crest's gold (Genshin's constellation circles).
- * Emilie's presence is set in the plain one: two circles with a diamond at its heart. The finale's seal
- * (Finale.tsx) takes the `blossom` variant instead, so the page's last mark is the page's own flower rather
- * than a second copy of hers: the outer ring is the plum crest, and inside it the stamens reach out from
- * behind the disc. The rings are drawn on their section's scroll, then turn slowly, each in its own <svg>,
- * so the turn is a composited transform.
- */
+/** Rings of light for Emilie; a single plum-blossom outline for the finale's stationary backdrop. */
 export function Sigil({
   className,
   style,
@@ -44,14 +35,11 @@ export function Sigil({
       className={["sigil", blossom && "sigil-blossom", className].filter(Boolean).join(" ")}
       style={{ ...style, ...cssVars({ "--sigil-ink": `url(#${ink})` }) }}
     >
-      <span className="sigil-glow" aria-hidden="true" />
-      {/* Each ring turns on a box around its <svg>: Chrome composites no transform on an <svg> element itself */}
+      {!blossom && <span className="sigil-glow" aria-hidden="true" />}
+      {/* The animated ring turns on a box around its SVG; the blossom remains still. */}
       <span className="sigil-ring sigil-ring-outer" aria-hidden="true">
         <svg viewBox="-100 -100 200 200" focusable="false">
           <defs>
-            {/* The logo's ribbon: mostly orange with a lit amber stretch, berry only in its shadowed end (the
-                upper-left corner here), coral where the two meet. In each ring's own units, so the colour turns
-                with the ring and never sits flat */}
             <linearGradient id={ink} gradientUnits="userSpaceOnUse" x1="-100" y1="-100" x2="100" y2="100">
               <stop offset=".08" stopColor="var(--hero-sigil-berry)" />
               <stop offset=".3" stopColor="var(--hero-sigil-coral)" />
@@ -62,12 +50,10 @@ export function Sigil({
           </defs>
           {blossom ? (
             <>
-              <circle className="sigil-faint" r="99" />
-              <path className="sigil-ink sigil-petals" d={UMEBACHI} pathLength={1} />
-              {/* A star set in each notch, where two petals meet */}
-              {FIFTHS.map((a) => (
-                <path key={a} className="sigil-star" d={star(0, -62.7, 6)} transform={`rotate(${a + 36})`} />
-              ))}
+              <path className="sigil-petals" d={UMEBACHI} />
+              <path className="sigil-star" d={star(0, -98, 3.2) + star(-91, -28, 2.6) + star(83, 48, 2.6)} />
+              <circle className="sigil-dot" cx="-36" cy="88" r="1.3" />
+              <circle className="sigil-dot" cx="81" cy="-49" r="1.1" />
             </>
           ) : (
             <>
@@ -83,30 +69,17 @@ export function Sigil({
           )}
         </svg>
       </span>
-      <span className="sigil-ring sigil-ring-inner" aria-hidden="true">
-        <svg viewBox="-100 -100 200 200" focusable="false">
-          {blossom ? (
-            <>
-              <circle className="sigil-ink" r="52" pathLength={1} transform="rotate(135)" />
-              {/* Stamens: ten, out from behind the disc, each tipped with its anther */}
-              {FIFTHS.flatMap((a) => [a, a + 36]).map((a, i) => (
-                <g key={a} transform={a ? `rotate(${a})` : undefined}>
-                  <path className="sigil-stamen" d={i % 2 ? "M0,-55V-68" : "M0,-55V-77"} />
-                  <circle className="sigil-dot" r={i % 2 ? 1.6 : 2.2} cy={i % 2 ? -70.5 : -80} />
-                </g>
-              ))}
-            </>
-          ) : (
-            <>
-              <circle className="sigil-ink" r="72" pathLength={1} transform="rotate(135)" />
-              <path className="sigil-ink sigil-ink-late" d="M0,-60 60,0 0,60 -60,0Z" pathLength={1} />
-              {QUARTERS.map((a) => (
-                <path key={a} className="sigil-star" d="M0,-80 4,-72 0,-64 -4,-72Z" transform={`rotate(${a + 45})`} />
-              ))}
-            </>
-          )}
-        </svg>
-      </span>
+      {!blossom && (
+        <span className="sigil-ring sigil-ring-inner" aria-hidden="true">
+          <svg viewBox="-100 -100 200 200" focusable="false">
+            <circle className="sigil-ink" r="72" pathLength={1} transform="rotate(135)" />
+            <path className="sigil-ink sigil-ink-late" d="M0,-60 60,0 0,60 -60,0Z" pathLength={1} />
+            {QUARTERS.map((a) => (
+              <path key={a} className="sigil-star" d="M0,-80 4,-72 0,-64 -4,-72Z" transform={`rotate(${a + 45})`} />
+            ))}
+          </svg>
+        </span>
+      )}
       {children}
     </div>
   );

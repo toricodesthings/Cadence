@@ -15,7 +15,7 @@ apps/desktop/
 │   ├── gen/schemas/    # Generated capability JSON schemas — do not hand-edit
 │   ├── tauri.conf.json # Window config, CSP, bundle targets, plugin config (deep-link scheme, updater)
 │   └── Cargo.toml      # Plugin dependency versions
-├── tests/e2e/          # tauri-driver + selenium-webdriver + mocha smoke suite
+├── tests/e2e/          # tauri-driver + selenium-webdriver + node:test smoke suite
 ├── scripts/
 │   ├── sync-version.mjs      # Copies root package.json version into tauri.conf.json + Cargo.toml/.lock
 │   └── dev-with-bridge.mjs   # Runs the frontend dev server on the bridge port for `tauri dev`
@@ -26,7 +26,7 @@ The actual UI/business logic for anything desktop-specific (quick-capture window
 
 ## 2. Versioning — Never Hand-Edit
 
-The version lives **only** in the root `package.json` (repo-wide rule, see root `AGENTS.md`). `sync-version.mjs` reads it and writes it into `src-tauri/tauri.conf.json` (`"version"`) and `src-tauri/Cargo.toml`/`Cargo.lock`. It runs automatically before `build`, `build:debug`, `typecheck`, and `e2e:smoke` (chained in `package.json` scripts). Never edit the version in `tauri.conf.json` or `Cargo.toml` directly — it will be overwritten and will drift from the source of truth until it is.
+The version lives **only** in the root `package.json` (repo-wide rule, see root `AGENTS.md`). `sync-version.mjs` reads it and writes it into `src-tauri/tauri.conf.json` (`"version"`) and `src-tauri/Cargo.toml`/`Cargo.lock`. It runs automatically before `build`, `build:debug` (and so `e2e:smoke`), and `typecheck` (chained in `package.json` scripts). Never edit the version in `tauri.conf.json` or `Cargo.toml` directly — it will be overwritten and will drift from the source of truth until it is.
 
 ## 3. Rust Shell (`src-tauri/src/lib.rs`)
 
@@ -56,7 +56,7 @@ CSP is defined separately in `tauri.conf.json` (`app.security.csp`) from the web
 
 ## 7. Testing
 
-`tests/e2e/` uses the official Tauri WebDriver flow: `tauri-driver` (installed via `cargo install tauri-driver --locked`, not a workspace dependency) + `selenium-webdriver` + `mocha`/`chai`. `smoke.test.mjs` runs `build:debug` itself (with `VITE_DESKTOP_E2E=true`), then launches `src-tauri/target/debug/cadence-desktop[.exe]`. `cargo fmt --check` + `cargo clippy --all-targets -D warnings` run as `typecheck` — treat clippy warnings as build failures, matching the `-D warnings` flag.
+`tests/e2e/` uses the official Tauri WebDriver flow: `tauri-driver` (installed via `cargo install tauri-driver --locked`, not a workspace dependency) + `selenium-webdriver` + `node:test`. `e2e:smoke` runs `build:debug`, then `smoke.test.mjs` launches `src-tauri/target/debug/cadence-desktop[.exe]`. The build needs `VITE_DESKTOP_E2E=true` (CI sets it; export it locally) or the test bridge is missing. `cargo fmt --check` + `cargo clippy --all-targets -D warnings` run as `typecheck` — treat clippy warnings as build failures, matching the `-D warnings` flag.
 
 ## 8. Commands
 
@@ -66,7 +66,7 @@ pnpm dev:desktop:full         # backend + desktop together
 pnpm --filter @cadence/desktop build            # sync-version + tauri build (installers)
 pnpm --filter @cadence/desktop build:debug      # sync-version + unbundled debug binary
 pnpm --filter @cadence/desktop typecheck        # sync-version + fmt --check + clippy -D warnings
-pnpm --filter @cadence/desktop e2e:smoke        # sync-version + debug build + mocha smoke suite (needs tauri-driver)
+pnpm --filter @cadence/desktop e2e:smoke        # debug build + smoke suite (needs tauri-driver, VITE_DESKTOP_E2E=true)
 ```
 
 ## 9. Anti-Patterns

@@ -1,6 +1,6 @@
 import { ButtonLink } from "~/components/ButtonLink";
 import { ArrowIcon, GitHubIcon } from "~/components/icons";
-import { HERO_SENTENCE, REPO_URL, SIGN_UP_URL, SITE_NAME, SITE_TAGLINE } from "~/lib/site";
+import { HERO_SENTENCE, REPO_URL, SIGN_UP_LABEL, SIGN_UP_URL, SITE_NAME, SITE_TAGLINE } from "~/lib/site";
 import { cssVars } from "~/lib/geometry";
 
 /** The loading screen's wordmark, larger, then one tagline, one sentence, two buttons and a scroll cue. */
@@ -56,7 +56,7 @@ export function HeroWordmark() {
       </p>
       <div className="hero-actions">
         <ButtonLink href={SIGN_UP_URL} data-cloud="" className="hero-action" style={cssVars({ "--i": 0 })}>
-          Start where you are
+          {SIGN_UP_LABEL}
           <ArrowIcon className="button-icon button-arrow" />
         </ButtonLink>
         <ButtonLink href={REPO_URL} variant="ghost" className="hero-action" style={cssVars({ "--i": 1 })}>

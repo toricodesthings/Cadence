@@ -7,8 +7,8 @@ import { Foliage, type FoliageKind } from "./Foliage";
 import { cssVars, n1, type Pt } from "~/lib/geometry";
 
 /*
- * The journey's weeping bough (a shidare-ume), one segment per section. Same
- * wood as the hero's boughs, built to grow on scroll instead of on a clock:
+ * The journey's weeping bough (a shidare-ume), one segment per section. A quieter
+ * copper tint than the hero's boughs, built to grow on scroll instead of on a clock:
  * - every segment's main limb starts at (500, 0) and ends at (500, h) heading
  *   straight down, and its section has the same aspect as its viewBox, so the
  *   segments meet head to tail with no gap or kink whatever the width;
@@ -251,6 +251,14 @@ const timing = (limb: Limb) => span(limb.start, limb.start + limb.dur);
 const cap = (limb: Limb) => (limb.depth === 1 ? "butt" : "round");
 /** The main limb's halo is one width down the whole page, so it never steps at a joint. */
 const MAIN_HALO = 11;
+const WOOD_HEART = "color-mix(in srgb, var(--hero-wood-heart) 75%, var(--hero-wood))";
+
+/** Match the preceding trunk at the crown's neck, reaching copper before its first fork. */
+const CROWN_JOIN = [
+  ["grain", "color-mix(in srgb, var(--hero-branch-lit) 50%, var(--hero-branch-wood))", "color-mix(in srgb, var(--hero-wood-lit) 50%, var(--hero-wood))"],
+  ["rim", "var(--hero-branch-rim)", "var(--hero-wood-rim)"],
+  ["heart", "color-mix(in srgb, var(--hero-branch-heart) 75%, var(--hero-branch-wood))", WOOD_HEART],
+] as const;
 
 /** The gutter strand for narrow screens: near-vertical, drawn in strokes that keep their width however tall it stretches. */
 const STRAND = "M12,0C8,180 16,360 12,500S8,820 12,1000";
@@ -259,6 +267,7 @@ export function BoughSegment({ name }: { name: SegmentName }) {
   const { id, viewBox, limbs, buds, flowers } = BUILT[name];
   const h = SEGMENTS[name].h;
   const leaf = FOLIAGE[name];
+  const crown = name === "finale";
   // A main limb that starts at a joint takes its moon rim from the left and a little below: nudged up, the
   // rim's top edge would bleed through the wood's anti-aliased first row as a light tick across the joint
   const rim = (limb: Limb) => (limb.depth === 1 && SEGMENTS[name].keys[0][1] === 0 ? "translate(-1.2 1.2)" : "translate(-1.2 -1.2)");
@@ -283,6 +292,12 @@ export function BoughSegment({ name }: { name: SegmentName }) {
             <stop offset="0" stopColor="var(--hero-wood-lit)" />
             <stop offset="1" stopColor="var(--hero-wood)" />
           </linearGradient>
+          {crown && CROWN_JOIN.map(([part, from, to]) => (
+            <linearGradient key={part} id={`${id}-join-${part}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="60">
+              <stop offset="0" stopColor={from} />
+              <stop offset="1" stopColor={to} />
+            </linearGradient>
+          ))}
           <g id={`${id}-bud`}>
             <circle r="5" fill="var(--hero-ember)" opacity=".22" />
             <circle r="2.2" fill="var(--hero-ember)" />
@@ -338,8 +353,8 @@ export function BoughSegment({ name }: { name: SegmentName }) {
           limb.outline ? (
             <g key={i} mask={`url(#${id}-m${i})`}>
               {/* Moon rim: the outline nudged toward the key light, showing past the wood's upper-left edge */}
-              <use href={`#${id}-o${i}`} fill="var(--hero-wood-rim)" transform={rim(limb)} />
-              <use href={`#${id}-o${i}`} fill={`url(#${id}-grain)`} />
+              <use href={`#${id}-o${i}`} fill={crown ? `url(#${id}-join-rim)` : "var(--hero-wood-rim)"} transform={rim(limb)} />
+              <use href={`#${id}-o${i}`} fill={`url(#${id}-${crown && i === 0 ? "join-grain" : "grain"})`} />
             </g>
           ) : (
             <g key={i} className="seg-grows" style={timing(limb)} fill="none" stroke={`url(#${id}-grain)`} strokeLinecap="round">
@@ -352,7 +367,7 @@ export function BoughSegment({ name }: { name: SegmentName }) {
 
         {/* Heart: the amber light inside the wood. Opaque (pre-mixed into the wood) with round ends, so where two
             segments' hearts overlap at a joint there is no brighter spot and no anti-aliased seam */}
-        <g fill="none" stroke="color-mix(in srgb, var(--hero-wood-heart) 75%, var(--hero-wood))" strokeLinecap="round">
+        <g fill="none" stroke={crown ? `url(#${id}-join-heart)` : WOOD_HEART} strokeLinecap="round">
           {limbs.map((limb, i) => (
             <g key={i} className="seg-grows" style={timing(limb)}>
               {limb.steps.map((s, k) => (
