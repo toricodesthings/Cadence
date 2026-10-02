@@ -35,8 +35,10 @@
   height: 100dvh;
   margin-bottom: -100dvh;
   pointer-events: none;
-  /* The hero's night before its dusk lifts: no pale horizon, only a faint lantern glow low down */
+  /* A faint echo of the hero's mauve and copper light, kept low beneath the seasonal washes. */
   background:
+    radial-gradient(ellipse 70% 45% at 30% 100%, color-mix(in srgb, var(--hero-atmosphere) 6%, transparent), transparent 75%),
+    radial-gradient(ellipse 65% 35% at 78% 108%, color-mix(in srgb, var(--hero-warm-glow) 40%, transparent), transparent 75%),
     radial-gradient(110% 45% at 50% 120%, color-mix(in srgb, var(--accent-glow) 20%, transparent), transparent 70%),
     linear-gradient(
       180deg,
@@ -321,13 +323,17 @@
 
 .bough-seg mask { mask-type: alpha; }
 
+.bough-crown-mobile,
+.bough-prelude-mobile,
+.bough-mobile { display: none; }
+
 .bough-strand {
   display: none;
   position: absolute;
   left: 0.5rem;
-  top: 0;
+  top: -1px;
   width: 1.5rem;
-  height: 100%;
+  height: calc(100% - var(--bough-crossing) + 2px);
   overflow: visible;
 }
 
@@ -336,6 +342,8 @@
   stroke-dasharray: 1 2;
   stroke-dashoffset: 0;
 }
+
+.seg-gutter { transform-origin: 0 0; }
 
 .seg-bud,
 .seg-flower {
@@ -457,8 +465,25 @@
   animation: var(--hero-still, hero-wisp var(--dur) var(--ease-sine) var(--delay) infinite both var(--hero-loop, running));
 }
 
+/* Alternate a few coral lights through the gold sets; keep each season's main tint. */
+.drift-lantern > span:nth-child(2n),
+.drift-firefly > span:nth-child(3n) {
+  --hero-lamp: color-mix(in srgb, var(--accent-ember) 72%, white);
+}
+
+.drift-mote > span:nth-child(2n) {
+  --hero-ember: var(--accent-ember);
+}
+
+.drift-leaf > span:nth-child(3n) {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent-ember) 65%, var(--hero-lamp)),
+    color-mix(in srgb, var(--accent-ember) 55%, var(--hero-bark)));
+}
+
 /* ── Prelude: the threshold ── */
 .prelude { --reveal-at: 0.2; }
+.prelude-branch { display: contents; }
 
 .prelude-words {
   padding-top: 5%;
@@ -575,8 +600,8 @@
 }
 
 /* ── Constellation: the chart is the list. Each item is a zero-size anchor at its star: the glyph is centred on
-   the point, the name set off to its side (away from the figure's lines). Narrow screens stack the same list,
-   with no drawing ── */
+   the point, the name set off to its side (away from the figure's lines). Portrait screens fold the same
+   figure into a tall chart, with alternating labels and faint companion stars ── */
 .constellation-chart {
   position: relative;
   align-self: center;
@@ -590,6 +615,8 @@
   height: 100%;
   overflow: visible;
 }
+
+.constellation-chart > .constellation-map-narrow { display: none; }
 
 /* The drawing is in the chart's own units (100 wide), so a quarter unit is a hairline at any width */
 .constellation-line {
@@ -606,6 +633,9 @@
   fill: var(--hero-star-cool);
   opacity: 0.4;
 }
+
+.constellation-companion-line { opacity: 0.3; }
+.constellation-companion { fill: var(--hero-star-warm); opacity: 0.75; }
 
 .constellation-stars {
   position: absolute;
@@ -658,6 +688,48 @@
   font-size: 0.8125rem;
   line-height: 1.3;
   color: var(--color-twilight-text-soft);
+}
+
+/* Wide star atlas: a shorter section, finer facets and still orbital traces. Portrait rules stay independent. */
+@media (min-width: 1024px) and (aspect-ratio > 4/5) {
+  .constellation-chart { aspect-ratio: 100 / 88; }
+
+  .constellation-chart::before {
+    content: "";
+    position: absolute;
+    inset: -8% 8%;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 36% 45% at 52% 30%, color-mix(in srgb, var(--hero-star-cool) 7%, transparent), transparent),
+      radial-gradient(ellipse 40% 38% at 52% 70%, color-mix(in srgb, var(--hero-crest) 6%, transparent), transparent);
+  }
+
+  .constellation-map-wide .constellation-line { stroke-width: 0.18; }
+  .constellation-map-wide .constellation-companion-line { opacity: 0.38; }
+  .constellation-map-wide .constellation-companion { opacity: 0.85; }
+
+  .constellation-orbits {
+    fill: none;
+    stroke: var(--hero-star-cool);
+    stroke-width: 0.12;
+    stroke-dasharray: 0.3 1.3;
+    opacity: 0.2;
+  }
+
+  .constellation-node-halo {
+    fill: var(--hero-crest);
+    opacity: 0.09;
+  }
+
+  .constellation-node-ring {
+    fill: none;
+    stroke: var(--hero-crest);
+    stroke-width: 0.16;
+  }
+
+  .constellation-stars li { --gap: 1.05rem; }
+  .constellation .star-text { gap: 0.2rem; }
+  .constellation .star-name { font-size: 1.0625rem; }
 }
 
 /* ── The sigil: rings of light in the crest's gold (Emilie's presence, the finale's invitation) ── */
@@ -826,8 +898,8 @@
   background:
     radial-gradient(ellipse 46% 25% at 78% 89%, color-mix(in srgb, var(--accent-ember) 12%, transparent), transparent 75%),
     radial-gradient(ellipse 55% 24% at 24% 85%, color-mix(in srgb, var(--hero-land-rim) 7%, transparent), transparent 75%),
-    radial-gradient(70% 22% at 50% 92%, color-mix(in srgb, var(--accent-ember) 16%, transparent), transparent 72%),
-    radial-gradient(120% 34% at 50% 100%, var(--accent-glow), transparent 70%),
+    radial-gradient(70% 22% at 50% 92%, color-mix(in srgb, var(--hero-warm-light) 14%, transparent), transparent 72%),
+    radial-gradient(120% 34% at 50% 100%, var(--hero-horizon-core), transparent 70%),
     linear-gradient(
       180deg,
       transparent 0%,
@@ -944,8 +1016,8 @@
 .drift-fall > span:nth-child(3n) {
   border-radius: 0 78% 0 78%;
   background: linear-gradient(135deg,
-    color-mix(in srgb, var(--palette-copper) 48%, var(--hero-petal-shade)),
-    color-mix(in srgb, var(--hero-bark) 55%, transparent));
+    color-mix(in srgb, var(--hero-warm-light) 70%, var(--hero-petal-shade)),
+    color-mix(in srgb, var(--accent-ember) 38%, var(--hero-bark)));
 }
 
 /* Lanterns keep their original count and flank positions, with gentler light and longer drift. */
@@ -1000,7 +1072,7 @@
   place-items: center;
   width: 100%;
   height: 18rem;
-  background: radial-gradient(ellipse 10rem 7rem at center, color-mix(in srgb, var(--accent-ember) 16%, transparent), transparent 78%);
+  background: radial-gradient(ellipse 10rem 7rem at center, color-mix(in srgb, var(--accent-ember) 8%, transparent), transparent 78%);
 }
 
 .finale-blossom {
@@ -1009,7 +1081,7 @@
   top: 50%;
   left: 50%;
   translate: -50% -50%;
-  opacity: 0.8;
+  opacity: 0.6;
   z-index: -1;
   pointer-events: none;
 }
@@ -1142,7 +1214,7 @@
   animation: var(--hero-still, fl-smoke calc(7s + var(--k) * 0.8s) linear calc(var(--k) * -2.1s) infinite both var(--hero-loop, running));
 }
 
-/* ── Narrow and portrait: words then panel, the bough a thin strand down the left gutter ── */
+/* ── Narrow and portrait: words then panel, alternating gutters joined below each feature ── */
 @media (max-width: 1023px), (max-aspect-ratio: 4/5) {
   .jsec {
     --reveal-at: 0;
@@ -1151,50 +1223,137 @@
     padding: 4rem 0 4rem 3rem;
   }
 
+  .jsec[data-bough-side] {
+    --bough-crossing: calc((100vw - 4.5rem) / 2);
+    padding-block: 5rem calc(4rem + var(--bough-crossing));
+  }
+  .jsec[data-bough-side="right"] { padding-inline: 0 3rem; }
+
   .chapter,
   .emilie { display: block; }
   .chapter-panel { margin-top: 2.5rem; }
 
   .constellation-chart {
-    margin-top: 2rem;
+    width: min(100%, 32rem);
+    height: clamp(54rem, 220vw, 64rem);
+    margin: 3rem auto 0;
     aspect-ratio: auto;
   }
 
-  .constellation-chart > svg { display: none; }
+  .constellation-chart > .constellation-map-wide { display: none; }
+  .constellation-chart > .constellation-map-narrow { display: block; }
 
-  .constellation-stars {
-    position: static;
-    display: grid;
-    gap: 1.1rem;
+  .constellation-chart::before {
+    content: "";
+    position: absolute;
+    inset: -2rem 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 40% 24% at 52% 18%, color-mix(in srgb, var(--hero-star-cool) 5%, transparent), transparent),
+      radial-gradient(ellipse 40% 28% at 52% 68%, color-mix(in srgb, var(--hero-crest) 5%, transparent), transparent);
   }
 
   .constellation-stars li {
-    position: static;
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    width: auto;
-    height: auto;
+    --gap: 0.8rem;
+    left: 0;
+    top: var(--my);
+    width: 100%;
   }
 
-  .constellation-stars .glint-star,
-  .constellation-stars li[data-bright] .glint-star {
-    position: static;
-    flex: none;
-    width: 0.85rem;
-    translate: none;
-  }
+  .constellation-stars .glint-star { left: var(--mx); }
 
-  .constellation-stars li .star-text,
-  .constellation-stars li[data-side="l"] .star-text {
-    position: static;
-    translate: none;
-    text-align: left;
+  .constellation-stars li .star-text {
     white-space: normal;
+    text-wrap: pretty;
+  }
+
+  .constellation-stars li[data-mobile-side="l"] .star-text {
+    left: auto;
+    right: calc(100% - var(--mx) + var(--gap));
+    width: calc(var(--mx) - var(--gap));
+    text-align: right;
+  }
+
+  .constellation-stars li[data-mobile-side="r"] .star-text {
+    left: calc(var(--mx) + var(--gap));
+    right: auto;
+    width: calc(100% - var(--mx) - var(--gap));
+    text-align: left;
   }
   .bough-seg { display: none; }
+  .bough-feature-wide { display: none; }
+  .bough-mobile { display: block; }
   .bough-strand { display: block; }
+  .bough-mobile[data-side="right"] .bough-strand { left: auto; right: 0.5rem; }
+  .bough-crossing {
+    position: absolute;
+    inset: auto 1.25rem 0;
+    height: var(--bough-crossing);
+    view-timeline: --crossing block;
+  }
+  .bough-crossing .bough-seg { display: block; }
   .prelude-words { padding-top: 0; }
+
+  /* A full-width reading pause, then a separate side entrance into the first chapter. */
+  .prelude {
+    width: 100%;
+    padding: clamp(6rem, 14svh, 9rem) 2rem 0;
+  }
+
+  .prelude-words { view-timeline: --prelude-text block; }
+  .prelude-lead {
+    max-width: 22rem;
+    font-size: clamp(1.75rem, 6.4vw, 2.5rem);
+    line-height: 1.3;
+    letter-spacing: -0.035em;
+  }
+  .prelude-sentence { display: block; }
+  .prelude-sentence + .prelude-sentence { margin-top: 1.75rem; }
+  .prelude-crest { width: 10rem; margin-top: 2.5rem; }
+  .prelude-line { margin-top: 2.5rem; font-size: 1.125rem; line-height: 1.4; }
+  .prelude-line-intro { display: block; margin-bottom: 0.65rem; }
+  .prelude-year { font-size: clamp(2.5rem, 9vw, 3.5rem); letter-spacing: -0.04em; }
+
+  .prelude-branch {
+    display: block;
+    position: relative;
+    margin: 5rem -2rem 0;
+    height: calc((100vw - 2.25rem) / 2);
+    view-timeline: --prelude-branch block;
+  }
+  .prelude .bough-prelude-wide { display: none; }
+  .prelude .bough-prelude-mobile { display: block; left: 2.25rem; }
+  .prelude .bough-prelude-mobile .bough-seg { display: block; }
+  .prelude .bough-strand { display: none; }
+
+  @supports (animation-timeline: view()) {
+    .prelude .prelude-word {
+      animation-timeline: --prelude-text;
+      animation-range: entry calc(5% + var(--w) * 2%) entry calc(25% + var(--w) * 2%);
+    }
+    .prelude .reveal,
+    .prelude .prelude-crest-line {
+      animation-timeline: --prelude-text;
+      animation-range: entry 55% entry 80%;
+    }
+    .prelude .prelude-swash-ink {
+      animation-timeline: --prelude-text;
+      animation-range: entry 80% entry 100%;
+    }
+    .prelude-branch :is(.seg-grow, .seg-grows, .seg-gutter, .seg-bud, .seg-flower, .seg-ember) {
+      animation-timeline: --prelude-branch;
+      animation-range: entry calc(15% + var(--t0) * 70%) entry calc(15% + var(--t1) * 70%);
+    }
+    .bough-crossing :is(.seg-grow, .seg-grows, .seg-gutter, .seg-bud, .seg-flower, .seg-ember) {
+      animation-timeline: --crossing;
+      animation-range: cover calc(30vh + var(--t0) * (100% - 100vh)) cover calc(30vh + var(--t1) * (100% - 100vh));
+    }
+  }
+
+  @supports not (animation-timeline: view()) {
+    .journey.is-live .jsec :is(.prelude-branch, .bough-crossing) :is(.seg-grow, .seg-grows, .seg-gutter, .seg-bud, .seg-flower) { animation-play-state: paused; }
+    .journey.is-live .jsec :is(.prelude-branch, .bough-crossing).is-grown :is(.seg-grow, .seg-grows, .seg-gutter, .seg-bud, .seg-flower) { animation-play-state: running; }
+  }
 
   .emilie-words {
     align-items: flex-start;
@@ -1212,7 +1371,7 @@
 
   .emilie-sigil { --sigil: 13rem; }
 
-  /* The crown is the page's last picture: drawn at full width even here, where the strand ends */
+  /* The strand ends 2.25rem from the viewport edge: continue at that exact joint, then sweep right. */
   .finale-crown {
     width: 100%;
     aspect-ratio: 1000 / var(--h);
@@ -1221,14 +1380,19 @@
 
   .finale-crown .bough-seg { display: block; }
   .finale-crown .bough-strand { display: none; }
+  .finale-crown .bough-crown-wide { display: none; }
+  .finale-crown .bough-crown-mobile {
+    display: block;
+    left: 2.25rem;
+  }
   .finale-stage { margin-top: 0; }
   .finale-land-scene { translate: -58% 0; }
 
   /* Skipped sections' stand-in heights here, where content sets them (measured at 360–1024 px wide) */
-  .journey > .jsec { contain-intrinsic-size: auto 850px; }
-  .journey > .prelude { contain-intrinsic-size: auto 350px; }
-  .journey > .emilie { contain-intrinsic-size: auto 1150px; }
-  .journey > .constellation { contain-intrinsic-size: auto 900px; }
+  .journey > .jsec { contain-intrinsic-size: auto 1050px; }
+  .journey > .prelude { contain-intrinsic-size: auto 800px; }
+  .journey > .emilie { contain-intrinsic-size: auto 1350px; }
+  .journey > .constellation { contain-intrinsic-size: auto 1450px; }
   .finale { contain-intrinsic-size: auto 850px; }
 }
 
@@ -1241,13 +1405,16 @@
   }
 
   .seg-grow,
-  .seg-grows {
+  .seg-grows,
+  .seg-gutter {
     animation: var(--hero-still, hero-grow linear both);
     animation-timeline: --seg;
     animation-range:
       cover calc(var(--front) + var(--t0) * (100% - 100vh))
       cover calc(var(--front) + var(--t1) * (100% - 100vh));
   }
+
+  .seg-gutter { animation-name: var(--hero-still, journey-gutter); }
 
   .seg-bud,
   .seg-flower {
@@ -1282,7 +1449,7 @@
   .bough-strand {
     animation: var(--hero-still, journey-reach linear both);
     animation-timeline: --seg;
-    animation-range: cover var(--front) cover calc(var(--front) + 100% - 100vh);
+    animation-range: cover var(--front) cover calc(var(--front) + 100% - 100vh - var(--bough-crossing));
   }
 
   .reveal {
@@ -1379,6 +1546,10 @@
     );
   }
 
+  .journey.is-live .seg-gutter {
+    animation: var(--hero-still, journey-gutter 2.4s var(--ease-out-quart) both paused);
+  }
+
   .journey.is-live :is(.seg-bud, .seg-flower) {
     animation: var(
       --hero-still,
@@ -1386,7 +1557,7 @@
     );
   }
 
-  .journey.is-live .is-grown :is(.seg-grow, .seg-grows, .seg-bud, .seg-flower) {
+  .journey.is-live .is-grown :is(.seg-grow, .seg-grows, .seg-gutter, .seg-bud, .seg-flower) {
     animation-play-state: running;
   }
 }
@@ -1439,6 +1610,8 @@
   from { clip-path: inset(0 0 100% 0); }
   to { clip-path: inset(0 0 0 0); }
 }
+
+@keyframes journey-gutter { from { transform: scaleY(0); } }
 
 @keyframes journey-ember {
   0% { offset-distance: 0%; opacity: 0; }

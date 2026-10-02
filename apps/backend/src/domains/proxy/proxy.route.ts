@@ -4,6 +4,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import { createErrorBody } from "../../platform/errors";
 import { logger, shorten, issuesFromError } from "../../platform/log";
+import { holidayCache } from "./holiday-cache";
 import {
     coordsQuerySchema,
     geocodeSearchQuerySchema,
@@ -26,6 +27,7 @@ const OPEN_METEO_GEOCODING_BASE = "https://geocoding-api.open-meteo.com";
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 const OPEN_HOLIDAYS_BASE = "https://openholidaysapi.org";
 const NAGER_BASE = "https://date.nager.at/api/v3";
+const HOLIDAY_CACHE_SECONDS = 7 * 86400;
 
 const MAX_UPSTREAM_BODY = 1_048_576; // 1MB
 const ALLOWED_CONTENT_TYPES = ["application/json", "text/plain"];
@@ -41,7 +43,7 @@ async function upstreamFetch(upstream: string, url: string, cacheTtl: number): P
     try {
         res = await fetch(url, {
             headers: { "User-Agent": "Cadence/1.0 (cadenceapp.cloud)" },
-            cf: { cacheTtl, cacheEverything: true },
+            cf: { cacheTtlByStatus: { "200-299": cacheTtl, "300-599": 0 }, cacheEverything: true },
         });
     } catch (err) {
         logger.error("proxy", "upstream_unreachable", { upstream, issues: issuesFromError(err) });
@@ -216,6 +218,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
     // ── GET /api/proxy/holidays/countries ──
     // Very long cache: country lists rarely change
+    .use("/holidays*", holidayCache)
     .get("/holidays/countries", apiValidator("query", holidayCountriesQuerySchema), async (c) => {
         const { locale } = c.req.valid("query");
         const language = getLanguage(locale);
@@ -226,6 +229,11 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         ]);
 
         const merged = new Map<string, HolidayCountryOption>();
+        const openOk = openRes.status === "fulfilled" && openRes.value.ok;
+        const nagerOk = nagerRes.status === "fulfilled" && nagerRes.value.ok;
+        if (!openOk && !nagerOk) {
+            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Holiday service unavailable", status: 502, isRetryable: true }), 502, PRIVATE_NO_STORE);
+        }
 
         if (nagerRes.status === "fulfilled" && nagerRes.value.ok) {
             const countries = (await nagerRes.value.json()) as Array<{ countryCode: string; name: string }>;
@@ -250,7 +258,8 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         }
 
         const sorted = [...merged.values()].sort((a, b) => a.label.localeCompare(b.label));
-        return c.json({ data: sorted }, 200, cacheHeaders(86400)); // 24h client cache
+        // An incomplete list during an outage must not become a day-long cache hit.
+        return c.json({ data: sorted }, 200, openOk && nagerOk ? cacheHeaders(86400) : PRIVATE_NO_STORE);
     })
 
     // ── GET /api/proxy/holidays/subdivisions ──
@@ -260,6 +269,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const cc = countryCode.toUpperCase();
 
         let subdivisions: HolidaySubdivisionOption[] = [];
+        let upstreamOk = false;
 
         try {
             const res = await upstreamFetch(
@@ -283,6 +293,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                             "",
                     }))
                     .filter((s) => s.code);
+                upstreamOk = true;
             }
         } catch {
             // Fall through to Nager
@@ -302,12 +313,16 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                         for (const county of h.counties ?? []) codes.add(county);
                     }
                     subdivisions = [...codes].map((code) => ({ code, label: code }));
+                    upstreamOk = true;
                 }
             } catch {
                 // Return empty
             }
         }
 
+        if (!upstreamOk) {
+            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Holiday service unavailable", status: 502, isRetryable: true }), 502, PRIVATE_NO_STORE);
+        }
         const sorted = subdivisions.sort((a, b) => a.label.localeCompare(b.label));
         return c.json({ data: sorted }, 200, cacheHeaders(86400)); // 24h client cache
     })
@@ -324,7 +339,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             let url = `${OPEN_HOLIDAYS_BASE}/PublicHolidays?countryIsoCode=${encodeURIComponent(cc)}&validFrom=${encodeURIComponent(start)}&validTo=${encodeURIComponent(end)}&languageIsoCode=${encodeURIComponent(language)}`;
             if (subCode) url += `&subdivisionCode=${encodeURIComponent(subCode)}`;
 
-            const res = await upstreamFetch("open-holidays", url, 43200); // 12h CF cache
+            const res = await upstreamFetch("open-holidays", url, HOLIDAY_CACHE_SECONDS);
             if (res.ok) {
                 const raw = (await res.json()) as Array<{
                     startDate: string;
@@ -363,7 +378,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     .filter((h) => h !== null);
 
                 if (holidays.length > 0) {
-                    return c.json({ data: holidays }, 200, cacheHeaders(43200)); // 12h client cache
+                    return c.json({ data: holidays }, 200, cacheHeaders(HOLIDAY_CACHE_SECONDS));
                 }
             }
         } catch {
@@ -372,9 +387,9 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         // Fallback to Nager
         const year = Number.parseInt(start.slice(0, 4), 10);
-        const nagerRes = await upstreamFetch("nager", `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, 43200);
+        const nagerRes = await upstreamFetch("nager", `${NAGER_BASE}/PublicHolidays/${year}/${encodeURIComponent(cc)}`, HOLIDAY_CACHE_SECONDS);
         if (!nagerRes.ok) {
-            return c.json({ data: [] }, 200, cacheHeaders(3600));
+            return c.json(createErrorBody({ code: "UPSTREAM_ERROR", message: "Holiday service unavailable", status: 502, isRetryable: true }), 502, PRIVATE_NO_STORE);
         }
 
         const nagerRaw = (await nagerRes.json()) as Array<{
@@ -410,5 +425,5 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             })
             .filter((h): h is HolidayRecord => h !== null && h.date >= start && h.date <= end);
 
-        return c.json({ data: holidays }, 200, cacheHeaders(43200));
+        return c.json({ data: holidays }, 200, cacheHeaders(HOLIDAY_CACHE_SECONDS));
     });

@@ -243,16 +243,17 @@ describe("proxy route contracts", () => {
             expect(us.label).toBe("United States");
         });
 
-        it("handles upstream failures gracefully", async () => {
+        it("returns a retryable failure instead of caching an empty country list", async () => {
             fetchMock
                 .mockRejectedValueOnce(new Error("network"))
                 .mockRejectedValueOnce(new Error("network"));
 
             const res = await app.request("/proxy/holidays/countries");
 
-            expect(res.status).toBe(200);
+            expect(res.status).toBe(502);
             const body: any = await res.json();
-            expect(body.data).toEqual([]);
+            expect(body.error.code).toBe("UPSTREAM_ERROR");
+            expect(res.headers.get("cache-control")).toContain("no-store");
         });
 
         it("defaults locale when not provided", async () => {

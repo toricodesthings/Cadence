@@ -1,0 +1,30 @@
+[
+  {
+    "table": "projects",
+    "planningMs": 0.09,
+    "executionMs": 0.035,
+    "rows": 5,
+    "node": "Seq Scan"
+  },
+  {
+    "table": "subtasks",
+    "planningMs": 4.633,
+    "executionMs": 1.074,
+    "rows": 36,
+    "node": "Seq Scan"
+  },
+  {
+    "table": "tasks",
+    "planningMs": 3.784,
+    "executionMs": 0.06,
+    "rows": 114,
+    "node": "Seq Scan"
+  },
+  {
+    "table": "mcp_connections",
+    "planningMs": 0.141,
+    "executionMs": 0.03,
+    "rows": 3,
+    "node": "Seq Scan"
+  }
+]

@@ -111,6 +111,8 @@ export type BoughSpec = {
    */
   joint?: "start" | "both";
   wEnd?: number;
+  /** A smooth stroked trunk for a screen-width gutter; forks retain their tapered outlines. */
+  strokeTrunk?: boolean;
   /** Blossoms open at ignition (the hero) or as the growth reaches their tip (the journey). */
   bloom?: "ignition" | "tip";
   /** Share of tips that blossom rather than bud (default 0.4; 0 for none). */
@@ -289,7 +291,7 @@ export function generateBough(spec: BoughSpec): Bough {
       children.push([childKeys, widths[k] * share, start + dur * fork.t, fork, DUR[depth + 1]]);
     }
 
-    const ribbonLimb = depth <= RIBBON_DEPTH;
+    const ribbonLimb = depth <= RIBBON_DEPTH && !(depth === 1 && spec.strokeTrunk);
     const n = STEPS[depth];
     const stepList: Step[] = [];
     for (let k = 1; k <= n; k++) {

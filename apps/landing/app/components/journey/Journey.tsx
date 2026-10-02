@@ -49,7 +49,10 @@ const TWINKLES: readonly (readonly [number, number, number, number])[] = [
   [24, 42, 4.9, -2.6],
 ];
 
-const LEAD_WORDS = PRELUDE.lead.split(" ");
+const LEAD_SENTENCES = PRELUDE.lead.split(/(?<=\.)\s+/).map((sentence, i, sentences) => ({
+  words: sentence.split(" "),
+  start: sentences.slice(0, i).reduce((count, previous) => count + previous.split(" ").length, 0),
+}));
 
 /** Sparkles that kindle round "whole year": [left %, top %, delay s]. */
 const YEAR_SPARKS: readonly (readonly [number, number, number])[] = [
@@ -70,7 +73,7 @@ export function Journey() {
     // The sections, and the mist over the seam: it belongs to no section, and its drift would run on far offscreen.
     // Loops pause at the screen's edge (a loop off screen falls back to the main thread); a section's bough and
     // particles are dropped only a quarter screen out, more than any limb overhangs its section, so nothing pops.
-    return watchViewport(
+    const stopSections = watchViewport(
       Array.from(root.querySelectorAll(".jsec, .finale, .journey-mist")),
       (section, share, near) => {
         section.classList.toggle("is-offscreen", share === 0);
@@ -79,6 +82,14 @@ export function Journey() {
       },
       { steps: [0.2], margin: 0.25 },
     );
+    // Mobile branches wait for their own area below the text or panel, including each crossing.
+    const branches = Array.from(root.querySelectorAll(".prelude-branch, .bough-crossing"));
+    const stopBranches = !scrubs
+      ? watchViewport(branches, (el, share) => {
+        if (share >= 0.2) el.classList.add("is-grown");
+      }, { steps: [0.2] })
+      : undefined;
+    return () => { stopSections(); stopBranches?.(); };
   }, []);
 
   return (
@@ -110,16 +121,20 @@ export function Journey() {
       </h2>
 
       <div className="jsec prelude" style={cssVars({ "--h": segmentHeight("prelude") })}>
-        <BoughSegment name="prelude" />
         <Drift kind="lantern" />
         <div className="prelude-words">
           {/* Lit word by word as it is read (journey.css) */}
           <p className="prelude-lead font-display">
-            {LEAD_WORDS.map((word, k) => (
-              <Fragment key={k}>
-                {k > 0 && " "}
-                <span className="prelude-word" style={cssVars({ "--w": k })}>
-                  {word}
+            {LEAD_SENTENCES.map(({ words, start }, i) => (
+              <Fragment key={i}>
+                {i > 0 && " "}
+                <span className="prelude-sentence">
+                  {words.map((word, k) => (
+                    <Fragment key={k}>
+                      {k > 0 && " "}
+                      <span className="prelude-word" style={cssVars({ "--w": start + k })}>{word}</span>
+                    </Fragment>
+                  ))}
                 </span>
               </Fragment>
             ))}
@@ -130,7 +145,7 @@ export function Journey() {
             <span className="prelude-crest-line prelude-crest-line-r" />
           </div>
           <p className="prelude-line reveal font-display" style={cssVars({ "--i": 1 })}>
-            {PRELUDE.line}{" "}
+            <span className="prelude-line-intro">{PRELUDE.line}</span>{" "}
             <span className="prelude-year">
               {PRELUDE.year}
               <svg className="prelude-swash" viewBox="0 0 200 16" preserveAspectRatio="none" aria-hidden="true" focusable="false">
@@ -150,6 +165,9 @@ export function Journey() {
             </span>
             .
           </p>
+        </div>
+        <div className="prelude-branch">
+          <BoughSegment name="prelude" />
         </div>
       </div>
 

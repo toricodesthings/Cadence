@@ -1,0 +1,1182 @@
+[
+  {
+    "traceId": "978e0f97fc3774c91d578d86cff8c46a",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790893572368,
+    "traceEndMs": 1790893572893,
+    "traceDurationMs": 525,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790893572368,
+        "end": 1790893572893,
+        "duration": 524,
+        "path": "/api/v1/habits/weekly",
+        "keyCategory": null,
+        "workerWall": 318
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790893572616,
+        "end": 1790893572616,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790893572619,
+        "end": 1790893572725,
+        "duration": 105,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790893572725,
+        "end": 1790893572725,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790893572726,
+        "end": 1790893572726,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+    "id": "01M3WS6GKP0000000000000005"
+  },
+  {
+    "traceId": "ef7d40ee88314f0c7ea9cebead2abba4",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790880307198,
+    "traceEndMs": 1790880307809,
+    "traceDurationMs": 611,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790880307198,
+        "end": 1790880307809,
+        "duration": 611,
+        "path": "/api/v1/inbox",
+        "keyCategory": null,
+        "workerWall": 237
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880307588,
+        "end": 1790880307588,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790880307597,
+        "end": 1790880307640,
+        "duration": 43,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880307645,
+        "end": 1790880307645,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790880307677,
+        "end": 1790880307677,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/inbox",
+    "id": "01M3WCHPEX0000000000000005"
+  },
+  {
+    "traceId": "63277e6000ceb70980524fb590dcdc13",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790880259846,
+    "traceEndMs": 1790880259892,
+    "traceDurationMs": 46,
+    "spans": [
+      {
+        "name": "ratelimit_run",
+        "start": 1790880259846,
+        "end": 1790880259846,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880259846,
+        "end": 1790880259846,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "GET",
+        "start": 1790880259846,
+        "end": 1790880259892,
+        "duration": 45,
+        "path": "/api/v1/settings/focus-views",
+        "keyCategory": null,
+        "workerWall": 56
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790880259849,
+        "end": 1790880259849,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/settings/focus-views",
+    "id": "01M3WCG7R90000000000000004"
+  },
+  {
+    "traceId": "a77533366763f94ab64402f7b558cb0f",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790880183604,
+    "traceEndMs": 1790880183990,
+    "traceDurationMs": 386,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790880183604,
+        "end": 1790880183990,
+        "duration": 386,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 141
+      },
+      {
+        "name": "fetch",
+        "start": 1790880183897,
+        "end": 1790880183940,
+        "duration": 43,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880183897,
+        "end": 1790880183897,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880183940,
+        "end": 1790880183940,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790880183941,
+        "end": 1790880183941,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3WCDXM50000000000000005"
+  },
+  {
+    "traceId": "b79b70e1e60e10af6bf6c4db8ea1a8a8",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790880156487,
+    "traceEndMs": 1790880159004,
+    "traceDurationMs": 2517,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790880156487,
+        "end": 1790880159004,
+        "duration": 2516,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 2171
+      },
+      {
+        "name": "fetch",
+        "start": 1790880156865,
+        "end": 1790880156927,
+        "duration": 62,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880156865,
+        "end": 1790880156865,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880156927,
+        "end": 1790880156927,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790880156931,
+        "end": 1790880156931,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3WCD3830000000000000005"
+  },
+  {
+    "traceId": "4cdff40a5ec68eba1ca0d2ad774b1c5c",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790880154684,
+    "traceEndMs": 1790880155124,
+    "traceDurationMs": 440,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790880154684,
+        "end": 1790880155124,
+        "duration": 440,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 145
+      },
+      {
+        "name": "fetch",
+        "start": 1790880155017,
+        "end": 1790880155059,
+        "duration": 42,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880155017,
+        "end": 1790880155017,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790880155059,
+        "end": 1790880155059,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790880155059,
+        "end": 1790880155059,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3WCD1DK0000000000000005"
+  },
+  {
+    "traceId": "3f3dc029d2f2133e64b02b04f0770556",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790879994926,
+    "traceEndMs": 1790879996225,
+    "traceDurationMs": 1299,
+    "spans": [
+      {
+        "name": "ratelimit_run",
+        "start": 1790879994926,
+        "end": 1790879994926,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790879994926,
+        "end": 1790879994926,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "GET",
+        "start": 1790879994926,
+        "end": 1790879996225,
+        "duration": 1299,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 1308
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790879994927,
+        "end": 1790879994927,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3WC851F0000000000000004"
+  },
+  {
+    "traceId": "0f984e2f9f8f26ccc08c9f8c370b69ec",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790879173183,
+    "traceEndMs": 1790879174190,
+    "traceDurationMs": 1007,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790879173183,
+        "end": 1790879174190,
+        "duration": 1007,
+        "path": "/api/v1/habits/weekly",
+        "keyCategory": null,
+        "workerWall": 390
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790879173870,
+        "end": 1790879173870,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790879173878,
+        "end": 1790879173977,
+        "duration": 99,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790879173977,
+        "end": 1790879173977,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790879173996,
+        "end": 1790879173996,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+    "id": "01M3WBF3BC0000000000000005"
+  },
+  {
+    "traceId": "2cd285397730f930b102f2f9c22335ac",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790874450892,
+    "traceEndMs": 1790874451259,
+    "traceDurationMs": 367,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790874450892,
+        "end": 1790874451259,
+        "duration": 367,
+        "path": "/api/v1/subtasks",
+        "keyCategory": null,
+        "workerWall": 133
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790874451161,
+        "end": 1790874451161,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790874451162,
+        "end": 1790874451217,
+        "duration": 55,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790874451217,
+        "end": 1790874451217,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790874451219,
+        "end": 1790874451219,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/subtasks",
+    "id": "01M3W6YZ8K0000000000000005"
+  },
+  {
+    "traceId": "a7453bc8bee610b82a3855ca04bc539f",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790874431823,
+    "traceEndMs": 1790874432380,
+    "traceDurationMs": 557,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790874431823,
+        "end": 1790874432380,
+        "duration": 556,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 276
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790874432126,
+        "end": 1790874432126,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790874432134,
+        "end": 1790874432225,
+        "duration": 90,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790874432225,
+        "end": 1790874432225,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790874432225,
+        "end": 1790874432225,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3W6YCQ10000000000000005"
+  },
+  {
+    "traceId": "06a29b68faf5f680808ec1fbe0e7ac0e",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790871972199,
+    "traceEndMs": 1790871972617,
+    "traceDurationMs": 418,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790871972199,
+        "end": 1790871972617,
+        "duration": 418,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 192
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790871972448,
+        "end": 1790871972448,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790871972452,
+        "end": 1790871972537,
+        "duration": 85,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790871972540,
+        "end": 1790871972540,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790871972544,
+        "end": 1790871972544,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3W4KAP00000000000000005"
+  },
+  {
+    "traceId": "f15f421161ea941b49e38c8ab508af28",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790864773137,
+    "traceEndMs": 1790864774441,
+    "traceDurationMs": 1304,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790864773137,
+        "end": 1790864774441,
+        "duration": 1304,
+        "path": "/api/v1/habits/weekly",
+        "keyCategory": null,
+        "workerWall": 841
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790864773641,
+        "end": 1790864773641,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790864773643,
+        "end": 1790864773777,
+        "duration": 134,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790864773795,
+        "end": 1790864773795,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790864773801,
+        "end": 1790864773801,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+    "id": "01M3VXQMN90000000000000005"
+  },
+  {
+    "traceId": "88e99a2957c1a57cb0944158ae1988e9",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790857573668,
+    "traceEndMs": 1790857574293,
+    "traceDurationMs": 625,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790857573668,
+        "end": 1790857574293,
+        "duration": 624,
+        "path": "/api/v1/habits/weekly",
+        "keyCategory": null,
+        "workerWall": 397
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790857573919,
+        "end": 1790857573919,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790857573925,
+        "end": 1790857574083,
+        "duration": 158,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790857574083,
+        "end": 1790857574083,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790857574084,
+        "end": 1790857574084,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+    "id": "01M3VPVXP40000000000000005"
+  },
+  {
+    "traceId": "51da8e7361eb8997b12f6900085129d3",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790846773539,
+    "traceEndMs": 1790846774060,
+    "traceDurationMs": 521,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790846773539,
+        "end": 1790846774060,
+        "duration": 520,
+        "path": "/api/v1/projects",
+        "keyCategory": null,
+        "workerWall": 301
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790846773777,
+        "end": 1790846773777,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790846773779,
+        "end": 1790846773948,
+        "duration": 168,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790846774012,
+        "end": 1790846774012,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790846774012,
+        "end": 1790846774012,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/projects",
+    "id": "01M3VCJAQW0000000000000005"
+  },
+  {
+    "traceId": "22a65ed5d0130443f82f000598604d45",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790843174020,
+    "traceEndMs": 1790843174670,
+    "traceDurationMs": 650,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790843174020,
+        "end": 1790843174670,
+        "duration": 650,
+        "path": "/api/v1/habits/weekly",
+        "keyCategory": null,
+        "workerWall": 377
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790843174319,
+        "end": 1790843174319,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790843174323,
+        "end": 1790843174547,
+        "duration": 224,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790843174550,
+        "end": 1790843174550,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790843174560,
+        "end": 1790843174560,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+    "id": "01M3V94FN00000000000000005"
+  },
+  {
+    "traceId": "eaa979b4cd5f20a1f12a4fb1365bbd92",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790832373840,
+    "traceEndMs": 1790832374412,
+    "traceDurationMs": 572,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790832373840,
+        "end": 1790832374412,
+        "duration": 572,
+        "path": "/api/v1/projects",
+        "keyCategory": null,
+        "workerWall": 247
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790832374185,
+        "end": 1790832374185,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790832374190,
+        "end": 1790832374308,
+        "duration": 117,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790832374310,
+        "end": 1790832374310,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790832374313,
+        "end": 1790832374313,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/projects",
+    "id": "01M3TYTWH90000000000000005"
+  },
+  {
+    "traceId": "d58aed4e45fe53a085ddec27b6ece272",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790832373839,
+    "traceEndMs": 1790832374382,
+    "traceDurationMs": 543,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790832373839,
+        "end": 1790832374382,
+        "duration": 543,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 239
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790832374175,
+        "end": 1790832374175,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790832374179,
+        "end": 1790832374269,
+        "duration": 89,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790832374280,
+        "end": 1790832374280,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790832374289,
+        "end": 1790832374289,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3TYTWGH0000000000000005"
+  },
+  {
+    "traceId": "178fd661d089c779202216b14765c44c",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790828773973,
+    "traceEndMs": 1790828774400,
+    "traceDurationMs": 427,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790828773973,
+        "end": 1790828774400,
+        "duration": 427,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 284
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790828774151,
+        "end": 1790828774151,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790828774155,
+        "end": 1790828774256,
+        "duration": 100,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790828774256,
+        "end": 1790828774256,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790828774256,
+        "end": 1790828774256,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3TVD0VG0000000000000005"
+  },
+  {
+    "traceId": "306653245a6c6579570b829deb6261fe",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790828330545,
+    "traceEndMs": 1790828330743,
+    "traceDurationMs": 198,
+    "spans": [
+      {
+        "name": "POST",
+        "start": 1790828330545,
+        "end": 1790828330743,
+        "duration": 197,
+        "path": "/api/v1/settings/notification-state",
+        "keyCategory": null,
+        "workerWall": 233
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790828330546,
+        "end": 1790828330546,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790828330572,
+        "end": 1790828330572,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790828330694,
+        "end": 1790828330694,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790828330709,
+        "end": 1790828330709,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "POST",
+    "rootTransactionName": "POST https://api.cadenceapp.cloud/api/v1/settings/notification-state",
+    "id": "01M3TTZFPN0000000000000005"
+  },
+  {
+    "traceId": "a623453f53c6b9cc986970ed66c70deb",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790828330323,
+    "traceEndMs": 1790828330617,
+    "traceDurationMs": 294,
+    "spans": [
+      {
+        "name": "fetch",
+        "start": 1790828330323,
+        "end": 1790828330417,
+        "duration": 94,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790828330323,
+        "end": 1790828330323,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "GET",
+        "start": 1790828330323,
+        "end": 1790828330617,
+        "duration": 294,
+        "path": "/api/v1/tasks",
+        "keyCategory": null,
+        "workerWall": 313
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790828330417,
+        "end": 1790828330417,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790828330430,
+        "end": 1790828330430,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+    "id": "01M3TTZFDY0000000000000005"
+  },
+  {
+    "traceId": "3ce5a7aaa5eeb0e49522547741de84f7",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790821574723,
+    "traceEndMs": 1790821575286,
+    "traceDurationMs": 563,
+    "spans": [
+      {
+        "name": "GET",
+        "start": 1790821574723,
+        "end": 1790821575286,
+        "duration": 563,
+        "path": "/api/v1/habits/weekly",
+        "keyCategory": null,
+        "workerWall": 367
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790821574941,
+        "end": 1790821574941,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790821574943,
+        "end": 1790821575103,
+        "duration": 160,
+        "path": "/neondb/auth/.well-known/jwks.json",
+        "keyCategory": null
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790821575103,
+        "end": 1790821575103,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790821575108,
+        "end": 1790821575108,
+        "duration": 0,
+        "keyCategory": null
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "GET",
+    "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+    "id": "01M3TMHAE40000000000000005"
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "services": [
+      "cadence-backend"
+    ],
+    "traceStartMs": 1790819354827,
+    "traceEndMs": 1790819356573,
+    "traceDurationMs": 1746,
+    "spans": [
+      {
+        "name": "POST",
+        "start": 1790819354827,
+        "end": 1790819356573,
+        "duration": 1745,
+        "path": "/oauth/token",
+        "keyCategory": null,
+        "workerWall": 1474
+      },
+      {
+        "name": "ratelimit_run",
+        "start": 1790819355121,
+        "end": 1790819355121,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "cache_match",
+        "start": 1790819355122,
+        "end": 1790819355150,
+        "duration": 28,
+        "keyCategory": null
+      },
+      {
+        "name": "fetch",
+        "start": 1790819355150,
+        "end": 1790819355200,
+        "duration": 49,
+        "path": "/oauth/mcp-oauth-client-metadata",
+        "keyCategory": null
+      },
+      {
+        "name": "cache_put",
+        "start": 1790819355200,
+        "end": 1790819355200,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "kv_get",
+        "start": 1790819355205,
+        "end": 1790819355339,
+        "duration": 134,
+        "binding": "OAUTH_KV",
+        "keyCategory": "grant"
+      },
+      {
+        "name": "hyperdrive_connect",
+        "start": 1790819355340,
+        "end": 1790819355340,
+        "duration": 0,
+        "keyCategory": null
+      },
+      {
+        "name": "kv_put",
+        "start": 1790819356129,
+        "end": 1790819356376,
+        "duration": 247,
+        "binding": "OAUTH_KV",
+        "keyCategory": "grant"
+      },
+      {
+        "name": "kv_put",
+        "start": 1790819356376,
+        "end": 1790819356573,
+        "duration": 196,
+        "binding": "OAUTH_KV",
+        "keyCategory": "token"
+      }
+    ],
+    "errors": [],
+    "rootSpanName": "POST",
+    "rootTransactionName": "POST https://mcp.cadenceapp.cloud/oauth/token",
+    "id": "01M3TJDKPR0000000000000009"
+  }
+]

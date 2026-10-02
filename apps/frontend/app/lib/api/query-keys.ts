@@ -30,6 +30,12 @@ export const queryKeys = {
         all: ["weather"] as const,
         current: (latitude: number | null, longitude: number | null) => ["weather", latitude, longitude] as const,
     },
+    holidays: {
+        year: (year: number, country: string | null, subdivision: string | null, locale: string) =>
+            ["holidays", year, country, subdivision, locale] as const,
+        subdivisions: (country: string | null, year: number, locale: string) =>
+            ["holiday-subdivisions", country, year, locale] as const,
+    },
     appearance: {
         all: ["appearance"] as const,
         /** The user's background photo, cached as a blob (never persisted to IndexedDB by the query cache). */
@@ -63,4 +69,6 @@ export const STALE_TIMES = {
     INBOX: 60 * 1000,           // 1min — inbox items moderate frequency
     TAGS: 10 * 60 * 1000,       // 10min — tags very rarely change
     HABITS: 60 * 1000,          // 1min — habits have moderate frequency
+    HOLIDAYS: 7 * 24 * 60 * 60 * 1000, // 7 days — reuse a year's dates across calendar views
+    HOLIDAY_REGIONS: 24 * 60 * 60 * 1000, // 1 day — country and subdivision metadata
 } as const;

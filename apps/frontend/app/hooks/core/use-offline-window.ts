@@ -11,11 +11,12 @@ import { tagsQueryOptions } from "../tags/use-tags";
 import { getMonthDateRange, getWeekDateRange, getWeekDates, toISODate, WEEK_START_INDEX } from "../../lib/utils/date-format";
 
 const HOUR = 60 * 60 * 1000;
+const PREFETCH_CONCURRENCY = 3;
 
 /**
  * Keep the phone views' data saved for a week back and three weeks ahead, with
  * the same keys the views use, so they open offline even if not visited lately.
- * At most one burst an hour: anything fetched in the last hour is skipped.
+ * Warm three queries at a time; anything fetched in the last hour is skipped.
  */
 export function useOfflineWindow() {
     const queryClient = useQueryClient();
@@ -25,8 +26,11 @@ export function useOfflineWindow() {
 
     useEffect(() => {
         if (!weekStart) return;
+        let stopped = false;
+        let warming = false;
+        const canWarm = () => !stopped && navigator.onLine && document.visibilityState === "visible";
         const run = () => {
-            if (!navigator.onLine || document.visibilityState !== "visible") return;
+            if (warming || !canWarm()) return;
             const now = new Date();
             const today = toISODate(now);
             const weeks = [-7, 0, 7, 14, 21].map((days) => addDays(now, days));
@@ -47,9 +51,18 @@ export function useOfflineWindow() {
                 tagsQueryOptions(client),
             ];
             // Each entry is typed by its own factory; together they're just queries to warm.
-            for (const options of queries as unknown as FetchQueryOptions[]) {
-                void queryClient.prefetchQuery({ ...options, staleTime: HOUR });
-            }
+            const pending = (queries as unknown as FetchQueryOptions[]).values();
+            const warm = async () => {
+                while (canWarm()) {
+                    const next = pending.next();
+                    if (next.done) return;
+                    await queryClient.prefetchQuery({ ...next.value, staleTime: HOUR });
+                }
+            };
+            warming = true;
+            // Background reads must leave room for the view the person is opening.
+            void Promise.all(Array.from({ length: PREFETCH_CONCURRENCY }, warm))
+                .finally(() => { warming = false; });
         };
 
         run();
@@ -57,6 +70,7 @@ export function useOfflineWindow() {
         document.addEventListener("visibilitychange", run);
         window.addEventListener("online", run);
         return () => {
+            stopped = true;
             window.clearInterval(timer);
             document.removeEventListener("visibilitychange", run);
             window.removeEventListener("online", run);

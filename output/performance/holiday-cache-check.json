@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-10-02T02:37:08.357Z",
+  "runtime": "Local Wrangler/workerd, live upstream holiday APIs, unauthenticated route fixture",
+  "rows": [
+    {
+      "label": "CA cold",
+      "status": 200,
+      "ms": 700,
+      "holidays": 11,
+      "cacheControl": "public, max-age=604800, stale-while-revalidate=1209600"
+    },
+    {
+      "label": "CA warm",
+      "status": 200,
+      "ms": 15,
+      "holidays": 11,
+      "cacheControl": "public, max-age=604800, stale-while-revalidate=1209600"
+    },
+    {
+      "label": "CA warm again",
+      "status": 200,
+      "ms": 12,
+      "holidays": 11,
+      "cacheControl": "public, max-age=604800, stale-while-revalidate=1209600"
+    },
+    {
+      "label": "DE cold",
+      "status": 200,
+      "ms": 178,
+      "holidays": 9,
+      "cacheControl": "public, max-age=604800, stale-while-revalidate=1209600"
+    },
+    {
+      "label": "DE warm",
+      "status": 200,
+      "ms": 12,
+      "holidays": 9,
+      "cacheControl": "public, max-age=604800, stale-while-revalidate=1209600"
+    }
+  ]
+}

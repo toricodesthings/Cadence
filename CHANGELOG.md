@@ -8,10 +8,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Changed
 
-- The landing hero and final invitation pair copper accents with peach, coral and pink blossoms.
-- The feature sections carry a hint of coral, with a smoother branch transition into the final invitation.
+- The landing page blends blue-mauve dusk with coral-gold light, warm branches and peach-pink blossoms.
+- The feature sections share a subtle sky tint and mixed warm lights for smoother transitions between scenes.
 - The landing page showcases more of Cadence, with clearer feature stories and refreshed Constellations.
 - The final signup invitation has glass, matching star accents, a delicate blossom and a warmer valley closer beneath it.
+- Mobile landing features have more space, with the growing branch weaving from left to right between them.
+- Mobile landing details form a connected constellation, with alternating labels and delicate companion stars.
+- The desktop landing constellation is more compact, with a richer star map, delicate orbits and connected facets.
+
+### Fixed
+
+- Holiday dates load once per year and region, making calendar navigation faster.
+- Routine calendar reads spend less time waiting on separate database queries.
+- Background offline caching warms a few requests at a time so it competes less with the page you're opening.
+- The mobile landing introduction has more breathing room, with its branch entering from the side after the statement.
+- On mobile, the landing page's final tree joins the preceding branch with natural, varied limbs sweeping right.
+- Mobile landing branches keep a consistent width and meet without visible gaps.
 
 ## [0.25.6] - 2026-09-30
 

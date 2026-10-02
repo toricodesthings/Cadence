@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cssVars } from "~/lib/geometry";
 import type { ChapterCopy, Season } from "~/lib/site";
 
-import { BoughSegment, segmentHeight, type SegmentName } from "./BoughSegment";
+import { BoughSegment, mobileBoughSide, segmentHeight, type SegmentName } from "./BoughSegment";
 import { Drift, type DriftKind } from "./Drift";
 
 /**
@@ -32,6 +32,7 @@ export function Chapter({
       data-season={copy.season}
       data-prev={prev}
       data-panel={copy.panel}
+      data-bough-side={mobileBoughSide(segment)}
       aria-labelledby={titleId}
       style={cssVars({ "--h": segmentHeight(segment) })}
     >

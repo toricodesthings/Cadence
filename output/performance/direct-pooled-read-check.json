@@ -1,0 +1,34 @@
+[
+  {
+    "mode": "pooled",
+    "begin": 1500,
+    "context": 386,
+    "read": 149,
+    "commit": 46,
+    "total": 2081
+  },
+  {
+    "mode": "direct",
+    "begin": 460,
+    "context": 376,
+    "read": 100,
+    "commit": 45,
+    "total": 980
+  },
+  {
+    "mode": "pooled",
+    "begin": 666,
+    "context": 341,
+    "read": 74,
+    "commit": 37,
+    "total": 1118
+  },
+  {
+    "mode": "direct",
+    "begin": 387,
+    "context": 82,
+    "read": 85,
+    "commit": 45,
+    "total": 599
+  }
+]

@@ -1,0 +1,110 @@
+[
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "POST",
+    "startTime": 1790819354827,
+    "endTime": 1790819356573,
+    "durationMS": 1745,
+    "wall": 1474,
+    "cpu": 31,
+    "binding": null,
+    "path": "/oauth/token",
+    "keyCategory": null
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "ratelimit_run",
+    "startTime": 1790819355121,
+    "endTime": 1790819355121,
+    "durationMS": 0,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": null,
+    "keyCategory": null
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "cache_match",
+    "startTime": 1790819355122,
+    "endTime": 1790819355150,
+    "durationMS": 28,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": null,
+    "keyCategory": null
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "fetch",
+    "startTime": 1790819355150,
+    "endTime": 1790819355200,
+    "durationMS": 49,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": "/oauth/mcp-oauth-client-metadata",
+    "keyCategory": null
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "cache_put",
+    "startTime": 1790819355200,
+    "endTime": 1790819355200,
+    "durationMS": 0,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": null,
+    "keyCategory": null
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "kv_get",
+    "startTime": 1790819355205,
+    "endTime": 1790819355339,
+    "durationMS": 134,
+    "wall": null,
+    "cpu": null,
+    "binding": "OAUTH_KV",
+    "path": null,
+    "keyCategory": "grant"
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "hyperdrive_connect",
+    "startTime": 1790819355340,
+    "endTime": 1790819355340,
+    "durationMS": 0,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": null,
+    "keyCategory": null
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "kv_put",
+    "startTime": 1790819356129,
+    "endTime": 1790819356376,
+    "durationMS": 247,
+    "wall": null,
+    "cpu": null,
+    "binding": "OAUTH_KV",
+    "path": null,
+    "keyCategory": "grant"
+  },
+  {
+    "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+    "name": "kv_put",
+    "startTime": 1790819356376,
+    "endTime": 1790819356573,
+    "durationMS": 196,
+    "wall": null,
+    "cpu": null,
+    "binding": "OAUTH_KV",
+    "path": null,
+    "keyCategory": "token"
+  }
+]

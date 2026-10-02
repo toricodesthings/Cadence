@@ -69,16 +69,18 @@
 /* Light from below the horizon, like a town behind hills: a wide lantern wash plus a warmer core */
 .hero-sky {
   background:
+    radial-gradient(ellipse 48% 30% at 76% 104%, var(--hero-warm-glow, transparent), transparent 75%),
     radial-gradient(72% 40% at 50% 104%, var(--hero-horizon-core), transparent 74%),
-    radial-gradient(110% 60% at 50% 120%, var(--accent-glow), transparent 70%),
+    radial-gradient(110% 60% at 50% 120%, var(--hero-atmosphere-glow, var(--accent-glow)), transparent 70%),
     linear-gradient(180deg, var(--hero-sky-zenith) 0%, var(--hero-sky-mid) 55%, var(--hero-sky-horizon) 100%);
 }
 
 /* Sits under the stars, so they dim naturally as the sky lifts */
 .hero-dusk {
   background:
+    radial-gradient(ellipse 48% 30% at 76% 104%, var(--hero-warm-glow, transparent), transparent 75%),
     radial-gradient(72% 40% at 50% 104%, var(--hero-horizon-core), transparent 74%),
-    radial-gradient(110% 60% at 50% 120%, color-mix(in srgb, var(--accent-glow) 32%, transparent), transparent 70%),
+    radial-gradient(110% 60% at 50% 120%, color-mix(in srgb, var(--hero-atmosphere-glow, var(--accent-glow)) 32%, transparent), transparent 70%),
     linear-gradient(180deg, var(--hero-dusk-zenith) 0%, var(--hero-dusk-mid) 55%, var(--hero-dusk-horizon) 100%);
   animation: var(--hero-still, hero-fade calc(1200ms * var(--hero-dur-scale)) var(--ease-in-out-quart) calc(1500ms * var(--hero-dur-scale)) both);
 }

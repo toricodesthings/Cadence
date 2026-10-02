@@ -1,0 +1,497 @@
+{
+  "run": {
+    "id": "6fy7bv8g8n0dc15krqe6rqs2",
+    "query": {
+      "id": "cadence-admin",
+      "description": "",
+      "name": "",
+      "generated": false,
+      "parameters": {
+        "filters": [
+          {
+            "key": "$metadata.service",
+            "operation": "eq",
+            "value": "cadence-backend",
+            "type": "string"
+          }
+        ]
+      },
+      "workspaceId": "3165ee8692f023c9d7cef0631814a4f3",
+      "environmentId": "cloudflare",
+      "userId": "e6d69008dbc84c65cc504025ac8a8410",
+      "created": "2026-10-02T01:11:28.473Z",
+      "updated": "2026-10-02T01:11:28.473Z"
+    },
+    "accountId": "3165ee8692f023c9d7cef0631814a4f3",
+    "timeframe": {
+      "from": 1790817089201,
+      "to": 1790903489201
+    },
+    "userId": "e6d69008dbc84c65cc504025ac8a8410",
+    "status": "COMPLETED",
+    "granularity": 1440000,
+    "dry": false,
+    "statistics": {
+      "elapsed": 0.305338313,
+      "rows_read": 6038273,
+      "bytes_read": 92731693,
+      "abr_level": 1
+    }
+  },
+  "traces": [
+    {
+      "traceId": "978e0f97fc3774c91d578d86cff8c46a",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790893572368,
+      "traceEndMs": 1790893572893,
+      "traceDurationMs": 525,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+      "id": "01M3WS6GKP0000000000000005"
+    },
+    {
+      "traceId": "ef7d40ee88314f0c7ea9cebead2abba4",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790880307198,
+      "traceEndMs": 1790880307809,
+      "traceDurationMs": 611,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/inbox",
+      "id": "01M3WCHPEX0000000000000005"
+    },
+    {
+      "traceId": "63277e6000ceb70980524fb590dcdc13",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790880259846,
+      "traceEndMs": 1790880259892,
+      "traceDurationMs": 46,
+      "spans": 4,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/settings/focus-views",
+      "id": "01M3WCG7R90000000000000004"
+    },
+    {
+      "traceId": "a77533366763f94ab64402f7b558cb0f",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790880183604,
+      "traceEndMs": 1790880183990,
+      "traceDurationMs": 386,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3WCDXM50000000000000005"
+    },
+    {
+      "traceId": "b79b70e1e60e10af6bf6c4db8ea1a8a8",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790880156487,
+      "traceEndMs": 1790880159004,
+      "traceDurationMs": 2517,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3WCD3830000000000000005"
+    },
+    {
+      "traceId": "4cdff40a5ec68eba1ca0d2ad774b1c5c",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790880154684,
+      "traceEndMs": 1790880155124,
+      "traceDurationMs": 440,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3WCD1DK0000000000000005"
+    },
+    {
+      "traceId": "3f3dc029d2f2133e64b02b04f0770556",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790879994926,
+      "traceEndMs": 1790879996225,
+      "traceDurationMs": 1299,
+      "spans": 4,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3WC851F0000000000000004"
+    },
+    {
+      "traceId": "0f984e2f9f8f26ccc08c9f8c370b69ec",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790879173183,
+      "traceEndMs": 1790879174190,
+      "traceDurationMs": 1007,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+      "id": "01M3WBF3BC0000000000000005"
+    },
+    {
+      "traceId": "2cd285397730f930b102f2f9c22335ac",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874450892,
+      "traceEndMs": 1790874451259,
+      "traceDurationMs": 367,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/subtasks",
+      "id": "01M3W6YZ8K0000000000000005"
+    },
+    {
+      "traceId": "a7453bc8bee610b82a3855ca04bc539f",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874431823,
+      "traceEndMs": 1790874432380,
+      "traceDurationMs": 557,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3W6YCQ10000000000000005"
+    },
+    {
+      "traceId": "bb81b5870af4fe62efa77f95685f2203",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874285405,
+      "traceEndMs": 1790874285405,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/.zsh_history",
+      "id": "01M3W6SXAX0000000000000001"
+    },
+    {
+      "traceId": "1abfa8368a4dbdfdf7678c01c9354294",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874284712,
+      "traceEndMs": 1790874284712,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/metrics",
+      "id": "01M3W6SWN80000000000000001"
+    },
+    {
+      "traceId": "a689e449bd01c8da94b26cefeebd3e27",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874283401,
+      "traceEndMs": 1790874283401,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/secret.yaml",
+      "id": "01M3W6SVC90000000000000001"
+    },
+    {
+      "traceId": "ec70681b8defe4e2672ea7c7ff9d4e16",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874281760,
+      "traceEndMs": 1790874281760,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/firebase.json",
+      "id": "01M3W6SSS00000000000000001"
+    },
+    {
+      "traceId": "073ebe4e3abba64521f5c459a78d0c16",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874281189,
+      "traceEndMs": 1790874281189,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/secrets.yaml",
+      "id": "01M3W6SS750000000000000001"
+    },
+    {
+      "traceId": "10dee0cb98b0efeafe1eed0ea9d81e97",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874275830,
+      "traceEndMs": 1790874275830,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/service-account.json",
+      "id": "01M3W6SKZP0000000000000001"
+    },
+    {
+      "traceId": "9922a238a62849bed6420d042a653b1f",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874275485,
+      "traceEndMs": 1790874275485,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/database.json",
+      "id": "01M3W6SKMX0000000000000001"
+    },
+    {
+      "traceId": "f2c2e3cf9c1b987c340b15992104fe09",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874274563,
+      "traceEndMs": 1790874274563,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/settings.yml",
+      "id": "01M3W6SJR30000000000000001"
+    },
+    {
+      "traceId": "4504346e5fdef61f0f26196279d4cddd",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874273929,
+      "traceEndMs": 1790874273929,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/config/database.yml",
+      "id": "01M3W6SJ490000000000000001"
+    },
+    {
+      "traceId": "2388892b5315cf83c2dfc8503c253ecc",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790874271912,
+      "traceEndMs": 1790874271912,
+      "traceDurationMs": 0,
+      "spans": 1,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/config.php.bak",
+      "id": "01M3W6SG580000000000000001"
+    },
+    {
+      "traceId": "06a29b68faf5f680808ec1fbe0e7ac0e",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790871972199,
+      "traceEndMs": 1790871972617,
+      "traceDurationMs": 418,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3W4KAP00000000000000005"
+    },
+    {
+      "traceId": "f15f421161ea941b49e38c8ab508af28",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790864773137,
+      "traceEndMs": 1790864774441,
+      "traceDurationMs": 1304,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+      "id": "01M3VXQMN90000000000000005"
+    },
+    {
+      "traceId": "88e99a2957c1a57cb0944158ae1988e9",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790857573668,
+      "traceEndMs": 1790857574293,
+      "traceDurationMs": 625,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+      "id": "01M3VPVXP40000000000000005"
+    },
+    {
+      "traceId": "51da8e7361eb8997b12f6900085129d3",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790846773539,
+      "traceEndMs": 1790846774060,
+      "traceDurationMs": 521,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/projects",
+      "id": "01M3VCJAQW0000000000000005"
+    },
+    {
+      "traceId": "22a65ed5d0130443f82f000598604d45",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790843174020,
+      "traceEndMs": 1790843174670,
+      "traceDurationMs": 650,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+      "id": "01M3V94FN00000000000000005"
+    },
+    {
+      "traceId": "eaa979b4cd5f20a1f12a4fb1365bbd92",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790832373840,
+      "traceEndMs": 1790832374412,
+      "traceDurationMs": 572,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/projects",
+      "id": "01M3TYTWH90000000000000005"
+    },
+    {
+      "traceId": "d58aed4e45fe53a085ddec27b6ece272",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790832373839,
+      "traceEndMs": 1790832374382,
+      "traceDurationMs": 543,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3TYTWGH0000000000000005"
+    },
+    {
+      "traceId": "178fd661d089c779202216b14765c44c",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790828773973,
+      "traceEndMs": 1790828774400,
+      "traceDurationMs": 427,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3TVD0VG0000000000000005"
+    },
+    {
+      "traceId": "306653245a6c6579570b829deb6261fe",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790828330545,
+      "traceEndMs": 1790828330743,
+      "traceDurationMs": 198,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "POST",
+      "rootTransactionName": "POST https://api.cadenceapp.cloud/api/v1/settings/notification-state",
+      "id": "01M3TTZFPN0000000000000005"
+    },
+    {
+      "traceId": "a623453f53c6b9cc986970ed66c70deb",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790828330323,
+      "traceEndMs": 1790828330617,
+      "traceDurationMs": 294,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/tasks",
+      "id": "01M3TTZFDY0000000000000005"
+    },
+    {
+      "traceId": "3ce5a7aaa5eeb0e49522547741de84f7",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790821574723,
+      "traceEndMs": 1790821575286,
+      "traceDurationMs": 563,
+      "spans": 5,
+      "errors": [],
+      "rootSpanName": "GET",
+      "rootTransactionName": "GET https://api.cadenceapp.cloud/api/v1/habits/weekly",
+      "id": "01M3TMHAE40000000000000005"
+    },
+    {
+      "traceId": "ac9d63e951c76dea9a19ef9e79acf331",
+      "services": [
+        "cadence-backend"
+      ],
+      "traceStartMs": 1790819354827,
+      "traceEndMs": 1790819356573,
+      "traceDurationMs": 1746,
+      "spans": 9,
+      "errors": [],
+      "rootSpanName": "POST",
+      "rootTransactionName": "POST https://mcp.cadenceapp.cloud/oauth/token",
+      "id": "01M3TJDKPR0000000000000009"
+    }
+  ],
+  "statistics": {
+    "elapsed": 0.305338313,
+    "rows_read": 6038273,
+    "bytes_read": 92731693,
+    "abr_level": 1
+  }
+}

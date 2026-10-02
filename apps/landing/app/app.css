@@ -205,11 +205,15 @@
 .hero:not(.lost),
 .journey {
   --accent-ember: color-mix(in srgb, var(--color-solstice) 85%, var(--accent-primary));
+  --hero-atmosphere: color-mix(in srgb, var(--color-violet) 65%, var(--color-personal));
+  --hero-warm-light: color-mix(in srgb, var(--accent-ember) 55%, var(--hero-light));
+  --hero-warm-glow: color-mix(in srgb, var(--hero-warm-light) 16%, transparent);
 }
 
-/* A trace of copper through the features; these resolved colours also start the crown's joining gradients. */
+/* A faint shared sky tint and copper-gold bough connect the features to the opening and closing scenes. */
 .journey {
-  --hero-branch-light: color-mix(in srgb, var(--hero-light) 78%, var(--accent-ember));
+  --hero-sky-mid: color-mix(in srgb, var(--color-twilight-deep) 94%, var(--hero-atmosphere));
+  --hero-branch-light: color-mix(in srgb, var(--hero-light) 60%, var(--accent-ember));
   --hero-branch-wood: color-mix(in srgb, var(--hero-branch-light) 22%, var(--hero-bark));
   --hero-branch-lit: color-mix(in srgb, var(--hero-branch-light) 36%, var(--hero-bark));
   --hero-branch-heart: color-mix(in srgb, var(--hero-branch-light) 78%, var(--hero-lamp));
@@ -224,63 +228,70 @@
   --hero-petal: color-mix(in srgb, color-mix(in srgb, var(--color-personal) 45%, var(--color-twilight-text)) 85%, var(--accent-ember));
 }
 
-/* Opening and closing scenes carry the stronger copper, coral and pink treatment. */
+/* Opening and closing skies blend the mauve treatment halfway with the original blue and copper dusk. */
 .hero:not(.lost),
 .finale {
+  --hero-atmosphere-glow: color-mix(in srgb, var(--hero-atmosphere) 14%, transparent);
+  --hero-sky-horizon: color-mix(in srgb,
+    color-mix(in srgb, var(--color-twilight-base) 82%, var(--hero-atmosphere)) 50%,
+    color-mix(in srgb, var(--color-twilight-base) 72%, var(--accent-tertiary)));
+  --hero-dusk-mid: color-mix(in srgb, var(--color-twilight-base) 85%, color-mix(in srgb, var(--hero-atmosphere) 50%, var(--accent-secondary)));
+  --hero-dusk-horizon: color-mix(in srgb,
+    color-mix(in srgb, var(--color-twilight-surface) 76%, var(--hero-atmosphere)) 50%,
+    color-mix(in srgb, var(--color-twilight-surface) 60%, var(--accent-ember)));
+  --hero-horizon-core: color-mix(in srgb, var(--hero-atmosphere-glow) 50%, color-mix(in srgb, var(--accent-ember) 28%, transparent));
+  --hero-land-haze: color-mix(in srgb,
+    color-mix(in srgb, var(--color-twilight-surface) 64.6%, var(--hero-atmosphere)) 50%,
+    color-mix(in srgb, var(--color-twilight-surface) 42%, var(--accent-ember)));
+  --hero-land-rim: color-mix(in srgb,
+    color-mix(in srgb, var(--hero-atmosphere) 45%, var(--color-twilight-text)) 50%,
+    color-mix(in srgb, var(--accent-secondary) 70%, var(--color-twilight-text)));
   --hero-ember: var(--accent-ember);
-  --hero-ember-soft: color-mix(in srgb, var(--accent-ember) 24%, transparent);
-  --hero-wood: color-mix(in srgb, var(--accent-ember) 30%, var(--hero-bark));
-  --hero-wood-lit: color-mix(in srgb, var(--accent-ember) 54%, var(--hero-bark));
-  --hero-wood-heart: color-mix(in srgb, var(--accent-ember) 82%, var(--hero-lamp));
-  --hero-wood-rim: color-mix(in srgb, var(--accent-ember) 40%, transparent);
-  --hero-petal: color-mix(in srgb, var(--accent-ember) 72%, var(--color-twilight-text));
-  --hero-petal-shade: color-mix(in srgb, var(--color-solstice) 60%, var(--color-personal));
+  --hero-ember-soft: color-mix(in srgb, var(--accent-ember) 20%, transparent);
+  --hero-wood: color-mix(in srgb, var(--accent-ember) 22%, var(--hero-bark));
+  --hero-wood-lit: color-mix(in srgb, var(--hero-light) 38%, var(--hero-bark));
+  --hero-wood-heart: color-mix(in srgb, var(--hero-warm-light) 72%, var(--hero-lamp));
+  --hero-wood-rim: color-mix(in srgb, var(--accent-ember) 28%, transparent);
+  --hero-petal: color-mix(in srgb, var(--accent-ember) 55%, var(--color-twilight-text));
+  --hero-petal-shade: color-mix(in srgb, var(--color-solstice) 40%, var(--color-personal));
   --hero-petal-core: color-mix(in srgb, var(--accent-primary) 65%, var(--color-twilight-text));
-  --hero-sigil-coral: color-mix(in srgb, var(--accent-ember) 88%, var(--color-twilight-text));
-  --hero-sigil-orange: var(--accent-ember);
+  --hero-sigil-coral: color-mix(in srgb, var(--accent-ember) 60%, var(--color-twilight-text));
+  --hero-sigil-orange: color-mix(in srgb, var(--accent-ember) 68%, var(--color-twilight-text));
 }
 
 .hero:not(.lost) {
-  --hero-horizon-core: color-mix(in srgb, var(--accent-ember) 28%, transparent);
-  --hero-dusk-horizon: color-mix(in srgb, var(--color-twilight-surface) 60%, var(--accent-ember));
-  --hero-land-haze: color-mix(in srgb, var(--hero-dusk-horizon) 70%, var(--accent-ember));
-  --hero-crest: color-mix(in srgb, var(--accent-ember) 75%, var(--hero-lamp));
-  --hero-crest-line: color-mix(in srgb, var(--accent-ember) 60%, transparent);
-}
-
-.hero:not(.lost) .hero-flower,
-.finale-crown .seg-flower {
-  scale: 1.12;
+  --hero-crest: color-mix(in srgb, var(--accent-ember) 55%, var(--hero-lamp));
+  --hero-crest-line: color-mix(in srgb, var(--accent-ember) 42%, transparent);
 }
 
 /* Two in every five flower groups carry the rose tint; keep the same mix at every viewport size. */
 .hero:not(.lost) .hero-bough > svg:last-of-type > g:is(:nth-of-type(5n + 1), :nth-of-type(5n + 2)) .hero-flower,
 .finale-crown .bough-seg > g:is(:nth-of-type(5n + 1), :nth-of-type(5n + 2)) .seg-flower {
-  --hero-petal: color-mix(in srgb, var(--palette-rose) 68%, var(--color-twilight-text));
+  --hero-petal: color-mix(in srgb, var(--palette-rose) 48%, var(--color-twilight-text));
   --hero-petal-shade: color-mix(in srgb, var(--color-personal) 72%, var(--hero-bark));
 }
 
-/* Both invitations share the same copper glass and rim over the base ButtonLink treatment. */
+/* Both invitations share a restrained copper rim and a light tint over the dark glass. */
 .hero-action.button-lantern,
 .finale-action.button-lantern {
-  --button-halo: color-mix(in srgb, var(--accent-ember) 36%, transparent);
+  --button-halo: color-mix(in srgb, var(--accent-ember) 22%, transparent);
   --button-gem: color-mix(in srgb, var(--accent-ember) 80%, var(--color-twilight-deep));
   --button-rim: linear-gradient(
     180deg,
     color-mix(in srgb, var(--accent-primary) 55%, white),
-    color-mix(in srgb, var(--accent-ember) 65%, transparent) 45%,
-    color-mix(in srgb, var(--accent-ember) 28%, transparent)
+    color-mix(in srgb, var(--accent-ember) 42%, transparent) 45%,
+    color-mix(in srgb, var(--accent-ember) 20%, transparent)
   );
 }
 
 .hero-action.button-lantern::before,
 .finale-action.button-lantern::before {
   background:
-    radial-gradient(120% 110% at 45% 0%, color-mix(in srgb, var(--accent-ember) 36%, transparent), transparent 72%),
+    radial-gradient(120% 110% at 45% 0%, color-mix(in srgb, var(--accent-ember) 18%, transparent), transparent 72%),
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--accent-ember) 35%, var(--color-twilight-deep)),
-      color-mix(in srgb, var(--accent-ember) 14%, var(--color-twilight-void))
+      color-mix(in srgb, var(--accent-ember) 18%, var(--color-twilight-deep)),
+      color-mix(in srgb, var(--accent-ember) 8%, var(--color-twilight-void))
     );
 }
 

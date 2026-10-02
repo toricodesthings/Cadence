@@ -1,0 +1,62 @@
+[
+  {
+    "traceId": "51da8e7361eb8997b12f6900085129d3",
+    "name": "GET",
+    "startTime": 1790846773539,
+    "endTime": 1790846774060,
+    "durationMS": 520,
+    "wall": 301,
+    "cpu": 22,
+    "binding": null,
+    "path": "/api/v1/projects",
+    "keyCategory": null
+  },
+  {
+    "traceId": "51da8e7361eb8997b12f6900085129d3",
+    "name": "ratelimit_run",
+    "startTime": 1790846773777,
+    "endTime": 1790846773777,
+    "durationMS": 0,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": null,
+    "keyCategory": null
+  },
+  {
+    "traceId": "51da8e7361eb8997b12f6900085129d3",
+    "name": "fetch",
+    "startTime": 1790846773779,
+    "endTime": 1790846773948,
+    "durationMS": 168,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": "/neondb/auth/.well-known/jwks.json",
+    "keyCategory": null
+  },
+  {
+    "traceId": "51da8e7361eb8997b12f6900085129d3",
+    "name": "hyperdrive_connect",
+    "startTime": 1790846774012,
+    "endTime": 1790846774012,
+    "durationMS": 0,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": null,
+    "keyCategory": null
+  },
+  {
+    "traceId": "51da8e7361eb8997b12f6900085129d3",
+    "name": "ratelimit_run",
+    "startTime": 1790846774012,
+    "endTime": 1790846774012,
+    "durationMS": 0,
+    "wall": null,
+    "cpu": null,
+    "binding": null,
+    "path": null,
+    "keyCategory": null
+  }
+]

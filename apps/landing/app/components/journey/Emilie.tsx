@@ -1,7 +1,7 @@
 import { cssVars } from "~/lib/geometry";
 import { EMILIE } from "~/lib/site";
 
-import { BoughSegment, segmentHeight } from "./BoughSegment";
+import { BoughSegment, mobileBoughSide, segmentHeight } from "./BoughSegment";
 import { Drift } from "./Drift";
 import { Panel } from "./Panel";
 import { Sigil } from "./Sigil";
@@ -16,6 +16,7 @@ export function Emilie() {
     <section
       className="jsec emilie"
       data-prev="autumn"
+      data-bough-side={mobileBoughSide("emilie")}
       aria-labelledby="chapter-emilie"
       style={cssVars({ "--h": segmentHeight("emilie") })}
     >

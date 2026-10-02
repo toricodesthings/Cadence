@@ -93,23 +93,21 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
             const habitIds = userHabits.map((h) => h.id);
 
-            const logs = await tx
-                .select()
-                .from(habitLogs)
-                .where(
-                    and(
+            // Both reads depend on the habit ids, but not on each other.
+            // Postgres.js pipelines them on this transaction's connection.
+            const [logs, allTags] = await Promise.all([
+                tx.select()
+                    .from(habitLogs)
+                    .where(and(
                         eq(habitLogs.userId, userId),
                         inArray(habitLogs.habitId, habitIds),
                         gte(habitLogs.targetDate, start),
                         lte(habitLogs.targetDate, end),
-                    )
-                );
-
-            // Fetch tag associations for all habits in batch
-            const allTags = await tx
-                .select({ habitId: habitTags.habitId, tagId: habitTags.tagId })
-                .from(habitTags)
-                .where(inArray(habitTags.habitId, habitIds));
+                    )),
+                tx.select({ habitId: habitTags.habitId, tagId: habitTags.tagId })
+                    .from(habitTags)
+                    .where(inArray(habitTags.habitId, habitIds)),
+            ]);
 
             const tagsByHabit = new Map<string, string[]>();
             for (const t of allTags) {
