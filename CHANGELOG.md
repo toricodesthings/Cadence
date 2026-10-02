@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.7] - 2026-10-01
+
 ### Changed
 
 - The landing page blends blue-mauve dusk with coral-gold light, warm branches and peach-pink blossoms.
