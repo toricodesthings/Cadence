@@ -44,7 +44,6 @@ import { DESKTOP_LAYOUT_SCALE_DEFAULT, DESKTOP_LAYOUT_SCALES, useDesktopLayoutSc
 import { LegalConsentGate } from "../legal/LegalConsentGate";
 import { SyncInspectorDialog } from "../desktop/SyncInspectorDialog";
 import { useWorkspaceSync } from "../../hooks/core/use-workspace-sync";
-import { setDiagnosticsEnabled } from "../../lib/api/track-event";
 import type { Season } from "../../lib/themes/season";
 import {
     configureGlobalQuickCaptureShortcut,
@@ -402,10 +401,6 @@ export function MainLayout({
     // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();
 
-    // §11.8: Sync diagnostics gate to user's usageDiagnostics setting
-    useEffect(() => {
-        setDiagnosticsEnabled(settings?.privacy?.usageDiagnostics !== false);
-    }, [settings?.privacy?.usageDiagnostics]);
 
     useEffect(() => {
         const intelligence = settings?.tasks?.intelligence;

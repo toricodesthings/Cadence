@@ -38,6 +38,47 @@ describe("api/client", () => {
         }));
     });
 
+    const jwt = (payload: object) => `e30.${btoa(JSON.stringify(payload)).replaceAll("=", "")}.signature`;
+    it("seeds only an unexpired JWT belonging to the resolved account", async () => {
+        const { seedAuthJwtCache, authenticatedFetch } = await import("../../../../app/lib/api/client");
+        for (const token of ["session-cookie", "x.invalid.y", jwt({ sub: "other", exp: Date.now() / 1000 + 60 }), jwt({ sub: "user", exp: Date.now() / 1000 + 2 }), jwt({ sub: "user" })]) {
+            expect(seedAuthJwtCache(token, "user")).toBe(false);
+        }
+        const token = jwt({ sub: "user", exp: Date.now() / 1000 + 60 });
+        expect(seedAuthJwtCache(token, "user")).toBe(true);
+        const response = await authenticatedFetch("/api/tasks", { authenticated: true });
+        expect(((await response.json()) as EchoedRequest).headers.authorization).toBe(`Bearer ${token}`);
+        expect(tokenFetchMock).not.toHaveBeenCalled();
+        expect(getSessionMock).not.toHaveBeenCalled();
+    });
+    it("retains a session seed when an earlier token request finishes", async () => {
+        const pending = Promise.withResolvers<Response>();
+        tokenFetchMock.mockReturnValueOnce(pending.promise);
+        const { seedAuthJwtCache, authenticatedFetch } = await import("../../../../app/lib/api/client");
+        const request = authenticatedFetch("/api/tasks", { authenticated: true });
+        const token = jwt({ sub: "user", exp: Date.now() / 1000 + 60 });
+        seedAuthJwtCache(token, "user");
+        pending.resolve(Response.json({ token: "stale.jwt.signature" }));
+        expect(((await (await request).json()) as EchoedRequest).headers.authorization).toBe(`Bearer ${token}`);
+    });
+    it("composes a GET deadline with caller cancellation", async () => {
+        const { authenticatedFetch, seedAuthJwtCache } = await import("../../../../app/lib/api/client");
+        seedAuthJwtCache(jwt({ sub: "user", exp: Date.now() / 1000 + 60 }), "user");
+        const controller = new AbortController();
+        await authenticatedFetch("/api/tasks", { authenticated: true, signal: controller.signal });
+        const signal = platformFetchMock.mock.calls[0][1].signal;
+        expect(signal).not.toBe(controller.signal);
+        controller.abort();
+        expect(signal.aborted).toBe(true);
+    });
+    it("preserves the assistant stream's caller-owned signal", async () => {
+        const { authenticatedFetch, seedAuthJwtCache } = await import("../../../../app/lib/api/client");
+        seedAuthJwtCache(jwt({ sub: "user", exp: Date.now() / 1000 + 60 }), "user");
+        const controller = new AbortController();
+        await authenticatedFetch("/api/v1/ai/chat", { authenticated: true, method: "POST", signal: controller.signal });
+        expect(platformFetchMock.mock.calls[0][1].signal).toBe(controller.signal);
+    });
+
     it("shares token acquisition across concurrent requests and skips session reads on cache hits", async () => {
         tokenFetchMock.mockImplementation(async () => Response.json({ token: "cached.jwt.signature" }));
         const { authenticatedFetch } = await import("../../../../app/lib/api/client");
@@ -58,7 +99,7 @@ describe("api/client", () => {
         const oldRequest = authenticatedFetch("/api/tasks", { authenticated: true });
         clearAuthJwtCache();
         token.resolve(Response.json({ token: "old.jwt.signature" }));
-        await expect(oldRequest).rejects.toMatchObject({ status: 401 });
+        await expect(oldRequest).rejects.toMatchObject({ name: "AbortError" });
         expect(platformFetchMock).not.toHaveBeenCalled();
         tokenFetchMock.mockResolvedValueOnce(Response.json({ token: "new.jwt.signature" }));
         await authenticatedFetch("/api/tasks", { authenticated: true });
@@ -132,4 +173,20 @@ describe("api/client", () => {
             authenticatedFetch("/api/tasks", { authenticated: true }),
         ).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
     });
+    it("cancels promptly during shared token acquisition without cancelling another caller", async () => {
+        const pending = Promise.withResolvers<Response>();
+        tokenFetchMock.mockReturnValueOnce(pending.promise);
+        const { authenticatedFetch } = await import("../../../../app/lib/api/client");
+        const controller = new AbortController();
+        const cancelled = authenticatedFetch("/api/tasks", { authenticated: true, signal: controller.signal });
+        const remaining = authenticatedFetch("/api/projects", { authenticated: true });
+        controller.abort();
+        await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
+        expect(platformFetchMock).not.toHaveBeenCalled();
+        pending.resolve(Response.json({ token: "shared.jwt.signature" }));
+        await remaining;
+        expect(platformFetchMock).toHaveBeenCalledTimes(1);
+        expect(tokenFetchMock).toHaveBeenCalledTimes(1);
+    });
+
 });

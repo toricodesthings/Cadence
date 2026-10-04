@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useContext, useEffect } from "react";
+import { StartupReadyContext } from "./use-workspace-startup";
+import { getWalSnapshot, subscribeWal } from "../../lib/api/offline-wal";
 import { useQueryClient, type FetchQueryOptions } from "@tanstack/react-query";
 import { addDays } from "date-fns";
 import { useApiClient } from "../auth/use-api-client";
@@ -19,17 +21,20 @@ const PREFETCH_CONCURRENCY = 3;
  * Batch task lists; warm at most three transports, skipping hour-fresh data.
  */
 export function useOfflineWindow() {
+    const startupReady = useContext(StartupReadyContext);
     const queryClient = useQueryClient();
     const client = useApiClient();
     const { data: settings } = useSettings();
     const weekStart = settings?.dateTime?.weekStart;
 
     useEffect(() => {
-        if (!weekStart) return;
+        if (!weekStart || !startupReady) return;
         let stopped = false;
         const controller = new AbortController();
         let warming = false;
-        const canWarm = () => !stopped && navigator.onLine && document.visibilityState === "visible";
+        const canWarm = () => !stopped && navigator.onLine && document.visibilityState === "visible"
+            && !queryClient.getQueryCache().getAll().some((q) => q.isActive() && q.state.fetchStatus === "fetching")
+            && !getWalSnapshot().some((entry) => entry.status !== "failed");
         const run = () => {
             if (warming || !canWarm()) return;
             const now = new Date();
@@ -76,12 +81,17 @@ export function useOfflineWindow() {
         const timer = window.setInterval(run, STALE_TIMES.OFFLINE_WINDOW);
         document.addEventListener("visibilitychange", run);
         window.addEventListener("online", run);
+        // A foreground read completing makes background work eligible again.
+        const unsubscribe = queryClient.getQueryCache().subscribe(() => { queueMicrotask(run); });
+        const unsubscribeWal = subscribeWal(run);
         return () => {
             stopped = true;
             controller.abort();
             window.clearInterval(timer);
             document.removeEventListener("visibilitychange", run);
             window.removeEventListener("online", run);
+            unsubscribe();
+            unsubscribeWal();
         };
-    }, [client, queryClient, weekStart]);
+    }, [client, queryClient, weekStart, startupReady]);
 }

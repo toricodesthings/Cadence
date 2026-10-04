@@ -27,6 +27,7 @@ describe("logger", () => {
             event: "upstream_failed",
             level: "error",
             source: "proxy",
+            origin: "backend",
             upstream: "nominatim",
             status: 503,
         });

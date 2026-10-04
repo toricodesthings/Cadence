@@ -3,6 +3,7 @@ import type { TaskBatch } from "@cadence/contracts/task";
 import type { ApiClient } from "./client";
 import { unwrapResponse } from "./helpers";
 import { STALE_TIMES } from "./query-keys";
+import { REQUEST_TIMEOUT_MS } from "./request-deadline";
 import { getWalSnapshot } from "./offline-wal";
 import { tasksQueryOptions } from "../../hooks/tasks/use-tasks";
 import { buildTasksQuery, type UseTasksFilterInput } from "../utils/task/task-scheduling";
@@ -46,6 +47,6 @@ export async function prefetchTaskBatch(
     function fetchBatch() {
         return client.api.tasks.batch.$get({
             query: { queries: JSON.stringify(pending.map(({ filter }) => buildTasksQuery(filter))) },
-        }, { init: { signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]) } });
+        }, { init: { signal: AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]) } });
     }
 }

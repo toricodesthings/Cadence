@@ -1,6 +1,7 @@
 import { createAuthClient } from "@neondatabase/auth";
 import { BetterAuthReactAdapter } from "@neondatabase/auth/react/adapters";
 import { NEON_AUTH_URL } from "./env";
+import { REQUEST_TIMEOUT_MS } from "./api/request-deadline";
 
 /**
  * On desktop, all Neon Auth fetch calls are intercepted by
@@ -9,11 +10,11 @@ import { NEON_AUTH_URL } from "./env";
  */
 
 export const authClient = createAuthClient(NEON_AUTH_URL, {
-    adapter: BetterAuthReactAdapter(),
+    adapter: BetterAuthReactAdapter({ fetchOptions: { timeout: REQUEST_TIMEOUT_MS } }),
 });
 
 export const redirectlessAuthClient = createAuthClient(NEON_AUTH_URL, {
-    adapter: BetterAuthReactAdapter(),
+    adapter: BetterAuthReactAdapter({ fetchOptions: { timeout: REQUEST_TIMEOUT_MS } }),
 });
 
 /** Neon's client throws on a non-2xx instead of returning `{ error }`: resolves to the error either way, null on success. */

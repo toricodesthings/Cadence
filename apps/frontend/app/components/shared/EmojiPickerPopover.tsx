@@ -2,9 +2,7 @@ import React, { Suspense } from "react";
 import * as Popover from "../primitives/Popover";
 import { Smile } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
-import data from "@emoji-mart/data";
-
-const Picker = React.lazy(() => import("@emoji-mart/react"));
+const Picker = React.lazy(() => import("./EmojiPicker"));
 
 interface EmojiPickerPopoverProps {
     emoji?: string;
@@ -59,8 +57,7 @@ export function EmojiPickerPopover({ emoji, onSelect, children, onClear, tip }: 
                     }
                 >
                     <Picker
-                        data={data}
-                        onEmojiSelect={(e: any) => onSelect(e.native)}
+                        onEmojiSelect={(e: { native: string }) => onSelect(e.native)}
                         theme="dark"
                         autoFocus={true}
                     />

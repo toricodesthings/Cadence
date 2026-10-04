@@ -2,6 +2,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOfflineWindow } from "../../../app/hooks/core/use-offline-window";
 import { testQueryClient, withClient } from "../../helpers";
+import { StartupReadyContext } from "../../../app/hooks/core/use-workspace-startup";
+import type { ReactNode } from "react";
 
 const { client, read, options } = vi.hoisted(() => {
     const read = vi.fn<() => Promise<unknown>>();
@@ -51,6 +53,28 @@ function setup() {
 }
 
 describe("offline window background requests", () => {
+    it("waits for the shared startup commit before warming", async () => {
+        const queryClient = testQueryClient();
+        const Client = withClient(queryClient);
+        const { unmount } = renderHook(useOfflineWindow, { wrapper: ({ children }: { children: ReactNode }) => <Client><StartupReadyContext value={false}>{children}</StartupReadyContext></Client> });
+        await act(async () => {});
+        expect(read).not.toHaveBeenCalled();
+        unmount(); queryClient.clear();
+    });
+    it("pauses queued warming while an active foreground query is fetching", async () => {
+        const { queryClient, unmount } = setup();
+        await waitFor(() => expect(read).toHaveBeenCalledTimes(3));
+        const foreground = Promise.withResolvers<unknown>();
+        const { QueryObserver } = await import("@tanstack/react-query");
+        const observer = new QueryObserver(queryClient, { queryKey: ["foreground"], queryFn: () => foreground.promise });
+        const stop = observer.subscribe(() => {});
+        await act(async () => pending.forEach((request) => request.resolve([])));
+        expect(read).toHaveBeenCalledTimes(3);
+        read.mockResolvedValue([]);
+        await act(async () => foreground.resolve("ready"));
+        await waitFor(() => expect(read.mock.calls.length).toBeGreaterThan(3));
+        stop(); unmount(); queryClient.clear();
+    });
     it("bounds the initial load and warms the rest as requests finish, keeping fresh data cached", async () => {
         const { queryClient, unmount } = setup();
         await waitFor(() => expect(read).toHaveBeenCalledTimes(3));

@@ -1,8 +1,10 @@
 import { createContext, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useIsRestoring, useQueryClient, type Query } from "@tanstack/react-query";
+import { startupMark } from "../../lib/startup-timing";
 
 const SLOW_START_MS = 4_000;
 export const StartupRenderContext = createContext<(change: number) => void>(() => {});
+export const StartupReadyContext = createContext(true);
 
 // External decoration and the assistant can fall back independently; workspace data must be present.
 const OPTIONAL_DOMAINS = new Set(["weather", "location", "holidays", "holiday-subdivisions", "appearance", "ai"]);
@@ -55,7 +57,11 @@ export function useWorkspaceStartup(enabled: boolean) {
         // Recheck the live cache, since subscriptions can change between frames.
         let frame = requestAnimationFrame(() => {
             frame = requestAnimationFrame(() => {
-                if (blockers().length === 0) setComplete(true);
+                if (blockers().length === 0) {
+                    startupMark("required_data.ready");
+                    startupMark("chunks.ready");
+                    setComplete(true);
+                }
             });
         });
         return () => cancelAnimationFrame(frame);

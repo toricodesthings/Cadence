@@ -20,17 +20,17 @@
  * Level → console method → CF severity, and when to use each:
  *   error → console.error → "error"   5xx, unhandled throws, dependency outages
  *   warn  → console.warn  → "warning" 4xx client faults, invalid input, best-effort failures
- *   info  → console.info  → "info"    `ai_turn` and the daily `cron_summary`, nothing else
+ *   info  → console.info  → "info"    `ai_turn`, the daily `cron_summary`, and consent-checked `frontend_startup`
  *
  * Happy paths (2xx/3xx) MUST NOT log — Cloudflare already emits an invocation
  * log per request (`invocation_logs`), so success coverage is free. Keep this
- * channel strictly signal: errors and warnings, plus one `ai_turn` per chat turn.
+ * channel strictly signal: errors, warnings, chat summaries and bounded frontend timings.
  */
 
 export type LogLevel = "error" | "warn" | "info";
 
 /** Subsystem that emitted the event — a low-cardinality dimension to filter on. */
-export type LogSource = "http" | "auth" | "cron" | "proxy" | "ai" | "storage" | "mcp";
+export type LogSource = "http" | "auth" | "cron" | "proxy" | "ai" | "storage" | "mcp" | "frontend";
 
 export type LogFields = Record<string, unknown>;
 
@@ -93,6 +93,7 @@ function emit(level: LogLevel, source: LogSource, event: string, fields: LogFiel
         event,
         level,
         source,
+        origin: "backend",
         ...fields,
         ...(Array.isArray(issues) ? { issues: formatIssues(issues as IssueSummary[]) } : {}),
     };

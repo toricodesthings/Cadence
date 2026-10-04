@@ -12,6 +12,7 @@
  * Safari, Firefox strict mode) otherwise drop the OAuth session challenge
  * cookie and sign-in never completes.
  *
+ * - `/assets/*` validates hashed files before applying immutable caching.
  * - `/api/auth/*` is a transparent proxy to Neon Auth. Cookie values are
  *   forwarded byte-for-byte; only Set-Cookie flags are rewritten for this origin.
  * - `/auth/callback?neon_auth_session_verifier=…` exchanges the single-use
@@ -129,6 +130,19 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
+		const assetUrl = new URL(request.url);
+		if (assetUrl.pathname.startsWith("/assets/")) {
+			const response = await env.ASSETS.fetch(request);
+			if (response.headers.get("content-type")?.includes("text/html")) {
+				return new Response("Asset not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+			}
+			if ((response.ok || response.status === 304) && /-[\w-]{8,}\.(js|css|woff2|png|ico|svg|webp)$/.test(assetUrl.pathname)) {
+				const headers = new Headers(response.headers);
+				headers.set("Cache-Control", "public, max-age=31536000, immutable");
+				return new Response(response.body, { status: response.status, headers });
+			}
+			return response;
+		}
 		const url = new URL(request.url);
 
 		if (url.pathname.startsWith(AUTH_PROXY_PREFIX)) {

@@ -1,6 +1,6 @@
 import { QueryClient, QueryCache, MutationCache, defaultShouldDehydrateQuery } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { AuthUIProvider } from "@neondatabase/auth/react/ui";
+import { AuthUIBoundary } from "./components/shared/AuthUIBoundary";
 import { useNavigate, Link as RouterLink } from "react-router";
 import { toast } from "sonner";
 import { authClient } from "./lib/auth-client";
@@ -16,7 +16,7 @@ import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
 import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
 import { startWalSync } from "./lib/api/mutation-executor";
-import { log } from "./lib/log";
+import { log, reportError } from "./lib/log";
 import { CADENCE_BUILD_ID } from "./lib/constants/app-info";
 import {
     beginSocialSignIn,
@@ -103,6 +103,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
             new QueryClient({
                 queryCache: new QueryCache({
                     onError: async (error, query) => {
+                        reportError(error, "query");
                         const queryKeyStr = JSON.stringify(query.queryKey);
                         if (!(error instanceof ApiErrorResponse) || !error.isAuthError) {
                             log.warn("query", `${queryKeyStr} failed`, error);
@@ -139,7 +140,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         }
                     },
                 }),
-                mutationCache: new MutationCache(),
+                mutationCache: new MutationCache({ onError: (error) => reportError(error, "mutation") }),
                 defaultOptions: {
                     queries: {
                         // Default to tasks stale time (most common query); hooks may override
@@ -318,10 +319,12 @@ function AccountProviders({ children }: { children: ReactNode }) {
         if (!IS_DESKTOP_RUNTIME && userId) void navigator.storage?.persist?.().catch(() => {});
     }, [userId]);
 
+    const accountPersister = useMemo(() => session?.user.id ? createIDBPersister() : null, [session?.user.id]);
+    useEffect(() => () => accountPersister?.dispose(), [accountPersister]);
     const persistOptions = useMemo(
         () => ({
             // Do not discard the saved account cache while auth is unresolved.
-            persister: session?.user.id ? createIDBPersister() : {
+            persister: accountPersister ?? {
                 persistClient: async () => {},
                 restoreClient: async () => undefined,
                 removeClient: async () => {},
@@ -335,7 +338,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                     defaultShouldDehydrateQuery(query) && query.meta?.persist !== false,
             },
         }),
-        [session?.user.id],
+        [accountPersister, session?.user.id],
     );
 
     const social = useMemo(
@@ -370,7 +373,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
     return (
         <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
             <div className="neon-auth-ui">
-                <AuthUIProvider
+                <AuthUIBoundary
                     authClient={authClient}
                     navigate={(path) => navigate(path)}
                     replace={(path) => navigate(path, { replace: true })}
@@ -420,7 +423,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                         </TooltipProvider>
                     </div>
                     <Toaster />
-                </AuthUIProvider>
+                </AuthUIBoundary>
             </div>
         </PersistQueryClientProvider>
     );

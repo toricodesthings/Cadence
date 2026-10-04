@@ -71,7 +71,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="description"
           content="Cadence is a calm, atmospheric planning workspace for tasks, routines, and weekly resets."
         />
-        <script src="/redirect-localhost.js" />
+        {import.meta.env.DEV && <script src="/redirect-localhost.js" />}
         {import.meta.env.DEV && (
           <script dangerouslySetInnerHTML={{ __html: DEV_SERVICE_WORKER_CLEANUP_SCRIPT }} />
         )}

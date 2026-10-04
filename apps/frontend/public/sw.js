@@ -42,17 +42,36 @@ function store(cache, request, response) {
     return cache.put(request, response).catch(() => {});
 }
 
+let assetWarming;
+function warmAssets(cache) {
+    if (assetWarming) return assetWarming;
+    assetWarming = (async () => {
+        const pending = PRECACHE.values();
+        const warm = async () => {
+            for (const path of pending) {
+                const type = assetType(new URL(path, self.location.origin));
+                const saved = await cache.match(path);
+                if (type && saved && isAsset(type, saved)) continue;
+                const asset = await fetch(path, { priority: "low", signal: AbortSignal.timeout(20_000) }).catch(() => null);
+                if (type && asset && isAsset(type, asset)) await store(cache, path, asset);
+            }
+        };
+        await Promise.all(Array.from({ length: 3 }, warm));
+    })().finally(() => { assetWarming = undefined; });
+    return assetWarming;
+}
+
+// A reconnect/return retries assets missed during installation, keeping full coverage automatic.
+self.addEventListener("message", (event) => {
+    if (event.data?.type === "cadence-precache") event.waitUntil(caches.open(CACHE_NAME).then(warmAssets));
+});
+
 self.addEventListener("install", (event) => {
     event.waitUntil((async () => {
         const cache = await caches.open(CACHE_NAME);
         const response = await fetch("/", { cache: "reload" });
         if (isHtml(response)) await store(cache, "/", response);
-        await Promise.all(PRECACHE.map(async (path) => {
-            if (await cache.match(path)) return;
-            const type = assetType(new URL(path, self.location.origin));
-            const asset = await fetch(path).catch(() => null);
-            if (type && asset && isAsset(type, asset)) await store(cache, path, asset);
-        }));
+        await warmAssets(cache);
         await self.skipWaiting();
     })());
 });
@@ -75,6 +94,7 @@ self.addEventListener("activate", (event) => {
             }));
         }
         if (PRECACHE.length) await store(cache, MANIFEST_KEY, Response.json(PRECACHE));
+        await self.registration?.navigationPreload?.enable();
         await self.clients.claim();
     })());
 });
@@ -103,11 +123,19 @@ self.addEventListener("fetch", (event) => {
         event.respondWith((async () => {
             const cache = await caches.open(CACHE_NAME);
             try {
-                const response = await fetch(request);
-                if (isHtml(response)) event.waitUntil(store(cache, "/", response.clone()));
+                // A validated cached shell is usable while a stalled network recovers.
+                const saved = await cache.match("/");
+                const network = (async () => (await event.preloadResponse) || fetch(request))();
+                let timer;
+                const response = saved && isHtml(saved)
+                    ? await Promise.race([network, new Promise((resolve) => { timer = setTimeout(() => resolve(saved), 20_000); })]).finally(() => clearTimeout(timer))
+                    : await network;
+                // Late success can update the shell for the next visit.
+                event.waitUntil(network.then((fresh) => isHtml(fresh) ? store(cache, "/", fresh.clone()) : undefined).catch(() => {}));
                 return response;
             } catch {
-                return (await cache.match("/")) ?? new Response("Offline", { status: 503 });
+                const saved = await cache.match("/");
+                return saved && isHtml(saved) ? saved : new Response("Offline", { status: 503 });
             }
         })());
         return;

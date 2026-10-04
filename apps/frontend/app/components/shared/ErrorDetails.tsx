@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
-import { errorRef } from "../../lib/log";
+import { errorRef, reportError } from "../../lib/log";
 
 /**
  * The copyable ref under a crash screen, what a user sends to support
@@ -8,6 +8,7 @@ import { errorRef } from "../../lib/log";
  * the root boundary renders it when the router itself may have failed.
  */
 export function ErrorDetails({ error }: { error: unknown }) {
+    useEffect(() => reportError(error, "render"), [error]);
     const [copied, setCopied] = useState(false);
     const ref = `${errorRef(error)} · ${typeof window === "undefined" ? "" : window.location.pathname}`;
     const stack = import.meta.env.DEV && error instanceof Error ? error.stack : undefined;

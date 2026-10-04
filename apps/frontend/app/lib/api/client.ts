@@ -6,6 +6,9 @@ import { readDesktopAuthSession } from "../desktop-auth-session";
 import { API_BASE_URL, NEON_AUTH_URL } from "../env";
 import { platformFetch } from "../../platform/runtime";
 import { log } from "../log";
+import { REQUEST_TIMEOUT_MS } from "./request-deadline";
+import { startupMark, recordStartupRead } from "../startup-timing";
+import { PERFORMANCE_CATEGORIES, type PerformanceSample } from "@cadence/contracts/events";
 
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
@@ -23,13 +26,33 @@ let _inflight: Promise<string | null> | null = null;
 let _authGeneration = 0;
 const JWT_CACHE_TTL_MS = 55_000; // 55 seconds — conservative under a typical 60s token lifetime
 // Weak signal should fail fast so the write can be queued, not hang for a minute.
-const REQUEST_TIMEOUT_MS = 20_000;
+
+/** Cache only a live JWT for this account; the backend still verifies its signature. */
+export function seedAuthJwtCache(token: unknown, userId: string): boolean {
+    startupMark("jwt.start");
+    if (!looksLikeJwt(token)) return false;
+    try {
+        const encoded = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(encoded));
+        if (payload.sub !== userId || typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) return false;
+        const expiry = Math.min(payload.exp * 1000 - 5_000, Date.now() + JWT_CACHE_TTL_MS);
+        if (expiry <= Date.now()) return false;
+        // A late /token response must not replace the seeded session.
+        _inflight = null;
+        _cachedJwt = token;
+        _cachedJwtExpiry = expiry;
+        startupMark("jwt.ready");
+        return true;
+    } catch { return false; }
+}
 
 async function _fetchAuthJwtOnce(): Promise<string | null> {
+    startupMark("jwt.start");
     const response = await fetch(`${NEON_AUTH_URL}/token`, {
         method: "GET",
         credentials: "include",
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     }).catch(() => null);
 
     // No answer, the auth service is down, or a captive portal's page: that says
@@ -65,8 +88,10 @@ async function fetchAuthJwt(): Promise<string | null> {
     const generation = _authGeneration;
     const request = _fetchAuthJwtOnce().then((token) => {
         if (generation !== _authGeneration) return null;
+        if (_cachedJwt && Date.now() < _cachedJwtExpiry) return _cachedJwt;
         _cachedJwt = token;
         _cachedJwtExpiry = token ? Date.now() + JWT_CACHE_TTL_MS : 0;
+        if (token) startupMark("jwt.ready");
         return token;
     }).finally(() => {
         if (_inflight === request) _inflight = null;
@@ -83,26 +108,54 @@ export function clearAuthJwtCache(): void {
     _cachedJwtExpiry = 0;
 }
 
+/** Cancelling one caller must not cancel the token request shared by other reads. */
+function withSignal<T>(work: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+    if (!signal) return work;
+    return new Promise((resolve, reject) => {
+        const abort = () => reject(signal.reason);
+        if (signal.aborted) abort();
+        else signal.addEventListener("abort", abort, { once: true });
+        work.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+    });
+}
+
 export async function authenticatedFetch(
     input: RequestInfo | URL,
     init: AuthenticatedFetchOptions = {},
 ): Promise<Response> {
     const { authenticated = false, ...requestInit } = init;
     const headers = new Headers(requestInit.headers);
+    const callerSignal = requestInit.signal;
+    // Streams and uploads own their deadlines. Ordinary reads always retain a deadline.
+    const requestUrl = String(input instanceof Request ? input.url : input);
+    const bounded = authenticated && !(requestInit.body instanceof FormData || requestInit.body instanceof Blob)
+        && !requestUrl.includes("/stream") && !requestUrl.includes("/ai/chat");
+    if (bounded) requestInit.signal = callerSignal
+        ? AbortSignal.any([callerSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+        : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 
     if (authenticated) {
         const generation = _authGeneration;
         // The shared JWT cache is the common path. Session/keyring reads are
         // fallbacks, not a prerequisite repeated before every API request.
-        let token = await fetchAuthJwt();
-        if (!token) {
-            const [desktopSession, sessionResult] = await Promise.all([
-                readDesktopAuthSession(),
-                authClient.getSession(),
-            ]);
-            token = [desktopSession?.jwt, sessionResult?.data?.session?.token].find(looksLikeJwt) ?? null;
+        if (callerSignal?.aborted) throw callerSignal.reason;
+        let token: string | null;
+        try {
+            token = await withSignal(fetchAuthJwt(), requestInit.signal);
+            if (!token) {
+                const [desktopSession, sessionResult] = await withSignal(Promise.all([
+                    readDesktopAuthSession(),
+                    authClient.getSession(),
+                ]), requestInit.signal);
+                token = [desktopSession?.jwt, sessionResult?.data?.session?.token].find(looksLikeJwt) ?? null;
+            }
+        } catch (error) {
+            if (callerSignal?.aborted) throw callerSignal.reason;
+            throw requestInit.signal?.aborted ? networkError() : error;
         }
-        if (generation !== _authGeneration) token = null;
+        if (generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
+        if (callerSignal?.aborted) throw callerSignal.reason;
+        if (requestInit.signal?.aborted) throw networkError();
 
         if (!token) {
             log.warn("api-auth", "authenticated request has no usable JWT", input instanceof Request ? input.url : String(input));
@@ -119,15 +172,10 @@ export async function authenticatedFetch(
         }
     }
 
-    // Uploads and streams bring their own limits (streams pass a signal).
-    if (authenticated && !requestInit.signal && !(requestInit.body instanceof FormData || requestInit.body instanceof Blob)) {
-        requestInit.signal = AbortSignal.timeout?.(REQUEST_TIMEOUT_MS);
-    }
-
     // Any rejection means no answer (the desktop transport rejects with its own errors),
     // except a caller's own abort, like stopping an assistant reply.
     const response = await platformFetch(input, { ...requestInit, headers }).catch((error: unknown) => {
-        throw error instanceof DOMException && error.name === "AbortError" ? error : networkError();
+        throw callerSignal?.aborted ? callerSignal.reason : error instanceof DOMException && error.name === "AbortError" && !bounded ? error : networkError();
     });
     // A captive portal answers API calls with its own HTML page.
     if (authenticated && response.headers.get("content-type")?.includes("text/html")) throw networkError();
@@ -142,8 +190,23 @@ export async function authenticatedFetch(
  */
 export const apiClient = {
     api: hc<AppType>(API_BASE_URL, {
-        fetch: (input: RequestInfo | URL, requestInit?: RequestInit) =>
-            authenticatedFetch(input, { ...requestInit, authenticated: true }),
+        fetch: async (input: RequestInfo | URL, requestInit?: RequestInit) => {
+            const start = performance.now();
+            const generation = _authGeneration;
+            const path = new URL(input instanceof Request ? input.url : String(input), API_BASE_URL).pathname;
+            const domain = path.split("/")[3];
+            const category: PerformanceSample["category"] = (PERFORMANCE_CATEGORIES as readonly string[]).includes(domain)
+                ? domain as PerformanceSample["category"] : "other";
+            const measured = (requestInit?.method ?? "GET") === "GET";
+            try {
+                const response = await authenticatedFetch(input, { ...requestInit, authenticated: true });
+                if (measured && generation === _authGeneration) recordStartupRead(category, start, response.ok ? "ready" : "error");
+                return response;
+            } catch (error) {
+                if (measured && generation === _authGeneration) recordStartupRead(category, start, error instanceof ApiErrorResponse && error.code === "NETWORK_UNAVAILABLE" ? "network_unavailable" : "error");
+                throw error;
+            }
+        },
     }).api.v1,
 };
 

@@ -7,7 +7,7 @@ import { DEV_SERVICE_WORKER_CLEANUP_SCRIPT } from "../../../app/lib/dev-service-
 const source = readFileSync(new URL("../../../public/sw.js", import.meta.url), "utf8");
 const origin = "https://cadence.test";
 
-function worker(cached?: Response) {
+function worker(cached?: Response, assets: string[] = []) {
     const handlers: Record<string, (event: any) => void> = {};
     const cache = { match: vi.fn().mockResolvedValue(cached), put: vi.fn().mockResolvedValue(undefined) };
     const caches = {
@@ -18,7 +18,7 @@ function worker(cached?: Response) {
     const fetch = vi.fn().mockResolvedValue(new Response("body{}", { headers: { "content-type": "text/css" } }));
     const self = { location: { origin }, addEventListener: (name: string, handler: any) => { handlers[name] = handler; },
         skipWaiting: vi.fn(), clients: { claim: vi.fn() } };
-    runInNewContext(source, { self, caches, fetch, URL, Response });
+    runInNewContext(source.replace("/*__PRECACHE__*/[]", JSON.stringify(assets)), { self, caches, fetch, URL, Response, AbortSignal, setTimeout, clearTimeout });
     async function request(path: string, mode = "cors") {
         const pending: Promise<unknown>[] = [];
         let response: Promise<Response> | undefined;
@@ -33,6 +33,62 @@ function worker(cached?: Response) {
 }
 
 describe("shell caching", () => {
+    it("retries missing or invalid precache entries when the tab reconnects", async () => {
+        const path = "/assets/shared-abcdefgh.js";
+        const w = worker(new Response("wrong shell", { headers: { "content-type": "text/html" } }), [path]);
+        w.fetch.mockRejectedValueOnce(new Error("Offline"));
+        let first: Promise<unknown> | undefined;
+        w.handlers.message({ data: { type: "cadence-precache" }, waitUntil: (p: Promise<unknown>) => { first = p; } });
+        await first;
+        expect(w.cache.put).not.toHaveBeenCalled();
+        w.fetch.mockResolvedValueOnce(new Response("code", { headers: { "content-type": "application/javascript" } }));
+        let retry: Promise<unknown> | undefined;
+        w.handlers.message({ data: { type: "cadence-precache" }, waitUntil: (p: Promise<unknown>) => { retry = p; } });
+        await retry;
+        expect(w.cache.put).toHaveBeenCalledWith(path, expect.any(Response));
+    });
+    it("bounds installation to three downloads and continues past already cached assets", async () => {
+        const paths = Array.from({ length: 8 }, (_, i) => `/assets/chunk-${i}abcdefgh.js`);
+        const w = worker(undefined, paths);
+        w.cache.match.mockImplementation(async (path) => path === paths[0] ? new Response("saved", { headers: { "content-type": "application/javascript" } }) : undefined);
+        const downloads: ReturnType<typeof Promise.withResolvers<Response>>[] = [];
+        let active = 0, peak = 0;
+        w.fetch.mockImplementation((path) => {
+            if (path === "/") return Promise.resolve(new Response("shell", { headers: { "content-type": "text/html" } }));
+            active++; peak = Math.max(peak, active);
+            const pending = Promise.withResolvers<Response>(); downloads.push(pending);
+            return pending.promise.finally(() => { active--; });
+        });
+        let install: Promise<unknown> | undefined;
+        w.handlers.install({ waitUntil: (p: Promise<unknown>) => { install = p; } });
+        await vi.waitFor(() => expect(downloads).toHaveLength(3));
+        for (let i = 0; i < 7; i++) {
+            await vi.waitFor(() => expect(downloads[i]).toBeDefined());
+            downloads[i].resolve(new Response("code", { headers: { "content-type": "application/javascript" } }));
+        }
+        await install;
+        expect(peak).toBe(3);
+        expect(downloads).toHaveLength(7);
+        expect(w.self.skipWaiting).toHaveBeenCalledOnce();
+    });
+    it("falls back to a validated cached shell after a stalled navigation and keeps late network recovery", async () => {
+        vi.useFakeTimers();
+        try {
+            const shell = new Response("shell", { headers: { "content-type": "text/html" } });
+            const w = worker(shell);
+            const network = Promise.withResolvers<Response>();
+            w.fetch.mockReturnValueOnce(network.promise);
+            const work: Promise<unknown>[] = [];
+            let response: Promise<Response> | undefined;
+            w.handlers.fetch({ request: { method: "GET", url: `${origin}/today`, mode: "navigate" },
+                respondWith: (p: Promise<Response>) => { response = p; }, waitUntil: (p: Promise<unknown>) => work.push(p) });
+            await vi.advanceTimersByTimeAsync(20_001);
+            expect(await response).toBe(shell);
+            network.resolve(new Response("fresh", { headers: { "content-type": "text/html" } }));
+            await Promise.all(work);
+            expect(w.cache.put).toHaveBeenCalled();
+        } finally { vi.useRealTimers(); }
+    });
     it("lets mutable dev styles, modules, public scripts and API requests reach the network", async () => {
         const w = worker();
         for (const path of ["/app/app.css", "/app/root.tsx", "/register-sw.js", "/sw.js", "/@vite/client", "/api/tasks", "/assets/app-abcdefgh.css?t=123"]) {
@@ -73,7 +129,7 @@ describe("shell caching", () => {
         expect(w.cache.put).not.toHaveBeenCalled();
     });
     it("keeps a valid offline shell when the network returns an error page", async () => {
-        const shell = new Response("<html>offline shell</html>");
+        const shell = new Response("<html>offline shell</html>", { headers: { "content-type": "text/html" } });
         const w = worker(shell);
         w.fetch.mockResolvedValueOnce(new Response("Error", { status: 500 }));
         expect((await w.request("/today", "navigate"))?.status).toBe(500);

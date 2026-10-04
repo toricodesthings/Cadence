@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Workspace startup loads less code and prioritizes your first page; usage diagnostics includes startup timings.
+- Crash reports now sends error types and app version to help diagnose crashes and failed actions.
+
+### Fixed
+
+- Assistant image attachments work on browsers that cannot export WebP, including iOS Safari and installed PWAs.
+
 ## [0.25.8] - 2026-10-04
 
 ### Fixed

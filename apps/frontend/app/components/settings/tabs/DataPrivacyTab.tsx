@@ -38,7 +38,7 @@ export function DataPrivacyTab() {
             <SettingsSection title="Privacy preferences">
                 <SettingsRow
                     title="Usage diagnostics"
-                    description="Share anonymous usage patterns to help improve Cadence. No personal data is included."
+                    description="Share usage patterns and startup timings to help improve Cadence. No personal content is included."
                 >
                     <Switch
                         checked={privacy.usageDiagnostics}
@@ -49,7 +49,7 @@ export function DataPrivacyTab() {
                 </SettingsRow>
                 <SettingsRow
                     title="Crash reports"
-                    description="Automatically send crash diagnostics so issues can be resolved faster."
+                    description="Share error types and app version to help fix crashes and failed actions. No personal content is included."
                 >
                     <Switch
                         checked={privacy.crashReports}

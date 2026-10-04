@@ -1,22 +1,45 @@
 import { BACKGROUND_IMAGE_LIMITS } from "@cadence/contracts/settings";
 import { CHAT_IMAGE_LIMITS } from "@cadence/contracts/ai";
 
+/** WebKit can display some phone formats that its ImageBitmap decoder rejects. */
+async function decodeImage(file: Blob) {
+    try {
+        const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+        return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+    } catch {
+        const image = new Image();
+        const url = URL.createObjectURL(file);
+        const close = () => {
+            image.removeAttribute("src");
+            URL.revokeObjectURL(url);
+        };
+        try {
+            image.src = url;
+            await image.decode();
+            return { source: image, width: image.naturalWidth, height: image.naturalHeight, close };
+        } catch (error) {
+            close();
+            throw error;
+        }
+    }
+}
+
 /**
  * Re-encode an image as WebP, no larger than `maxDimension` on its long side.
  * Drawing through a canvas also drops camera metadata (EXIF, including GPS).
  * Steps down through `qualities` until the result fits `maxBytes`.
  */
 async function encodeWebp(file: Blob, maxDimension: number, qualities: number[], maxBytes = Infinity): Promise<Blob> {
-    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const image = await decodeImage(file);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     try {
+        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
         const context = canvas.getContext("2d");
         if (!context) throw new Error("Canvas is unavailable for preparing that image.");
         context.imageSmoothingQuality = "high";
-        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        context.drawImage(image.source, 0, 0, canvas.width, canvas.height);
         let blob!: Blob;
         for (const quality of qualities) {
             blob = await canvasToBlob(canvas, quality);
@@ -24,7 +47,7 @@ async function encodeWebp(file: Blob, maxDimension: number, qualities: number[],
         }
         return blob;
     } finally {
-        bitmap.close();
+        image.close();
         discardCanvas(canvas);
     }
 }
@@ -79,17 +102,17 @@ export async function compressChatImage(file: File): Promise<File> {
  * extraction. Sampling small keeps the read cheap and blurs away noise.
  */
 export async function readImagePixels(blob: Blob, size = 48): Promise<Uint8ClampedArray> {
-    const bitmap = await createImageBitmap(blob);
+    const image = await decodeImage(blob);
     try {
         const canvas = document.createElement("canvas");
         canvas.width = size;
         canvas.height = size;
         const context = canvas.getContext("2d", { willReadFrequently: true });
         if (!context) throw new Error("Canvas is unavailable for reading image colors.");
-        context.drawImage(bitmap, 0, 0, size, size);
+        context.drawImage(image.source, 0, 0, size, size);
         return context.getImageData(0, 0, size, size).data;
     } finally {
-        bitmap.close();
+        image.close();
     }
 }
 
@@ -110,14 +133,21 @@ export interface CropRect {
     height: number;
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-    return new Promise((resolve, reject) => {
+async function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+    const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
             (blob) => (blob ? resolve(blob) : reject(new Error("Could not read that image."))),
             "image/webp",
             quality,
         );
     });
+    // An unsupported canvas output type silently returns PNG. Never relabel it:
+    // every upload endpoint checks the bytes, not just the declared MIME type.
+    if (blob.type === "image/webp") return blob;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas is unavailable for preparing that image.");
+    const { encodeWebpPixels } = await import("./webp-encoder");
+    return encodeWebpPixels(context.getImageData(0, 0, canvas.width, canvas.height), quality);
 }
 
 /** Free a canvas's backing store instead of waiting for the collector. */
@@ -135,12 +165,12 @@ function discardCanvas(canvas: HTMLCanvasElement): void {
  * low-end device while they drag it around.
  */
 export async function loadCropSource(file: File): Promise<CropSource> {
-    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const image = await decodeImage(file);
     try {
         const limit = BACKGROUND_IMAGE_LIMITS.maxDimension;
-        const scale = Math.min(1, limit / Math.max(bitmap.width, bitmap.height));
-        const width = Math.max(1, Math.round(bitmap.width * scale));
-        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const scale = Math.min(1, limit / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
 
         const canvas = document.createElement("canvas");
         canvas.width = width;
@@ -148,11 +178,11 @@ export async function loadCropSource(file: File): Promise<CropSource> {
         const context = canvas.getContext("2d");
         if (!context) throw new Error("Canvas is unavailable for preparing that image.");
         context.imageSmoothingQuality = "high";
-        context.drawImage(bitmap, 0, 0, width, height);
+        context.drawImage(image.source, 0, 0, width, height);
 
         return { canvas, url: URL.createObjectURL(await canvasToBlob(canvas, 0.92)), width, height };
     } finally {
-        bitmap.close();
+        image.close();
     }
 }
 

@@ -5,6 +5,7 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
 import { eventRoutes } from "../../src/domains/events/events.route";
+import { logger } from "../../src/platform/log";
 
 beforeAll(startTestDb);
 
@@ -13,6 +14,44 @@ async function storedEvents(userId: string) {
 }
 
 describe("usage events", () => {
+    const sample = { phase: "reveal", route: "capture", duration_ms: 1200, elapsed_ms: 1200, cache: "warm", outcome: "ready", platform: "web", viewport: "compact" };
+
+    it("sends sanitized client errors to Workers Logs only after checking saved consent", async () => {
+        const report = { kind: "render", name: "TypeError", route: "capture", platform: "web", version: "1.0.0" };
+        const log = vi.spyOn(logger, "error");
+        const userId = await createUser({ privacy: { usageDiagnostics: false, crashReports: true } });
+        expect((await apiAs(userId, "/events", eventRoutes)("POST", "/errors", { errors: [report] })).status).toBe(201);
+        expect(log).toHaveBeenCalledWith("frontend", "frontend_error", expect.objectContaining({ ...report, origin: "frontend" }));
+        expect(await storedEvents(userId)).toEqual([]);
+        log.mockClear();
+        const optedOut = await createUser({ privacy: { crashReports: false } });
+        expect((await apiAs(optedOut, "/events", eventRoutes)("POST", "/errors", { errors: [report] })).body.data.tracked).toBe(false);
+        expect(log).not.toHaveBeenCalled();
+        log.mockRestore();
+        expect((await apiAs(userId, "/events", eventRoutes)("POST", "/errors", { errors: [{ ...report, message: "private" }] })).status).toBe(400);
+    });
+    it("writes consent-enabled frontend timings to structured Observability logs only", async () => {
+        const userId = await createUser();
+        const log = vi.spyOn(logger, "info");
+        const res = await apiAs(userId, "/events", eventRoutes)("POST", "/performance", { samples: [sample] });
+        expect(res.status).toBe(201);
+        expect(log).toHaveBeenCalledWith("frontend", "frontend_startup", expect.objectContaining({ ...sample, origin: "frontend", schema: 1 }));
+        expect(log.mock.calls[0][2]).not.toHaveProperty("userId");
+        expect(await storedEvents(userId)).toEqual([]);
+        log.mockRestore();
+    });
+    it("does not log frontend timings when diagnostics are off", async () => {
+        const userId = await createUser({ privacy: { usageDiagnostics: false } });
+        const log = vi.spyOn(logger, "info");
+        const res = await apiAs(userId, "/events", eventRoutes)("POST", "/performance", { samples: [sample] });
+        expect(res.body.data.tracked).toBe(false);
+        expect(log).not.toHaveBeenCalled();
+        log.mockRestore();
+    });
+    it.each([{ ...sample, route: "/project/private-id" }, { ...sample, token: "private" }, { ...sample, duration_ms: -1 }, { ...sample, phase: "arbitrary" }])("rejects unsafe performance dimensions", async (unsafe) => {
+        const userId = await createUser({ privacy: { usageDiagnostics: false, crashReports: true } });
+        expect((await apiAs(userId, "/events", eventRoutes)("POST", "/performance", { samples: [unsafe] })).status).toBe(400);
+    });
     it.each([
         ["/events", { event: "task.reschedule", metadata: { from: "2026-03-10" } }, [{ event: "task.reschedule", metadata: { from: "2026-03-10" } }]],
         [

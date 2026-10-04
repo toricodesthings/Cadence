@@ -10,6 +10,7 @@ import { testQueryClient, withClient } from "../../helpers";
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => ({ authReady: true, isAuthenticated: true }),
 }));
+vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../app/components/shared/Loading", () => ({
     Loading: ({ children }: { children?: ReactNode }) => <div data-testid="startup">{children}</div>,
 }));

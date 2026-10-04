@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { clearAllDeviceLocationData } from "../../lib/location/device-location";
 import { clearCachedBackgroundImages, setBackgroundCacheSessionActive } from "../../lib/themes/background-image-cache";
@@ -11,7 +11,9 @@ import {
     type StoredDesktopAuthSession,
 } from "../../lib/desktop-auth-session";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
-import { clearAuthJwtCache } from "../../lib/api/client";
+import { clearAuthJwtCache, seedAuthJwtCache } from "../../lib/api/client";
+import { setDiagnosticsEnabled, setCrashReportsEnabled } from "../../lib/api/track-event";
+import { startupMark, resetStartupTiming } from "../../lib/startup-timing";
 import { isWorkspacePath } from "../../lib/auth/workspace-path";
 import { log } from "../../lib/log";
 import { forgetIdentity, readIdentity, rememberIdentity } from "../../lib/auth/offline-identity";
@@ -41,6 +43,7 @@ interface AuthStateContextValue {
 const AuthStateContext = createContext<AuthStateContextValue | null>(null);
 
 export function AuthStateProvider({ children }: { children: ReactNode }) {
+    startupMark("session.start");
     const navigate = useNavigate();
     const location = useLocation();
     const { data: session, isPending, error: sessionError, refetch } = authClient.useSession();
@@ -61,6 +64,25 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         [identity, isPending, liveSession, online, sessionError],
     );
     const resolvedSession = liveSession ?? offlineSession;
+    const previousAccount = useRef<string | null>(null);
+
+    // Invalidate/seed before descendant passive effects start their API reads.
+    useLayoutEffect(() => {
+        const userId = resolvedSession?.user.id ?? null;
+        if (previousAccount.current !== userId) {
+            if (previousAccount.current) {
+                setDiagnosticsEnabled(false);
+                setCrashReportsEnabled(false);
+                clearAuthJwtCache();
+                resetStartupTiming(false);
+            }
+            previousAccount.current = userId;
+        }
+        if (userId) {
+            startupMark("session.ready");
+            seedAuthJwtCache(liveSession?.session?.token ?? desktopSession?.jwt, userId);
+        }
+    }, [resolvedSession?.user.id, liveSession?.session?.token, desktopSession?.jwt]);
 
     useEffect(() => {
         if (!liveSession?.user.id) return;
@@ -204,6 +226,8 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const completeSignOut = useCallback(async () => {
+        setDiagnosticsEnabled(false);
+        setCrashReportsEnabled(false);
         setBackgroundCacheSessionActive(false);
         clearAuthJwtCache();
         forgetIdentity();

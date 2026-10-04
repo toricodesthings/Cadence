@@ -1,4 +1,9 @@
 import { CADENCE_PUBLIC_VERSION } from "./constants/app-info";
+import type { ClientError } from "@cadence/contracts/events";
+
+let errorReporter: ((error: unknown, kind: ClientError["kind"]) => void) | undefined;
+export function setErrorReporter(reporter: typeof errorReporter) { errorReporter = reporter; }
+export function reportError(error: unknown, kind: ClientError["kind"]) { errorReporter?.(error, kind); }
 
 /**
  * The app's one console logger.
@@ -32,6 +37,7 @@ export const log = {
         if (import.meta.env.DEV) console.warn(`[cadence:${scope}] ${message}`, ...details);
     },
     error(scope: string, message: string, error?: unknown) {
+        reportError(error, "action");
         if (import.meta.env.DEV) console.error(`[cadence:${scope}] ${message}`, ...(error === undefined ? [] : [error]));
         else console.error(`Cadence: ${message} (${errorRef(error)})`);
     },
