@@ -7,6 +7,7 @@ import {
     insertTaskSchema,
     reorderTaskSchema,
     taskPrioritySchema,
+    taskBatchQuerySchema,
 } from "@cadence/contracts/task";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
@@ -98,5 +99,31 @@ describe("batch and reorder limits", () => {
     it("reorders up to 200 siblings at once", () => {
         expect(reorderTaskSchema.safeParse({ orderIndex: 1, orderedTaskIds: ids(200) }).success).toBe(true);
         expect(reorderTaskSchema.safeParse({ orderIndex: 1, orderedTaskIds: ids(201) }).success).toBe(false);
+    });
+});
+
+describe("offline task batch bounds", () => {
+    it("accepts up to ten open-list filters and validates the encoded query", () => {
+        const queries = Array.from({ length: 10 }, () => ({ state: "ACTIVE", hasNoDate: "true" }));
+        expect(taskBatchQuerySchema.parse({ queries: JSON.stringify(queries) }).queries).toEqual(
+            queries.map((query) => ({ ...query, hasNoDate: true })),
+        );
+    });
+
+    it.each([
+        [], Array.from({ length: 11 }, () => ({ state: "ACTIVE" })),
+        [{}], [{ state: "COMPLETE" }], [{ state: "ARCHIVED" }],
+        [{ state: "ACTIVE", limit: 1000 }], [{ state: "ACTIVE", offset: 10 }],
+        [{ state: "ACTIVE", userId: UUID }],
+        [{ state: "ACTIVE", scheduledRangeStart: "2026-03-01" }],
+        [{ state: "ACTIVE", scheduledRangeStart: "2026-03-09", scheduledRangeEnd: "2026-03-01" }],
+        [{ state: "ACTIVE", scheduledRangeStart: "2026-03-01", scheduledRangeEnd: "2026-05-01" }],
+    ].map((queries) => ({ queries })))("rejects unsupported or unbounded filters $queries", ({ queries }) => {
+        expect(taskBatchQuerySchema.safeParse({ queries: JSON.stringify(queries) }).success).toBe(false);
+    });
+
+    it("rejects malformed JSON and excessive query text", () => {
+        expect(taskBatchQuerySchema.safeParse({ queries: "[broken" }).success).toBe(false);
+        expect(taskBatchQuerySchema.safeParse({ queries: " ".repeat(12_001) }).success).toBe(false);
     });
 });

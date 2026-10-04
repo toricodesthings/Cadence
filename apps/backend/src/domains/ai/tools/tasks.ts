@@ -6,7 +6,7 @@ import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags } from "../
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import { normalizeTaskFilters } from "../../tasks/task-filters";
-import { buildTaskWhereClause } from "../../tasks/tasks.route";
+import { buildTaskWhereClause } from "../../tasks/tasks.read";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import {

@@ -3,7 +3,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { normalizeTaskFilters } from "../../src/domains/tasks/task-filters";
 import { taskFiltersSchema } from "@cadence/contracts/task";
-import { buildTaskWhereClause } from "../../src/domains/tasks/tasks.route";
+import { buildTaskWhereClause } from "../../src/domains/tasks/tasks.read";
 
 /** Render the WHERE clause the list route would run for these query filters. */
 function whereFor(filters: Parameters<typeof normalizeTaskFilters>[0]) {

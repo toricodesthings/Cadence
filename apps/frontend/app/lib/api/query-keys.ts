@@ -64,6 +64,7 @@ export const queryKeys = {
 /** Differentiated stale times for each data type.
  *  Tasks go stale quickly (user edits frequently); tags/projects are stable. */
 export const STALE_TIMES = {
+    OFFLINE_WINDOW: 60 * 60 * 1000, // 1 hour — background warming freshness
     TASKS: 30 * 1000,           // 30s — tasks change frequently
     PROJECTS: 5 * 60 * 1000,    // 5min — projects rarely change
     INBOX: 60 * 1000,           // 1min — inbox items moderate frequency

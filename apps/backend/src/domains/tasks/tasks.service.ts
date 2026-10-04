@@ -3,7 +3,8 @@
  * caller's RLS transaction and returns rows; metrics run after commit through
  * `trackTaskChanges`.
  */
-import { and, asc, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
+import { tracing } from "cloudflare:workers";
 import type { BatchReschedule, EffortLevel, InsertTask, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
 import { hasTaskTemporalMutation, inferIsAllDay, normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
@@ -73,15 +74,15 @@ export function trackTaskChanges(
 ) {
     const { created = [], rescheduled = [], completed = [] } = changes;
     if (rescheduled.length) {
-        waitUntil(trackReschedules(db, userId, rescheduled.map((task) => ({ taskId: task.id, at: task.scheduledStart ?? task.dueDate }))));
+        waitUntil(tracing.enterSpan("tasks.metrics.reschedule", () => trackReschedules(db, userId, rescheduled.map((task) => ({ taskId: task.id, at: task.scheduledStart ?? task.dueDate })))));
     }
-    if (completed.length) waitUntil(trackBatchCompletion(db, completed, userId));
+    if (completed.length) waitUntil(tracing.enterSpan("tasks.metrics.completion", () => trackBatchCompletion(db, completed, userId)));
     const events = [
         ...created.map((taskId) => ({ event: "task.create", metadata: { taskId } })),
         ...rescheduled.map((task) => ({ event: "task.reschedule", metadata: { taskId: task.id } })),
         ...completed.map((taskId) => ({ event: "task.complete", metadata: { taskId } })),
     ];
-    if (events.length) waitUntil(trackBatchEvents(db, userId, events));
+    if (events.length) waitUntil(tracing.enterSpan("tasks.metrics.events", () => trackBatchEvents(db, userId, events)));
 }
 
 // ── API shape ─────────────────────────────────────────────────────────
@@ -97,10 +98,10 @@ export function toTask(row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstan
 /** `toTask` for rows fresh from a write: loads their tag ids in one query. */
 export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
     const links = rows.length
-        ? await tx
+        ? await tracing.enterSpan("tasks.tags.read", () => tx
               .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
               .from(taskTags)
-              .where(inArray(taskTags.taskId, rows.map((row) => row.id)))
+              .where(inArray(taskTags.taskId, rows.map((row) => row.id))))
         : [];
     return rows.map((row) => toTask(row, links.filter((link) => link.taskId === row.id).map((link) => link.tagId)));
 }
@@ -203,44 +204,72 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
 
 /** Apply a patch to one task. `expectedUpdatedAt` turns a stale edit into a 409. */
 export async function updateTask(tx: Tx, userId: string, id: string, body: TaskPatch, expectedUpdatedAt?: string) {
-    const [existing] = await tx
-        .select({
-            id: tasks.id,
-            isAllDay: tasks.isAllDay,
-            dueDate: tasks.dueDate,
-            scheduledStart: tasks.scheduledStart,
-            scheduledEnd: tasks.scheduledEnd,
-            updatedAt: tasks.updatedAt,
-            projectId: tasks.projectId,
-            sectionId: tasks.sectionId,
-        })
-        .from(tasks)
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-        .for("update");
-    throwIfNotFound(existing, "Task");
-    assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
-
-    const projectId = body.projectId !== undefined ? body.projectId : existing.projectId;
-    const sectionId = body.sectionId !== undefined ? body.sectionId
-        : projectId !== existing.projectId ? null : existing.sectionId;
     const placementChanged = body.projectId !== undefined || body.sectionId !== undefined;
-    if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
-    validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
+    const temporalChanged = hasTaskTemporalMutation(body);
+    const needsExisting = placementChanged || temporalChanged || body.recurrenceRule !== undefined;
+    let versionCondition: SQL | undefined;
+    let patch = body;
 
-    const temporalPatch = hasTaskTemporalMutation(body)
-        ? normalizeTaskTemporalFields({
-              isAllDay: body.isAllDay ?? existing.isAllDay,
-              dueDate: "dueDate" in body ? body.dueDate : existing.dueDate,
-              scheduledStart: "scheduledStart" in body ? body.scheduledStart : existing.scheduledStart,
-              scheduledEnd: "scheduledEnd" in body ? body.scheduledEnd : existing.scheduledEnd,
-          })
-        : {};
+    // Simple edits don't depend on the stored row. UPDATE takes the row lock and
+    // checks its version atomically, avoiding a separate SELECT FOR UPDATE trip.
+    if (needsExisting) {
+        const [existing] = await tracing.enterSpan("tasks.update.lock", () => tx
+            .select({
+                id: tasks.id,
+                isAllDay: tasks.isAllDay,
+                dueDate: tasks.dueDate,
+                scheduledStart: tasks.scheduledStart,
+                scheduledEnd: tasks.scheduledEnd,
+                updatedAt: tasks.updatedAt,
+                projectId: tasks.projectId,
+                sectionId: tasks.sectionId,
+            })
+            .from(tasks)
+            .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+            .for("update"));
+        throwIfNotFound(existing, "Task");
+        assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
 
-    const [row] = await tx
+        const projectId = body.projectId !== undefined ? body.projectId : existing.projectId;
+        const sectionId = body.sectionId !== undefined ? body.sectionId
+            : projectId !== existing.projectId ? null : existing.sectionId;
+        if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
+        validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
+
+        const temporalPatch = temporalChanged
+            ? normalizeTaskTemporalFields({
+                  isAllDay: body.isAllDay ?? existing.isAllDay,
+                  dueDate: "dueDate" in body ? body.dueDate : existing.dueDate,
+                  scheduledStart: "scheduledStart" in body ? body.scheduledStart : existing.scheduledStart,
+                  scheduledEnd: "scheduledEnd" in body ? body.scheduledEnd : existing.scheduledEnd,
+              })
+            : {};
+
+        patch = { ...body, ...(placementChanged && { sectionId }), ...temporalPatch };
+    } else if (expectedUpdatedAt) {
+        // The API exposes milliseconds; Postgres stores microseconds. Match the
+        // same instant comparison as assertNoConflict, including timezone offsets.
+        const expectedDate = new Date(expectedUpdatedAt);
+        versionCondition = Number.isNaN(expectedDate.getTime())
+            ? sql`false`
+            : sql`date_trunc('milliseconds', ${tasks.updatedAt}) = ${expectedDate.toISOString()}::timestamptz`;
+    }
+
+    const [row] = await tracing.enterSpan("tasks.update.write", () => tx
         .update(tasks)
-        .set({ ...body, ...(placementChanged && { sectionId }), ...temporalPatch, updatedAt: sql`NOW()` })
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
-        .returning();
+        .set({ ...patch, updatedAt: sql`NOW()` })
+        .where(and(eq(tasks.id, id), eq(tasks.userId, userId), versionCondition))
+        .returning());
+    if (!row && expectedUpdatedAt && !needsExisting) {
+        // Only a rejected write needs this read, to distinguish 404 from 409.
+        const [existing] = await tracing.enterSpan("tasks.update.conflict", () => tx
+            .select({ updatedAt: tasks.updatedAt })
+            .from(tasks)
+            .where(and(eq(tasks.id, id), eq(tasks.userId, userId))));
+        throwIfNotFound(existing, "Task");
+        throw new AppError(409, "CONFLICT", "Task was modified by another client");
+    }
+    throwIfNotFound(row, "Task");
     return row;
 }
 

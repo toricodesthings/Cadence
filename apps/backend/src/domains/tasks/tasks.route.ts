@@ -1,6 +1,5 @@
 import { Hono } from "hono";
-import { and, between, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
 import { tasks, tags, taskTags, taskNlpMetadata } from "../../db/schema";
@@ -8,21 +7,18 @@ import { getDbClient } from "../../platform/db";
 import { throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
-import { normalizeTaskFilters, type NormalizedTaskFilters } from "./task-filters";
+import { normalizeTaskFilters } from "./task-filters";
+import { readTaskBatch, readTasks } from "./tasks.read";
 import {
     hasTaskTemporalMutation,
     normalizeTaskTemporalFields,
 } from "@cadence/domain/task-temporal";
-import {
-    expandScheduleScopedTasks,
-    isScheduleScopedTaskQuery,
-} from "@cadence/domain/task-recurrence";
 import { computeGappedOrderIndex } from "@cadence/domain/ordering";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
-import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
+import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, taskBatchQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
 import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
@@ -50,64 +46,6 @@ const nlpReparseSchema = z.object({
     confidenceTier: z.enum(["high", "medium", "low"]).optional(),
     parserVersion: z.string().max(20).optional(),
 });
-
-function buildEffectiveTaskAnchorExpression() {
-    return sql<string>`case
-        when ${tasks.isAllDay} = true then coalesce(${tasks.dueDate}, ${tasks.scheduledStart})
-        else coalesce(${tasks.scheduledStart}, ${tasks.dueDate})
-    end`;
-}
-
-export function buildTaskWhereClause(userId: string, filters: NormalizedTaskFilters): (SQL<unknown> | undefined)[] {
-    const conditions: (SQL<unknown> | undefined)[] = [eq(tasks.userId, userId)];
-
-    if (filters.state) {
-        conditions.push(eq(tasks.state, filters.state));
-    }
-    if (filters.projectId) {
-        conditions.push(eq(tasks.projectId, filters.projectId));
-    }
-
-    // A date window: tasks anchored inside it, plus repeating series started by its end.
-    // `expandScheduleScopedTasks` makes the final cut and expands the series.
-    const window = filters.scheduledDate
-        ? { start: `${filters.scheduledDate}T00:00:00.000Z`, end: `${filters.scheduledDate}T23:59:59.999Z` }
-        : filters.scheduledRangeStart && filters.scheduledRangeEnd
-            ? { start: filters.scheduledRangeStart, end: filters.scheduledRangeEnd }
-            : undefined;
-    if (window) {
-        conditions.push(
-            or(
-                between(sql`coalesce(${tasks.scheduledStart}, ${tasks.dueDate})`, window.start, window.end),
-                and(isNotNull(tasks.recurrenceRule), lte(tasks.scheduledStart, window.end)),
-            ),
-        );
-    }
-
-    if (filters.priority !== undefined) {
-        conditions.push(eq(tasks.priority, filters.priority));
-    }
-    if (filters.isPinned !== undefined) {
-        conditions.push(eq(tasks.isPinned, filters.isPinned));
-    }
-    if (filters.effort !== undefined) {
-        conditions.push(eq(tasks.effort, filters.effort));
-    }
-    if (filters.notBeforeBefore !== undefined) {
-        conditions.push(or(lte(tasks.notBefore, filters.notBeforeBefore), isNull(tasks.notBefore)));
-    }
-    if (filters.hasNoDate) {
-        conditions.push(and(isNull(tasks.scheduledStart), isNull(tasks.dueDate)));
-    }
-    if (filters.hasNoProject) {
-        conditions.push(isNull(tasks.projectId));
-    }
-    if (filters.effectiveOnOrBeforeDateTime) {
-        conditions.push(lte(buildEffectiveTaskAnchorExpression(), filters.effectiveOnOrBeforeDateTime));
-    }
-
-    return conditions;
-}
 
 export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/:id/duplicate", apiValidator("param", uuidParamSchema), async (c) => {
@@ -432,36 +370,15 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const query = normalizeTaskFilters(c.req.valid("query"));
         const db = getDbClient(c.env);
 
-        const items = await withRls(db, userId, async (tx) => {
-            const scheduleScoped = isScheduleScopedTaskQuery(query);
-            const conditions = buildTaskWhereClause(userId, query);
-            // Done and Trash page newest first; open lists keep their manual order.
-            const newestFirst = query.state === "COMPLETE" || query.state === "ARCHIVED";
-            const returnedTasks = await tx.query.tasks.findMany({
-                where: and(...conditions),
-                orderBy: (taskTable, { asc, desc }) => newestFirst
-                    ? [desc(taskTable.updatedAt), desc(taskTable.id)]
-                    : [desc(taskTable.isPinned), asc(taskTable.orderIndex)],
-                ...(scheduleScoped
-                    ? {}
-                    : {
-                        limit: query.limit,
-                        offset: query.offset,
-                    }),
-                with: {
-                    tags: {
-                        columns: {
-                            tagId: true,
-                        },
-                    },
-                },
-            });
+        const items = await withRls(db, userId, (tx) => readTasks(tx, userId, query));
 
-            const mappedTasks = returnedTasks.map(({ tags: links, ...task }) => toTask(task, links.map((link) => link.tagId)));
-
-            return scheduleScoped ? expandScheduleScopedTasks(mappedTasks, query) : mappedTasks;
-        });
-
+        c.header("Cache-Control", "private, no-store");
+        return c.json({ data: items });
+    })
+    .get("/batch", apiValidator("query", taskBatchQuerySchema), async (c) => {
+        const userId = c.get("userId");
+        const { queries } = c.req.valid("query");
+        const items = await withRls(getDbClient(c.env), userId, (tx) => readTaskBatch(tx, userId, queries));
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: items });
     })

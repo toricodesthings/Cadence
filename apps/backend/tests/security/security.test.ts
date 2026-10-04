@@ -267,7 +267,8 @@ describe("CORS", () => {
     it("exposes Retry-After so the client can wait out a 429", async () => {
         const response = await send(new Request("http://localhost/health", { headers: { Origin: "http://localhost:8788" } }));
 
-        expect(response.headers.get("access-control-expose-headers")).toBe("Retry-After");
+        expect(response.headers.get("access-control-expose-headers")?.split(",")).toEqual(expect.arrayContaining(["Retry-After", "Server-Timing"]));
+        expect(response.headers.get("Server-Timing")).toMatch(/^app;dur=\d+$/);
     });
 
     it("lets preflight requests send Idempotency-Key", async () => {

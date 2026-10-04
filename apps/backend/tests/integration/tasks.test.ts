@@ -1,12 +1,14 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
-import { asOwner, createUser, startTestDb } from "../helpers/db";
+import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
 import { projectRoutes } from "../../src/domains/projects/projects.route";
 import { tagRoutes } from "../../src/domains/tags/tags.route";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
+import { updateTask } from "../../src/domains/tasks/tasks.service";
+import { withRls } from "../../src/platform/rls";
 
 let userId: string;
 let tasks: ReturnType<typeof apiAs>;
@@ -228,6 +230,54 @@ describe("updating tasks", () => {
 
         expect((await tasks("PATCH", `/${task.id}`, { title: "T2", expectedUpdatedAt: fresh.data.updatedAt })).status).toBe(200);
         expect((await tasks("PATCH", `/${task.id}`, { title: "T3", expectedUpdatedAt: fresh.data.updatedAt })).status).toBe(409);
+        expect((await tasks("GET", `/${task.id}`)).body.data.title).toBe("T2");
+    });
+
+    it("updates a simple field without reading first, matching the served version despite Postgres microseconds", async () => {
+        const task = await create({ title: "T", priority: 3 });
+        await asOwner((pg) => pg.query("UPDATE tasks SET updated_at = $1 WHERE id = $2", ["2026-03-10T09:00:00.123456Z", task.id]));
+        const { body: fresh } = await tasks("GET", `/${task.id}`);
+        expect(fresh.data.updatedAt).toBe("2026-03-10T09:00:00.123Z");
+
+        await withRls(getTestDb(), userId, async (tx) => {
+            const select = vi.spyOn(tx, "select");
+            const updated = await updateTask(tx, userId, task.id, { priority: 4 }, "2026-03-10T05:00:00.123-04:00");
+            expect(updated.priority).toBe(4);
+            expect(select).not.toHaveBeenCalled();
+        });
+    });
+
+    it("treats an invalid version string as a conflict and leaves the task intact", async () => {
+        const task = await create({ title: "Original" });
+        const { status, body } = await tasks("PATCH", `/${task.id}`, { title: "Changed", expectedUpdatedAt: "not-a-date" });
+        expect(status).toBe(409);
+        expect(body.error.code).toBe("CONFLICT");
+        expect((await tasks("GET", `/${task.id}`)).body.data.title).toBe("Original");
+    });
+
+    it("allows only one of two clients editing the same version and preserves the winner", async () => {
+        const task = await create({ title: "Original" });
+        const expectedUpdatedAt = "2026-03-10T09:00:00.123Z";
+        await asOwner((pg) => pg.query("UPDATE tasks SET updated_at = $1 WHERE id = $2", [expectedUpdatedAt, task.id]));
+        const results = await Promise.all(["A", "B"].map((title) => tasks("PATCH", `/${task.id}`, { title, expectedUpdatedAt })));
+        expect(results.map((result) => result.status).sort()).toEqual([200, 409]);
+        expect((await tasks("GET", `/${task.id}`)).body.data.title).toBe(results.find((result) => result.status === 200)!.body.data.title);
+    });
+
+    it("returns 404 for a versioned edit of a missing or another user's task", async () => {
+        const theirs = await create({ title: "Theirs" }, otherTasks);
+        const patch = { title: "Changed", expectedUpdatedAt: theirs.updatedAt };
+        expect((await tasks("PATCH", `/${theirs.id}`, patch)).status).toBe(404);
+        expect((await tasks("PATCH", `/${crypto.randomUUID()}`, patch)).status).toBe(404);
+        expect((await otherTasks("GET", `/${theirs.id}`)).body.data.title).toBe("Theirs");
+    });
+
+    it("keeps stale-edit protection for schedule edits that still need the locked row", async () => {
+        const task = await create({ title: "T", dueDate: "2026-03-10" });
+        const { status, body } = await tasks("PATCH", `/${task.id}`, { dueDate: "2026-03-11", expectedUpdatedAt: "2020-01-01T00:00:00.000Z" });
+        expect(status).toBe(409);
+        expect(body.error.code).toBe("CONFLICT");
+        expect((await tasks("GET", `/${task.id}`)).body.data.dueDate).toBe("2026-03-10T12:00:00.000Z");
     });
 
     it("reorders the whole list in one call, spacing indexes apart", async () => {

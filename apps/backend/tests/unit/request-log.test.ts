@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { logValidationFailure } from "../../src/platform/request-log";
+import { createRequestContext, logValidationFailure } from "../../src/platform/request-log";
+import { Hono } from "hono";
 
 function createFakeContext() {
     const store: Record<string, unknown> = {};
@@ -22,6 +23,30 @@ function createFakeContext() {
 }
 
 describe("request logging", () => {
+    it("reports response timing without waiting for background work or logging a successful request", async () => {
+        let now = 1000;
+        vi.spyOn(Date, "now").mockImplementation(() => now);
+        const info = vi.spyOn(console, "info").mockImplementation(() => {});
+        const pending: Promise<unknown>[] = [];
+        let finish!: () => void;
+        const background = new Promise<void>((resolve) => { finish = resolve; });
+        const app = new Hono().use("*", createRequestContext()).get("/", (c) => {
+            c.executionCtx.waitUntil(background);
+            now += 132;
+            return c.json({ data: true });
+        });
+        const ctx = { waitUntil: (p: Promise<unknown>) => pending.push(p) } as unknown as ExecutionContext;
+
+        const response = await app.fetch(new Request("https://api.cadenceapp.cloud/"), {}, ctx);
+        expect(response.headers.get("Server-Timing")).toBe("app;dur=132");
+        expect(pending).toHaveLength(1);
+        now += 1768;
+        finish();
+        await Promise.all(pending);
+        expect(response.headers.get("Server-Timing")).toBe("app;dur=132");
+        expect(info).not.toHaveBeenCalled();
+    });
+
     it("emits structured validation logs with redacted summaries", async () => {
         const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
         const ctx = createFakeContext();

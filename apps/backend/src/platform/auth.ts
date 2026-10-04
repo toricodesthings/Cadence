@@ -9,6 +9,7 @@ import { logger, hashIdentifier, issuesFromError } from "./log";
 import { getDbClient } from "./db";
 import { withRls } from "./rls";
 import { users } from "../db/schema";
+import { tracing } from "cloudflare:workers";
 
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 let cachedUrl = "";
@@ -144,17 +145,18 @@ export const authMiddleware = createMiddleware<{
             cachedUrl = jwksUrl;
         }
 
+        const keySet = jwksCache;
         let payload;
         let attempt = 0;
         const maxRetries = 3;
 
         while (attempt < maxRetries) {
             try {
-                const result = await jwtVerify(token, jwksCache, {
+                const result = await tracing.enterSpan("auth.verify", () => jwtVerify(token, keySet, {
                     ...(expectedIssuer && { issuer: expectedIssuer }),
                     ...(expectedAudience && { audience: expectedAudience }),
                     clockTolerance: CLOCK_TOLERANCE_SECONDS,
-                });
+                }));
                 payload = result.payload;
                 break;
             } catch (err: any) {
@@ -180,8 +182,9 @@ export const authMiddleware = createMiddleware<{
         // Synchronous user bootstrap on write requests to prevent FK race conditions (F02)
         const isWrite = c.req.method !== "GET" && c.req.method !== "HEAD";
         if (isWrite) {
+            const userId = payload.sub;
             try {
-                await ensureUserExists(c.env, payload.sub);
+                await tracing.enterSpan("auth.user.ensure", () => ensureUserExists(c.env, userId));
             } catch (dbErr) {
                 logger.error("auth", "user_sync_failed", {
                     userHash: await hashIdentifier(payload.sub),

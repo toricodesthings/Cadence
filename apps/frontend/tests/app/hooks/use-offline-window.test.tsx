@@ -6,7 +6,10 @@ import { testQueryClient, withClient } from "../../helpers";
 const { client, read, options } = vi.hoisted(() => {
     const read = vi.fn<() => Promise<unknown>>();
     return {
-        client: {}, read,
+        client: { api: { tasks: { batch: { $get: async (input: { query: { queries: string } }) => {
+            await read();
+            return Response.json({ data: { tasks: [], lists: JSON.parse(input.query.queries).map(() => []) } });
+        } } } } }, read,
         options: (domain: string, filters?: unknown) => ({
             queryKey: [domain, filters ?? null], queryFn: () => read(),
         }),

@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { tracing } from "cloudflare:workers";
 import { logger, hashIdentifier, shorten, issuesFromError, type IssueSummary, type LogLevel } from "./log";
 
 const REQUEST_ID_HEADER = "x-request-id";
@@ -133,7 +134,13 @@ export function createRequestContext() {
         c.set("requestId", requestId);
         c.set("requestStartedAt", Date.now());
 
-        await next();
+        await tracing.enterSpan("http.response", async (span) => {
+            await next();
+            // Unlike invocation wall time, this excludes post-response waitUntil work.
+            const responseMs = Date.now() - c.get("requestStartedAt");
+            span.setAttribute("http.response_ms", responseMs);
+            c.header("Server-Timing", `app;dur=${responseMs}`);
+        });
 
         // Return the server-generated ID — clients can use it for support/debugging
         c.header(REQUEST_ID_HEADER, requestId);

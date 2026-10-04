@@ -11,7 +11,7 @@ import type { TaskSection } from "@cadence/contracts/section";
 import type { SavedFocusView, SettingsView } from "@cadence/contracts/settings";
 import type { Subtask } from "@cadence/contracts/subtask";
 import type { Tag } from "@cadence/contracts/tag";
-import type { Task } from "@cadence/contracts/task";
+import type { TaskBatch, Task } from "@cadence/contracts/task";
 import type { ApiClient } from "../../../../app/lib/api/client";
 import type { ResponseData } from "../../../../app/lib/api/helpers";
 
@@ -47,4 +47,8 @@ test("every read route returns its contract entity", () => {
     expectTypeOf<Data<Api["proxy"]["geocode"]["search"]["$get"]>>().toEqualTypeOf<CityResult[]>();
     expectTypeOf<Data<Api["proxy"]["geo"]["approximate"]["$get"]>>().toEqualTypeOf<ApproximatePlace>();
     expectTypeOf<Data<Api["proxy"]["holidays"]["$get"]>>().toEqualTypeOf<HolidayRecord[]>();
+});
+
+test("task batch response matches its contract", () => {
+    expectTypeOf<Data<Api["tasks"]["batch"]["$get"]>>().toExtend<TaskBatch>();
 });

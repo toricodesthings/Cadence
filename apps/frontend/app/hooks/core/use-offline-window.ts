@@ -3,20 +3,20 @@ import { useQueryClient, type FetchQueryOptions } from "@tanstack/react-query";
 import { addDays } from "date-fns";
 import { useApiClient } from "../auth/use-api-client";
 import { useSettings } from "./use-settings";
-import { tasksQueryOptions } from "../tasks/use-tasks";
+import { STALE_TIMES } from "../../lib/api/query-keys";
+import { prefetchTaskBatch } from "../../lib/api/task-batch";
 import { habitsRangeQueryOptions } from "../habits/use-habits";
 import { inboxQueryOptions } from "../inbox/use-inbox";
 import { projectsQueryOptions } from "../projects/use-projects";
 import { tagsQueryOptions } from "../tags/use-tags";
 import { getMonthDateRange, getWeekDateRange, getWeekDates, toISODate, WEEK_START_INDEX } from "../../lib/utils/date-format";
 
-const HOUR = 60 * 60 * 1000;
 const PREFETCH_CONCURRENCY = 3;
 
 /**
  * Keep the phone views' data saved for a week back and three weeks ahead, with
  * the same keys the views use, so they open offline even if not visited lately.
- * Warm three queries at a time; anything fetched in the last hour is skipped.
+ * Batch task lists; warm at most three transports, skipping hour-fresh data.
  */
 export function useOfflineWindow() {
     const queryClient = useQueryClient();
@@ -27,6 +27,7 @@ export function useOfflineWindow() {
     useEffect(() => {
         if (!weekStart) return;
         let stopped = false;
+        const controller = new AbortController();
         let warming = false;
         const canWarm = () => !stopped && navigator.onLine && document.visibilityState === "visible";
         const run = () => {
@@ -35,12 +36,14 @@ export function useOfflineWindow() {
             const today = toISODate(now);
             const weeks = [-7, 0, 7, 14, 21].map((days) => addDays(now, days));
             const routineWeeks = weeks.map((day) => getWeekDates(day, WEEK_START_INDEX[weekStart]));
+            const taskFilters: Parameters<typeof prefetchTaskBatch>[2] = [
+                { state: "ACTIVE" }, // Upcoming, lists, tags
+                { state: "WAITING" },
+                { state: "ACTIVE", effectiveOnOrBeforeDate: today }, // Today
+                { state: "ACTIVE", hasNoProject: true, hasNoDate: true }, // Capture
+                ...weeks.map((day) => ({ state: "ACTIVE" as const, scheduledRange: getWeekDateRange(day) })), // Schedule
+            ];
             const queries = [
-                tasksQueryOptions(client, { state: "ACTIVE" }), // Upcoming, lists, tags
-                tasksQueryOptions(client, { state: "WAITING" }),
-                tasksQueryOptions(client, { state: "ACTIVE", effectiveOnOrBeforeDate: today }), // Today
-                tasksQueryOptions(client, { state: "ACTIVE", hasNoProject: true, hasNoDate: true }), // Capture
-                ...weeks.map((day) => tasksQueryOptions(client, { state: "ACTIVE", scheduledRange: getWeekDateRange(day) })), // Schedule
                 habitsRangeQueryOptions(client, { start: today, end: today }), // Today
                 habitsRangeQueryOptions(client, { start: toISODate(addDays(now, -30)), end: toISODate(addDays(now, 7)) }), // Upcoming
                 ...weeks.map((day) => habitsRangeQueryOptions(client, getWeekDateRange(day))), // Schedule
@@ -51,12 +54,16 @@ export function useOfflineWindow() {
                 tagsQueryOptions(client),
             ];
             // Each entry is typed by its own factory; together they're just queries to warm.
-            const pending = (queries as unknown as FetchQueryOptions[]).values();
+            const pending = [
+                () => prefetchTaskBatch(client, queryClient, taskFilters, controller.signal),
+                ...(queries as unknown as FetchQueryOptions[]).map((query) =>
+                    () => queryClient.prefetchQuery({ ...query, staleTime: STALE_TIMES.OFFLINE_WINDOW })),
+            ].values();
             const warm = async () => {
                 while (canWarm()) {
                     const next = pending.next();
                     if (next.done) return;
-                    await queryClient.prefetchQuery({ ...next.value, staleTime: HOUR });
+                    await next.value();
                 }
             };
             warming = true;
@@ -66,11 +73,12 @@ export function useOfflineWindow() {
         };
 
         run();
-        const timer = window.setInterval(run, HOUR);
+        const timer = window.setInterval(run, STALE_TIMES.OFFLINE_WINDOW);
         document.addEventListener("visibilitychange", run);
         window.addEventListener("online", run);
         return () => {
             stopped = true;
+            controller.abort();
             window.clearInterval(timer);
             document.removeEventListener("visibilitychange", run);
             window.removeEventListener("online", run);
