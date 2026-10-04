@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.9] - 2026-10-04
+
 ### Changed
 
 - Workspace startup loads less code and prioritizes your first page; usage diagnostics includes startup timings.
