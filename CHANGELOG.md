@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.25.8] - 2026-10-04
+
 ### Fixed
 
 - Offline task caching uses one batch request and shares overlapping results to reduce background loading.
