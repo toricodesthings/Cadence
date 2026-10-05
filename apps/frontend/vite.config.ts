@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => ({
   // Version + in-app changelog come from the root package.json / CHANGELOG.md (see release-info.ts).
   define: {
     __CADENCE_PUBLIC_VERSION__: JSON.stringify(release.version),
+    __CADENCE_VERSION__: JSON.stringify(release.semver),
     __CADENCE_CHANGELOG__: JSON.stringify(release.changelog),
     __CADENCE_BUILD_ID__: JSON.stringify(buildId),
   },

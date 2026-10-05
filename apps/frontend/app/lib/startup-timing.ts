@@ -1,11 +1,11 @@
-import { CADENCE_BUILD_ID } from "./constants/app-info";
+import { CADENCE_BUILD_ID, CADENCE_VERSION } from "./constants/app-info";
 import { STARTUP_ROUTES, type PerformanceSample } from "@cadence/contracts/events";
 
 type Phase = PerformanceSample["phase"];
 const marks = new Map<string, number>();
 export type ReadDetails = Pick<PerformanceSample, "endpoint" | "status" | "error_code">;
 const reads: Array<ReadDetails & { phase: "api" | "api_body"; elapsed_ms: number; duration_ms: number; category: PerformanceSample["category"]; outcome: PerformanceSample["outcome"] }> = [];
-const cohort = { measurement_revision: 2 as const, build_id: CADENCE_BUILD_ID, endpoint: "workspace" as const };
+const cohort = { measurement_revision: 2 as const, build_id: CADENCE_BUILD_ID, version: CADENCE_VERSION, endpoint: "workspace" as const };
 let finished = false;
 
 /** Local fixed-name marks only. Delivery is gated separately by account settings. */

@@ -83,6 +83,7 @@ export const performanceSampleSchema = z.object({
     // Old clients retain their historical timing definitions and an explicit legacy cohort.
     measurement_revision: z.union([z.literal(1), z.literal(2)]).default(1),
     build_id: z.string().regex(/^[a-z0-9]{1,32}$/).optional(),
+    version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/).max(40).optional(),
     endpoint: z.enum(PERFORMANCE_ENDPOINTS).optional(),
     status: z.number().int().min(100).max(599).optional(),
     error_code: clientErrorCodeSchema.optional(),

@@ -2,6 +2,9 @@
 declare const __CADENCE_PUBLIC_VERSION__: string;
 
 export const CADENCE_PUBLIC_VERSION = __CADENCE_PUBLIC_VERSION__;
+// The bare version ("0.9.1"): what telemetry reports, so it can be filtered by release.
+declare const __CADENCE_VERSION__: string;
+export const CADENCE_VERSION = __CADENCE_VERSION__;
 // Unique per build; the web app compares it with the deployed /version.json to offer a reload.
 declare const __CADENCE_BUILD_ID__: string;
 export const CADENCE_BUILD_ID = __CADENCE_BUILD_ID__;

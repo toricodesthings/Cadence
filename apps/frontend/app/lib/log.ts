@@ -1,4 +1,4 @@
-import { CADENCE_PUBLIC_VERSION } from "./constants/app-info";
+import { CADENCE_VERSION } from "./constants/app-info";
 import type { ClientError } from "@cadence/contracts/events";
 
 let errorReporter: ((error: unknown, kind: ClientError["kind"]) => void) | undefined;
@@ -24,7 +24,7 @@ export function errorRef(error: unknown): string {
     const what = typeof code === "string"
         ? code
         : error instanceof Error ? `${error.name}: ${error.message.slice(0, 120)}` : "Error";
-    return [what, typeof requestId === "string" && requestId, `v${CADENCE_PUBLIC_VERSION}`]
+    return [what, typeof requestId === "string" && requestId, `v${CADENCE_VERSION}`]
         .filter(Boolean)
         .join(" · ");
 }

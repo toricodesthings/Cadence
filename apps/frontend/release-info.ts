@@ -64,6 +64,7 @@ export function readReleaseInfo(repoRoot: URL) {
 
     return {
         version: formatVersionLabel(version),
+        semver: version,
         changelog: parseChangelog(readFileSync(new URL("CHANGELOG.md", repoRoot), "utf8")),
     };
 }

@@ -1,6 +1,6 @@
 import { CLIENT_ERROR_NAMES, TRACK_BATCH_MAX, type ClientError, type UsageEvent, type PerformanceSample } from "@cadence/contracts/events";
 import { ERROR_CODES, type ErrorCode } from "@cadence/contracts/common";
-import { CADENCE_PUBLIC_VERSION } from "../constants/app-info";
+import { CADENCE_VERSION } from "../constants/app-info";
 import { startupRoute } from "../startup-timing";
 import { IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { setErrorReporter } from "../log";
@@ -66,7 +66,7 @@ export function trackClientError(error: unknown, kind: ClientError["kind"]) {
         ...((ERROR_CODES as readonly unknown[]).includes(value.code) ? { code: value.code as ErrorCode } : {}),
         route: startupRoute(window.location.pathname),
         platform: IS_DESKTOP_RUNTIME ? "desktop" : "web",
-        version: CADENCE_PUBLIC_VERSION,
+        version: CADENCE_VERSION,
     });
     scheduleFlush();
 }
