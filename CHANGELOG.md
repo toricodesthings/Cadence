@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-10-04
+
 ### Fixed
 
 - Crash reports, when turned on, now reach us, and error details show the right app version.
