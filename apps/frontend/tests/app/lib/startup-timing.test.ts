@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { collectStartupSamples, recordStartupRead, resetStartupTiming, startupMark, startupRoute, startupEndpoint } from "../../../app/lib/startup-timing";
-import { performanceBatchSchema } from "@cadence/contracts/events";
+import { collectStartupSamples, recordStartupRead, resetStartupTiming, startupMark, startupRoute, startupEndpoint, startupCollecting } from "../../../app/lib/startup-timing";
+import { performanceBatchSchema, TRACK_BATCH_MAX } from "@cadence/contracts/events";
 
 beforeEach(() => resetStartupTiming());
 describe("startup measurements", () => {
@@ -56,4 +56,21 @@ it("keeps headers, body, and legacy readiness timings distinct and labels the bu
     expect(samples.find(s => s.phase === "api_body")).toMatchObject({ duration_ms: 90, elapsed_ms: 300, error_code: "INTERNAL_ERROR" });
     expect(samples.every(s => typeof s.build_id === "string")).toBe(true);
     expect(performanceBatchSchema.safeParse({ samples }).success).toBe(true);
+});
+
+it("fits a full startup into one delivery batch and stops collecting after reveal", () => {
+    for (let i = 0; i < 60; i++) {
+        recordStartupRead("tasks", 0, "ready", { endpoint: "tasks_open" });
+        recordStartupRead("tasks", 0, "ready", { endpoint: "tasks_open" }, "api_body");
+    }
+    for (const phase of ["session", "restore", "jwt", "required_data", "chunks", "visible_assets", "hydrate", "reveal_frame"] as const) {
+        startupMark(`${phase}.start`);
+        startupMark(`${phase}.ready`);
+    }
+    expect(startupCollecting()).toBe(true);
+    startupMark("reveal.ready");
+    expect(startupCollecting()).toBe(false);
+    const samples = collectStartupSamples({ route: "capture", cache: "cold", platform: "web", viewport: "wide" });
+    expect(samples.filter(s => s.phase === "api")).toHaveLength(30);
+    expect(samples.length).toBeLessThanOrEqual(TRACK_BATCH_MAX);
 });

@@ -1,11 +1,8 @@
 // Envelope shapes are canonical in @cadence/contracts/common. The runtime error
 // class below stays in the frontend (it is behavior, not a contract).
-import type { ErrorCode } from "@cadence/contracts/common";
+import type { ClientErrorCode } from "@cadence/contracts/common";
 
-export type { ApiResponse, ApiError } from "@cadence/contracts/common";
-
-/** A server code, or one the client makes when a response can't be read or the server can't be reached. */
-export type ClientErrorCode = ErrorCode | "UNKNOWN_ERROR" | "UNPARSEABLE_ERROR" | "NETWORK_UNAVAILABLE";
+export type { ApiResponse, ApiError, ClientErrorCode } from "@cadence/contracts/common";
 
 export class ApiErrorResponse extends Error {
     status: number;

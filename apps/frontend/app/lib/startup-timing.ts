@@ -3,7 +3,7 @@ import { STARTUP_ROUTES, type PerformanceSample } from "@cadence/contracts/event
 
 type Phase = PerformanceSample["phase"];
 const marks = new Map<string, number>();
-type ReadDetails = Pick<PerformanceSample, "endpoint" | "status" | "error_code">;
+export type ReadDetails = Pick<PerformanceSample, "endpoint" | "status" | "error_code">;
 const reads: Array<ReadDetails & { phase: "api" | "api_body"; elapsed_ms: number; duration_ms: number; category: PerformanceSample["category"]; outcome: PerformanceSample["outcome"] }> = [];
 const cohort = { measurement_revision: 2 as const, build_id: CADENCE_BUILD_ID, endpoint: "workspace" as const };
 let finished = false;
@@ -23,38 +23,41 @@ export function resetStartupTiming(collect = true) {
     finished = !collect;
 }
 
+/** True until reveal (or a disabled/finished collection): after that, reads aren't measured. */
+export const startupCollecting = () => !finished && !marks.has("reveal.ready");
+
+// A delivery batch holds 50 samples: nine phases, 30 headers reads (the legacy cap) and 11 bodies.
+const READ_CAPS = { api: 30, api_body: 11 };
+
 export function recordStartupRead(category: PerformanceSample["category"], start: number, outcome: PerformanceSample["outcome"], details: ReadDetails = {}, phase: "api" | "api_body" = "api") {
     const end = performance.now();
-    // Leave room for phase samples in the existing bounded delivery batch.
-    if (!finished && !marks.has("reveal.ready") && reads.length < 40) {
+    if (startupCollecting() && reads.filter((r) => r.phase === phase).length < READ_CAPS[phase]) {
         reads.push({ ...details, phase, category, duration_ms: end - start, elapsed_ms: end, outcome });
         performance.measure?.(`cadence.startup.${phase}.${details.endpoint ?? category}`, { start, end });
     }
 }
 
+const EXACT_ENDPOINTS: Record<string, PerformanceSample["endpoint"]> = {
+    "/debug/capabilities": "debug_capabilities", "/tasks/batch": "tasks_batch", "/settings": "settings",
+    "/settings/notification-state": "notification_state", "/settings/background": "appearance",
+    "/habits": "habits", "/habits/weekly": "habits_range", "/projects": "projects", "/tags": "tags",
+};
+
 /** Never retain URLs, task IDs or arbitrary query predicates in diagnostic dimensions. */
 export function startupEndpoint(url: URL): PerformanceSample["endpoint"] {
-    const path = url.pathname.replace(/^\/api\/v1/, "");
-    if (path === "/tasks" || path === "/tasks/") {
+    const path = url.pathname.replace(/^\/api\/v1/, "").replace(/(.)\/$/, "$1");
+    if (path === "/tasks") {
         if (["COMPLETE", "ARCHIVED"].includes(url.searchParams.get("state") ?? "")) return "tasks_history";
         if (url.searchParams.has("scheduledDate") || url.searchParams.has("scheduledRangeStart")) return "tasks_schedule";
         if (url.searchParams.get("hasNoDate") === "true" && url.searchParams.get("hasNoProject") === "true") return "tasks_capture";
         return "tasks_open";
     }
-    if (path === "/debug/capabilities") return "debug_capabilities";
-    if (path === "/tasks/batch") return "tasks_batch";
+    if (path === "/inbox") return url.searchParams.get("status") === "kept" ? "inbox_kept" : "inbox_clarifying";
+    if (EXACT_ENDPOINTS[path]) return EXACT_ENDPOINTS[path];
     if (/^\/tasks\/[^/]+$/.test(path)) return "task_detail";
-    if (path === "/settings/notification-state") return "notification_state";
     if (path.startsWith("/settings/focus-views")) return "focus_views";
-    if (path === "/settings" || path === "/settings/") return "settings";
-    if (path === "/inbox" || path === "/inbox/") return url.searchParams.get("status") === "kept" ? "inbox_kept" : "inbox_clarifying";
-    if (path === "/habits/weekly") return "habits_range";
-    if (path === "/habits" || path === "/habits/") return "habits";
     if (path.startsWith("/proxy/")) return "proxy";
-    if (path === "/settings/background") return "appearance";
-    if (path.includes("/subtasks")) return "subtasks";
-    for (const endpoint of ["projects", "tags"] as const) if (path === `/${endpoint}` || path === `/${endpoint}/`) return endpoint;
-    return "other";
+    return path.includes("/subtasks") ? "subtasks" : "other";
 }
 
 export function startupRoute(path: string): PerformanceSample["route"] {

@@ -7,7 +7,7 @@ import { API_BASE_URL, NEON_AUTH_URL } from "../env";
 import { platformFetch } from "../../platform/runtime";
 import { log } from "../log";
 import { REQUEST_TIMEOUT_MS } from "./request-deadline";
-import { startupMark, recordStartupRead, startupEndpoint } from "../startup-timing";
+import { startupMark, recordStartupRead, startupEndpoint, startupCollecting, type ReadDetails } from "../startup-timing";
 import { errorCodeSchema } from "@cadence/contracts/common";
 import { PERFORMANCE_CATEGORIES, type PerformanceSample } from "@cadence/contracts/events";
 
@@ -195,32 +195,37 @@ export const apiClient = {
             const start = performance.now();
             const generation = _authGeneration;
             const url = new URL(input instanceof Request ? input.url : String(input), API_BASE_URL);
-            const path = url.pathname;
             const endpoint = startupEndpoint(url);
-            const domain = path.split("/")[3];
+            const domain = url.pathname.split("/")[3];
             const category: PerformanceSample["category"] = (PERFORMANCE_CATEGORIES as readonly string[]).includes(domain)
                 ? domain as PerformanceSample["category"] : "other";
             const measured = (requestInit?.method ?? "GET") === "GET";
+            const record = (from: number, outcome: PerformanceSample["outcome"], details: ReadDetails, phase?: "api_body") => {
+                if (measured && generation === _authGeneration) recordStartupRead(category, from, outcome, { endpoint, ...details }, phase);
+            };
             try {
                 const response = await authenticatedFetch(input, { ...requestInit, authenticated: true });
-                if (measured && generation === _authGeneration) recordStartupRead(category, start, response.ok ? "ready" : "error", { endpoint, status: response.status });
+                record(start, response.ok ? "ready" : "error", { status: response.status });
                 // Measure only the body's normal consumption; never clone/drain it or delay headers.
-                const json = response.json.bind(response);
-                response.json = async () => {
-                    const bodyStart = performance.now();
-                    try {
-                        const body = await json();
-                        const code = response.ok ? undefined : errorCodeSchema.safeParse((body as { error?: { code?: unknown } } | null)?.error?.code);
-                        if (measured && generation === _authGeneration) recordStartupRead(category, bodyStart, response.ok ? "ready" : "error", { endpoint, status: response.status, ...(code?.success ? { error_code: code.data } : {}) }, "api_body");
-                        return body;
-                    } catch (error) {
-                        if (measured && generation === _authGeneration) recordStartupRead(category, bodyStart, "error", { endpoint, status: response.status }, "api_body");
-                        throw error;
-                    }
-                };
+                if (measured && startupCollecting()) {
+                    const json = response.json.bind(response);
+                    response.json = async () => {
+                        const bodyStart = performance.now();
+                        try {
+                            const body = await json();
+                            const code = response.ok ? undefined : errorCodeSchema.safeParse((body as { error?: { code?: unknown } } | null)?.error?.code);
+                            record(bodyStart, response.ok ? "ready" : "error", { status: response.status, ...(code?.success ? { error_code: code.data } : {}) }, "api_body");
+                            return body;
+                        } catch (error) {
+                            record(bodyStart, "error", { status: response.status }, "api_body");
+                            throw error;
+                        }
+                    };
+                }
                 return response;
             } catch (error) {
-                if (measured && generation === _authGeneration) recordStartupRead(category, start, error instanceof ApiErrorResponse && error.code === "NETWORK_UNAVAILABLE" ? "network_unavailable" : "error", { endpoint, ...(error instanceof ApiErrorResponse ? { error_code: error.code } : {}) });
+                const code = error instanceof ApiErrorResponse ? error.code : undefined;
+                record(start, code === "NETWORK_UNAVAILABLE" ? "network_unavailable" : "error", code ? { error_code: code } : {});
                 throw error;
             }
         },

@@ -85,6 +85,10 @@ export const ERROR_CODES = [
 export const errorCodeSchema = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 
+/** A server code, or one the client makes when a response can't be read or the server can't be reached. */
+export const clientErrorCodeSchema = z.union([errorCodeSchema, z.enum(["UNKNOWN_ERROR", "UNPARSEABLE_ERROR", "NETWORK_UNAVAILABLE"])]);
+export type ClientErrorCode = z.infer<typeof clientErrorCodeSchema>;
+
 export const apiIssueSchema = z.object({ code: z.string(), message: z.string(), path: z.string() });
 export type ApiIssue = z.infer<typeof apiIssueSchema>;
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { errorCodeSchema } from "@cadence/contracts/common";
+import { errorCodeSchema, clientErrorCodeSchema } from "@cadence/contracts/common";
 
 /**
  * Every usage event the API accepts. Names older desktop builds still send stay
@@ -85,7 +85,7 @@ export const performanceSampleSchema = z.object({
     build_id: z.string().regex(/^[a-z0-9]{1,32}$/).optional(),
     endpoint: z.enum(PERFORMANCE_ENDPOINTS).optional(),
     status: z.number().int().min(100).max(599).optional(),
-    error_code: z.union([errorCodeSchema, z.enum(["UNKNOWN_ERROR", "UNPARSEABLE_ERROR", "NETWORK_UNAVAILABLE"])]).optional(),
+    error_code: clientErrorCodeSchema.optional(),
     phase: z.enum(STARTUP_PHASES),
     route: z.enum(STARTUP_ROUTES),
     duration_ms: z.number().finite().min(0).max(600_000),

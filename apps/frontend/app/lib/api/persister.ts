@@ -4,7 +4,10 @@ import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 import { startupMark } from "../startup-timing";
 import { log } from "../log";
 
-/** Legacy routine ranges have no zone; retain all other offline data unchanged. */
+/**
+ * Legacy routine ranges have no zone; retain all other offline data unchanged.
+ * ponytail: delete once a release with zoned keys is 14 days old (OFFLINE_CACHE_MAX_AGE); none remain then.
+ */
 function compatibleSnapshot(client: PersistedClient | undefined) {
     if (!client) return client;
     return { ...client, clientState: { ...client.clientState, queries: client.clientState.queries.filter(({ queryKey }) =>

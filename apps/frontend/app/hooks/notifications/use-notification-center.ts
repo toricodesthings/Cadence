@@ -22,22 +22,9 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { createExternalStore } from "../../lib/utils/external-store";
 
-// Shared across surfaces and remounts; released with the workspace QueryClient.
-const presentedByClient = new WeakMap<QueryClient, Map<string, Set<string>>>();
-
-function getPresentedIds(client: QueryClient, userId: string): Set<string> {
-    let accounts = presentedByClient.get(client);
-    if (!accounts) {
-        accounts = new Map();
-        presentedByClient.set(client, accounts);
-    }
-    let ids = accounts.get(userId);
-    if (!ids) {
-        ids = new Set();
-        accounts.set(userId, ids);
-    }
-    return ids;
-}
+// Keys are `${userId}:${notificationId}`, shared across surfaces and remounts; released with the workspace QueryClient.
+const presentedByClient = new WeakMap<QueryClient, Set<string>>();
+const getPresentedIds = (client: QueryClient) => presentedByClient.get(client) ?? presentedByClient.set(client, new Set()).get(client)!;
 
 const NOTIFICATION_STATE_STORAGE_KEY = "cadence_notification_state";
 
@@ -264,14 +251,15 @@ export function useNotificationCenter() {
 
     useEffect(() => {
         if (!authReady || !isAuthenticated || !userId || !stateLoaded) return;
-        const presentedIds = getPresentedIds(queryClient, userId);
+        const presentedIds = getPresentedIds(queryClient);
         const persistedIds = new Set(persistedRows.filter((row) => row.firstPresentedAt).map((row) => row.triggerId));
         const nowIso = new Date().toISOString();
 
         for (const notification of notifications) {
-            if (presentedIds.has(notification.id) || persistedIds.has(notification.id)) continue;
+            const claim = `${userId}:${notification.id}`;
+            if (presentedIds.has(claim) || persistedIds.has(notification.id)) continue;
             // Claim synchronously before starting I/O so sibling effects cannot duplicate it.
-            presentedIds.add(notification.id);
+            presentedIds.add(claim);
             trackUsageEvent("reminder.presented", {
                 object_type: notification.kind === "habit-reminder" ? "habit" : notification.kind === "system" ? "event" : "task",
             });
@@ -280,7 +268,7 @@ export function useNotificationCenter() {
                 lastPresentedAt: nowIso,
                 presentationCountIncrement: 1,
             }).then((synced) => {
-                if (!synced) presentedIds.delete(notification.id);
+                if (!synced) presentedIds.delete(claim);
             });
         }
     }, [notifications, syncNotificationState, authReady, isAuthenticated, userId, stateLoaded, persistedRows, queryClient]);
