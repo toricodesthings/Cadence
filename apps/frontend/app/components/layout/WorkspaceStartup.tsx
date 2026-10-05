@@ -54,19 +54,30 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         if (!settings || settings.privacy.usageDiagnostics === false || reported.current) return;
         reported.current = true;
         startupMark("visible_assets.start");
+        startupMark("reveal_frame.start");
+        let frame: number;
         let active = true;
         let delivered = false;
         const images = Array.from(document.querySelectorAll<HTMLImageElement>("img"))
             .filter((img) => { const r = img.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.top < window.innerHeight && r.bottom > 0 && r.left < window.innerWidth && r.right > 0; });
+        let frameTimer: ReturnType<typeof setTimeout>;
+        const frameReady = new Promise<void>((resolve) => {
+            frameTimer = setTimeout(resolve, 20_000);
+            frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { startupMark("reveal_frame.ready"); resolve(); }); });
+        });
         const assets = Promise.allSettled([
             document.fonts?.ready ?? Promise.resolve(),
             ...images.map((img) => img.decode?.() ?? Promise.resolve()),
         ]);
         let timer: ReturnType<typeof setTimeout>;
-        void Promise.race([assets, new Promise((resolve) => { timer = setTimeout(() => resolve("timeout"), 20_000); })]).then((result) => {
+        const assetResult = Promise.race([assets, new Promise((resolve) => { timer = setTimeout(() => resolve("timeout"), 20_000); })]).then((result) => {
             clearTimeout(timer);
+            if (active) startupMark("visible_assets.ready");
+            return result;
+        });
+        void Promise.all([assetResult, frameReady]).then(([result]) => {
+            clearTimeout(frameTimer);
             if (!active) return;
-            startupMark("visible_assets.ready");
             const samples = collectStartupSamples({ route: entryRoute.current, cache: cacheClass.current, platform: IS_DESKTOP_RUNTIME ? "desktop" : "web", viewport: window.innerWidth < 1120 ? "compact" : "wide" });
             const visible = samples.find((s) => s.phase === "visible_assets");
             if (visible && result === "timeout") visible.outcome = "timeout";
@@ -74,7 +85,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
             trackPerformance(samples);
             delivered = true;
         });
-        return () => { active = false; clearTimeout(timer); if (!delivered) reported.current = false; };
+        return () => { active = false; cancelAnimationFrame(frame); clearTimeout(timer); clearTimeout(frameTimer); if (!delivered) reported.current = false; };
     }, [authReady, isAuthenticated, pending, state, pathname, client, restoring, settings?.privacy?.usageDiagnostics, Boolean(settings)]);
     const message = state === "offline"
         ? "You're offline. Connect to load this workspace."

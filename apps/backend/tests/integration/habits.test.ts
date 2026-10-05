@@ -4,6 +4,9 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
+import * as rls from "../../src/platform/rls";
+import * as service from "../../src/domains/habits/habits.service";
+import type { DbClient, Tx } from "../../src/types/db";
 import { habitRoutes } from "../../src/domains/habits/habits.route";
 import { tagRoutes } from "../../src/domains/tags/tags.route";
 
@@ -205,6 +208,24 @@ describe("resolving occurrences", () => {
 });
 
 describe("views", () => {
+    it("weekly: commits the SQL snapshot before projecting non-empty routines", async () => {
+        await create();
+        const originalRls = rls.withRls;
+        const originalProjection = service.projectHabitRange;
+        let committed = false;
+        vi.spyOn(rls, "withRls").mockImplementation(async <T>(db: DbClient, userId: string, fn: (tx: Tx) => Promise<T>) => {
+            const result = await originalRls(db, userId, fn);
+            committed = true;
+            return result;
+        });
+        const projection = vi.spyOn(service, "projectHabitRange").mockImplementation((...args) => {
+            expect(committed).toBe(true);
+            return originalProjection(...args);
+        });
+        expect((await habits("GET", `/weekly?start=${day()}&end=${day()}`)).body.data).toHaveLength(1);
+        expect(projection).toHaveBeenCalledTimes(1);
+    });
+
     it("weekly: expands each day in the window with its log, and summarizes it", async () => {
         const { body: tag } = await tags("POST", "", { name: "t" });
         const habit = await create({ tagIds: [tag.data.id] });
@@ -229,6 +250,18 @@ describe("views", () => {
             pendingCountInWindow: 1,
             adherenceRateInWindow: 0.33,
         });
+    });
+
+    it("weekly: keeps creation-day and step-log rules across DST and different caller zones", async () => {
+        const habit = await create({ steps: [{ id: "step-a", title: "First" }, { id: "step-b", title: "Second" }] });
+        await asOwner(pg => pg.query("UPDATE habits SET created_at = '2026-03-08T02:30:00.000Z' WHERE id = $1", [habit.id]));
+        const logged = await habits("POST", `/${habit.id}/resolve`, { targetDate: "2026-03-08", status: "PENDING", stepStatus: { "step-a": "COMPLETED" }, timezone: "America/New_York" });
+        expect(logged.status).toBe(200);
+        const ny = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10&timezone=America%2FNew_York")).body.data[0];
+        const tokyo = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10&timezone=Asia%2FTokyo")).body.data[0];
+        expect(ny.logs.map((log: any) => log.targetDate)).toEqual(["2026-03-06", "2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10"]);
+        expect(tokyo.logs.map((log: any) => log.targetDate)).toEqual(["2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10"]);
+        expect(ny.logs.find((log: any) => log.targetDate === "2026-03-08")).toMatchObject({ id: logged.body.data.log.id, status: "PENDING", stepStatus: { "step-a": "COMPLETED" } });
     });
 
     it("weekly: a pause hides today onward, never the days already checked", async () => {

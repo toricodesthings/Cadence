@@ -25,8 +25,9 @@ describe("frontend diagnostics privacy boundary", () => {
         expect(clientErrorBatchSchema.safeParse({ errors: Array(TRACK_BATCH_MAX + 1).fill(error) }).success).toBe(false);
     });
     it("bounds timings and rejects private dimensions", () => {
-        expect(performanceBatchSchema.safeParse({ samples: [sample] }).success).toBe(true);
-        for (const unsafe of [{ ...sample, duration_ms: Infinity }, { ...sample, duration_ms: -1 }, { ...sample, elapsed_ms: 600001 }, { ...sample, queryKey: ["tasks", "private"] }]) {
+        expect(performanceBatchSchema.parse({ samples: [sample] }).samples[0].measurement_revision).toBe(1);
+        expect(performanceBatchSchema.safeParse({ samples: [{ ...sample, measurement_revision: 2, build_id: "abc123", endpoint: "notification_state", status: 503, error_code: "INTERNAL_ERROR" }] }).success).toBe(true);
+        for (const unsafe of [{ ...sample, duration_ms: Infinity }, { ...sample, duration_ms: -1 }, { ...sample, elapsed_ms: 600001 }, { ...sample, queryKey: ["tasks", "private"] }, { ...sample, build_id: "private@example.test" }, { ...sample, endpoint: "/settings/private" }, { ...sample, measurement_revision: 3 }, { ...sample, error_code: "private" }]) {
             expect(performanceBatchSchema.safeParse({ samples: [unsafe] }).success).toBe(false);
         }
     });

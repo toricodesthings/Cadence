@@ -20,10 +20,11 @@ export async function withRls<T>(
             // Automatic Hyperdrive spans stop at connect(), before the driver opens
             // the transaction. These timings expose that gap without SQL or identity.
             span.setAttribute("db.begin_ms", Date.now() - startedAt);
-            await tracing.enterSpan("db.rls.context", () => tx.execute(
+            // Drizzle queries are thenables; tracing only awaits native Promises.
+            await tracing.enterSpan("db.rls.context", async () => tx.execute(
                 sql`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: userId })}, true)`,
             ));
-            const value = await tracing.enterSpan("db.rls.work", () => fn(tx));
+            const value = await tracing.enterSpan("db.rls.work", async () => fn(tx));
             workEndedAt = Date.now();
             return value;
         });

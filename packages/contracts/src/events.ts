@@ -72,13 +72,20 @@ export type TrackEvent = z.infer<typeof trackEventSchema>;
 export type UsageEvent = TrackEvent["event"];
 
 // Fixed dimensions keep browser telemetry private and useful for percentile graphs.
-export const STARTUP_PHASES = ["session", "restore", "jwt", "required_data", "chunks", "reveal", "visible_assets", "api"] as const;
+export const STARTUP_PHASES = ["session", "restore", "jwt", "required_data", "chunks", "reveal", "visible_assets", "api", "api_body", "hydrate", "reveal_frame"] as const;
 export const STARTUP_ROUTES = ["capture", "today", "schedule", "routines", "list", "tag", "upcoming", "completed", "trash", "events", "browse", "weekly_reset", "other"] as const;
 export const PERFORMANCE_CACHE_CLASSES = ["warm", "cold", "unknown"] as const;
 export const PERFORMANCE_PLATFORMS = ["web", "desktop"] as const;
 export const PERFORMANCE_VIEWPORTS = ["compact", "wide"] as const;
 export const PERFORMANCE_CATEGORIES = ["workspace", "tasks", "projects", "tags", "inbox", "habits", "settings", "subtasks", "appearance", "other"] as const;
+export const PERFORMANCE_ENDPOINTS = ["workspace", "tasks_open", "tasks_capture", "tasks_schedule", "tasks_history", "tasks_batch", "task_detail", "settings", "notification_state", "focus_views", "inbox_clarifying", "inbox_kept", "habits_range", "habits", "projects", "tags", "subtasks", "appearance", "proxy", "debug_capabilities", "other"] as const;
 export const performanceSampleSchema = z.object({
+    // Old clients retain their historical timing definitions and an explicit legacy cohort.
+    measurement_revision: z.union([z.literal(1), z.literal(2)]).default(1),
+    build_id: z.string().regex(/^[a-z0-9]{1,32}$/).optional(),
+    endpoint: z.enum(PERFORMANCE_ENDPOINTS).optional(),
+    status: z.number().int().min(100).max(599).optional(),
+    error_code: z.union([errorCodeSchema, z.enum(["UNKNOWN_ERROR", "UNPARSEABLE_ERROR", "NETWORK_UNAVAILABLE"])]).optional(),
     phase: z.enum(STARTUP_PHASES),
     route: z.enum(STARTUP_ROUTES),
     duration_ms: z.number().finite().min(0).max(600_000),

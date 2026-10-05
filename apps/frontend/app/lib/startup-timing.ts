@@ -1,12 +1,15 @@
+import { CADENCE_BUILD_ID } from "./constants/app-info";
 import { STARTUP_ROUTES, type PerformanceSample } from "@cadence/contracts/events";
 
 type Phase = PerformanceSample["phase"];
 const marks = new Map<string, number>();
-const reads: Array<{ duration_ms: number; category: PerformanceSample["category"]; outcome: PerformanceSample["outcome"] }> = [];
+type ReadDetails = Pick<PerformanceSample, "endpoint" | "status" | "error_code">;
+const reads: Array<ReadDetails & { phase: "api" | "api_body"; elapsed_ms: number; duration_ms: number; category: PerformanceSample["category"]; outcome: PerformanceSample["outcome"] }> = [];
+const cohort = { measurement_revision: 2 as const, build_id: CADENCE_BUILD_ID, endpoint: "workspace" as const };
 let finished = false;
 
 /** Local fixed-name marks only. Delivery is gated separately by account settings. */
-export function startupMark(name: `${Exclude<Phase, "api">}.${"start" | "ready"}`) {
+export function startupMark(name: `${Exclude<Phase, "api" | "api_body">}.${"start" | "ready"}`) {
     if (typeof window === "undefined" || marks.has(name) || finished) return;
     const time = performance.now();
     marks.set(name, time);
@@ -20,8 +23,38 @@ export function resetStartupTiming(collect = true) {
     finished = !collect;
 }
 
-export function recordStartupRead(category: PerformanceSample["category"], start: number, outcome: PerformanceSample["outcome"]) {
-    if (!finished && !marks.has("reveal.ready") && reads.length < 30) reads.push({ category, duration_ms: performance.now() - start, outcome });
+export function recordStartupRead(category: PerformanceSample["category"], start: number, outcome: PerformanceSample["outcome"], details: ReadDetails = {}, phase: "api" | "api_body" = "api") {
+    const end = performance.now();
+    // Leave room for phase samples in the existing bounded delivery batch.
+    if (!finished && !marks.has("reveal.ready") && reads.length < 40) {
+        reads.push({ ...details, phase, category, duration_ms: end - start, elapsed_ms: end, outcome });
+        performance.measure?.(`cadence.startup.${phase}.${details.endpoint ?? category}`, { start, end });
+    }
+}
+
+/** Never retain URLs, task IDs or arbitrary query predicates in diagnostic dimensions. */
+export function startupEndpoint(url: URL): PerformanceSample["endpoint"] {
+    const path = url.pathname.replace(/^\/api\/v1/, "");
+    if (path === "/tasks" || path === "/tasks/") {
+        if (["COMPLETE", "ARCHIVED"].includes(url.searchParams.get("state") ?? "")) return "tasks_history";
+        if (url.searchParams.has("scheduledDate") || url.searchParams.has("scheduledRangeStart")) return "tasks_schedule";
+        if (url.searchParams.get("hasNoDate") === "true" && url.searchParams.get("hasNoProject") === "true") return "tasks_capture";
+        return "tasks_open";
+    }
+    if (path === "/debug/capabilities") return "debug_capabilities";
+    if (path === "/tasks/batch") return "tasks_batch";
+    if (/^\/tasks\/[^/]+$/.test(path)) return "task_detail";
+    if (path === "/settings/notification-state") return "notification_state";
+    if (path.startsWith("/settings/focus-views")) return "focus_views";
+    if (path === "/settings" || path === "/settings/") return "settings";
+    if (path === "/inbox" || path === "/inbox/") return url.searchParams.get("status") === "kept" ? "inbox_kept" : "inbox_clarifying";
+    if (path === "/habits/weekly") return "habits_range";
+    if (path === "/habits" || path === "/habits/") return "habits";
+    if (path.startsWith("/proxy/")) return "proxy";
+    if (path === "/settings/background") return "appearance";
+    if (path.includes("/subtasks")) return "subtasks";
+    for (const endpoint of ["projects", "tags"] as const) if (path === `/${endpoint}` || path === `/${endpoint}/`) return endpoint;
+    return "other";
 }
 
 export function startupRoute(path: string): PerformanceSample["route"] {
@@ -36,7 +69,7 @@ export function startupRoute(path: string): PerformanceSample["route"] {
 export function startupFailureSample(context: Pick<PerformanceSample, "route" | "platform" | "viewport" | "cache">, outcome: "error" | "network_unavailable"): PerformanceSample | null {
     const now = performance.now();
     if (finished || now > 600_000) return null;
-    return { ...context, phase: "required_data", outcome, category: "workspace", count: 0, encoded_bytes: 0, decoded_bytes: 0,
+    return { ...context, ...cohort, phase: "required_data", outcome, category: "workspace", count: 0, encoded_bytes: 0, decoded_bytes: 0,
         duration_ms: Math.round(Math.min(600_000, now - (marks.get("required_data.start") ?? 0))), elapsed_ms: Math.round(Math.min(600_000, now)) };
 }
 
@@ -47,10 +80,10 @@ export function collectStartupSamples(context: Pick<PerformanceSample, "route" |
     const samples: PerformanceSample[] = [];
     const add = (phase: Phase, start: number, end: number, count = 0, encoded_bytes = 0, decoded_bytes = 0) => {
         if (end < start || end > 600_000) return;
-        samples.push({ ...context, phase, duration_ms: Math.round(end - start), elapsed_ms: Math.round(end), outcome: "ready", category: "workspace", count, encoded_bytes, decoded_bytes });
+        samples.push({ ...context, ...cohort, phase, duration_ms: Math.round(end - start), elapsed_ms: Math.round(end), outcome: "ready", category: "workspace", count, encoded_bytes, decoded_bytes });
         performance.measure?.(`cadence.startup.${phase}`, { start, end });
     };
-    for (const phase of ["session", "restore", "jwt", "required_data", "chunks", "visible_assets"] as const) {
+    for (const phase of ["session", "restore", "jwt", "required_data", "chunks", "visible_assets", "hydrate", "reveal_frame"] as const) {
         const end = marks.get(`${phase}.ready`);
         if (end !== undefined) add(phase, marks.get(`${phase}.start`) ?? 0, end);
     }
@@ -60,7 +93,7 @@ export function collectStartupSamples(context: Pick<PerformanceSample, "route" |
         const js = resources.filter((r) => r.startTime <= reveal && (r.initiatorType === "script" || /\/assets\/[^?]+\.js(?:\?|$)/.test(r.name)));
         add("reveal", 0, reveal, js.length, Math.round(js.reduce((n, r) => n + r.encodedBodySize, 0)), Math.round(js.reduce((n, r) => n + r.decodedBodySize, 0)));
     }
-    for (const read of reads.filter((r) => r.duration_ms >= 0 && r.duration_ms <= 600_000)) samples.push({ ...context, ...read, phase: "api", elapsed_ms: Math.round(reveal ?? performance.now()), duration_ms: Math.round(read.duration_ms), count: 1, encoded_bytes: 0, decoded_bytes: 0 });
+    for (const read of reads.filter((r) => r.duration_ms >= 0 && r.duration_ms <= 600_000)) samples.push({ ...context, ...cohort, ...read, elapsed_ms: Math.round(read.phase === "api" ? reveal ?? performance.now() : read.elapsed_ms), duration_ms: Math.round(read.duration_ms), count: 1, encoded_bytes: 0, decoded_bytes: 0 });
     finished = true;
     return samples;
 }

@@ -122,7 +122,7 @@ interface** — the parity guard only covers the Row subset.
   `AppError` and `DomainError` take one), and the wire-format boundary helpers
   `isDateOnly`/`normalizeStartBoundary`/`normalizeEndBoundary`.
 - **task** also holds the `GET /tasks` filters (`taskFiltersSchema`,
-  `taskListQuerySchema`); **events** the usage-event names, batch cap and strict frontend-performance and error samples with shared low-cardinality dimensions;
+  `taskListQuerySchema`); **events** the usage-event names, batch cap and strict frontend-performance and error samples with bounded endpoint/status/error and build/revision dimensions (legacy defaults to revision 1);
   **proxy** the weather/geocoding/holiday queries and responses;
   **notification** reminder state (Row + Entity + upsert).
 

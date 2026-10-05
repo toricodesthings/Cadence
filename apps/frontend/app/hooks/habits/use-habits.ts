@@ -32,7 +32,7 @@ export function useHabitsRange({ start, end, archived = false, enabled = true, t
 export function habitsRangeQueryOptions(client: ApiClient, { start, end, archived = false, timezone }: Omit<UseHabitsRangeOptions, "enabled">) {
     const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     return queryOptions({
-        queryKey: [...queryKeys.habits.weekly({ start, end }), archived],
+        queryKey: [...queryKeys.habits.weekly({ start, end, timezone: tz }), archived],
         staleTime: STALE_TIMES.HABITS,
         queryFn: async () => {
             const res = await client.api.habits.weekly.$get({

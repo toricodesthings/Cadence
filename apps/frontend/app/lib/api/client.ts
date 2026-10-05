@@ -7,7 +7,8 @@ import { API_BASE_URL, NEON_AUTH_URL } from "../env";
 import { platformFetch } from "../../platform/runtime";
 import { log } from "../log";
 import { REQUEST_TIMEOUT_MS } from "./request-deadline";
-import { startupMark, recordStartupRead } from "../startup-timing";
+import { startupMark, recordStartupRead, startupEndpoint } from "../startup-timing";
+import { errorCodeSchema } from "@cadence/contracts/common";
 import { PERFORMANCE_CATEGORIES, type PerformanceSample } from "@cadence/contracts/events";
 
 export interface AuthenticatedFetchOptions extends RequestInit {
@@ -193,17 +194,33 @@ export const apiClient = {
         fetch: async (input: RequestInfo | URL, requestInit?: RequestInit) => {
             const start = performance.now();
             const generation = _authGeneration;
-            const path = new URL(input instanceof Request ? input.url : String(input), API_BASE_URL).pathname;
+            const url = new URL(input instanceof Request ? input.url : String(input), API_BASE_URL);
+            const path = url.pathname;
+            const endpoint = startupEndpoint(url);
             const domain = path.split("/")[3];
             const category: PerformanceSample["category"] = (PERFORMANCE_CATEGORIES as readonly string[]).includes(domain)
                 ? domain as PerformanceSample["category"] : "other";
             const measured = (requestInit?.method ?? "GET") === "GET";
             try {
                 const response = await authenticatedFetch(input, { ...requestInit, authenticated: true });
-                if (measured && generation === _authGeneration) recordStartupRead(category, start, response.ok ? "ready" : "error");
+                if (measured && generation === _authGeneration) recordStartupRead(category, start, response.ok ? "ready" : "error", { endpoint, status: response.status });
+                // Measure only the body's normal consumption; never clone/drain it or delay headers.
+                const json = response.json.bind(response);
+                response.json = async () => {
+                    const bodyStart = performance.now();
+                    try {
+                        const body = await json();
+                        const code = response.ok ? undefined : errorCodeSchema.safeParse((body as { error?: { code?: unknown } } | null)?.error?.code);
+                        if (measured && generation === _authGeneration) recordStartupRead(category, bodyStart, response.ok ? "ready" : "error", { endpoint, status: response.status, ...(code?.success ? { error_code: code.data } : {}) }, "api_body");
+                        return body;
+                    } catch (error) {
+                        if (measured && generation === _authGeneration) recordStartupRead(category, bodyStart, "error", { endpoint, status: response.status }, "api_body");
+                        throw error;
+                    }
+                };
                 return response;
             } catch (error) {
-                if (measured && generation === _authGeneration) recordStartupRead(category, start, error instanceof ApiErrorResponse && error.code === "NETWORK_UNAVAILABLE" ? "network_unavailable" : "error");
+                if (measured && generation === _authGeneration) recordStartupRead(category, start, error instanceof ApiErrorResponse && error.code === "NETWORK_UNAVAILABLE" ? "network_unavailable" : "error", { endpoint, ...(error instanceof ApiErrorResponse ? { error_code: error.code } : {}) });
                 throw error;
             }
         },

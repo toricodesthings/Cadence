@@ -7,7 +7,8 @@ export function useAdminCapabilities() {
     const { authReady, isAuthenticated, session } = useAuthState();
 
     return useQuery({
-        queryKey: ["admin-capabilities", session?.session?.token ?? null],
+        queryKey: ["admin-capabilities", session?.user.id ?? null],
+        meta: { persist: false },
         enabled: authReady && isAuthenticated,
         retry: false,
         staleTime: 5 * 60 * 1000,

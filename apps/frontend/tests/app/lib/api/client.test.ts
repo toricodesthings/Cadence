@@ -38,6 +38,26 @@ describe("api/client", () => {
         }));
     });
 
+    it("returns headers before consuming a JSON body and records only bounded diagnostics", async () => {
+        const { apiClient, seedAuthJwtCache } = await import("../../../../app/lib/api/client");
+        const { resetStartupTiming, collectStartupSamples } = await import("../../../../app/lib/startup-timing");
+        resetStartupTiming();
+        seedAuthJwtCache(jwt({ sub: "user", exp: Date.now() / 1000 + 60 }), "user");
+        let controller!: ReadableStreamDefaultController<Uint8Array>;
+        const response = new Response(new ReadableStream<Uint8Array>({ start(value) { controller = value; } }), { status: 503 });
+        platformFetchMock.mockResolvedValue(response);
+        const result = await apiClient.api.tasks.$get({ query: {} });
+        expect(result.bodyUsed).toBe(false);
+        const body = result.json();
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ error: { code: "INTERNAL_ERROR", message: "private content" } })));
+        controller.close();
+        await body;
+        const samples = collectStartupSamples({ route: "capture", platform: "web", viewport: "wide", cache: "cold" });
+        expect(samples.filter(s => s.phase === "api" || s.phase === "api_body").map(s => [s.phase, s.endpoint, s.status])).toEqual([["api", "tasks_open", 503], ["api_body", "tasks_open", 503]]);
+        expect(samples.find(s => s.phase === "api_body")).toMatchObject({ outcome: "error", error_code: "INTERNAL_ERROR" });
+        expect(JSON.stringify(samples)).not.toContain("private content");
+    });
+
     const jwt = (payload: object) => `e30.${btoa(JSON.stringify(payload)).replaceAll("=", "")}.signature`;
     it("seeds only an unexpired JWT belonging to the resolved account", async () => {
         const { seedAuthJwtCache, authenticatedFetch } = await import("../../../../app/lib/api/client");

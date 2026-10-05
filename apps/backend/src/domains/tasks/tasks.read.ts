@@ -92,7 +92,7 @@ export async function readTasks(tx: Tx, userId: string, filters: NormalizedTaskF
 export async function readTaskBatch(tx: Tx, userId: string, queries: TaskBatchFilters): Promise<TaskBatch> {
     const filters = queries.map(normalizeTaskFilters);
     const predicates = filters.map((filter) => and(...buildTaskWhereClause(userId, filter))!);
-    const rows = await tracing.enterSpan("tasks.batch.read", () => tx.query.tasks.findMany({
+    const rows = await tracing.enterSpan("tasks.batch.read", async () => tx.query.tasks.findMany({
         where: or(...predicates),
         orderBy: manualOrder,
         with: tagLinks,

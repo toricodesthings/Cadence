@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Notification surfaces share saved reminder state and avoid duplicate database writes when opened.
+- Routine calendar data stays accurate after switching time zones.
+
 ## [0.25.9] - 2026-10-04
 
 ### Changed

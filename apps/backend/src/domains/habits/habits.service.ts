@@ -1,5 +1,5 @@
 import { and, eq, inArray, min, sql } from "drizzle-orm";
-import type { InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
+import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
 import { addDaysToDate, habitOccurrences, habitRule, isPausedOn, localDay, stepDayStatus } from "@cadence/domain/repeats";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { assertNoConflict, throwIfNotFound } from "../../platform/errors";
@@ -46,6 +46,61 @@ export function habitDays<L extends { targetDate: string }>(
         .filter((date) => date >= firstDay || logsByDate.has(date))
         .filter((date) => !isPausedOn(habit.pausedUntil, date, today))
         .map((date) => ({ date, log: logsByDate.get(date) }));
+}
+
+/** Expand the committed SQL snapshot after releasing its RLS connection. */
+export function projectHabitRange(
+    { userHabits, logs, allTags }: { userHabits: HabitRow[]; logs: HabitLog[]; allTags: { habitId: string; tagId: string }[] },
+    { start, end, timeZone: tz, today: todayStr }: { start: string; end: string; timeZone: string; today: string },
+) {
+    const tagsByHabit = new Map<string, string[]>();
+    for (const t of allTags) {
+        const arr = tagsByHabit.get(t.habitId) || [];
+        arr.push(t.tagId);
+        tagsByHabit.set(t.habitId, arr);
+    }
+
+    const logsByHabit = new Map<string, Map<string, (typeof logs)[number]>>();
+    for (const log of logs) {
+        if (!logsByHabit.has(log.habitId)) logsByHabit.set(log.habitId, new Map());
+        logsByHabit.get(log.habitId)!.set(log.targetDate, log);
+    }
+
+    return userHabits.map((habit) => {
+        const days = habitDays(habit, logsByHabit.get(habit.id) ?? new Map(), start, end, tz, todayStr);
+        const logsHydrated = days.map(({ date: dateKey, log: existingLog }) => ({
+            id: existingLog?.id || `virt_${dateKey}`,
+            habitId: habit.id,
+            status: existingLog?.status || "PENDING",
+            targetDate: dateKey,
+            completedAt: existingLog?.completedAt || null,
+            stepStatus: existingLog?.stepStatus ?? null,
+        }));
+
+        // Compute window summary
+        const completedInWindow = logsHydrated.filter(l => l.status === "COMPLETED").length;
+        const pendingInWindow = logsHydrated.filter(l => l.status === "PENDING").length;
+        const scheduledInWindow = logsHydrated.length;
+        const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
+
+        // Determine due-today and overdue status
+        const isDueToday = days.some((day) => day.date === todayStr);
+        const isOverdue = logsHydrated.some(l =>
+            l.status === "PENDING" && l.targetDate < todayStr
+        );
+
+        return {
+            ...habit,
+            tagIds: tagsByHabit.get(habit.id) || [],
+            logs: logsHydrated,
+            isDueToday,
+            isOverdue,
+            pendingCountInWindow: pendingInWindow,
+            completedCountInWindow: completedInWindow,
+            scheduledCountInWindow: scheduledInWindow,
+            adherenceRateInWindow: Math.round(adherenceInWindow * 100) / 100,
+        };
+    });
 }
 
 /**

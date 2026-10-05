@@ -1,3 +1,4 @@
+import { tracing } from "cloudflare:workers";
 import { Hono } from "hono";
 import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
@@ -12,7 +13,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { createHabit, deleteHabit, habitDays, resolveHabit, updateHabit } from "./habits.service";
+import { createHabit, deleteHabit, projectHabitRange, resolveHabit, updateHabit } from "./habits.service";
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/:id/resolve", apiValidator("param", uuidParamSchema), apiValidator("json", resolveHabitActionSchema), async (c) => {
@@ -80,7 +81,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const tz = resolveTimeZone(timezone);
         const todayStr = localDay(new Date(), tz);
 
-        const result = await withRls(db, userId, async (tx) => {
+        const snapshot = await withRls(db, userId, async (tx) => {
             const userHabits = await tx
                 .select()
                 .from(habits)
@@ -89,7 +90,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     eq(habits.archived, archived || false)
                 ));
 
-            if (userHabits.length === 0) return [];
+            if (userHabits.length === 0) return { userHabits, logs: [], allTags: [] };
 
             const habitIds = userHabits.map((h) => h.id);
 
@@ -109,57 +110,18 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     .where(inArray(habitTags.habitId, habitIds)),
             ]);
 
-            const tagsByHabit = new Map<string, string[]>();
-            for (const t of allTags) {
-                const arr = tagsByHabit.get(t.habitId) || [];
-                arr.push(t.tagId);
-                tagsByHabit.set(t.habitId, arr);
-            }
-
-            const logsByHabit = new Map<string, Map<string, (typeof logs)[number]>>();
-            for (const log of logs) {
-                if (!logsByHabit.has(log.habitId)) logsByHabit.set(log.habitId, new Map());
-                logsByHabit.get(log.habitId)!.set(log.targetDate, log);
-            }
-
-            return userHabits.map((habit) => {
-                const days = habitDays(habit, logsByHabit.get(habit.id) ?? new Map(), start, end, tz, todayStr);
-                const logsHydrated = days.map(({ date: dateKey, log: existingLog }) => ({
-                    id: existingLog?.id || `virt_${dateKey}`,
-                    habitId: habit.id,
-                    status: existingLog?.status || "PENDING",
-                    targetDate: dateKey,
-                    completedAt: existingLog?.completedAt || null,
-                    stepStatus: existingLog?.stepStatus ?? null,
-                }));
-
-                // Compute window summary
-                const completedInWindow = logsHydrated.filter(l => l.status === "COMPLETED").length;
-                const pendingInWindow = logsHydrated.filter(l => l.status === "PENDING").length;
-                const scheduledInWindow = logsHydrated.length;
-                const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
-
-                // Determine due-today and overdue status
-                const isDueToday = days.some((day) => day.date === todayStr);
-                const isOverdue = logsHydrated.some(l =>
-                    l.status === "PENDING" && l.targetDate < todayStr
-                );
-
-                return {
-                    ...habit,
-                    tagIds: tagsByHabit.get(habit.id) || [],
-                    logs: logsHydrated,
-                    isDueToday,
-                    isOverdue,
-                    pendingCountInWindow: pendingInWindow,
-                    completedCountInWindow: completedInWindow,
-                    scheduledCountInWindow: scheduledInWindow,
-                    adherenceRateInWindow: Math.round(adherenceInWindow * 100) / 100,
-                };
-            });
+            return { userHabits, logs, allTags };
         });
 
         c.header("Cache-Control", "private, no-store");
+        const result = tracing.enterSpan("habits.range.project", (span) => {
+            const projected = projectHabitRange(snapshot, { start, end, timeZone: tz, today: todayStr });
+            span.setAttribute("habits.count", snapshot.userHabits.length);
+            const rangeDays = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
+            if (Number.isFinite(rangeDays)) span.setAttribute("habits.range_days", Math.max(0, rangeDays));
+            span.setAttribute("habits.expanded_days", projected.reduce((total, habit) => total + habit.logs.length, 0));
+            return projected;
+        });
         return c.json({ data: result });
     })
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {

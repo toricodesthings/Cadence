@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useSyncExternalStore, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import type {  UpsertNotificationState } from "@cadence/contracts/notification";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import type { NotificationState, UpsertNotificationState } from "@cadence/contracts/notification";
 import { useTasks } from "../tasks/use-tasks";
 import { useHabitsRange } from "../habits/use-habits";
 import { toISODate } from "../../lib/utils/date-format";
@@ -19,7 +19,25 @@ import type { AppNotification, NotificationGroup } from "../../lib/notifications
 import { groupNotification, GROUP_ORDER } from "../../lib/notifications/notification-model";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { unwrapResponse } from "../../lib/api/helpers";
+import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { createExternalStore } from "../../lib/utils/external-store";
+
+// Shared across surfaces and remounts; released with the workspace QueryClient.
+const presentedByClient = new WeakMap<QueryClient, Map<string, Set<string>>>();
+
+function getPresentedIds(client: QueryClient, userId: string): Set<string> {
+    let accounts = presentedByClient.get(client);
+    if (!accounts) {
+        accounts = new Map();
+        presentedByClient.set(client, accounts);
+    }
+    let ids = accounts.get(userId);
+    if (!ids) {
+        ids = new Set();
+        accounts.set(userId, ids);
+    }
+    return ids;
+}
 
 const NOTIFICATION_STATE_STORAGE_KEY = "cadence_notification_state";
 
@@ -99,6 +117,7 @@ export interface GroupedNotifications {
 
 export function useNotificationCenter() {
     const client = useApiClient();
+    const queryClient = useQueryClient();
     const { data: settings } = useSettings();
     const taskReminders = settings?.notifications?.taskReminders ?? true;
     const habitReminders = settings?.notifications?.habitReminders ?? true;
@@ -116,17 +135,17 @@ export function useNotificationCenter() {
     // routine is due, paused or already checked.
     const today = toISODate(new Date());
     const { data: habits = [] } = useHabitsRange({ start: today, end: today });
-    const presentedRef = useRef<Set<string>>(new Set());
-
-    const { authReady, isAuthenticated } = useAuthState();
-    const { data: persistedRows = [] } = useQuery({
-        queryKey: ["notification-state"],
+    const { authReady, isAuthenticated, session } = useAuthState();
+    const userId = session?.user.id;
+    const stateKey = queryKeys.settings.notificationState(userId);
+    const { data: persistedRows = [], isSuccess: stateLoaded } = useQuery({
+        queryKey: stateKey,
         enabled: authReady && isAuthenticated,
         queryFn: async () => {
             const res = await client.api.settings["notification-state"].$get();
             return unwrapResponse(res);
         },
-        staleTime: 60_000,
+        staleTime: STALE_TIMES.NOTIFICATIONS,
     });
 
     // Track version so we re-derive when read/dismissed/deferred changes
@@ -167,24 +186,25 @@ export function useNotificationCenter() {
 
     const syncNotificationState = useCallback(async (notification: AppNotification, payload: Omit<UpsertNotificationState, "triggerId" | "objectId" | "objectType">) => {
         const record = toNotificationRecord(notification);
-        if (!record) return;
+        if (!record || !authReady || !isAuthenticated || !userId) return false;
 
         try {
-            await client.api.settings["notification-state"].$post({
-                json: {
-                    ...record,
-                    firstPresentedAt: payload.firstPresentedAt,
-                    lastPresentedAt: payload.lastPresentedAt,
-                    dismissedAt: payload.dismissedAt,
-                    deferredUntil: payload.deferredUntil,
-                    actionTaken: payload.actionTaken,
-                    presentationCountIncrement: payload.presentationCountIncrement,
-                },
+            const response = await client.api.settings["notification-state"].$post({
+                json: { ...record, ...payload },
             });
+            const row = await unwrapResponse(response);
+            queryClient.setQueryData<NotificationState[]>(queryKeys.settings.notificationState(userId), (rows = []) => {
+                const existing = rows.find((item) => item.objectId === row.objectId && item.triggerId === row.triggerId);
+                // Concurrent actions can return out of order; keep the newer server state.
+                if (existing && existing.updatedAt > row.updatedAt) return rows;
+                return [...rows.filter((item) => item !== existing), row];
+            });
+            return true;
         } catch {
             // Best-effort sync; local persistence remains authoritative until next refresh.
+            return false;
         }
-    }, [client]);
+    }, [client, queryClient, authReady, isAuthenticated, userId]);
 
     // §11.7: 3-step pipeline — candidates → behavior filter → presentation rules
     const allNotifications = useMemo(() => {
@@ -243,24 +263,27 @@ export function useNotificationCenter() {
     const hasUnread = unreadCount > 0;
 
     useEffect(() => {
+        if (!authReady || !isAuthenticated || !userId || !stateLoaded) return;
+        const presentedIds = getPresentedIds(queryClient, userId);
+        const persistedIds = new Set(persistedRows.filter((row) => row.firstPresentedAt).map((row) => row.triggerId));
         const nowIso = new Date().toISOString();
 
         for (const notification of notifications) {
-            if (presentedRef.current.has(notification.id)) continue;
-            presentedRef.current.add(notification.id);
+            if (presentedIds.has(notification.id) || persistedIds.has(notification.id)) continue;
+            // Claim synchronously before starting I/O so sibling effects cannot duplicate it.
+            presentedIds.add(notification.id);
             trackUsageEvent("reminder.presented", {
                 object_type: notification.kind === "habit-reminder" ? "habit" : notification.kind === "system" ? "event" : "task",
             });
             void syncNotificationState(notification, {
                 firstPresentedAt: nowIso,
                 lastPresentedAt: nowIso,
-                dismissedAt: null,
-                deferredUntil: null,
-                actionTaken: "presented",
                 presentationCountIncrement: 1,
+            }).then((synced) => {
+                if (!synced) presentedIds.delete(notification.id);
             });
         }
-    }, [notifications, syncNotificationState]);
+    }, [notifications, syncNotificationState, authReady, isAuthenticated, userId, stateLoaded, persistedRows, queryClient]);
 
     const setRead = useCallback((id: string, read: boolean) => {
         if (read) readIds.add(id); else readIds.delete(id);

@@ -4,6 +4,14 @@ import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 import { startupMark } from "../startup-timing";
 import { log } from "../log";
 
+/** Legacy routine ranges have no zone; retain all other offline data unchanged. */
+function compatibleSnapshot(client: PersistedClient | undefined) {
+    if (!client) return client;
+    return { ...client, clientState: { ...client.clientState, queries: client.clientState.queries.filter(({ queryKey }) =>
+        queryKey[0] !== "habits" || queryKey[1] !== "weekly" ||
+        (typeof queryKey[2] === "object" && queryKey[2] !== null && "timezone" in queryKey[2])) } };
+}
+
 const IDB_KEY = "cadence-query-cache";
 // All account transitions share the same device cache key: serialize writes/removal.
 let storageWork: Promise<unknown> = Promise.resolve();
@@ -75,13 +83,14 @@ export function createIDBPersister(): ManagedPersister {
         },
         restoreClient: async () => {
             startupMark("restore.start");
+            startupMark("hydrate.start");
             try {
                 await storageWork.catch(() => {});
                 if (IS_DESKTOP_RUNTIME) {
                     const store = await getNativeStore("cadence_cache");
-                    if (store) return (await store.get<PersistedClient>(IDB_KEY)) ?? undefined;
+                    if (store) return compatibleSnapshot((await store.get<PersistedClient>(IDB_KEY)) ?? undefined);
                 }
-                return (await get<PersistedClient>(IDB_KEY)) ?? undefined;
+                return compatibleSnapshot((await get<PersistedClient>(IDB_KEY)) ?? undefined);
             } finally {
                 startupMark("restore.ready");
             }

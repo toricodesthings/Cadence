@@ -65,7 +65,7 @@ describe("trackUsageEvent diagnostics gate", () => {
         setDiagnosticsEnabled(true);
         setCrashReportsEnabled(true);
         trackClientError(new Error("private"), "query");
-        trackPerformance([{ phase: "reveal", route: "capture", duration_ms: 10, elapsed_ms: 10, cache: "warm", outcome: "ready", platform: "web", viewport: "wide", category: "workspace", count: 0, encoded_bytes: 0, decoded_bytes: 0 }]);
+        trackPerformance([{ measurement_revision: 1, phase: "reveal", route: "capture", duration_ms: 10, elapsed_ms: 10, cache: "warm", outcome: "ready", platform: "web", viewport: "wide", category: "workspace", count: 0, encoded_bytes: 0, decoded_bytes: 0 }]);
         setDiagnosticsEnabled(false);
         setCrashReportsEnabled(false);
         setDiagnosticsEnabled(true);
