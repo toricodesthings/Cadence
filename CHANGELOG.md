@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-04
+
 ### Fixed
 
 - Notification surfaces share saved reminder state and avoid duplicate database writes when opened.
