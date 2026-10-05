@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, asc, count, eq, desc, ilike, inArray, isNull, max } from "drizzle-orm";
+import { and, asc, count, eq, desc, exists, ilike, inArray, isNull, max, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { projects, taskSections, tasks } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
@@ -35,10 +35,10 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
     // ── R ──────────────────────────────────────────────────────────────────
     get_projects: tool({
         description: "The user's lists (projects in code), with their sections, including empty ones. " +
-            "Search list names with query or select one projectId. nextOffset pages lists. " +
+            "Search list and section names with query (\"COMP3005\" finds the list holding that section) or select one projectId. nextOffset pages lists. " +
             "sectionsMore means sections are incomplete: select a projectId, then search sectionQuery or page with nextSectionOffset.",
         inputSchema: z.object({
-            query: z.string().trim().min(1).max(200).optional().describe("Words in the list name, case-insensitive."),
+            query: z.string().trim().min(1).max(200).optional().describe("Words in the list name or one of its section names, case-insensitive."),
             projectId: z.uuid().optional().describe("One list with its sections."),
             offset: offsetSchema.describe("List offset from nextOffset; omit for the first page."),
             sectionQuery: z.string().trim().min(1).max(200).optional().describe("Words in a section name; requires projectId."),
@@ -57,7 +57,12 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                         })
                         .from(projects)
                         .where(and(eq(projects.userId, userId), projectId ? eq(projects.id, projectId) : undefined,
-                            query ? ilike(projects.name, namePattern(query)) : undefined))
+                            // Each word in the list's name or a section's: "comp 3005" finds University › COMP3005.
+                            ...(query?.split(/\s+/).slice(0, 8) ?? []).map((word) => or(
+                                ilike(projects.name, namePattern(word)),
+                                exists(tx.select({ id: taskSections.id }).from(taskSections)
+                                    .where(and(eq(taskSections.projectId, projects.id), ilike(taskSections.name, namePattern(word))))),
+                            ))))
                         .orderBy(desc(projects.createdAt), projects.id)
                         .limit(MAX_LIST_LIMIT + 1)
                         .offset(offset);

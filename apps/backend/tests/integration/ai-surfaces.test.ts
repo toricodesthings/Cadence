@@ -57,7 +57,7 @@ describe("get_tasks filters and pages", () => {
         expect(titles((await call("get_tasks", { minPriority: 3 })).tasks)).toEqual(["Late", "Pinned"]);
         expect((await call("get_tasks", { pinned: true })).tasks).toMatchObject([{ id: pinned, pinned: true }]);
         expect(titles((await call("get_tasks", { from: "2026-09-25", to: "2026-09-25" })).tasks)).toEqual(["Late"]);
-        expect(titles((await call("get_tasks", { projectId, sectionId: null })).tasks)).toEqual(["Early"]);
+        expect(titles((await call("get_tasks", { projectId, noSection: true })).tasks)).toEqual(["Early"]);
         expect(titles((await call("get_tasks", { noDate: true })).tasks).sort()).toEqual(["Loose", "Pinned"]);
         expect([late, early, loose]).toHaveLength(3);
     });
@@ -236,5 +236,61 @@ describe("get_schedule_window", () => {
         expect(all.filter((t: any) => t.title === "Daily standup")).toHaveLength(5);
         const days = all.map((t: any) => (t.dueDate ?? t.scheduledStart).slice(0, 10));
         expect(days).toEqual([...days].sort());
+    });
+});
+
+describe("finding a task the user half-remembers", () => {
+    it("matches list and section names word by word, and rows say where each task lives", async () => {
+        const { projectId, sections } = await call("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
+        const [comp3005, comp2000] = sections.map((s: { sectionId: string }) => s.sectionId);
+        const [target] = await make([
+            { title: "Assignment 1", dueDate: "2026-09-23", projectId, sectionId: comp3005 },
+            { title: "Assignment 1", dueDate: "2026-09-24", projectId, sectionId: comp2000 },
+        ]);
+
+        // "the comp assignment due today": no title holds "comp", the section does.
+        const today = await call("get_tasks", { query: "comp assignment", dueWindow: "today" });
+        expect(today.tasks).toMatchObject([{ id: target, title: "Assignment 1", list: "University", section: "COMP3005" }]);
+        expect((await call("get_tasks", { query: "Assignment 1 COMP 3005" })).tasks).toMatchObject([{ id: target }]);
+        expect((await call("get_tasks", { query: "comp assignment" })).count).toBe(2);
+        expect((await call("get_projects", { query: "comp 3005" })).projects).toMatchObject([{ id: projectId }]);
+        // Today at a glance reads the schedule window: its rows carry the names too.
+        const window = await call("get_schedule_window", { start: "2026-09-23", end: "2026-09-23" });
+        expect(window.tasks).toMatchObject([{ id: target, list: "University", section: "COMP3005" }]);
+    });
+});
+
+describe("batch writes the model can undo, and a check-off it can't guess", () => {
+    it("rejects an id that matches no task, and says where each moved task came from", async () => {
+        const [water, stretch] = await make([{ title: "Water plants", dueDate: "2026-09-23" }, { title: "Stretch" }]);
+        await expect(call("reschedule_tasks", { taskIds: [water, "6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-09-24" }))
+            .rejects.toThrow("1 of these taskIds match no task");
+        expect((await task(water)).dueDate).toContain("2026-09-23"); // nothing moved
+        const moved = await call("reschedule_tasks", { taskIds: [water, stretch], targetDate: "2026-09-24" });
+        expect(moved.tasks).toEqual(expect.arrayContaining([{ id: water, title: "Water plants", from: "2026-09-23" }, { id: stretch, title: "Stretch", from: null }]));
+        expect((await call("set_task_state", { taskIds: [water], state: "COMPLETE" })).tasks).toEqual([{ id: water, title: "Water plants", was: "ACTIVE" }]);
+
+        // A validated `clear` reaches the database as an emptied field, and the service never sees the `clear` key.
+        await call("update_tasks", { taskIds: [stretch], patch: { reminderAt: "2026-09-24T09:00:00-04:00" } });
+        expect((await task(stretch)).reminderAt).toBeTruthy();
+        await call("update_tasks", { taskIds: [stretch], patch: { reminderAt: null, clear: ["reminderAt"] } });
+        expect((await task(stretch)).reminderAt).toBeNull();
+    });
+
+    it("holds Done on one of two same-titled tasks until the user said which, unless they tapped the card", async () => {
+        const { projectId, sections } = await call("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
+        const [a, b] = await make(sections.map((s: { sectionId: string }) => ({ title: "Assignment 1", dueDate: "2026-09-23", projectId, sectionId: s.sectionId })));
+        let seq = 0;
+        const as = (approvalMode: string) => {
+            const tools = buildToolRegistry({} as never, userId, { timezone: TZ, currentDate: "2026-09-23T16:00:00Z", today: "2026-09-23", approvalMode } as never) as any;
+            return (name: string, input: unknown) => tools[name].execute(input, { toolCallId: `mode_${++seq}`, messages: [] });
+        };
+
+        const held = await as("full")("set_task_state", { taskIds: [a], state: "COMPLETE" });
+        expect(held).toMatchObject({ updated: 0, sameTitle: expect.arrayContaining([{ id: a, title: "Assignment 1", list: "University", section: "COMP3005", day: "2026-09-23" }, expect.objectContaining({ id: b, section: "COMP2000" })]) });
+        expect((await as("auto")("set_task_state", { taskIds: [a, b], state: "COMPLETE" })).updated).toBe(0); // "the" one, both sent
+        expect((await task(a)).state).toBe("ACTIVE");
+        expect((await as("full")("set_task_state", { taskIds: [a], state: "COMPLETE", sameTitleOk: true })).updated).toBe(1);
+        expect((await as("ask")("set_task_state", { taskIds: [b], state: "ARCHIVED" })).updated).toBe(1); // tapped
     });
 });

@@ -6,6 +6,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- The assistant finds your lists and tasks again, retries a failed step once, and marks a failed lookup in red.
+- The assistant finds a task by its list or section name, so "the comp assignment due today" gets checked off.
+- The assistant asks which task you mean when two look alike, and undo puts tasks back where they were.
+
 ## [0.26.1] - 2026-10-04
 
 ### Fixed

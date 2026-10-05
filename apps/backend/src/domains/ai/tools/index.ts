@@ -1,5 +1,6 @@
 import { asSchema, jsonSchema } from "ai";
 import type { Env } from "../../../types/env";
+import type { ApprovalMode } from "@cadence/contracts/ai";
 import { logger, hashIdentifier } from "../../../platform/log";
 import { AppError } from "../../../platform/errors";
 import { checkIdempotency, recordMutation, storedResult } from "../../../platform/idempotency";
@@ -40,6 +41,8 @@ export interface AgentContext {
     rawNotes?: boolean;
     /** Keeps post-commit metrics alive after the response (the Worker's `waitUntil`). */
     waitUntil?: (promise: Promise<unknown>) => void;
+    /** The chat's approval mode, so a tool knows when the user tapped to approve its call. Unset off the chat (MCP). */
+    approvalMode?: ApprovalMode;
 }
 
 /**
@@ -57,31 +60,38 @@ export interface ToolErrorResult {
  * Wraps a tool `execute` body so a throw is converted into a structured error
  * result (instead of crashing the agent loop) and logged with a HASHED userId.
  * Raw user data is never logged. Reuse this in EVERY tool `execute`.
+ * An unexpected failure (a dropped connection, a timeout) runs once more: each run is
+ * its own transaction, rolled back on a throw, and writes replay through {@link once}.
  */
 export async function safeExecute<T>(
     toolName: string,
     userId: string,
     fn: () => Promise<T>,
 ): Promise<T | ToolErrorResult> {
-    try {
-        return await fn();
-    } catch (error) {
-        logger.warn("ai", "ai_tool_failed", {
-            tool: toolName,
-            userHash: await hashIdentifier(userId),
-            // Only the error class/name — never the message body or row data.
-            code: error instanceof Error ? error.name : "UnknownError",
-        });
-        // Our own 4xx messages ("Project not found", a stale note) are safe and tell
-        // the model what to fix; anything else stays generic.
-        const known = (error instanceof AppError && error.statusCode < 500) || error instanceof DomainError;
-        return {
-            ok: false,
-            tool: toolName,
-            error: known
-                ? `${(error as Error).message}. Nothing was changed.`
-                : `The "${toolName}" tool failed to run. Inform the user and offer to retry.`,
-        };
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            // Our own 4xx messages ("Project not found", a stale note) are safe and tell
+            // the model what to fix, and would fail the same way again; anything else stays generic.
+            const known = (error instanceof AppError && error.statusCode < 500) || error instanceof DomainError;
+            const retry = !known && attempt === 1 && !(error instanceof Error && error.name === "AbortError");
+            logger.warn("ai", "ai_tool_failed", {
+                tool: toolName,
+                userHash: await hashIdentifier(userId),
+                // Only the error class/name — never the message body or row data.
+                code: error instanceof Error ? error.name : "UnknownError",
+                attempt,
+            });
+            if (retry) continue;
+            return {
+                ok: false,
+                tool: toolName,
+                error: known
+                    ? `${(error as Error).message}. Nothing was changed.`
+                    : `The "${toolName}" tool failed twice. Tell the user it didn't work and offer to try again.`,
+            };
+        }
     }
 }
 
@@ -178,18 +188,191 @@ export function slimSchema(node: unknown): unknown {
     return { ...rest, anyOf };
 }
 
+/** `schema` that also takes null. */
+function orNull(schema: unknown): unknown {
+    if (!isRecord(schema)) return schema;
+    if (typeof schema.type === "string") {
+        return { ...schema, type: [schema.type, "null"], ...(Array.isArray(schema.enum) && { enum: [...schema.enum, null] }) };
+    }
+    if (Array.isArray(schema.type)) return schema.type.includes("null") ? schema : { ...schema, type: [...schema.type, "null"] };
+    if (Array.isArray(schema.anyOf)) return schema.anyOf.some((b) => isRecord(b) && b.type === "null") ? schema : { ...schema, anyOf: [...schema.anyOf, { type: "null" }] };
+    return schema;
+}
+
+/**
+ * Models trained on strict function calling send every field and say "not used" with
+ * null; offered nothing else, they invent a plausible value (a list id from context, a
+ * day). So every optional field the model sees also takes null. On a field that can't
+ * be null, {@link validateLenient} drops it as left out; on one that can, null keeps its
+ * meaning (it clears), as that field's description says.
+ */
+export function nullableOptionals(node: unknown): unknown {
+    if (Array.isArray(node)) return node.map(nullableOptionals);
+    if (!isRecord(node)) return node;
+    const out: Record<string, any> = {};
+    for (const [key, value] of Object.entries(node)) {
+        out[key] = key === "properties" && isRecord(value)
+            ? Object.fromEntries(Object.entries(value).map(([name, schema]) => [name, nullableOptionals(schema)]))
+            : nullableOptionals(value);
+    }
+    if (!isRecord(out.properties)) return out;
+    const required = new Set(Array.isArray(out.required) ? out.required : []);
+    for (const [name, schema] of Object.entries(out.properties)) if (!required.has(name)) out.properties[name] = orNull(schema);
+    return out;
+}
+
+/** Never a real row id: models that fill every field send it to mean "none". */
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
+const isPlaceholder = (v: unknown) =>
+    v === "" || v === 0 || v === false || v === null || (Array.isArray(v) && !v.length) ||
+    (!!v && typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length);
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
+/** What {@link validateLenient} dropped from a call, carried on the validated input (symbols never serialize). */
+const IGNORED = Symbol("ignored");
+
+/** A copy without nil uuids (keys and array items), noting each dropped key's path. */
+function withoutNilIds(value: unknown, path: string, ignored: string[]): unknown {
+    if (Array.isArray(value)) return value.filter((item) => item !== NIL_UUID).map((item) => withoutNilIds(item, path, ignored));
+    if (!isRecord(value)) return value;
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value)) {
+        const at = path ? `${path}.${key}` : key;
+        if (v === NIL_UUID) ignored.push(at);
+        else out[key] = withoutNilIds(v, at, ignored);
+    }
+    return out;
+}
+
+/**
+ * Some models fill every optional field ("", 0, false, null, the nil uuid) instead of
+ * leaving it out. The nil uuid always goes. Any other placeholder goes only where
+ * validation rejects it (a real value there still fails the call), then the call is
+ * checked again. What was dropped rides on the input for the tool's result to report.
+ */
+export async function validateLenient<R extends { success: boolean; value?: unknown; error?: unknown }>(
+    validate: (value: unknown) => PromiseLike<R> | R,
+    value: unknown,
+): Promise<R> {
+    const ignored: string[] = [];
+    let input = withoutNilIds(value, "", ignored);
+    for (let pass = 0; ; pass++) {
+        const result = await validate(input);
+        if (result.success) {
+            if (ignored.length && isRecord(result.value)) (result.value as Record<symbol, unknown>)[IGNORED] = ignored;
+            return result;
+        }
+        const err = result.error as { cause?: { issues?: unknown }; issues?: unknown } | undefined;
+        const issues = (err?.cause?.issues ?? err?.issues ?? []) as { path?: PropertyKey[] }[];
+        // Step through objects and arrays alike: `tasks.0.subtasks` is one draft's field.
+        const at = (path: PropertyKey[]) => path.reduce<any>((node, key) => (node && typeof node === "object" ? node[key as string] : undefined), input);
+        const paths = issues.map((issue) => issue.path ?? []);
+        // A rule across fields (a refine) names the object, not a field: its stand-ins go, but never a null, which can clear.
+        for (const path of [...paths]) {
+            const target = at(path);
+            // Not an empty object either: a rule like "nothing to change" names an empty patch, and dropping it would hide why.
+            if (isRecord(target)) paths.push(...Object.entries(target).filter(([, v]) => v !== null && !isRecord(v) && isPlaceholder(v)).map(([key]) => [...path, key]));
+        }
+        // Up to three passes: a nested placeholder, then a refine that only runs once the fields pass.
+        const fixes = pass < 2 ? paths.filter((path, i) => {
+            if (!path.length || paths.findIndex((p) => p.join(".") === path.join(".")) !== i) return false;
+            const parent = at(path.slice(0, -1));
+            return isRecord(parent) && String(path.at(-1)) in parent && isPlaceholder(parent[String(path.at(-1))]);
+        }) : [];
+        if (!fixes.length) return result;
+        input = structuredClone(input);
+        for (const path of fixes) {
+            const parent = path.slice(0, -1).reduce<any>((node, key) => node[key as string], input);
+            // A null where null isn't allowed is the model's "not used": drop it without remark.
+            if (parent[String(path.at(-1))] !== null) ignored.push(path.join("."));
+            delete parent[String(path.at(-1))];
+        }
+    }
+}
+
+/** Tell the model what was dropped from its call, so it stops sending it this conversation. */
+function reportIgnored(output: unknown, input: unknown): unknown {
+    const ignored = isRecord(input) ? (input as Record<symbol, unknown>)[IGNORED] as string[] | undefined : undefined;
+    if (!ignored?.length || !isRecord(output)) return output;
+    return { ...output, ignored: `Dropped placeholder values for ${ignored.join(", ")}. Leave out every field you don't mean.` };
+}
+
+/** True when a (full, zod-made) JSON schema accepts null. */
+const admitsNull = (schema: unknown): boolean =>
+    isRecord(schema) && (schema.type === "null" || (Array.isArray(schema.type) && schema.type.includes("null")) || (Array.isArray(schema.anyOf) && schema.anyOf.some(admitsNull)));
+
+/** The `patch` fields a null empties (a reminder, a date, a list), read from the full schema. */
+export function clearableFields(schema: unknown): string[] {
+    const patch = isRecord(schema) && isRecord(schema.properties) ? schema.properties.patch : undefined;
+    return isRecord(patch) && isRecord(patch.properties) ? Object.entries(patch.properties).filter(([, field]) => admitsNull(field)).map(([name]) => name) : [];
+}
+
+/** A field description's null clause ("…; null clears.", "…, or null for none."): in the model's patch null changes nothing. */
+const NULL_CLAUSE = /[;,]\s*(?:or\s+)?null\b[^.;]*/g;
+
+/**
+ * The model's view of a patch: null (or []) on a field changes nothing, as it does
+ * everywhere else, and emptying a field is naming it in `clear`. A model that fills every
+ * field sends null and `clear: []`, which change nothing, instead of wiping the task.
+ */
+function withClear(schema: unknown, clearable: string[]): unknown {
+    if (!clearable.length || !isRecord(schema) || !isRecord(schema.properties) || !isRecord(schema.properties.patch)) return schema;
+    const patch = schema.properties.patch as Record<string, any>;
+    const properties: Record<string, unknown> = Object.fromEntries(Object.entries(patch.properties).map(([name, field]) => [
+        name, isRecord(field) && typeof field.description === "string" ? { ...field, description: field.description.replace(NULL_CLAUSE, "") } : field,
+    ]));
+    properties.clear = {
+        type: ["array", "null"],
+        items: { type: "string", enum: clearable },
+        description: "Fields to empty, removing their value. Only what the user asked to remove; null or [] on a field leaves it as it is.",
+    };
+    return { ...schema, properties: { ...schema.properties, patch: { ...patch, properties } } };
+}
+
+/** The `clear` names the model sent that a null can empty. */
+const clearNames = (value: unknown, clearable: string[]): string[] => {
+    const clear = isRecord(value) && isRecord(value.patch) ? value.patch.clear : undefined;
+    return Array.isArray(clear) ? [...new Set(clear.filter((name): name is string => typeof name === "string" && clearable.includes(name)))] : [];
+};
+
+/** Back to the tools' shape: null and [] in a patch are "unchanged", and each `clear` field becomes null. */
+export function applyClear(value: unknown, clearable: string[]): unknown {
+    if (!clearable.length || !isRecord(value) || !isRecord(value.patch)) return value;
+    const { clear: _clear, ...fields } = value.patch;
+    const patch: Record<string, unknown> = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== null && !(Array.isArray(v) && !v.length)));
+    for (const name of clearNames(value, clearable)) patch[name] = null;
+    return { ...value, patch };
+}
+
 /**
  * The model sees each input schema without the long regex `pattern`s that zod
  * emits for dates and uuids (`format` already says "date"/"uuid"), which were
  * most of the tool tokens, and slimmed further by {@link slimSchema}. Calls are
- * still validated against the full zod schema.
+ * still validated against the full zod schema, leniently ({@link validateLenient}).
  */
-function withoutPatterns<T extends Record<string, { inputSchema: unknown }>>(tools: T): T {
+function withoutPatterns<T extends Record<string, { inputSchema: unknown; execute?: unknown }>>(tools: T): T {
     for (const t of Object.values(tools)) {
         const full = asSchema(t.inputSchema as Parameters<typeof asSchema>[0]);
-        t.inputSchema = jsonSchema(async () => slimSchema(dropPatterns(await full.jsonSchema)) as never, {
-            validate: (value) => full.validate!(value),
+        let clearable: Promise<string[]> | undefined;
+        const clearableOnce = () => (clearable ??= Promise.resolve(full.jsonSchema).then(clearableFields));
+        t.inputSchema = jsonSchema(async () => withClear(nullableOptionals(slimSchema(dropPatterns(await full.jsonSchema))), await clearableOnce()) as never, {
+            validate: async (value) => {
+                const fields = await clearableOnce();
+                const result = await validateLenient(full.validate!, applyClear(value, fields));
+                // `clear` stays on the call so later turns read what was emptied; execute never sees it.
+                const names = clearNames(value, fields);
+                if (result.success && names.length && isRecord(result.value) && isRecord(result.value.patch)) result.value.patch.clear = names;
+                return result;
+            },
         });
+        const run = t.execute as ((input: unknown, options: unknown) => Promise<unknown>) | undefined;
+        if (run) {
+            t.execute = async (input: unknown, options: unknown) => {
+                const { clear: _clear, ...patch } = isRecord(input) && isRecord(input.patch) ? input.patch : {};
+                const forTool = isRecord(input) && isRecord(input.patch) && "clear" in input.patch ? { ...input, patch } : input;
+                return reportIgnored(await run(forTool, options), input);
+            };
+        }
     }
     return tools;
 }

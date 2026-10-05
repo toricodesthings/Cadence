@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronRight, Loader2, Inbox } from "lucide-react";
+import { Check, ChevronRight, Loader2, Inbox, X } from "lucide-react";
 import { AssistantSigil } from "./AssistantSigil";
 import { motion, useReducedMotion } from "framer-motion";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
@@ -16,6 +16,8 @@ export interface ToolCall {
     /** Tool arguments as the model sent them. */
     input?: unknown;
     pending?: boolean;
+    /** Ran and failed: a red mark instead of the check. */
+    failed?: boolean;
 }
 
 /** `{ status: "overdue", limit: 20 }` → `status: "overdue", limit: 20`. */
@@ -43,6 +45,7 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
     const summary =
         count <= 1 ? (labels[0] ?? "Looked something up") : `Looked a few things up`;
     const expandable = calls.some((c) => c.tool);
+    const failed = !pending && calls.some((c) => c.failed);
 
     // Pending reads carry the accent tint + a shimmering label so they read as
     // "Cadence is working", settling to a calm neutral chip with a green check.
@@ -53,7 +56,7 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                 disabled={!expandable}
                 onClick={() => setOpen((o) => !o)}
                 aria-expanded={expandable ? open : undefined}
-                aria-label={`${labels.join(", ") || "Looked something up"}${expandable ? (open ? ", hide details" : ", show details") : ""}`}
+                aria-label={`${labels.join(", ") || "Looked something up"}${failed ? ", something failed" : ""}${expandable ? (open ? ", hide details" : ", show details") : ""}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.15, ease: EASE_OUT_EXPO }}
@@ -74,7 +77,7 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                         transition={SETTLE_POP}
                         className="inline-flex"
                     >
-                        <Check size={11} className="text-feedback-success" />
+                        {failed ? <X size={11} className="text-feedback-error" /> : <Check size={11} className="text-feedback-success" />}
                     </motion.span>
                 )}
                 <span className={pending && !reduceMotion ? "animate-pulse" : undefined}>{summary}</span>
@@ -91,6 +94,8 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                             <li key={i} className="flex min-w-0 items-center gap-2">
                                 {c.pending ? (
                                     <Loader2 size={10} className="shrink-0 animate-spin text-accent-primary" />
+                                ) : c.failed ? (
+                                    <X size={10} className="shrink-0 text-feedback-error" aria-label="Failed" />
                                 ) : (
                                     <Check size={10} className="shrink-0 text-feedback-success" />
                                 )}

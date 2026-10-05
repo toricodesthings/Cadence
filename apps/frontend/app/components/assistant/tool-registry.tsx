@@ -148,8 +148,8 @@ export function ToolPart({
     if (!descriptor) {
         // Unknown / future tool → neutral chip.
         return <ToolActivityChip
-                calls={[{ label: "Working…", tool: toolName, input: part?.input, pending: part?.state !== "output-available" }]}
-                pending={part?.state !== "output-available"}
+                calls={[{ label: "Working…", tool: toolName, input: part?.input, pending: isInFlight(part), failed: isFailed(part) }]}
+                pending={isInFlight(part)}
             />;
     }
 
@@ -163,6 +163,16 @@ export function ToolPart({
     }
 
     return <>{descriptor.render?.({ part, toolName: toolName!, answer, stale })}</>;
+}
+
+/** Still running: an errored or denied call has settled too, so it must stop spinning. */
+export function isInFlight(part: { state?: string } | undefined): boolean {
+    return part?.state === "input-streaming" || part?.state === "input-available";
+}
+
+/** Ran and failed: thrown or rejected (`output-error`), or a tool's own `{ ok: false }`. */
+export function isFailed(part: { state?: string; output?: { ok?: unknown } } | undefined): boolean {
+    return part?.state === "output-error" || (part?.state === "output-available" && part.output?.ok === false);
 }
 
 /** Safely extract a tool name from a part, tolerating non-tool parts. */

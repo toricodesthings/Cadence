@@ -13,6 +13,7 @@
  */
 
 import { AI_ERROR_CODES, type AiErrorCode, type StreamError } from "@cadence/contracts/ai";
+import { InvalidToolInputError, NoSuchToolError } from "ai";
 import { AppError } from "../../../platform/errors";
 
 /**
@@ -74,9 +75,10 @@ function describe(error: unknown): string {
  * Map an arbitrary thrown/stream error into a user-safe `StreamError`. Detection
  * order:
  *  1. `AppError` → reuse its code/message/isRetryable (it is already user-safe).
- *  2. Timeout / abort → `AI_TIMEOUT`.
- *  3. Upstream 5xx (or 429) → `AI_UPSTREAM_UNAVAILABLE` / `AI_RATE_LIMITED`.
- *  4. Anything else → `INTERNAL_ERROR` (raw text is never reflected).
+ *  2. A tool call the model got wrong → `AI_TOOL_FAILED` (the model sees it and recovers).
+ *  3. Timeout / abort → `AI_TIMEOUT`.
+ *  4. Upstream 5xx (or 429) → `AI_UPSTREAM_UNAVAILABLE` / `AI_RATE_LIMITED`.
+ *  5. Anything else → `INTERNAL_ERROR` (raw text is never reflected).
  */
 export function buildStreamError(error: unknown, requestId?: string): StreamError {
     if (error instanceof AppError) {
@@ -86,6 +88,10 @@ export function buildStreamError(error: unknown, requestId?: string): StreamErro
             isRetryable: error.isRetryable,
             requestId,
         };
+    }
+
+    if (InvalidToolInputError.isInstance(error) || NoSuchToolError.isInstance(error)) {
+        return fromCode("AI_TOOL_FAILED", requestId);
     }
 
     if (isTimeoutLike(error)) {

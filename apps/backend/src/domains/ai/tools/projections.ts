@@ -35,6 +35,9 @@ export interface MinimalTask {
     effort?: number;
     projectId?: string;
     sectionId?: string;
+    /** The list's and section's names, for matching how the user recalls it. */
+    list?: string;
+    section?: string;
     waitingOn?: string;
     /** A timetable block (class, shift): occupies time, can't be checked off, never overdue. */
     fixedBlock?: true;
@@ -59,6 +62,8 @@ export type TaskRow = Pick<
     /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
     seriesId?: string;
     tagIds?: string[];
+    listName?: string | null;
+    sectionName?: string | null;
 };
 
 /**
@@ -84,6 +89,8 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         effort: row.effort ?? undefined,
         projectId: row.projectId ?? undefined,
         sectionId: row.sectionId ?? undefined,
+        list: row.listName ?? undefined,
+        section: row.sectionName ?? undefined,
         waitingOn: row.waitingOn ?? undefined,
         fixedBlock: row.interactionMode === "timetable" || undefined,
         repeats: !!row.recurrenceRule || undefined,

@@ -10,7 +10,8 @@ import {
 } from "../../src/domains/ai/tools/projections";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT, slimSchema } from "../../src/domains/ai/tools/index";
+import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT, safeExecute, slimSchema } from "../../src/domains/ai/tools/index";
+import { AppError } from "../../src/platform/errors";
 import { taskDraftSchema } from "../../src/domains/ai/tools/drafts";
 import { approvalFor, needsTap } from "../../src/domains/ai/safety/approval";
 
@@ -161,6 +162,76 @@ describe("tool registry", () => {
         expect((await schema.validate!({ taskIds: ["not-a-uuid"], targetDate: "2026-10-01" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01T14:00" })).success).toBe(false);
         expect((await schema.validate!({ taskIds: ["6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-10-01" })).success).toBe(true);
+    });
+
+    it("drops the placeholders a fill-every-field model sends, and keeps real values", async () => {
+        const tools = buildToolRegistry({} as never, "u", { timezone: "UTC", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
+        const projects = asSchema(tools.get_projects.inputSchema);
+        const tasks = asSchema(tools.get_tasks.inputSchema);
+        const nil = "00000000-0000-0000-0000-000000000000";
+        const id = "6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f";
+
+        // JSON drops the symbol that carries what was ignored, as persisting the call does.
+        const plain = (result: unknown) => JSON.parse(JSON.stringify(result));
+        expect(plain(await projects.validate!({ query: "University", projectId: nil, offset: 0, sectionQuery: "", sectionOffset: 0 })))
+            .toEqual({ success: true, value: { query: "University" } });
+        const sent = await tasks.validate!({ query: "COMP3005", state: "ACTIVE", projectId: id, tagId: nil, focusViewId: nil, minPriority: 0, limit: 0 }) as any;
+        expect(sent.success).toBe(true);
+        expect(plain(sent.value)).toEqual({ query: "COMP3005", state: "ACTIVE", projectId: id, limit: 20 });
+        // Optional fields offer null as "not used"; null where it can't clear is dropped without remark.
+        const model = await tasks.jsonSchema as any;
+        expect(model.properties.query.type).toEqual(["string", "null"]);
+        expect(model.properties.state.enum).toContain(null);
+        const nulled = await tasks.validate!({ query: "COMP3005", projectId: null, sort: null }) as any;
+        expect(plain(nulled.value)).toEqual({ query: "COMP3005", limit: 20 });
+        expect(nulled.value[Object.getOwnPropertySymbols(nulled.value)[0]]).toBeUndefined();
+        // Inside an array of drafts too: luna's real first call, every optional field null.
+        const created = await asSchema(tools.create_tasks.inputSchema).validate!({ tasks: [{
+            title: "Call mom", dueDate: null, scheduledStart: "2026-09-24T18:00:00-04:00", scheduledEnd: null, projectId: null, sectionId: null,
+            recurrenceRule: null, tagIds: null, priority: null, effort: null, durationEstimate: null, subtasks: null, fixed: null, note: null,
+            tagNames: null, reminderAt: null, hideUntil: null, fromImage: null, inboxItemId: null,
+        }] }) as any;
+        expect(created.success).toBe(true);
+        expect(created.value.tasks[0]).toMatchObject({ title: "Call mom", scheduledStart: "2026-09-24T18:00:00-04:00" });
+        // From a capture: null reminder/hide-until/fixed set nothing, so the capture rule holds.
+        const fromCapture = await asSchema(tools.create_tasks.inputSchema).validate!({ tasks: [{ title: "Buy ink", fixed: null, reminderAt: null, hideUntil: null, note: "", inboxItemId: id }] }) as any;
+        expect(fromCapture.success).toBe(true);
+        // A real mistake still fails.
+        expect((await tasks.validate!({ state: "DONE", minPriority: 0 })).success).toBe(false);
+
+        // In a patch, null and [] change nothing and `clear` empties a field; a rejected "" goes, a valid 0 stays.
+        const updateTasks = asSchema(tools.update_tasks.inputSchema);
+        const update = await updateTasks.validate!({ taskIds: [id], patch: { title: "", dueDate: null, priority: 0, addTagIds: [], clear: ["reminderAt"] } }) as any;
+        expect(plain(update.value)).toEqual({ taskIds: [id], patch: { priority: 0, reminderAt: null, clear: ["reminderAt"] } });
+        // Luna's real "undo": every patch field null. It used to wipe dates, list and recurrence; now it changes nothing and says so.
+        const wipe = await updateTasks.validate!({ taskIds: [id], patch: {
+            dueDate: null, scheduledStart: null, scheduledEnd: null, projectId: null, sectionId: null, waitingOn: null,
+            recurrenceRule: null, effort: null, durationEstimate: null, reminderAt: null, checkInAt: null, hideUntil: null,
+        } }) as any;
+        expect(wipe.success).toBe(false);
+        expect(String(wipe.error?.message)).toContain("Nothing to change");
+        // The model's patch: a `clear` list of what can be emptied, and no field says null clears.
+        const patch = (await updateTasks.jsonSchema as any).properties.patch.properties;
+        expect(patch.clear.items.enum).toEqual(expect.arrayContaining(["dueDate", "reminderAt", "projectId", "sectionId", "recurrenceRule"]));
+        expect(patch.clear.items.enum).not.toContain("title");
+        expect(JSON.stringify(patch)).not.toMatch(/null (clears|removes|shows|stops)/);
+        expect(patch.dueDate.description).toBe("A deadline, only when one is given.");
+
+        // The tool's result tells the model what was dropped.
+        const help = asSchema(tools.get_cadence_help.inputSchema);
+        const [topic] = (await help.jsonSchema as any).properties.topic.enum;
+        const input = (await help.validate!({ topic, listId: nil }) as any).value;
+        expect((await tools.get_cadence_help.execute(input, {})).ignored).toContain("listId");
+    });
+
+    it("runs an unexpected tool failure once more, but not one of our own errors", async () => {
+        let runs = 0;
+        expect(await safeExecute("t", "u", async () => (++runs === 1 ? Promise.reject(new Error("socket")) : "ok"))).toBe("ok");
+        expect(runs).toBe(2);
+        runs = 0;
+        const out = await safeExecute("t", "u", async () => { runs++; throw new AppError(404, "NOT_FOUND", "Task not found"); });
+        expect(runs).toBe(1);
+        expect(out).toMatchObject({ ok: false, error: "Task not found. Nothing was changed." });
     });
 
     it("slims schemas: no bounds, nullable unions and literal unions folded", () => {

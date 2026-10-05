@@ -7,7 +7,7 @@ import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
-import { localDaySql } from "./tasks";
+import { localDaySql, placeNameColumns } from "./tasks";
 import { isDateOnly, normalizeStartBoundary, normalizeEndBoundary } from "@cadence/contracts/common";
 import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
 import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
@@ -19,6 +19,7 @@ const MAX_RANGE_DAYS = 62;
 
 /** The task columns a schedule window projects. */
 const scheduleColumns = {
+    ...placeNameColumns,
     id: tasks.id,
     title: tasks.title,
     state: tasks.state,

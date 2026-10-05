@@ -29,7 +29,7 @@ import { useStepOutOfAssistant } from "../../hooks/ai/use-step-out-of-assistant"
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { ChatErrorBubble } from "./ChatErrorBubble";
 import { ToolActivityChip, type ToolCall } from "./ToolActivityChip";
-import { ToolPart, isReadToolPart, safeToolName, getToolDescriptor } from "./tool-registry";
+import { ToolPart, isReadToolPart, isInFlight, isFailed, safeToolName, getToolDescriptor } from "./tool-registry";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { makeChatTransport } from "../../lib/ai/chat-transport";
 import { checkMessageText } from "../../lib/ai/input-guard";
@@ -104,8 +104,8 @@ function buildSegments(parts: UIMessage["parts"]): Segment[] {
             }
             const name = safeToolName(part);
             const label = (name && getToolDescriptor(name)?.label) || "Looked something up";
-            const pending = part.state !== "output-available";
-            const call: ToolCall = { label, tool: name ?? undefined, input: part.input, pending };
+            const pending = isInFlight(part);
+            const call: ToolCall = { label, tool: name ?? undefined, input: part.input, pending, failed: isFailed(part) };
             if (last?.kind === "reads") {
                 last.calls.push(call);
                 last.pending ||= pending;

@@ -55,6 +55,8 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext }) {
     const copy = STATE_COPY[(input.state as State) ?? "COMPLETE"] ?? STATE_COPY.COMPLETE;
     const titles = taskIds.map(lookupTitle);
     const kept = titles.length - off.size;
+    // Held: another open task has the same title, so nothing changed and the assistant asks which.
+    if (ctx.part?.output?.sameTitle) return null;
 
     return (
         <ApprovalCard

@@ -84,7 +84,9 @@ async function converse(userId: string, turns: string[]): Promise<Run> {
         steps += result.steps.length;
         tokens += result.totalUsage?.totalTokens ?? 0;
         text = result.text;
-        messages.push(...result.response.messages);
+        // Every step's calls and results, as production replays them from the stored parts: in ai v7
+        // `result.response.messages` is the last step only, which left later turns without the ids.
+        messages.push(...result.steps.flatMap((step) => step.response.messages));
     }
     return { calls, text, steps, tokens, ms: Date.now() - started };
 }
@@ -353,6 +355,46 @@ const SCENARIOS: Scenario[] = [
             const [first] = await openTasks(t, { projectId, sort: "list" });
             return [...need(called(run, "reorder_tasks").length === 1, "reorder_tasks"), ...need(/rent/i.test(first?.title), `Pay rent first (got ${first?.title})`)];
         },
+    },
+    {
+        name: "check off a half-remembered task by its section",
+        level: "medium",
+        seed: async (t) => {
+            const { projectId, sections } = await t("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
+            const { created } = await t("create_tasks", { tasks: [
+                { title: "Assignment 1", dueDate: TODAY, projectId, sectionId: sections[0].sectionId, subtasks: ["Question 1", "Question 2"] },
+                { title: "Assignment 1", dueDate: "2026-09-30", projectId, sectionId: sections[1].sectionId },
+                { title: "Read chapter 3", dueDate: TODAY },
+            ] });
+            return { target: created[0].taskId, decoy: created[1].taskId };
+        },
+        // No title holds "comp"; the section does. "yesterday" is wrong: it's due today.
+        turns: ["finished my comp assignment that was due yesterday i think"],
+        check: async (run, t, { target, decoy }) => {
+            const done = (await t("get_tasks", { state: "COMPLETE" })).tasks as any[];
+            return [
+                ...need(done.some((task) => task.id === target), "COMP3005 Assignment 1 marked done"),
+                ...need(!done.some((task) => task.id === decoy), "COMP2000 Assignment 1 left open"),
+                // A wrong day ("yesterday") earns one search before the pick.
+                ...need(run.steps <= 4, `≤4 steps (took ${run.steps})`),
+                ...failedCalls(run).filter((p) => p.startsWith("get_")),
+            ];
+        },
+    },
+    {
+        name: "two candidates: ask, don't guess",
+        level: "medium",
+        seed: async (t) => {
+            const { projectId, sections } = await t("create_project", { name: "University", sections: ["COMP3005", "COMP2000"] });
+            await t("create_tasks", { tasks: sections.map((s: { sectionId: string }) => ({ title: "Assignment 1", dueDate: TODAY, projectId, sectionId: s.sectionId })) });
+            return {};
+        },
+        turns: ["done with the comp assignment due today"],
+        check: async (run, t) => [
+            // A held set_task_state changes nothing, so check the data, not the calls.
+            ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "nothing marked done on a guess"),
+            ...need(/3005/.test(run.text) && /2000/.test(run.text), "asks which, naming both sections"),
+        ],
     },
     {
         name: "rebalance an overloaded week",

@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { and, asc, desc, eq, exists, gte, ilike, inArray, isNotNull, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
+import { projects, savedFocusViews, taskSections, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import { normalizeTaskFilters } from "../../tasks/task-filters";
@@ -19,6 +19,7 @@ import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injectio
 import { NOTE_READ_LIMIT, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
 import { hasTaskTemporalMutation, inferIsAllDay } from "@cadence/domain/task-temporal";
 import { AppError, throwIfNotFound } from "../../../platform/errors";
+import { approvalFor } from "../safety/approval";
 import { startOfLocalDay } from "../../../platform/date-utils";
 import type { Tx } from "../../../types/db";
 import {
@@ -40,7 +41,17 @@ import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
 import { readFocusView } from "./focus-views";
 
 /** Columns returned by the minimal task projection — selected once, reused. */
+/**
+ * The task's list and section names, so the model can match how the user remembers it
+ * ("the COMP3005 assignment") and say where it lives, with no extra read.
+ */
+export const placeNameColumns = {
+    listName: sql<string | null>`(select ${projects.name} from ${projects} where ${projects.id} = ${tasks.projectId})`,
+    sectionName: sql<string | null>`(select ${taskSections.name} from ${taskSections} where ${taskSections.id} = ${tasks.sectionId})`,
+};
+
 const minimalTaskColumns = {
+    ...placeNameColumns,
     id: tasks.id,
     title: tasks.title,
     state: tasks.state,
@@ -110,7 +121,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine. " +
                 "Leaves out Fixed blocks (see get_schedule_window). Rows carry tagIds. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z.object({
-                query: z.string().min(1).max(200).optional().describe("Words to find in titles and notes."),
+                query: z.string().min(1).max(200).optional().describe("Words to find; each must be in the title, note, list name or section name."),
                 state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional().describe("ARCHIVED = Trash."),
                 dueWindow: z
                     .enum(["overdue", "today", "this_week", "this_month"])
@@ -120,10 +131,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 to: z.iso.date().optional().describe("Dated on or before this local day."),
                 noDate: z.boolean().optional().describe("Only tasks with no date."),
                 projectId: z.uuid().optional().describe("One list only."),
-                sectionId: z.uuid().nullable().optional().describe("One section; null = no section (with projectId)."),
+                sectionId: z.uuid().optional().describe("One section (with projectId)."),
+                noSection: z.boolean().optional().describe("Only tasks in no section (with projectId)."),
                 tagId: z.uuid().optional().describe("Only tasks with this tag."),
                 minPriority: z.number().int().min(1).max(4).optional().describe("At least this priority (3 = high and urgent)."),
-                pinned: z.boolean().optional(),
+                pinned: z.boolean().optional().describe("Only pinned tasks."),
                 missingStructure: z.boolean().optional().describe("Only tasks with no date and no list."),
                 focusViewId: z.uuid().optional().describe("Apply a saved focus view's filters (get_focus_views)."),
                 sort: z
@@ -132,7 +144,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     .describe("priority (default) · list = the list's own order (pinned first) · date = soonest first, undated last."),
                 offset: offsetSchema,
                 limit: z.number().int().min(1).max(50).default(20),
-            }).refine((v) => v.sectionId === undefined || v.projectId, "sectionId needs projectId"),
+            }).refine((v) => (v.sectionId === undefined && !v.noSection) || v.projectId, "sectionId and noSection need projectId"),
             execute: async (args) =>
                 safeExecute("get_tasks", userId, async () => {
                     const limit = clampLimit(args.limit);
@@ -143,7 +155,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const normalized = normalizeTaskFilters({
                             state: args.state,
                             projectId: args.projectId,
-                            isPinned: args.pinned,
+                            // false is "any", like noDate: a model filling every field must not hide pinned tasks.
+                            isPinned: args.pinned || undefined,
                             hasNoDate: args.missingStructure || args.noDate || undefined,
                             hasNoProject: args.missingStructure || undefined,
                         } as never);
@@ -172,19 +185,23 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         }
                         if (args.from) conditions.push(gte(localDay, args.from));
                         if (args.to) conditions.push(lte(localDay, args.to));
-                        if (args.sectionId !== undefined) {
-                            conditions.push(args.sectionId === null ? isNull(tasks.sectionId) : eq(tasks.sectionId, args.sectionId));
-                        }
+                        if (args.sectionId) conditions.push(eq(tasks.sectionId, args.sectionId));
+                        else if (args.noSection) conditions.push(isNull(tasks.sectionId));
                         if (args.tagId) conditions.push(hasAnyTag([args.tagId]));
                         if (args.minPriority) conditions.push(gte(tasks.priority, args.minPriority));
-                        if (args.query) {
+                        // Each word on its own, anywhere the user would recall it: "comp assignment" finds
+                        // "Assignment 1" in the COMP3005 section.
+                        for (const word of args.query?.split(/\s+/).filter(Boolean).slice(0, 8) ?? []) {
                             // Escape LIKE wildcards so a model-supplied "%"/"_" matches literally.
-                            const pattern = `%${args.query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+                            const pattern = `%${word.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
                             const inNote = tx
                                 .select({ id: taskNotes.id })
                                 .from(taskNotes)
                                 .where(and(eq(taskNotes.taskId, tasks.id), ilike(taskNotes.body, pattern)));
-                            conditions.push(or(ilike(tasks.title, pattern), ilike(tasks.content, pattern), exists(inNote)));
+                            conditions.push(or(
+                                ilike(tasks.title, pattern), ilike(tasks.content, pattern), exists(inNote),
+                                sql`${placeNameColumns.listName} ilike ${pattern}`, sql`${placeNameColumns.sectionName} ilike ${pattern}`,
+                            ));
                         }
 
                         const order = {
@@ -287,7 +304,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 tasks: z.array(taskDraftSchema.extend({
                     inboxItemId: z.uuid().optional().describe("The capture this task is made from."),
                 }).refine(
-                    (d) => !d.inboxItemId || [d.fixed, d.reminderAt, d.hideUntil].every((v) => v === undefined),
+                    // null and false set nothing: a model that sends every field sends them for "none".
+                    (d) => !d.inboxItemId || [d.fixed, d.reminderAt, d.hideUntil].every((v) => !v),
                     "A task from a capture takes no fixed, reminder or hide-until",
                 )).min(1).max(20),
             }),
@@ -356,7 +374,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     ({ taskIds, patch }) => taskIds.length === 1 || [patch.title, patch.note, patch.appendNote].every((v) => v === undefined),
                     "A title or note change is for one task",
                 )
-                .refine(({ patch }) => patch.note === undefined || patch.noteVersion !== undefined, "note needs noteVersion from get_task_detail"),
+                .refine(({ patch }) => patch.note === undefined || patch.noteVersion !== undefined, "note needs noteVersion from get_task_detail")
+                .refine(({ patch }) => Object.values(patch).some((v) => v !== undefined),
+                    "Nothing to change: set a field, or name it in clear to empty it (null changes nothing)"),
             execute: async ({ taskIds, patch }, { toolCallId }) =>
                 write("update_tasks", toolCallId, async (tx) => {
                     const { addTagIds = [], addTagNames, removeTagIds, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, ...fields } = patch;
@@ -410,18 +430,34 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         set_task_state: tool({
             description:
                 "Moves 1–50 tasks to Done, Trash (ARCHIVED, restorable), back to open (ACTIVE), or Waiting (with waitingOn and an optional check-in). " +
-                "Returns how many changed.",
+                "Returns each task with the state it was in. Done or Trash holds when another open task has the same title and day: it lists them to ask about.",
             inputSchema: z.object({
                 taskIds: batchTaskIdsSchema,
                 state: z.enum(["COMPLETE", "ARCHIVED", "ACTIVE", "WAITING"]),
                 waitingOn: waitingOnSchema.min(1).optional().describe("Who or what, with WAITING."),
                 checkInAt: taskPatchSchema.shape.checkInAt.unwrap().unwrap().optional().describe("With WAITING: when to check again, local time with offset."),
+                sameTitleOk: z.boolean().optional().describe("The user said which of the same-titled tasks they mean."),
             }),
-            execute: async ({ taskIds, state, waitingOn, checkInAt }, { toolCallId }) =>
-                write("set_task_state", toolCallId, async (tx) => {
+            execute: async (input, { toolCallId }) =>
+                write<{ updated: number; tasks?: object[]; sameTitle?: object[]; note?: string }>("set_task_state", toolCallId, async (tx) => {
+                    const { taskIds, state, waitingOn, checkInAt, sameTitleOk } = input;
+                    const before = await tasksBefore(tx, taskIds);
+                    // A tapped card is the user's own pick; otherwise a same-titled twin means the model may have guessed.
+                    const tapped = !ctx.approvalMode || approvalFor(ctx.approvalMode)({ toolCall: { toolName: "set_task_state", input } }) !== undefined;
+                    const twins = (state === "COMPLETE" || state === "ARCHIVED") && !tapped && !sameTitleOk ? await sameTitled(tx, before) : [];
+                    if (twins.length) {
+                        return {
+                            result: {
+                                updated: 0,
+                                sameTitle: twins,
+                                note: "Nothing changed: more than one open task has this title and day. If the user didn't say which, ask, naming each by its list or section. If they did, call again with sameTitleOk: true.",
+                            },
+                            id: taskIds[0],
+                        };
+                    }
                     const rows = await setTaskState(tx, userId, taskIds, state, waitingOn, checkInAt);
                     const changes = state === "COMPLETE" ? { completed: rows.map((row) => row.id) } : undefined;
-                    return { result: { updated: rows.length }, id: taskIds[0], changes };
+                    return { result: { updated: rows.length, tasks: before.map(({ id, title, state: was }) => ({ id, title, was })) }, id: taskIds[0], changes };
                 }),
         }),
 
@@ -440,18 +476,62 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         reschedule_tasks: tool({
             description:
                 "Moves 1–50 tasks to another day. Each keeps its own time (all-day stays all-day); " +
-                "Fixed blocks stay put unless they're the only ones listed. Returns how many moved.",
+                "Fixed blocks stay put unless they're the only ones listed. Returns each task moved with the day it left (from; null = it had none).",
             inputSchema: z.object({
                 taskIds: batchTaskIdsSchema,
                 targetDate: z.iso.date().describe("The new local day."),
             }),
             execute: async ({ taskIds, targetDate }, { toolCallId }) =>
                 write("reschedule_tasks", toolCallId, async (tx) => {
+                    const before = await tasksBefore(tx, taskIds);
                     const rows = await rescheduleTasks(tx, userId, { taskIds, date: targetDate, timezone: ctx.timezone, isAllDay: true });
-                    return { result: { moved: rows.length }, id: taskIds[0], changes: { rescheduled: rows } };
+                    const moved = new Set(rows.map((row) => row.id));
+                    // The day each left, so "undo that" can put each one back where it was.
+                    const left = before.filter((row) => moved.has(row.id)).map(({ id, title, day }) => ({ id, title, from: day }));
+                    return { result: { moved: rows.length, tasks: left }, id: taskIds[0], changes: { rescheduled: rows } };
                 }),
         }),
     };
+
+    /**
+     * The tasks a batch write names, as they are before it. An id that matches no task
+     * fails the call, so a remembered or made-up id gets a fresh read instead of a silent 0.
+     */
+    async function tasksBefore(tx: Tx, taskIds: string[]) {
+        const rows = await tx
+            .select({ id: tasks.id, title: tasks.title, state: tasks.state, day: sql<string | null>`${localDay}` })
+            .from(tasks)
+            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+        const missing = new Set(taskIds).size - rows.length;
+        if (missing) throw new AppError(404, "NOT_FOUND", `${missing} of these taskIds match no task. Read the tasks again (get_tasks or get_schedule_window) and retry with the ids it returns`);
+        return rows;
+    }
+
+    /**
+     * Open tasks that share a title (any case) and a day (or both no day) with one of `targets`,
+     * when two or more do: nothing in the data tells them apart, so a pick among them is a guess.
+     * A different day can (the nearer one is a fair pick), so it doesn't count.
+     */
+    async function sameTitled(tx: Tx, targets: { title: string; day: string | null }[]) {
+        const titles = [...new Set(targets.map((row) => row.title.toLowerCase()))];
+        const rows = await tx
+            .select({ id: tasks.id, title: tasks.title, ...placeNameColumns, day: sql<string | null>`${localDay}` })
+            .from(tasks)
+            .where(and(
+                eq(tasks.userId, userId),
+                inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                ne(tasks.interactionMode, "timetable"),
+                inArray(sql`lower(${tasks.title})`, titles),
+            ))
+            .limit(20);
+        const key = (row: { title: string; day: string | null }) => `${row.title.toLowerCase()}|${row.day ?? ""}`;
+        const wanted = new Set(targets.map(key));
+        const count = new Map<string, number>();
+        for (const row of rows) count.set(key(row), (count.get(key(row)) ?? 0) + 1);
+        return rows
+            .filter((row) => wanted.has(key(row)) && count.get(key(row))! > 1)
+            .map(({ id, title, listName, sectionName, day }) => ({ id, title, list: listName ?? undefined, section: sectionName ?? undefined, day: day ?? undefined }));
+    }
 
     /** Tag ids keyed by lower-cased name, found or made in one pass. */
     async function tagIdsByName(tx: Tx, names: string[]) {

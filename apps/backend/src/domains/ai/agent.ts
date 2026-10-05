@@ -206,6 +206,7 @@ export async function getAgentInstance(
         locale,
         nonce: opts.nonce,
         waitUntil: opts.waitUntil,
+        approvalMode: opts.approvalMode,
     };
     const tools = buildToolRegistry(env, userId, agentCtx);
     const [{ memories, spend: embeddingSpend }, snapshot] = await Promise.all([
