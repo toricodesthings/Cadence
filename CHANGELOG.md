@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-10-05
+
 ### Fixed
 
 - The assistant finds your lists and tasks again, retries a failed step once, and marks a failed lookup in red.
