@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { instantSchema } from "./common";
 
 export const notificationObjectTypeSchema = z.enum(["task", "habit", "event"]);
 
@@ -10,14 +10,14 @@ export const notificationStateRowSchema = z.object({
     objectType: z.string(),
     objectId: z.uuid(),
     triggerId: z.string(),
-    firstPresentedAt: isoDateTimeSchema.nullable(),
-    lastPresentedAt: isoDateTimeSchema.nullable(),
-    dismissedAt: isoDateTimeSchema.nullable(),
-    deferredUntil: isoDateTimeSchema.nullable(),
+    firstPresentedAt: instantSchema.nullable(),
+    lastPresentedAt: instantSchema.nullable(),
+    dismissedAt: instantSchema.nullable(),
+    deferredUntil: instantSchema.nullable(),
     actionTaken: z.string().nullable(),
     presentationCount: z.number().int(),
-    createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema,
+    createdAt: instantSchema,
+    updatedAt: instantSchema,
 });
 
 export type NotificationStateRow = z.infer<typeof notificationStateRowSchema>;
@@ -32,10 +32,10 @@ export const upsertNotificationStateSchema = z.object({
     objectType: notificationObjectTypeSchema,
     objectId: z.uuid(),
     triggerId: z.string().min(1).max(200),
-    firstPresentedAt: isoDateTimeSchema.nullable().optional(),
-    lastPresentedAt: isoDateTimeSchema.nullable().optional(),
-    dismissedAt: isoDateTimeSchema.nullable().optional(),
-    deferredUntil: isoDateTimeSchema.nullable().optional(),
+    firstPresentedAt: instantSchema.nullable().optional(),
+    lastPresentedAt: instantSchema.nullable().optional(),
+    dismissedAt: instantSchema.nullable().optional(),
+    deferredUntil: instantSchema.nullable().optional(),
     actionTaken: z.string().max(64).nullable().optional(),
     presentationCountIncrement: z.number().int().min(0).max(100).optional(),
 });

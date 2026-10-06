@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema, zoneSchema } from "./common";
+import { instantSchema, zoneSchema } from "./common";
 
 /** What a person types to confirm account deletion. The server checks it too, so a stray request can't delete anything. */
 export const ACCOUNT_DELETE_PHRASE = "delete my account";
@@ -22,8 +22,8 @@ export const dataExportRowSchema = z.object({
     email: z.string(),
     status: z.enum(["pending", "sent", "failed"]),
     bytes: z.number().int().nullable(),
-    requestedAt: isoDateTimeSchema,
-    completedAt: isoDateTimeSchema.nullable(),
+    requestedAt: instantSchema,
+    completedAt: instantSchema.nullable(),
 });
 export type DataExportRow = z.infer<typeof dataExportRowSchema>;
 

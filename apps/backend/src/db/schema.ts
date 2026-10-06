@@ -244,7 +244,6 @@ export const mcpConnections = pgTable('mcp_connections', {
     clientName: text('client_name').notNull(),
     redirectUri: text('redirect_uri').notNull(),
     scopes: text('scopes').array().notNull(),
-    timezone: text('timezone'),                                  // pre-0.26.3 browser zone at connect; no longer read (users.time_zone is the source)
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     lastUsedAt: timestamptz('last_used_at'),
     revokedAt: timestamptz('revoked_at'),
@@ -310,8 +309,7 @@ export const tasks = pgTable('tasks', {
     orderIndex: doublePrecision('order_index').notNull(), // Fractional index (1.5, 2.75) for rapid reordering without collision
 
     // The Calendar Unified Layer: a day (LocalDate) or a timed block (Instants + the zone it was planned in).
-    // All-day = no scheduled_start. The pre-0.26.3 columns (is_all_day, due_date, not_before) stay in the table
-    // until the contract migration; a trigger keeps them in step.
+    // All-day = no scheduled_start.
     dueDate: date('due_on', { mode: 'string' }), // The day an all-day task sits on, or its deadline
     endDate: date('end_on', { mode: 'string' }), // Inclusive last day of an all-day multi-day task
     scheduledStart: timestamptz('scheduled_start'), // Timed only, e.g. Tuesday at 2 PM

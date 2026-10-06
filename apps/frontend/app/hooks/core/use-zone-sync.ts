@@ -29,10 +29,6 @@ export function useZoneSync() {
     }, [client, authReady, isAuthenticated, setting]);
 
     useEffect(() => {
-        setUserZone(resolveZone(setting));
-    }, [setting]);
-
-    useEffect(() => {
         void sync();
         const onVisible = () => { if (document.visibilityState === "visible" && (setting === undefined || setting === "device")) void sync(); };
         document.addEventListener("visibilitychange", onVisible);

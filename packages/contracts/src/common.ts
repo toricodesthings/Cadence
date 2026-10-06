@@ -25,16 +25,6 @@ export const wallTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 /** Zone: an IANA name (`America/Toronto`). Never an offset, never "local". */
 export const zoneSchema = z.string().max(64).refine(isZone, "Must be an IANA time zone, e.g. America/Toronto");
 
-/** The wire format for every timestamp (alias of {@link instantSchema}). */
-export const isoDateTimeSchema = instantSchema;
-
-/**
- * time-legacy: a day OR an instant, accepted on task writes for one release so queued offline
- * operations and old desktop builds keep working. The server converts it (`legacy_time_shape` is
- * logged); new clients send a LocalDate or an Instant. Removed with the shim.
- */
-export const legacyTimeInputSchema = z.union([localDateSchema, instantSchema]);
-
 export const paginationSchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(50),
     offset: z.coerce.number().int().min(0).default(0),

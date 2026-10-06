@@ -7,7 +7,7 @@ import { and, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzl
 import { tracing } from "cloudflare:workers";
 import type { BatchReschedule, EffortLevel, InsertTask, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
 import { hasTaskTemporalMutation, normalizeHiddenUntil, normalizeTaskTemporalFields, rescheduleToDay, type TaskTemporalFields } from "@cadence/domain/task-temporal";
-import { addDays, daysBetween, isLocalDate, type Zone } from "@cadence/domain/time";
+import { addDays, daysBetween, type Zone } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { ORDER_INDEX_GAP } from "@cadence/domain/ordering";
@@ -15,7 +15,6 @@ import { subtasks, tasks, taskTags } from "../../db/schema";
 import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { insertWithClientId } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
-import { logger } from "../../platform/log";
 import { userZone } from "../../platform/user-zone";
 import { trackBatchCompletion, trackBatchEvents, trackReschedules } from "../../platform/metrics";
 import type { DbClient, Tx } from "../../types/db";
@@ -37,22 +36,10 @@ export type TaskDraft = Partial<Pick<InsertTask,
     note?: string;
 };
 
-/** Logs each pre-0.26.3 time shape a write carried, so the shim can go once the logs are quiet (`legacy_time_shape`). */
-export function legacyTimeLogger(source: string) {
-    const fields = new Set<string>();
-    return {
-        note: (field: string) => void fields.add(field),
-        flush: () => { if (fields.size) logger.info("http", "legacy_time_shape", { source, fields: [...fields] }); },
-    };
-}
-
-/** A write's temporal fields (new or legacy shapes) as the columns to store, in the user's zone. */
-export function temporalColumns(fields: TaskTemporalFields & { notBefore?: string | null }, zone: Zone, source: string) {
-    const legacy = legacyTimeLogger(source);
-    const temporal = normalizeTaskTemporalFields(fields, zone, legacy.note);
-    const hidden = "notBefore" in fields ? { notBefore: normalizeHiddenUntil(fields.notBefore, zone, legacy.note) } : {};
-    legacy.flush();
-    return { ...temporal, ...hidden };
+/** A write's temporal fields as the columns to store, in the user's zone. */
+export function temporalColumns(fields: TaskTemporalFields & { notBefore?: string | null }, zone: Zone) {
+    const temporal = normalizeTaskTemporalFields(fields, zone);
+    return "notBefore" in fields ? { ...temporal, notBefore: normalizeHiddenUntil(fields.notBefore) } : temporal;
 }
 
 /** Metrics and usage events for committed task writes. Best-effort, never blocks the caller. */
@@ -86,8 +73,7 @@ export function trackTaskChanges(
  * (the contract validates them), so the columns narrow to their literal unions.
  */
 export function toTask(row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstance" | "occurrenceStart" | "occurrenceEnd">, tagIds: string[]): Task {
-    // `isAllDay` is derived for old clients for one release (all-day = no start); nothing stores or reads it.
-    return { ...row, isAllDay: row.scheduledStart === null, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null, tagIds };
+    return { ...row, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null, tagIds };
 }
 
 /** `toTask` for rows fresh from a write: loads their tag ids in one query. */
@@ -132,7 +118,7 @@ export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
             {
                 ...draft,
                 orderIndex: 0,
-                ...temporalColumns({ dueDate, endDate, scheduledStart, scheduledEnd, ...(notBefore !== undefined && { notBefore }) }, zone, "assistant"),
+                ...temporalColumns({ dueDate, endDate, scheduledStart, scheduledEnd, ...(notBefore !== undefined && { notBefore }) }, zone),
                 ...(fixed && { interactionMode: "timetable" as const }),
             },
             [...new Set(tagIds)],
@@ -207,12 +193,12 @@ type StoredTemporal = Pick<TaskRow, "dueDate" | "endDate" | "scheduledStart" | "
  * into an all-day one (or back) leaves nothing of the other shape behind.
  */
 function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalFields {
-    const has = (key: keyof TaskPatch) => key in body && body[key] !== undefined;
-    const startsNull = has("scheduledStart") ? body.scheduledStart === null : false;
+    const has = (key: keyof TaskPatch) => body[key] !== undefined;
+    const startsNull = body.scheduledStart === null;
     const timeEdit = has("scheduledStart") || has("scheduledEnd");
     const dueDate = has("dueDate") ? body.dueDate : existing.dueDate;
     let endDate = has("endDate") ? body.endDate : existing.endDate;
-    if (!has("endDate") && has("dueDate") && body.dueDate && existing.dueDate && existing.endDate && isLocalDate(body.dueDate)) {
+    if (!has("endDate") && has("dueDate") && body.dueDate && existing.dueDate && existing.endDate) {
         endDate = addDays(existing.endDate, daysBetween(existing.dueDate, body.dueDate)); // keep the span
     }
     const scheduledStart = has("scheduledStart") ? body.scheduledStart : existing.scheduledStart;
@@ -225,7 +211,6 @@ function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalF
         scheduledStart,
         scheduledEnd,
         zone: body.zone ?? (timeEdit ? undefined : existing.zone),
-        isAllDay: body.isAllDay,
     };
 }
 
@@ -262,14 +247,12 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         const sectionId = body.sectionId !== undefined ? body.sectionId
             : projectId !== existing.projectId ? null : existing.sectionId;
         if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
-        const zone = temporalChanged || body.recurrenceRule !== undefined || body.notBefore !== undefined ? await userZone(tx, userId) : "UTC";
+        const zone = temporalChanged || body.recurrenceRule !== undefined ? await userZone(tx, userId) : "UTC";
         validateTaskRecurrenceRule(body.recurrenceRule, existing.zone ?? zone);
 
-        const temporalPatch = temporalChanged ? temporalColumns(mergeTemporal(existing, body), zone, "tasks") : {};
-        const hiddenPatch = !temporalChanged && body.notBefore !== undefined ? temporalColumns({ notBefore: body.notBefore }, zone, "tasks") : {};
-        const { isAllDay: _legacy, ...rest } = body;
+        const temporalPatch = temporalChanged ? temporalColumns(mergeTemporal(existing, body), zone) : {};
 
-        patch = { ...rest, ...(placementChanged && { sectionId }), ...hiddenPatch, ...temporalPatch };
+        patch = { ...body, ...(placementChanged && { sectionId }), ...temporalPatch };
     } else if (expectedUpdatedAt) {
         // The API exposes milliseconds; Postgres stores microseconds. Match the
         // same instant comparison as assertNoConflict, including timezone offsets.
@@ -345,12 +328,12 @@ export async function setTaskState(
  * time (all-day stays all-day), in the user's zone. Fixed blocks stay put unless they're all
  * that was asked to move.
  */
-export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, scheduledStart, isAllDay, date }: BatchReschedule) {
+export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, scheduledStart, date }: BatchReschedule) {
     const zone = await userZone(tx, userId);
     if (!date) {
         return tx
             .update(tasks)
-            .set({ ...temporalColumns({ scheduledStart, isAllDay }, zone, "tasks.reschedule"), updatedAt: sql`NOW()` })
+            .set({ ...temporalColumns({ scheduledStart }, zone), updatedAt: sql`NOW()` })
             .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
             .returning();
     }

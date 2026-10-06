@@ -259,7 +259,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
             safeExecute("log_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        const { habit, log } = await resolveHabit(tx, userId, input.habitId, { ...input, timezone: ctx.timezone });
+                        const { habit, log } = await resolveHabit(tx, userId, input.habitId, input);
                         return { result: { status: log.status, currentStreak: habit.currentStreak }, id: habit.id };
                     }),
                 ),

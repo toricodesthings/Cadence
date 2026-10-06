@@ -1,7 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
 import type { ProcessInboxItem } from "@cadence/contracts/inbox";
-import { isLocalDate } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { inboxItems, subtasks, tasks, taskTags } from "../../db/schema";
 import { checkIdempotency, recordMutation } from "../../platform/idempotency";
@@ -28,10 +27,8 @@ export async function processCapture(
 ) {
     const idempotencyKey = extras.idempotencyKey;
     const title = body.title;
-    const scheduledDate = body.scheduledDate ?? undefined; // time-legacy: a day or an instant
     const scheduledDay = body.scheduledDay ?? undefined;
     const scheduledEnd = body.scheduledEnd ?? undefined;
-    const isAllDay = body.isAllDay ?? undefined;
     const projectId = body.projectId ?? undefined;
     const tagIds = body.tagIds ?? undefined;
     const priority = body.priority ?? undefined;
@@ -80,10 +77,9 @@ export async function processCapture(
             waitingOn,
             recurrenceRule,
             // An explicit null stays null: it means "no date", not "not given".
-            dueDate: body.dueDate !== undefined ? body.dueDate : scheduledDay ?? (scheduledDate !== undefined && isLocalDate(scheduledDate) ? scheduledDate : undefined),
-            scheduledStart: body.scheduledStart !== undefined ? body.scheduledStart : (scheduledDate !== undefined && !isLocalDate(scheduledDate) ? scheduledDate : undefined),
+            dueDate: body.dueDate !== undefined ? body.dueDate : scheduledDay,
+            scheduledStart: body.scheduledStart,
             scheduledEnd,
-            isAllDay,
         },
         confidenceThreshold,
         zone,
@@ -91,9 +87,8 @@ export async function processCapture(
 
     // One placement: what the caller sent (a day, or a timed start), else what the parse found.
     const temporalFields = temporalColumns(
-        { dueDate: inferred.dueDate, scheduledStart: inferred.scheduledStart, scheduledEnd: inferred.scheduledEnd, isAllDay },
+        { dueDate: inferred.dueDate, scheduledStart: inferred.scheduledStart, scheduledEnd: inferred.scheduledEnd },
         zone,
-        "inbox",
     );
 
     const taskTagIds = Array.from(new Set(tagIds ?? inferred.tagIds ?? []));

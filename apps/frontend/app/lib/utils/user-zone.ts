@@ -17,7 +17,7 @@ export function deviceZone(): Zone {
     }
 }
 
-/** Settings' `dateTime.timezone` as a zone: an IANA name pins it; "device" (or the old "local") follows the device. */
+/** Settings' `dateTime.timezone` as a zone: an IANA name pins it; anything else ("device") follows the device. */
 export function resolveZone(setting: string | undefined): Zone {
     return isZone(setting) ? setting : deviceZone();
 }

@@ -1,9 +1,9 @@
-import { eq, and, lt, ne, sql, inArray, isNull, or } from "drizzle-orm";
+import { eq, and, lt, sql, inArray, isNull, or } from "drizzle-orm";
 import { getDbClient } from "../platform/db";
 import { tasks, taskMetrics, mutationDedup, aiMemories, aiImages, usageEvents, users } from "../db/schema";
 import { aiImageKey, deleteImageObjects, IMAGE_RETENTION_DAYS, ORPHAN_HOURS } from "../domains/ai/images/chat-images";
 import { withRls } from "../platform/rls";
-import { computeWorkloadSignals } from "../platform/metrics";
+import { computeWorkloadSignals, overdueEligible } from "../platform/metrics";
 import { logger, hashIdentifier, issuesFromError } from "../platform/log";
 import type { Env } from "../types/env";
 
@@ -26,8 +26,7 @@ export async function handleOverdueCheck(env: Env, now: Date = new Date()) {
         .innerJoin(users, eq(users.id, tasks.userId))
         .where(and(
             eq(tasks.state, "ACTIVE"),
-            isNull(tasks.recurrenceRule),
-            ne(tasks.interactionMode, "timetable"),
+            ...overdueEligible(),
             sql`extract(hour from timezone(${users.timeZone}, ${instant}::timestamptz)) = ${DAY_BOUNDARY_HOUR}`,
             or(
                 sql`${tasks.dueDate} < timezone(${users.timeZone}, ${instant}::timestamptz)::date`,

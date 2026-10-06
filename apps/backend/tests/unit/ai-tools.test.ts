@@ -5,9 +5,9 @@ import {
     toMinimalHabit,
     toMinimalInboxItem,
     resolveDueWindow,
-    taskLocalDay,
     type TaskRow,
 } from "../../src/domains/ai/tools/projections";
+import { taskDay } from "@cadence/domain/task-recurrence";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildToolRegistry, clampLimit, MAX_LIST_LIMIT, safeExecute, slimSchema } from "../../src/domains/ai/tools/index";
@@ -33,7 +33,7 @@ const baseTask: TaskRow = {
 };
 
 describe("toMinimalTask", () => {
-    it("projects only the set fields: DROPS content, nulls, defaults and isAllDay", () => {
+    it("projects only the set fields: DROPS content, nulls and defaults", () => {
         expect(Object.keys(JSON.parse(JSON.stringify(toMinimalTask(baseTask, "UTC")))).sort()).toEqual(
             ["dueDate", "durationEstimate", "effort", "id", "priority", "projectId", "state", "title"],
         );
@@ -78,19 +78,19 @@ describe("toMinimalTask", () => {
     });
 });
 
-describe("taskLocalDay", () => {
+describe("taskDay", () => {
     it("puts a timed task on the day its start has in the user's zone", () => {
         const lateEvening = { dueDate: null, scheduledStart: "2026-06-11T02:30:00.000Z" }; // 22:30 on the 10th in Toronto
 
-        expect(taskLocalDay(lateEvening, "America/Toronto")).toBe("2026-06-10");
-        expect(taskLocalDay(lateEvening, "UTC")).toBe("2026-06-11");
+        expect(taskDay(lateEvening, "America/Toronto")).toBe("2026-06-10");
+        expect(taskDay(lateEvening, "UTC")).toBe("2026-06-11");
     });
 
     it("keeps an all-day task on its stored day in every zone, and is null when undated", () => {
         const allDay = { dueDate: "2026-10-05", scheduledStart: null }; // the COMP3000 case
 
-        for (const tz of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto", "UTC"]) expect(taskLocalDay(allDay, tz)).toBe("2026-10-05");
-        expect(taskLocalDay({ dueDate: null, scheduledStart: null }, "UTC")).toBeNull();
+        for (const tz of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto", "UTC"]) expect(taskDay(allDay, tz)).toBe("2026-10-05");
+        expect(taskDay({ dueDate: null, scheduledStart: null }, "UTC")).toBeNull();
     });
 });
 

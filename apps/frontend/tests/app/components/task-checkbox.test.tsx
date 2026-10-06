@@ -38,7 +38,6 @@ vi.mock("../../../app/stores/task-completion-store", () => ({
 }));
 
 const createTask = (overrides: Partial<Task> = {}) => makeTask({
-    isAllDay: false,
     scheduledStart: "2026-03-10T09:30:00.000Z",
     scheduledEnd: "2026-03-10T10:45:00.000Z",
     durationEstimate: 75,

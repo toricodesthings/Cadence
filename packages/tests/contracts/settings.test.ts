@@ -47,8 +47,8 @@ describe("settingsPatchSchema", () => {
 });
 
 describe("dateTime.timezone", () => {
-    it('reads the pre-0.26.3 "local" as "device" and rejects offsets', () => {
-        expect(settingsPatchSchema.parse({ dateTime: { timezone: "local" } })).toEqual({ dateTime: { timezone: "device" } });
+    it('takes "device" or an IANA zone, never an offset or "local"', () => {
+        expect(settingsPatchSchema.safeParse({ dateTime: { timezone: "local" } }).success).toBe(false);
         expect(settingsPatchSchema.parse({ dateTime: { timezone: "device" } })).toEqual({ dateTime: { timezone: "device" } });
         expect(settingsPatchSchema.safeParse({ dateTime: { timezone: "-04:00" } }).success).toBe(false);
         expect(SETTINGS_DEFAULTS.dateTime.timezone).toBe("device");

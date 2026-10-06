@@ -120,8 +120,7 @@ interface** — the parity guard only covers the Row subset.
 - **common**: scalars, pagination, `uuidParamSchema`/`taskIdParamSchema`, the
   `ApiError` envelope + `ERROR_CODES`/`ErrorCode` (every code the API sends;
   `AppError` and `DomainError` take one), and the time scalars
-  `instantSchema`/`localDateSchema`/`wallTimeSchema`/`zoneSchema` (plus `isZone` and the one-release
-  `legacyTimeInputSchema`).
+  `instantSchema`/`localDateSchema`/`wallTimeSchema`/`zoneSchema` (plus `isZone`).
 - **task** also holds the `GET /tasks` filters (`taskFiltersSchema`,
   `taskListQuerySchema`); **events** the usage-event names, batch cap and strict frontend-performance and error samples with bounded endpoint/status/error and build/revision dimensions (legacy defaults to revision 1);
   **proxy** the weather/geocoding/holiday queries and responses;

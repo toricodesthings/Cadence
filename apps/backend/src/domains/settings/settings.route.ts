@@ -70,9 +70,6 @@ export function normalizeSettings(stored: Record<string, any>): SettingsView {
         merged.tasks = { ...merged.tasks, defaultView: stored.preferredView };
     }
 
-    // time-legacy: "local" (before 0.26.3) is "device"
-    if (merged.dateTime?.timezone === "local") merged.dateTime = { ...merged.dateTime, timezone: "device" };
-
     return merged;
 }
 

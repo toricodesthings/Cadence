@@ -106,15 +106,14 @@ export function deriveCandidates(
 
         // Deadlines: a deadline is a day (a LocalDate), never a time.
         if (task.dueDate) {
-            const dueDay = task.dueDate;
-            const overdueDays = daysBetween(dueDay, today);
-            if (overdueDays === 0 || (overdueDays > 0 && overdueDays <= 3)) {
+            const overdueDays = daysBetween(task.dueDate, today);
+            if (overdueDays >= 0 && overdueDays <= 3) {
                 items.push({
-                    id: `task-due::${task.id}::${dueDay}`,
+                    id: `task-due::${task.id}::${task.dueDate}`,
                     kind: "task-due",
                     title: task.title,
-                    body: overdueDays === 0 ? "Due today" : `Overdue since ${formatShortDate(dueDay)}`,
-                    triggerAt: atLocal(dueDay, "00:00", zone),
+                    body: overdueDays === 0 ? "Due today" : `Overdue since ${formatShortDate(task.dueDate)}`,
+                    triggerAt: atLocal(task.dueDate, "00:00", zone),
                     entityId: task.id,
                     route: task.projectId ? `/project/${task.projectId}` : "/",
                     priority: "high",
@@ -133,16 +132,15 @@ export function deriveCandidates(
 
             const diffMs = Date.parse(targetToday) - now.getTime();
             if (Math.abs(diffMs) <= 2 * 60 * 60_000) {
-                const todayStr = today;
                 // Today's log exists only when the routine is due and not paused;
                 // remind while it is still open.
                 const openToday = habit.logs?.some(
-                    (log) => log.targetDate === todayStr && log.status === "PENDING",
+                    (log) => log.targetDate === today && log.status === "PENDING",
                 );
 
                 if (openToday) {
                     items.push({
-                        id: `habit-reminder::${habit.id}::${todayStr}`,
+                        id: `habit-reminder::${habit.id}::${today}`,
                         kind: "habit-reminder",
                         title: habit.title,
                         body: diffMs > 0

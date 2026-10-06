@@ -9,10 +9,10 @@ import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
 import { placeNameColumns } from "./tasks";
 import { inDayWindow } from "../../tasks/task-filters";
-import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
+import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
 import { isPausedOn } from "@cadence/domain/repeats";
-import { addDays, legacyDay } from "@cadence/domain/time";
-import { taskLocalDay, toMinimalTask } from "./projections";
+import { addDays } from "@cadence/domain/time";
+import { toMinimalTask } from "./projections";
 import { expandOccurrences } from "../../habits/habits.service";
 
 /** Hard cap on the span a single schedule-window read may cover. */
@@ -68,17 +68,16 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "for planning, sorted by day and time. Repeating tasks appear once per occurrence. fixedBlock:true = a class or shift: it " +
             "takes that time, can't be checked off and is never overdue. Tasks page with offset: more:true and nextOffset when there's more.",
         inputSchema: z.object({
-            start: z.string().describe("First local day, YYYY-MM-DD."),
-            end: z.string().describe("Last local day."),
+            start: z.iso.date().describe("First local day, YYYY-MM-DD."),
+            end: z.iso.date().describe("Last local day."),
             includeDone: z.boolean().default(false).describe("Also tasks already done."),
             offset: z.number().int().min(0).max(100_000).optional().describe("From nextOffset; omit for the first page."),
             limit: z.number().int().min(1).max(50).default(50),
         }),
         execute: async ({ start, end, includeDone, offset = 0, limit }) =>
             safeExecute("get_schedule_window", userId, async () => {
-                // Work in the user's local days; a stray instant is read as the day it has for the user.
-                const from = legacyDay(start, ctx.timezone);
-                let to = legacyDay(end, ctx.timezone);
+                const from = start;
+                let to = end;
                 // Clamp the span server-side so a huge range can't be requested.
                 const maxTo = addDays(from, MAX_RANGE_DAYS);
                 if (to > maxTo) to = maxTo;
@@ -122,7 +121,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     // Same expansion as GET /tasks for a day window: each occurrence of a
                     // repeating series lands on its own day, in the series' zone.
                     const expanded = expandScheduleScopedTasks(series, { from, to }, ctx.timezone);
-                    const when = (row: (typeof dated)[number]) => `${taskLocalDay(row, ctx.timezone)} ${row.scheduledStart ?? ""}`;
+                    const when = (row: (typeof dated)[number]) => `${taskDay(row, ctx.timezone)} ${row.scheduledStart ?? ""}`;
                     const inRange = [...dated.slice(0, WINDOW_ROW_GUARD), ...expanded].sort((a, b) => when(a).localeCompare(when(b)));
                     const shown = inRange.slice(offset, offset + cap);
                     const more = inRange.length > offset + cap || dated.length > WINDOW_ROW_GUARD;

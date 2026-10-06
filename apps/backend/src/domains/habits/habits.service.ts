@@ -299,7 +299,7 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
  * marks instead: the status follows from them, and a partly done day is kept
  * as PENDING. A whole-day status clears the step marks (one tap, every step).
  */
-export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, timezone: _legacy, ...action }: ResolveHabitAction) {
+export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, ...action }: ResolveHabitAction) {
     const [habit] = await tx
         .select()
         .from(habits)
@@ -307,7 +307,6 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
 
     throwIfNotFound(habit, "Habit");
 
-    const datePrefix = targetDate;
     const now = sql`NOW()`;
     const stepIds = (habit.steps ?? []).map((step) => step.id);
     const { status, stepStatus } = stepIds.length && action.stepStatus
@@ -322,7 +321,7 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
             and(
                 eq(habitLogs.userId, userId),
                 eq(habitLogs.habitId, habit.id),
-                eq(habitLogs.targetDate, datePrefix)
+                eq(habitLogs.targetDate, targetDate)
             )
         );
 
@@ -333,13 +332,13 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
             await tx.delete(habitLogs).where(eq(habitLogs.id, existing.id));
             row = { ...existing, status: "PENDING" as const, completedAt: null, resolvedAt: null, stepStatus: null };
         } else {
-            row = { id: `virt_${datePrefix}`, habitId: habit.id, userId, status: "PENDING" as const, targetDate: datePrefix, completedAt: null, resolvedAt: null, stepStatus: null, createdAt: new Date().toISOString() };
+            row = { id: `virt_${targetDate}`, habitId: habit.id, userId, status: "PENDING" as const, targetDate: targetDate, completedAt: null, resolvedAt: null, stepStatus: null, createdAt: new Date().toISOString() };
         }
     } else {
         const values = { status, stepStatus, completedAt: status === "COMPLETED" ? now : null, resolvedAt: now };
         [row] = existing
             ? await tx.update(habitLogs).set(values).where(eq(habitLogs.id, existing.id)).returning()
-            : await tx.insert(habitLogs).values({ userId, habitId: habit.id, targetDate: datePrefix, ...values }).returning();
+            : await tx.insert(habitLogs).values({ userId, habitId: habit.id, targetDate: targetDate, ...values }).returning();
     }
 
     // Incremental totals (O(1)): what this day counted before, and what it counts now.
@@ -347,13 +346,13 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     const totalCompletions = Math.max(0, habit.totalCompletions + Number(status === "COMPLETED") - Number(was === "COMPLETED"));
     const totalSkips = Math.max(0, habit.totalSkips + Number(status === "SKIPPED") - Number(was === "SKIPPED"));
 
-    // Determine whether `datePrefix` is the most recent occurrence on or
+    // Determine whether `targetDate` is the most recent occurrence on or
     // before the caller's today. The log mutation above is visible inside
     // this tx, so both streak paths read the post-mutation state.
     const tz = await userZone(tx, userId);
     const todayStr = todayIn(tz);
-    const occurrencesAfter = datePrefix < todayStr
-        ? expandOccurrences(habit.recurrenceRule, habit.createdAt, addDays(datePrefix, 1), todayStr, tz)
+    const occurrencesAfter = targetDate < todayStr
+        ? expandOccurrences(habit.recurrenceRule, habit.createdAt, addDays(targetDate, 1), todayStr, tz)
         : [];
     const isMostRecentActive = occurrencesAfter.length === 0;
 

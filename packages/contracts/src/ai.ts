@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { errorCodeSchema, isoDateTimeSchema, type ErrorCode } from "./common";
+import { errorCodeSchema, instantSchema, type ErrorCode } from "./common";
 
 /** Upper bound on UIMessage parts. Per-part byte caps are enforced server-side. */
 export const MAX_PARTS_PER_MESSAGE = 32;
@@ -157,7 +157,7 @@ export const aiConversationRowSchema = z.object({
     userId: z.uuid(),
     title: z.string().nullable(),
     model: z.string().nullable(),
-    lastMessageAt: isoDateTimeSchema.nullable(),
+    lastMessageAt: instantSchema.nullable(),
     archived: z.boolean(),
     metadata: z.record(z.string(), z.unknown()),
     // Non-null while a turn is producing — lets the client hydrate `resume` (doc Update 4 §7.10).
@@ -168,8 +168,8 @@ export const aiConversationRowSchema = z.object({
     // the status to drive Retry. Typed as the raw text column (parity with `activeStreamId`).
     lastStreamId: z.string().nullable(),
     lastStreamStatus: z.string().nullable(),
-    createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema,
+    createdAt: instantSchema,
+    updatedAt: instantSchema,
 });
 
 export const conversationSchema = aiConversationRowSchema;
@@ -215,7 +215,7 @@ export const aiMessageRowSchema = z.object({
     metadata: z.record(z.string(), z.unknown()),
     status: messageStatusSchema,
     orderIndex: z.number(),
-    createdAt: isoDateTimeSchema,
+    createdAt: instantSchema,
 });
 
 /** Client-facing message entity — the UIMessage projection (no status/orderIndex). */
@@ -292,10 +292,10 @@ export const aiImageRowSchema = z.object({
     bytes: z.number(),
     width: z.number(),
     height: z.number(),
-    createdAt: isoDateTimeSchema,
-    sentAt: isoDateTimeSchema.nullable(),
-    lastUsedAt: isoDateTimeSchema,
-    diagnosticsSharedAt: isoDateTimeSchema.nullable(),
+    createdAt: instantSchema,
+    sentAt: instantSchema.nullable(),
+    lastUsedAt: instantSchema,
+    diagnosticsSharedAt: instantSchema.nullable(),
 });
 
 export const aiUsageSchema = z.object({

@@ -220,16 +220,6 @@ describe("the user's time zone", () => {
         expect((await settings("GET", "")).body.data.dateTime.timezone).toBe("Pacific/Auckland");
     });
 
-    it("a stored legacy \"local\" reads back as \"device\", and a patch to \"local\" is stored as \"device\"", async () => {
-        const legacy = await createUser({ dateTime: { timezone: "local" } });
-        const legacySettings = apiAs(legacy, "/settings", settingsRoutes);
-
-        expect((await legacySettings("GET", "")).body.data.dateTime.timezone).toBe("device");
-        expect(await storedZone(legacy)).toBe("UTC");
-        expect((await legacySettings("PATCH", "", { dateTime: { timezone: "local" } })).body.data.dateTime.timezone).toBe("device");
-        expect(await storedZone(legacy)).toBe("UTC");
-    });
-
     it("rejects an offset or garbage as the Settings timezone", async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
         expect((await settings("PATCH", "", { dateTime: { timezone: "+05:00" } })).status).toBe(400);

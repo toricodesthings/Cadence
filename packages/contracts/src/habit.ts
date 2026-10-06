@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema, localDateSchema } from "./common";
+import { instantSchema, localDateSchema } from "./common";
 
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
@@ -52,13 +52,10 @@ export const updateHabitSchema = insertHabitSchema.omit({ id: true }).partial().
 export type UpdateHabit = z.input<typeof updateHabitSchema>;
 
 export const resolveHabitActionSchema = z.object({
-    // A LocalDate. time-legacy: queued operations from before 0.26.3 sent a full datetime; its date part is kept.
-    targetDate: z.preprocess((v) => (typeof v === "string" ? (/^(\d{4}-\d{2}-\d{2})T/.exec(v)?.[1] ?? v) : v), localDateSchema),
+    targetDate: localDateSchema,
     status: habitStatusSchema,
     /** A routine with steps: the day's step marks. The server derives `status` from them (see `stepDayStatus`). */
     stepStatus: stepStatusSchema.optional(),
-    /** time-legacy: ignored; the server uses the user's zone (`users.time_zone`). */
-    timezone: z.string().max(64).optional(),
 });
 export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;
 
@@ -66,8 +63,6 @@ export const weeklyHabitsQuerySchema = z.object({
     start: localDateSchema,
     end: localDateSchema,
     archived: z.string().optional().default("false").transform(v => v === "true"),
-    /** time-legacy: ignored; the server uses the user's zone. */
-    timezone: z.string().optional(),
 });
 
 export const habitListQuerySchema = z.object({
@@ -96,8 +91,8 @@ export const habitRowSchema = z.object({
     archived: z.boolean(),
     notes: z.string().nullable(),
     steps: z.array(z.object({ id: z.string(), title: z.string() })).nullable(),
-    createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema,
+    createdAt: instantSchema,
+    updatedAt: instantSchema,
 });
 export type HabitRow = z.infer<typeof habitRowSchema>;
 
@@ -110,10 +105,10 @@ export const habitLogRowSchema = z.object({
     userId: z.uuid(),
     status: habitStatusSchema,
     targetDate: z.string(),
-    completedAt: isoDateTimeSchema.nullable(),
-    resolvedAt: isoDateTimeSchema.nullable(),
+    completedAt: instantSchema.nullable(),
+    resolvedAt: instantSchema.nullable(),
     stepStatus: habitLogStepStatusSchema.nullable(),
-    createdAt: isoDateTimeSchema,
+    createdAt: instantSchema,
 });
 
 /** Optimistic logs carry a temp id and skip server-only columns. */

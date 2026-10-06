@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { instantSchema, isoDateTimeSchema, legacyTimeInputSchema, localDateSchema } from "./common";
+import { instantSchema, localDateSchema } from "./common";
 import { canonicalNlpEnvelopeSchema, effortLevelSchema, sourceSurfaceSchema } from "./task";
 
 export const inboxQuerySchema = z.object({ status: z.enum(["clarifying", "kept"]).default("clarifying") });
@@ -45,9 +45,6 @@ export const processInboxItemSchema = z.object({
     /** A timed placement: the start and optional end instants (the server adds the user's zone). */
     scheduledStart: instantSchema.nullish(),
     scheduledEnd: instantSchema.nullish(),
-    /** time-legacy: queued offline operations from before 0.26.3 (a day or an instant, plus isAllDay). */
-    scheduledDate: legacyTimeInputSchema.nullish(),
-    isAllDay: z.boolean().nullish(),
     projectId: z.uuid().nullish(),
     sectionId: z.uuid().nullish(),
     tagIds: z.array(z.uuid()).nullish(),
@@ -91,9 +88,9 @@ export const inboxItemRowSchema = z.object({
     analysisNeedsReview: z.boolean(),
     analysisReviewReason: z.string().nullable(),
     analysisEntityCount: z.number().int(),
-    clarifiedAt: isoDateTimeSchema.nullable(),
-    appliedAt: isoDateTimeSchema.nullable(),
-    createdAt: isoDateTimeSchema,
+    clarifiedAt: instantSchema.nullable(),
+    appliedAt: instantSchema.nullable(),
+    createdAt: instantSchema,
 });
 export type InboxItemRow = z.infer<typeof inboxItemRowSchema>;
 
@@ -104,8 +101,8 @@ export const inboxItemSchema = inboxItemRowSchema.extend({
     analysisNeedsReview: z.boolean().optional(),
     analysisReviewReason: z.string().nullable().optional(),
     analysisEntityCount: z.number().int().optional(),
-    clarifiedAt: isoDateTimeSchema.nullable().optional(),
-    appliedAt: isoDateTimeSchema.nullable().optional(),
+    clarifiedAt: instantSchema.nullable().optional(),
+    appliedAt: instantSchema.nullable().optional(),
 });
 export type InboxItem = z.infer<typeof inboxItemSchema>;
 
@@ -114,6 +111,6 @@ export const inboxSectionRowSchema = z.object({
     userId: z.uuid(),
     name: z.string(),
     orderIndex: z.number().int(),
-    createdAt: isoDateTimeSchema,
+    createdAt: instantSchema,
 });
 

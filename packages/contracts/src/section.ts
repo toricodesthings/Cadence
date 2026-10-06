@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { instantSchema } from "./common";
 
 export const sectionQuerySchema = z.object({
     projectId: z.uuid().optional(),
@@ -24,7 +24,7 @@ export const taskSectionRowSchema = z.object({
     projectId: z.uuid().nullable(),
     name: z.string(),
     orderIndex: z.number(),
-    createdAt: isoDateTimeSchema,
+    createdAt: instantSchema,
 });
 
 export const taskSectionSchema = taskSectionRowSchema;

@@ -43,20 +43,14 @@ describe("creating tasks", () => {
     it("applies defaults on create", async () => {
         const task = await create({ title: "Write spec", dueDate: "2026-03-10" });
 
-        expect(task).toMatchObject({ state: "ACTIVE", priority: 0, isAllDay: true, isPinned: false, projectId: null });
+        expect(task).toMatchObject({ state: "ACTIVE", priority: 0, isPinned: false, projectId: null });
         expect(task.interactionMode).toEqual(expect.any(String));
     });
 
     it("stores a multi-day all-day task as a first and last LocalDate with no instants", async () => {
         const task = await create({ title: "Trip", dueDate: "2026-03-10", endDate: "2026-03-12" });
 
-        expect(task).toMatchObject({ dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null, scheduledEnd: null, zone: null, isAllDay: true });
-    });
-
-    it("reads an old client's all-day shape (isAllDay + noon-UTC instant, end-of-day end) as the same days", async () => {
-        const task = await create({ title: "Trip", isAllDay: true, dueDate: "2026-03-10T12:00:00.000Z", scheduledEnd: "2026-03-12T23:59:59.999Z" });
-
-        expect(task).toMatchObject({ dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null, scheduledEnd: null, isAllDay: true });
+        expect(task).toMatchObject({ dueDate: "2026-03-10", endDate: "2026-03-12", scheduledStart: null, scheduledEnd: null, zone: null });
     });
 
     it("resolves project, tag, and date from quick-add text and stores the parse", async () => {
@@ -68,7 +62,7 @@ describe("creating tasks", () => {
             nlp: { rawInput: "Work on Apollo /apollo #planning 2026-03-09", sourceSurface: "quick_add", dateStyle: "mdy" },
         });
 
-        expect(task).toMatchObject({ projectId: project.data.id, dueDate: "2026-03-09", isAllDay: true });
+        expect(task).toMatchObject({ projectId: project.data.id, dueDate: "2026-03-09" });
         expect((await tasks("GET", `/${task.id}/tags`)).body.data.map((t: any) => t.id)).toEqual([tag.data.id]);
         const [meta] = await asOwner(async (pg) => (await pg.query("SELECT source_surface, is_current FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows);
         expect(meta).toEqual({ source_surface: "quick_add", is_current: true });
@@ -78,7 +72,6 @@ describe("creating tasks", () => {
         const { status, body } = await tasks("POST", "", {
             title: "Broken",
             orderIndex: 1,
-            isAllDay: false,
             scheduledStart: "2026-03-10T09:30:00.000Z",
             scheduledEnd: "2026-03-10T10:45:00.000Z",
             recurrenceRule: "FREQ=WEEKLY;BYDAY=NOPE",
@@ -212,20 +205,11 @@ describe("updating tasks", () => {
     });
 
     it("moves a timed task to an all-day date the way the client sends it (clearing the time block)", async () => {
-        const task = await create({ title: "T", isAllDay: false, scheduledStart: "2026-03-09T14:00:00.000Z", scheduledEnd: "2026-03-09T15:30:00.000Z" });
+        const task = await create({ title: "T", scheduledStart: "2026-03-09T14:00:00.000Z", scheduledEnd: "2026-03-09T15:30:00.000Z" });
 
-        const { body } = await tasks("PATCH", `/${task.id}`, { isAllDay: true, dueDate: "2026-03-10", scheduledStart: null, scheduledEnd: null });
+        const { body } = await tasks("PATCH", `/${task.id}`, { dueDate: "2026-03-10", scheduledStart: null, scheduledEnd: null });
 
-        expect(body.data).toMatchObject({ isAllDay: true, dueDate: "2026-03-10", scheduledStart: null, scheduledEnd: null });
-    });
-
-    it("rejects an all-day move that leaves the old end time before the new day, instead of saving a broken span", async () => {
-        const task = await create({ title: "T", isAllDay: false, scheduledStart: "2026-03-09T14:00:00.000Z", scheduledEnd: "2026-03-09T15:30:00.000Z" });
-
-        const { status } = await tasks("PATCH", `/${task.id}`, { isAllDay: true, dueDate: "2026-03-10" });
-
-        expect(status).toBe(400);
-        expect((await tasks("GET", `/${task.id}`)).body.data.isAllDay).toBe(false);
+        expect(body.data).toMatchObject({ dueDate: "2026-03-10", scheduledStart: null, scheduledEnd: null });
     });
 
     it("accepts the updatedAt it just served as expectedUpdatedAt, and rejects a stale one with 409", async () => {
@@ -302,7 +286,7 @@ describe("batch operations", () => {
         const [a, b] = [await create({ title: "A" }), await create({ title: "B" })];
         const theirs = await create({ title: "Theirs", dueDate: "2026-01-01" }, otherTasks);
 
-        const { body } = await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id, theirs.id], scheduledStart: "2026-03-10", isAllDay: true });
+        const { body } = await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id, theirs.id], date: "2026-03-10" });
 
         expect(titles(body.data).sort()).toEqual(["A", "B"]);
         for (const t of body.data) expect(t).toMatchObject({ dueDate: "2026-03-10", scheduledStart: null });
@@ -311,7 +295,7 @@ describe("batch operations", () => {
         expect((await otherTasks("GET", `/${theirs.id}`)).body.data.dueDate).toBe("2026-01-01");
 
         // Later writes update each task's one metrics row instead of adding another.
-        await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id], scheduledStart: "2026-03-11", isAllDay: true });
+        await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id], date: "2026-03-11" });
         await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
         const rows = await asOwner(async (pg) => (await pg.query(
             "SELECT reschedule_count, first_scheduled IS NOT NULL AS has_first, completed_at IS NOT NULL AS done FROM task_metrics WHERE task_id = ANY($1) ORDER BY done DESC",
@@ -336,8 +320,8 @@ describe("batch operations", () => {
         });
 
         const byTitle = Object.fromEntries(body.data.map((t: any) => [t.title, t]));
-        expect(byTitle.Call).toMatchObject({ isAllDay: false, scheduledStart: "2026-09-28T18:00:00.000Z", scheduledEnd: "2026-09-28T18:30:00.000Z" });
-        expect(byTitle.Rent).toMatchObject({ isAllDay: true, dueDate: "2026-09-28", scheduledStart: null });
+        expect(byTitle.Call).toMatchObject({ scheduledStart: "2026-09-28T18:00:00.000Z", scheduledEnd: "2026-09-28T18:30:00.000Z" });
+        expect(byTitle.Rent).toMatchObject({ dueDate: "2026-09-28", scheduledStart: null });
         expect(byTitle.Lecture).toBeUndefined(); // Fixed blocks stay put alongside other tasks
         expect((await tasks("POST", "/batch/reschedule", { taskIds: [lecture.id], date: "2026-09-28" })).body.data[0].scheduledStart)
             .toBe("2026-09-28T13:00:00.000Z");
@@ -511,7 +495,7 @@ describe("one time model (0.26.3)", () => {
         await setZone("America/Toronto");
         const task = await create({ title: "Late", scheduledStart: "2026-10-05T23:30:00-04:00", scheduledEnd: "2026-10-06T00:00:00-04:00" });
 
-        expect(task).toMatchObject({ scheduledStart: "2026-10-06T03:30:00.000Z", zone: "America/Toronto", dueDate: null, isAllDay: false });
+        expect(task).toMatchObject({ scheduledStart: "2026-10-06T03:30:00.000Z", zone: "America/Toronto", dueDate: null });
         expect(await onDay("2026-10-05")).toEqual(["Late"]);
         expect(await onDay("2026-10-06")).toEqual([]);
     });
@@ -536,44 +520,10 @@ describe("one time model (0.26.3)", () => {
         expect(body.data.map((t: any) => t.scheduledStart.slice(11, 16))).toEqual(["18:35", "19:35", "19:35"]);
     });
 
-    describe("legacy write shapes", () => {
-        it("an instant dueDate becomes the user's local day (2026-10-06T03:59Z is Oct 5 in Toronto)", async () => {
-            await setZone("America/Toronto");
-
-            const task = await create({ title: "Old client", dueDate: "2026-10-06T03:59:00.000Z" });
-
-            expect(task).toMatchObject({ dueDate: "2026-10-05", scheduledStart: null, isAllDay: true });
-        });
-
-        it("isAllDay:true with a noon-UTC dueDate keeps that day", async () => {
-            await setZone("America/Toronto");
-
-            const task = await create({ title: "Old all-day", isAllDay: true, dueDate: "2026-10-05T12:00:00.000Z" });
-
-            expect(task).toMatchObject({ dueDate: "2026-10-05", scheduledStart: null, isAllDay: true });
-        });
-
-        it("isAllDay:true with a start turns the start into its local day", async () => {
-            await setZone("America/Toronto");
-
-            const task = await create({ title: "Old all-day start", isAllDay: true, scheduledStart: "2026-10-06T03:59:00.000Z" });
-
-            expect(task).toMatchObject({ dueDate: "2026-10-05", scheduledStart: null, zone: null });
-        });
-
-        it("a date-only scheduledStart is an all-day task on that day", async () => {
-            const task = await create({ title: "Date-only start", scheduledStart: "2026-10-05" });
-
-            expect(task).toMatchObject({ dueDate: "2026-10-05", scheduledStart: null, isAllDay: true });
-        });
-
-        it("an instant notBefore becomes the local day", async () => {
-            await setZone("America/Toronto");
-
-            const task = await create({ title: "Hidden", notBefore: "2026-10-06T03:59:00.000Z" });
-
-            expect(task.notBefore).toBe("2026-10-05");
-        });
+    it("rejects the pre-0.26.3 shapes: a day field holding an instant, a start holding a day", async () => {
+        expect((await tasks("POST", "", { title: "Old", orderIndex: 1, dueDate: "2026-10-06T03:59:00.000Z" })).status).toBe(400);
+        expect((await tasks("POST", "", { title: "Old", orderIndex: 1, scheduledStart: "2026-10-05" })).status).toBe(400);
+        expect((await tasks("POST", "", { title: "Old", orderIndex: 1, notBefore: "2026-10-06T03:59:00.000Z" })).status).toBe(400);
     });
 
     it("moving a multi-day task's first day keeps its span", async () => {

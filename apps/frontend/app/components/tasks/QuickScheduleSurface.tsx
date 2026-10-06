@@ -11,8 +11,9 @@ import {
 import { Tip, TimePicker } from "../primitives";
 import { MonthCalendar } from "../shared/DatePicker";
 import { RecurrencePicker } from "./RecurrencePicker";
-import { addDays, daysBetween, weekdayOf, type Instant, type LocalDate, type WallTime } from "@cadence/domain/time";
+import { addDays, weekdayOf, type Instant, type LocalDate, type WallTime } from "@cadence/domain/time";
 import { blockEnd, dayOfInstant, fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
+import { daysIn } from "../../lib/utils/calendar/calendar-math";
 import { today } from "../../lib/utils/user-zone";
 
 /**
@@ -198,10 +199,7 @@ export function QuickScheduleSurface({
     const datesWithRange = new Set<number>();
     if (mode === "duration" && selectedDate && rangeEndDate) {
         const viewMonth = viewDay.slice(0, 7);
-        for (let i = 0; i <= daysBetween(selectedDate, rangeEndDate); i++) {
-            const day = addDays(selectedDate, i);
-            if (day.startsWith(viewMonth)) datesWithRange.add(Number(day.slice(8, 10)));
-        }
+        for (const day of daysIn(selectedDate, rangeEndDate)) if (day.startsWith(viewMonth)) datesWithRange.add(Number(day.slice(8, 10)));
     }
 
     return (

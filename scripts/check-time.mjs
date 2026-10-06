@@ -24,12 +24,12 @@ const RULES = [
 ];
 
 const problems = [];
-const walk = (dir) => {
-    for (const entry of readdirSync(dir)) {
-        if (entry === "node_modules" || entry === "build" || entry === ".react-router") continue;
+const SKIP_DIRS = /(^|[\\/])(node_modules|build|\.react-router)([\\/]|$)/;
+for (const dir of ROOTS) {
+    for (const entry of readdirSync(dir, { recursive: true })) {
+        if (SKIP_DIRS.test(entry) || !/\.(ts|tsx|mjs)$/.test(entry) || /\.d\.ts$/.test(entry)) continue;
         const full = join(dir, entry);
-        if (statSync(full).isDirectory()) { walk(full); continue; }
-        if (!/\.(ts|tsx|mjs)$/.test(entry) || /\.d\.ts$/.test(entry)) continue;
+        if (statSync(full).isDirectory()) continue;
         const rel = relative(root, full);
         if (EXEMPT.has(rel)) continue;
         readFileSync(full, "utf8").split("\n").forEach((line, i) => {
@@ -37,8 +37,7 @@ const walk = (dir) => {
             for (const [re, why] of RULES) if (re.test(line)) problems.push(`${rel}:${i + 1}  ${why}\n    ${line.trim()}`);
         });
     }
-};
-ROOTS.forEach(walk);
+}
 
 if (problems.length) {
     console.error(`check-time: ${problems.length} problem(s). Use @cadence/domain/time, or add \`// time-ok: <reason>\`.\n`);

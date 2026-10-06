@@ -34,9 +34,8 @@ describe("insertTaskSchema", () => {
         const input = {
             title: "Plan 13",
             orderIndex: 1,
-            isAllDay: true,
             dueDate: "2026-03-09",
-            scheduledEnd: "2026-03-10",
+            endDate: "2026-03-10",
             tagIds: [UUID],
             nlp: { rawInput: "Plan 13 tomorrow", sourceSurface: "inline_add", dateStyle: "mdy" },
         };
@@ -91,10 +90,11 @@ describe("batch and reorder limits", () => {
         expect(schema.safeParse(build(51)).success).toBe(false);
     });
 
-    it("reschedules to a day, or (legacy) a start, never both", () => {
+    it("reschedules to a day or a start, never both", () => {
         expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), date: "2026-03-09" }).success).toBe(true);
         expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09T10:00:00-04:00" }).success).toBe(true);
-        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09", date: "2026-03-09" }).success).toBe(false);
+        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09T10:00:00-04:00", date: "2026-03-09" }).success).toBe(false);
+        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09" }).success).toBe(false);
         expect(batchRescheduleSchema.safeParse({ taskIds: ids(1) }).success).toBe(false);
     });
 

@@ -8,7 +8,7 @@ import {
 import { getUserZone, today } from "../user-zone";
 import { classifyTaskReadShape, type TaskReadShape } from "@cadence/domain/task-temporal";
 import { resolveOccurrenceAnchor } from "@cadence/domain/task-recurrence";
-import type { LocalDate } from "@cadence/domain/time";
+import { untilOf, type LocalDate } from "@cadence/domain/time";
 import type { Task, TaskListQueryInput } from "@cadence/contracts/task";
 
 export interface TaskScheduleSummary {
@@ -64,15 +64,6 @@ function formatWeekdayLabel(byDay: string | null | undefined) {
     return `${labels.slice(0, -1).join(", ")} & ${labels.at(-1)}`;
 }
 
-function formatUntilLabel(untilValue: string | null | undefined) {
-    if (!untilValue) return null;
-    // UNTIL is a LocalDate (YYYYMMDD); a pre-0.26.3 rule may still carry an instant, whose date part names the day.
-    if (/^\d{8}(T\d{6}Z?)?$/.test(untilValue)) {
-        return formatShortDate(`${untilValue.slice(0, 4)}-${untilValue.slice(4, 6)}-${untilValue.slice(6, 8)}`);
-    }
-    return formatShortDate(untilValue);
-}
-
 export function isRecurringTask(task: Pick<Task, "recurrenceRule">) {
     return Boolean(task.recurrenceRule);
 }
@@ -101,7 +92,8 @@ export function getTaskRecurrenceSummary(
     const parts = parseRRuleParts(task.recurrenceRule);
     const freq = parts.get("FREQ");
     const weekdayLabel = formatWeekdayLabel(parts.get("BYDAY"));
-    const endLabel = formatUntilLabel(parts.get("UNTIL"));
+    const until = untilOf(task.recurrenceRule, getUserZone());
+    const endLabel = until ? formatShortDate(until) : null;
     const timeLabel = task.scheduledStart
         ? `${formatTime(task.scheduledStart)}${task.scheduledEnd ? ` – ${formatTime(task.scheduledEnd)}` : ""}`
         : null;

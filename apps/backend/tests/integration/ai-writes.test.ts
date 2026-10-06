@@ -154,8 +154,8 @@ describe("create_tasks", () => {
         const [klass, essay] = await Promise.all(created.map(async (c: any) => (await api("GET", `/${c.taskId}`)).body.data));
         const note = (await apiAs(userId, "", noteRoutes)("GET", `/tasks/${essay.id}/note`)).body.data;
 
-        expect(klass).toMatchObject({ isAllDay: false, interactionMode: "timetable", zone: "America/New_York" });
-        expect(essay).toMatchObject({ isAllDay: true });
+        expect(klass).toMatchObject({ interactionMode: "timetable", zone: "America/New_York" });
+        expect(essay).toMatchObject({ dueDate: "2026-10-03", scheduledStart: null });
         expect(note.body).toBe("Three sources.");
     });
 

@@ -5,9 +5,9 @@ import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { DatePicker } from "../shared/DatePicker";
 import { TimePicker, Tip } from "../primitives";
-import { addDays, untilClause, untilOf, weekdayOf, type Instant, type LocalDate, type WallTime } from "@cadence/domain/time";
+import { untilOf, weekdayOf, type Instant, type LocalDate, type WallTime } from "@cadence/domain/time";
 import { rescheduleToDay } from "@cadence/domain/task-temporal";
-import { dayOfInstant, formatShortDate, fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
+import { blockEnd, dayOfInstant, formatShortDate, fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
 import { getUserZone } from "../../lib/utils/user-zone";
 
 /**
@@ -36,10 +36,9 @@ function joinRuleParts(parts: RRulePart[]): string {
 /** The block's end for a chosen end time: on the start's day, rolling to the next day when the block crosses midnight. */
 function alignEndToStart(startIso: Instant, endTime: WallTime): Instant {
     const day = dayOfInstant(startIso);
-    const sameDay = fromTimeValue(day, endTime);
     // Same time as the start means a zero-length block, not 24h: push it an hour out.
-    if (sameDay === startIso) return new Date(Date.parse(startIso) + 60 * 60 * 1000).toISOString();
-    return Date.parse(sameDay) > Date.parse(startIso) ? sameDay : fromTimeValue(addDays(day, 1), endTime);
+    if (fromTimeValue(day, endTime) === startIso) return new Date(Date.parse(startIso) + 60 * 60 * 1000).toISOString();
+    return blockEnd(day, startIso, endTime);
 }
 
 function formatDuration(startIso: string, endIso: string): string {
@@ -146,7 +145,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
     const handleSeriesEndDate = (day: LocalDate | null) => {
         if (!ruleParts || !task.recurrenceRule) return;
         const parts = ruleParts.filter(([key]) => key !== "UNTIL");
-        if (day) parts.push(["UNTIL", untilClause(day).slice("UNTIL=".length)]);
+        if (day) parts.push(["UNTIL", day.replaceAll("-", "")]);
         updateTask.mutate({ id: task.id, recurrenceRule: joinRuleParts(parts) });
     };
 

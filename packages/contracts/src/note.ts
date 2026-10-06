@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { instantSchema } from "./common";
 
 export const upsertNoteSchema = z.object({
     body: z.string().max(50_000),
@@ -15,8 +15,8 @@ export const taskNoteRowSchema = z.object({
     wordCount: z.number().int(),
     headingCount: z.number().int(),
     version: z.number().int(),
-    createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema,
+    createdAt: instantSchema,
+    updatedAt: instantSchema,
 });
 
 export const taskNoteSchema = taskNoteRowSchema;

@@ -49,7 +49,7 @@ import {
     toTimeValue,
     MONTH_NAMES,
 } from "../lib/utils/date-format";
-import { addDays, atLocal, daysBetween, isLocalDate, nowWallTime, wallTimeOf, type Instant, type LocalDate } from "@cadence/domain/time";
+import { addDays, atLocal, daysBetween, isLocalDate, wallTimeOf, type Instant, type LocalDate } from "@cadence/domain/time";
 import { rescheduleToDay } from "@cadence/domain/task-temporal";
 import { getUserZone, today, useToday } from "../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
@@ -713,7 +713,7 @@ export default function Schedule() {
     }, []);
 
     const handleAddTaskToolbar = useCallback(() => {
-        const hour = Number(nowWallTime(getUserZone()).slice(0, 2));
+        const hour = Number(wallTimeOf(new Date(), getUserZone()).slice(0, 2));
         trackUsageEvent("schedule.quick_add_used", { surface: "schedule_toolbar", object_type: "task" });
         setEventPopoverTab("task");
         setEventPopoverInfo({
@@ -783,7 +783,7 @@ export default function Schedule() {
                     setEventPopoverTab("task");
                     setEventPopoverInfo({
                         date: currentDate,
-                        startHour: Math.min(23, Number(nowWallTime(getUserZone()).slice(0, 2)) + 1),
+                        startHour: Math.min(23, Number(wallTimeOf(new Date(), getUserZone()).slice(0, 2)) + 1),
                         startMinute: 0,
                         anchorX: window.innerWidth / 2,
                         anchorY: 140,

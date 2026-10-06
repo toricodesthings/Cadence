@@ -34,7 +34,7 @@ import { serveMcp } from "./server";
 
 export type McpProps = { userId: string; connectionId: string };
 
-type Approval = { userId: string; requestHash: string; scopes: McpScope[]; timezone: string };
+type Approval = { userId: string; requestHash: string; scopes: McpScope[] };
 
 const DEFAULT_MCP_ORIGIN = "https://mcp.cadenceapp.cloud";
 const DEFAULT_APP_ORIGIN = "https://dashboard.cadenceapp.cloud";
@@ -154,13 +154,12 @@ export async function approveConnectRequest(
     userId: string,
     request: string,
     scopes: McpScope[],
-    timezone: string,
 ): Promise<string> {
     const kv = requireKv(env);
     const requestHash = await hashIdentifier(request);
     if (!(await kv.get(requestKey(requestHash)))) throw new AppError(404, "NOT_FOUND", "Connection request not found");
     const id = crypto.randomUUID();
-    const approval: Approval = { userId, requestHash, scopes, timezone };
+    const approval: Approval = { userId, requestHash, scopes };
     await kv.put(approvalKey(id), JSON.stringify(approval), { expirationTtl: APPROVAL_TTL });
     return `${mcpOrigin(env)}/oauth/callback?state=${encodeURIComponent(request)}&approval=${id}`;
 }
@@ -235,7 +234,6 @@ async function callback(request: Request, env: Env): Promise<Response> {
         clientName: client?.clientName?.trim() || authRequest.clientId,
         redirectUri: authRequest.redirectUri,
         scopes,
-        timezone: approval.timezone,
     });
     try {
         const props: McpProps = { userId: approval.userId, connectionId };
@@ -263,7 +261,7 @@ async function callback(request: Request, env: Env): Promise<Response> {
 async function recordConnection(
     env: Env,
     userId: string,
-    values: { clientId: string; clientName: string; redirectUri: string; scopes: string[]; timezone: string },
+    values: { clientId: string; clientName: string; redirectUri: string; scopes: string[] },
 ): Promise<string> {
     const sharedClientId = values.clientId.startsWith("https://");
     return withRls(getDbClient(env), userId, async (tx) => {

@@ -20,23 +20,25 @@ const DAY_MS = 86_400_000;
 
 export { isZone } from "@cadence/contracts/common";
 
-const partsFormats = new Map<string, Intl.DateTimeFormat>();
+const formats = new Map<string, Intl.DateTimeFormat>();
+
+function formatter(key: string, locale: string, options: Intl.DateTimeFormatOptions) {
+    let format = formats.get(key);
+    if (!format) formats.set(key, (format = new Intl.DateTimeFormat(locale, options)));
+    return format;
+}
 
 function wallParts(ms: number, zone: Zone) {
-    let format = partsFormats.get(zone);
-    if (!format) {
-        format = new Intl.DateTimeFormat("en-US", {
-            timeZone: zone,
-            hourCycle: "h23",
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-        });
-        partsFormats.set(zone, format);
-    }
+    const format = formatter(zone, "en-US", {
+        timeZone: zone,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
     const parts: Record<string, number> = {};
     for (const p of format.formatToParts(new Date(ms))) if (p.type !== "literal") parts[p.type] = Number(p.value);
     return parts as { year: number; month: number; day: number; hour: number; minute: number; second: number };
@@ -71,19 +73,6 @@ export function dayOf(instant: Instant | Date, zone: Zone): LocalDate {
     return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}`;
 }
 
-/**
- * time-legacy: the day a pre-0.26.3 value meant. A date is itself; an instant at one of the old
- * anchors (00:00, 12:00 or 23:59:59.999 UTC) names its UTC date; any other instant is the day the
- * app showed, in `zone`. The same rules the 0004 migration applies (A and B). Removed with the shim.
- */
-export function legacyDay(value: Instant | LocalDate, zone: Zone): LocalDate {
-    if (isLocalDate(value)) return value;
-    const ms = Date.parse(value);
-    const utc = new Date(ms);
-    const ofDay = ms - Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
-    return ofDay === 0 || ofDay === 12 * 3_600_000 || ofDay === DAY_MS - 1 ? utc.toISOString().slice(0, 10) : dayOf(value, zone);
-}
-
 /** The user's today. */
 export function todayIn(zone: Zone, now: Date = new Date()): LocalDate {
     return dayOf(now, zone);
@@ -93,11 +82,6 @@ export function todayIn(zone: Zone, now: Date = new Date()): LocalDate {
 export function wallTimeOf(instant: Instant | Date, zone: Zone): WallTime {
     const p = wallParts(toMs(instant), zone);
     return `${pad(p.hour)}:${pad(p.minute)}`;
-}
-
-/** The user's clock right now. */
-export function nowWallTime(zone: Zone, now: Date = new Date()): WallTime {
-    return wallTimeOf(now, zone);
 }
 
 function dayParts(day: LocalDate) {
@@ -162,7 +146,8 @@ export function weekdayOf(day: LocalDate): number {
     return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
-const WEEK_START_INDEX: Record<WeekStart, number> = { Sunday: 0, Monday: 1, Saturday: 6 };
+/** The weekday index (0 = Sunday) a week starting on each name begins at. */
+export const WEEK_START_INDEX: Record<WeekStart, 0 | 1 | 6> = { Sunday: 0, Monday: 1, Saturday: 6 };
 
 /** The seven days (first, last) of the week containing `day`. */
 export function weekRange(day: LocalDate, weekStart: WeekStart = "Sunday"): { start: LocalDate; end: LocalDate } {
@@ -179,8 +164,6 @@ export function monthRange(day: LocalDate): { start: LocalDate; end: LocalDate }
 
 // ── Display ──
 
-const displayFormats = new Map<string, Intl.DateTimeFormat>();
-
 /**
  * The only display formatter. An instant is shown in `zone`; a LocalDate is a day
  * with no zone, so it renders as stored (date parts only).
@@ -188,12 +171,7 @@ const displayFormats = new Map<string, Intl.DateTimeFormat>();
 export function formatInZone(value: Instant | LocalDate | Date, zone: Zone, options: Intl.DateTimeFormatOptions, locale = "en-US"): string {
     const day = typeof value === "string" && isLocalDate(value);
     const timeZone = day ? "UTC" : zone;
-    const key = `${locale}|${timeZone}|${JSON.stringify(options)}`;
-    let format = displayFormats.get(key);
-    if (!format) {
-        format = new Intl.DateTimeFormat(locale, { ...options, timeZone });
-        displayFormats.set(key, format);
-    }
+    const format = formatter(`${locale}|${timeZone}|${JSON.stringify(options)}`, locale, { ...options, timeZone });
     return format.format(day ? new Date(wallMs(value as LocalDate, "12:00")) : typeof value === "string" ? new Date(value) : value);
 }
 
@@ -213,13 +191,13 @@ export type SeriesOccurrence = { day: LocalDate; start: Instant | null; end: Ins
 
 const UNTIL = /(^|;)UNTIL=([^;]+)/i;
 
-/** The inclusive last day of a rule (`UNTIL=YYYYMMDD`; a legacy `…Z` instant reads in `zone`) and the rule without it. */
-function splitUntil(rule: string, zone: Zone): { rule: string; until: LocalDate | null } {
+/** The inclusive last day of a rule (`UNTIL=YYYYMMDD`; a legacy `…Z` instant reads in `zone`) and the rule without it. `until` is null with no UNTIL, undefined when it can't be read. */
+function splitUntil(rule: string, zone: Zone): { rule: string; until: LocalDate | null | undefined } {
     const match = UNTIL.exec(rule);
     if (!match) return { rule, until: null };
     const raw = match[2];
     const date = /^(\d{4})(\d{2})(\d{2})$/.exec(raw);
-    let until: LocalDate | null = date ? `${date[1]}-${date[2]}-${date[3]}` : null;
+    let until: LocalDate | undefined = date ? `${date[1]}-${date[2]}-${date[3]}` : undefined;
     if (!until) {
         const full = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/.exec(raw);
         if (full) until = dayOf(`${full[1]}-${full[2]}-${full[3]}T${full[4]}:${full[5]}:${full[6]}${raw.endsWith("Z") ? "Z" : ""}`, zone);
@@ -229,7 +207,7 @@ function splitUntil(rule: string, zone: Zone): { rule: string; until: LocalDate 
 
 /** A rule's UNTIL as a LocalDate, or null when it has none or can't be read. */
 export function untilOf(rule: string, zone: Zone = "UTC"): LocalDate | null {
-    return splitUntil(rule, zone).until;
+    return splitUntil(rule, zone).until ?? null;
 }
 
 /** `UNTIL=YYYYMMDD` for a LocalDate. */
@@ -240,9 +218,8 @@ export function untilClause(day: LocalDate): string {
 /** Whether a rule parses (an unparseable UNTIL counts as invalid). */
 export function isValidRule(rule: string, zone: Zone = "UTC"): boolean {
     try {
-        const raw = UNTIL.exec(rule)?.[2];
         const { rule: bare, until } = splitUntil(rule, zone);
-        if (raw && !until) return false;
+        if (until === undefined) return false;
         rrulestr(bare, { dtstart: new Date(Date.UTC(2000, 0, 1)) });
         return true;
     } catch {
@@ -266,10 +243,11 @@ export function expandSeries(args: {
     range: { from: LocalDate; to: LocalDate };
 }): SeriesOccurrence[] {
     const { zone, range } = args;
-    const timed = "instant" in args.start;
-    const startDay = timed ? dayOf((args.start as { instant: Instant }).instant, zone) : (args.start as { day: LocalDate }).day;
-    const startWall = timed ? wallTimeOf((args.start as { instant: Instant }).instant, zone) : "00:00";
-    const endInstant = timed ? (args.start as { end?: Instant | null }).end : null;
+    const s = args.start;
+    const timed = "instant" in s;
+    const startDay = "instant" in s ? dayOf(s.instant, zone) : s.day;
+    const startWall = "instant" in s ? wallTimeOf(s.instant, zone) : "00:00";
+    const endInstant = "instant" in s ? s.end : null;
     const spanMs = endInstant ? Math.max(0, wallMs(dayOf(endInstant, zone), wallTimeOf(endInstant, zone)) - wallMs(startDay, startWall)) : 0;
 
     const { rule, until } = splitUntil(args.rule, zone);
@@ -284,13 +262,13 @@ export function expandSeries(args: {
 
     const floating = parsed.between(new Date(wallMs(range.from, "00:00")), new Date(wallMs(last, "00:00") + DAY_MS - 1), true);
     return floating.map((f) => {
-        const day = f.toISOString().slice(0, 10);
+        const day = floatingDay(f);
         if (!timed) return { day, start: null, end: null };
         const end = endInstant ? new Date(f.getTime() + spanMs) : null;
         return {
             day,
             start: atLocal(day, startWall, zone),
-            end: end ? atLocal(end.toISOString().slice(0, 10), end.toISOString().slice(11, 16), zone) : null,
+            end: end ? atLocal(floatingDay(end), end.toISOString().slice(11, 16), zone) : null,
         };
     });
 }

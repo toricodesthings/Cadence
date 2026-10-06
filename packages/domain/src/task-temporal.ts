@@ -1,14 +1,13 @@
 import { DomainError } from "./errors";
-import { addDays, atLocal, dayOf, daysBetween, isLocalDate, isZone, legacyDay, wallTimeOf, type Instant, type LocalDate, type Zone } from "./time";
+import { addDays, atLocal, dayOf, daysBetween, isLocalDate, isZone, wallTimeOf, type Instant, type LocalDate, type Zone } from "./time";
 
-/** What a task write may carry. `isAllDay` is time-legacy (old clients); all-day is simply "no start". */
+/** What a task write may carry. All-day is simply "no start". */
 export type TaskTemporalFields = {
     dueDate?: string | null;
     endDate?: string | null;
     scheduledStart?: string | null;
     scheduledEnd?: string | null;
     zone?: string | null;
-    isAllDay?: boolean | null;
 };
 
 /** The stored temporal shape of a task: days are LocalDates, timed values are instants plus the zone they were planned in. */
@@ -30,7 +29,7 @@ export function classifyTaskReadShape(fields: Pick<TaskTemporal, "dueDate" | "en
 }
 
 export function hasTaskTemporalMutation(fields: Partial<TaskTemporalFields>) {
-    return ["dueDate", "endDate", "scheduledStart", "scheduledEnd", "zone", "isAllDay"].some((key) => key in fields);
+    return ["dueDate", "endDate", "scheduledStart", "scheduledEnd", "zone"].some((key) => key in fields);
 }
 
 function assertInstant(value: string, field: string) {
@@ -39,50 +38,39 @@ function assertInstant(value: string, field: string) {
     }
 }
 
-/**
- * Validate a task write into its stored shape (`zone` is the user's zone). Takes new values
- * (LocalDates and instants) and, time-legacy, the old ones: an instant in a day field is read
- * with `legacyDay`, `isAllDay: true` with a start means the start only names the day. `onLegacy`
- * hears each legacy field so the server can log `legacy_time_shape`.
- */
-export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zone, onLegacy: (field: string) => void = () => {}): TaskTemporal {
-    if (!isZone(zone)) throw new DomainError("INVALID_TASK_SCHEDULE", "A time zone is required");
-    const day = (value: string | null | undefined, field: string): LocalDate | null => {
-        if (!value) return null;
-        if (isLocalDate(value)) return value;
-        onLegacy(field);
-        return legacyDay(value, zone);
-    };
-    if (fields.isAllDay != null) onLegacy("isAllDay");
+function assertDay(value: string | null | undefined, field: string): LocalDate | null {
+    if (!value) return null;
+    if (!isLocalDate(value)) throw new DomainError("INVALID_TASK_SCHEDULE", `${field} must be a day (YYYY-MM-DD)`);
+    return value;
+}
 
+/** Validate a task write (LocalDates and instants) into its stored shape (`zone` is the user's zone). */
+export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zone): TaskTemporal {
+    if (!isZone(zone)) throw new DomainError("INVALID_TASK_SCHEDULE", "A time zone is required");
     const start = fields.scheduledStart || null;
     const end = fields.scheduledEnd || null;
-    const nothing: TaskTemporal = { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null };
-    if (!start && !end && !fields.dueDate && !fields.endDate) {
-        if (fields.isAllDay === false) throw new DomainError("INVALID_TASK_SCHEDULE", "Timed tasks require scheduledStart");
-        return nothing;
-    }
+    const dueDate = assertDay(fields.dueDate, "dueDate");
+    const endDate = assertDay(fields.endDate, "endDate");
 
-    // A timed block: a real instant start (an old client's isAllDay: true with a start is all-day).
-    if (start && fields.isAllDay !== true && !isLocalDate(start)) {
+    // A timed block: instants plus the zone it was planned in.
+    if (start) {
         assertInstant(start, "scheduledStart");
         if (end) {
             assertInstant(end, "scheduledEnd");
             if (Date.parse(end) < Date.parse(start)) throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd must not be earlier than scheduledStart");
         }
-        if (fields.endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "A timed task has no endDate; use scheduledEnd");
+        if (endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "A timed task has no endDate; use scheduledEnd");
         const taskZone = fields.zone ?? zone;
         if (!isZone(taskZone)) throw new DomainError("INVALID_TASK_SCHEDULE", "zone must be an IANA time zone");
-        return { dueDate: day(fields.dueDate, "dueDate"), endDate: null, scheduledStart: start, scheduledEnd: end, zone: taskZone };
+        return { dueDate, endDate: null, scheduledStart: start, scheduledEnd: end, zone: taskZone };
     }
-    if (fields.isAllDay === false) throw new DomainError("INVALID_TASK_SCHEDULE", "Timed tasks require scheduledStart");
+    if (end) throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd needs a scheduledStart");
 
     // An all-day task: a day, and for a multi-day task its inclusive last day.
-    if (start) onLegacy("scheduledStart");
-    if (end) onLegacy("scheduledEnd");
-    const dueDate = day(fields.dueDate, "dueDate") ?? (start ? legacyDay(start, zone) : null);
-    const endDate = day(fields.endDate, "endDate") ?? (end ? legacyDay(end, zone) : null);
-    if (!dueDate) throw new DomainError("INVALID_TASK_SCHEDULE", "All-day tasks require a dueDate");
+    if (!dueDate) {
+        if (endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "All-day tasks require a dueDate");
+        return { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null };
+    }
     if (endDate && endDate < dueDate) throw new DomainError("INVALID_TASK_SCHEDULE", "endDate must not be earlier than dueDate");
     return { dueDate, endDate, scheduledStart: null, scheduledEnd: null, zone: null };
 }
@@ -108,10 +96,7 @@ export function rescheduleToDay(row: TaskTemporal, newDay: LocalDate, zone: Zone
     return { dueDate: newDay, endDate: row.endDate ? addDays(row.endDate, shift) : null, scheduledStart: null, scheduledEnd: null, zone: null };
 }
 
-/** "Hide until" is a day. time-legacy: an old client's instant (local midnight) reads as its day. */
-export function normalizeHiddenUntil(value: string | null | undefined, zone: Zone, onLegacy: (field: string) => void = () => {}): LocalDate | null {
-    if (!value) return null;
-    if (isLocalDate(value)) return value;
-    onLegacy("notBefore");
-    return dayOf(value, zone);
+/** "Hide until" is a day. */
+export function normalizeHiddenUntil(value: string | null | undefined): LocalDate | null {
+    return assertDay(value, "notBefore");
 }

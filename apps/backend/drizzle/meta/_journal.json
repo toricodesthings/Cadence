@@ -36,6 +36,13 @@
       "when": 1791238664487,
       "tag": "0004_time_model_expand",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791252137110,
+      "tag": "0005_time_model_contract",
+      "breakpoints": true
     }
   ]
 }

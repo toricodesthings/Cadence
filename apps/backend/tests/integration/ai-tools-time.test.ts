@@ -62,20 +62,6 @@ describe("assistant tools use the user's day and clock", () => {
         expect(byTitle["Pay rent"].dueDate).toBe("2026-09-21");
     });
 
-    it("a deadline sent with a clock time (an old client) is the user's day, stored and read", async () => {
-        // An old client sent 11:59 PM Monday as an instant (already Tuesday in UTC); the shim stores Monday.
-        await tasks("POST", "", { title: "Old deadline", orderIndex: 5, dueDate: "2026-09-22T03:59:00.000Z" });
-        const { body } = await tasks("POST", "", { title: "New deadline", orderIndex: 6, dueDate: "2026-09-21T23:59:00-04:00" });
-        expect(body.data).toMatchObject({ dueDate: "2026-09-21", scheduledStart: null });
-
-        const result = await run("get_tasks", { dueWindow: "today", limit: 20 });
-        const byTitle = Object.fromEntries(result.tasks.map((t: any) => [t.title, t]));
-
-        expect(titles(result.tasks)).toEqual(["Late call", "New deadline", "Old deadline", "Pay rent"]);
-        expect(byTitle["Old deadline"].dueDate).toBe("2026-09-21");
-        expect(titles((await run("get_schedule_window", { start: "2026-09-22", end: "2026-09-22", limit: 50 })).tasks)).toEqual(["Standup", "Tomorrow thing"]);
-    });
-
     it("get_tasks 'overdue' excludes today's timed task that is past midnight UTC", async () => {
         const result = await run("get_tasks", { dueWindow: "overdue", limit: 20 });
 
@@ -209,7 +195,7 @@ describe("the same fixtures land on the same day on every surface", () => {
         await mondayFixtures();
         const connectionId = crypto.randomUUID();
         await asOwner((pg) => pg.query(
-            "INSERT INTO mcp_connections (id, user_id, client_id, client_name, redirect_uri, scopes, timezone) VALUES ($1, $2, 'c', 'Claude', 'https://claude.ai/cb', $3, 'UTC')",
+            "INSERT INTO mcp_connections (id, user_id, client_id, client_name, redirect_uri, scopes) VALUES ($1, $2, 'c', 'Claude', 'https://claude.ai/cb', $3)",
             [connectionId, userId, ["cadence:read"]],
         ));
         const today = async (nowIso: string) => {

@@ -7,8 +7,6 @@ import type { Instant, LocalDate } from "@cadence/domain/time";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 
 // ── Operation Descriptors ──
-// Entries queued before 0.26.3 hold the old shapes (an instant `dueDate` + `isAllDay`, `scheduledDate`, a habit `timezone`);
-// they replay unchanged and the server's time-legacy schemas normalise them.
 // Every mutation the app can queue, as a serializable object. Creates carry the
 // client-chosen id, so later ops can target the entity before it syncs.
 

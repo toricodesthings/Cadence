@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { instantSchema } from "./common";
 
 // No .default()s on create schemas: an omitted field takes its DB column default, and
 // a default here would leak into the .partial() update schema and overwrite data.
@@ -22,7 +22,7 @@ export const projectRowSchema = z.object({
     name: z.string(),
     colorAccent: z.string().nullable(),
     emoji: z.string().nullable(),
-    createdAt: isoDateTimeSchema,
+    createdAt: instantSchema,
 });
 export type ProjectRow = z.infer<typeof projectRowSchema>;
 

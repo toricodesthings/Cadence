@@ -10,7 +10,6 @@ import { buildTaskWhereClause } from "../../tasks/tasks.read";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import {
-    taskLocalDay,
     toMinimalTask,
     toMinimalSubtask,
     toMinimalTag,
@@ -18,6 +17,7 @@ import {
 } from "./projections";
 import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
 import { NOTE_READ_LIMIT, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
+import { taskDay } from "@cadence/domain/task-recurrence";
 import { hasTaskTemporalMutation } from "@cadence/domain/task-temporal";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { AppError, throwIfNotFound } from "../../../platform/errors";
@@ -177,7 +177,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         }
                         if (args.from || args.to) {
                             // One side open is a half-bounded range.
-                            conditions.push(args.from ? dayRange(args.from, args.to ?? "2999-12-31") : dayRange(undefined, args.to!));
+                            conditions.push(dayRange(args.from, args.to ?? "2999-12-31"));
                         }
                         if (args.sectionId) conditions.push(eq(tasks.sectionId, args.sectionId));
                         else if (args.noSection) conditions.push(isNull(tasks.sectionId));
@@ -495,7 +495,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
         const missing = new Set(taskIds).size - rows.length;
         if (missing) throw new AppError(404, "NOT_FOUND", `${missing} of these taskIds match no task. Read the tasks again (get_tasks or get_schedule_window) and retry with the ids it returns`);
-        return rows.map(({ dueDate, scheduledStart, ...row }) => ({ ...row, day: taskLocalDay({ dueDate, scheduledStart }, zone) }));
+        return rows.map(({ dueDate, scheduledStart, ...row }) => ({ ...row, day: taskDay({ dueDate, scheduledStart }, zone) }));
     }
 
     /**
@@ -515,7 +515,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 inArray(sql`lower(${tasks.title})`, titles),
             ))
             .limit(20);
-        const withDay = rows.map(({ dueDate, scheduledStart, ...row }) => ({ ...row, day: taskLocalDay({ dueDate, scheduledStart }, zone) }));
+        const withDay = rows.map(({ dueDate, scheduledStart, ...row }) => ({ ...row, day: taskDay({ dueDate, scheduledStart }, zone) }));
         const key = (row: { title: string; day: string | null }) => `${row.title.toLowerCase()}|${row.day ?? ""}`;
         const wanted = new Set(targets.map(key));
         const count = new Map<string, number>();

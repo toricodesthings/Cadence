@@ -62,7 +62,7 @@ import {
     users,
 } from "../../../db/schema";
 import { eq } from "drizzle-orm";
-import { nowWallTime } from "@cadence/domain/time";
+import { wallTimeOf } from "@cadence/domain/time";
 import { userZone } from "../../../platform/user-zone";
 import { seedAiShowcaseConversation } from "./ai-showcase-conversation";
 
@@ -663,7 +663,7 @@ export async function seed(db: Tx, userId: string) {
             content: "Check the latest Figma frames from design.",
             state: "ACTIVE",
             orderIndex: 20,
-            reminderAt: seedDateTime(clock, 0, Math.max(Number(nowWallTime(zone).slice(0, 2)) - 1, 0), 0),
+            reminderAt: seedDateTime(clock, 0, Math.max(Number(wallTimeOf(new Date(), zone).slice(0, 2)) - 1, 0), 0),
             reminderSilenced: false,
             priority: 3,
             effort: 2,

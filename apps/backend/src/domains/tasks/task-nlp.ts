@@ -1,7 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
-import { atLocal, nowWallTime, todayIn, type Zone } from "@cadence/domain/time";
-import { userZone } from "../../platform/user-zone";
+import { atLocal, isZone, todayIn, wallTimeOf, type Zone } from "@cadence/domain/time";
 import { users, projects, tags, taskNlpMetadata } from "../../db/schema";
 import type { Tx } from "../../types/db";
 
@@ -15,7 +14,7 @@ export async function loadNlpRuntime(tx: Tx, userId: string) {
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
-    const zone = await userZone(tx, userId);
+    const zone = isZone(user?.zone) ? user.zone : "UTC";
 
     const [projectRows, tagRows] = await Promise.all([
         tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId)),
@@ -32,7 +31,7 @@ export async function loadNlpRuntime(tx: Tx, userId: string) {
         settings,
         zone,
         // The user's today and clock, from their zone: the parser never reads the machine's.
-        clock: { today: todayIn(zone), now: nowWallTime(zone), weekStart },
+        clock: { today: todayIn(zone), now: wallTimeOf(new Date(), zone), weekStart },
         context: {
             projects: projectRows,
             tags: tagRows,
@@ -60,7 +59,6 @@ export function inferTaskFieldsFromParse(
         scheduledStart?: string | null;
         scheduledEnd?: string | null;
         scheduledDay?: string | null;
-        isAllDay?: boolean | null;
     },
     confidenceThreshold: "high" | "medium" | "low",
     zone: Zone,
@@ -120,8 +118,7 @@ export function inferTaskFieldsFromParse(
                     explicit.dueDate !== undefined ||
                     explicit.scheduledStart !== undefined ||
                     explicit.scheduledEnd !== undefined ||
-                    explicit.scheduledDay !== undefined ||
-                    explicit.isAllDay !== undefined
+                    explicit.scheduledDay !== undefined
                 ) {
                     continue;
                 }

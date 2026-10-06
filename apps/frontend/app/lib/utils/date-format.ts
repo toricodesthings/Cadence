@@ -12,7 +12,7 @@ import {
     formatInZone,
     isLocalDate,
     monthRange,
-    nowWallTime,
+    WEEK_START_INDEX,
     weekRange,
     weekdayOf,
     wallTimeOf,
@@ -177,8 +177,7 @@ export function relativeTime(iso: Instant, { suffix = "" }: { suffix?: string } 
 
 // ─── Week and month grids (arrays of LocalDates) ─────────────────────────────
 
-/** Settings' `dateTime.weekStart` as a weekday index (0 = Sunday). */
-export const WEEK_START_INDEX = { Sunday: 0, Monday: 1, Saturday: 6 } as const;
+export { WEEK_START_INDEX };
 
 /** The first day of the week containing `day`, respecting settings. */
 export function getWeekStart(day: LocalDate, weekStartsOn: 0 | 1 | 6 = _config.weekStartsOn): LocalDate {
@@ -212,7 +211,7 @@ export function weekdayLabels(length: number, weekStartsOn: 0 | 1 | 6 = 1): stri
 
 /** Days in a month (`month` is 0-based). */
 export function getDaysInMonth(year: number, month: number): number {
-    return daysBetween(monthRange(isoMonthStart(year, month)).start, monthRange(isoMonthStart(year, month)).end) + 1;
+    return Number(monthRange(isoMonthStart(year, month)).end.slice(8));
 }
 
 /** Blank cells before day 1 in a month grid whose weeks start on `weekStartsOn` (`month` is 0-based). */
@@ -252,6 +251,6 @@ export function placementLabel(value: Instant | LocalDate): string {
 /** The user's today, time and week start for `@cadence/nlp` (it never reads the machine clock or zone). */
 export const nlpClock = (): NlpClock => ({
     today: today(),
-    now: nowWallTime(getUserZone()),
+    now: wallTimeOf(new Date(), getUserZone()),
     weekStart: WEEK_START_NAME[_config.weekStartsOn],
 });

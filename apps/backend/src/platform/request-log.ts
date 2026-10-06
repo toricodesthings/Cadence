@@ -17,7 +17,6 @@ const QUERY_SUMMARY_KEYS = new Set([
 
 const JSON_SUMMARY_KEYS = new Set([
     "state",
-    "isAllDay",
     "projectId",
     "priority",
     "isPinned",

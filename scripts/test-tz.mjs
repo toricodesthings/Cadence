@@ -2,7 +2,7 @@
 // Usage (from a package dir): node ../../scripts/test-tz.mjs [zones...]   (default: the four-zone matrix; `pnpm check` passes two)
 import { spawnSync } from "node:child_process";
 
-export const ZONES = ["America/Toronto", "America/Los_Angeles", "Pacific/Kiritimati", "Pacific/Pago_Pago"];
+const ZONES = ["America/Toronto", "America/Los_Angeles", "Pacific/Kiritimati", "Pacific/Pago_Pago"];
 const zones = process.argv.length > 2 ? process.argv.slice(2) : ZONES;
 
 let failed = false;

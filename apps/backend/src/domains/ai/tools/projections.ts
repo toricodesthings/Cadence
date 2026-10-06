@@ -14,7 +14,6 @@ import type { SubtaskRow as SubtaskRecord } from "@cadence/contracts/subtask";
 import type { TagRow as TagRecord } from "@cadence/contracts/tag";
 import type { TaskRow as TaskRecord } from "@cadence/contracts/task";
 import { isPausedOn } from "@cadence/domain/repeats";
-import { taskDay } from "@cadence/domain/task-recurrence";
 import { addDays, monthRange, toZonedIso, weekRange, type WeekStart } from "@cadence/domain/time";
 import { NOTE_READ_LIMIT } from "./drafts";
 
@@ -217,17 +216,9 @@ export function toMinimalInboxItem(row: InboxItemRow): MinimalInboxItem {
 }
 
 /**
- * The calendar day a task belongs to for this user: a timed task falls on the day its start
- * has in the user's zone, an all-day task on its stored day. Null when undated.
- */
-export function taskLocalDay(row: { dueDate: string | null; scheduledStart: string | null }, timezone: string): string | null {
-    return taskDay(row, timezone);
-}
-
-/**
  * Resolve a coarse `dueWindow` token into an inclusive range of the user's local
  * dates (`YYYY-MM-DD`), from `today` (the user's local date). Pure; callers match
- * tasks against it with {@link taskLocalDay}. `overdue` has no lower bound.
+ * tasks against it with `taskDay`. `overdue` has no lower bound.
  */
 export function resolveDueWindow(
     window: "overdue" | "today" | "this_week" | "this_month",

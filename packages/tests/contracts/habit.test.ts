@@ -13,7 +13,7 @@ describe("habit list queries", () => {
         expect(habitListQuerySchema.parse({})).toEqual({ archived: false });
     });
 
-    it("read the archived flag the same way in weekly queries, ignoring the legacy timezone", () => {
+    it("read the archived flag the same way in weekly queries", () => {
         expect(weeklyHabitsQuerySchema.parse({ start: "2026-03-03", end: "2026-03-09", archived: "true" })).toEqual({
             start: "2026-03-03",
             end: "2026-03-09",
@@ -50,8 +50,7 @@ describe("habitTargetTimesSchema", () => {
 describe("resolveHabitActionSchema", () => {
     it.each([
         [{ targetDate: "2026-03-09", status: "COMPLETED" }, true],
-        [{ targetDate: "2026-03-09T08:00:00.000Z", status: "SKIPPED" }, true],
-        [{ targetDate: "2026-03-09", status: "COMPLETED", timezone: "America/New_York" }, true],
+        [{ targetDate: "2026-03-09T08:00:00.000Z", status: "SKIPPED" }, false],
         [{ targetDate: "03/09/2026", status: "COMPLETED" }, false],
         [{ targetDate: "2026-03-09", status: "DONE" }, false],
     ])("%j → %s", (body, ok) => {

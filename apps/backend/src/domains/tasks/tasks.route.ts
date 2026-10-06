@@ -204,9 +204,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                             dueDate: body.dueDate,
                             scheduledStart: body.scheduledStart,
                             scheduledEnd: body.scheduledEnd,
-                            isAllDay: body.dueDate !== undefined || body.scheduledStart !== undefined || body.scheduledEnd !== undefined
-                                ? body.isAllDay
-                                : undefined,
                         },
                         (nlpRuntime?.settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
                         zone,
@@ -230,13 +227,12 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                             scheduledStart: inferred?.scheduledStart ?? body.scheduledStart ?? null,
                             scheduledEnd: inferred?.scheduledEnd ?? body.scheduledEnd ?? null,
                             zone: body.zone,
-                            isAllDay: body.isAllDay,
                             notBefore: body.notBefore,
-                        }, zone, "tasks"),
+                        }, zone),
                     }
                     : {
                         ...body,
-                        ...temporalColumns({ ...body, notBefore: body.notBefore }, zone, "tasks"),
+                        ...temporalColumns(body, zone),
                     };
 
                 const row = await createTask(tx, userId, taskBody, allTagIds);

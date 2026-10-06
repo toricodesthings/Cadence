@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { instantSchema, legacyTimeInputSchema, localDateSchema, paginationSchema, zoneSchema } from "./common";
+import { instantSchema, localDateSchema, paginationSchema, zoneSchema } from "./common";
 import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Enums / shared scalars ──
@@ -37,14 +37,12 @@ export const insertTaskSchema = z.object({
     state: taskStateSchema.default("ACTIVE"),
     orderIndex: z.number(),
     // A day (all-day or a deadline), or a timed block (instants plus the zone it was planned in).
-    // All-day = no scheduledStart. The writes below also take the old shapes (see legacyTimeInputSchema).
-    dueDate: legacyTimeInputSchema.nullable().optional(),
+    // All-day = no scheduledStart.
+    dueDate: localDateSchema.nullable().optional(),
     endDate: localDateSchema.nullable().optional(),
-    scheduledStart: legacyTimeInputSchema.nullable().optional(),
-    scheduledEnd: legacyTimeInputSchema.nullable().optional(),
+    scheduledStart: instantSchema.nullable().optional(),
+    scheduledEnd: instantSchema.nullable().optional(),
     zone: zoneSchema.nullable().optional(),
-    /** time-legacy: old clients; true with a start means the start only names the day. */
-    isAllDay: z.boolean().optional(),
     durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
     timezoneLocked: z.boolean().default(false),
     projectId: z.uuid().nullable().optional(),
@@ -58,8 +56,8 @@ export const insertTaskSchema = z.object({
     waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
-    /** Hide until a day (LocalDate; an old client's instant is read as its day). */
-    notBefore: legacyTimeInputSchema.nullable().optional(),
+    /** Hide until this day. */
+    notBefore: localDateSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     tagIds: z.array(z.uuid()).max(50).optional(),
     nlp: canonicalNlpEnvelopeSchema.optional(),
@@ -71,13 +69,11 @@ export const updateTaskSchema = z.object({
     content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.optional(),
     orderIndex: z.number().optional(),
-    dueDate: legacyTimeInputSchema.nullable().optional(),
+    dueDate: localDateSchema.nullable().optional(),
     endDate: localDateSchema.nullable().optional(),
-    scheduledStart: legacyTimeInputSchema.nullable().optional(),
-    scheduledEnd: legacyTimeInputSchema.nullable().optional(),
+    scheduledStart: instantSchema.nullable().optional(),
+    scheduledEnd: instantSchema.nullable().optional(),
     zone: zoneSchema.nullable().optional(),
-    /** time-legacy: old clients. */
-    isAllDay: z.boolean().optional(),
     durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
     timezoneLocked: z.boolean().optional(),
     projectId: z.uuid().nullable().optional(),
@@ -90,7 +86,7 @@ export const updateTaskSchema = z.object({
     waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
-    notBefore: legacyTimeInputSchema.nullable().optional(),
+    notBefore: localDateSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     expectedUpdatedAt: z.string().optional(),
 });
@@ -120,11 +116,8 @@ export const batchStateSchema = z.object({
 export const batchRescheduleSchema = z
     .object({
         taskIds: batchTaskIdsSchema,
-        scheduledStart: legacyTimeInputSchema.optional(),
+        scheduledStart: instantSchema.optional(),
         date: localDateSchema.optional(),
-        /** time-legacy: old clients sent the day and zone; the zone is ignored. */
-        timezone: z.string().max(64).optional(),
-        isAllDay: z.boolean().optional(),
     })
     .refine((v) => (v.scheduledStart === undefined) !== (v.date === undefined), "Send scheduledStart or date, not both");
 export type BatchReschedule = z.infer<typeof batchRescheduleSchema>;
@@ -174,8 +167,6 @@ export const taskSchema = taskRowSchema.extend({
     waitingOn: z.string().nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     notBefore: localDateSchema.nullable().optional(),
-    /** Derived (`scheduledStart === null`), sent for one release for old clients; never written. */
-    isAllDay: z.boolean().optional(),
     tagIds: z.array(z.uuid()),
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),

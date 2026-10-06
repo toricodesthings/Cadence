@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { instantSchema } from "./common";
 
 export const insertSubtaskSchema = z.object({
     /** Client-chosen id, so it can be used before it syncs. */
@@ -35,7 +35,7 @@ export const subtaskRowSchema = z.object({
     title: z.string(),
     isComplete: z.boolean(),
     orderIndex: z.number(),
-    createdAt: isoDateTimeSchema,
+    createdAt: instantSchema,
 });
 export type SubtaskRow = z.infer<typeof subtaskRowSchema>;
 

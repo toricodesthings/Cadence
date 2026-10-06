@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     apiErrorSchema,
     instantSchema,
-    isoDateTimeSchema,
-    legacyTimeInputSchema,
     localDateSchema,
     wallTimeSchema,
     zoneSchema,
@@ -17,8 +15,8 @@ describe("timestamps", () => {
         ["2026-03-01T12:00:00-05:00", true],
         ["2026-03-01T12:00:00", false], // no zone: ambiguous on the wire
         ["2026-03-01", false],
-    ])("isoDateTimeSchema(%s) → %s", (value, ok) => {
-        expect(isoDateTimeSchema.safeParse(value).success).toBe(ok);
+    ])("instantSchema(%s) → %s", (value, ok) => {
+        expect(instantSchema.safeParse(value).success).toBe(ok);
     });
 
     it.each([
@@ -28,14 +26,6 @@ describe("timestamps", () => {
         ["March 1", false],
     ])("localDateSchema(%s) → %s", (value, ok) => {
         expect(localDateSchema.safeParse(value).success).toBe(ok);
-    });
-
-    it.each([
-        ["2026-03-01T12:00:00-05:00", true],
-        ["2026-03-01", false],
-        ["2026-03-01T12:00:00", false],
-    ])("instantSchema(%s) → %s", (value, ok) => {
-        expect(instantSchema.safeParse(value).success).toBe(ok);
     });
 
     it.each([
@@ -56,12 +46,6 @@ describe("timestamps", () => {
         ["Not/AZone", false],
     ])("zoneSchema(%s) → %s", (value, ok) => {
         expect(zoneSchema.safeParse(value).success).toBe(ok);
-    });
-
-    it("legacyTimeInputSchema accepts a day or an instant, nothing else", () => {
-        expect(legacyTimeInputSchema.safeParse("2026-03-01").success).toBe(true);
-        expect(legacyTimeInputSchema.safeParse("2026-03-01T12:00:00Z").success).toBe(true);
-        expect(legacyTimeInputSchema.safeParse("March 1").success).toBe(false);
     });
 
     it("flexibleDateTimeSchema is gone from the contracts source", () => {

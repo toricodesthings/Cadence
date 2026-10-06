@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema, localDateSchema, zoneSchema } from "./common";
+import { instantSchema, localDateSchema, zoneSchema } from "./common";
 import { TASK_PRIORITY_NAMES } from "./constants";
 import { DATE_STYLES } from "@cadence/nlp/core";
 import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
@@ -44,8 +44,8 @@ export const savedFocusViewRowSchema = z.object({
     isPinned: z.boolean(),
     source: focusViewSourceSchema,
     orderIndex: z.number(),
-    createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema,
+    createdAt: instantSchema,
+    updatedAt: instantSchema,
 });
 
 export type SavedFocusViewRow = z.infer<typeof savedFocusViewRowSchema>;
@@ -174,8 +174,7 @@ export const userSettingsSchema = z.object({
     dateTime: z.object({
         weekStart: z.enum(["Sunday", "Monday", "Saturday"]),
         // "device" follows the device's zone (the client keeps `users.time_zone` equal to it); an IANA name pins one.
-        // time-legacy: "local" (before 0.26.3) reads as "device".
-        timezone: z.preprocess((v) => (v === "local" ? "device" : v), z.union([z.literal("device"), zoneSchema])),
+        timezone: z.union([z.literal("device"), zoneSchema]),
         timeDisplay: z.enum(["12h", "24h"]),
         dateStyle: z.enum(DATE_STYLES).optional(),
     }).optional(),

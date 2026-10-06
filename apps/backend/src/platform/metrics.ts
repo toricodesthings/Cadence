@@ -33,11 +33,13 @@ export async function trackReschedules(
     });
 }
 
-/** The overdue predicate: no repeat, not a Fixed block, and its day (due day, else the start's day) is before `today`. */
+/** Repeating series and Fixed blocks are never overdue. */
+export const overdueEligible = () => [isNull(tasks.recurrenceRule), ne(tasks.interactionMode, "timetable")];
+
+/** The overdue predicate: eligible, and its day (due day, else the start's day) is before `today`. */
 export function overdueOn(today: LocalDate, zone: Zone) {
     return and(
-        isNull(tasks.recurrenceRule),
-        ne(tasks.interactionMode, "timetable"),
+        ...overdueEligible(),
         or(lt(tasks.dueDate, today), and(isNull(tasks.dueDate), lt(tasks.scheduledStart, startOfDay(today, zone)))),
     )!;
 }
