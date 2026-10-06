@@ -125,9 +125,11 @@ export function LoadingParticles() {
             <div className="ls-set ls-autumn">
                 {LEAVES.map((leaf, i) => (
                     <span key={i} className={leaf.classes} style={leaf.style}>
-                        <svg className="ls-leaf-body" viewBox="-14 -14 28 28">
-                            <use href={leaf.href} />
-                        </svg>
+                        <span className="ls-leaf-body">
+                            <svg viewBox="-14 -14 28 28">
+                                <use href={leaf.href} />
+                            </svg>
+                        </span>
                     </span>
                 ))}
             </div>

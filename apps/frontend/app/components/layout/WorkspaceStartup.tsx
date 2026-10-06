@@ -96,7 +96,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
     return (
         <StartupRenderContext value={trackRender}>
           <StartupReadyContext value={!pending && authReady && isAuthenticated}>
-            <div inert={pending} aria-hidden={pending || undefined} style={pending ? { visibility: "hidden" } : undefined}>
+            <div inert={pending} aria-hidden={pending || undefined} data-startup-hidden={pending || undefined} style={pending ? { visibility: "hidden" } : undefined}>
                 {children}
             </div>
             {pending && (

@@ -1,7 +1,7 @@
 import type { Task } from "@cadence/contracts/task";
 import { type LocalDate } from "@cadence/domain/time";
 import { dayOfInstant } from "../date-format";
-import { isPassiveTimetableTask } from "../task/task-scheduling";
+import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance } from "../task/task-scheduling";
 import { loadWord } from "../task/day-load";
 import { daysIn } from "./calendar-math";
 
@@ -101,4 +101,26 @@ export function dayLoad(tasks: Task[]) {
 /** 0–3 dots for a load, matching `loadWord`. */
 export function loadDots(load: number) {
     return ({ free: 0, light: 1, steady: 2, busy: 3 } as const)[loadWord(load) as "free" | "light" | "steady" | "busy"];
+}
+
+/**
+ * Month cell grouping: a repeating Fixed block is the shape of the week, not news about it, so those fold
+ * into one summary (first start to last end, count); one-off Fixed blocks and every task keep their chips.
+ */
+export function splitMonthDay(tasks: Task[]) {
+    const baseline: Task[] = [];
+    const items: Task[] = [];
+    for (const task of tasks) {
+        const repeatingFixed = scheduleKind(task) === "fixed" && (isRecurringTask(task) || isRecurringTaskInstance(task));
+        (repeatingFixed ? baseline : items).push(task);
+    }
+    const timed = baseline.filter(isTimed).sort((a, b) => itemStart(a).getTime() - itemStart(b).getTime());
+    const first = timed[0];
+    const end = timed.length ? new Date(Math.max(...timed.map((task) => itemEnd(task).getTime()))) : null;
+    return {
+        items,
+        fixed: baseline.length
+            ? { count: baseline.length, start: first ? itemStart(first) : null, end, tasks: baseline }
+            : null,
+    };
 }

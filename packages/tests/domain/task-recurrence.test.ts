@@ -42,6 +42,15 @@ describe("task recurrence expansion", () => {
         expect(items[1]).toMatchObject({ id: "series-1::2026-03-12", occurrenceStart: "2026-03-12T13:30:00.000Z" });
     });
 
+    it("returns the whole range when no limit is sent, and honours one when it is", () => {
+        const daily = { ...BASE_TASK, recurrenceRule: "FREQ=DAILY" };
+        const range = { from: "2026-03-10", to: "2026-06-17" }; // 100 days
+        expect(expand([daily], range, TORONTO)).toHaveLength(100);
+        expect(expand([daily], { ...range, limit: 5, offset: 2 }, TORONTO).map((i) => i.occurrenceDay)).toEqual([
+            "2026-03-12", "2026-03-13", "2026-03-14", "2026-03-15", "2026-03-16",
+        ]);
+    });
+
     it("does not emit expired recurring series", () => {
         const items = expand([{ ...BASE_TASK, recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260308" }], WEEK, TORONTO);
         expect(items).toHaveLength(0);

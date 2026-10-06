@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import { useRef, useEffect, useLayoutEffect, useMemo, useState, useCallback } from "react";
 import { Flag, Plus, CalendarHeart, Focus } from "lucide-react";
 import { TimeGutter } from "./TimeGutter";
 import { CurrentTimeIndicator } from "./CurrentTimeIndicator";
@@ -204,6 +204,88 @@ export interface DayViewProps {
     onGridClick?: (info: CalendarEventInfo) => void;
 }
 
+/** Chips size to their words and wrap; two rows show, the rest sit behind "+N more". */
+function AllDayChips({ tasks, sourceId, onSelectTask, onCompleteTask, onArchiveTask }: {
+    tasks: Task[];
+    sourceId: string;
+    onSelectTask: (taskId: string) => void;
+    onCompleteTask?: (taskId: string) => void;
+    onArchiveTask?: (taskId: string) => void;
+}) {
+    const ref = useRef<HTMLDivElement>(null);
+    const [firstHidden, setFirstHidden] = useState(tasks.length);
+
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const measure = () => {
+            const tops: number[] = [];
+            let hiddenAt = tasks.length;
+            Array.from(el.querySelectorAll<HTMLElement>("[data-lane-chip]")).forEach((chip, index) => {
+                if (!tops.includes(chip.offsetTop)) tops.push(chip.offsetTop);
+                if (tops.length > 2 && hiddenAt === tasks.length) hiddenAt = index;
+            });
+            setFirstHidden(hiddenAt);
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [tasks]);
+
+    const hidden = tasks.slice(firstHidden);
+    const chip = (t: Task) => (
+        <CalendarTaskChip
+            key={t.id}
+            task={t}
+            variant="pill"
+            fit
+            sourceId={sourceId}
+            onSelect={onSelectTask}
+            onComplete={onCompleteTask}
+            onArchive={onArchiveTask}
+        />
+    );
+
+    return (
+        <div className="flex flex-col gap-1">
+            <div ref={ref} className="relative flex max-h-[4.4rem] flex-wrap gap-1.5 overflow-hidden">
+                {tasks.map((t, index) => (
+                    <div key={t.id} data-lane-chip className="flex max-w-full" inert={index >= firstHidden}>
+                        {chip(t)}
+                    </div>
+                ))}
+            </div>
+            {hidden.length > 0 && (
+                <Popover.Root>
+                    <Popover.Trigger asChild>
+                        <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-fit text-[11px] text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer px-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
+                        >
+                            +{hidden.length} more
+                        </button>
+                    </Popover.Trigger>
+                    <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
+                        {hidden.map((t) => (
+                            <CalendarTaskChip
+                                key={t.id}
+                                task={t}
+                                variant="pill"
+                                sourceId={sourceId}
+                                onSelect={onSelectTask}
+                                onComplete={onCompleteTask}
+                                onArchive={onArchiveTask}
+                            />
+                        ))}
+                    </Popover.Content>
+                </Popover.Root>
+            )}
+        </div>
+    );
+}
+
 export function DayView({
     currentDate,
     tasks,
@@ -236,7 +318,7 @@ export function DayView({
     }, [tasks]);
 
     return (
-        <div className="flex flex-col h-full min-h-0">
+        <div className="surface-card m-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] sm:m-3">
             {/* All-day area — date header suppressed; ScheduleHeader is the single source of truth */}
             <div className="shrink-0 border-b border-twilight-border/30 flex gap-0">
                 {/* Gutter with "All day" label */}
@@ -250,7 +332,7 @@ export function DayView({
                     className="flex-1 px-4 py-2"
                     isActive={activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate}
                 >
-                    <div className={`flex flex-col gap-1 max-w-[480px] ${allDay.length === 0 ? "min-h-11" : ""}`}>
+                    <div className={`flex flex-col gap-1 ${allDay.length === 0 ? "min-h-11" : ""}`}>
                         {holidays.length > 0 && (
                             <div className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-solstice/20 bg-solstice/12 px-3 py-1 text-xs font-medium text-solstice">
                                 <Flag size={12} strokeWidth={2.2} aria-hidden="true" />
@@ -270,43 +352,13 @@ export function DayView({
                         {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate ? (
                             <AllDayDropPreview preview={activeDropPreview} />
                         ) : null}
-                        {allDay.slice(0, 3).map((t) => (
-                            <CalendarTaskChip
-                                key={t.id}
-                                task={t}
-                                variant="pill"
-                                sourceId={`allday-${currentDate}`}
-                                onSelect={onSelectTask}
-                                onComplete={onCompleteTask}
-                                onArchive={onArchiveTask}
-                            />
-                        ))}
-                        {allDay.length > 3 && (
-                            <Popover.Root>
-                                <Popover.Trigger asChild>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="text-[11px] text-twilight-text-muted hover:text-accent-primary transition-colors cursor-pointer px-1 py-0.5 rounded-lg hover:bg-white/[0.04]"
-                                    >
-                                        +{allDay.length - 3} more
-                                    </button>
-                                </Popover.Trigger>
-                                <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
-                                    {allDay.slice(3).map((t) => (
-                                        <CalendarTaskChip
-                                            key={t.id}
-                                            task={t}
-                                            variant="pill"
-                                            sourceId={`allday-${currentDate}`}
-                                            onSelect={onSelectTask}
-                                            onComplete={onCompleteTask}
-                                            onArchive={onArchiveTask}
-                                        />
-                                    ))}
-                                </Popover.Content>
-                            </Popover.Root>
-                        )}
+                        <AllDayChips
+                            tasks={allDay}
+                            sourceId={`allday-${currentDate}`}
+                            onSelectTask={onSelectTask}
+                            onCompleteTask={onCompleteTask}
+                            onArchiveTask={onArchiveTask}
+                        />
                     </div>
                 </AllDayDropLane>
             </div>

@@ -2,7 +2,9 @@
  * Loading scene layout, motion and gates (colours live in loading-tokens.css).
  * Motion is transform/opacity on whole boxes only. Every animation is written as
  * `animation: var(--ls-still, …)`: reduced motion defines --ls-still: none, and
- * each element's base transform is its designed still pose.
+ * each element's base transform is its designed still pose. Animate HTML boxes, never an
+ * <svg>: Chrome keeps an svg with translate/rotate/scale off the compositor, so it repaints
+ * on the main thread every frame. Wrap the svg in a div and animate the div.
  */
 
 .loading-screen {
@@ -257,7 +259,6 @@
     display: block;
     width: 100%;
     height: 100%;
-    overflow: visible;
     /* A vein-dark outline keeps the leaf legible when it crosses the lit town */
     stroke: var(--vein);
     stroke-width: 0.6;
@@ -269,6 +270,13 @@
         ls-flip var(--swp) var(--ls-ease-sine) var(--delay) infinite alternate both,
         ls-lift var(--swp) var(--ls-ease-sine) var(--delay) infinite both
     );
+}
+
+.ls-leaf-body > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
 }
 
 .ls-leaf.is-far {
@@ -331,6 +339,14 @@
         ls-bough var(--swd) var(--ls-ease-sine) infinite both,
         ls-parallax var(--par-dur) var(--ls-ease-sine) var(--par-delay) infinite alternate both
     );
+}
+
+.ls-branch > svg,
+.ls-xmas > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
 }
 
 .ls-branch-tl { left: 0; transform-origin: 0 0; --swd: 7s; }
@@ -407,7 +423,9 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    translate: -50% -50%;
+    width: var(--ring);
+    height: var(--ring);
+    margin: calc(var(--ring) / -2);
     overflow: visible;
     pointer-events: none;
     opacity: calc(var(--ls-aura-ring-o) * 0.75);
@@ -420,14 +438,12 @@
 }
 
 .ls-halo-ring-a {
-    width: 7.75rem;
-    height: 7.75rem;
+    --ring: 7.75rem;
     animation: var(--ls-still, ls-spin 48s linear infinite);
 }
 
 .ls-halo-ring-b {
-    width: 9.5rem;
-    height: 9.5rem;
+    --ring: 9.5rem;
     animation: var(--ls-still, ls-spin-rev 72s linear infinite);
 }
 

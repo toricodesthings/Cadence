@@ -110,12 +110,14 @@ const GRASS_BR = susuki(67);
 function Bough({ art, side }: { art: ReturnType<typeof bough>; side: "tl" | "tr" }) {
     const moonSide = side === "tl";
     return (
-        <svg className={`ls-frame ls-branch ls-par-frame ls-branch-${side}`} viewBox="0 0 300 220" aria-hidden="true">
-            <path d={art.wood + art.twigsFill} fill="var(--loading-frame)" filter="url(#ls-blur-frame)" />
-            {moonSide && <path d={art.rim} fill="var(--ls-persimmon)" opacity=".4" />}
-            <path d={art.leaves} fill="var(--ls-bough-leaf)" filter="url(#ls-blur-bough)" />
-            {moonSide && <path d={art.lit} fill="var(--ls-bough-lit)" filter="url(#ls-blur-bough)" />}
-        </svg>
+        <div className={`ls-frame ls-branch ls-par-frame ls-branch-${side}`} aria-hidden="true">
+            <svg viewBox="0 0 300 220">
+                <path d={art.wood + art.twigsFill} fill="var(--loading-frame)" filter="url(#ls-blur-frame)" />
+                {moonSide && <path d={art.rim} fill="var(--ls-persimmon)" opacity=".4" />}
+                <path d={art.leaves} fill="var(--ls-bough-leaf)" filter="url(#ls-blur-bough)" />
+                {moonSide && <path d={art.lit} fill="var(--ls-bough-lit)" filter="url(#ls-blur-bough)" />}
+            </svg>
+        </div>
     );
 }
 
@@ -143,24 +145,26 @@ const FIR_LIGHTS: readonly (readonly [number, number, string])[] = [
 
 function XmasTree() {
     return (
-        <svg className="ls-xmas ls-par ls-par-frame" viewBox="0 0 120 170" aria-hidden="true">
-            <rect x="55" y="136" width="10" height="24" fill="var(--loading-building-back-base)" />
-            {/* The boughs ruffle in the wind about the trunk base; the trunk stays put */}
-            <g className="ls-xmas-body">
-                <path d={FIR_TIERS} fill="var(--ls-fir)" />
-                <path d={FIR_SNOW} fill="var(--loading-particle-color)" opacity=".7" />
-                <g className="ls-xmas-lights">
-                    {FIR_LIGHTS.map(([x, y, c]) => (
-                        <g key={`${x}-${y}`}>
-                            <circle cx={x} cy={y} r="5" fill={c} opacity=".28" />
-                            <circle cx={x} cy={y} r="1.8" fill={c} />
-                        </g>
-                    ))}
-                    <circle cx="60" cy="18" r="9" fill="var(--loading-key)" opacity=".25" />
-                    <path d="M60,10 L62.4,16 L68.5,16.3 L63.7,20.2 L65.5,26 L60,22.6 L54.5,26 L56.3,20.2 L51.5,16.3 L57.6,16 Z" fill="var(--loading-key)" />
+        <div className="ls-xmas ls-par ls-par-frame" aria-hidden="true">
+            <svg viewBox="0 0 120 170">
+                <rect x="55" y="136" width="10" height="24" fill="var(--loading-building-back-base)" />
+                {/* The boughs ruffle in the wind about the trunk base; the trunk stays put */}
+                <g className="ls-xmas-body">
+                    <path d={FIR_TIERS} fill="var(--ls-fir)" />
+                    <path d={FIR_SNOW} fill="var(--loading-particle-color)" opacity=".7" />
+                    <g className="ls-xmas-lights">
+                        {FIR_LIGHTS.map(([x, y, c]) => (
+                            <g key={`${x}-${y}`}>
+                                <circle cx={x} cy={y} r="5" fill={c} opacity=".28" />
+                                <circle cx={x} cy={y} r="1.8" fill={c} />
+                            </g>
+                        ))}
+                        <circle cx="60" cy="18" r="9" fill="var(--loading-key)" opacity=".25" />
+                        <path d="M60,10 L62.4,16 L68.5,16.3 L63.7,20.2 L65.5,26 L60,22.6 L54.5,26 L56.3,20.2 L51.5,16.3 L57.6,16 Z" fill="var(--loading-key)" />
+                    </g>
                 </g>
-            </g>
-        </svg>
+            </svg>
+        </div>
     );
 }
 

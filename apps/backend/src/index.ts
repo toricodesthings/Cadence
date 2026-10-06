@@ -88,7 +88,7 @@ app.use(
       }
       return PRODUCTION_ORIGIN;
     },
-    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key"],
     credentials: true,
     // Retry delay and response timing (which excludes waitUntil work).

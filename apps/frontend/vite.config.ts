@@ -41,6 +41,8 @@ export default defineConfig(({ mode }) => ({
     // @neondatabase/auth needs four error classes from the Supabase client, not the client.
     alias: { "@supabase/auth-js": fileURLToPath(new URL("./app/lib/auth/supabase-auth-errors.ts", import.meta.url)) },
   },
+  // rrule's CJS build has no named exports under Node's ESM loader; @cadence/domain imports `rrulestr` by name.
+  ssr: { noExternal: ["rrule"] },
   optimizeDeps: {
     include: [
       "emoji-mart",

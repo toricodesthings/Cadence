@@ -2,7 +2,7 @@ import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 import { Inbox, CalendarClock, ChevronRight, StickyNote, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { BucketedCollectionView, BucketedSectionHeader } from "../shared/BucketedCollectionView";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
@@ -23,6 +23,7 @@ import { dayOfInstant, fromTimeValue, nlpClock, toDay } from "../../lib/utils/da
 import { today } from "../../lib/utils/user-zone";
 import { useWeekLoad, usePlaceTask } from "./PlaceSheet";
 import { toast } from "sonner";
+import { Reveal } from "../shared/Reveal";
 import { loadParse, useParseModule } from "../../hooks/use-nlp-parse";
 
 export function HoldingFeed({
@@ -314,7 +315,7 @@ export function HoldingFeed({
     return (
         <div className="flex min-w-0 flex-col gap-6 pb-24">
             {toolbar}
-            <section aria-label="New" className="flex flex-col gap-3">
+            <section aria-label="New" className="surface-card flex flex-col gap-3 rounded-[28px] px-3 py-4 sm:px-4">
                 <BucketedSectionHeader
                     title="New"
                     icon={Inbox}
@@ -329,7 +330,7 @@ export function HoldingFeed({
                     </p>
                 )}
             </section>
-            <section aria-label="No day yet" className="flex flex-col gap-3">
+            <section aria-label="No day yet" className="surface-card flex flex-col gap-3 rounded-[28px] px-3 py-4 sm:px-4">
                 <BucketedSectionHeader
                     title="No day yet"
                     icon={CalendarClock}
@@ -391,21 +392,31 @@ const SHORTCUTS = [
 
 /** A folded group styled like the section headers above it. */
 function Fold({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+    const [open, setOpen] = useState(false);
+    const id = useId();
     return (
-        <details className="group/fold">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 [&::-webkit-details-marker]:hidden">
+        <div className="surface-card rounded-[28px] px-3 py-2 sm:px-4">
+            <button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={open}
+                aria-controls={id}
+                className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            >
                 <ChevronRight
                     size={14}
                     aria-hidden
-                    className="text-twilight-text-soft transition-transform duration-200 group-open/fold:rotate-90"
+                    className={`text-twilight-text-soft transition-transform duration-200 ${open ? "rotate-90" : ""}`}
                 />
                 <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text">
                     {title}
                 </span>
                 <span className="ml-1 text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
                 <span className="h-px flex-1 bg-gradient-to-r from-white/[0.08] via-twilight-border/20 to-transparent" />
-            </summary>
-            <div className="mt-3 space-y-2">{children}</div>
-        </details>
+            </button>
+            <Reveal open={open} id={id}>
+                <div className="mb-2 mt-1 space-y-2">{children}</div>
+            </Reveal>
+        </div>
     );
 }

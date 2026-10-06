@@ -41,30 +41,32 @@ const MIST_PUFFS: readonly (readonly [number, number, number, number])[] = [
 export function LoadingMountains() {
     return (
         <>
-            <svg className="ls-layer ls-par ls-par-far" viewBox="0 0 1920 1080">
-                {/* Depth of field is baked: the furthest peaks are softest, the far ridge slightly soft, nearer ridges crisp */}
-                <g filter="url(#ls-blur-distant)">
-                    <path d={DISTANT_D} fill="url(#ls-distant)" />
-                    <path className="ls-key" d={DISTANT_D} fill="url(#ls-moonlight)" opacity=".6" />
-                    <path d={DISTANT_RIM} fill="none" stroke="var(--loading-rim)" strokeWidth="1.5" strokeLinecap="round" opacity=".2" />
-                </g>
-                <g transform="translate(420 561)">
-                    <path d={SHRINE} fill="var(--ls-shrine)" />
-                    <circle cy="-9" r="7" fill="url(#ls-bulb-glow)" />
-                    <circle cy="-9" r="1.4" fill="var(--loading-flame-mid)" />
-                </g>
-                <g filter="url(#ls-blur-ridge)">
-                    <path d={ridge(FAR)} fill="url(#mountain-back-1)" />
-                    <path className="ls-key" d={ridge(FAR)} fill="url(#ls-moonlight)" opacity=".8" />
-                </g>
-                <g filter="url(#ls-blur-midfar)">
-                    <path d={ridge(MID_FAR)} fill="url(#mountain-back-2)" />
-                    <path className="ls-crowns" d={CANOPY} fill="var(--ls-canopy)" opacity=".6" />
-                    <path className="ls-key" d={ridge(MID_FAR)} fill="url(#ls-moonlight)" opacity=".7" />
-                </g>
+            <div className="ls-layer ls-par ls-par-far">
+                <svg className="ls-layer" viewBox="0 0 1920 1080">
+                    {/* Depth of field is baked: the furthest peaks are softest, the far ridge slightly soft, nearer ridges crisp */}
+                    <g filter="url(#ls-blur-distant)">
+                        <path d={DISTANT_D} fill="url(#ls-distant)" />
+                        <path className="ls-key" d={DISTANT_D} fill="url(#ls-moonlight)" opacity=".6" />
+                        <path d={DISTANT_RIM} fill="none" stroke="var(--loading-rim)" strokeWidth="1.5" strokeLinecap="round" opacity=".2" />
+                    </g>
+                    <g transform="translate(420 561)">
+                        <path d={SHRINE} fill="var(--ls-shrine)" />
+                        <circle cy="-9" r="7" fill="url(#ls-bulb-glow)" />
+                        <circle cy="-9" r="1.4" fill="var(--loading-flame-mid)" />
+                    </g>
+                    <g filter="url(#ls-blur-ridge)">
+                        <path d={ridge(FAR)} fill="url(#mountain-back-1)" />
+                        <path className="ls-key" d={ridge(FAR)} fill="url(#ls-moonlight)" opacity=".8" />
+                    </g>
+                    <g filter="url(#ls-blur-midfar)">
+                        <path d={ridge(MID_FAR)} fill="url(#mountain-back-2)" />
+                        <path className="ls-crowns" d={CANOPY} fill="var(--ls-canopy)" opacity=".6" />
+                        <path className="ls-key" d={ridge(MID_FAR)} fill="url(#ls-moonlight)" opacity=".7" />
+                    </g>
 
-                <path className="ls-winter" d={SNOW_CAPS} fill="none" stroke="var(--loading-particle-color)" strokeWidth="4" strokeLinejoin="round" opacity="0.45" />
-            </svg>
+                    <path className="ls-winter" d={SNOW_CAPS} fill="none" stroke="var(--loading-particle-color)" strokeWidth="4" strokeLinejoin="round" opacity="0.45" />
+                </svg>
+            </div>
 
             <div className="ls-mist ls-mist-far">
                 <div className="ls-band" style={cssVars({ "--dur": "960s", "--delay": "-410s" })}>

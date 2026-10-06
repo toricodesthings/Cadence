@@ -4,6 +4,9 @@ import type { Task } from "@cadence/contracts/task";
 import { routineTimeOn } from "@cadence/domain/repeats";
 import type { LocalDate } from "@cadence/domain/time";
 import { fromTimeValue } from "../../lib/utils/date-format";
+
+/** A routine day drawn as a task, carrying the routine's mark and colour for schedule pills. */
+export type VirtualHabitTask = Task & { habitEmoji?: string | null; habitColor?: string | null };
 import { getUserZone } from "../../lib/utils/user-zone";
 
 /**
@@ -45,7 +48,10 @@ export function useVirtualHabitTasks(options: {
                     reminderSilenced: !h.reminderEnabled,
                     recurrenceRule: h.recurrenceRule,
                     isHabit: true,
-                } as Task;
+                    // Routine identity for schedule pills (`RoutineMark` + `routineTone`); not part of the Task contract.
+                    habitEmoji: h.emoji,
+                    habitColor: h.colorAccent,
+                } as VirtualHabitTask;
             }) || []
         );
     }, [rawHabits]);

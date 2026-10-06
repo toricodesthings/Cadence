@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Task } from "@cadence/contracts/task";
-import { dayLoad, freeGaps, groupByDate, scheduleKind, splitDay, taskDays } from "../../../app/lib/utils/calendar/schedule-day";
+import { dayLoad, freeGaps, groupByDate, scheduleKind, splitDay, splitMonthDay, taskDays } from "../../../app/lib/utils/calendar/schedule-day";
 import { setUserZone } from "../../../app/lib/utils/user-zone";
 
 beforeAll(() => setUserZone("America/Toronto"));
@@ -16,6 +16,20 @@ const task = (patch: Partial<Task>): Task => ({
 }) as Task;
 
 describe("schedule-day", () => {
+    it("folds repeating Fixed blocks into one Month summary; one-off Fixed and tasks keep chips", () => {
+        const { items, fixed } = splitMonthDay([
+            task({ id: "lec", interactionMode: "timetable", seriesId: "s1", scheduledStart: "2026-10-05T12:35:00Z", scheduledEnd: "2026-10-05T13:55:00Z" }),
+            task({ id: "tut", interactionMode: "timetable", recurrenceRule: "FREQ=WEEKLY", scheduledStart: "2026-10-05T18:35:00Z", scheduledEnd: "2026-10-05T19:55:00Z" }),
+            task({ id: "exam", interactionMode: "timetable", scheduledStart: "2026-10-05T16:00:00Z", scheduledEnd: "2026-10-05T17:30:00Z" }),
+            task({ id: "todo", dueDate: "2026-10-05" }),
+        ]);
+        expect(items.map((t) => t.id)).toEqual(["exam", "todo"]);
+        expect(fixed?.count).toBe(2);
+        expect(fixed?.start?.toISOString()).toBe("2026-10-05T12:35:00.000Z");
+        expect(fixed?.end?.toISOString()).toBe("2026-10-05T19:55:00.000Z");
+        expect(splitMonthDay([task({ id: "todo", dueDate: "2026-10-05" })]).fixed).toBeNull();
+    });
+
     it("names kinds by consequence", () => {
         expect(scheduleKind(task({ isHabit: true }))).toBe("routine");
         expect(scheduleKind(task({ interactionMode: "timetable" }))).toBe("fixed");

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, ChevronRight, Loader2, Inbox, X } from "lucide-react";
 import { AssistantSigil } from "./AssistantSigil";
 import { motion, useReducedMotion } from "framer-motion";
+import { Reveal } from "../shared/Reveal";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
 /** A short spring used for icons popping in on settle (purposeful, not bouncy). */
@@ -86,7 +87,7 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                     <ChevronRight size={11} className={`opacity-60 transition-transform ${open ? "rotate-90" : ""}`} />
                 ) : null}
             </motion.button>
-            {open ? (
+            <Reveal open={open} className="w-full">
                 <ul className="w-full max-w-full space-y-1 rounded-xl border border-twilight-border bg-twilight-surface px-3 py-2 text-[11px] text-twilight-text-muted">
                     {calls.map((c, i) => {
                         const args = formatInput(c.input);
@@ -109,7 +110,7 @@ export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; /** Tr
                         );
                     })}
                 </ul>
-            ) : null}
+            </Reveal>
         </div>
     );
 }

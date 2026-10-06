@@ -136,7 +136,7 @@ export function RoutineWeekRow({
 
     if (stacked) {
         return (
-            <section style={style} aria-label={habit.title} onClick={openOnCardClick(onSelect)} className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "border-twilight-border/35 bg-white/[0.03]"} ${dim}`}>
+            <section style={style} aria-label={habit.title} onClick={openOnCardClick(onSelect)} className={`group cursor-pointer rounded-[1.5rem] border px-3 py-3 transition-colors ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "surface-card"} ${dim}`}>
                 <div className="flex items-center gap-1 pl-1">
                     {identity}
                     <HabitMenu habit={habit} onEdit={edit} />

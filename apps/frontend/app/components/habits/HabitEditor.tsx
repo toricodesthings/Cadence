@@ -30,6 +30,7 @@ import { today as todayDay, useToday } from "../../lib/utils/user-zone";
 import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, routineTone } from "../../lib/utils/habits";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { RoutineMark } from "./RoutineMark";
+import { Reveal } from "../shared/Reveal";
 import { useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
 
 const FIELD = "w-full min-w-0 rounded-xl border border-twilight-border/35 bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
@@ -150,7 +151,8 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                     ) : null}
                 </div>
 
-                {section === "notes" ? (
+                {section !== "notes" ? <PanelTrigger icon={StickyNote} title="Notes" summary={purpose.trim() || notes.trim() || "Why it matters, reflections, context"} onOpen={() => setSection("notes")} /> : null}
+                <Reveal open={section === "notes"}>
                     <section className={`${CARD} space-y-3 px-4 py-3`}>
                         <PanelHeader title="Notes" onDone={() => setSection(null)} />
                         <label className="flex flex-col gap-1.5">
@@ -168,17 +170,19 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                                 className={`${FIELD} resize-y`} />
                         </label>
                     </section>
-                ) : <PanelTrigger icon={StickyNote} title="Notes" summary={purpose.trim() || notes.trim() || "Why it matters, reflections, context"} onOpen={() => setSection("notes")} />}
+                </Reveal>
 
-                {section === "steps" ? (
+                {section !== "steps" ? <PanelTrigger icon={ListChecks} title="Steps" summary={habit.steps?.length ? habit.steps.map((step) => step.title).join(" → ") : "Break it into a short sequence"} onOpen={() => setSection("steps")} /> : null}
+                <Reveal open={section === "steps"}>
                     <section className={`${CARD} space-y-1 px-4 py-3`}>
                         <PanelHeader title="Steps" onDone={() => setSection(null)} />
                         <RoutineStepsEditor steps={habit.steps ?? []} onChange={(steps) => update({ steps })} />
                         <p className="pt-1 text-xs text-twilight-text-muted">Tick or skip them one by one on any day. The day is done once every step is done or skipped.</p>
                     </section>
-                ) : <PanelTrigger icon={ListChecks} title="Steps" summary={habit.steps?.length ? habit.steps.map((step) => step.title).join(" → ") : "Break it into a short sequence"} onOpen={() => setSection("steps")} />}
+                </Reveal>
 
-                {section === "details" ? (
+                {section !== "details" ? <PanelTrigger icon={SlidersHorizontal} title="Details" summary={[status, habit.targetTime ? formatTime(fromTimeValue(today, habit.targetTime)) : null, habit.reminderEnabled ? "Reminder on" : null].filter(Boolean).join(" · ")} onOpen={() => setSection("details")} /> : null}
+                <Reveal open={section === "details"}>
                     <section className={`${CARD} flex flex-col`}>
                         <div className="px-4 pb-1 pt-3"><PanelHeader title="Details" summary={status} onDone={() => setSection(null)} /></div>
 
@@ -240,9 +244,10 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                         </DetailGroup>
 
                     </section>
-                ) : <PanelTrigger icon={SlidersHorizontal} title="Details" summary={[status, habit.targetTime ? formatTime(fromTimeValue(today, habit.targetTime)) : null, habit.reminderEnabled ? "Reminder on" : null].filter(Boolean).join(" · ")} onOpen={() => setSection("details")} />}
+                </Reveal>
 
-                {section === "history" ? (
+                {section !== "history" ? <PanelTrigger icon={CalendarDays} title="History" summary={showStreaks && habit.currentStreak > 0 ? `${habit.totalCompletions} check-ins · ${habit.currentStreak} in a row` : `${habit.totalCompletions} check-ins`} onOpen={() => setSection("history")} /> : null}
+                <Reveal open={section === "history"}>
                     <section className={`${CARD} space-y-4 px-4 py-3`}>
                         <PanelHeader title="History" onDone={() => setSection(null)} />
                         <div className="flex items-center justify-between">
@@ -264,7 +269,7 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                         </dl>
                         <p className="text-xs text-twilight-text-muted">Created {formatShortDate(habit.createdAt)}</p>
                     </section>
-                ) : <PanelTrigger icon={CalendarDays} title="History" summary={showStreaks && habit.currentStreak > 0 ? `${habit.totalCompletions} check-ins · ${habit.currentStreak} in a row` : `${habit.totalCompletions} check-ins`} onOpen={() => setSection("history")} />}
+                </Reveal>
 
                 {habit.archived ? (
                     <Button variant="ghost" size="md" onClick={actions.toggleArchive}>

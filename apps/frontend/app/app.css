@@ -1299,6 +1299,15 @@ a:active {
   overflow: hidden;
 }
 
+/* WorkspaceStartup mounts the route hidden under the loading screen. Hidden content can't animate
+   on the compositor, so its loops (skeleton shimmer, pulses) would tick the main thread every frame
+   while the app boots. They resume on reveal. */
+[data-startup-hidden] *,
+[data-startup-hidden] *::before,
+[data-startup-hidden] *::after {
+  animation-play-state: paused !important;
+}
+
 /* ── Skeleton Shimmer (for app/components/primitives/Skeleton.tsx) ── */
 @keyframes shimmer {
   100% {
@@ -2144,6 +2153,46 @@ a:active {
   backdrop-filter: blur(10px) saturate(115%);
 }
 
+/* Content ladder: `surface-card` holds things (day cells, board columns, routine/event cards, the DaySpine);
+   `surface-item` is a thing inside one (chips, rows). Tints are re-tuned per mode below, never in components.
+   No per-card backdrop-filter: the photo is filtered once. Hover/selected/today are tint changes within a tier. */
+:root {
+  --card-tint: 22%;
+  --card-tint-up: 32%;
+  --item-tint: 40%;
+}
+
+[data-bg-image="on"] {
+  --card-tint: 64%;
+  --card-tint-up: 74%;
+  --item-tint: 72%;
+}
+
+@utility surface-card {
+  background: color-mix(in srgb, var(--color-panel) var(--card-tint), transparent);
+  border: 1px solid color-mix(in srgb, var(--color-bg-text, white) 10%, transparent);
+  border-top-color: color-mix(in srgb, var(--color-bg-text, white) 18%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+@utility surface-item {
+  background: color-mix(in srgb, var(--color-panel-raised) var(--item-tint), transparent);
+}
+
+/* Hover (`data-lift`), today and selected step the card up within its tier. */
+.surface-card[data-lift]:hover,
+.surface-card[data-state="today"],
+.surface-card[data-state="selected"] {
+  --card-tint: var(--card-tint-up);
+}
+
+[data-theme="daylight"] .surface-card {
+  border-color: rgba(0, 0, 0, 0.1);
+  border-top-color: rgba(0, 0, 0, 0.05);
+  border-bottom-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 6px 18px rgba(60, 40, 10, 0.08);
+}
+
 /* Full-screen editor overlays sit over page content, so they need an opaque fill. */
 [data-detail-mode="focus"].surface-shell {
   background: color-mix(in srgb, var(--color-panel) 99%, transparent);
@@ -2437,6 +2486,11 @@ a:active {
   background: color-mix(in srgb, var(--color-twilight-base) 12%, transparent);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+/* Tag chips sit on the shell's light tint; give them an item base so they read over a bright photo. */
+[data-bg-image="on"] .tag-bubble {
+  background-color: color-mix(in srgb, var(--color-panel-raised) var(--item-tint), transparent);
 }
 
 [data-bg-image="on"] .surface-dialog {

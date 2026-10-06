@@ -68,7 +68,7 @@ export function HabitsCanvas({
             {sorted.length === 0 ? empty : stacked ? (
                 <div role="group" aria-label="Routines this week" {...gridProps} className="flex flex-col gap-3">{rows}</div>
             ) : (
-                <div role="grid" aria-label="Routines this week" {...gridProps} className="min-w-[36rem]">
+                <div role="grid" aria-label="Routines this week" {...gridProps} className="surface-card min-w-[36rem] rounded-[24px] p-2">
                     <div role="row" className={`photo-shell-surface layer-shell-base sticky top-0 grid ${weekGridColumns(showWeekCount)} items-end rounded-2xl bg-twilight-deep/75 px-2 py-2 backdrop-blur-xl`}>
                         <span />
                         {days.map((day) => {

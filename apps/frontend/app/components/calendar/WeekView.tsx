@@ -249,7 +249,8 @@ export function WeekView({
     const allDayByDate = useMemo(() => {
         const map: Record<string, Task[]> = {};
         weekDates.forEach((ds) => {
-            map[ds] = (tasksByDate[ds] ?? []).filter((t) => !t.scheduledStart);
+            // One-off tasks lead, so the single visible slot never goes to a daily routine anchor.
+            map[ds] = (tasksByDate[ds] ?? []).filter((t) => !t.scheduledStart).sort((a, b) => Number(!!a.isHabit) - Number(!!b.isHabit));
         });
         return map;
     }, [weekDates, tasksByDate]);
@@ -263,7 +264,7 @@ export function WeekView({
     }, [weekDates, tasksByDate]);
 
     return (
-        <div className="flex flex-col h-full min-h-0">
+        <div className="surface-card m-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] sm:m-3">
             {/* ── Day headers + All-Day row ── */}
             <div className="shrink-0 flex border-b border-twilight-border/30">
                 {/* Gutter spacer with "All day" label */}

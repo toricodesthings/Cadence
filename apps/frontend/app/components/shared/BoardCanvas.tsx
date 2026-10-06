@@ -3,6 +3,7 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useDragScroll } from "../../hooks/ui/use-drag-scroll";
 import { ChipScroller } from "./ChipScroller";
 import { SegmentedControl } from "../primitives/SegmentedControl";
+import { Tip } from "../primitives";
 
 export interface BoardColumn {
     id: string;
@@ -14,6 +15,8 @@ export interface BoardColumn {
     content: React.ReactNode;
     footer?: React.ReactNode;
     collapsed?: boolean;
+    /** Collapsed: the whole rail is one button that calls this (shows the column). */
+    onExpand?: () => void;
     /** Compact shells: the column chooser already names the column, so the
      * shell drops its own title row instead of repeating it. */
     titleHidden?: boolean;
@@ -41,30 +44,34 @@ function BoardColumnShell({
     content,
     footer,
     collapsed,
+    onExpand,
     titleHidden = false,
 }: BoardColumn) {
     if (collapsed) {
+        // One button, the whole rail: icon on the open header's line, the count under it.
         return (
-            <section className="flex h-full min-h-0 items-start justify-center rounded-[24px] border border-twilight-border/35 bg-twilight-surface/18 px-3 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.15)] backdrop-blur-xl">
-                <div className="flex flex-col items-center gap-3">
-                    {icon ? (
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-twilight-text-soft">
-                            {icon}
-                        </div>
-                    ) : null}
-                    {headerAction ? <div className="flex items-center justify-center">{headerAction}</div> : null}
-                </div>
-            </section>
+            <Tip label={`Show ${title} (${count})`} side="right">
+                <button
+                    type="button"
+                    onClick={onExpand}
+                    aria-label={`Show ${title} (${count})`}
+                    className="surface-card animate-in fade-in flex h-full min-h-0 w-full cursor-pointer flex-col items-center gap-1.5 rounded-[24px] px-3 pt-4 text-twilight-text-soft transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                    data-lift
+                >
+                    <span className="flex h-6 items-center">{icon}</span>
+                    <span className="text-[12px] tabular-nums">{count}</span>
+                </button>
+            </Tip>
         );
     }
 
     return (
-        <section className="flex h-full min-h-0 flex-col rounded-[28px] border border-twilight-border/45 bg-twilight-surface/20 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <section className="surface-card animate-in fade-in flex h-full min-h-0 flex-col rounded-[28px]">
             {!titleHidden || description || headerAction ? (
                 <div className="flex items-start justify-between gap-3 px-5 pb-1 pt-4">
                     <div className="min-w-0">
                         {titleHidden ? null : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex h-6 items-center gap-2">
                                 <h3 className="font-display text-base font-semibold text-twilight-text">{title}</h3>
                                 <span className="rounded-full border border-twilight-border/40 bg-white/[0.03] px-2.5 py-0.5 text-[11px] tabular-nums text-twilight-text-soft">
                                     {count}
@@ -178,7 +185,7 @@ export function BoardCanvas({
                     {columns.map((column) => (
                         <div
                             key={column.id}
-                            className={`${column.collapsed ? "w-[4.75rem]" : "w-[min(clamp(24rem,28vw,30rem),78vw)]"} shrink-0 ${desktopColumnScroll ? "h-full min-h-0" : ""} ${
+                            className={`${column.collapsed ? "w-[4.75rem]" : "w-[min(clamp(24rem,28vw,30rem),78vw)]"} shrink-0 transition-[width] duration-200 ease-out ${desktopColumnScroll ? "h-full min-h-0" : ""} ${
                                 mobileMode === "pager" ? "snap-start" : ""
                             }`}
                         >

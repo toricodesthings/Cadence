@@ -35,7 +35,8 @@ export function EventCard({
                 if (!(e.target instanceof Element) || e.target.closest("button, a, input, select, textarea, [role='menuitem'], [role='switch'], [contenteditable='true']")) return;
                 onOpen(item.event);
             }}
-            className={`group cursor-pointer rounded-[1.7rem] border p-4 transition-[border-color,background-color,box-shadow] duration-300 hover:border-[color-mix(in_srgb,var(--event-tone)_28%,transparent)] hover:shadow-[0_18px_44px_color-mix(in_srgb,var(--event-tone)_12%,transparent)] ${tinted ? "border-[color-mix(in_srgb,var(--event-tone)_18%,transparent)] bg-[color-mix(in_srgb,var(--event-tone)_6%,transparent)] hover:bg-[color-mix(in_srgb,var(--event-tone)_9%,transparent)]" : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.045]"}`}>
+            data-lift
+            className={`surface-card group cursor-pointer rounded-[1.7rem] p-4 transition-[border-color,background-color,box-shadow] duration-300 hover:border-[color-mix(in_srgb,var(--event-tone)_28%,transparent)]! hover:shadow-[0_18px_44px_color-mix(in_srgb,var(--event-tone)_12%,transparent)] ${tinted ? "border-[color-mix(in_srgb,var(--event-tone)_18%,transparent)]! [background-image:linear-gradient(color-mix(in_srgb,var(--event-tone)_7%,transparent),color-mix(in_srgb,var(--event-tone)_7%,transparent))]" : ""}`}>
             <div className="flex items-start justify-between gap-3">
                 <button
                     type="button"

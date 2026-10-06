@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Schedule and Today are calmer to look at, and every panel now stands clear of your background.
+
+### Changed
+
+- The loading screen does less work while your workspace loads, so it opens sooner on slower devices.
+- Month view sums up repeating Fixed blocks as one line with their times, so exams and tasks stand out
+- Today's Fixed strip shows only Fixed blocks; timed routines appear once, under Routines
+- All-day items in Day view size to their text and wrap, instead of one wide column
+- Cards, columns and day cells stay readable over your own background photo
+- On Today's board, Fixed blocks are a column with a vertical timeline
+- Hiding Routines on Today is one quiet icon, and the hidden column is a single button
+- Everything that opens and closes now slides instead of snapping
+
 ## [0.26.5] - 2026-10-06
 
 Cadence opens faster, especially when you come back to it.

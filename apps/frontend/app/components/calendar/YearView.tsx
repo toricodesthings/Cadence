@@ -51,7 +51,7 @@ function MiniMonth({
     }, [year, month, daysInMonth, firstOffset]);
 
     return (
-        <div className="glass flex flex-col gap-3 rounded-2xl p-4 transition-colors hover:bg-white/[0.02]">
+        <div data-lift className="surface-card flex flex-col gap-3 rounded-2xl p-4 transition-colors">
             {/* Month name */}
             <button
                 type="button"
@@ -214,7 +214,8 @@ function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
                             type="button"
                             onClick={() => onSelectMonth(month)}
                             aria-label={`${MONTH_NAMES[month]} ${year}`}
-                            className="cursor-pointer rounded-2xl p-1.5 text-left transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            data-lift
+                            className="surface-card cursor-pointer rounded-2xl p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
                             <span className={`mb-1.5 block font-display text-[15px] font-semibold ${isCurrent ? "text-accent-primary" : "text-twilight-text"}`}>
                                 {MONTHS[month]}

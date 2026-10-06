@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, lazy } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Repeat } from "lucide-react";
+import { EyeOff, Eye, Inbox, PanelRightClose, Sunrise, Repeat, CalendarClock } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { Tip } from "../components/primitives";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
@@ -13,7 +13,7 @@ import { BucketedCollectionView } from "../components/shared/BucketedCollectionV
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
-import { DaySpine, type SpineItem } from "../components/today/DaySpine";
+import { DaySpine, SpineSummary, SpineTimeline, type SpineItem } from "../components/today/DaySpine";
 import { TaskList } from "../components/tasks/TaskList";
 import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { EmptyState } from "../components/tasks/EmptyState";
@@ -36,7 +36,7 @@ import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
 import { atLocal, wallTimeOf } from "@cadence/domain/time";
-import { dayOfInstant, fromTimeValue, nlpClock } from "../lib/utils/date-format";
+import { dayOfInstant, nlpClock } from "../lib/utils/date-format";
 import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
@@ -50,13 +50,39 @@ import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import type { Task } from "@cadence/contracts/task";
 
 const ROUTINES_STORAGE_KEY = "cadence-today-hide-routines";
+const FIXED_STORAGE_KEY = "cadence-today-hide-fixed-column";
 
-function readHideRoutines() {
+function readFlag(key: string) {
     try {
-        return window.localStorage.getItem(ROUTINES_STORAGE_KEY) === "1";
+        return window.localStorage.getItem(key) === "1";
     } catch {
         return false;
     }
+}
+
+function writeFlag(key: string, value: boolean) {
+    try {
+        window.localStorage.setItem(key, value ? "1" : "0");
+    } catch {
+        // Per-viewer convenience only.
+    }
+}
+
+/** Show/hide for a section: a quiet moonlit eye on the header's line, 44px hit area around a 16px glyph. */
+function EyeToggle({ hidden, label, onToggle }: { hidden: boolean; label: string; onToggle: () => void }) {
+    return (
+        <Tip label={label} side="bottom">
+            <button
+                type="button"
+                onClick={onToggle}
+                aria-label={label}
+                aria-pressed={hidden}
+                className="touch-target -my-3 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-moonlit transition-colors hover:bg-moonlit/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+            >
+                {hidden ? <Eye size={16} aria-hidden="true" /> : <EyeOff size={16} aria-hidden="true" />}
+            </button>
+        </Tip>
+    );
 }
 
 export default function TodayRoute() {
@@ -75,6 +101,7 @@ export default function TodayRoute() {
     });
 
     const [hideRoutines, setHideRoutines] = useState(false);
+    const [hideFixed, setHideFixed] = useState(false);
     const resolveHabit = useResolveHabit();
     const todayISO = useToday();
     const { activeTagId } = useTagFilterStore();
@@ -99,7 +126,8 @@ export default function TodayRoute() {
     useKeyboardShortcuts({ onNextSection, onPrevSection });
 
     useEffect(() => {
-        setHideRoutines(readHideRoutines());
+        setHideRoutines(readFlag(ROUTINES_STORAGE_KEY));
+        setHideFixed(readFlag(FIXED_STORAGE_KEY));
     }, []);
 
     const { data: tasks = [], isLoading } = useTasks({
@@ -185,19 +213,7 @@ export default function TodayRoute() {
             const zone = task.zone ?? getUserZone();
             const start = new Date(atLocal(occurrence, wallTimeOf(task.scheduledStart, zone), zone));
             const durationMs = task.scheduledEnd ? Date.parse(task.scheduledEnd) - Date.parse(task.scheduledStart) : 0;
-            items.push({ id: task.id, kind: "fixed", title: task.title, start, end: durationMs > 0 ? new Date(start.getTime() + durationMs) : null });
-        }
-        for (const routine of [...grouped.routinesOpen, ...grouped.routinesDone]) {
-            if (!routine.time) continue;
-            items.push({
-                id: routine.habitId,
-                kind: "routine",
-                title: routine.title,
-                emoji: routine.emoji,
-                start: new Date(fromTimeValue(todayISO, routine.time)),
-                end: null,
-                done: routine.done,
-            });
+            items.push({ id: task.id, title: task.title, start, end: durationMs > 0 ? new Date(start.getTime() + durationMs) : null });
         }
         return items;
     }, [grouped, todayISO]);
@@ -212,13 +228,15 @@ export default function TodayRoute() {
 
     const toggleRoutines = () => {
         setHideRoutines((current) => {
-            const next = !current;
-            try {
-                window.localStorage.setItem(ROUTINES_STORAGE_KEY, next ? "1" : "0");
-            } catch {
-                // Per-viewer convenience only.
-            }
-            return next;
+            writeFlag(ROUTINES_STORAGE_KEY, !current);
+            return !current;
+        });
+    };
+
+    const toggleFixed = () => {
+        setHideFixed((current) => {
+            writeFlag(FIXED_STORAGE_KEY, !current);
+            return !current;
         });
     };
 
@@ -226,14 +244,7 @@ export default function TodayRoute() {
         navigate(`/routines?${buildFocusSearchParams({ focusKind: "habit", focusId: habitId })}`);
     };
 
-    const openSpineItem = (item: SpineItem) => {
-        if (item.kind === "fixed") {
-            handleSelectTask(item.id);
-            return;
-        }
-        const routine = [...grouped.routinesOpen, ...grouped.routinesDone].find((entry) => entry.habitId === item.id);
-        if (routine) openRoutine(routine.habitId);
-    };
+    const openSpineItem = (item: SpineItem) => handleSelectTask(item.id);
 
     const routinesCount = grouped.routinesOpen.length + grouped.routinesDone.length;
 
@@ -329,14 +340,6 @@ export default function TodayRoute() {
     };
 
     const renderRoutines = () => {
-        if (routinesHidden) {
-            return (
-                <div className="px-6 py-3 text-[13px] italic text-twilight-text-muted/90">
-                    Routines hidden ({routinesCount}).
-                </div>
-            );
-        }
-
         return (
             <RoutineAgendaList
                 items={[...grouped.routinesOpen, ...grouped.routinesDone]}
@@ -347,9 +350,26 @@ export default function TodayRoute() {
         );
     };
 
-    const routinesToggleLabel = hideRoutines ? `Show routines (${routinesCount})` : "Hide routines";
+    const routinesToggleLabel = hideRoutines ? `Show ${routinesCount} routines` : "Hide routines";
+    const routinesToggle = shell.isCompact ? undefined : (
+        <EyeToggle hidden={hideRoutines} label={routinesToggleLabel} onToggle={toggleRoutines} />
+    );
 
     const sections = [
+        // Board view: Fixed blocks are the first column, a vertical timeline (list view keeps the strip above).
+        ...(view === "kanban" && spineItems.length > 0 ? [{
+            key: "fixed",
+            title: "Fixed",
+            icon: CalendarClock,
+            accentClass: "text-moonlit",
+            count: spineItems.length,
+            boardDescription: <SpineSummary items={spineItems} />,
+            boardHeaderAction: shell.isCompact ? undefined : <EyeToggle hidden={false} label="Hide Fixed" onToggle={toggleFixed} />,
+            boardCollapsed: !shell.isCompact && hideFixed,
+            onBoardExpand: toggleFixed,
+            listContent: null,
+            boardContent: <SpineTimeline items={spineItems} onOpen={openSpineItem} />,
+        }] : []),
         ...(grouped.stillOpen.length > 0 ? [{
             key: "still-open",
             title: "Still open",
@@ -380,32 +400,11 @@ export default function TodayRoute() {
             icon: Repeat,
             accentClass: "text-moonlit",
             count: routinesHidden ? routinesCount : grouped.routinesOpen.length,
-            headerAction: !shell.isCompact && (
-                <button
-                    type="button"
-                    onClick={toggleRoutines}
-                    className="touch-target inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-2xl border border-moonlit/20 bg-moonlit/10 px-4 text-xs font-medium uppercase tracking-[0.14em] text-moonlit"
-                    aria-pressed={hideRoutines}
-                >
-                    {hideRoutines ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
-                    {hideRoutines ? `Show (${routinesCount})` : "Hide"}
-                </button>
-            ),
-            boardHeaderAction: !shell.isCompact && (
-                <Tip label={routinesToggleLabel} side="bottom">
-                    <button
-                        type="button"
-                        onClick={toggleRoutines}
-                        className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-moonlit/20 bg-moonlit/10 text-moonlit transition-colors hover:bg-moonlit/14"
-                        aria-label={routinesToggleLabel}
-                    >
-                        {hideRoutines ? <Eye size={14} aria-hidden="true" /> : <EyeOff size={14} aria-hidden="true" />}
-                    </button>
-                </Tip>
-            ),
-            listSectionClassName: "rounded-[28px] border border-moonlit/15 bg-moonlit/[0.05] px-4 py-4",
-            boardSectionClassName: "border-moonlit/20 bg-moonlit/[0.05]",
+            headerAction: routinesToggle,
+            lineTint: "var(--color-moonlit)",
+            listOpen: !routinesHidden,
             boardCollapsed: routinesHidden,
+            onBoardExpand: toggleRoutines,
             listContent: renderRoutines(),
             boardContent: renderRoutines(),
         }] : []),
@@ -432,7 +431,6 @@ export default function TodayRoute() {
             <PageContent width="default" className="shrink-0 pb-0 empty:hidden">
                 <ActiveFilterBar placement="body" />
                 {!isLoading && totalVisible === 0 ? <DayEventRows events={todayDayEvents} className="pb-2" /> : null}
-                {view === "kanban" ? spine : null}
             </PageContent>
             {view === "kanban" ? (
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col">

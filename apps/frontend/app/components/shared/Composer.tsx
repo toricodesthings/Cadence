@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useId, useState, type ComponentType, type ReactNode } from "react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -6,6 +6,7 @@ import { Button } from "../primitives/Button";
 import { Switch, Tip } from "../primitives";
 import { Dialog, DialogCloseButton, DialogContent, DialogDescription, DialogTitle } from "../primitives/Dialog";
 import * as AlertDialog from "../primitives/AlertDialog";
+import { Reveal } from "./Reveal";
 import { UtilitySheet } from "./UtilitySheet";
 
 /**
@@ -346,16 +347,26 @@ export function ComposerToggle({
 
 /** Everything optional folds in here, closed by default; `summary` echoes what's set inside. */
 export function ComposerMore({ summary, children }: { summary?: string | null; children: ReactNode }) {
+    const [open, setOpen] = useState(false);
+    const id = useId();
     return (
-        <details className={`group ${TILE}`}>
-            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 rounded-2xl px-4 text-sm text-twilight-text-soft transition-colors hover:text-twilight-text group-open:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 [&::-webkit-details-marker]:hidden">
+        <div className={TILE}>
+            <button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={open}
+                aria-controls={id}
+                className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-4 text-left text-sm transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${open ? "text-twilight-text" : "text-twilight-text-soft"}`}
+            >
                 <SlidersHorizontal size={15} className="shrink-0 text-accent-primary" aria-hidden="true" />
                 <span className="flex-1">More options</span>
-                {summary ? <span className="truncate text-xs text-twilight-text-muted group-open:hidden">{summary}</span> : null}
-                <ChevronDown size={15} className="shrink-0 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
-            </summary>
-            <div className="space-y-4 border-t border-white/[0.05] px-4 pb-4 pt-4">{children}</div>
-        </details>
+                {summary && !open ? <span className="truncate text-xs text-twilight-text-muted">{summary}</span> : null}
+                <ChevronDown size={15} className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+            <Reveal open={open} id={id}>
+                <div className="space-y-4 border-t border-white/[0.05] px-4 pb-4 pt-4">{children}</div>
+            </Reveal>
+        </div>
     );
 }
 

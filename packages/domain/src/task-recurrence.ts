@@ -132,7 +132,7 @@ export function expandScheduleScopedTasks<T extends TaskRow>(
         return a.orderIndex - b.orderIndex;
     });
 
+    // No limit means the whole range (the contract has no default); a month of daily blocks passes 50.
     const offset = filters.offset ?? 0;
-    const limit = filters.limit ?? 50;
-    return items.slice(offset, offset + limit);
+    return filters.limit ? items.slice(offset, offset + filters.limit) : items.slice(offset);
 }

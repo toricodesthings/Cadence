@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Check, ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import type { Subtask } from "@cadence/contracts/subtask";
 import { useCreateSubtask, useDeleteSubtask, useReorderSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
+import { Reveal } from "../shared/Reveal";
 import { SortableSubtaskList, type SortableSubtaskRenderProps } from "./SortableSubtaskList";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { useSubtaskOpenStore } from "../../stores/subtask-open-store";
@@ -191,73 +192,61 @@ export function InlineSubtaskPanel({
 
     const visible = (open && ordered.length > 0) || adding;
     return (
-        <AnimatePresence initial={false}>
-            {visible ? (
-                <motion.div
-                    id={id}
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    // Rows pull left into the space under the task's checkbox so the grip costs no title width.
-                    className="-ml-7 overflow-hidden"
-                >
-                    <div className="pt-0.5">
-                        {ordered.length > 0 && (
-                            <SortableSubtaskList
-                                subtasks={ordered}
-                                onReorder={(payload) => reorderSubtask.mutate(payload)}
-                                renderItem={({ subtask, dragHandleProps, isDragging }) => (
-                                    <InlineSubtaskItem
-                                        subtask={subtask}
-                                        onDelete={(subtaskId) => deleteSubtask.mutate(subtaskId)}
-                                        dragHandleProps={dragHandleProps}
-                                        isDragging={isDragging}
-                                    />
-                                )}
+        <Reveal open={visible} id={id} className="-ml-7">
+            <div className="pt-0.5">
+                {ordered.length > 0 && (
+                    <SortableSubtaskList
+                        subtasks={ordered}
+                        onReorder={(payload) => reorderSubtask.mutate(payload)}
+                        renderItem={({ subtask, dragHandleProps, isDragging }) => (
+                            <InlineSubtaskItem
+                                subtask={subtask}
+                                onDelete={(subtaskId) => deleteSubtask.mutate(subtaskId)}
+                                dragHandleProps={dragHandleProps}
+                                isDragging={isDragging}
                             />
                         )}
-                        {adding ? (
-                            <div className="flex items-center gap-1.5 rounded-xl px-1 py-0.5">
-                                <span className="w-[18px] shrink-0" aria-hidden="true" />
-                                <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                                    <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70" />
-                                </span>
-                                <input
-                                    ref={inputRef}
-                                    type="text"
-                                    data-no-dnd="true"
-                                    data-no-open="true"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") submit();
-                                        if (e.key === "Escape") stopAdding();
-                                    }}
-                                    onBlur={() => (title.trim() ? submit() : stopAdding())}
-                                    placeholder="Add subtask..."
-                                    aria-label="New subtask"
-                                    className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
-                                />
-                            </div>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => onAddingChange(true)}
-                                data-no-dnd="true"
-                                data-no-open="true"
-                                className="flex w-full cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
-                            >
-                                <span className="w-[18px] shrink-0" aria-hidden="true" />
-                                <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                                    <Plus size={14} />
-                                </span>
-                                Add subtask
-                            </button>
-                        )}
+                    />
+                )}
+                {adding ? (
+                    <div className="flex items-center gap-1.5 rounded-xl px-1 py-0.5">
+                        <span className="w-[18px] shrink-0" aria-hidden="true" />
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                            <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70" />
+                        </span>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            data-no-dnd="true"
+                            data-no-open="true"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") submit();
+                                if (e.key === "Escape") stopAdding();
+                            }}
+                            onBlur={() => (title.trim() ? submit() : stopAdding())}
+                            placeholder="Add subtask..."
+                            aria-label="New subtask"
+                            className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
+                        />
                     </div>
-                </motion.div>
-            ) : null}
-        </AnimatePresence>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => onAddingChange(true)}
+                        data-no-dnd="true"
+                        data-no-open="true"
+                        className="flex w-full cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                    >
+                        <span className="w-[18px] shrink-0" aria-hidden="true" />
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
+                            <Plus size={14} />
+                        </span>
+                        Add subtask
+                    </button>
+                )}
+            </div>
+        </Reveal>
     );
 }

@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
 import { formatTime } from "../../lib/utils/date-format";
+import { Reveal } from "../shared/Reveal";
 import { RoutineAgendaList, routineAgendaItems } from "../shared/RoutineAgendaRow";
 
 const COLLAPSED_KEY = "cadence-routines-today-collapsed";
@@ -73,7 +74,7 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
     });
 
     return (
-        <section aria-label="Today's routines" className="mb-4 rounded-[28px] border border-moonlit/15 bg-moonlit/[0.05] px-2 py-2">
+        <section aria-label="Today's routines" className="surface-card mb-4 rounded-[28px] px-2 py-2">
             <div className="flex min-h-14 items-center gap-3 px-2">
                 <ProgressRing done={done} total={items.length} still={!bloom} />
                 <span className="min-w-0 flex-1">
@@ -84,13 +85,14 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
                     type="button"
                     onClick={toggle}
                     aria-expanded={!collapsed}
+                    aria-controls="routine-today-band"
                     aria-label={collapsed ? "Show today's routines" : "Hide today's routines"}
                     className="btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
                 >
                     <ChevronDown size={16} aria-hidden="true" className={`transition-transform ${collapsed ? "" : "rotate-180"}`} />
                 </button>
             </div>
-            {collapsed ? null : (
+            <Reveal open={!collapsed} id="routine-today-band">
                 <div className="pt-1">
                     <RoutineAgendaList
                         items={items}
@@ -101,7 +103,7 @@ export function RoutineTodayBand({ habits, today, bloom, columns, onOpen }: {
                         onComplete={(item) => resolve({ habitId: item.habitId, targetDate: today, status: item.done ? "PENDING" : "COMPLETED" })}
                     />
                 </div>
-            )}
+            </Reveal>
         </section>
     );
 }

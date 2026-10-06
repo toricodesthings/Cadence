@@ -8,6 +8,7 @@ import { formatTime } from "../../../lib/utils/date-format";
 import { getUserZone, useToday } from "../../../lib/utils/user-zone";
 import { formatDuration, freeGaps, itemEnd, itemStart, scheduleKind, splitDay, type FreeGap } from "../../../lib/utils/calendar/schedule-day";
 import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
+import { Reveal } from "../../shared/Reveal";
 import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
 
 /** Swiping to another day remounts this view, so the offset outlives it: the
@@ -217,7 +218,7 @@ export function DayAgenda({
                                 <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showDoneRoutines ? "rotate-180" : ""}`} />
                                 {allDayDone.length} done
                             </button>
-                            {showDoneRoutines ? allDayDone.map((task) => row(task)) : null}
+                            <Reveal open={showDoneRoutines}>{allDayDone.map((task) => row(task))}</Reveal>
                         </>
                     ) : null}
                 </section>
@@ -237,7 +238,7 @@ export function DayAgenda({
                                 <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showEarlier ? "rotate-180" : ""}`} />
                                 Earlier today
                             </button>
-                            {showEarlier ? earlier.map((task) => row(task, true)) : null}
+                            <Reveal open={showEarlier}>{earlier.map((task) => row(task, true))}</Reveal>
                         </>
                     ) : null}
                     {isToday && (nowIndex === 0 || upcoming.length === 0) ? nowLine : null}

@@ -5,6 +5,8 @@ import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "@cadence/contracts/task";
 import { weekdayOf, type LocalDate } from "@cadence/domain/time";
 import { dayOfMonth } from "../../lib/utils/calendar/calendar-math";
+import { splitMonthDay } from "../../lib/utils/calendar/schedule-day";
+import { formatTime } from "../../lib/utils/date-format";
 
 const MAX_VISIBLE_TASKS = 2;
 
@@ -12,10 +14,10 @@ interface CalendarDayCellProps {
     /** The cell's LocalDate; null for a blank cell */
     day: LocalDate | null;
     isToday: boolean;
+    /** A day before today: rests at lower contrast so the eye starts at today */
+    isPast?: boolean;
     isSelected: boolean;
     hasTask: boolean;
-    /** Has habits scheduled on this day — shows as a small flame-colored dot */
-    hasHabit?: boolean;
     /** Has holidays scheduled on this day — shows as a warm ember marker */
     hasHoliday?: boolean;
     /** User's birthday falls on this day — shows a violet birthday marker */
@@ -40,9 +42,9 @@ interface CalendarDayCellProps {
 export function CalendarDayCell({
     day,
     isToday,
+    isPast = false,
     isSelected,
     hasTask,
-    hasHabit = false,
     hasHoliday = false,
     hasBirthday = false,
     hasPersonalEvent = false,
@@ -134,8 +136,9 @@ export function CalendarDayCell({
         id: `day-${dateStr}`,
     });
 
-    const visibleTasks = tasks.slice(0, MAX_VISIBLE_TASKS);
-    const hiddenCount = tasks.length - MAX_VISIBLE_TASKS;
+    const { items, fixed } = splitMonthDay(tasks);
+    const visibleTasks = items.slice(0, MAX_VISIBLE_TASKS);
+    const hiddenCount = items.length - MAX_VISIBLE_TASKS;
 
     return (
         <div
@@ -143,19 +146,17 @@ export function CalendarDayCell({
             data-day={dateStr}
             onClick={handleCellClick}
             onContextMenu={handleContextMenu}
+            data-lift
+            data-state={isToday ? "today" : isSelected ? "selected" : undefined}
             className={`
-                relative flex flex-col items-start rounded-2xl text-sm
-                border transition-[background-color,border-color,box-shadow] duration-200 cursor-pointer overflow-hidden
-                ${isOver ? "bg-[color-mix(in_srgb,var(--color-moonlit)_12%,transparent)] border-moonlit/20" : "border-transparent"}
-                ${isWeekend && !isToday && !isSelected ? "bg-white/[0.01]" : ""}
-                ${isToday
-                    ? "bg-accent-primary/10 ring-1 ring-accent-primary/20"
-                    : "hover:bg-white/[0.04] hover:glow-lantern"}
-                ${isSelected && !isToday
-                    ? "bg-white/[0.05] border-white/[0.06]"
-                    : ""}
+                surface-card relative flex h-full flex-col items-start rounded-2xl text-sm
+                transition-[background-color,border-color,box-shadow,opacity] duration-200 cursor-pointer overflow-hidden
+                ${isOver ? "!border-moonlit/40 !bg-[color-mix(in_srgb,var(--color-moonlit)_14%,transparent)]" : ""}
+                ${isWeekend && !isToday && !isSelected ? "opacity-[0.94]" : ""}
+                ${isToday ? "ring-1 ring-accent-primary/40" : ""}
+                ${isPast && !isToday ? "opacity-80 hover:opacity-100" : ""}
             `}
-            style={{ height: 120, minHeight: 120 }}
+            style={{ minHeight: 120 }}
         >
             {/* Date number — clicking navigates */}
             <button
@@ -174,12 +175,6 @@ export function CalendarDayCell({
                     {dayOfMonth(day)}
                 </span>
                 <span className="flex items-center gap-1.5">
-                    {hasHabit && !isToday && (
-                        <span
-                            title="Routines scheduled"
-                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/50 shadow-[0_0_4px_color-mix(in_srgb,var(--accent-primary)_40%,transparent)]"
-                        />
-                    )}
                     {hasHoliday && (
                         <span
                             title="Holiday"
@@ -210,14 +205,38 @@ export function CalendarDayCell({
                 </span>
             </button>
 
+            {/* The week's repeating Fixed shape, one quiet line: when you're busy, without 40 identical chips */}
+            {fixed ? (
+                <div className="w-full px-1 pb-0.5 @container">
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onSelect(day); }}
+                        aria-label={`${fixed.count} fixed${fixed.start && fixed.end ? `, ${formatTime(fixed.start.toISOString())} to ${formatTime(fixed.end.toISOString())}` : ""}. Open day`}
+                        className="flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-[11px] tabular-nums text-twilight-text-soft transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                    >
+                        <span className="h-3 w-[3px] shrink-0 rounded-full bg-moonlit" aria-hidden="true" />
+                        <span className="min-w-0 truncate">
+                            {fixed.start ? (
+                                <>
+                                    <span>{formatTime(fixed.start.toISOString())}</span>
+                                    <span className="hidden @[9.5rem]:inline">{fixed.end ? `–${formatTime(fixed.end.toISOString())}` : ""}</span>
+                                </>
+                            ) : null}
+                        </span>
+                        <span className="shrink-0">· {fixed.count}<span className="hidden @[11rem]:inline"> fixed</span></span>
+                    </button>
+                </div>
+            ) : null}
+
             {/* Task chips */}
-            {tasks.length > 0 && (
+            {items.length > 0 && (
                 <div className="w-full px-1 pb-1 flex flex-col gap-[2px]">
                     {visibleTasks.map((task) => (
                         <CalendarTaskChip
                             key={task.id}
                             task={task}
                             variant="pill"
+                            month
                             sourceId={`day-${dateStr}`}
                             onSelect={onSelectTask ?? (() => { })}
                             onComplete={onCompleteTask}
@@ -238,11 +257,12 @@ export function CalendarDayCell({
                                 </button>
                             </Popover.Trigger>
                             <Popover.Content side="bottom" align="start" className="w-64 p-2 flex flex-col gap-[3px]">
-                                {tasks.slice(MAX_VISIBLE_TASKS).map((task) => (
+                                {items.slice(MAX_VISIBLE_TASKS).map((task) => (
                                     <CalendarTaskChip
                                         key={task.id}
                                         task={task}
                                         variant="pill"
+                                        month
                                         sourceId={`day-${dateStr}`}
                                         onSelect={onSelectTask ?? (() => { })}
                                         onComplete={onCompleteTask}

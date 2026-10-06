@@ -12,6 +12,9 @@ import { isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance, suppo
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { CALENDAR_SLOT_MINUTES } from "../../lib/utils/calendar/calendar-dnd";
 import { syncNowSheen, useIsUnderNowLine } from "./CurrentTimeIndicator";
+import { RoutineMark } from "../habits/RoutineMark";
+import { routineTone } from "../../lib/utils/habits";
+import type { VirtualHabitTask } from "../../hooks/habits/use-virtual-habit-tasks";
 
 /** Tailwind classes for the chip background/border based on priority */
 const PRIORITY_PILL_BG: Record<TaskPriority, string> = {
@@ -53,6 +56,10 @@ export interface CalendarTaskChipProps {
     style?: CSSProperties;
     /** The source cell id used in DnD drag data */
     sourceId?: string;
+    /** Pill in a Month cell: leads with its start time and drops the repeat/fixed glyphs (the summary already says it). */
+    month?: boolean;
+    /** Pill sized to its words (Day's all-day lane) instead of filling its row */
+    fit?: boolean;
 }
 
 function CalendarTaskMenu({ task, children }: { task: Task; children: ReactElement }) {
@@ -90,6 +97,8 @@ export function CalendarTaskChip({
     isSuggested,
     style,
     sourceId,
+    month = false,
+    fit = false,
 }: CalendarTaskChipProps) {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -125,13 +134,13 @@ export function CalendarTaskChip({
                     {...listeners}
                     data-task-chip
                     className={`
-                        group relative flex items-center gap-2 w-full
+                        group relative flex items-center gap-2 ${fit ? "w-auto max-w-full" : "w-full"}
                         rounded-full px-3 py-1.5 text-[13px] font-medium
                         border backdrop-blur-md cursor-pointer select-none
                         transition-[background-color,border-color,box-shadow,transform,opacity] duration-150
                         ${isDragging ? "z-50 scale-[1.03] shadow-[0_8px_24px_rgba(0,0,0,0.4)]" : ""}
                         ${isSuggested ? "animate-pulse border-[var(--color-moonlit)]/50" : ""}
-                        ${task.isHabit ? `border-l-2 border-accent-primary bg-accent-primary/5 pl-2 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
+                        ${task.isHabit ? `bg-accent-primary/5 shadow-sm ${isCompletedHabit ? "opacity-45" : ""}` : ""}
                         ${isRecurring ? "bg-[rgba(126,184,212,0.08)] border-[rgba(126,184,212,0.18)]" : PRIORITY_PILL_BG[priority]}
                     `}
                     onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
@@ -139,18 +148,25 @@ export function CalendarTaskChip({
                     onMouseLeave={() => setIsHovered(false)}
                     whileHover={{ scale: 1.01 }}
                 >
-                    {/* Priority dot */}
-                    <span className={`shrink-0 w-2 h-2 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
+                    {/* A routine shows its mark in its colour, as on Today; everything else a priority dot */}
+                    {task.isHabit ? (
+                        <span className="inline-flex shrink-0" style={{ color: routineTone((task as VirtualHabitTask).habitColor) }}>
+                            <RoutineMark emoji={(task as VirtualHabitTask).habitEmoji} size={11} />
+                        </span>
+                    ) : (
+                        <span className={`shrink-0 w-2 h-2 rounded-full ${PRIORITY_LEFT_GLOW[priority]}`} />
+                    )}
 
                     {/* Title */}
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                        className={`flex-1 truncate text-left ${PRIORITY_TEXT[priority]} cursor-pointer flex items-center gap-1`}
+                        className={`min-w-0 ${fit ? "" : "flex-1"} truncate text-left ${PRIORITY_TEXT[priority]} cursor-pointer flex items-center gap-1`}
                     >
-                        {task.title}
-                        {(task.isHabit || isRecurring) && <Repeat size={10} className={`${task.isHabit ? "text-accent-primary/50" : "text-moonlit/70"} shrink-0`} />}
-                        {isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
+                        {month && task.scheduledStart ? <span className="shrink-0 tabular-nums text-twilight-text-soft">{formatTime(task.scheduledStart)}</span> : null}
+                        <span className="truncate">{task.title}</span>
+                        {!month && !task.isHabit && isRecurring && <Repeat size={10} className="text-moonlit/70 shrink-0" />}
+                        {!month && isPassiveTimetable && <CalendarClock size={10} className="shrink-0 text-moonlit" />}
                     </button>
 
                     {/* Hover quick actions */}

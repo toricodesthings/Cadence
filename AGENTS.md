@@ -1,5 +1,9 @@
 # Cadence — Repo Rules for Agents
 
+## Build for executive dysfunction
+
+Cadence carries executive function for people who struggle with it: ADHD, autism, burnout, overloaded schedules. Every change must make the user's next step **easier**. That means fewer decisions, less to scan or read, less to remember, nothing said twice, and nothing that needs setup before it helps. Ease must never come from removing capability. Keep the feature and move its weight off the user: good defaults, progressive disclosure, direct manipulation, and the baseline kept quiet so exceptions stand out. Before calling anything done, ask: *on a bad day, half-asleep, could someone use this without thinking?* If not, it isn't done. This rule outranks convenience in the code.
+
 Before touching an area, read its guide: `apps/frontend/AGENTS.md`, `apps/backend/AGENTS.md`, `apps/desktop/AGENTS.md`, `apps/landing/AGENTS.md`, `packages/AGENTS.md`. Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
 
 ## Find code with the graph first

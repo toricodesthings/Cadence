@@ -295,20 +295,14 @@ export default function Schedule() {
 
 
     // ── Group month tasks by LocalDate ──────────────────────────────────────
-    // Habits are intentionally NOT injected into tasksByDay for month view —
-    // they appear only as a subtle dot indicator to avoid visual clutter.
-    const { datesWithTasks, tasksByDay, habitDays } = useMemo(() => {
+    // Habits are intentionally NOT injected into tasksByDay for month view (Routines has its own month).
+    const { datesWithTasks, tasksByDay } = useMemo(() => {
         const byDay = recordByDay(visibleMonthTasks);
         const withTasks = new Set<LocalDate>(Object.keys(byDay));
-        const habitDaySet = new Set<LocalDate>();
-        // Record habit days for dot indicators only
         for (const h of visibleHabitTasks) {
-            for (const day of taskDays(h)) {
-                habitDaySet.add(day);
-                withTasks.add(day);
-            }
+            for (const day of taskDays(h)) withTasks.add(day);
         }
-        return { datesWithTasks: withTasks, tasksByDay: byDay, habitDays: habitDaySet };
+        return { datesWithTasks: withTasks, tasksByDay: byDay };
     }, [visibleHabitTasks, visibleMonthTasks]);
 
     const holidaysByDateRecord = useMemo<Record<string, import("@cadence/contracts/proxy").HolidayRecord[]>>(() => {
@@ -1110,7 +1104,6 @@ export default function Schedule() {
                                                 month={month}
                                                 selectedDate={currentDate}
                                                 datesWithTasks={datesWithTasks}
-                                                habitDays={habitDays}
                                                 holidayDays={holidayOverlay.enabled ? holidayOverlay.holidayDateSet : undefined}
                                                 birthdayDate={birthdayDate}
                                                 personalEventDays={personalEvents.enabled ? personalEvents.eventDateSet : undefined}

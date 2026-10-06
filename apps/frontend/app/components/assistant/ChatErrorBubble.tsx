@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "../primitives/Button";
 import type { StreamError } from "../../lib/ai/stream-error";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
+import { Reveal } from "../shared/Reveal";
 import { errorRef } from "../../lib/log";
 
 /**
@@ -121,7 +122,7 @@ export function ChatErrorBubble({
                     </button>
                 ) : null}
 
-                {showDetails ? (
+                <Reveal open={showDetails}>
                     <div className="mt-2 flex items-center justify-between gap-2 rounded bg-twilight-deep/40 px-2 py-1.5">
                         <span className="truncate text-[10px] text-twilight-text-muted">
                             {errorRef(error)}
@@ -136,7 +137,7 @@ export function ChatErrorBubble({
                             {copied ? "Copied" : "copy"}
                         </button>
                     </div>
-                ) : null}
+                </Reveal>
             </div>
         </motion.div>
     );

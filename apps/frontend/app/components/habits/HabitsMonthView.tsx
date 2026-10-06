@@ -59,7 +59,7 @@ export function HabitsMonthView({
                                     aria-label={habit.title}
                                     onClick={openOnCardClick(toggle)}
                                     style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties}
-                                    className={`group cursor-pointer rounded-[1.5rem] border p-4 sm:p-5 transition-colors ${isRoutinePaused(habit) ? "opacity-60" : ""} ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "border-twilight-border/35 bg-white/[0.03]"}`}
+                                    className={`group cursor-pointer rounded-[1.5rem] border p-4 sm:p-5 transition-colors ${isRoutinePaused(habit) ? "opacity-60" : ""} ${selected ? "border-[color-mix(in_srgb,var(--routine-tone)_30%,transparent)] bg-[color-mix(in_srgb,var(--routine-tone)_6%,transparent)]" : "surface-card"}`}
                                 >
                                     <div className="flex items-center gap-1">
                                         <RoutineIdentity habit={habit} today={today} showStreaks={showStreaks} selected={selected} onSelect={toggle} />

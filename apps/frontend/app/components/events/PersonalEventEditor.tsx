@@ -8,6 +8,7 @@ import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { CARD, FieldBlock, PANEL_TRIGGER, PanelHeader, PanelTrigger } from "../shared/DetailPanelSections";
 import { Swatches } from "../shared/Swatches";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
+import { Reveal } from "../shared/Reveal";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
 
 export function PersonalEventEditor({ event, onChange, onClose, onDelete, detailMode = "peek", onDetailModeChange }: {
@@ -33,7 +34,8 @@ export function PersonalEventEditor({ event, onChange, onClose, onDelete, detail
                         <p className="text-xs text-twilight-text-muted">{summary.milestoneLabel ?? "Repeats every year"}</p>
                     </div>
                 </div>
-                {detailsOpen ? (
+                {!detailsOpen ? <PanelTrigger icon={SlidersHorizontal} title="Details" summary={`${summary.monthDayLabel} · Reminder ${event.notify ? "on" : "off"}`} onOpen={() => setDetailsOpen(true)} /> : null}
+                <Reveal open={detailsOpen}>
                     <section className={`${CARD} space-y-4 px-4 py-3`}>
                         <PanelHeader title="Details" onDone={() => setDetailsOpen(false)} />
                         <PersonalEventDetailsFields
@@ -43,7 +45,7 @@ export function PersonalEventEditor({ event, onChange, onClose, onDelete, detail
                             notify={event.notify} setNotify={(notify) => onChange({ notify })}
                         />
                     </section>
-                ) : <PanelTrigger icon={SlidersHorizontal} title="Details" summary={`${summary.monthDayLabel} · Reminder ${event.notify ? "on" : "off"}`} onOpen={() => setDetailsOpen(true)} />}
+                </Reveal>
                 <section className={`${CARD} px-4 py-3`}>
                     <FieldBlock icon={Palette} label="Colour">
                         <Swatches options={EVENT_SWATCHES} value={eventToneColor(event.color) ? event.color! : ""} onChange={(color) => onChange({ color: color || null })} />

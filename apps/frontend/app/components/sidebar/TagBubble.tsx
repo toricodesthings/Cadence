@@ -16,7 +16,7 @@ interface TagBubbleProps {
 
 /** A tag chip. Desktop filters by it (right-click deletes, drag onto a capture row tags it); compact opens its tag page, which owns delete. */
 export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
-    const bgColor =
+    const tint =
         !tag.color || tag.color === "default" ? "rgba(255,255,255,0.06)" : `${tag.color}15`;
     const textColor = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");
 
@@ -32,7 +32,7 @@ export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
                 e.dataTransfer.effectAllowed = "copy";
             }}
             className={`
-                inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium
+                tag-bubble inline-flex max-w-full items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium
                 transition-all duration-200 cursor-pointer shrink-0
                 ${isCompact ? "min-h-11" : ""}
                 ${isActive
@@ -41,7 +41,8 @@ export function TagBubble({ tag, isActive, onClick }: TagBubbleProps) {
                 }
             `}
             style={{
-                backgroundColor: bgColor,
+                // An image layer, so photo mode can lay a panel base under the tint.
+                backgroundImage: `linear-gradient(${tint}, ${tint})`,
                 color: textColor,
             }}
             {...(isCompact

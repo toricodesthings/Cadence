@@ -15,8 +15,6 @@ interface CalendarGridProps {
     /** The selected day, or "" for none */
     selectedDate: LocalDate | "";
     datesWithTasks: Set<LocalDate>;
-    /** Days that have habits (show a lantern dot indicator, not chips) */
-    habitDays?: Set<LocalDate>;
     /** Days that have holidays (show a warmer ember marker) */
     holidayDays?: Set<LocalDate>;
     /** The user's birthday this year (if it falls in this month) */
@@ -46,7 +44,6 @@ export function CalendarGrid({
     month,
     selectedDate,
     datesWithTasks,
-    habitDays,
     holidayDays,
     birthdayDate,
     personalEventDays,
@@ -101,9 +98,9 @@ export function CalendarGrid({
                         key={day ?? `blank-${i}`}
                         day={day}
                         isToday={day === today}
+                        isPast={day !== null && day < today}
                         isSelected={day !== null && day === selectedDate}
                         hasTask={day !== null && datesWithTasks.has(day)}
-                        hasHabit={day !== null && (habitDays?.has(day) ?? false)}
                         hasHoliday={day !== null && (holidayDays?.has(day) ?? false)}
                         hasBirthday={day !== null && day === birthdayDate}
                         hasPersonalEvent={day !== null && (personalEventDays?.has(day) ?? false)}
