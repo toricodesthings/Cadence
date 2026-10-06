@@ -134,20 +134,11 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
-		const assetUrl = new URL(request.url);
-		if (assetUrl.pathname.startsWith("/assets/")) {
-			const response = await env.ASSETS.fetch(request);
-			if (response.headers.get("content-type")?.includes("text/html")) {
-				return new Response("Asset not found", { status: 404, headers: { "Cache-Control": "no-store" } });
-			}
-			if ((response.ok || response.status === 304) && /-[\w-]{8,}\.(js|css|woff2|png|ico|svg|webp)$/.test(assetUrl.pathname)) {
-				const headers = new Headers(response.headers);
-				headers.set("Cache-Control", "public, max-age=31536000, immutable");
-				return new Response(response.body, { status: response.status, headers });
-			}
-			return response;
-		}
 		const url = new URL(request.url);
+		// Only a missing file gets here (see the header): a 404, never the SPA shell cached as a chunk.
+		if (url.pathname.startsWith("/assets/")) {
+			return new Response("Asset not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+		}
 
 		// Untouched: headers (CF-Connecting-IP for rate limits), body and Server-Timing pass through.
 		if (url.pathname.startsWith(API_PREFIX)) return env.BACKEND.fetch(request);

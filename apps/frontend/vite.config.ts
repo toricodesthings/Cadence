@@ -8,6 +8,9 @@ const release = readReleaseInfo(new URL("../../", import.meta.url));
 // Unique per build, so every deploy (not only releases) tells open tabs to reload.
 const buildId = Date.now().toString(36);
 
+// A package directory in node_modules, hoisted or under pnpm's .pnpm store.
+const vendor = (names: string) => new RegExp(String.raw`node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:${names})[\\/]`);
+
 export default defineConfig(({ mode }) => ({
   plugins: [
     tailwindcss(),
@@ -63,9 +66,9 @@ export default defineConfig(({ mode }) => ({
       output: {
         codeSplitting: {
           groups: [
-            { name: "vendor-react", test: /node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:react|react-dom|react-router|scheduler|cookie|set-cookie-parser)[\\/]/ },
-            { name: "vendor-query", test: /node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?@tanstack[\\/]/ },
-            { name: "vendor-motion", test: /node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:framer-motion|motion-dom|motion-utils)[\\/]/ },
+            { name: "vendor-react", test: vendor("react|react-dom|react-router|scheduler|cookie|set-cookie-parser") },
+            { name: "vendor-query", test: vendor("@tanstack") },
+            { name: "vendor-motion", test: vendor("framer-motion|motion-dom|motion-utils") },
           ],
         },
       },

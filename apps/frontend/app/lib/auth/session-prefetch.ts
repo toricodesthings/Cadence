@@ -18,7 +18,7 @@ export const SESSION_PREFETCH_SCRIPT = `(function(){if(!/^\\/($|(${paths})(\\/|$
 
 /** The head script's answer, once. Null when it didn't run, failed, or found no session. */
 export function takePrefetchedSession(): Promise<PrefetchedSession> | null {
-    if (typeof window === "undefined" || !window.__cadenceSession) return null;
+    if (!window.__cadenceSession) return null;
     const session = window.__cadenceSession;
     delete window.__cadenceSession;
     return session;

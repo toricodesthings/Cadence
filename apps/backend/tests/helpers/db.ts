@@ -56,13 +56,11 @@ export async function createUser({ settings, zone }: { settings?: Record<string,
     const id = crypto.randomUUID();
     await asOwner(async (pg) => {
         await pg.query("INSERT INTO users (id) VALUES ($1)", [id]);
-        if (settings || zone) {
-            await pg.query("UPDATE users SET settings = COALESCE($2::jsonb, settings), time_zone = COALESCE($3, time_zone) WHERE id = $1", [
-                id,
-                settings ? JSON.stringify(settings) : null,
-                zone ?? null,
-            ]);
-        }
+        await pg.query("UPDATE users SET settings = COALESCE($2::jsonb, settings), time_zone = COALESCE($3, time_zone) WHERE id = $1", [
+            id,
+            settings ? JSON.stringify(settings) : null,
+            zone ?? null,
+        ]);
     });
     return id;
 }

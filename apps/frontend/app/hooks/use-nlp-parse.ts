@@ -39,28 +39,20 @@ export async function loadParse(): Promise<ParseFn> {
 }
 
 /**
- * The parser for synchronous use in render: null until loaded. While `needed` and
- * loading, workspace startup waits for it; otherwise it loads when the browser is idle.
+ * The parser for synchronous use in render: null until loaded. Loads only while `needed`,
+ * and workspace startup waits for it.
  */
 export function useParseModule(needed: boolean): ParseFn | null {
     const [parse, setParse] = useState<ParseFn | null>(() => parseModuleCache?.parse ?? null);
     const trackRender = useContext(StartupRenderContext);
     useEffect(() => {
-        if (parse) return;
+        if (!needed || parse) return;
         let active = true;
-        let pending = needed;
+        let pending = true;
         const settle = () => { if (pending) { pending = false; trackRender(-1); } };
-        const load = () => void ensureParseModule().then(() => { if (active) setParse(() => parseModuleCache!.parse); }).catch(() => {}).finally(settle);
-        if (needed) {
-            trackRender(1);
-            load();
-            return () => { active = false; settle(); };
-        }
-        const idle = typeof requestIdleCallback === "function" ? requestIdleCallback(load, { timeout: 3_000 }) : window.setTimeout(load, 2_000);
-        return () => {
-            active = false;
-            if (typeof cancelIdleCallback === "function") cancelIdleCallback(idle); else window.clearTimeout(idle);
-        };
+        trackRender(1);
+        void ensureParseModule().then(() => { if (active) setParse(() => parseModuleCache!.parse); }).catch(() => {}).finally(settle);
+        return () => { active = false; settle(); };
     }, [needed, parse, trackRender]);
     return parse;
 }

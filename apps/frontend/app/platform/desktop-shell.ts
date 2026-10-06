@@ -10,8 +10,8 @@ const QUICK_CAPTURE_COMPLETE_EVENT = "cadence://quick-capture-complete";
 export const GLOBAL_QUICK_CAPTURE_SHORTCUT = "CommandOrControl+Shift+C";
 
 // Loaded on use, so the web build's first screen never carries the Tauri window API.
-const getCurrentWindow = async () => (await import("@tauri-apps/api/window")).getCurrentWindow();
-const loadWebviewWindow = async () => (await import("@tauri-apps/api/webviewWindow")).WebviewWindow;
+const tauriWindow = () => import("@tauri-apps/api/window");
+const getCurrentWindow = async () => (await tauriWindow()).getCurrentWindow();
 
 const DESKTOP_PREFERENCES_STORE = "cadence_desktop_preferences";
 const DESKTOP_LAST_ROUTE_KEY = "last_route";
@@ -103,7 +103,7 @@ export async function focusMainDesktopWindow() {
         return;
     }
 
-    const mainWindow = await (await import("@tauri-apps/api/window")).Window.getByLabel(MAIN_DESKTOP_WINDOW_LABEL);
+    const mainWindow = await (await tauriWindow()).Window.getByLabel(MAIN_DESKTOP_WINDOW_LABEL);
     if (!mainWindow) {
         return;
     }
@@ -138,7 +138,7 @@ export async function openQuickCaptureWindow(tab: QuickAddTab = "task") {
         return;
     }
 
-    const WebviewWindow = await loadWebviewWindow();
+    const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const existingWindow = await WebviewWindow.getByLabel(QUICK_CAPTURE_WINDOW_LABEL);
     if (existingWindow) {
         await existingWindow.emit(QUICK_CAPTURE_TAB_EVENT, { tab }).catch(() => undefined);
