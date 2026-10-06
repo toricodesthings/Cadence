@@ -43,6 +43,13 @@
       "when": 1791252137110,
       "tag": "0005_time_model_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791296746845,
+      "tag": "0006_cron_users",
+      "breakpoints": true
     }
   ]
 }

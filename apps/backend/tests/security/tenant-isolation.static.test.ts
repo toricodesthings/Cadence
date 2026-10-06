@@ -3,9 +3,9 @@
  *
  * The backend isolates tenants with TWO layers: Postgres RLS policies AND an
  * explicit `eq(<table>.userId, userId)` predicate on every user-scoped query.
- * The cron path scans cross-tenant by design, which means the DB connection
- * role can bypass RLS — so the explicit `userId` predicate is load-bearing, not
- * merely defense in depth. If future code forgets it, RLS may not catch the leak.
+ * Every path, cron included, runs per user under RLS; the explicit `userId`
+ * predicate keeps a write scoped even if a policy or a missing `withRls` lets
+ * RLS miss it.
  *
  * This test fails when an UPDATE or DELETE against a user-scoped table anywhere
  * in `src/` is missing a `userId` predicate. UPDATE/DELETE are the catastrophic
@@ -47,10 +47,6 @@ const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     { fragment: "eq(habitTags.habitId, id", reason: "`id` is verified as an owned habit (update + throwIfNotFound) before tag sync" },
     { fragment: "eq(inboxItems.id, id", reason: "inbox item ownership verified earlier in the same tx (process route)" },
     { fragment: "eq(taskMetrics.id, existing[0].id", reason: "`existing` was fetched via a userId-scoped select in the same tx" },
-    { fragment: "lt(mutationDedup.createdAt, cutoff", reason: "cron TTL prune; sweeps every user's expired dedup keys by design" },
-    { fragment: "lt(usageEvents.createdAt, cutoff", reason: "cron retention prune; sweeps every user's events past the window by design" },
-    { fragment: "inArray(aiMemories.id, idsToDelete", reason: "cron prune; ids come from a deliberate cross-tenant EPHEMERAL/expired select" },
-    { fragment: "inArray(aiImages.id, rows.map", reason: "cron prune; ids come from a deliberate cross-tenant orphaned/expired select" },
 ];
 
 function collectSourceFiles(dir: string): string[] {

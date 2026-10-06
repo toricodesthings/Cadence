@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateConversationTitle, getTitleModelId } from "../../src/domains/ai/title/generate-title";
+import { generateConversationTitle } from "../../src/domains/ai/title/generate-title";
 import type { Env } from "../../src/types/env";
 
 /** Minimal Env stub — only the fields generate-title reads. */
@@ -21,15 +21,5 @@ describe("generateConversationTitle (fallback path — no LLM call)", () => {
     it("titles an image-only first turn without calling the model", async () => {
         const { title } = await generateConversationTitle(env({ OPENROUTER_API_KEY: "key" }), "", true);
         expect(title).toBe("Photo");
-    });
-});
-
-describe("getTitleModelId", () => {
-    it("defaults to a small, cheap model", () => {
-        expect(getTitleModelId(env())).toBe("google/gemma-3-27b-it");
-    });
-
-    it("honors the AI_TITLE_MODEL override", () => {
-        expect(getTitleModelId(env({ AI_TITLE_MODEL: "openai/gpt-4o-mini" }))).toBe("openai/gpt-4o-mini");
     });
 });

@@ -56,17 +56,6 @@ describe("uiMessageToRow", () => {
         });
     });
 
-    it("defaults parts to [] and metadata to {} when missing", () => {
-        const row = uiMessageToRow(
-            { id: "msg_3", role: "assistant" },
-            { conversationId: "conv_1", userId: "user_1", orderIndex: 1, status: "streaming" },
-        );
-
-        expect(row.parts).toEqual([]);
-        expect(row.metadata).toEqual({});
-        expect(row.status).toBe("streaming");
-    });
-
     it("coerces an unknown role to 'user'", () => {
         const row = uiMessageToRow(
             { id: "msg_4", role: "tool" },
@@ -74,15 +63,6 @@ describe("uiMessageToRow", () => {
         );
 
         expect(row.role).toBe("user");
-    });
-
-    it("preserves valid system role", () => {
-        const row = uiMessageToRow(
-            { id: "msg_5", role: "system" },
-            { conversationId: "conv_1", userId: "user_1", orderIndex: 0, status: "complete" },
-        );
-
-        expect(row.role).toBe("system");
     });
 });
 

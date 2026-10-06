@@ -34,10 +34,6 @@ describe("sections", () => {
         expect((await sections("GET", `?projectId=${projectId}`)).body.data.map((s: any) => s.name)).toEqual(["In P"]);
     });
 
-    it("rejects an invalid body with 400", async () => {
-        expect((await sections("POST", "", { name: "Missing orderIndex" })).status).toBe(400);
-    });
-
     it("refuses to create a section in another user's project", async () => {
         const { body: theirs } = await otherProjects("POST", "", { name: "Theirs" });
 

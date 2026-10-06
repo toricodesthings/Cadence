@@ -183,6 +183,21 @@ describe("listing tasks", () => {
         expect(status).toBe(400);
         expect(body.error.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: "to" })]));
     });
+
+    it("returns every open task when no limit is sent", async () => {
+        await asOwner((pg) => pg.query(
+            "INSERT INTO tasks (user_id, title, order_index) SELECT $1, 'T' || n, n FROM generate_series(1, 60) n", [userId]));
+
+        expect((await tasks("GET", "?state=ACTIVE")).body.data).toHaveLength(60);
+    });
+
+    it("pages Done newest first", async () => {
+        const [a, b] = [await create({ title: "A" }), await create({ title: "B" })];
+        await tasks("PATCH", "/batch/state", { taskIds: [b.id], state: "COMPLETE" });
+        await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
+
+        expect(titles((await tasks("GET", "?state=COMPLETE&limit=1")).body.data)).toEqual(["A"]);
+    });
 });
 
 describe("updating tasks", () => {
@@ -351,23 +366,6 @@ describe("batch operations", () => {
     });
 });
 
-describe("listing tasks", () => {
-    it("returns every open task when no limit is sent", async () => {
-        await asOwner((pg) => pg.query(
-            "INSERT INTO tasks (user_id, title, order_index) SELECT $1, 'T' || n, n FROM generate_series(1, 60) n", [userId]));
-
-        expect((await tasks("GET", "?state=ACTIVE")).body.data).toHaveLength(60);
-    });
-
-    it("pages Done newest first", async () => {
-        const [a, b] = [await create({ title: "A" }), await create({ title: "B" })];
-        await tasks("PATCH", "/batch/state", { taskIds: [b.id], state: "COMPLETE" });
-        await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
-
-        expect(titles((await tasks("GET", "?state=COMPLETE&limit=1")).body.data)).toEqual(["A"]);
-    });
-});
-
 describe("duplicating tasks", () => {
     it("copies the task and its tags as a new, unpinned, active task", async () => {
         const { body: tag } = await tags("POST", "", { name: "t" });
@@ -473,7 +471,7 @@ describe("reading and deleting", () => {
     });
 });
 
-describe("one time model (0.26.3)", () => {
+describe("one time model", () => {
     const onDay = async (day: string) => titles((await tasks("GET", `?state=ACTIVE&from=${day}&to=${day}`)).body.data);
     const localTime = (instant: string, zone: string) =>
         new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(instant));
@@ -520,7 +518,7 @@ describe("one time model (0.26.3)", () => {
         expect(body.data.map((t: any) => t.scheduledStart.slice(11, 16))).toEqual(["18:35", "19:35", "19:35"]);
     });
 
-    it("rejects the pre-0.26.3 shapes: a day field holding an instant, a start holding a day", async () => {
+    it("rejects a day field holding an instant and a start holding a day", async () => {
         expect((await tasks("POST", "", { title: "Old", orderIndex: 1, dueDate: "2026-10-06T03:59:00.000Z" })).status).toBe(400);
         expect((await tasks("POST", "", { title: "Old", orderIndex: 1, scheduledStart: "2026-10-05" })).status).toBe(400);
         expect((await tasks("POST", "", { title: "Old", orderIndex: 1, notBefore: "2026-10-06T03:59:00.000Z" })).status).toBe(400);

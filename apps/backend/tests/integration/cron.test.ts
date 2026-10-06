@@ -9,8 +9,8 @@ const env = {} as any;
 
 beforeAll(startTestDb);
 
-/** Cron connects as the table owner in production (it sweeps every user), so run it that way here. */
-const runCron = (job: (env: any) => Promise<unknown>) => asOwner(() => job(env));
+/** Cron connects as api_worker, under RLS, like every other Worker path (the test DB's default role). */
+const runCron = (job: (env: any) => Promise<unknown>) => job(env);
 
 async function sql<T = any>(text: string, params: unknown[] = []): Promise<T[]> {
     return asOwner(async (pg) => (await pg.query<T>(text, params)).rows);

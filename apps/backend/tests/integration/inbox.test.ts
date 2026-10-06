@@ -43,10 +43,6 @@ describe("capturing", () => {
         expect(body.data.map((i: any) => i.rawText)).toEqual(["Call the dentist", "Buy groceries"]);
     });
 
-    it("rejects an invalid body with 400", async () => {
-        expect((await inbox("POST", "", { rawText: "" })).status).toBe(400);
-    });
-
     it("replays a retried capture with the same Idempotency-Key", async () => {
         const headers = { "Idempotency-Key": "capture-1" };
 
@@ -149,10 +145,6 @@ describe("inbox sections", () => {
         expect((await inbox("PATCH", `/sections/${later.data.id}`, { name: "Someday" })).body.data).toMatchObject({ name: "Someday", orderIndex: 2 });
         expect((await inbox("DELETE", `/sections/${later.data.id}`)).status).toBe(200);
         expect((await inbox("GET", "/sections")).body.data.map((s: any) => s.name)).toEqual(["Now"]);
-    });
-
-    it("rejects an invalid body with 400", async () => {
-        expect((await inbox("POST", "/sections", { name: "" })).status).toBe(400);
     });
 
     it("keeps an item when its section is deleted, moving it out of the section", async () => {

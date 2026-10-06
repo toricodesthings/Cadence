@@ -184,7 +184,7 @@ describe("chat images", () => {
         await age("UPDATE ai_images SET created_at = now() - interval '25 hours' WHERE id = $1", orphan);
         await age("UPDATE ai_images SET sent_at = now() WHERE id = $1", fresh);
 
-        await asOwner(() => pruneAiImages(env as any));
+        await pruneAiImages(env as any);
 
         expect((await rows(userId)).map((r) => r.id)).toEqual([fresh]);
         expect([...bucket.objects.keys()]).toEqual([`ai-images/${await hashIdentifier(userId)}/${fresh}.webp`]);

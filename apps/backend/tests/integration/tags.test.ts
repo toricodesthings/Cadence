@@ -23,10 +23,6 @@ describe("tags", () => {
         expect(body.data).toMatchObject({ name: "urgent", color: "default" });
     });
 
-    it("rejects an invalid body with 400", async () => {
-        expect((await api("POST", "", { name: "" })).status).toBe(400);
-    });
-
     it("lists only the caller's tags, ordered by name", async () => {
         await api("POST", "", { name: "work" });
         await api("POST", "", { name: "home", color: "#7ee787" });

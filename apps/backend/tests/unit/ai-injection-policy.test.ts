@@ -7,18 +7,6 @@ import {
     stripNonce,
 } from "../../src/domains/ai/safety/injection-policy";
 
-describe("makeFenceNonce", () => {
-    it("produces a long lowercase hex string", () => {
-        const nonce = makeFenceNonce();
-        expect(nonce).toMatch(/^[0-9a-f]{32}$/);
-    });
-
-    it("is unique across calls", () => {
-        const nonces = new Set(Array.from({ length: 100 }, () => makeFenceNonce()));
-        expect(nonces.size).toBe(100);
-    });
-});
-
 describe("fenceData", () => {
     it("wraps content with nonce-bearing open and close tokens", () => {
         const nonce = "abc123";

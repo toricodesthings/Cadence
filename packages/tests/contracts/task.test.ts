@@ -6,6 +6,7 @@ import {
     effortLevelSchema,
     insertTaskSchema,
     reorderTaskSchema,
+    taskFiltersSchema,
     taskPrioritySchema,
     taskBatchQuerySchema,
 } from "@cadence/contracts/task";
@@ -127,5 +128,29 @@ describe("offline task batch bounds", () => {
     it("rejects malformed JSON and excessive query text", () => {
         expect(taskBatchQuerySchema.safeParse({ queries: "[broken" }).success).toBe(false);
         expect(taskBatchQuerySchema.safeParse({ queries: " ".repeat(12_001) }).success).toBe(false);
+    });
+});
+
+describe("taskFiltersSchema", () => {
+    it("coerces query strings and keeps day windows as sent", () => {
+        expect(
+            taskFiltersSchema.parse({ from: "2026-03-01", to: "2026-03-31", hasNoProject: "true", effectiveOnOrBeforeDate: "2026-03-09" }),
+        ).toEqual({ from: "2026-03-01", to: "2026-03-31", hasNoProject: true, effectiveOnOrBeforeDate: "2026-03-09" });
+    });
+
+    it("requires both ends of a window", () => {
+        expect(() => taskFiltersSchema.parse({ from: "2026-03-01" })).toThrow(/must be provided together/);
+    });
+
+    it("rejects a window that ends before it starts", () => {
+        expect(() => taskFiltersSchema.parse({ from: "2026-03-31", to: "2026-03-01" })).toThrow(/must be on or after/);
+    });
+
+    it("rejects instants where a LocalDate belongs", () => {
+        expect(taskFiltersSchema.safeParse({ from: "2026-03-09T00:00:00Z", to: "2026-03-09T00:00:00Z" }).success).toBe(false);
+    });
+
+    it("accepts a single-day window", () => {
+        expect(taskFiltersSchema.safeParse({ from: "2026-03-09", to: "2026-03-09" }).success).toBe(true);
     });
 });

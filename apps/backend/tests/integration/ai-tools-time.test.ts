@@ -225,18 +225,6 @@ describe("the same fixtures land on the same day on every surface", () => {
         expect(names(early.overdue.tasks)).toEqual(["COMP3000 assignment", "Late block"]);
     });
 
-    it("an all-day task keeps its day when the user's zone changes", async () => {
-        await post({ title: "COMP3000 assignment", dueDate: "2026-10-05" });
-        for (const zone of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Los_Angeles"]) {
-            await asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [userId, zone]));
-            const c = userClock(zone, "2026-10-05T12:00:00Z");
-            const tools = buildToolRegistry({} as any, userId, { timezone: zone, currentDate: c.now.toISOString(), today: "2026-10-05" }) as any;
-            const window = await tools.get_schedule_window.execute({ start: "2026-10-05", end: "2026-10-05", limit: 50 }, { toolCallId: "t", messages: [] });
-            expect(window.tasks).toMatchObject([{ title: "COMP3000 assignment", dueDate: "2026-10-05" }]);
-            expect(names(await restDay("2026-10-05"))).toEqual(["COMP3000 assignment"]);
-        }
-    });
-
     it("blocks at 12:30 AM and 11:30 PM on the 25-hour day (2026-11-01) stay on it, and a weekly 14:35 class holds its local time across it", async () => {
         await post({ title: "Early", scheduledStart: "2026-11-01T00:30:00-04:00", scheduledEnd: "2026-11-01T01:00:00-04:00" });
         await post({ title: "Late", scheduledStart: "2026-11-01T23:30:00-05:00", scheduledEnd: "2026-11-02T00:00:00-05:00" });
@@ -254,12 +242,7 @@ describe("the same fixtures land on the same day on every surface", () => {
         expect(names((await ai.run("get_schedule_window", { start: "2026-11-01", end: "2026-11-01", limit: 50 })).tasks)).toEqual(["Early", "Late"]);
         expect(names((await ai.run("get_tasks", { from: "2026-11-01", to: "2026-11-01", limit: 20 })).tasks)).toEqual(["Early", "Late"]);
 
-        // The series: occurrence ids are days; the instant moves with the offset, the local time doesn't.
-        const rows = (await restDay("2026-10-26", "2026-11-08")).filter((r) => r.title === "COMP3005 lecture");
-        expect(rows.map((r) => [r.id, r.scheduledStart])).toEqual([
-            [`${lecture.id}::2026-10-29`, "2026-10-29T18:35:00.000Z"],
-            [`${lecture.id}::2026-11-05`, "2026-11-05T19:35:00.000Z"],
-        ]);
+        // The series reads in local time with the offset; the REST instants are covered in tasks.test.
         const window = (await ai.run("get_schedule_window", { start: "2026-10-26", end: "2026-11-08", limit: 50 })).tasks
             .filter((t: any) => t.title === "COMP3005 lecture");
         expect(window.map((t: any) => [t.id, t.scheduledStart, t.scheduledEnd])).toEqual([

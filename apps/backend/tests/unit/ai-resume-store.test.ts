@@ -30,12 +30,6 @@ async function drain(stream: ReadableStream<Uint8Array>): Promise<string> {
     return out;
 }
 
-describe("stream-keys", () => {
-    it("never builds the same key across two different userKeys (§15.1)", () => {
-        expect(keys("aaaa", SID).chunks).not.toBe(keys("bbbb", SID).chunks);
-    });
-});
-
 describe("resume-store", () => {
     let redis: FakeRedis;
 

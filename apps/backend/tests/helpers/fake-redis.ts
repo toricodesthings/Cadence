@@ -73,7 +73,7 @@ export class FakeRedis {
         return Math.max(0, exp - Date.now());
     }
 
-    // ── Lua-script twins (mirror the real EVAL scripts in rate-limit.ts) ──
+    // ── Lua-script twins: MUST match ADMIT_SCRIPT / SETTLE_SCRIPT in rate-limit.ts; change both together ──
     // The fake runs a JS twin of each script against the SAME backing store, so unit
     // tests exercise the real admit/settle code paths without a live Redis. Kept in
     // lock-step with the Lua by the matching @cadence:ai:rl markers.
@@ -188,11 +188,6 @@ export class FakeRedis {
         this.requests += 1;
         this.commandLog.push("hgetall");
         return this._hgetall(key) as unknown as T | null;
-    }
-    async ping(): Promise<string> {
-        this.requests += 1;
-        this.commandLog.push("ping");
-        return "PONG";
     }
 
     // ── pipeline ──

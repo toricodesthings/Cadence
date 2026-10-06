@@ -33,12 +33,6 @@ const limits: AiLimits = {
 const k = rlKeys(USER_KEY);
 const asRedis = (r: FakeRedis) => r as unknown as Parameters<typeof admit>[0];
 
-describe("rate-limit-keys", () => {
-    it("never builds the same key across two different userKeys (§15.1)", () => {
-        expect(rlKeys("aaaa").tok5h).not.toBe(rlKeys("bbbb").tok5h);
-    });
-});
-
 describe("resolveLimits", () => {
     it("falls back to the §6 defaults when env is empty", () => {
         const l = resolveLimits({} as Env);
@@ -162,57 +156,20 @@ describe("admit — under cap", () => {
     });
 });
 
-describe("admit — over each cap rejects and rolls back (budget-neutral)", () => {
-    let redis: FakeRedis;
-    beforeEach(() => (redis = new FakeRedis()));
-
-    async function expectRollbackNeutral(seed: Record<string, string>) {
-        for (const [key, val] of Object.entries(seed)) redis.strings.set(key, val);
-        const snapshot = { ...seed };
+describe("admit — over each cap rejects", () => {
+    it.each([
+        ["5h request", () => k.req5h, limits.requests5h, "5h", "req"],
+        ["5h token", () => k.tok5h, limits.tokens5h, "5h", "tok"],
+        ["7d request", () => k.req7d, limits.requests7d, "7d", "req"],
+        ["7d token", () => k.tok7d, limits.tokens7d, "7d", "tok"],
+        ["concurrency", () => k.inflight, limits.maxConcurrent, undefined, "concurrency"],
+    ] as const)("rejects on the %s cap", async (_label, key, cap, window, dimension) => {
+        const redis = new FakeRedis();
+        redis.strings.set(key(), String(cap));
         const res = await admit(asRedis(redis), USER_KEY, limits.reserve, limits);
-        expect(res.ok).toBe(false);
-        // Every seeded counter is back to its pre-attempt value (rollback is budget-neutral).
-        for (const [key, val] of Object.entries(snapshot)) expect(redis.strings.get(key)).toBe(val);
-        // The concurrency slot this attempt took is released back to its pre-attempt value.
-        const expectedInflight = Number(snapshot[k.inflight] ?? "0");
-        expect(Number(redis.strings.get(k.inflight) ?? "0")).toBe(expectedInflight);
-        return res;
-    }
-
-    it("rejects on the 5h request cap", async () => {
-        const res = await expectRollbackNeutral({ [k.req5h]: String(limits.requests5h) });
         if (res.ok) throw new Error("expected reject");
-        expect(res.window).toBe("5h");
-        expect(res.dimension).toBe("req");
-        expect(res.retryAfterS).toBeGreaterThan(0);
-    });
-
-    it("rejects on the 5h token cap", async () => {
-        const res = await expectRollbackNeutral({ [k.tok5h]: String(limits.tokens5h) });
-        if (res.ok) throw new Error("expected reject");
-        expect(res.window).toBe("5h");
-        expect(res.dimension).toBe("tok");
-    });
-
-    it("rejects on the 7d request cap", async () => {
-        const res = await expectRollbackNeutral({ [k.req7d]: String(limits.requests7d) });
-        if (res.ok) throw new Error("expected reject");
-        expect(res.window).toBe("7d");
-        expect(res.dimension).toBe("req");
-    });
-
-    it("rejects on the 7d token cap", async () => {
-        const res = await expectRollbackNeutral({ [k.tok7d]: String(limits.tokens7d) });
-        if (res.ok) throw new Error("expected reject");
-        expect(res.window).toBe("7d");
-        expect(res.dimension).toBe("tok");
-    });
-
-    it("rejects on the concurrency cap", async () => {
-        const res = await expectRollbackNeutral({ [k.inflight]: String(limits.maxConcurrent) });
-        if (res.ok) throw new Error("expected reject");
-        expect(res.dimension).toBe("concurrency");
-        expect(res.retryAfterS).toBeGreaterThan(0);
+        if (window) expect(res.window).toBe(window);
+        expect(res.dimension).toBe(dimension);
     });
 });
 

@@ -144,7 +144,7 @@ Reads `Authorization: Bearer`, loads JWKS from `NEON_AUTH_JWKS_URL` (URL-keyed c
 
 ## 13. Background Jobs
 
-Cron `0 6 * * *` (daily 06:00 UTC, `wrangler.jsonc`): `handleOverdueCheck(env)` (overdue active tasks → `task_metrics.delay_count`) + `pruneStaleMutations(env)` + `pruneAiMemories(env)` + `pruneAiImages(env)` (unsent chat images after a day, others 30 days after last use; storage before rows) + `pruneUsageEvents(env)` (opt-in diagnostics past 90 days). Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
+Cron `0 * * * *` (hourly, `wrangler.jsonc`, `runHourlyCron`). It runs as `api_worker` under RLS like every path: `cron_user_ids` (SECURITY DEFINER, ids only) lists users, and each job runs per user in `withRls`. Every hour `handleOverdueCheck` takes users at local 04:00 (overdue → `task_metrics.delay_count`); at 06:00 UTC `pruneStaleMutations`, `pruneAiMemories`, `pruneAiImages` (unsent after a day, others 30 days after last use; storage before rows), `pruneUsageEvents` (past 90 days). Task metrics (`platform/metrics.ts`) silently track reschedule count, first-scheduled, completed-at, created-to-done duration — internal only, no public API.
 
 ## 14. Environment & Bindings
 

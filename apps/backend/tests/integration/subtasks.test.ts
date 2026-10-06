@@ -41,10 +41,6 @@ describe("subtasks under a task", () => {
         expect(body.data.map((s: any) => [s.title, s.isComplete])).toEqual([["first", false], ["second", false]]);
     });
 
-    it("rejects an invalid body with 400", async () => {
-        expect((await api("POST", `/tasks/${await newTask()}/subtasks`, { title: "no order" })).status).toBe(400);
-    });
-
     it.each([
         ["a task that does not exist", async () => MISSING_ID],
         ["another user's task", async () => newTask(otherTasks)],

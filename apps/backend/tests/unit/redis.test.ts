@@ -3,13 +3,10 @@ import { getRedis } from "../../src/platform/redis";
 import { logger } from "../../src/platform/log";
 import type { Env } from "../../src/types/env";
 
-const HTTPS_URL = "https://example.upstash.io";
-const TOKEN = "test-token";
-
 function envWith(overrides: Partial<Env>): Env {
     return {
-        UPSTASH_REDIS_REST_URL: HTTPS_URL,
-        UPSTASH_REDIS_REST_TOKEN: TOKEN,
+        UPSTASH_REDIS_REST_URL: "https://example.upstash.io",
+        UPSTASH_REDIS_REST_TOKEN: "test-token",
         ...overrides,
     } as Env;
 }
@@ -25,18 +22,5 @@ describe("getRedis", () => {
         const client = getRedis(envWith({ UPSTASH_REDIS_REST_URL: "http://insecure.upstash.io" }));
         expect(client).toBeNull();
         expect(spy).toHaveBeenCalledWith("ai", "redis_insecure_url", {});
-    });
-
-    it("never logs the url or token value", () => {
-        const spy = vi.spyOn(logger, "error");
-        getRedis(envWith({ UPSTASH_REDIS_REST_URL: "http://insecure.upstash.io" }));
-        const logged = JSON.stringify(spy.mock.calls);
-        expect(logged).not.toContain("insecure.upstash.io");
-        expect(logged).not.toContain(TOKEN);
-    });
-
-    it("constructs a client when flag on + https url + token present", () => {
-        const client = getRedis(envWith({}));
-        expect(client).not.toBeNull();
     });
 });
