@@ -37,18 +37,21 @@ import { EditSidePanel } from "../components/shared/EditSidePanel";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../hooks/tasks/use-update-task";
 import {
-    toISODate,
+    dayOfInstant,
+    getDaysInMonth,
     getMonthDateRange,
-    getWeekDates,
+    getWeekDays,
     getWeekDateRange,
     getYearDateRange,
     formatTime,
-    parseLocalDate,
-    preserveLocalTime,
-    getEffectiveTaskDate,
-    parseEffectiveTaskDate,
+    isoDay,
+    isoMonthStart,
+    toTimeValue,
     MONTH_NAMES,
 } from "../lib/utils/date-format";
+import { addDays, atLocal, daysBetween, isLocalDate, nowWallTime, wallTimeOf, type Instant, type LocalDate } from "@cadence/domain/time";
+import { rescheduleToDay } from "@cadence/domain/task-temporal";
+import { getUserZone, today, useToday } from "../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
 import { useVirtualHabitTasks } from "../hooks/habits/use-virtual-habit-tasks";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
@@ -62,11 +65,10 @@ import {
     type CalendarDropPreview,
 } from "../lib/utils/calendar/calendar-dnd";
 import { getTaskSeriesId, isPassiveTimetableTask, isRecurringTask, isRecurringTaskInstance } from "../lib/utils/task/task-scheduling";
-import { dayLoad, groupByDate, scheduleKind } from "../lib/utils/calendar/schedule-day";
+import { dayLoad, groupByDate, scheduleKind, taskDays } from "../lib/utils/calendar/schedule-day";
 import { loadWord } from "../lib/utils/task/day-load";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useTaskCompletionStore } from "../stores/task-completion-store";
-import { format } from "date-fns";
 import { MouseSensor, TouchSensor } from "../lib/utils/dnd";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
@@ -76,9 +78,8 @@ import * as Popover from "../components/primitives/Popover";
 import { useHolidayOverlay } from "../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useSettings, useUpdateSettings } from "../hooks/core/use-settings";
-import { parseYMD, addMonthsToIso, getTaskDurationMs } from "../lib/utils/calendar/calendar-math";
-import { addDaysToDate } from "@cadence/domain/repeats";
-import { isDateOnly } from "@cadence/contracts/common";
+import { minutesFromMidnight } from "../lib/utils/calendar/calendar-utils";
+import { addMonthsToDay, addYearsToDay, dayHeading, getTaskDurationMs, parseYMD } from "../lib/utils/calendar/calendar-math";
 import { trackUsageEvent } from "../lib/api/track-event";
 
 function applyCalendarClutterFilters(tasks: Task[], clutter: {
@@ -90,17 +91,27 @@ function applyCalendarClutterFilters(tasks: Task[], clutter: {
     return tasks.filter((task) => {
         if (task.isHabit && clutter.showHabitAnchors === false) return false;
         if (!task.isHabit && isPassiveTimetableTask(task) && clutter.showFixed === false) return false;
-        if (!task.isHabit && task.isAllDay && clutter.showAllDay === false) return false;
-        if (!task.isHabit && !task.isAllDay && clutter.showTimedTasks === false) return false;
+        if (!task.isHabit && !task.scheduledStart && clutter.showAllDay === false) return false;
+        if (!task.isHabit && task.scheduledStart && clutter.showTimedTasks === false) return false;
         return true;
     });
 }
 
-function isValidDateParam(value: string | null): value is string {
-    if (!value || !isDateOnly(value)) return false;
-    const parsed = new Date(`${value}T00:00:00`);
-    return !Number.isNaN(parsed.getTime()) && toISODate(parsed) === value;
+function isValidDateParam(value: string | null): value is LocalDate {
+    return isLocalDate(value);
 }
+
+/** What a task write carries to put the task back as it was. */
+const temporalOf = (task: Task) => ({
+    dueDate: task.dueDate,
+    endDate: task.endDate,
+    scheduledStart: task.scheduledStart,
+    scheduledEnd: task.scheduledEnd,
+    zone: task.zone,
+});
+
+/** A day-keyed record of tasks, one entry per day each task shows on. */
+const recordByDay = (tasks: Task[]) => Object.fromEntries(groupByDate(tasks)) as Record<LocalDate, Task[]>;
 
 function isCalendarViewModeValue(value: string | null): value is CalendarViewMode {
     return value === "day" || value === "week" || value === "month" || value === "year";
@@ -112,7 +123,7 @@ export default function Schedule() {
     const shell = useShellMode();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const today = new Date();
+    const todayIso = useToday();
 
     // ── Persisted view mode per device class ────────────────────────────────
     const deviceClass = shell.isPhone ? "phone" : shell.isDesktop ? "desktop" : "tablet";
@@ -135,9 +146,9 @@ export default function Schedule() {
         try { localStorage.setItem(storageKey, mode); } catch { /* noop */ }
     }, [storageKey]);
 
-    const [currentDate, setCurrentDate] = useState<string>(() => {
+    const [currentDate, setCurrentDate] = useState<LocalDate>(() => {
         const queryDate = searchParams.get("date");
-        return isValidDateParam(queryDate) ? queryDate : toISODate(today);
+        return isValidDateParam(queryDate) ? queryDate : todayIso;
     });
     const [direction, setDirection] = useState(0);
     /** 1 = zooming in (Year → Month → Day), -1 = out; phones only. */
@@ -158,7 +169,7 @@ export default function Schedule() {
     const [activeDropId, setActiveDropId] = useState<string | null>(null);
     const [eventPopoverInfo, setEventPopoverInfo] = useState<CalendarEventInfo | null>(null);
     const [eventPopoverTab, setEventPopoverTab] = useState<"task" | "event">("task");
-    const [draftPlacement, setDraftPlacement] = useState<{ dateStr: string; startMinute: number; endMinute: number } | null>(null);
+    const [draftPlacement, setDraftPlacement] = useState<{ dateStr: LocalDate; startMinute: number; endMinute: number } | null>(null);
 
     useEffect(() => {
         const queryDate = searchParams.get("date");
@@ -191,61 +202,40 @@ export default function Schedule() {
     const monthRange = getMonthDateRange(year, month);
     const { data: monthTasks = [] } = useTasks({
         state: "ACTIVE",
-        scheduledRange: monthRange,
+        range: { from: monthRange.start, to: monthRange.end },
         enabled: viewMode === "month",
     });
 
-    const weekDates = useMemo(() => getWeekDates(new Date(currentDate + "T00:00:00")), [currentDate]);
-    const weekRange = useMemo(() => getWeekDateRange(new Date(currentDate + "T00:00:00")), [currentDate]);
+    const weekDates = useMemo(() => getWeekDays(currentDate), [currentDate]);
+    const weekRange = useMemo(() => getWeekDateRange(currentDate), [currentDate]);
     const { data: weekTasks = [] } = useTasks({
         state: "ACTIVE",
-        scheduledRange: weekRange,
+        range: { from: weekRange.start, to: weekRange.end },
         enabled: viewMode === "week" || isPhoneDay,
     });
 
-    // Date-only bounds, same shape as week/month/year ranges, so the optimistic
+    // LocalDate bounds, same shape as week/month/year ranges, so the optimistic
     // cache matcher (cache-sync.ts) compares like with like.
     const dayRange = useMemo(() => ({ start: currentDate, end: currentDate }), [currentDate]);
     const { data: dayTasks = [] } = useTasks({
         state: "ACTIVE",
-        scheduledRange: dayRange,
+        range: { from: dayRange.start, to: dayRange.end },
         enabled: viewMode === "day" && !shell.isPhone,
     });
 
     const yearRange = getYearDateRange(year);
     const { data: yearTasks = [] } = useTasks({
         state: "ACTIVE",
-        scheduledRange: yearRange,
+        range: { from: yearRange.start, to: yearRange.end },
         enabled: viewMode === "year",
     });
 
     const holidayQueryRange = useMemo(() => {
-        if (viewMode === "year") {
-            return {
-                start: yearRange.start.substring(0, 10),
-                end: yearRange.end.substring(0, 10),
-            };
-        }
-
-        if (viewMode === "week" || isPhoneDay) {
-            return {
-                start: weekRange.start.substring(0, 10),
-                end: weekRange.end.substring(0, 10),
-            };
-        }
-
-        if (viewMode === "day") {
-            return {
-                start: currentDate,
-                end: currentDate,
-            };
-        }
-
-        return {
-            start: monthRange.start.substring(0, 10),
-            end: monthRange.end.substring(0, 10),
-        };
-    }, [currentDate, isPhoneDay, monthRange.end, monthRange.start, viewMode, weekRange.end, weekRange.start, yearRange.end, yearRange.start]);
+        if (viewMode === "year") return yearRange;
+        if (viewMode === "week" || isPhoneDay) return weekRange;
+        if (viewMode === "day") return dayRange;
+        return monthRange;
+    }, [dayRange, isPhoneDay, monthRange, viewMode, weekRange, yearRange]);
 
     const holidayOverlay = useHolidayOverlay({
         start: holidayQueryRange.start,
@@ -262,24 +252,13 @@ export default function Schedule() {
         showHabitAnchors: true,
         showFixed: true,
     };
-    const birthdayDate = useMemo(() => {
+    const birthdayDate = useMemo<LocalDate | null>(() => {
         const bd = userSettings?.profile?.birthday;
-        if (!bd) return null;
-        // bd is "YYYY-MM-DD" — extract month+day, apply to current view year
-        const parts = bd.split("-");
-        if (parts.length < 3) return null;
-        const mm = parts[1];
-        const dd = parts[2];
-        return `${year}-${mm}-${dd}`;
+        if (!bd || !isLocalDate(bd)) return null;
+        // bd is a LocalDate: keep its month and day, in the viewed year (Feb 29 falls on Feb 28 in common years)
+        const { m, d } = parseYMD(bd);
+        return isoDay(year, m, Math.min(d, getDaysInMonth(year, m)));
     }, [userSettings?.profile?.birthday, year]);
-
-    const birthdayDay = useMemo(() => {
-        if (!birthdayDate) return null;
-        const parts = birthdayDate.split("-");
-        const bMonth = parseInt(parts[1]) - 1;
-        const bDay = parseInt(parts[2]);
-        return bMonth === month ? bDay : null;
-    }, [birthdayDate, month]);
 
     // ── Personal events overlay ────────────────────────────────────────────
     const personalEvents = usePersonalEvents(year, month);
@@ -287,18 +266,6 @@ export default function Schedule() {
     const personalEventsByDateRecord = useMemo<Record<string, import("../types/settings").PersonalEvent[]>>(() => {
         return Object.fromEntries(personalEvents.eventsByDate.entries());
     }, [personalEvents.eventsByDate]);
-
-    const personalEventCountsByDay = useMemo<Record<number, number>>(() => {
-        if (!personalEvents.enabled) return {};
-
-        const counts: Record<number, number> = {};
-        const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
-        for (const [dateStr, events] of personalEvents.eventsByDate.entries()) {
-            if (!dateStr.startsWith(monthPrefix)) continue;
-            counts[Number.parseInt(dateStr.slice(-2), 10)] = events.length;
-        }
-        return counts;
-    }, [month, personalEvents.enabled, personalEvents.eventsByDate, year]);
 
     const personalEventDateCounts = useMemo<Record<string, number>>(() => {
         return Object.fromEntries(
@@ -311,11 +278,7 @@ export default function Schedule() {
         if (viewMode === "year") return { start: "", end: "", enabled: false };
         const ranges = { month: monthRange, week: weekRange, day: dayRange };
         const r = ranges[(isPhoneDay ? "week" : viewMode) as keyof typeof ranges];
-        return {
-            start: typeof r.start === "string" ? r.start.substring(0, 10) : "",
-            end: typeof r.end === "string" ? r.end.substring(0, 10) : "",
-            enabled: true,
-        };
+        return { start: r.start, end: r.end, enabled: true };
     }, [viewMode, isPhoneDay, monthRange, weekRange, dayRange]);
 
     const virtualHabitTasks = useVirtualHabitTasks(habitRange);
@@ -331,72 +294,29 @@ export default function Schedule() {
     ), [calendarClutter.showHabitAnchors, virtualHabitTasks]);
 
 
-    // ── Group month tasks by day-number ─────────────────────────────────────
+    // ── Group month tasks by LocalDate ──────────────────────────────────────
     // Habits are intentionally NOT injected into tasksByDay for month view —
     // they appear only as a subtle dot indicator to avoid visual clutter.
     const { datesWithTasks, tasksByDay, habitDays } = useMemo(() => {
-        const byDay: Record<number, Task[]> = {};
-        const withTasks = new Set<number>();
-        const habitDaySet = new Set<number>();
-
-        for (const t of visibleMonthTasks) {
-            const dateStr = t.scheduledStart ?? t.dueDate;
-            if (!dateStr) continue;
-            const d = parseEffectiveTaskDate(dateStr, t.isAllDay);
-            if (d.getFullYear() === year && d.getMonth() === month) {
-                const day = d.getDate();
-                withTasks.add(day);
-                if (!byDay[day]) byDay[day] = [];
-                byDay[day].push(t);
-            }
-        }
+        const byDay = recordByDay(visibleMonthTasks);
+        const withTasks = new Set<LocalDate>(Object.keys(byDay));
+        const habitDaySet = new Set<LocalDate>();
         // Record habit days for dot indicators only
         for (const h of visibleHabitTasks) {
-            const dateStr = h.scheduledStart ?? h.dueDate;
-            if (!dateStr) continue;
-            const d = parseEffectiveTaskDate(dateStr, h.isAllDay);
-            if (d.getFullYear() === year && d.getMonth() === month) {
-                habitDaySet.add(d.getDate());
-                withTasks.add(d.getDate());
+            for (const day of taskDays(h)) {
+                habitDaySet.add(day);
+                withTasks.add(day);
             }
         }
         return { datesWithTasks: withTasks, tasksByDay: byDay, habitDays: habitDaySet };
-    }, [month, visibleHabitTasks, visibleMonthTasks, year]);
+    }, [visibleHabitTasks, visibleMonthTasks]);
 
     const holidaysByDateRecord = useMemo<Record<string, import("@cadence/contracts/proxy").HolidayRecord[]>>(() => {
         return Object.fromEntries(holidayOverlay.holidaysByDate.entries());
     }, [holidayOverlay.holidaysByDate]);
 
-    const holidayDays = useMemo(() => {
-        const days = new Set<number>();
-        for (const date of holidayOverlay.holidayDateSet) {
-            const parsed = parseLocalDate(date);
-            if (parsed.getFullYear() === year && parsed.getMonth() === month) {
-                days.add(parsed.getDate());
-            }
-        }
-        return days;
-    }, [holidayOverlay.holidayDateSet, month, year]);
-
-    // ── Group week tasks by ISO date string ─────────────────────────────────
-    const weekTasksByDate = useMemo(() => {
-        const map: Record<string, Task[]> = {};
-        for (const t of visibleWeekTasks) {
-            const dateStr = t.scheduledStart ?? t.dueDate;
-            if (!dateStr) continue;
-            const iso = getEffectiveTaskDate(dateStr, t.isAllDay);
-            if (!map[iso]) map[iso] = [];
-            map[iso].push(t);
-        }
-        for (const h of visibleHabitTasks) {
-            const dateStr = h.scheduledStart ?? h.dueDate;
-            if (!dateStr) continue;
-            const iso = getEffectiveTaskDate(dateStr, h.isAllDay);
-            if (!map[iso]) map[iso] = [];
-            map[iso].push(h);
-        }
-        return map;
-    }, [visibleHabitTasks, visibleWeekTasks]);
+    // ── Group week tasks by LocalDate ───────────────────────────────────────
+    const weekTasksByDate = useMemo(() => recordByDay([...visibleWeekTasks, ...visibleHabitTasks]), [visibleHabitTasks, visibleWeekTasks]);
 
     // ── Task lookup for DragOverlay ─────────────────────────────────────────
     const allVisibleTasks = useMemo(() => {
@@ -410,18 +330,17 @@ export default function Schedule() {
     }, [visibleDayTasks, visibleHabitTasks, visibleMonthTasks, visibleWeekTasks]);
 
     // ── Phone surface: one grouping (routines included) for marks and lists ─
-    const todayIso = toISODate(today);
     const periodRange = { day: dayRange, week: weekRange, month: monthRange, year: yearRange }[viewMode];
     const phoneGroups = useMemo(() => {
-        if (!shell.isPhone || viewMode === "year") return new Map<string, Task[]>();
+        if (!shell.isPhone || viewMode === "year") return new Map<LocalDate, Task[]>();
         return groupByDate([...(viewMode === "month" ? visibleMonthTasks : visibleWeekTasks), ...visibleHabitTasks]);
     }, [shell.isPhone, viewMode, visibleHabitTasks, visibleMonthTasks, visibleWeekTasks]);
 
     /** Holiday, birthday and personal-event names by ISO day, for the phone surface. */
     const phoneMarkers = useMemo(() => {
-        const map = new Map<string, string[]>();
+        const map = new Map<LocalDate, string[]>();
         if (!shell.isPhone) return map;
-        const add = (iso: string, name: string) => map.set(iso, [...(map.get(iso) ?? []), name]);
+        const add = (iso: LocalDate, name: string) => map.set(iso, [...(map.get(iso) ?? []), name]);
         if (holidayOverlay.enabled) {
             for (const [iso, holidays] of Object.entries(holidaysByDateRecord)) holidays.forEach((holiday) => add(iso, holiday.name));
         }
@@ -433,7 +352,7 @@ export default function Schedule() {
     }, [birthdayDate, holidayOverlay.enabled, holidaysByDateRecord, personalEvents.enabled, personalEventsByDateRecord, shell.isPhone]);
 
     const weekLoads = useMemo(
-        () => new Map(weekDates.map((date) => [toISODate(date), dayLoad(phoneGroups.get(toISODate(date)) ?? [])])),
+        () => new Map(weekDates.map((day) => [day, dayLoad(phoneGroups.get(day) ?? [])])),
         [phoneGroups, weekDates],
     );
 
@@ -451,13 +370,10 @@ export default function Schedule() {
         setDirection(delta);
         setCurrentDate((prev) => {
             switch (viewMode) {
-                case "day": return addDaysToDate(prev, delta);
-                case "week": return addDaysToDate(prev, delta * 7);
-                case "month": return addMonthsToIso(prev, delta);
-                case "year": {
-                    const { y, m, d } = parseYMD(prev);
-                    return `${y + delta}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-                }
+                case "day": return addDays(prev, delta);
+                case "week": return addDays(prev, delta * 7);
+                case "month": return addMonthsToDay(prev, delta);
+                case "year": return addYearsToDay(prev, delta);
             }
         });
     }, [viewMode]);
@@ -477,20 +393,15 @@ export default function Schedule() {
 
     const handleToday = useCallback(() => {
         setZoom(0);
-        const now = new Date();
-        const todayStr = toISODate(now);
-        const cur = parseYMD(currentDate);
-        const td = parseYMD(todayStr);
-        const tSign = td.y > cur.y || (td.y === cur.y && td.m > cur.m) ? 1 : -1;
-        setDirection(tSign);
+        const todayStr = today();
+        setDirection(todayStr > currentDate ? 1 : -1);
         setCurrentDate(todayStr);
     }, [currentDate]);
 
-    const handleSelectDate = useCallback((day: number) => {
-        const newDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-        setCurrentDate(newDate);
+    const handleSelectDate = useCallback((day: LocalDate) => {
+        setCurrentDate(day);
         setViewMode("day");
-    }, [year, month, setViewMode]);
+    }, [setViewMode]);
 
     // ── View mode change ────────────────────────────────────────────────────
     const handleViewMode = useCallback((mode: CalendarViewMode) => {
@@ -501,7 +412,7 @@ export default function Schedule() {
     }, [setViewMode, shell.isPhone, viewMode]);
 
     /** Phone: open a day from Month or Year, zooming in. */
-    const openDay = useCallback((iso: string) => {
+    const openDay = useCallback((iso: LocalDate) => {
         setCurrentDate(iso);
         handleViewMode("day");
     }, [handleViewMode]);
@@ -510,22 +421,11 @@ export default function Schedule() {
     // structure without visible explanation. Users can navigate via header arrows or keyboard.
 
     /** Move a task to another day, keeping its time of day and length. One Undo. */
-    const moveTaskToDay = useCallback((task: Task, iso: string, { quiet = false } = {}) => {
-        const prev = { dueDate: task.dueDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd, isAllDay: task.isAllDay };
-        if (task.isAllDay || !task.scheduledStart) {
-            updateTask({ id: task.id, dueDate: iso, scheduledStart: null, scheduledEnd: null, isAllDay: true });
-        } else {
-            const start = preserveLocalTime(iso, task.scheduledStart);
-            updateTask({
-                id: task.id,
-                dueDate: iso,
-                scheduledStart: start,
-                scheduledEnd: new Date(new Date(start).getTime() + getTaskDurationMs(task)).toISOString(),
-                isAllDay: false,
-            });
-        }
+    const moveTaskToDay = useCallback((task: Task, day: LocalDate, { quiet = false } = {}) => {
+        const prev = temporalOf(task);
+        updateTask({ id: task.id, ...rescheduleToDay(prev, day, getUserZone()) });
         if (!quiet) {
-            toast(`Moved to ${dayLabel(iso)}`, { action: { label: "Undo", onClick: () => updateTask({ id: task.id, ...prev }) } });
+            toast(`Moved to ${dayLabel(day)}`, { action: { label: "Undo", onClick: () => updateTask({ id: task.id, ...prev }) } });
         }
         return prev;
     }, [updateTask]);
@@ -578,18 +478,18 @@ export default function Schedule() {
 
         if (activeDropId.startsWith("day-")) {
             const dateStr = activeDropId.slice(4);
-            if (activeDragTask.isAllDay || !activeDragTask.scheduledStart) {
+            if (!activeDragTask.scheduledStart) {
                 return {
                     kind: "allday",
                     dateStr,
                 };
             }
 
-            const start = new Date(activeDragTask.scheduledStart);
+            const zone = getUserZone();
             const durationMs = getTaskDurationMs(activeDragTask);
-            const startMinutes = start.getHours() * 60 + start.getMinutes();
+            const startMinutes = minutesFromMidnight(activeDragTask.scheduledStart);
             const endMinutes = Math.min(24 * 60, startMinutes + Math.round(durationMs / 60_000));
-            const startIso = preserveLocalTime(dateStr, activeDragTask.scheduledStart);
+            const startIso = atLocal(dateStr, wallTimeOf(activeDragTask.scheduledStart, zone), zone);
             const endIso = new Date(new Date(startIso).getTime() + durationMs).toISOString();
 
             return {
@@ -597,7 +497,7 @@ export default function Schedule() {
                 dateStr,
                 startMinutes,
                 endMinutes,
-                label: `${formatTime(startIso)}${endIso ? ` - ${formatTime(endIso)}` : ""}`,
+                label: `${formatTime(startIso)} - ${formatTime(endIso)}`,
             };
         }
 
@@ -634,23 +534,18 @@ export default function Schedule() {
         if (!task || task.isHabit || isRecurringTask(task) || isRecurringTaskInstance(task)) return;
 
         // Capture previous state for undo
-        const prev = {
-            dueDate: task.dueDate,
-            scheduledStart: task.scheduledStart,
-            scheduledEnd: task.scheduledEnd,
-            isAllDay: task.isAllDay,
-        };
+        const prev = temporalOf(task);
         const undoMove = () => updateTask({ id: taskId, ...prev });
 
         if (droppedId.startsWith("slot-")) {
-            const { iso, date } = getDateFromTimedDropId(droppedId);
+            const { iso } = getDateFromTimedDropId(droppedId);
             const durationMs = getTaskDurationMs(task);
+            // An all-day task becomes a block on this day: the day it sat on is no longer a deadline.
             updateTask({
                 id: taskId,
-                dueDate: date,
+                ...(task.scheduledStart ? {} : { dueDate: null, endDate: null }),
                 scheduledStart: iso,
                 scheduledEnd: new Date(new Date(iso).getTime() + durationMs).toISOString(),
-                isAllDay: false,
             });
             trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "timed" });
             toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
@@ -658,14 +553,10 @@ export default function Schedule() {
         }
 
         if (droppedId.startsWith("allday-")) {
-            const datePart = droppedId.replace(/^allday-/, "");
-            updateTask({
-                id: taskId,
-                dueDate: datePart,
-                scheduledStart: null,
-                scheduledEnd: null,
-                isAllDay: true,
-            });
+            const day = droppedId.replace(/^allday-/, "");
+            updateTask(task.scheduledStart
+                ? { id: taskId, dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null }
+                : { id: taskId, ...rescheduleToDay(prev, day, getUserZone()) });
             trackUsageEvent("schedule.drop_completed", { input_method: "dnd", object_type: "task", outcome: "allday" });
             toast("Task moved", { action: { label: "Undo", onClick: undoMove } });
             return;
@@ -711,9 +602,8 @@ export default function Schedule() {
     }, [queueCompletion, resolveHabitMutation, updateTask]);
 
     const moveRowLater = useCallback((task: Task) => {
-        const anchor = task.scheduledStart ?? task.dueDate;
-        const from = anchor ? getEffectiveTaskDate(anchor, task.isAllDay) : todayIso;
-        moveTaskToDay(task, addDaysToDate(from < todayIso ? todayIso : from, 1));
+        const from = taskDays(task)[0] ?? todayIso;
+        moveTaskToDay(task, addDays(from < todayIso ? todayIso : from, 1));
     }, [moveTaskToDay, todayIso]);
 
     const rowHandlers = useMemo(() => ({
@@ -723,13 +613,14 @@ export default function Schedule() {
         onPickDay: (task: Task) => setPlaceTask(task),
     }), [completeRow, handleSelectTask, moveRowLater]);
 
-    const handleAddAt = useCallback((start: Date, minutes: number) => {
+    const handleAddAt = useCallback((start: Instant, minutes: number) => {
+        const [hour, minute] = toTimeValue(start).split(":").map(Number);
         setDraftPlacement(null);
         setEventPopoverTab("task");
         setEventPopoverInfo({
-            date: toISODate(start),
-            startHour: start.getHours(),
-            startMinute: start.getMinutes(),
+            date: dayOfInstant(start),
+            startHour: hour,
+            startMinute: minute,
             durationMinutes: minutes,
             anchorX: window.innerWidth / 2,
             anchorY: 140,
@@ -742,11 +633,11 @@ export default function Schedule() {
     ), [phoneGroups, todayIso]);
 
     const lightenToday = useCallback((tasks: Task[], to: "tomorrow" | "holding") => {
-        const tomorrow = addDaysToDate(todayIso, 1);
+        const tomorrow = addDays(todayIso, 1);
         const previous = tasks.map((task) => {
-            const prev = { id: task.id, dueDate: task.dueDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd, isAllDay: task.isAllDay };
+            const prev = { id: task.id, ...temporalOf(task) };
             if (to === "tomorrow") moveTaskToDay(task, tomorrow, { quiet: true });
-            else updateTask({ id: task.id, dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true });
+            else updateTask({ id: task.id, dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null });
             return prev;
         });
         toast(to === "tomorrow" ? "Moved to tomorrow" : "Dates cleared", {
@@ -793,8 +684,7 @@ export default function Schedule() {
     const handleResizeTask = useCallback((taskId: string, durationMinutes: number) => {
         const task = allVisibleTasks.get(taskId);
         if (!task || !task.scheduledStart) return;
-        const start = new Date(task.scheduledStart);
-        const newEnd = new Date(start.getTime() + durationMinutes * 60_000);
+        const newEnd = new Date(new Date(task.scheduledStart).getTime() + durationMinutes * 60_000);
         const prevEnd = task.scheduledEnd;
         updateTask({ id: taskId, scheduledEnd: newEnd.toISOString() });
         toast("Duration updated", {
@@ -804,11 +694,11 @@ export default function Schedule() {
 
     // ── Year view helpers ───────────────────────────────────────────────────
     const handleYearSelectMonth = useCallback((m: number) => {
-        setCurrentDate(`${year}-${String(m + 1).padStart(2, "0")}-01`);
+        setCurrentDate(isoMonthStart(year, m));
         setViewMode("month");
     }, [year, setViewMode]);
 
-    const handleYearSelectDay = useCallback((dateStr: string) => {
+    const handleYearSelectDay = useCallback((dateStr: LocalDate) => {
         setCurrentDate(dateStr);
         setViewMode("day");
     }, [setViewMode]);
@@ -823,8 +713,7 @@ export default function Schedule() {
     }, []);
 
     const handleAddTaskToolbar = useCallback(() => {
-        const now = new Date();
-        const hour = now.getHours();
+        const hour = Number(nowWallTime(getUserZone()).slice(0, 2));
         trackUsageEvent("schedule.quick_add_used", { surface: "schedule_toolbar", object_type: "task" });
         setEventPopoverTab("task");
         setEventPopoverInfo({
@@ -894,10 +783,7 @@ export default function Schedule() {
                     setEventPopoverTab("task");
                     setEventPopoverInfo({
                         date: currentDate,
-                        startHour: (() => {
-                            const now = new Date();
-                            return Math.min(23, now.getHours() + 1);
-                        })(),
+                        startHour: Math.min(23, Number(nowWallTime(getUserZone()).slice(0, 2)) + 1),
                         startMinute: 0,
                         anchorX: window.innerWidth / 2,
                         anchorY: 140,
@@ -1082,10 +968,11 @@ export default function Schedule() {
 
     const selectedHabit = selectedHabitId ? habitById.get(selectedHabitId) ?? null : null;
 
+    const { y: todayYear, m: todayMonth } = parseYMD(todayIso);
     const isOffToday = viewMode === "year"
-        ? year !== today.getFullYear()
+        ? year !== todayYear
         : viewMode === "month"
-            ? year !== today.getFullYear() || month !== today.getMonth()
+            ? year !== todayYear || month !== todayMonth
             : currentDate !== todayIso;
 
     /** Phone header: name what's on screen; the label above zooms out. */
@@ -1093,17 +980,16 @@ export default function Schedule() {
         if (viewMode === "year") return { title: String(year) };
         if (viewMode === "month") {
             return {
-                title: year === today.getFullYear() ? MONTH_NAMES[month] : `${MONTH_NAMES[month]} ${year}`,
+                title: year === todayYear ? MONTH_NAMES[month] : `${MONTH_NAMES[month]} ${year}`,
                 backLabel: String(year),
                 onZoomOut: () => handleViewMode("year"),
             };
         }
-        const date = parseLocalDate(currentDate);
-        const days = Math.round((date.getTime() - parseLocalDate(todayIso).getTime()) / 86_400_000);
+        const days = daysBetween(todayIso, currentDate);
         const relation = days === 0 ? "Today" : days === 1 ? "Tomorrow" : days === -1 ? "Yesterday" : days > 0 ? `In ${days} days` : `${-days} days ago`;
         const items = phoneGroups.get(currentDate) ?? [];
         return {
-            title: format(date, "EEEE d MMMM"),
+            title: dayHeading(currentDate),
             meta: items.length ? `${relation} · ${loadWord(dayLoad(items))}` : relation,
             backLabel: MONTH_NAMES[month],
             onZoomOut: () => handleViewMode("month"),
@@ -1114,7 +1000,7 @@ export default function Schedule() {
     const viewKey = viewMode === "month"
         ? `month-${year}-${month}`
         : viewMode === "week"
-            ? `week-${toISODate(weekDates[0])}`
+            ? `week-${weekDates[0]}`
             : viewMode === "day"
                 ? `day-${currentDate}`
                 : `year-${year}`;
@@ -1173,7 +1059,7 @@ export default function Schedule() {
                             onShiftWeek={(delta) => {
                                 setZoom(0);
                                 setDirection(delta);
-                                setCurrentDate((prev) => addDaysToDate(prev, delta * 7));
+                                setCurrentDate((prev) => addDays(prev, delta * 7));
                             }}
                         />
                     ) : null}
@@ -1225,10 +1111,10 @@ export default function Schedule() {
                                                 selectedDate={currentDate}
                                                 datesWithTasks={datesWithTasks}
                                                 habitDays={habitDays}
-                                                holidayDays={holidayOverlay.enabled ? holidayDays : undefined}
-                                                birthdayDay={birthdayDay}
-                                                personalEventDays={personalEvents.enabled ? personalEvents.eventDays : undefined}
-                                                personalEventCountsByDay={personalEventCountsByDay}
+                                                holidayDays={holidayOverlay.enabled ? holidayOverlay.holidayDateSet : undefined}
+                                                birthdayDate={birthdayDate}
+                                                personalEventDays={personalEvents.enabled ? personalEvents.eventDateSet : undefined}
+                                                personalEventCountsByDay={personalEventDateCounts}
                                                 onSelectDate={handleSelectDate}
                                                 variant="full"
                                                 tasksByDay={tasksByDay}
@@ -1280,7 +1166,7 @@ export default function Schedule() {
                                         ) : (
                                             <DayView
                                                 currentDate={currentDate}
-                                                tasks={[...visibleDayTasks, ...visibleHabitTasks.filter(t => t.dueDate?.substring(0, 10) === currentDate)]}
+                                                tasks={[...visibleDayTasks, ...visibleHabitTasks.filter((t) => taskDays(t).includes(currentDate))]}
                                                 holidays={holidayOverlay.enabled ? (holidaysByDateRecord[currentDate] ?? []) : []}
                                                 isBirthday={birthdayDate === currentDate}
                                                 personalEvents={personalEvents.enabled ? personalEvents.getEventsForDate(currentDate) : []}

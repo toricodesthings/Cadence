@@ -2,7 +2,9 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
-import { toISODate, getWeekDates, getMonthDateRange, MONTH_NAMES, WEEK_START_INDEX } from "../lib/utils/date-format";
+import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
+import { getWeekDays, getMonthDateRange, isoMonthStart, formatMonthYear, formatMonthName, formatShortDate, weekdayLabels, WEEK_START_INDEX } from "../lib/utils/date-format";
+import { useToday } from "../lib/utils/user-zone";
 import { slideVariants } from "../lib/constants/motion";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
 import { HabitsMonthView } from "../components/habits/HabitsMonthView";
@@ -25,7 +27,6 @@ import { ChevronLeft, ChevronRight, Plus, Flame, Settings } from "lucide-react";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
-import { useMinuteClock } from "../hooks/ui/use-realtime-clock";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { PageHeader, PhonePageHeader, PhoneViewPicker } from "../components/layout/PageHeader";
 import { PeriodNav, PeriodTodayPill } from "../components/layout/PeriodNav";
@@ -37,18 +38,17 @@ type DisplayMode = "week" | "month";
 type ViewMode = "active" | "archived";
 
 /** "Sep 27 – Oct 3", or "Sep 6 – 12" inside one month. */
-function weekRange(weekDates: Date[]) {
-    const [first, last] = [weekDates[0], weekDates[6]];
-    const start = first.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const end = first.getMonth() === last.getMonth() ? String(last.getDate()) : last.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    return `${start} – ${end}`;
+function weekRange(weekDays: LocalDate[]) {
+    const [first, last] = [weekDays[0], weekDays[6]];
+    const end = first.slice(5, 7) === last.slice(5, 7) ? String(Number(last.slice(8))) : formatShortDate(last);
+    return `${formatShortDate(first)} – ${end}`;
 }
 
 export default function Routines() {
     const shell = useShellMode();
     const setRailView = useRightPanelStore((s) => s.setRailView);
-    const todayIso = toISODate(useMinuteClock());
-    const [currentDate, setCurrentDate] = useState<string>(todayIso);
+    const todayIso = useToday();
+    const [currentDate, setCurrentDate] = useState<LocalDate>(todayIso);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
     const [mobileDetailMode, setMobileDetailMode] = useState<"peek" | "focus">("peek");
@@ -65,11 +65,12 @@ export default function Routines() {
     const reducedMotion = useReducedMotionSetting();
     const bloom = !settings?.tasks?.intelligence?.lowStimulationMode && !reducedMotion;
 
-    const periodDate = useMemo(() => new Date(`${currentDate}T00:00:00`), [currentDate]);
-    const weekDates = useMemo(() => getWeekDates(periodDate, weekStartsOn), [periodDate, weekStartsOn]);
+    const periodYear = Number(currentDate.slice(0, 4));
+    const periodMonth = Number(currentDate.slice(5, 7)) - 1;
+    const weekDates = useMemo(() => getWeekDays(currentDate, weekStartsOn), [currentDate, weekStartsOn]);
     const range = displayMode === "week"
-        ? { start: toISODate(weekDates[0]), end: toISODate(weekDates[6]) }
-        : getMonthDateRange(periodDate.getFullYear(), periodDate.getMonth());
+        ? { start: weekDates[0], end: weekDates[6] }
+        : getMonthDateRange(periodYear, periodMonth);
     const isCurrentPeriod = todayIso >= range.start && todayIso <= range.end;
 
     const { data: habits = [] } = useHabitsRange({ ...range, archived: viewMode === "archived", enabled: Boolean(settings) });
@@ -77,17 +78,16 @@ export default function Routines() {
     const selectedHabit = visibleHabits.find((h) => h.id === selectedHabitId) ?? null;
 
     const days = useMemo<RoutineDay[]>(() => weekDates.map((date) => {
-        const short = date.toLocaleDateString("en-US", { weekday: "short" });
-        return { iso: toISODate(date), short, initial: short[0], dayNum: date.getDate() };
+        const short = weekdayLabels(3, 0)[weekdayOf(date)];
+        return { iso: date, short, initial: short[0], dayNum: Number(date.slice(8)) };
     }), [weekDates]);
 
     const handleNavigate = useCallback((delta: number) => {
         setDirection(delta);
         setCurrentDate((prev) => {
-            const date = new Date(`${prev}T00:00:00`);
-            if (displayMode === "week") date.setDate(date.getDate() + delta * 7);
-            else date.setMonth(date.getMonth() + delta, 1);
-            return toISODate(date);
+            if (displayMode === "week") return addDays(prev, delta * 7);
+            const index = Number(prev.slice(0, 4)) * 12 + Number(prev.slice(5, 7)) - 1 + delta;
+            return isoMonthStart(Math.floor(index / 12), index % 12);
         });
     }, [displayMode]);
 
@@ -121,8 +121,8 @@ export default function Routines() {
     });
 
     const heading = displayMode === "week"
-        ? `${MONTH_NAMES[weekDates[0].getMonth()]} ${weekDates[0].getFullYear()}`
-        : `${MONTH_NAMES[periodDate.getMonth()]} ${periodDate.getFullYear()}`;
+        ? formatMonthYear(weekDates[0])
+        : formatMonthYear(currentDate);
     const periodWord = displayMode === "week" ? "week" : "month";
 
     const setDisplay = (mode: DisplayMode) => { setDirection(0); setDisplayMode(mode); };
@@ -159,13 +159,13 @@ export default function Routines() {
         </Popover.Root>
     );
 
-    const headingDate = displayMode === "week" ? weekDates[0] : periodDate;
-    const inThisYear = String(headingDate.getFullYear()) === todayIso.slice(0, 4);
+    const headingDate = displayMode === "week" ? weekDates[0] : currentDate;
+    const inThisYear = headingDate.slice(0, 4) === todayIso.slice(0, 4);
     // Phone: the title names what's on screen (the week, or the month), so the
     // header stays two lines like every other page.
     const phoneTitle = displayMode === "week"
-        ? inThisYear ? weekRange(weekDates) : `${weekRange(weekDates)}, ${headingDate.getFullYear()}`
-        : inThisYear ? MONTH_NAMES[headingDate.getMonth()] : heading;
+        ? inThisYear ? weekRange(weekDates) : `${weekRange(weekDates)}, ${headingDate.slice(0, 4)}`
+        : inThisYear ? formatMonthName(headingDate) : heading;
 
     // On a desktop week the grid's today column already is today's check-in, so
     // the band shows only where today is scattered (month cards, phone cards).
@@ -265,7 +265,7 @@ export default function Routines() {
                                     {displayMode === "week" ? (
                                         <HabitsCanvas {...shared} days={days} stacked={shell.isPhone} showWeekCount={shell.isWide} />
                                     ) : (
-                                        <HabitsMonthView {...shared} trimEarlyWeeks={shell.isPhone} year={periodDate.getFullYear()} month={periodDate.getMonth()} weekStartsOn={weekStartsOn} />
+                                        <HabitsMonthView {...shared} trimEarlyWeeks={shell.isPhone} year={periodYear} month={periodMonth} weekStartsOn={weekStartsOn} />
                                     )}
                                 </motion.div>
                             </AnimatePresence>

@@ -4,7 +4,7 @@
  */
 
 import type { FocusViewDefinition } from "./index.js";
-import { toDateStr } from "../core/index.js";
+import { addDaysLocal, endOfMonthLocal, weekdayLocal, type LocalDate, type NlpClock } from "../core/index.js";
 
 /**
  * Filter tasks based on a Focus View definition.
@@ -14,15 +14,18 @@ export function applyFocusView<
   T extends {
     state: string;
     projectId: string | null;
-    dueDate: string | null;
+    dueDate: LocalDate | null;
     scheduledStart: string | null;
     priority: number;
     effort: number | null;
     waitingOn?: string | null | undefined;
   },
->(tasks: T[], definition: FocusViewDefinition, now?: Date): T[] {
-  const currentDate = now ?? new Date();
-  const todayStr = toDateStr(currentDate);
+>(
+  tasks: T[],
+  definition: FocusViewDefinition,
+  ctx: { clock: NlpClock; dayOf: (instant: string) => LocalDate },
+): T[] {
+  const todayStr = ctx.clock.today;
 
   return tasks.filter((task) => {
     if (definition.states.length > 0 && !definition.states.includes(task.state)) {
@@ -47,9 +50,8 @@ export function applyFocusView<
       return false;
     }
     if (definition.dueWindow) {
-      const effectiveDate = task.dueDate || task.scheduledStart;
-      if (!effectiveDate) return definition.dueWindow === "overdue" ? false : true;
-      const effectiveDateStr = toDateStr(new Date(effectiveDate));
+      const effectiveDateStr = task.dueDate ?? (task.scheduledStart ? ctx.dayOf(task.scheduledStart) : null);
+      if (!effectiveDateStr) return definition.dueWindow === "overdue" ? false : true;
       switch (definition.dueWindow) {
         case "overdue":
           if (effectiveDateStr >= todayStr) return false;
@@ -58,14 +60,12 @@ export function applyFocusView<
           if (effectiveDateStr > todayStr) return false;
           break;
         case "this_week": {
-          const weekEnd = new Date(currentDate);
-          weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
-          if (effectiveDateStr > toDateStr(weekEnd)) return false;
+          // Up to and including the next Sunday (existing behaviour).
+          if (effectiveDateStr > addDaysLocal(todayStr, 7 - weekdayLocal(todayStr))) return false;
           break;
         }
         case "this_month": {
-          const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-          if (effectiveDateStr > toDateStr(monthEnd)) return false;
+          if (effectiveDateStr > endOfMonthLocal(todayStr)) return false;
           break;
         }
       }

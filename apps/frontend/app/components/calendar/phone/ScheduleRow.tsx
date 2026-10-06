@@ -6,8 +6,9 @@ import type { Task } from "@cadence/contracts/task";
 import { AgendaRow } from "../../shared/AgendaRow";
 import { RoutineAgendaRow } from "../../shared/RoutineAgendaRow";
 import { TaskCheckbox } from "../../tasks/TaskCheckbox";
-import { formatTime, getEffectiveTaskDate, toISODate } from "../../../lib/utils/date-format";
-import { isTimed, scheduleKind } from "../../../lib/utils/calendar/schedule-day";
+import { formatTime } from "../../../lib/utils/date-format";
+import { isTimed, scheduleKind, taskDays } from "../../../lib/utils/calendar/schedule-day";
+import { today } from "../../../lib/utils/user-zone";
 import { isRecurringTask, isRecurringTaskInstance } from "../../../lib/utils/task/task-scheduling";
 import { PendingMark } from "../../shared/PendingMark";
 
@@ -86,8 +87,8 @@ export function ScheduleRow({ task, routineEmoji, past = false, dragActive = fal
     };
 
     const meta = timeRange(task);
-    const anchor = task.scheduledStart ?? task.dueDate;
-    const laterLabel = !anchor || getEffectiveTaskDate(anchor, task.isAllDay) <= toISODate(new Date()) ? "Tomorrow" : "Next day";
+    const anchor = taskDays(task)[0];
+    const laterLabel = !anchor || anchor <= today() ? "Tomorrow" : "Next day";
     let row;
     if (kind === "routine") {
         row = (

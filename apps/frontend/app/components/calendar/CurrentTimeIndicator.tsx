@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { nowWallTime } from "@cadence/domain/time";
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
+import { getUserZone } from "../../lib/utils/user-zone";
 
+/** Offset of the now-line: the user's wall clock, not the device's. */
 function getNowTop() {
-    const now = new Date();
-    const minutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-    return (minutes / 60) * HOUR_HEIGHT;
+    const [h, m] = nowWallTime(getUserZone()).split(":").map(Number);
+    const seconds = Math.floor(Date.now() / 1000) % 60;
+    return (((h * 60 + m + seconds / 60)) / 60) * HOUR_HEIGHT;
 }
 
 // One shared 15s clock for every chip that asks whether the now-line crosses it.

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { Task } from "@cadence/contracts/task";
-import { getDaysInMonth, getFirstDayOfWeek, MONTH_NAMES, toISODate, weekdayLabels } from "../../lib/utils/date-format";
-import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
+import type { LocalDate } from "@cadence/domain/time";
+import { getDaysInMonth, getFirstDayOfWeek, isoDay, MONTH_NAMES, weekdayLabels } from "../../lib/utils/date-format";
+import { taskDays } from "../../lib/utils/calendar/schedule-day";
+import { parseYMD } from "../../lib/utils/calendar/calendar-math";
+import { useToday } from "../../lib/utils/user-zone";
 
 const MONTHS = MONTH_NAMES.map((m) => m.slice(0, 3));
 const DAYS_SHORT = weekdayLabels(1);
@@ -9,19 +12,19 @@ const DAYS_SHORT = weekdayLabels(1);
 interface MiniMonthProps {
     year: number;
     month: number;
-    taskDateCounts: Map<string, number>;
-    holidayDateSet?: Set<string>;
-    /** ISO date string of user's birthday this year */
-    birthdayDate?: string | null;
-    /** Set of ISO date strings that have personal events */
-    personalEventDateSet?: Set<string>;
-    /** Personal event density by ISO date */
-    personalEventDateCounts?: Record<string, number>;
-    today: Date;
+    taskDateCounts: Map<LocalDate, number>;
+    holidayDateSet?: Set<LocalDate>;
+    /** The user's birthday this year */
+    birthdayDate?: LocalDate | null;
+    /** Days that have personal events */
+    personalEventDateSet?: Set<LocalDate>;
+    /** Personal event density by day */
+    personalEventDateCounts?: Record<LocalDate, number>;
+    today: LocalDate;
     /** Jump to month view for this month */
     onSelectMonth: (month: number) => void;
     /** Jump to day view for a specific day */
-    onSelectDay: (dateStr: string) => void;
+    onSelectDay: (day: LocalDate) => void;
 }
 
 function MiniMonth({
@@ -36,7 +39,7 @@ function MiniMonth({
     onSelectMonth,
     onSelectDay,
 }: MiniMonthProps) {
-    const todayStr = toISODate(today);
+    const todayStr = today;
     const daysInMonth = getDaysInMonth(year, month);
     const firstOffset = getFirstDayOfWeek(year, month);
 
@@ -46,8 +49,6 @@ function MiniMonth({
         for (let d = 1; d <= daysInMonth; d++) arr.push(d);
         return arr;
     }, [year, month, daysInMonth, firstOffset]);
-
-    const monthStr = String(month + 1).padStart(2, "0");
 
     return (
         <div className="glass flex flex-col gap-3 rounded-2xl p-4 transition-colors hover:bg-white/[0.02]">
@@ -73,7 +74,7 @@ function MiniMonth({
             <div className="grid grid-cols-7 gap-y-0.5">
                 {cells.map((day, i) => {
                     if (!day) return <div key={i} />;
-                    const dayStr = `${year}-${monthStr}-${String(day).padStart(2, "0")}`;
+                    const dayStr = isoDay(year, month, day);
                     const isToday = dayStr === todayStr;
                     const taskCount = taskDateCounts.get(dayStr) ?? 0;
                     const hasHoliday = holidayDateSet?.has(dayStr) ?? false;
@@ -125,32 +126,28 @@ function MiniMonth({
 export interface YearViewProps {
     year: number;
     tasks: Task[];
-    holidayDateSet?: Set<string>;
-    /** ISO date string of user's birthday this year */
-    birthdayDate?: string | null;
-    /** Set of ISO date strings with personal events */
-    personalEventDateSet?: Set<string>;
-    /** Personal event density by ISO date */
-    personalEventDateCounts?: Record<string, number>;
+    holidayDateSet?: Set<LocalDate>;
+    /** The user's birthday this year */
+    birthdayDate?: LocalDate | null;
+    /** Days with personal events */
+    personalEventDateSet?: Set<LocalDate>;
+    /** Personal event density by day */
+    personalEventDateCounts?: Record<LocalDate, number>;
     /** Switch to month view for a specific month */
     onSelectMonth: (month: number) => void;
     /** Switch to day view for a specific day */
-    onSelectDay: (dateStr: string) => void;
+    onSelectDay: (day: LocalDate) => void;
     compact?: boolean;
 }
 
 export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEventDateSet, personalEventDateCounts, onSelectMonth, onSelectDay, compact = false }: YearViewProps) {
-    const today = new Date();
+    const today = useToday();
 
-    // Build a map of ISO dates → task count for heatmap density
+    // LocalDate → task count, for the heatmap density
     const taskDateCounts = useMemo(() => {
-        const map = new Map<string, number>();
+        const map = new Map<LocalDate, number>();
         for (const t of tasks) {
-            const scheduledStart = toTaskDateOnly(t.scheduledStart);
-            const dueDate = toTaskDateOnly(t.dueDate);
-
-            if (scheduledStart) map.set(scheduledStart, (map.get(scheduledStart) ?? 0) + 1);
-            if (dueDate && dueDate !== scheduledStart) map.set(dueDate, (map.get(dueDate) ?? 0) + 1);
+            for (const day of taskDays(t)) map.set(day, (map.get(day) ?? 0) + 1);
         }
         return map;
     }, [tasks]);
@@ -189,11 +186,12 @@ export function YearView({ year, tasks, holidayDateSet, birthdayDate, personalEv
  */
 function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
     year: number;
-    taskDateCounts: Map<string, number>;
-    today: Date;
+    taskDateCounts: Map<LocalDate, number>;
+    today: LocalDate;
     onSelectMonth: (month: number) => void;
 }) {
-    const todayStr = toISODate(today);
+    const todayStr = today;
+    const { y: todayYear, m: todayMonth } = parseYMD(today);
     const currentRef = useRef<HTMLButtonElement | null>(null);
 
     useEffect(() => {
@@ -204,8 +202,7 @@ function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
         <div className="touch-scroll-y h-full px-3 pb-36 pt-2">
             <div className="grid grid-cols-2 gap-x-4 gap-y-5">
                 {Array.from({ length: 12 }, (_, month) => {
-                    const monthStr = String(month + 1).padStart(2, "0");
-                    const isCurrent = today.getFullYear() === year && today.getMonth() === month;
+                    const isCurrent = todayYear === year && todayMonth === month;
                     const cells = [
                         ...Array.from({ length: getFirstDayOfWeek(year, month) }, () => 0),
                         ...Array.from({ length: getDaysInMonth(year, month) }, (_, i) => i + 1),
@@ -225,7 +222,7 @@ function PhoneYear({ year, taskDateCounts, today, onSelectMonth }: {
                             <span className="grid grid-cols-7 gap-y-0.5" aria-hidden="true">
                                 {cells.map((day, i) => {
                                     if (!day) return <span key={i} />;
-                                    const dayStr = `${year}-${monthStr}-${String(day).padStart(2, "0")}`;
+                                    const dayStr = isoDay(year, month, day);
                                     const count = taskDateCounts.get(dayStr) ?? 0;
                                     const isToday = dayStr === todayStr;
                                     return (

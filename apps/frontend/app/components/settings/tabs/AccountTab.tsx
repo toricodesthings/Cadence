@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { formatInZone } from "@cadence/domain/time";
+import { formatShortDateTime } from "../../../lib/utils/date-format";
+import { getUserZone } from "../../../lib/utils/user-zone";
 import { Camera, UserRound } from "lucide-react";
 import { Button, Input } from "../../primitives";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
@@ -501,7 +504,7 @@ function SessionsBlock() {
                                         {sess.userAgent?.split(' ')[0] || "Unknown Browser"} - {sess.ipAddress}
                                     </span>
                                     <span className="text-[10px] text-warm-white/30 italic">
-                                        Active: {new Date(sess.updatedAt).toLocaleString()}
+                                        Active: {formatShortDateTime(new Date(sess.updatedAt).toISOString())}
                                     </span>
                                 </div>
                                 {!isCurrent && (
@@ -763,7 +766,7 @@ export function AccountTab() {
                                 <p className="text-xs font-semibold text-warm-white/50 uppercase tracking-wider mb-1">Birthday</p>
                                 <p className="text-sm text-warm-white">
                                     {profileSettings.birthday
-                                        ? new Date(profileSettings.birthday + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
+                                        ? formatInZone(profileSettings.birthday, getUserZone(), { month: "long", day: "numeric", year: "numeric" })
                                         : "Not set"}
                                 </p>
                             </div>

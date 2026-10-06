@@ -1,28 +1,45 @@
-import { eq, and, sql, gte, count, avg, inArray } from "drizzle-orm";
+import { eq, and, or, ne, lt, isNull, sql, gte, count, avg, inArray } from "drizzle-orm";
 import { type DbClient } from "./db";
 import type { Tx } from "../types/db";
 import { withRls } from "./rls";
 import { tasks, taskMetrics, usageEvents, userMetrics, habitLogs } from "../db/schema";
+import { addDays, dayOf, startOfDay, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
 import { logger, hashIdentifier, issuesFromError } from "./log";
+import { userZone } from "./user-zone";
 
-/** Count one reschedule per task, in one upsert. `at` is the task's new date. */
+/** Count one reschedule per task, in one upsert. `firstScheduled` is the task's new day. */
 export async function trackReschedules(
     db: DbClient,
     userId: string,
-    rescheduled: { taskId: string; at: string | null }[],
+    rescheduled: { taskId: string; scheduledStart: string | null; dueDate: string | null }[],
 ) {
-    await withRls(db, userId, (tx) =>
-        tx
+    await withRls(db, userId, async (tx) => {
+        const zone = await userZone(tx, userId);
+        await tx
             .insert(taskMetrics)
-            .values(rescheduled.map(({ taskId, at }) => ({ taskId, userId, rescheduleCount: 1, firstScheduled: at })))
+            .values(rescheduled.map(({ taskId, scheduledStart, dueDate }) => ({
+                taskId,
+                userId,
+                rescheduleCount: 1,
+                firstScheduled: scheduledStart ? dayOf(scheduledStart, zone) : dueDate,
+            })))
             .onConflictDoUpdate({
                 target: taskMetrics.taskId,
                 set: {
                     rescheduleCount: sql`${taskMetrics.rescheduleCount} + 1`,
                     firstScheduled: sql`coalesce(${taskMetrics.firstScheduled}, excluded.first_scheduled)`,
                 },
-            }),
-    );
+            });
+    });
+}
+
+/** The overdue predicate: no repeat, not a Fixed block, and its day (due day, else the start's day) is before `today`. */
+export function overdueOn(today: LocalDate, zone: Zone) {
+    return and(
+        isNull(tasks.recurrenceRule),
+        ne(tasks.interactionMode, "timetable"),
+        or(lt(tasks.dueDate, today), and(isNull(tasks.dueDate), lt(tasks.scheduledStart, startOfDay(today, zone)))),
+    )!;
 }
 
 /** Record completion for several tasks in one RLS transaction: one read, one upsert. */
@@ -77,6 +94,8 @@ export async function trackBatchEvents(
 export async function computeWorkloadSignals(db: DbClient, userId: string) {
     await withRls(db, userId, async (tx) => {
         const now = new Date();
+        const zone = await userZone(tx, userId);
+        const today = todayIn(zone, now);
         const daysAgo = (n: number) => new Date(now.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
         const fourteenDaysAgo = daysAgo(14);
         const sevenDaysAgo = daysAgo(7);
@@ -89,9 +108,9 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
             scheduleDensity,
         ] = await Promise.all([
             queryRescheduleVelocity(tx, userId, fourteenDaysAgo),
-            queryOverdueCarryLoad(tx, userId),
+            queryOverdueCarryLoad(tx, userId, today, zone),
             queryCompletedCount(tx, userId, fourteenDaysAgo),
-            queryHabitAdherenceRate(tx, userId, fourteenDaysAgo),
+            queryHabitAdherenceRate(tx, userId, addDays(today, -14)),
             queryScheduleDensity(tx, userId, sevenDaysAgo),
         ]);
 
@@ -130,11 +149,12 @@ async function queryRescheduleVelocity(tx: Tx, userId: string, since: string) {
     return parseFloat(String(stats?.avgReschedules ?? "0"));
 }
 
-async function queryOverdueCarryLoad(tx: Tx, userId: string) {
+/** Open one-off tasks whose day is before the user's today. Repeating series and Fixed blocks are never overdue. */
+async function queryOverdueCarryLoad(tx: Tx, userId: string, today: LocalDate, zone: Zone) {
     const [stats] = await tx
         .select({ cnt: count() })
         .from(tasks)
-        .where(and(eq(tasks.userId, userId), eq(tasks.state, "ACTIVE"), sql`${tasks.dueDate} < NOW()`));
+        .where(and(eq(tasks.userId, userId), eq(tasks.state, "ACTIVE"), overdueOn(today, zone)));
     return stats?.cnt ?? 0;
 }
 
@@ -146,14 +166,14 @@ async function queryCompletedCount(tx: Tx, userId: string, since: string) {
     return stats?.cnt ?? 0;
 }
 
-async function queryHabitAdherenceRate(tx: Tx, userId: string, since: string) {
+async function queryHabitAdherenceRate(tx: Tx, userId: string, since: LocalDate) {
     const [stats] = await tx
         .select({
             completed: sql<number>`COUNT(*) FILTER (WHERE ${habitLogs.status} = 'COMPLETED')`,
             total: sql<number>`COUNT(*) FILTER (WHERE ${habitLogs.status} IN ('COMPLETED', 'SKIPPED'))`,
         })
         .from(habitLogs)
-        .where(and(eq(habitLogs.userId, userId), gte(habitLogs.targetDate, since.substring(0, 10))));
+        .where(and(eq(habitLogs.userId, userId), gte(habitLogs.targetDate, since)));
     const completed = Number(stats?.completed ?? 0);
     const total = Number(stats?.total ?? 0);
     return total > 0 ? completed / total : 0;

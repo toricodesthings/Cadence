@@ -1,32 +1,32 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDroppable } from "@dnd-kit/core";
-import { format } from "date-fns";
-import { toISODate } from "../../../lib/utils/date-format";
+import type { LocalDate } from "@cadence/domain/time";
+import { dayHeading, dayOfMonth, weekdayName } from "../../../lib/utils/calendar/calendar-math";
+import { useToday } from "../../../lib/utils/user-zone";
 import { slideVariants, type SlideCustom } from "../../../lib/constants/motion";
 import { loadDots } from "../../../lib/utils/calendar/schedule-day";
 import { loadWord } from "../../../lib/utils/task/day-load";
 import { usePeriodSwipe } from "../../../hooks/ui/use-period-swipe";
 
 interface DayStripProps {
-    weekDates: Date[];
-    selectedIso: string;
-    loads: Map<string, number>;
+    weekDates: LocalDate[];
+    selectedIso: LocalDate;
+    loads: Map<LocalDate, number>;
     /** Days with a holiday, birthday or personal event. */
-    markedDays?: Set<string>;
-    onSelect: (iso: string) => void;
+    markedDays?: Set<LocalDate>;
+    onSelect: (iso: LocalDate) => void;
     onShiftWeek: (delta: number) => void;
 }
 
-function StripDay({ date, selected, isToday, load, marked, onSelect }: {
-    date: Date;
+function StripDay({ iso, selected, isToday, load, marked, onSelect }: {
+    iso: LocalDate;
     selected: boolean;
     isToday: boolean;
     load: number;
     marked: boolean;
     onSelect: () => void;
 }) {
-    const iso = toISODate(date);
     // Long-pressing a task row and dropping it here moves it to this day.
     const { setNodeRef, isOver } = useDroppable({ id: `day-${iso}` });
     const dots = loadDots(load);
@@ -36,7 +36,7 @@ function StripDay({ date, selected, isToday, load, marked, onSelect }: {
             type="button"
             onClick={onSelect}
             aria-pressed={selected}
-            aria-label={`${format(date, "EEEE d MMMM")}${isToday ? ", today" : ""}, ${loadWord(load)}${marked ? ", has an event" : ""}`}
+            aria-label={`${dayHeading(iso)}${isToday ? ", today" : ""}, ${loadWord(load)}${marked ? ", has an event" : ""}`}
             className={`relative flex min-h-[60px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
                 isOver
                     ? "bg-moonlit/20 ring-1 ring-moonlit/50"
@@ -46,10 +46,10 @@ function StripDay({ date, selected, isToday, load, marked, onSelect }: {
             }`}
         >
             <span className={`text-[10px] font-semibold uppercase ${selected ? "" : isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
-                {format(date, "EEEEE")}
+                {weekdayName(iso, "narrow")}
             </span>
             <span className={`text-[17px] font-semibold leading-none tabular-nums ${selected ? "" : isToday ? "text-accent-primary" : "text-twilight-text"}`}>
-                {date.getDate()}
+                {dayOfMonth(iso)}
             </span>
             <span className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
                 {Array.from({ length: dots }, (_, i) => (
@@ -69,7 +69,7 @@ function StripDay({ date, selected, isToday, load, marked, onSelect }: {
  * never counts.
  */
 export function DayStrip({ weekDates, selectedIso, loads, markedDays, onSelect, onShiftWeek }: DayStripProps) {
-    const todayIso = toISODate(new Date());
+    const todayIso = useToday();
     const [direction, setDirection] = useState(0);
     const shift = (delta: number) => {
         setDirection(delta);
@@ -77,7 +77,7 @@ export function DayStrip({ weekDates, selectedIso, loads, markedDays, onSelect, 
     };
     const { reducedMotion, dragProps } = usePeriodSwipe({ enabled: true, onCommit: shift });
     const custom: SlideCustom = { direction, distance: reducedMotion ? 0 : 24 };
-    const weekKey = weekDates[0] ? toISODate(weekDates[0]) : "";
+    const weekKey = weekDates[0] ?? "";
 
     return (
         <motion.div {...dragProps} className="shrink-0 overflow-hidden px-3 pb-2 pt-1 select-none">
@@ -94,12 +94,11 @@ export function DayStrip({ weekDates, selectedIso, loads, markedDays, onSelect, 
                     role="group"
                     aria-label="Week"
                 >
-                    {weekDates.map((date) => {
-                        const iso = toISODate(date);
+                    {weekDates.map((iso) => {
                         return (
                             <StripDay
                                 key={iso}
-                                date={date}
+                                iso={iso}
                                 selected={iso === selectedIso}
                                 isToday={iso === todayIso}
                                 load={loads.get(iso) ?? 0}

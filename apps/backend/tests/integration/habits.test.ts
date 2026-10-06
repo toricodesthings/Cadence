@@ -18,10 +18,14 @@ function day(offset = 0) {
 let habits: ReturnType<typeof apiAs>;
 let tags: ReturnType<typeof apiAs>;
 let otherHabits: ReturnType<typeof apiAs>;
+let userId: string;
+
+/** The caller's zone is the account's (`users.time_zone`), never a request parameter. */
+const setZone = (zone: string) => asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [userId, zone]));
 
 beforeAll(startTestDb);
 beforeEach(async () => {
-    const userId = await createUser();
+    userId = await createUser();
     habits = apiAs(userId, "/habits", habitRoutes);
     tags = apiAs(userId, "/tags", tagRoutes);
     otherHabits = apiAs(await createUser(), "/habits", habitRoutes);
@@ -188,9 +192,10 @@ describe("resolving occurrences", () => {
     it("counts today as the caller's day (regression: a morning check-in in Tokyo read as UTC's yesterday)", async () => {
         vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-23T23:00:00.000Z") }); // 08:00 Sep 24 in Tokyo
         try {
+            await setZone("Asia/Tokyo");
             const habit = await create();
             await asOwner((pg) => pg.query("UPDATE habits SET created_at = '2026-09-01T00:00:00Z' WHERE id = $1", [habit.id]));
-            const inTokyo = (targetDate: string) => habits("POST", `/${habit.id}/resolve`, { targetDate, status: "COMPLETED", timezone: "Asia/Tokyo" });
+            const inTokyo = (targetDate: string) => habits("POST", `/${habit.id}/resolve`, { targetDate, status: "COMPLETED" });
             await inTokyo("2026-09-23");
 
             expect((await inTokyo("2026-09-24")).body.data.habit.currentStreak).toBe(2);
@@ -253,12 +258,14 @@ describe("views", () => {
     });
 
     it("weekly: keeps creation-day and step-log rules across DST and different caller zones", async () => {
+        await setZone("America/New_York");
         const habit = await create({ steps: [{ id: "step-a", title: "First" }, { id: "step-b", title: "Second" }] });
         await asOwner(pg => pg.query("UPDATE habits SET created_at = '2026-03-08T02:30:00.000Z' WHERE id = $1", [habit.id]));
-        const logged = await habits("POST", `/${habit.id}/resolve`, { targetDate: "2026-03-08", status: "PENDING", stepStatus: { "step-a": "COMPLETED" }, timezone: "America/New_York" });
+        const logged = await habits("POST", `/${habit.id}/resolve`, { targetDate: "2026-03-08", status: "PENDING", stepStatus: { "step-a": "COMPLETED" } });
         expect(logged.status).toBe(200);
-        const ny = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10&timezone=America%2FNew_York")).body.data[0];
-        const tokyo = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10&timezone=Asia%2FTokyo")).body.data[0];
+        const ny = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10")).body.data[0];
+        await setZone("Asia/Tokyo");
+        const tokyo = (await habits("GET", "/weekly?start=2026-03-06&end=2026-03-10")).body.data[0];
         expect(ny.logs.map((log: any) => log.targetDate)).toEqual(["2026-03-06", "2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10"]);
         expect(tokyo.logs.map((log: any) => log.targetDate)).toEqual(["2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10"]);
         expect(ny.logs.find((log: any) => log.targetDate === "2026-03-08")).toMatchObject({ id: logged.body.data.log.id, status: "PENDING", stepStatus: { "step-a": "COMPLETED" } });
@@ -270,7 +277,7 @@ describe("views", () => {
         await resolve(habit.id, day(-2), "COMPLETED");
         await habits("PATCH", `/${habit.id}`, { pausedUntil: day(3) });
 
-        const { body } = await habits("GET", `/weekly?start=${day(-2)}&end=${day(1)}&timezone=UTC`);
+        const { body } = await habits("GET", `/weekly?start=${day(-2)}&end=${day(1)}`);
 
         expect(body.data[0].logs.map((l: any) => [l.targetDate, l.status])).toEqual([
             [day(-2), "COMPLETED"],
@@ -283,7 +290,7 @@ describe("views", () => {
         const habit = await create();
         await resolve(habit.id, day(-4), "COMPLETED");
 
-        const { body } = await habits("GET", `/weekly?start=${day(-5)}&end=${day(0)}&timezone=UTC`);
+        const { body } = await habits("GET", `/weekly?start=${day(-5)}&end=${day(0)}`);
 
         expect(body.data[0].logs.map((l: any) => [l.targetDate, l.status])).toEqual([
             [day(-4), "COMPLETED"],

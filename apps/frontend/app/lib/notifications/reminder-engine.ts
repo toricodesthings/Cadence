@@ -1,7 +1,9 @@
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { AppNotification } from "./notification-model";
-import { formatShortDate, formatTime, getEffectiveTaskDate, toISODate } from "../utils/date-format";
+import { addDays, atLocal, daysBetween, todayIn, wallTimeOf } from "@cadence/domain/time";
+import { formatShortDate, formatTime } from "../utils/date-format";
+import { getUserZone } from "../utils/user-zone";
 import { routineTimeOn } from "@cadence/domain/repeats";
 
 // ── §11.7: Defer choices ──
@@ -14,23 +16,20 @@ export const DEFER_LABELS: Record<DeferChoice, string> = {
     "tomorrow": "Tomorrow",
 };
 
-/** Compute the ISO timestamp a notification should resurface after deferral */
+/** The instant (ISO) a notification should resurface after deferral; "evening" and "tomorrow" are wall times in the user's zone. */
 export function computeDeferUntil(choice: DeferChoice, now: Date): string {
-    const d = new Date(now);
+    const zone = getUserZone();
+    const today = todayIn(zone, now);
     switch (choice) {
         case "10_minutes":
-            d.setMinutes(d.getMinutes() + 10);
-            return d.toISOString();
+            return new Date(now.getTime() + 10 * 60_000).toISOString();
         case "this_evening": {
-            d.setHours(19, 0, 0, 0);
             // If already past 7pm, push to tomorrow evening
-            if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
-            return d.toISOString();
+            const evening = atLocal(today, "19:00", zone);
+            return Date.parse(evening) > now.getTime() ? evening : atLocal(addDays(today, 1), "19:00", zone);
         }
         case "tomorrow":
-            d.setDate(d.getDate() + 1);
-            d.setHours(9, 0, 0, 0);
-            return d.toISOString();
+            return atLocal(addDays(today, 1), "09:00", zone);
     }
 }
 
@@ -55,7 +54,8 @@ export function isInQuietHours(
     if (!enabled || !start || !end) return false;
     const [sh, sm] = start.split(":").map(Number);
     const [eh, em] = end.split(":").map(Number);
-    const current = now.getHours() * 60 + now.getMinutes();
+    const [ch, cm] = wallTimeOf(now, getUserZone()).split(":").map(Number);
+    const current = ch * 60 + cm;
     const startMin = sh * 60 + sm;
     const endMin = eh * 60 + em;
 
@@ -77,6 +77,8 @@ export function deriveCandidates(
     now: Date,
 ): AppNotification[] {
     const items: AppNotification[] = [];
+    const zone = getUserZone();
+    const today = todayIn(zone, now);
 
     for (const task of tasks) {
         if (task.state === "COMPLETE" || task.state === "ARCHIVED") continue;
@@ -102,42 +104,22 @@ export function deriveCandidates(
             }
         }
 
-        // Due date notifications
+        // Deadlines: a deadline is a day (a LocalDate), never a time.
         if (task.dueDate) {
-            const dueDate = new Date(task.dueDate);
-            const todayStr = toISODate(now);
-            // All-day: the stored day. Timed: the day in the user's time zone.
-            const dueDateStr = getEffectiveTaskDate(task.dueDate, task.isAllDay);
-
-            if (dueDateStr === todayStr) {
+            const dueDay = task.dueDate;
+            const overdueDays = daysBetween(dueDay, today);
+            if (overdueDays === 0 || (overdueDays > 0 && overdueDays <= 3)) {
                 items.push({
-                    id: `task-due::${task.id}::${dueDateStr}`,
+                    id: `task-due::${task.id}::${dueDay}`,
                     kind: "task-due",
                     title: task.title,
-                    body: task.isAllDay
-                        ? "Due today"
-                        : `Due at ${formatTime(task.dueDate)}`,
-                    triggerAt: task.dueDate,
+                    body: overdueDays === 0 ? "Due today" : `Overdue since ${formatShortDate(dueDay)}`,
+                    triggerAt: atLocal(dueDay, "00:00", zone),
                     entityId: task.id,
                     route: task.projectId ? `/project/${task.projectId}` : "/",
                     priority: "high",
                     read: false,
                 });
-            } else if (dueDate < now) {
-                const overdueDays = Math.floor((now.getTime() - dueDate.getTime()) / (24 * 60 * 60_000));
-                if (overdueDays <= 3) {
-                    items.push({
-                        id: `task-due::${task.id}::${dueDateStr}`,
-                        kind: "task-due",
-                        title: task.title,
-                        body: `Overdue since ${formatShortDate(task.dueDate)}`,
-                        triggerAt: task.dueDate,
-                        entityId: task.id,
-                        route: task.projectId ? `/project/${task.projectId}` : "/",
-                        priority: "high",
-                        read: false,
-                    });
-                }
             }
         }
     }
@@ -145,19 +127,17 @@ export function deriveCandidates(
     for (const habit of habits) {
         if (habit.archived || !habit.reminderEnabled) continue;
 
-        const targetTime = routineTimeOn(habit, toISODate(now));
+        const targetTime = routineTimeOn(habit, today);
         if (targetTime) {
-            const [hours, minutes] = targetTime.split(":").map(Number);
-            const targetToday = new Date(now);
-            targetToday.setHours(hours, minutes, 0, 0);
+            const targetToday = atLocal(today, targetTime, zone);
 
-            const diffMs = targetToday.getTime() - now.getTime();
+            const diffMs = Date.parse(targetToday) - now.getTime();
             if (Math.abs(diffMs) <= 2 * 60 * 60_000) {
-                const todayStr = toISODate(now);
+                const todayStr = today;
                 // Today's log exists only when the routine is due and not paused;
                 // remind while it is still open.
                 const openToday = habit.logs?.some(
-                    (log) => log.targetDate.startsWith(todayStr) && log.status === "PENDING",
+                    (log) => log.targetDate === todayStr && log.status === "PENDING",
                 );
 
                 if (openToday) {
@@ -168,7 +148,7 @@ export function deriveCandidates(
                         body: diffMs > 0
                             ? `Due at ${targetTime.slice(0, 5)}`
                             : "Due now",
-                        triggerAt: targetToday.toISOString(),
+                        triggerAt: targetToday,
                         entityId: habit.id,
                         route: "/routines",
                         priority: "normal",
@@ -234,7 +214,7 @@ export function filterByBehavior(
             const missedIds = new Set(missedHabits.map((n) => n.id));
             filtered = filtered.filter((n) => !missedIds.has(n.id));
             filtered.push({
-                id: `habit-bundle::${toISODate(now)}`,
+                id: `habit-bundle::${todayIn(getUserZone(), now)}`,
                 kind: "habit-reminder",
                 title: "Routines today",
                 body: `${missedHabits.length} routines are open today`,

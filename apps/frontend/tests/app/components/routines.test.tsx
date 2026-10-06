@@ -7,9 +7,12 @@ import { monthStats } from "../../../app/components/habits/RoutineMonthGrid";
 import { openOnCardClick } from "../../../app/components/habits/RoutineWeekRow";
 import { stepProgress } from "../../../app/components/habits/RoutineSteps";
 import { isRoutinePaused, routineTone } from "../../../app/lib/utils/habits";
-import { toISODate, weekdayLabels } from "../../../app/lib/utils/date-format";
+import { addDays } from "@cadence/domain/time";
+import { setUserZone, today } from "../../../app/lib/utils/user-zone";
+import { weekdayLabels } from "../../../app/lib/utils/date-format";
 
-const day = (offset: number) => { const d = new Date(); d.setDate(d.getDate() + offset); return toISODate(d); };
+setUserZone("America/Toronto");
+const day = (offset: number) => addDays(today(), offset);
 
 describe("isRoutinePaused", () => {
     it("covers today through pausedUntil and never the days before", () => {

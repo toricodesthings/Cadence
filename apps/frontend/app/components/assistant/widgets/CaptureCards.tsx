@@ -10,7 +10,6 @@ import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./Ap
 import { DraftDetails, DraftNote, DraftQuotes, DraftSteps, type TaskDraft } from "./TaskBatchCard";
 import { useCaptureLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
-import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 
 type CaptureDraft = TaskDraft & { inboxItemId?: string };
 
@@ -18,7 +17,7 @@ type CaptureDraft = TaskDraft & { inboxItemId?: string };
 export function StructureCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
-    const drafts = ((ctx.part?.input?.items ?? []) as CaptureDraft[]).map((d) => normalizeTaskWriteTemporalInput(d));
+    const drafts = ((ctx.part?.input?.items ?? []) as CaptureDraft[]);
     const count = drafts.length;
     const kept = count - off.size;
     const first = drafts[0] ?? {};
@@ -135,7 +134,7 @@ export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext }) {
 /** Retired `structure_inbox_item` (one capture per call), still in older threads. */
 export function InboxStructureCard({ ctx }: { ctx: ToolRenderContext }) {
     const persona = useAssistantPersona();
-    const draft = normalizeTaskWriteTemporalInput((ctx.part?.input ?? {}) as TaskDraft);
+    const draft = (ctx.part?.input ?? {}) as TaskDraft;
     const title = draft.title ?? "this capture";
     return (
         <ApprovalCard

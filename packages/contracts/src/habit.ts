@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { isoDateTimeSchema, localDateSchema } from "./common";
 
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
@@ -52,20 +52,22 @@ export const updateHabitSchema = insertHabitSchema.omit({ id: true }).partial().
 export type UpdateHabit = z.input<typeof updateHabitSchema>;
 
 export const resolveHabitActionSchema = z.object({
-    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/), // YYYY-MM-DD or full ISO datetime — server truncates to date
+    // A LocalDate. time-legacy: queued operations from before 0.26.3 sent a full datetime; its date part is kept.
+    targetDate: z.preprocess((v) => (typeof v === "string" ? (/^(\d{4}-\d{2}-\d{2})T/.exec(v)?.[1] ?? v) : v), localDateSchema),
     status: habitStatusSchema,
     /** A routine with steps: the day's step marks. The server derives `status` from them (see `stepDayStatus`). */
     stepStatus: stepStatusSchema.optional(),
-    /** The caller's IANA zone, so "today" (and the streak) is their day, not UTC's. */
+    /** time-legacy: ignored; the server uses the user's zone (`users.time_zone`). */
     timezone: z.string().max(64).optional(),
 });
 export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;
 
 export const weeklyHabitsQuerySchema = z.object({
-    start: z.string().min(1), // e.g., YYYY-MM-DD
-    end: z.string().min(1),
+    start: localDateSchema,
+    end: localDateSchema,
     archived: z.string().optional().default("false").transform(v => v === "true"),
-    timezone: z.string().optional().default("UTC"),
+    /** time-legacy: ignored; the server uses the user's zone. */
+    timezone: z.string().optional(),
 });
 
 export const habitListQuerySchema = z.object({

@@ -12,6 +12,7 @@ import { AI_ERROR_CODES, CONVERSATION_TITLE_DATA_TYPE } from "@cadence/contracts
 import { apiValidator } from "../../platform/validation";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
+import { syncUserZone } from "../../platform/user-zone";
 import { getRequestId, setRequestErrorCode } from "../../platform/request-log";
 import { logger, hashIdentifier, issuesFromError, shorten } from "../../platform/log";
 import { getIdempotencyKey } from "../../platform/idempotency";
@@ -220,8 +221,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // The agent (user settings, memories, prompt, tools) needs nothing from the turn's
     // persistence, so build it alongside instead of after. Awaited below; the catch only
     // stops an unhandled rejection if persistence throws first.
-    const agentReady = getAgentInstance(c.env, userId, {
-        timezone: body.timezone,
+    // The client's zone is synced to users.time_zone first, so every tool and the clock read the one stored zone.
+    const agentReady = withRls(db, userId, (tx) => syncUserZone(tx, userId, body.timezone)).then((timezone) => getAgentInstance(c.env, userId, {
+        timezone,
         currentDate: body.currentDate,
         locale: body.locale,
         approvalMode: body.approvalMode,
@@ -230,7 +232,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         queryText: incomingText || undefined,
         requestId,
         waitUntil: (promise) => c.executionCtx.waitUntil(promise),
-    });
+    }));
     agentReady.catch(() => {});
 
     // Persist the user turn + reconstruct history (RLS). The DB is the source of truth.

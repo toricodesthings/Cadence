@@ -5,6 +5,7 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
+import { meRoutes } from "../../src/domains/account/me.route";
 import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
 import { settingsRoutes } from "../../src/domains/settings/settings.route";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
@@ -150,5 +151,89 @@ describe("clearing intelligence history", () => {
         expect((await settings("GET", "/notification-state")).body.data).toEqual([]);
         expect((await tasks("GET", `/${task.data.id}`)).status).toBe(200);
         expect((await otherSettings("GET", "")).body.data.tasks.intelligence.dismissedEntityIds).toEqual(["project:2"]);
+    });
+});
+
+describe("the user's time zone", () => {
+    const storedZone = async (id = userId) => (await asOwner(async (pg) => (await pg.query<{ time_zone: string }>("SELECT time_zone FROM users WHERE id = $1", [id])).rows))[0].time_zone;
+    let me: ReturnType<typeof apiAs>;
+    beforeEach(() => { me = apiAs(userId, "/me", meRoutes); });
+
+    it("a new user's zone is UTC until the device reports one", async () => {
+        expect(await storedZone()).toBe("UTC");
+    });
+
+    it("PUT /me/time-zone stores a valid IANA zone and answers with it", async () => {
+        const { status, body } = await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" });
+
+        expect(status).toBe(200);
+        expect(body.data).toEqual({ timeZone: "Asia/Tokyo" });
+        expect(await storedZone()).toBe("Asia/Tokyo");
+        expect((await me("PUT", "/time-zone", { timeZone: "America/Toronto" })).body.data.timeZone).toBe("America/Toronto");
+        expect(await storedZone()).toBe("America/Toronto");
+    });
+
+    it.each(["local", "device", "+05:00", "UTC+5", "EST5EDT-garbage", "not a zone", ""])("rejects %j with 400 and keeps the stored zone", async (timeZone) => {
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+        await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" });
+
+        expect((await me("PUT", "/time-zone", { timeZone })).status).toBe(400);
+        expect(await storedZone()).toBe("Asia/Tokyo");
+    });
+
+    it("rejects a missing or non-string zone", async () => {
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+        expect((await me("PUT", "/time-zone", {})).status).toBe(400);
+        expect((await me("PUT", "/time-zone", { timeZone: 5 })).status).toBe(400);
+    });
+
+    it("only changes the caller's own zone", async () => {
+        const other = await createUser();
+        await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" });
+
+        expect(await storedZone(other)).toBe("UTC");
+    });
+
+    it("a zone pinned in Settings wins over a device report", async () => {
+        await settings("PATCH", "", { dateTime: { timezone: "America/Toronto" } });
+
+        const { body } = await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" });
+
+        expect(body.data.timeZone).toBe("America/Toronto");
+        expect(await storedZone()).toBe("America/Toronto");
+    });
+
+    it("with Settings on \"device\", the device report is the zone", async () => {
+        await settings("PATCH", "", { dateTime: { timezone: "America/Toronto" } });
+        await settings("PATCH", "", { dateTime: { timezone: "device" } });
+
+        // Choosing "device" leaves the last zone in place until the client's next report.
+        expect(await storedZone()).toBe("America/Toronto");
+        expect((await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" })).body.data.timeZone).toBe("Asia/Tokyo");
+        expect(await storedZone()).toBe("Asia/Tokyo");
+    });
+
+    it("PATCH settings with an IANA timezone sets users.time_zone at once", async () => {
+        await settings("PATCH", "", { dateTime: { timezone: "Pacific/Auckland" } });
+
+        expect(await storedZone()).toBe("Pacific/Auckland");
+        expect((await settings("GET", "")).body.data.dateTime.timezone).toBe("Pacific/Auckland");
+    });
+
+    it("a stored legacy \"local\" reads back as \"device\", and a patch to \"local\" is stored as \"device\"", async () => {
+        const legacy = await createUser({ dateTime: { timezone: "local" } });
+        const legacySettings = apiAs(legacy, "/settings", settingsRoutes);
+
+        expect((await legacySettings("GET", "")).body.data.dateTime.timezone).toBe("device");
+        expect(await storedZone(legacy)).toBe("UTC");
+        expect((await legacySettings("PATCH", "", { dateTime: { timezone: "local" } })).body.data.dateTime.timezone).toBe("device");
+        expect(await storedZone(legacy)).toBe("UTC");
+    });
+
+    it("rejects an offset or garbage as the Settings timezone", async () => {
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+        expect((await settings("PATCH", "", { dateTime: { timezone: "+05:00" } })).status).toBe(400);
+        expect((await settings("PATCH", "", { dateTime: { timezone: "nowhere" } })).status).toBe(400);
+        expect(await storedZone()).toBe("UTC");
     });
 });

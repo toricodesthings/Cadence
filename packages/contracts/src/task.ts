@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { flexibleDateTimeSchema, isoDateTimeSchema, normalizeEndBoundary, normalizeStartBoundary, paginationSchema } from "./common";
+import { instantSchema, legacyTimeInputSchema, localDateSchema, paginationSchema, zoneSchema } from "./common";
 import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
 // ── Enums / shared scalars ──
@@ -36,24 +36,30 @@ export const insertTaskSchema = z.object({
     content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.default("ACTIVE"),
     orderIndex: z.number(),
-    isAllDay: z.boolean().default(true),
-    dueDate: flexibleDateTimeSchema.nullable().optional(),
-    scheduledStart: flexibleDateTimeSchema.nullable().optional(),
-    scheduledEnd: flexibleDateTimeSchema.nullable().optional(),
+    // A day (all-day or a deadline), or a timed block (instants plus the zone it was planned in).
+    // All-day = no scheduledStart. The writes below also take the old shapes (see legacyTimeInputSchema).
+    dueDate: legacyTimeInputSchema.nullable().optional(),
+    endDate: localDateSchema.nullable().optional(),
+    scheduledStart: legacyTimeInputSchema.nullable().optional(),
+    scheduledEnd: legacyTimeInputSchema.nullable().optional(),
+    zone: zoneSchema.nullable().optional(),
+    /** time-legacy: old clients; true with a start means the start only names the day. */
+    isAllDay: z.boolean().optional(),
     durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
     timezoneLocked: z.boolean().default(false),
     projectId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.default(0),
     isPinned: z.boolean().default(false),
-    reminderAt: isoDateTimeSchema.nullable().optional(),
+    reminderAt: instantSchema.nullable().optional(),
     reminderSilenced: z.boolean().default(false),
     recurrenceRule: z.string().max(500).nullable().optional(),
     // Omitted → the server picks a default (see @cadence/domain suggestInteractionMode).
     interactionMode: taskInteractionModeSchema.optional(),
     waitingOn: waitingOnSchema.nullable().optional(),
-    waitingReminder: isoDateTimeSchema.nullable().optional(),
+    waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
-    notBefore: isoDateTimeSchema.nullable().optional(),
+    /** Hide until a day (LocalDate; an old client's instant is read as its day). */
+    notBefore: legacyTimeInputSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     tagIds: z.array(z.uuid()).max(50).optional(),
     nlp: canonicalNlpEnvelopeSchema.optional(),
@@ -65,23 +71,26 @@ export const updateTaskSchema = z.object({
     content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.optional(),
     orderIndex: z.number().optional(),
+    dueDate: legacyTimeInputSchema.nullable().optional(),
+    endDate: localDateSchema.nullable().optional(),
+    scheduledStart: legacyTimeInputSchema.nullable().optional(),
+    scheduledEnd: legacyTimeInputSchema.nullable().optional(),
+    zone: zoneSchema.nullable().optional(),
+    /** time-legacy: old clients. */
     isAllDay: z.boolean().optional(),
-    dueDate: flexibleDateTimeSchema.nullable().optional(),
-    scheduledStart: flexibleDateTimeSchema.nullable().optional(),
-    scheduledEnd: flexibleDateTimeSchema.nullable().optional(),
     durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
     timezoneLocked: z.boolean().optional(),
     projectId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.optional(),
     isPinned: z.boolean().optional(),
-    reminderAt: isoDateTimeSchema.nullable().optional(),
+    reminderAt: instantSchema.nullable().optional(),
     reminderSilenced: z.boolean().optional(),
     recurrenceRule: z.string().max(500).nullable().optional(),
     interactionMode: taskInteractionModeSchema.optional(),
     waitingOn: waitingOnSchema.nullable().optional(),
-    waitingReminder: isoDateTimeSchema.nullable().optional(),
+    waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
-    notBefore: isoDateTimeSchema.nullable().optional(),
+    notBefore: legacyTimeInputSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
     expectedUpdatedAt: z.string().optional(),
 });
@@ -105,19 +114,19 @@ export const batchStateSchema = z.object({
 });
 
 /**
- * Either `scheduledStart` (every task gets that exact value) or `date` + `timezone`
- * (each task keeps its own local time on the new day, all-day stays all-day).
+ * Either `scheduledStart` (every task gets that exact instant) or `date` (each task keeps its
+ * own local time on the new day, all-day stays all-day; the server uses the user's zone).
  */
 export const batchRescheduleSchema = z
     .object({
         taskIds: batchTaskIdsSchema,
-        scheduledStart: flexibleDateTimeSchema.optional(),
-        isAllDay: z.boolean().default(true),
-        date: z.iso.date().optional(),
-        timezone: z.string().min(1).max(64).optional(),
+        scheduledStart: legacyTimeInputSchema.optional(),
+        date: localDateSchema.optional(),
+        /** time-legacy: old clients sent the day and zone; the zone is ignored. */
+        timezone: z.string().max(64).optional(),
+        isAllDay: z.boolean().optional(),
     })
-    .refine((v) => (v.scheduledStart === undefined) !== (v.date === undefined), "Send scheduledStart or date, not both")
-    .refine((v) => v.date === undefined || v.timezone !== undefined, "date needs a timezone");
+    .refine((v) => (v.scheduledStart === undefined) !== (v.date === undefined), "Send scheduledStart or date, not both");
 export type BatchReschedule = z.infer<typeof batchRescheduleSchema>;
 
 // ── Row schema — exactly the DB columns (wire-shaped, timestamps as ISO strings) ──
@@ -131,24 +140,25 @@ export const taskRowSchema = z.object({
     content: z.string().nullable(),
     state: taskStateSchema,
     orderIndex: z.number(),
-    isAllDay: z.boolean(),
-    dueDate: isoDateTimeSchema.nullable(),
-    scheduledStart: isoDateTimeSchema.nullable(),
-    scheduledEnd: isoDateTimeSchema.nullable(),
+    dueDate: localDateSchema.nullable(),
+    endDate: localDateSchema.nullable(),
+    scheduledStart: instantSchema.nullable(),
+    scheduledEnd: instantSchema.nullable(),
+    zone: zoneSchema.nullable(),
     durationEstimate: z.number().int().nullable(),
     timezoneLocked: z.boolean(),
     priority: z.number().int().min(0).max(4),
     isPinned: z.boolean(),
-    reminderAt: isoDateTimeSchema.nullable(),
+    reminderAt: instantSchema.nullable(),
     reminderSilenced: z.boolean(),
     recurrenceRule: z.string().nullable(),
     interactionMode: taskInteractionModeSchema,
     waitingOn: z.string().nullable(),
-    waitingReminder: isoDateTimeSchema.nullable(),
+    waitingReminder: instantSchema.nullable(),
     effort: z.number().int().min(1).max(3).nullable(),
-    notBefore: isoDateTimeSchema.nullable(),
-    createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema,
+    notBefore: localDateSchema.nullable(),
+    createdAt: instantSchema,
+    updatedAt: instantSchema,
 });
 export type TaskRow = z.infer<typeof taskRowSchema>;
 
@@ -162,14 +172,18 @@ export const taskSchema = taskRowSchema.extend({
     // interface — fixtures and partial reads may omit them).
     sectionId: z.uuid().nullable().optional(),
     waitingOn: z.string().nullable().optional(),
-    waitingReminder: isoDateTimeSchema.nullable().optional(),
-    notBefore: isoDateTimeSchema.nullable().optional(),
+    waitingReminder: instantSchema.nullable().optional(),
+    notBefore: localDateSchema.nullable().optional(),
+    /** Derived (`scheduledStart === null`), sent for one release for old clients; never written. */
+    isAllDay: z.boolean().optional(),
     tagIds: z.array(z.uuid()),
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),
     isRecurringInstance: z.boolean().optional(),
-    occurrenceStart: isoDateTimeSchema.nullable().optional(),
-    occurrenceEnd: isoDateTimeSchema.nullable().optional(),
+    /** The day an occurrence falls on (its id is `<seriesId>::<LocalDate>`). */
+    occurrenceDay: localDateSchema.optional(),
+    occurrenceStart: instantSchema.nullable().optional(),
+    occurrenceEnd: instantSchema.nullable().optional(),
 });
 export type Task = z.infer<typeof taskSchema>;
 
@@ -187,41 +201,29 @@ const booleanQuerySchema = z
 const taskFiltersSchemaBase = z.object({
     state: taskStateSchema.optional(),
     projectId: z.uuid().optional(),
-    scheduledDate: z.iso.date().optional(),
-    scheduledRangeStart: flexibleDateTimeSchema.optional(),
-    scheduledRangeEnd: flexibleDateTimeSchema.optional(),
+    /** A day window, inclusive: LocalDates. The server turns them into instant bounds in the user's zone. */
+    from: localDateSchema.optional(),
+    to: localDateSchema.optional(),
     priority: z.coerce.number().int().min(0).max(4).optional(),
     isPinned: booleanQuerySchema.optional(),
     effort: z.coerce.number().int().min(1).max(3).optional(),
-    notBeforeBefore: isoDateTimeSchema.optional(), // tasks where not_before <= this date
+    notBeforeBefore: localDateSchema.optional(), // tasks hidden until this day or earlier (or never)
     hasNoDate: booleanQuerySchema.optional(),
     hasNoProject: booleanQuerySchema.optional(),
-    effectiveOnOrBeforeDate: z.iso.date().optional(),
+    effectiveOnOrBeforeDate: localDateSchema.optional(),
 });
 
 function refineTaskFilters(value: z.infer<typeof taskFiltersSchemaBase>, ctx: z.RefinementCtx) {
-    const hasRangeStart = value.scheduledRangeStart !== undefined;
-    const hasRangeEnd = value.scheduledRangeEnd !== undefined;
-
-    if (hasRangeStart !== hasRangeEnd) {
+    if ((value.from !== undefined) !== (value.to !== undefined)) {
         ctx.addIssue({
             code: "custom",
-            message: "scheduledRangeStart and scheduledRangeEnd must be provided together",
-            path: hasRangeStart ? ["scheduledRangeEnd"] : ["scheduledRangeStart"],
+            message: "from and to must be provided together",
+            path: [value.from !== undefined ? "to" : "from"],
         });
     }
 
-    if (value.scheduledRangeStart && value.scheduledRangeEnd) {
-        const start = new Date(normalizeStartBoundary(value.scheduledRangeStart)).getTime();
-        const end = new Date(normalizeEndBoundary(value.scheduledRangeEnd)).getTime();
-
-        if (Number.isFinite(start) && Number.isFinite(end) && start > end) {
-            ctx.addIssue({
-                code: "custom",
-                message: "scheduledRangeEnd must be on or after scheduledRangeStart",
-                path: ["scheduledRangeEnd"],
-            });
-        }
+    if (value.from && value.to && value.from > value.to) {
+        ctx.addIssue({ code: "custom", message: "to must be on or after from", path: ["to"] });
     }
 }
 
@@ -241,9 +243,8 @@ export const taskBatchFiltersSchema = z.array(taskFiltersSchemaBase
     .extend({ state: z.enum(["ACTIVE", "WAITING"]) })
     .superRefine(refineTaskFilters)
     .superRefine((value, ctx) => {
-        if (value.scheduledRangeStart && value.scheduledRangeEnd &&
-            Date.parse(normalizeEndBoundary(value.scheduledRangeEnd)) - Date.parse(normalizeStartBoundary(value.scheduledRangeStart)) > 42 * 86_400_000) {
-            ctx.addIssue({ code: "custom", message: "Batch schedule ranges must fit within 42 days", path: ["scheduledRangeEnd"] });
+        if (value.from && value.to && Date.parse(`${value.to}T00:00:00Z`) - Date.parse(`${value.from}T00:00:00Z`) > 41 * 86_400_000) {
+            ctx.addIssue({ code: "custom", message: "Batch schedule ranges must fit within 42 days", path: ["to"] });
         }
     }).strict()).min(1).max(TASK_BATCH_MAX);
 export type TaskBatchFiltersInput = z.input<typeof taskBatchFiltersSchema>;

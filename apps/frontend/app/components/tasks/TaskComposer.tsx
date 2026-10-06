@@ -18,7 +18,7 @@ import { useTypedWhen } from "../../hooks/use-typed-when";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { mapPriorityNameToNumber, resolveDefaultDueDate } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
-import { formatShortDateLabel, formatTime } from "../../lib/utils/date-format";
+import { blockEnd, formatShortDateLabel, formatWallTime, fromTimeValue } from "../../lib/utils/date-format";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { EffortLevel, Task, TaskPriority } from "@cadence/contracts/task";
 
@@ -107,15 +107,15 @@ export function useTaskComposer({
     };
 
     const whenSummary = when.date
-        ? `${formatShortDateLabel(when.date)}${when.allDay ? "" : ` · ${formatTime(new Date(`${when.date}T${when.start}:00`).toISOString())}`}`
+        ? `${formatShortDateLabel(when.date)}${when.allDay ? "" : ` · ${formatWallTime(when.start)}`}`
         : null;
 
     const submit = () => {
         if (!submitTitle || createTask.isPending) return;
-        const timed = when.date && !when.allDay;
-        const start = timed ? new Date(`${when.date}T${when.start}:00`) : null;
-        const end = timed ? new Date(`${when.date}T${when.end}:00`) : null;
-        if (start && end && end <= start) end.setDate(end.getDate() + 1);
+        // A timed block sends instants only; an all-day task sends its day.
+        const timed = Boolean(when.date) && !when.allDay;
+        const start = timed ? fromTimeValue(when.date, when.start) : null;
+        const end = start ? blockEnd(when.date, start, when.end) : null;
         const siblings = project ? tasksIn(tasks, target) : tasks;
 
         trackUsageEvent("task.create", { surface: project ? "inline_add" : "quick_add", object_type: "task" });
@@ -124,11 +124,10 @@ export function useTaskComposer({
                 rawInput: title,
                 title: submitTitle,
                 schedule: {
-                    dueDate: when.date || resolveDefaultDueDate(settings?.tasks?.defaultDueDate) || null,
-                    scheduledStart: start?.toISOString() ?? null,
-                    scheduledEnd: end?.toISOString() ?? null,
+                    dueDate: timed ? null : when.date || resolveDefaultDueDate(settings?.tasks?.defaultDueDate) || null,
+                    scheduledStart: start,
+                    scheduledEnd: end,
                     recurrenceRule: typed.touched ? null : nlp.recurrenceRule,
-                    isAllDay: !timed,
                 },
                 priority: priority || nlp.priority || mapPriorityNameToNumber(settings?.tasks?.defaultPriority),
                 projectId: resolvedProjectId,

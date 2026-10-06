@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
+import { addDays, atLocal, todayIn, type Instant, type LocalDate, type Zone } from "@cadence/domain/time";
 import { insertHabitSchema } from "@cadence/contracts/habit";
 import { insertInboxItemSchema, insertInboxSectionSchema } from "@cadence/contracts/inbox";
 import { insertProjectSchema } from "@cadence/contracts/project";
@@ -63,22 +64,21 @@ export type SeedSavedFocusViewInput = {
 
 // ── Temporal helpers ─────────────────────────────────────────────────
 
-export function seedDateTime(anchor: Date, dayOffset: number, hours = 12, minutes = 0) {
-    return new Date(
-        Date.UTC(
-            anchor.getUTCFullYear(),
-            anchor.getUTCMonth(),
-            anchor.getUTCDate() + dayOffset,
-            hours,
-            minutes,
-            0,
-            0,
-        ),
-    ).toISOString();
+/** "Today" and the zone seed values are planned in (the user's `users.time_zone`). */
+export type SeedClock = { zone: Zone; today: LocalDate };
+
+export function seedClock(zone: Zone, now: Date = new Date()): SeedClock {
+    return { zone, today: todayIn(zone, now) };
 }
 
-export function seedDate(anchor: Date, dayOffset: number) {
-    return seedDateTime(anchor, dayOffset, 0, 0).slice(0, 10);
+/** A day, `dayOffset` days from today (for all-day, deadline and hide-until fields). */
+export function seedDate(clock: SeedClock, dayOffset: number): LocalDate {
+    return addDays(clock.today, dayOffset);
+}
+
+/** An instant: that wall time on the day `dayOffset` days from today, in the clock's zone (timed starts, reminders, audit times). */
+export function seedDateTime(clock: SeedClock, dayOffset: number, hours = 12, minutes = 0): Instant {
+    return atLocal(seedDate(clock, dayOffset), `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`, clock.zone);
 }
 
 // ── Fixture builders ─────────────────────────────────────────────────
@@ -111,14 +111,15 @@ export function createSeedTag(userId: string, input: z.input<typeof insertTagSch
     };
 }
 
-export function createSeedTask(userId: string, input: SeedTaskInput) {
+/** `zone` is the zone a timed task is planned in (stored on the row). */
+export function createSeedTask(userId: string, input: SeedTaskInput, zone: Zone) {
     const parsed = insertTaskSchema.parse(input);
 
     return {
         userId,
         ...parsed,
         interactionMode: parsed.interactionMode ?? "task",
-        ...normalizeTaskTemporalFields(parsed),
+        ...normalizeTaskTemporalFields(parsed, zone),
     };
 }
 

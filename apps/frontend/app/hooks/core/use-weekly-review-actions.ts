@@ -7,7 +7,8 @@ import { useCreateTask } from "../tasks/use-create-task";
 import { useArchiveTask } from "../tasks/use-archive-task";
 import { useHabitsRange } from "../habits/use-habits";
 import { usePauseHabit } from "../habits/use-pause-habit";
-import { toISODate } from "../../lib/utils/date-format";
+import { addDays } from "@cadence/domain/time";
+import { today, useToday } from "../../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
 
 export interface HabitReviewItem {
@@ -20,15 +21,8 @@ export interface HabitReviewItem {
     hasTargetTime: boolean;
 }
 
-function getToday() {
-    return toISODate(new Date());
-}
-
-function getTomorrow() {
-    const t = new Date();
-    t.setDate(t.getDate() + 1);
-    return toISODate(t);
-}
+const getToday = today;
+const getTomorrow = () => addDays(today(), 1);
 
 export function useWeeklyReviewActions(currentStep: number) {
     const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
@@ -45,19 +39,17 @@ export function useWeeklyReviewActions(currentStep: number) {
     const deleteInboxItem = useDeleteInboxItem();
 
     const unscheduledTasks = useMemo(
-        () => activeTasks.filter((t) => !t.scheduledStart),
+        () => activeTasks.filter((t) => !t.dueDate && !t.scheduledStart),
         [activeTasks],
     );
 
     const visibleWaiting = waitingTasks.filter((t) => !keptWaitingIds.has(t.id));
 
     // Habit stats
-    const today = new Date();
-    const weekAgo = new Date();
-    weekAgo.setDate(today.getDate() - 7);
+    const todayDay = useToday();
     const { data: habits = [] } = useHabitsRange({
-        start: toISODate(weekAgo),
-        end: toISODate(today),
+        start: addDays(todayDay, -7),
+        end: todayDay,
         enabled: currentStep === 4,
     });
 
@@ -108,10 +100,10 @@ export function useWeeklyReviewActions(currentStep: number) {
         if (action === "delete") {
             await deleteInboxItem.mutateAsync(item.id);
         } else if (action === "today") {
-            await createTask.mutateAsync({ title: item.rawText, dueDate: getToday(), isAllDay: true, orderIndex: 0 });
+            await createTask.mutateAsync({ title: item.rawText, dueDate: getToday(), orderIndex: 0 });
             await deleteInboxItem.mutateAsync(item.id);
         } else if (action === "tomorrow") {
-            await createTask.mutateAsync({ title: item.rawText, dueDate: getTomorrow(), isAllDay: true, orderIndex: 0 });
+            await createTask.mutateAsync({ title: item.rawText, dueDate: getTomorrow(), orderIndex: 0 });
             await deleteInboxItem.mutateAsync(item.id);
         } else if (action === "someday") {
             const newTask = await createTask.mutateAsync({ title: item.rawText, orderIndex: 0 });
@@ -126,9 +118,9 @@ export function useWeeklyReviewActions(currentStep: number) {
         if (action === "delete") {
             await archiveTask.mutateAsync(task.id);
         } else if (action === "today") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null, isAllDay: true });
+            await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null });
         } else if (action === "tomorrow") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getTomorrow(), scheduledStart: null, scheduledEnd: null, isAllDay: true });
+            await updateTask.mutateAsync({ id: task.id, dueDate: getTomorrow(), scheduledStart: null, scheduledEnd: null });
         } else if (action === "someday") {
             await updateTask.mutateAsync({ id: task.id, state: "WAITING" });
         }
@@ -138,9 +130,9 @@ export function useWeeklyReviewActions(currentStep: number) {
         if (action === "delete") {
             await archiveTask.mutateAsync(task.id);
         } else if (action === "today") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null, isAllDay: true, state: "ACTIVE" });
+            await updateTask.mutateAsync({ id: task.id, dueDate: getToday(), scheduledStart: null, scheduledEnd: null, state: "ACTIVE" });
         } else if (action === "tomorrow") {
-            await updateTask.mutateAsync({ id: task.id, dueDate: getTomorrow(), scheduledStart: null, scheduledEnd: null, isAllDay: true, state: "ACTIVE" });
+            await updateTask.mutateAsync({ id: task.id, dueDate: getTomorrow(), scheduledStart: null, scheduledEnd: null, state: "ACTIVE" });
         } else if (action === "keep") {
             setKeptWaitingIds((prev) => new Set(prev).add(task.id));
         }

@@ -7,7 +7,8 @@ import { AllDayDropLane, AllDayDropPreview, TimeSlotDropLayer, TimedDropPreview 
 import * as Popover from "../primitives/Popover";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
-import { toISODate } from "../../lib/utils/date-format";
+import { useToday } from "../../lib/utils/user-zone";
+import { minutesToWallTime } from "../../lib/utils/calendar/calendar-dnd";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
@@ -145,7 +146,7 @@ function DroppableTimeGrid({
                     }}
                 >
                     <span className="text-[12px] text-accent-primary/70 font-medium">
-                        {`${String(Math.floor(draftPlacement.startMinute / 60)).padStart(2, "0")}:${String(draftPlacement.startMinute % 60).padStart(2, "0")} – ${String(Math.floor(draftPlacement.endMinute / 60)).padStart(2, "0")}:${String(draftPlacement.endMinute % 60).padStart(2, "0")}`}
+                        {`${minutesToWallTime(draftPlacement.startMinute)} – ${minutesToWallTime(draftPlacement.endMinute)}`}
                     </span>
                 </div>
             )}
@@ -183,7 +184,7 @@ function DroppableTimeGrid({
 }
 
 export interface DayViewProps {
-    /** ISO date string YYYY-MM-DD for the day being shown */
+    /** The LocalDate being shown */
     currentDate: string;
     /** All tasks for this day */
     tasks: Task[];
@@ -217,9 +218,7 @@ export function DayView({
     onResizeTask,
     onGridClick,
 }: DayViewProps) {
-    const today = new Date();
-    const todayStr = toISODate(today);
-    const isToday = currentDate === todayStr;
+    const isToday = currentDate === useToday();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Scroll to 7 AM on mount
@@ -231,8 +230,8 @@ export function DayView({
 
     const { allDay, timed } = useMemo(() => {
         return {
-            allDay: tasks.filter((t) => t.isAllDay || !t.scheduledStart),
-            timed: tasks.filter((t) => !t.isAllDay && !!t.scheduledStart),
+            allDay: tasks.filter((t) => !t.scheduledStart),
+            timed: tasks.filter((t) => !!t.scheduledStart),
         };
     }, [tasks]);
 

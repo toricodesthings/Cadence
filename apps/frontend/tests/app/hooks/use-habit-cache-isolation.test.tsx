@@ -8,7 +8,7 @@ const { patch } = vi.hoisted(() => ({ patch: vi.fn() }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => ({ api: { habits: { ":id": { $patch: patch } } } }) }));
 vi.mock("../../../app/lib/api/offline-mutation", () => ({ withOfflineSupport: (_queue: unknown, online: unknown) => online }));
 const habit = { id: "habit-1", title: "Walk", recurrenceRule: "FREQ=DAILY", archived: false } as Habit;
-const weeklyKey = [...queryKeys.habits.weekly({ start: "2026-09-14", end: "2026-09-20", timezone: "America/New_York" }), false];
+const weeklyKey = [...queryKeys.habits.weekly({ start: "2026-09-14", end: "2026-09-20" }), false];
 function setup<T>(hook: () => T) {
     const client = testQueryClient();
     client.setQueryData(queryKeys.habits.all, [habit]);

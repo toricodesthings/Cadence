@@ -107,7 +107,7 @@ describe("AddTaskInput", () => {
         );
     });
 
-    it("submits scheduledStart and non-all-day timing when NLP detects a time", () => {
+    it("sends a timed block as instants only when NLP detects a time", () => {
         useNlpParseMock.mockReturnValue({
             ...unparsed,
             cleanedTitle: "Submit report",
@@ -122,13 +122,24 @@ describe("AddTaskInput", () => {
         fireEvent.change(input, { target: { value: "Submit report tomorrow at 5pm" } });
         fireEvent.submit(input.closest("form")!);
 
-        expect(createTaskMutateMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                title: "Submit report",
-                dueDate: "2026-03-29",
-                scheduledStart: "2026-03-29T17:00:00.000Z",
-                isAllDay: false,
-            }),
-        );
+        const sent = createTaskMutateMock.mock.calls[0][0];
+        expect(sent).toMatchObject({ title: "Submit report", scheduledStart: "2026-03-29T17:00:00.000Z" });
+        expect(sent.dueDate).toBeUndefined();
+        expect(sent).not.toHaveProperty("isAllDay");
+    });
+
+    it("sends a typed day alone as a deadline day with no time", () => {
+        useNlpParseMock.mockReturnValue({ ...unparsed, cleanedTitle: "Pay rent", dueDate: "2026-03-31" });
+
+        renderInput();
+
+        const input = screen.getByLabelText("New task title");
+        fireEvent.change(input, { target: { value: "Pay rent Mar 31" } });
+        fireEvent.submit(input.closest("form")!);
+
+        const sent = createTaskMutateMock.mock.calls[0][0];
+        expect(sent).toMatchObject({ title: "Pay rent", dueDate: "2026-03-31" });
+        expect(sent.scheduledStart).toBeUndefined();
+        expect(sent).not.toHaveProperty("isAllDay");
     });
 });

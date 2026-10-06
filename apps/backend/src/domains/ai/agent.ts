@@ -18,8 +18,7 @@ import { getModelId } from "./model-router";
 import { isMemoryEnabled, embedText, type EmbeddingSpend } from "./memory/embedding";
 import { retrieveMemories, type RetrievedMemory } from "./memory/memory-retrieval";
 import type { Env } from "../../types/env";
-import { resolveTimeZone, toZonedIso } from "../../platform/date-utils";
-import { localDay } from "@cadence/domain/repeats";
+import { isZone, todayIn, toZonedIso } from "@cadence/domain/time";
 
 /** Served by OpenRouter when the chat model is unavailable or rate-limited. */
 const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
@@ -48,7 +47,7 @@ function getModel(env: Env, modelId: string, userHash: string) {
 
 /** Options resolved by the route before assembling the agent for one turn. */
 export interface AgentBuildOptions {
-    timezone: string;
+    timezone: string;        // users.time_zone, already synced for this turn (ai.route)
     currentDate: string;     // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
     approvalMode: ApprovalMode;
@@ -168,18 +167,18 @@ function getPromptHash(tools: ToolSet): Promise<string> {
 }
 
 /**
- * The user's clock for this turn. The model is shown local wall-clock time to the
+ * The user's clock for this turn, from `users.time_zone` (synced by ai.route). The model is shown local wall-clock time to the
  * minute with its offset and weekday ("2026-09-21 22:30 -04:00 (Monday)"), never a
  * UTC "Z" instant it would misread as local. Tools get the zone + local date.
  */
 export function userClock(timezone: string | undefined, currentDate: string) {
-    const tz = resolveTimeZone(timezone);
+    const tz = isZone(timezone) ? timezone : "UTC";
     const parsed = new Date(currentDate);
     const now = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
     const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(now);
     const iso = toZonedIso(now, tz); // 2026-09-21T22:30:00-04:00
-    const localTime = `${iso.slice(0, 10)} ${iso.slice(11, 16)} ${iso.slice(19)} (${weekday})`;
-    return { timezone: tz, now, today: localDay(now, tz), localTime };
+    const localTime = `${iso.slice(0, 10)} ${iso.slice(11, 16)} ${iso.slice(19)} (${weekday})`; // time-ok: slicing the zoned ISO string for the prompt, not deriving a day
+    return { timezone: tz, now, today: todayIn(tz, now), localTime };
 }
 
 /**

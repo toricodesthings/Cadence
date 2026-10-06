@@ -8,7 +8,7 @@
  * e.g. "≈ 3 messages left · resets in 2h".
  */
 import type { AiUsage, AiUsageWindow } from "@cadence/contracts/ai";
-import { formatShortDateLabel, formatTime, toISODate } from "../utils/date-format";
+import { formatShortDateLabel, formatTime, dayOfInstant } from "../utils/date-format";
 
 /** Show the hint when ≤ this fraction of a window's requests remain… */
 const LOW_REQUEST_FRACTION = 0.2;
@@ -72,8 +72,8 @@ export function formatResetDetail(resetEpoch: number, nowMs: number): string {
               : hours > 0
                 ? [plural(hours, "hour"), minutes > 0 && plural(minutes, "minute")].filter(Boolean).join(" ")
                 : plural(minutes, "minute");
-    const at = new Date(resetEpoch * 1000);
-    return `Resets in ${countdown} (on ${formatShortDateLabel(toISODate(at))}, ${formatTime(at.toISOString())})`;
+    const at = new Date(resetEpoch * 1000).toISOString();
+    return `Resets in ${countdown} (on ${formatShortDateLabel(dayOfInstant(at))}, ${formatTime(at)})`;
 }
 
 export interface UsageMeter {

@@ -8,6 +8,7 @@ import {
 import { queryKeys } from "../../../../app/lib/api/query-keys";
 import type { Habit } from "@cadence/contracts/habit";
 import type { Task } from "@cadence/contracts/task";
+import { setUserZone } from "../../../../app/lib/utils/user-zone";
 import { makeHabit, makeTask } from "../../../helpers";
 
 describe("reconcileTaskInCaches with a bare write response", () => {
@@ -20,6 +21,23 @@ describe("reconcileTaskInCaches with a bare write response", () => {
         reconcileTaskInCaches(queryClient, bareRow as Task);
 
         expect(queryClient.getQueryData<Task[]>(key)).toEqual([expect.objectContaining({ title: "Renamed", tagIds: ["tag-1"] })]);
+    });
+});
+
+describe("reconcileTaskInCaches day windows", () => {
+    it("matches a task into a { from, to } list by comparing LocalDates (inclusive), timed tasks by their user day", () => {
+        setUserZone("America/Toronto");
+        const queryClient = new QueryClient();
+        const week = queryKeys.tasks.list({ state: "ACTIVE", range: { from: "2026-03-23", to: "2026-03-29" } });
+        queryClient.setQueryData(week, []);
+
+        reconcileTaskInCaches(queryClient, makeTask({ id: "a", dueDate: "2026-03-29" }));
+        // 02:30 UTC on the 30th is still the 29th in Toronto (EDT).
+        reconcileTaskInCaches(queryClient, makeTask({ id: "b", scheduledStart: "2026-03-30T02:30:00.000Z", zone: "America/Toronto" }));
+        reconcileTaskInCaches(queryClient, makeTask({ id: "c", dueDate: "2026-03-30" }));
+        reconcileTaskInCaches(queryClient, makeTask({ id: "d" }));
+
+        expect(queryClient.getQueryData<Task[]>(week)?.map((t) => t.id).sort()).toEqual(["a", "b"]);
     });
 });
 
@@ -69,7 +87,6 @@ describe("api/cache-sync", () => {
         const recurring = makeTask({
             scheduledStart: "2026-03-10T09:30:00.000Z",
             scheduledEnd: "2026-03-10T10:45:00.000Z",
-            isAllDay: false,
             recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH",
         });
 

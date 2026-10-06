@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Habit } from "@cadence/contracts/habit";
 import { HabitEditor } from "../../../app/components/habits/HabitEditor";
+import { addDays } from "@cadence/domain/time";
+import { setUserZone, today } from "../../../app/lib/utils/user-zone";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 
 const { update, remove, pause, resume, close, resolve } = vi.hoisted(() => ({ update: vi.fn(), remove: vi.fn(), pause: vi.fn(), resume: vi.fn(), close: vi.fn(), resolve: vi.fn() }));
@@ -19,7 +21,8 @@ vi.mock("../../../app/hooks/habits/use-convert-repeat", () => ({ useConvertRepea
 vi.mock("../../../app/hooks/habits/use-resolve-habit", () => ({ useResolveHabit: () => ({ mutate: resolve }) }));
 vi.mock("sonner", () => ({ toast: vi.fn() }));
 // Every range query answers with the routine due yesterday (open) and today (done).
-const day = (offset: number) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+setUserZone("America/Toronto");
+const day = (offset: number) => addDays(today(), offset);
 const logs = [
     { id: "a", habitId: "habit-1", status: "PENDING", targetDate: day(-1), completedAt: null },
     { id: "b", habitId: "habit-1", status: "COMPLETED", targetDate: day(0), completedAt: null },
@@ -60,7 +63,7 @@ describe("HabitEditor", () => {
         expect(screen.getByRole("button", { name: "Remove tag Daily" })).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: "Pause" }));
         fireEvent.click(screen.getByRole("button", { name: "1 week" }));
-        expect(pause).toHaveBeenCalledWith(habit.id, expect.any(Date));
+        expect(pause).toHaveBeenCalledWith(habit.id, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
         fireEvent.click(screen.getByRole("radio", { name: "Violet" }));
         expect(update).toHaveBeenCalledWith({ id: habit.id, colorAccent: "violet" });
     });

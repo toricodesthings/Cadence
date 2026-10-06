@@ -3,9 +3,12 @@ import type { CreateTaskInput, UpdateTaskInput } from "@cadence/contracts/task";
 import type { CreateProjectInput, UpdateProject } from "@cadence/contracts/project";
 import type { CreateTagInput, UpdateTag } from "@cadence/contracts/tag";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
+import type { Instant, LocalDate } from "@cadence/domain/time";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 
 // ── Operation Descriptors ──
+// Entries queued before 0.26.3 hold the old shapes (an instant `dueDate` + `isAllDay`, `scheduledDate`, a habit `timezone`);
+// they replay unchanged and the server's time-legacy schemas normalise them.
 // Every mutation the app can queue, as a serializable object. Creates carry the
 // client-chosen id, so later ops can target the entity before it syncs.
 
@@ -16,19 +19,19 @@ export type MutationOp =
     | { type: "reorder_task"; id: string; payload: { orderIndex: number; orderedTaskIds?: string[] } }
     | { type: "duplicate_task"; id: string }
     | { type: "batch_state"; payload: { taskIds: string[]; state: string } }
-    | { type: "batch_reschedule"; payload: { taskIds: string[]; scheduledStart: string; isAllDay: boolean } }
+    | { type: "batch_reschedule"; payload: { taskIds: string[]; date: LocalDate } | { taskIds: string[]; scheduledStart: Instant } }
     | { type: "batch_delete"; payload: { taskIds: string[] } }
     | { type: "create_inbox"; payload: { id: string; rawText: string; sectionId?: string; orderIndex?: number } }
     | { type: "update_inbox"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox"; id: string }
-    | { type: "process_inbox_to_task"; payload: { inboxItemId: string; rawText: string; complete?: boolean; title?: string; scheduledDate?: string; dueDate?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null; isAllDay?: boolean | null; projectId?: string | null; tagIds?: string[]; priority?: number | null; durationEstimate?: number | null; recurrenceRule?: string | null; waitingOn?: string | null; nlp?: CanonicalNlpEnvelope } }
+    | { type: "process_inbox_to_task"; payload: { inboxItemId: string; rawText: string; complete?: boolean; title?: string; scheduledDay?: LocalDate | null; dueDate?: LocalDate | null; scheduledStart?: Instant | null; scheduledEnd?: Instant | null; projectId?: string | null; tagIds?: string[]; priority?: number | null; durationEstimate?: number | null; recurrenceRule?: string | null; waitingOn?: string | null; nlp?: CanonicalNlpEnvelope } }
     | { type: "create_inbox_section"; payload: { name: string; orderIndex?: number } }
     | { type: "update_inbox_section"; id: string; payload: Record<string, unknown> }
     | { type: "delete_inbox_section"; id: string }
     | { type: "create_habit"; payload: Record<string, unknown> & { id: string } }
     | { type: "update_habit"; id: string; payload: Record<string, unknown> }
     | { type: "delete_habit"; id: string }
-    | { type: "resolve_habit"; id: string; payload: { targetDate: string; status: string; stepStatus?: Record<string, "COMPLETED" | "SKIPPED">; timezone?: string } }
+    | { type: "resolve_habit"; id: string; payload: { targetDate: LocalDate; status: string; stepStatus?: Record<string, "COMPLETED" | "SKIPPED"> } }
     | { type: "unprocess_inbox"; id: string }
     | { type: "upsert_note"; taskId: string; payload: { body: string; expectedUpdatedAt?: string } }
     | { type: "add_task_tag"; id: string; tagId: string }

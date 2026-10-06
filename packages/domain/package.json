@@ -9,7 +9,8 @@
     "./task-recurrence": "./src/task-recurrence.ts",
     "./ordering": "./src/ordering.ts",
     "./ai-title": "./src/ai-title.ts",
-    "./repeats": "./src/repeats.ts"
+    "./repeats": "./src/repeats.ts",
+    "./time": "./src/time.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

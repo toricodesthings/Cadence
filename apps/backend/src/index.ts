@@ -25,6 +25,7 @@ import { aiRoutes } from "./domains/ai/ai.route";
 import { aiImageRoutes } from "./domains/ai/images/images.route";
 import { connectionRoutes } from "./domains/mcp/connections.route";
 import { accountRoutes } from "./domains/account/account.route";
+import { meRoutes } from "./domains/account/me.route";
 import { appOrigin, isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
@@ -185,12 +186,13 @@ const apiApp = app
   .route("/api/v1/ai/images", aiImageRoutes)
   .route("/api/v1/ai", aiRoutes)
   .route("/api/v1/connections", connectionRoutes)
-  .route("/api/v1/account", accountRoutes);
+  .route("/api/v1/account", accountRoutes)
+  .route("/api/v1/me", meRoutes);
 
 // ── Type export for Hono RPC ──
 export type AppType = typeof apiApp;
 
-import { runDailyCron } from "./cron/overdue-check";
+import { runHourlyCron } from "./cron/overdue-check";
 
 export default {
   // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:
@@ -213,6 +215,6 @@ export default {
     return mcpProvider(env).fetch(request, env, ctx);
   },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runDailyCron(env));
+    ctx.waitUntil(runHourlyCron(env));
   },
 };

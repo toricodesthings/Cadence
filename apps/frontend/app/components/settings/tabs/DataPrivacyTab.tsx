@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatShortDate } from "../../../lib/utils/date-format";
 import { Switch, AlertDialog } from "../../primitives";
 import { Button } from "../../primitives/Button";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
@@ -27,7 +28,7 @@ export function DataPrivacyTab() {
         : latest.status === "pending"
             ? "Preparing your export. It will arrive by email shortly."
             : latest.status === "sent"
-                ? `Last sent to ${latest.email} on ${new Date(latest.completedAt ?? latest.requestedAt).toLocaleDateString()}.`
+                ? `Last sent to ${latest.email} on ${formatShortDate(latest.completedAt ?? latest.requestedAt)}.`
                 : "The last export didn't go through. Try again.";
 
     return (

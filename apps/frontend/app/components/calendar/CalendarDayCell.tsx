@@ -3,11 +3,14 @@ import * as Popover from "../primitives/Popover";
 import { CalendarTaskChip } from "./CalendarTaskChip";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "@cadence/contracts/task";
+import { weekdayOf, type LocalDate } from "@cadence/domain/time";
+import { dayOfMonth } from "../../lib/utils/calendar/calendar-math";
 
 const MAX_VISIBLE_TASKS = 2;
 
 interface CalendarDayCellProps {
-    day: number | null;
+    /** The cell's LocalDate; null for a blank cell */
+    day: LocalDate | null;
     isToday: boolean;
     isSelected: boolean;
     hasTask: boolean;
@@ -21,7 +24,7 @@ interface CalendarDayCellProps {
     hasPersonalEvent?: boolean;
     /** Number of personal events on this day for denser date affordances */
     personalEventCount?: number;
-    onSelect: (day: number) => void;
+    onSelect: (day: LocalDate) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
     /** Tasks for this cell (full variant only) */
@@ -29,9 +32,6 @@ interface CalendarDayCellProps {
     onSelectTask?: (taskId: string) => void;
     onCompleteTask?: (taskId: string) => void;
     onArchiveTask?: (taskId: string) => void;
-    /** Parent year/month — needed to build the ISO date for DnD droppable id */
-    year?: number;
-    month?: number;
     /** Right-click callback for context menu / creating a task */
     onContextAdd?: (info: CalendarEventInfo) => void;
 }
@@ -53,8 +53,6 @@ export function CalendarDayCell({
     onSelectTask,
     onCompleteTask,
     onArchiveTask,
-    year,
-    month,
     onContextAdd,
 }: CalendarDayCellProps) {
 
@@ -83,7 +81,7 @@ export function CalendarDayCell({
                         : !isToday ? "text-twilight-text-muted" : ""}
                 `}
             >
-                {day}
+                {dayOfMonth(day)}
                 {(hasTask || hasHoliday || hasBirthday || hasPersonalEvent) && !isToday && (
                     <span className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-1">
                         {hasTask && <span className="h-1 w-1 rounded-full bg-accent-primary/60" />}
@@ -105,12 +103,10 @@ export function CalendarDayCell({
     }
 
     // ── Full variant (schedule page) ─────────────────────────────────────────
-    const dateStr = year !== undefined && month !== undefined
-        ? `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-        : null;
+    const dateStr = day;
 
-    // Weekend tint (Saturday = index 6, Sunday = index 0 in JS, but we use Mon-first)
-    const dayOfWeek = dateStr ? new Date(dateStr + "T00:00:00").getDay() : -1;
+    // Weekend tint (Saturday = 6, Sunday = 0)
+    const dayOfWeek = weekdayOf(day);
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
     // Clicking cell background navigates to day view
@@ -122,7 +118,7 @@ export function CalendarDayCell({
     // Right-click opens event popover
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
-        if (!dateStr || !onContextAdd) return;
+        if (!onContextAdd) return;
         onContextAdd({
             date: dateStr,
             startHour: 9,
@@ -135,8 +131,7 @@ export function CalendarDayCell({
 
     // Droppable for DnD
     const { setNodeRef, isOver } = useDroppable({
-        id: dateStr ? `day-${dateStr}` : `day-null-${day}`,
-        disabled: !dateStr,
+        id: `day-${dateStr}`,
     });
 
     const visibleTasks = tasks.slice(0, MAX_VISIBLE_TASKS);
@@ -145,6 +140,7 @@ export function CalendarDayCell({
     return (
         <div
             ref={setNodeRef}
+            data-day={dateStr}
             onClick={handleCellClick}
             onContextMenu={handleContextMenu}
             className={`
@@ -175,7 +171,7 @@ export function CalendarDayCell({
                     w-6 h-6 inline-flex items-center justify-center shrink-0
                     ${isToday ? "rounded-full bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]" : ""}
                 `}>
-                    {day}
+                    {dayOfMonth(day)}
                 </span>
                 <span className="flex items-center gap-1.5">
                     {hasHabit && !isToday && (
@@ -222,7 +218,7 @@ export function CalendarDayCell({
                             key={task.id}
                             task={task}
                             variant="pill"
-                            sourceId={dateStr ? `day-${dateStr}` : undefined}
+                            sourceId={`day-${dateStr}`}
                             onSelect={onSelectTask ?? (() => { })}
                             onComplete={onCompleteTask}
                             onArchive={onArchiveTask}
@@ -247,7 +243,7 @@ export function CalendarDayCell({
                                         key={task.id}
                                         task={task}
                                         variant="pill"
-                                        sourceId={dateStr ? `day-${dateStr}` : undefined}
+                                        sourceId={`day-${dateStr}`}
                                         onSelect={onSelectTask ?? (() => { })}
                                         onComplete={onCompleteTask}
                                         onArchive={onArchiveTask}

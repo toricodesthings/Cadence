@@ -22,7 +22,7 @@ export function Location() {
 export function makeTask(overrides: Partial<Task> = {}): Task {
     return {
         id: "task-1", userId: "user-1", projectId: null, sectionId: null, title: "Task", content: null,
-        state: "ACTIVE", orderIndex: 1, isAllDay: true, dueDate: null, scheduledStart: null, scheduledEnd: null,
+        state: "ACTIVE", orderIndex: 1, dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, notBefore: null,
         durationEstimate: null, timezoneLocked: false, priority: 0, isPinned: false, reminderAt: null,
         reminderSilenced: false, recurrenceRule: null, interactionMode: "task", effort: null, tagIds: [],
         seriesId: undefined, isRecurringInstance: false, occurrenceStart: null, occurrenceEnd: null,

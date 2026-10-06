@@ -1,6 +1,7 @@
 import { Button } from "../primitives/Button";
 import { CalendarDays } from "lucide-react";
 import { DatePicker } from "../shared/DatePicker";
+import { isLocalDate, type Instant, type LocalDate } from "@cadence/domain/time";
 import { placementLabel } from "../../lib/utils/date-format";
 import { todayISO, tomorrowISO } from "../../hooks/inbox/use-process-inbox-to-task";
 
@@ -12,6 +13,9 @@ export const DAY_PILL_SUGGESTED =
 export const DAY_PILL_PLAIN =
     "border-white/[0.07] bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text";
 
+/** The inbox-process fields for a placement: an all-day day, or a timed start. */
+export const placeFields = (when: LocalDate | Instant) => (isLocalDate(when) ? { scheduledDay: when } : { scheduledStart: when });
+
 /** The same placement vocabulary for thoughts, tasks, details and bulk actions. */
 export function CaptureDayChips({
     detected,
@@ -20,9 +24,10 @@ export function CaptureDayChips({
     onPick,
     disabled,
 }: {
-    detected?: string | null;
-    lightest: string;
-    onPlace: (date: string) => void;
+    /** A detected day, or a detected timed start. */
+    detected?: LocalDate | Instant | null;
+    lightest: LocalDate;
+    onPlace: (when: LocalDate | Instant) => void;
     onPick?: () => void;
     disabled?: boolean;
 }) {

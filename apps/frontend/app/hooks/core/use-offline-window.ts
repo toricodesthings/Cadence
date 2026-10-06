@@ -2,7 +2,7 @@ import { useContext, useEffect } from "react";
 import { StartupReadyContext } from "./use-workspace-startup";
 import { getWalSnapshot, subscribeWal } from "../../lib/api/offline-wal";
 import { useQueryClient, type FetchQueryOptions } from "@tanstack/react-query";
-import { addDays } from "date-fns";
+import { addDays, monthRange } from "@cadence/domain/time";
 import { useApiClient } from "../auth/use-api-client";
 import { useSettings } from "./use-settings";
 import { STALE_TIMES } from "../../lib/api/query-keys";
@@ -11,9 +11,11 @@ import { habitsRangeQueryOptions } from "../habits/use-habits";
 import { inboxQueryOptions } from "../inbox/use-inbox";
 import { projectsQueryOptions } from "../projects/use-projects";
 import { tagsQueryOptions } from "../tags/use-tags";
-import { getMonthDateRange, getWeekDateRange, getWeekDates, toISODate, WEEK_START_INDEX } from "../../lib/utils/date-format";
+import { getWeekDateRange, getWeekDays, WEEK_START_INDEX } from "../../lib/utils/date-format";
+import { today as getToday } from "../../lib/utils/user-zone";
 
 const PREFETCH_CONCURRENCY = 3;
+const rangeOf = ({ start, end }: { start: string; end: string }) => ({ from: start, to: end });
 
 /**
  * Keep the phone views' data saved for a week back and three weeks ahead, with
@@ -37,23 +39,22 @@ export function useOfflineWindow() {
             && !getWalSnapshot().some((entry) => entry.status !== "failed");
         const run = () => {
             if (warming || !canWarm()) return;
-            const now = new Date();
-            const today = toISODate(now);
-            const weeks = [-7, 0, 7, 14, 21].map((days) => addDays(now, days));
-            const routineWeeks = weeks.map((day) => getWeekDates(day, WEEK_START_INDEX[weekStart]));
+            const today = getToday();
+            const weeks = [-7, 0, 7, 14, 21].map((days) => addDays(today, days));
+            const routineWeeks = weeks.map((day) => getWeekDays(day, WEEK_START_INDEX[weekStart]));
             const taskFilters: Parameters<typeof prefetchTaskBatch>[2] = [
                 { state: "ACTIVE" }, // Upcoming, lists, tags
                 { state: "WAITING" },
                 { state: "ACTIVE", effectiveOnOrBeforeDate: today }, // Today
                 { state: "ACTIVE", hasNoProject: true, hasNoDate: true }, // Capture
-                ...weeks.map((day) => ({ state: "ACTIVE" as const, scheduledRange: getWeekDateRange(day) })), // Schedule
+                ...weeks.map((day) => ({ state: "ACTIVE" as const, range: rangeOf(getWeekDateRange(day)) })), // Schedule
             ];
             const queries = [
                 habitsRangeQueryOptions(client, { start: today, end: today }), // Today
-                habitsRangeQueryOptions(client, { start: toISODate(addDays(now, -30)), end: toISODate(addDays(now, 7)) }), // Upcoming
+                habitsRangeQueryOptions(client, { start: addDays(today, -30), end: addDays(today, 7) }), // Upcoming
                 ...weeks.map((day) => habitsRangeQueryOptions(client, getWeekDateRange(day))), // Schedule
-                ...routineWeeks.map((days) => habitsRangeQueryOptions(client, { start: toISODate(days[0]), end: toISODate(days[6]) })), // Routines
-                habitsRangeQueryOptions(client, getMonthDateRange(now.getFullYear(), now.getMonth())), // Routines month
+                ...routineWeeks.map((days) => habitsRangeQueryOptions(client, { start: days[0], end: days[6] })), // Routines
+                habitsRangeQueryOptions(client, monthRange(today)), // Routines month
                 inboxQueryOptions(client),
                 projectsQueryOptions(client),
                 tagsQueryOptions(client),

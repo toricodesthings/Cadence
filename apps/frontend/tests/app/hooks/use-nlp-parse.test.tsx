@@ -1,6 +1,8 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useNlpParse } from "../../../app/hooks/use-nlp-parse";
+import { atLocal } from "@cadence/domain/time";
+import { setUserZone } from "../../../app/lib/utils/user-zone";
 import { withClient } from "../../helpers";
 
 const parseMock = vi.fn();
@@ -11,6 +13,7 @@ vi.mock("@cadence/nlp/parse", () => ({
 
 describe("useNlpParse", () => {
     beforeEach(() => {
+        setUserZone("America/Toronto");
         parseMock.mockReset();
     });
 
@@ -74,7 +77,7 @@ describe("useNlpParse", () => {
         expect(result.current.tokens[0]?.id).toBe("project:project-1");
     });
 
-    it("preserves scheduledStart when NLP detects a timed date", async () => {
+    it("turns a typed day and time into a timed start in the user zone (and no deadline)", async () => {
         parseMock.mockReturnValue({
             rawInput: "tomorrow at 5pm",
             cleanedTitle: "",
@@ -90,7 +93,7 @@ describe("useNlpParse", () => {
                     confidence: "high",
                     normalizedValue: {
                         date: "2026-03-21",
-                        datetime: "2026-03-21T17:00:00.000Z",
+                        time: "17:00",
                         hasTime: true,
                         humanLabel: "Tomorrow at 5:00 PM",
                     },
@@ -113,7 +116,26 @@ describe("useNlpParse", () => {
             { wrapper: withClient() },
         );
 
-        await waitFor(() => expect(result.current.scheduledStart).toBe("2026-03-21T17:00:00.000Z"));
-        expect(result.current.dueDate).toBe("2026-03-21");
+        await waitFor(() => expect(result.current.scheduledStart).toBe(atLocal("2026-03-21", "17:00", "America/Toronto")));
+        expect(result.current.dueDate).toBeNull();
+        expect(parseMock.mock.calls[0][0].clock).toEqual(expect.objectContaining({ today: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), now: expect.stringMatching(/^\d{2}:\d{2}$/) }));
+    });
+
+    it("keeps a bare day as the all-day / deadline day", async () => {
+        parseMock.mockReturnValue({
+            rawInput: "by friday",
+            cleanedTitle: "",
+            parserVersion: "2.0.0",
+            sourceSurface: "inline_add",
+            entities: [{
+                id: "due_date:friday", type: "due_date", sourceText: "by friday", start: 0, end: 9, confidence: "high",
+                normalizedValue: { date: "2026-03-27", time: null, hasTime: false, humanLabel: "Fri, Mar 27" },
+            }],
+            warnings: [],
+            summary: "",
+        });
+        const { result } = renderHook(() => useNlpParse({ input: "by friday", projects: [], tags: [], enabled: true }), { wrapper: withClient() });
+        await waitFor(() => expect(result.current.dueDate).toBe("2026-03-27"));
+        expect(result.current.scheduledStart).toBeNull();
     });
 });

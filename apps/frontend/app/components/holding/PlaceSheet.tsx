@@ -12,15 +12,17 @@ import { TaskCard } from "../tasks/TaskCard";
 import { Button } from "../primitives/Button";
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
-import { addDays, parseLocalDate, toISODate, placementLabel } from "../../lib/utils/date-format";
-import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
+import { addDays, type LocalDate } from "@cadence/domain/time";
+import { taskDay } from "@cadence/domain/task-recurrence";
+import { formatShortDateLabel, formatWeekdayNarrow, placementLabel } from "../../lib/utils/date-format";
+import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { dayLoads, lightestDay, loadWord } from "../../lib/utils/task/day-load";
 
-export const dayLabel = (iso: string) => parseLocalDate(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+export const dayLabel = (day: LocalDate) => formatShortDateLabel(day);
 
 /** Active dated tasks for `days` days from `start`, their effort-weighted loads, and the lightest of the first week. */
-export function useWeekLoad(start: Date, enabled = true, days = 7) {
-    const { data: tasks = [] } = useTasks({ state: "ACTIVE", scheduledRange: { start: toISODate(start), end: toISODate(addDays(start, days - 1)) }, enabled });
+export function useWeekLoad(start: LocalDate, enabled = true, days = 7) {
+    const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: start, to: addDays(start, days - 1) }, enabled });
     const loads = dayLoads(tasks, start, days);
     return { tasks, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
 }
@@ -28,7 +30,7 @@ export function useWeekLoad(start: Date, enabled = true, days = 7) {
 /** Drop-target id prefix for a placement day: `place:YYYY-MM-DD`. */
 export const PLACE_DROP = "place:";
 
-type PlaceDragData = { title: string; onPlace: (iso: string) => void };
+type PlaceDragData = { title: string; onPlace: (day: LocalDate) => void };
 
 /** Desktop Capture: lets captures and Ready tasks be dragged onto the Place rail's days. */
 export function PlaceDndProvider({ children }: { children: ReactNode }) {
@@ -56,13 +58,12 @@ export function PlaceDraggable({ id, title, onPlace, className = "", children }:
     return <div ref={setNodeRef} {...listeners} data-dnd-draggable="true" className={`${className} ${isDragging ? "opacity-40" : ""}`}>{children}</div>;
 }
 
-/** Gives a task a deadline on `iso`, with Undo — placing should never feel final. */
+/** Gives a task a deadline day, with Undo — placing should never feel final. */
 export function usePlaceTask() {
     const updateTask = useUpdateTask();
-    return async (task: Task, iso: string) => {
-        const clear = { scheduledStart: null, scheduledEnd: null, isAllDay: true };
-        await updateTask.mutateAsync({ id: task.id, dueDate: iso, ...clear });
-        toast(placementLabel(iso), { action: { label: "Undo", onClick: () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd, isAllDay: task.isAllDay }) } });
+    return async (task: Task, day: LocalDate) => {
+        await updateTask.mutateAsync({ id: task.id, dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null });
+        toast(placementLabel(day), { action: { label: "Undo", onClick: () => updateTask.mutate({ id: task.id, dueDate: task.dueDate, endDate: task.endDate, scheduledStart: task.scheduledStart, scheduledEnd: task.scheduledEnd }) } });
     };
 }
 
@@ -79,22 +80,22 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
     task: Task | null;
     onClose: () => void;
     onOpenTask: (taskId: string) => void;
-    /** Replaces the default placement (a date with no time), e.g. to keep a scheduled time. */
-    onPlace?: (task: Task, iso: string) => void;
+    /** Replaces the default placement (a deadline day), e.g. to keep a scheduled time. */
+    onPlace?: (task: Task, day: LocalDate) => void;
 }) {
     const navigate = useNavigate();
     const defaultPlace = usePlaceTask();
     const place = onPlace ?? defaultPlace;
-    const todayIso = toISODate(new Date());
-    const [stripStart, setStripStart] = useState(() => parseLocalDate(todayIso));
-    const [picked, setPicked] = useState<string | null>(null);
+    const todayIso = useToday();
+    const [stripStart, setStripStart] = useState<LocalDate>(todayIso);
+    const [picked, setPicked] = useState<LocalDate | null>(null);
     const { tasks, loads, lightest } = useWeekLoad(stripStart, open);
-    const selected = picked ?? (task && stripStart.getTime() === parseLocalDate(todayIso).getTime() ? lightest : toISODate(stripStart));
-    const dayTasks = tasks.filter((t) => toTaskDateOnly(t.dueDate ?? t.scheduledStart) === selected);
+    const selected = picked ?? (task && stripStart === todayIso ? lightest : stripStart);
+    const dayTasks = tasks.filter((t) => taskDay(t, getUserZone()) === selected);
 
-    const close = () => { onClose(); setPicked(null); setStripStart(parseLocalDate(todayIso)); };
-    const jump = (iso: string) => { setStripStart(parseLocalDate(iso)); setPicked(iso); };
-    const shift = (days: number) => { const next = addDays(stripStart, days); setStripStart(next); setPicked(toISODate(next)); };
+    const close = () => { onClose(); setPicked(null); setStripStart(todayIso); };
+    const jump = (day: LocalDate) => { setStripStart(day); setPicked(day); };
+    const shift = (days: number) => { const next = addDays(stripStart, days); setStripStart(next); setPicked(next); };
 
     const band = (
         <div className="shrink-0 space-y-3 border-b border-twilight-border px-4 py-3">
@@ -114,15 +115,14 @@ export function PlaceSheet({ open, task, onClose, onOpenTask, onPlace }: {
                     onDragEnd={(_, info) => { if (Math.abs(info.offset.x) > 50) shift(info.offset.x < 0 ? 7 : -7); }}
                     className="grid flex-1 grid-cols-7 gap-1 touch-pan-y">
                     {[...loads].map(([iso, load]) => {
-                        const d = parseLocalDate(iso);
                         const isSel = iso === selected;
                         return (
                             <Button variant="ghost" size="none" key={iso} type="button" onClick={() => setPicked(iso)} aria-pressed={isSel}
                                 aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
                                 className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl text-twilight-text transition-colors ${
                                     isSel ? "bg-accent-primary text-twilight-void hover:bg-accent-primary hover:text-twilight-void" : iso === todayIso ? "ring-1 ring-accent-primary/50 hover:text-twilight-text" : "hover:bg-white/[0.05] hover:text-twilight-text"}`}>
-                                <span className={`text-[10px] font-semibold uppercase ${isSel ? "" : "text-twilight-text-muted"}`}>{d.toLocaleDateString(undefined, { weekday: "narrow" })}</span>
-                                <span className="text-base font-semibold">{d.getDate()}</span>
+                                <span className={`text-[10px] font-semibold uppercase ${isSel ? "" : "text-twilight-text-muted"}`}>{formatWeekdayNarrow(iso)}</span>
+                                <span className="text-base font-semibold">{Number(iso.slice(8, 10))}</span>
                                 <span aria-hidden="true" className={`h-1 rounded-full ${isSel ? "bg-twilight-void/60" : "bg-accent-primary/70"}`}
                                     style={{ width: `${Math.min(load, 6) * 3}px` }} />
                             </Button>

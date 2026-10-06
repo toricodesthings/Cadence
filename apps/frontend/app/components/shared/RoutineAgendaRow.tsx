@@ -121,7 +121,7 @@ export interface RoutineAgendaItem {
 export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaItem[] {
     return habits
         .flatMap((habit) => {
-            const log = habit.logs?.find((entry) => entry.targetDate.slice(0, 10) === day);
+            const log = habit.logs?.find((entry) => entry.targetDate === day);
             if (!log || log.status === "SKIPPED") return [];
             return [{ habitId: habit.id, title: habit.title, emoji: habit.emoji ?? null, tone: routineTone(habit.colorAccent), time: routineTimeOn(habit, day), done: log.status === "COMPLETED", progress: stepProgress(habit, log) }];
         })

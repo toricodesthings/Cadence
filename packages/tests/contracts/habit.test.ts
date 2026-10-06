@@ -13,12 +13,11 @@ describe("habit list queries", () => {
         expect(habitListQuerySchema.parse({})).toEqual({ archived: false });
     });
 
-    it("read the archived flag the same way in weekly queries, defaulting timezone to UTC", () => {
+    it("read the archived flag the same way in weekly queries, ignoring the legacy timezone", () => {
         expect(weeklyHabitsQuerySchema.parse({ start: "2026-03-03", end: "2026-03-09", archived: "true" })).toEqual({
             start: "2026-03-03",
             end: "2026-03-09",
             archived: true,
-            timezone: "UTC",
         });
     });
 

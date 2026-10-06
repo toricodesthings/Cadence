@@ -8,6 +8,9 @@ import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { chunk } from "../../lib/utils";
 import { toastError } from "../../lib/utils/error-toast";
+import { rescheduleToDay } from "@cadence/domain/task-temporal";
+import type { Instant, LocalDate } from "@cadence/domain/time";
+import { getUserZone } from "../../lib/utils/user-zone";
 
 /** The batch routes take at most 50 ids, so larger selections go as several calls. */
 async function inBatches<T>(taskIds: string[], send: (ids: string[]) => Promise<T[]>): Promise<T[]> {
@@ -50,27 +53,30 @@ export function useBatchStateTransition() {
     });
 }
 
+/** A day (each task keeps its own local time there) or one exact start instant for all. */
+export type BatchRescheduleInput = { taskIds: string[] } & ({ date: LocalDate } | { scheduledStart: Instant });
+
 export function useBatchRescheduleTasks() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: withOfflineSupport<
-            { taskIds: string[]; scheduledStart: string; isAllDay: boolean },
-            Task[]
-        >(
-            ({ taskIds, scheduledStart, isAllDay }) => ({ type: "batch_reschedule", payload: { taskIds, scheduledStart, isAllDay } }),
-            ({ taskIds, scheduledStart, isAllDay }) => inBatches(taskIds, async (ids) =>
-                unwrapResponse(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, scheduledStart, isAllDay } }))),
+        mutationFn: withOfflineSupport<BatchRescheduleInput, Task[]>(
+            (input) => ({ type: "batch_reschedule", payload: input }),
+            ({ taskIds, ...when }) => inBatches(taskIds, async (ids) =>
+                unwrapResponse(await client.api.tasks.batch.reschedule.$post({ json: { taskIds: ids, ...when } }))),
         ),
-        onMutate: async ({ taskIds, scheduledStart, isAllDay }) => {
+        onMutate: async (input) => {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
+            const zone = getUserZone();
+            const moved = (task: Task): Task =>
+                "date" in input
+                    ? { ...task, ...rescheduleToDay(task, input.date, zone) }
+                    : { ...task, scheduledStart: input.scheduledStart, zone, endDate: null };
             queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
                 transformListCache(old, (items) =>
-                    items.map((task) =>
-                        taskIds.includes(task.id) ? { ...task, scheduledStart, isAllDay } : task,
-                    ),
+                    items.map((task) => (input.taskIds.includes(task.id) ? moved(task) : task)),
                 ),
             );
             return { snapshot };

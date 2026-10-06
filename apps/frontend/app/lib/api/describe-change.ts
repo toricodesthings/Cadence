@@ -1,7 +1,11 @@
 import type { MutationOp } from "./offline-wal";
+import { formatShortDate } from "../utils/date-format";
 
 const quote = (text: string | undefined | null) => (text ? `“${text.length > 60 ? `${text.slice(0, 57)}…` : text}”` : "");
 const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
+
+/** An entry queued before 0.26.3 holds a datetime here; like the server, keep its date part. */
+const legacyDay = (value: string) => /^\d{4}-\d{2}-\d{2}/.exec(value)?.[0] ?? value;
 
 /**
  * A queued change in plain words ("Complete “Pay rent”"), for the sync review.
@@ -36,7 +40,7 @@ export function describeChange(op: MutationOp, titleOf: (id: string) => string |
         case "create_habit": return `Add routine ${quote(String(op.payload.title ?? ""))}`;
         case "update_habit": return `Edit ${quote(titleOf(op.id)) || "a routine"}`;
         case "delete_habit": return `Delete ${quote(titleOf(op.id)) || "a routine"}`;
-        case "resolve_habit": return `Log ${quote(titleOf(op.id)) || "a routine"} for ${op.payload.targetDate.slice(0, 10)}`;
+        case "resolve_habit": return `Log ${quote(titleOf(op.id)) || "a routine"} for ${formatShortDate(legacyDay(op.payload.targetDate))}`;
         case "upsert_note": return `Edit the note on ${task(op.taskId)}`;
         case "add_task_tag": return `Tag ${task(op.id)}`;
         case "remove_task_tag": return `Untag ${task(op.id)}`;

@@ -18,6 +18,7 @@ import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { PersonalEventEditorDialog } from "../components/events/PersonalEventEditorDialog";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
+import { useToday } from "../lib/utils/user-zone";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import type { PersonalEvent } from "../types/settings";
@@ -41,8 +42,8 @@ export default function EventsRoute() {
     const navigate = useNavigate();
     const shell = useShellMode();
     const setRailView = useRightPanelStore((s) => s.setRailView);
-    const today = new Date();
-    const currentYear = today.getFullYear();
+    const today = useToday();
+    const currentYear = Number(today.slice(0, 4));
     const personalEvents = usePersonalEvents(currentYear);
 
     const [editorOpen, setEditorOpen] = useState(false);

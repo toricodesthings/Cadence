@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOfflineWindow } from "../../../app/hooks/core/use-offline-window";
+import { setUserZone } from "../../../app/lib/utils/user-zone";
 import { testQueryClient, withClient } from "../../helpers";
 import { StartupReadyContext } from "../../../app/hooks/core/use-workspace-startup";
 import type { ReactNode } from "react";
@@ -129,5 +130,24 @@ describe("offline window background requests", () => {
         await waitFor(() => expect(queryClient.isFetching()).toBe(0));
         expect(read).toHaveBeenCalledTimes(3);
         queryClient.clear();
+    });
+
+    it("warms windows from today in the user's zone, keyed by LocalDates only", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-03-26T03:00:00Z")); // still Wed 03-25 in Toronto
+        setUserZone("America/Toronto");
+        read.mockResolvedValue([]);
+        const { queryClient, unmount } = setup();
+        await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+        await waitFor(() => expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(10));
+        const keys = queryClient.getQueryCache().getAll().map((q) => q.queryKey as [string, Record<string, unknown> | null]);
+        const filters = (domain: string) => keys.filter(([d]) => d === domain).map(([, f]) => f);
+        expect(filters("tasks")).toContainEqual({ state: "ACTIVE", effectiveOnOrBeforeDate: "2026-03-25" });
+        expect(filters("tasks")).toContainEqual({ state: "ACTIVE", range: { from: "2026-03-23", to: "2026-03-29" } });
+        expect(filters("habits")).toContainEqual({ start: "2026-03-25", end: "2026-03-25" });
+        expect(filters("habits")).toContainEqual({ start: "2026-02-23", end: "2026-04-01" });
+        expect(filters("habits")).toContainEqual({ start: "2026-03-01", end: "2026-03-31" });
+        expect(JSON.stringify(filters("habits"))).not.toMatch(/timezone|T\d\d:/);
+        unmount(); queryClient.clear(); vi.useRealTimers();
     });
 });

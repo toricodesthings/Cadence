@@ -5,7 +5,7 @@
  * a multi-signal ranking model that can explain each decision.
  */
 
-import { toDateStr } from "../core/index.js";
+import { daysBetweenLocal, type LocalDate, type NlpClock } from "../core/index.js";
 
 export interface RankableTask {
   id: string;
@@ -13,18 +13,17 @@ export interface RankableTask {
   isPinned: boolean;
   orderIndex: number;
   state: string;
-  /** ISO date or null */
-  dueDate: string | null;
-  /** ISO datetime or null */
+  /** LocalDate or null */
+  dueDate: LocalDate | null;
+  /** Instant or null */
   scheduledStart: string | null;
-  /** ISO datetime or null */
+  /** Instant or null */
   scheduledEnd: string | null;
-  isAllDay: boolean;
   /** 1-3 effort estimate or null */
   effort: number | null;
   /** "waiting on" text or null */
   waitingOn: string | null;
-  /** ISO datetime or null — do not show before this */
+  /** LocalDate or null — do not show before this day */
   notBefore: string | null;
   /** Duration estimate in minutes or null */
   durationEstimate: number | null;
@@ -49,6 +48,11 @@ export type TaskRankReason =
   | "scheduled_now";
 
 export interface RankingOptions {
+  /** The user's today, from their zone. */
+  clock: NlpClock;
+  /** Instant to LocalDate in the user's zone (nlp cannot import domain). */
+  dayOf: (instant: string) => LocalDate;
+  /** Real instant for "scheduled now"; defaults to the current time. */
   now?: Date;
   /** Current route context hint */
   routeContext?: "today" | "upcoming" | "project";
@@ -60,10 +64,10 @@ export interface RankingOptions {
  */
 export function rankTasks(
   tasks: RankableTask[],
-  options: RankingOptions = {},
+  options: RankingOptions,
 ): RankedTask[] {
   const now = options.now ?? new Date();
-  const todayStr = toDateStr(now);
+  const todayStr = options.clock.today;
 
   const ranked = tasks.map((task) => ({ task, ...computeScore(task, now, todayStr, options) }));
 
@@ -85,15 +89,12 @@ function computeScore(
   let score = 0;
   const reasons: TaskRankReason[] = [];
 
-  const effectiveDate = task.dueDate || task.scheduledStart;
-  const effectiveDateStr = effectiveDate
-    ? toDateStr(new Date(effectiveDate))
-    : null;
+  const effectiveDateStr = task.dueDate ?? (task.scheduledStart ? options.dayOf(task.scheduledStart) : null);
+  const effectiveDate = effectiveDateStr;
 
   // ── Not-before penalty: suppress tasks that shouldn't be shown yet ──
   if (task.notBefore) {
-    const notBeforeTime = new Date(task.notBefore).getTime();
-    if (notBeforeTime > now.getTime()) {
+    if (task.notBefore > todayStr) {
       score -= 50;
       reasons.push("not_yet");
     }
@@ -119,7 +120,7 @@ function computeScore(
 
   // ── Due soon (within 3 days) ──
   if (effectiveDateStr && !reasons.includes("overdue") && !reasons.includes("due_today")) {
-    const daysUntil = daysDiff(todayStr, effectiveDateStr);
+    const daysUntil = daysBetweenLocal(todayStr, effectiveDateStr);
     if (daysUntil > 0 && daysUntil <= 3) {
       score += 15;
       reasons.push("due_soon");
@@ -127,7 +128,7 @@ function computeScore(
   }
 
   // ── Scheduled now ──
-  if (task.scheduledStart && !task.isAllDay) {
+  if (task.scheduledStart) {
     const startTime = new Date(task.scheduledStart).getTime();
     const diffMs = startTime - now.getTime();
     if (diffMs >= -30 * 60 * 1000 && diffMs <= 60 * 60 * 1000) {
@@ -166,10 +167,4 @@ function computeScore(
   }
 
   return { score, reasons };
-}
-
-function daysDiff(fromStr: string, toStr: string): number {
-  const from = new Date(fromStr + "T00:00:00Z").getTime();
-  const to = new Date(toStr + "T00:00:00Z").getTime();
-  return Math.round((to - from) / (24 * 60 * 60 * 1000));
 }

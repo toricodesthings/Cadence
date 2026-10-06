@@ -1,5 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { type CanonicalNlpSnapshot, type ParsedEntity } from "@cadence/nlp";
+import { atLocal, nowWallTime, todayIn, type Zone } from "@cadence/domain/time";
+import { userZone } from "../../platform/user-zone";
 import { users, projects, tags, taskNlpMetadata } from "../../db/schema";
 import type { Tx } from "../../types/db";
 
@@ -9,10 +11,11 @@ function confidenceRank(confidence: "high" | "medium" | "low" | undefined) {
 
 export async function loadNlpRuntime(tx: Tx, userId: string) {
     const [user] = await tx
-        .select({ settings: users.settings })
+        .select({ settings: users.settings, zone: users.timeZone })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
+    const zone = await userZone(tx, userId);
 
     const [projectRows, tagRows] = await Promise.all([
         tx.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.userId, userId)),
@@ -23,8 +26,13 @@ export async function loadNlpRuntime(tx: Tx, userId: string) {
     const intelligence = settings.tasks?.intelligence ?? {};
     const dismissedEntityIds = new Set<string>((intelligence.dismissedEntityIds as string[] | undefined) ?? []);
 
+    const weekStart = (settings.dateTime?.weekStart ?? "Sunday") as "Sunday" | "Monday" | "Saturday";
+
     return {
         settings,
+        zone,
+        // The user's today and clock, from their zone: the parser never reads the machine's.
+        clock: { today: todayIn(zone), now: nowWallTime(zone), weekStart },
         context: {
             projects: projectRows,
             tags: tagRows,
@@ -33,6 +41,11 @@ export async function loadNlpRuntime(tx: Tx, userId: string) {
     };
 }
 
+/**
+ * What the parse adds to a task, in the stored shapes (`zone` is the user's): a date alone is a day
+ * (`dueDate`), a date with a time is a timed start (`atLocal`). A deadline is a day, so a time on a
+ * "due" date is dropped. Anything the caller sent explicitly wins.
+ */
 export function inferTaskFieldsFromParse(
     parsed: CanonicalNlpSnapshot,
     explicit: {
@@ -42,13 +55,15 @@ export function inferTaskFieldsFromParse(
         durationEstimate?: number | null;
         waitingOn?: string | null;
         recurrenceRule?: string | null;
-        isAllDay?: boolean | null;
+        /** Any of these given (even null) means the caller placed the task itself. */
         dueDate?: string | null;
-        scheduledDate?: string | null;
         scheduledStart?: string | null;
         scheduledEnd?: string | null;
+        scheduledDay?: string | null;
+        isAllDay?: boolean | null;
     },
     confidenceThreshold: "high" | "medium" | "low",
+    zone: Zone,
 ) {
     const thresholdRank = confidenceRank(confidenceThreshold);
     const entityRank = (entity: ParsedEntity) => confidenceRank(entity.confidence);
@@ -58,10 +73,7 @@ export function inferTaskFieldsFromParse(
     let parsedDuration: number | null | undefined;
     let parsedWaitingOn: string | null | undefined;
     let parsedRecurrence: string | null | undefined;
-    let parsedTemporal:
-        | { isAllDay: boolean; dueDate?: string | null; scheduledStart?: string | null; scheduledEnd?: string | null }
-        | undefined;
-    let parsedScheduledDate: string | null | undefined;
+    let parsedTemporal: { dueDate?: string; scheduledStart?: string } | undefined;
 
     for (const entity of parsed.entities) {
         if (entityRank(entity) < thresholdRank) continue;
@@ -108,24 +120,16 @@ export function inferTaskFieldsFromParse(
                     explicit.dueDate !== undefined ||
                     explicit.scheduledStart !== undefined ||
                     explicit.scheduledEnd !== undefined ||
-                    explicit.isAllDay !== undefined ||
-                    explicit.scheduledDate !== undefined
+                    explicit.scheduledDay !== undefined ||
+                    explicit.isAllDay !== undefined
                 ) {
                     continue;
                 }
 
-                const value = entity.normalizedValue as { date: string; datetime: string | null; hasTime: boolean };
-                if (entity.type === "due_date" && value.hasTime) {
-                    continue;
-                }
-
-                parsedScheduledDate = entity.type === "scheduled_start" && value.datetime ? value.datetime : value.date;
-
-                if (entity.type === "scheduled_start" && value.datetime) {
-                    parsedTemporal = { isAllDay: false, scheduledStart: value.datetime };
-                } else {
-                    parsedTemporal = { isAllDay: true, dueDate: value.date };
-                }
+                const value = entity.normalizedValue as { date: string; time: string | null; hasTime: boolean };
+                parsedTemporal = entity.type === "scheduled_start" && value.hasTime && value.time
+                    ? { scheduledStart: atLocal(value.date, value.time, zone) }
+                    : { dueDate: value.date };
                 break;
             }
         }
@@ -138,11 +142,9 @@ export function inferTaskFieldsFromParse(
         durationEstimate: explicit.durationEstimate !== undefined ? explicit.durationEstimate : parsedDuration,
         waitingOn: explicit.waitingOn !== undefined ? explicit.waitingOn : parsedWaitingOn,
         recurrenceRule: explicit.recurrenceRule !== undefined ? explicit.recurrenceRule : parsedRecurrence,
-        isAllDay: explicit.isAllDay !== undefined ? explicit.isAllDay : parsedTemporal?.isAllDay,
         dueDate: explicit.dueDate !== undefined ? explicit.dueDate : parsedTemporal?.dueDate,
         scheduledStart: explicit.scheduledStart !== undefined ? explicit.scheduledStart : parsedTemporal?.scheduledStart,
-        scheduledEnd: explicit.scheduledEnd !== undefined ? explicit.scheduledEnd : parsedTemporal?.scheduledEnd,
-        scheduledDate: explicit.scheduledDate !== undefined ? explicit.scheduledDate : parsedScheduledDate,
+        scheduledEnd: explicit.scheduledEnd,
     };
 }
 

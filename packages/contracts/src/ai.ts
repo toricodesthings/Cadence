@@ -95,7 +95,8 @@ export const chatRequestSchema = z.object({
     message: userMessageSchema.optional(),
     /** Answers to the approvals the last assistant message waits on; the turn then continues. */
     approvals: z.array(toolApprovalDecisionSchema).min(1).max(50).optional(),
-    timezone: z.string().default("UTC"),
+    /** The client's resolved zone (pinned or device); the server syncs `users.time_zone` from it. Omitted: the stored zone stands. */
+    timezone: z.string().optional(),
     currentDate: z.string().describe("ISO timestamp representing user's current clock time"),
     /** BCP-47 locale of the client (e.g. "en-CA") — feeds runtime prompt context. */
     locale: z.string().min(2).max(35).optional(),

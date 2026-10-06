@@ -39,18 +39,18 @@ describe("batched open task reads", () => {
         await create({ title: "Done", state: "COMPLETE" });
         await create({ title: "Trash", state: "ARCHIVED" });
         await create({ title: "Other account" }, foreign);
-        await create({ title: "Fixed", isAllDay: false, scheduledStart: "2026-03-01T09:00:00.000Z",
+        await create({ title: "Fixed", scheduledStart: "2026-03-01T09:00:00.000Z",
             scheduledEnd: "2026-03-01T10:00:00.000Z", recurrenceRule: "FREQ=DAILY;COUNT=30", interactionMode: "timetable" });
         const queries: Record<string, string>[] = [
             { state: "ACTIVE" }, { state: "WAITING" },
             { state: "ACTIVE", hasNoDate: "true", hasNoProject: "true" },
             { state: "ACTIVE", effectiveOnOrBeforeDate: "2026-03-09" },
-            { state: "ACTIVE", scheduledRangeStart: "2026-03-09", scheduledRangeEnd: "2026-03-15" },
-            { state: "ACTIVE", scheduledRangeStart: "2026-03-12", scheduledRangeEnd: "2026-03-18" },
+            { state: "ACTIVE", from: "2026-03-09", to: "2026-03-15" },
+            { state: "ACTIVE", from: "2026-03-12", to: "2026-03-18" },
             { state: "ACTIVE", priority: "4", isPinned: "true" },
             { state: "ACTIVE", projectId: project.id },
             { state: "WAITING", effort: "2" },
-            { state: "ACTIVE", scheduledDate: "2026-03-09" },
+            { state: "ACTIVE", from: "2026-03-09", to: "2026-03-09" },
         ];
         const singles = [];
         for (const query of queries) singles.push((await tasks("GET", `?${new URLSearchParams(query)}`)).body.data);
@@ -88,9 +88,9 @@ describe("batched open task reads", () => {
     it("keeps full open lists while each schedule window retains the single-read cap", async () => {
         // Direct SQL seeding avoids testing create 60 times; reads still run with real RLS.
         const { asOwner } = await import("../helpers/db");
-        await asOwner((pg) => pg.query(`INSERT INTO tasks (user_id, title, order_index, due_date)
-            SELECT $1, 'Task ' || n, n, '2026-03-09T12:00:00Z'::timestamptz FROM generate_series(1, 60) n`, [userId]));
-        const result = await tasks("GET", batchPath([{ state: "ACTIVE" }, { state: "ACTIVE", scheduledDate: "2026-03-09" }]));
+        await asOwner((pg) => pg.query(`INSERT INTO tasks (user_id, title, order_index, due_on)
+            SELECT $1, 'Task ' || n, n, '2026-03-09'::date FROM generate_series(1, 60) n`, [userId]));
+        const result = await tasks("GET", batchPath([{ state: "ACTIVE" }, { state: "ACTIVE", from: "2026-03-09", to: "2026-03-09" }]));
         expect(result.status).toBe(200);
         expect(result.body.data.lists.map((list: number[]) => list.length)).toEqual([60, 50]);
     });

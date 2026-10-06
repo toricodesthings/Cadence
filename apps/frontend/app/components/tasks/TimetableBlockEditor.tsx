@@ -5,7 +5,10 @@ import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { DatePicker } from "../shared/DatePicker";
 import { TimePicker, Tip } from "../primitives";
-import { formatShortDate, fromTimeValue, parseLocalDate, toISODate, toTimeValue } from "../../lib/utils/date-format";
+import { addDays, untilClause, untilOf, weekdayOf, type Instant, type LocalDate, type WallTime } from "@cadence/domain/time";
+import { rescheduleToDay } from "@cadence/domain/task-temporal";
+import { dayOfInstant, formatShortDate, fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
+import { getUserZone } from "../../lib/utils/user-zone";
 
 /**
  * Direct editor for recurring timetable blocks (Fixed).
@@ -30,58 +33,21 @@ function joinRuleParts(parts: RRulePart[]): string {
     return parts.map(([key, value]) => `${key}=${value}`).join(";");
 }
 
-/** RRULE UNTIL → local "YYYY-MM-DD". Returns null when the series runs forever. */
-function parseUntilDate(rule: string | null): string | null {
-    const raw = parseRuleParts(rule ?? "").find(([key]) => key === "UNTIL")?.[1];
-    if (!raw) return null;
-    const y = raw.slice(0, 4);
-    const m = raw.slice(4, 6);
-    const d = raw.slice(6, 8);
-    if (!/^\d{8}(T\d{6}Z?)?$/.test(raw)) return null;
-    // Date-only UNTIL is UTC-midnight by spec; datetime UNTIL is an instant.
-    const iso = raw.length === 8 ? `${y}-${m}-${d}T00:00:00.000Z` : `${y}-${m}-${d}T${raw.slice(9, 11)}:${raw.slice(11, 13)}:${raw.slice(13, 15)}.000Z`;
-    return toISODate(new Date(iso));
-}
-
-/** Local "YYYY-MM-DD" → RRULE UNTIL as end-of-day UTC (inclusive of that date). */
-function formatUntilValue(dateOnly: string): string {
-    const end = parseLocalDate(dateOnly);
-    end.setHours(23, 59, 59, 999);
-    // "2026-09-18T23:59:59.999Z" → "20260918T235959Z"
-    return end.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-}
-
-/** Move an ISO timestamp by whole days, preserving time-of-day. */
-function shiftByDays(iso: string, days: number): string {
-    const d = new Date(iso);
-    d.setDate(d.getDate() + days);
-    return d.toISOString();
-}
-
-/** "HH:mm" from the primitive → full ISO, using the base timestamp's date (null-safe for closures). */
-function fromTimeOnBase(baseIso: string | null, time: string): string {
-    if (!baseIso) return time;
-    return fromTimeValue(baseIso, time);
-}
-
-/** Place `timeSource`'s time-of-day on `anchor`'s date; roll to the next day when the block crosses midnight. */
-function alignEndToStart(anchorStart: Date, timeSource: Date): Date {
-    const end = new Date(anchorStart);
-    end.setHours(timeSource.getHours(), timeSource.getMinutes(), 0, 0);
+/** The block's end for a chosen end time: on the start's day, rolling to the next day when the block crosses midnight. */
+function alignEndToStart(startIso: Instant, endTime: WallTime): Instant {
+    const day = dayOfInstant(startIso);
+    const sameDay = fromTimeValue(day, endTime);
     // Same time as the start means a zero-length block, not 24h: push it an hour out.
-    if (end.getTime() === anchorStart.getTime()) end.setHours(end.getHours() + 1);
-    else if (end < anchorStart) end.setDate(end.getDate() + 1);
-    return end;
+    if (sameDay === startIso) return new Date(Date.parse(startIso) + 60 * 60 * 1000).toISOString();
+    return Date.parse(sameDay) > Date.parse(startIso) ? sameDay : fromTimeValue(addDays(day, 1), endTime);
 }
 
 function formatDuration(startIso: string, endIso: string): string {
-    const minutes = Math.max(0, Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
+    const minutes = Math.max(0, Math.round((Date.parse(endIso) - Date.parse(startIso)) / 60000));
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     const base = hours > 0 && mins > 0 ? `${hours}h ${mins}m` : hours > 0 ? `${hours}h` : `${mins}m`;
-    const crossesMidnight = new Date(endIso).getDate() !== new Date(startIso).getDate()
-        || new Date(endIso).getMonth() !== new Date(startIso).getMonth();
-    return crossesMidnight ? `${base} · ends next day` : base;
+    return dayOfInstant(endIso) !== dayOfInstant(startIso) ? `${base} · ends next day` : base;
 }
 
 const DAY_CHIP_BASE =
@@ -107,7 +73,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
     // Latest intended times. Props lag by a full mutation round-trip, so both
     // handlers must chain off this ref — otherwise an end edit made inside the
     // debounce window would be computed from (and commit) the stale start.
-    const latestTimesRef = useRef<{ start: string | null; end: string | null }>({
+    const latestTimesRef = useRef<{ start: Instant | null; end: Instant | null }>({
         start: task.scheduledStart ?? null,
         end: task.scheduledEnd ?? null,
     });
@@ -125,25 +91,25 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         const key = `${start}|${end ?? ""}`;
         if (key === lastSentRef.current) return;
         lastSentRef.current = key;
-        updateTask.mutate({ id: task.id, scheduledStart: start, scheduledEnd: end, isAllDay: false });
+        updateTask.mutate({ id: task.id, scheduledStart: start, scheduledEnd: end });
     }, 400);
 
-    const handleStartChange = (iso: string) => {
-        if (!latestTimesRef.current.start) return;
-        const start = new Date(iso);
+    const handleStartChange = (time: WallTime) => {
+        const current = latestTimesRef.current.start;
+        if (!current) return;
+        const start = fromTimeValue(dayOfInstant(current), time);
         // Keep the block's length: re-anchor the end's time-of-day onto the new start.
-        const end = latestTimesRef.current.end ? alignEndToStart(start, new Date(latestTimesRef.current.end)) : null;
-        latestTimesRef.current = { start: start.toISOString(), end: end ? end.toISOString() : null };
+        const end = latestTimesRef.current.end ? alignEndToStart(start, toTimeValue(latestTimesRef.current.end)) : null;
+        latestTimesRef.current = { start, end };
         commitTimes();
     };
 
-    const handleEndChange = (iso: string) => {
+    const handleEndChange = (time: WallTime) => {
         const anchor = latestTimesRef.current.start;
         if (!anchor) return;
-        // The end's calendar date is derived, never picked directly: the chosen
+        // The end's calendar day is derived, never picked directly: the chosen
         // time-of-day lands on the start day, rolling over midnight only when needed.
-        const end = alignEndToStart(new Date(anchor), new Date(iso));
-        latestTimesRef.current = { start: anchor, end: end.toISOString() };
+        latestTimesRef.current = { start: anchor, end: alignEndToStart(anchor, time) };
         commitTimes();
     };
 
@@ -151,40 +117,36 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         if (!start) return;
         latestTimesRef.current = { start, end };
         lastSentRef.current = `${start}|${end ?? ""}`;
-        updateTask.mutate({ id: task.id, scheduledStart: start, scheduledEnd: end, isAllDay: false });
+        updateTask.mutate({ id: task.id, scheduledStart: start, scheduledEnd: end });
     };
 
     const handleAddEnd = () => {
         const anchor = latestTimesRef.current.start;
         if (!anchor) return;
-        const end = new Date(new Date(anchor).getTime() + 60 * 60 * 1000);
-        sendImmediate(anchor, end.toISOString());
+        sendImmediate(anchor, new Date(Date.parse(anchor) + 60 * 60 * 1000).toISOString());
     };
 
     const handleClearEnd = () => {
         sendImmediate(latestTimesRef.current.start, null);
     };
 
-    /** Re-anchor the series to a new start date, preserving times and block length. */
-    const handleSeriesStartDate = (dateOnly: string | null) => {
-        if (!dateOnly) return;
+    /** Re-anchor the series to a new start day, keeping local times and the block length. */
+    const handleSeriesStartDate = (day: LocalDate | null) => {
         const current = latestTimesRef.current.start;
-        if (!current) return;
-        const currentStart = new Date(current);
-        const nextStart = new Date(currentStart);
-        const anchor = parseLocalDate(dateOnly);
-        nextStart.setFullYear(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
-        const dayDelta = Math.round((nextStart.getTime() - currentStart.getTime()) / 86400000);
-        if (dayDelta === 0) return;
-        const nextEnd = latestTimesRef.current.end ? shiftByDays(latestTimesRef.current.end, dayDelta) : null;
-        sendImmediate(nextStart.toISOString(), nextEnd);
+        if (!day || !current || day === dayOfInstant(current)) return;
+        const next = rescheduleToDay(
+            { dueDate: null, endDate: null, scheduledStart: current, scheduledEnd: latestTimesRef.current.end, zone: getUserZone() },
+            day,
+            getUserZone(),
+        );
+        sendImmediate(next.scheduledStart, next.scheduledEnd);
     };
 
     /** Set or clear the series end date (RRULE UNTIL, inclusive). */
-    const handleSeriesEndDate = (dateOnly: string | null) => {
+    const handleSeriesEndDate = (day: LocalDate | null) => {
         if (!ruleParts || !task.recurrenceRule) return;
         const parts = ruleParts.filter(([key]) => key !== "UNTIL");
-        if (dateOnly) parts.push(["UNTIL", formatUntilValue(dateOnly)]);
+        if (day) parts.push(["UNTIL", untilClause(day).slice("UNTIL=".length)]);
         updateTask.mutate({ id: task.id, recurrenceRule: joinRuleParts(parts) });
     };
 
@@ -196,7 +158,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
     const explicitDays = ruleParts?.find(([key]) => key === "BYDAY")?.[1]?.split(",").filter(Boolean) ?? null;
     // A weekly rule without BYDAY repeats on the anchor's weekday — show it as the active chip.
     const anchorDay = task.scheduledStart
-        ? DAY_ORDER[(new Date(task.scheduledStart).getDay() + 6) % 7]
+        ? DAY_ORDER[(weekdayOf(dayOfInstant(task.scheduledStart)) + 6) % 7]
         : "MO";
     const activeDays = new Set(explicitDays ?? [anchorDay]);
 
@@ -221,7 +183,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
 
     const durationLabel = task.scheduledEnd ? formatDuration(task.scheduledStart, task.scheduledEnd) : null;
     const startDateLabel = formatShortDate(task.scheduledStart);
-    const endDate = parseUntilDate(task.recurrenceRule ?? null);
+    const endDate = task.recurrenceRule ? untilOf(task.recurrenceRule, getUserZone()) : null;
 
     return (
         <div className="flex flex-col gap-3">
@@ -233,7 +195,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                     </span>
                     <TimePicker
                         value={toTimeValue(task.scheduledStart)}
-                        onChange={(t) => handleStartChange(fromTimeOnBase(task.scheduledStart, t))}
+                        onChange={handleStartChange}
                     />
                 </div>
                 <div className="flex items-center justify-between gap-3">
@@ -245,7 +207,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         <div className="relative">
                             <TimePicker
                                 value={toTimeValue(task.scheduledEnd)}
-                                onChange={(t) => handleEndChange(fromTimeOnBase(task.scheduledEnd, t))}
+                                onChange={handleEndChange}
                             />
                             <Tip label="Remove end time" side="left">
                                 <button
@@ -305,7 +267,7 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
                         Starts on
                     </span>
                     <DatePicker
-                        value={toISODate(parseLocalDate(task.scheduledStart))}
+                        value={dayOfInstant(task.scheduledStart)}
                         onChange={handleSeriesStartDate}
                         label="Series start date"
                     >

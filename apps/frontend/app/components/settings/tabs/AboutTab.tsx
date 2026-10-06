@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowUpRight, ChevronDown, CircleCheck, Code2, Download, FileText, Globe, Heart, LifeBuoy, Monitor, RefreshCw, ScrollText, ShieldCheck, Smartphone, Tag } from "lucide-react";
-import { isToday } from "date-fns";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { Button } from "../../primitives/Button";
@@ -8,7 +7,8 @@ import { ExternalLink } from "../../shared/ExternalLink";
 import { UpdateDialog } from "../../desktop/UpdateDialog";
 import { SettingsSection } from "../layout/SettingsLayout";
 import { CADENCE_PRIVACY_URL, CADENCE_PUBLIC_VERSION, CADENCE_REPOSITORY_URL, CADENCE_TERMS_URL } from "../../../lib/constants/app-info";
-import { formatShortDateTime, formatTime } from "../../../lib/utils/date-format";
+import { dayOfInstant, formatShortDateTime, formatTime } from "../../../lib/utils/date-format";
+import { today } from "../../../lib/utils/user-zone";
 import { checkForAppUpdate, IS_DESKTOP_RUNTIME } from "../../../platform/runtime";
 import { publishAvailableDesktopUpdate, useAvailableDesktopUpdate, useLastUpdateCheck } from "../../../platform/desktop-update-state";
 
@@ -46,8 +46,9 @@ function DesktopUpdatePanel() {
         }
     };
 
-    const checkedLabel = lastChecked
-        ? `Last checked: ${isToday(lastChecked) ? formatTime(lastChecked.toISOString()) : formatShortDateTime(lastChecked.toISOString())}`
+    const checkedAt = lastChecked?.toISOString(); // time-ok: the instant of the check, shown in the user's zone
+    const checkedLabel = checkedAt
+        ? `Last checked: ${dayOfInstant(checkedAt) === today() ? formatTime(checkedAt) : formatShortDateTime(checkedAt)}`
         : null;
 
     let Icon = RefreshCw;

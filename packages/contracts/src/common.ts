@@ -1,25 +1,39 @@
 import { z } from "zod";
 
-/** ISO-8601 datetime with an offset — the wire format for every timestamp. */
-export const isoDateTimeSchema = z.iso.datetime({ offset: true });
+// ── Time: one model (see the root AGENTS.md "Time" section) ──
+// A field is exactly one of these four types, never a date-or-datetime union.
 
-/** A date-only (`YYYY-MM-DD`) or full ISO datetime, for fields shared by all-day and timed values. */
-export const flexibleDateTimeSchema = z.union([z.iso.date(), isoDateTimeSchema]);
+const ZONE_SHAPE = /^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+)*$/;
 
-// ── Wire-format boundaries ──
-// A date-only range bound covers that whole UTC day.
-
-export function isDateOnly(value: string) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+/** Whether `value` is an IANA zone name this runtime knows (`@cadence/domain/time` re-exports it). */
+export function isZone(value: unknown): value is string {
+    if (typeof value !== "string" || !ZONE_SHAPE.test(value)) return false;
+    try {
+        new Intl.DateTimeFormat("en-US", { timeZone: value });
+        return true;
+    } catch {
+        return false;
+    }
 }
 
-export function normalizeStartBoundary(value: string) {
-    return isDateOnly(value) ? `${value}T00:00:00.000Z` : value;
-}
+/** Instant: one exact moment, ISO-8601 with an offset or `Z`. Timed starts and ends, reminders, audit times. */
+export const instantSchema = z.iso.datetime({ offset: true });
+/** LocalDate: a calendar day, `YYYY-MM-DD`, no time and no zone. All-day days, deadlines, hide-until, routine days. */
+export const localDateSchema = z.iso.date();
+/** WallTime: `HH:MM`, read with the day and zone it belongs to. */
+export const wallTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+/** Zone: an IANA name (`America/Toronto`). Never an offset, never "local". */
+export const zoneSchema = z.string().max(64).refine(isZone, "Must be an IANA time zone, e.g. America/Toronto");
 
-export function normalizeEndBoundary(value: string) {
-    return isDateOnly(value) ? `${value}T23:59:59.999Z` : value;
-}
+/** The wire format for every timestamp (alias of {@link instantSchema}). */
+export const isoDateTimeSchema = instantSchema;
+
+/**
+ * time-legacy: a day OR an instant, accepted on task writes for one release so queued offline
+ * operations and old desktop builds keep working. The server converts it (`legacy_time_shape` is
+ * logged); new clients send a LocalDate or an Instant. Removed with the shim.
+ */
+export const legacyTimeInputSchema = z.union([localDateSchema, instantSchema]);
 
 export const paginationSchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).default(50),

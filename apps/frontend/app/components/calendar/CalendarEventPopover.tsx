@@ -3,7 +3,10 @@ import { CalendarHeart, CalendarRange, Clock3, StickyNote } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { FIELD_LABEL } from "../tasks/task-choice-options";
 import { EffortField, PriorityField } from "../tasks/TaskWeightFields";
-import { addMinutesToTime, formatShortDateLabel } from "../../lib/utils/date-format";
+import { addDays, atLocal, untilClause, weekdayOf, type LocalDate } from "@cadence/domain/time";
+import { addMinutesToTime, formatShortDateLabel, formatWallTime } from "../../lib/utils/date-format";
+import { getUserZone } from "../../lib/utils/user-zone";
+import { minutesToWallTime } from "../../lib/utils/calendar/calendar-dnd";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -28,7 +31,8 @@ import { useAddPersonalEvent } from "./AddPersonalEventDialog";
 import type { EffortLevel, TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
 
 export interface CalendarEventInfo {
-    date: string;
+    /** The day the draft sits on */
+    date: LocalDate;
     startHour: number;
     startMinute: number;
     isAllDay?: boolean;
@@ -47,34 +51,26 @@ interface CalendarEventPopoverProps {
 type ComposerMode = "once" | "weekly";
 type ScheduleCreateTab = "task" | "event";
 
-function toWeekdayCode(date: string): WeekdayCode {
-    const day = new Date(`${date}T00:00:00`).getDay();
-    return (["SU", "MO", "TU", "WE", "TH", "FR", "SA"][day] ?? "MO") as WeekdayCode;
-}
-
-function formatTimeValue(hour: number, minute: number) {
-    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+function toWeekdayCode(date: LocalDate): WeekdayCode {
+    return (["SU", "MO", "TU", "WE", "TH", "FR", "SA"][weekdayOf(date)] ?? "MO") as WeekdayCode;
 }
 
 function formatTimeRange(startTime: string, endTime: string) {
-    const fmt = (value: string) => {
-        const [h, m] = value.split(":").map(Number);
-        const d = new Date();
-        d.setHours(h, m, 0, 0);
-        return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    };
-    return `${fmt(startTime)} – ${fmt(endTime)}`;
+    return `${formatWallTime(startTime)} – ${formatWallTime(endTime)}`;
 }
 
-function buildUntilValue(date: string) {
-    const end = new Date(`${date}T23:59:59`);
-    return end.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+/** The block's start and end instants in the user's zone; an end at or before the start runs into the next day. */
+function blockInstants(day: LocalDate, startTime: string, endTime: string) {
+    const zone = getUserZone();
+    const start = atLocal(day, startTime, zone);
+    const end = atLocal(endTime <= startTime ? addDays(day, 1) : day, endTime, zone);
+    return { start, end };
 }
 
-function buildWeeklyRule(days: WeekdayCode[], endDate: string | null) {
+function buildWeeklyRule(days: WeekdayCode[], endDate: LocalDate | null) {
     const orderedDays = WEEKDAY_ORDER.filter((day) => days.includes(day));
     const base = `FREQ=WEEKLY;BYDAY=${orderedDays.join(",")}`;
-    return endDate ? `${base};UNTIL=${buildUntilValue(endDate)}` : base;
+    return endDate ? `${base};${untilClause(endDate)}` : base;
 }
 
 export function CalendarEventPopover({ info, initialTab = "task", onClose }: CalendarEventPopoverProps) {
@@ -89,7 +85,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [mode, setMode] = useState<ComposerMode>("once");
-    const [endDate, setEndDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<LocalDate | "">("");
     const [hasEndDate, setHasEndDate] = useState(false);
     const [weekdays, setWeekdays] = useState<WeekdayCode[]>([toWeekdayCode(info.date)]);
     const [priority, setPriority] = useState<TaskPriority>(0);
@@ -121,7 +117,7 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     // "Dinner with Sam Fri 7pm": a typed day and time fill the when, until a field is touched.
     const { data: userSettings } = useSettings();
     const intelligence = userSettings?.tasks?.intelligence;
-    const startTime = formatTimeValue(info.startHour, info.startMinute);
+    const startTime = minutesToWallTime(info.startHour * 60 + info.startMinute);
     const nlpOn = isPhone && tab === "task" && mode === "once" && intelligence?.nlpEnabled !== false;
     const nlp = useNlpParse({
         input: title,
@@ -140,37 +136,28 @@ export function CalendarEventPopover({ info, initialTab = "task", onClose }: Cal
     const taskDirty = Boolean(title.trim() || notes.trim() || mode === "weekly" || hasEndDate || priority > 0 || effort !== null);
     const isDirty = taskDirty || event.isDirty;
 
-    const recurrenceRule = mode === "weekly" ? buildWeeklyRule(weekdays, hasEndDate ? endDate : null) : null;
+    const recurrenceRule = mode === "weekly" ? buildWeeklyRule(weekdays, hasEndDate && endDate ? endDate : null) : null;
     const summary = useMemo(
-        () =>
-            mode === "weekly"
-                ? getTaskRecurrenceSummary({
-                    recurrenceRule,
-                    scheduledStart: new Date(`${whenStartDate}T${whenStartTime}:00`).toISOString(),
-                    scheduledEnd: new Date(`${whenStartDate}T${whenEndTime}:00`).toISOString(),
-                })
-                : null,
+        () => {
+            if (mode !== "weekly") return null;
+            const { start, end } = blockInstants(whenStartDate, whenStartTime, whenEndTime);
+            return getTaskRecurrenceSummary({ recurrenceRule, scheduledStart: start, scheduledEnd: end });
+        },
         [mode, recurrenceRule, whenStartDate, whenStartTime, whenEndTime],
     );
 
     const handleTaskSubmit = useCallback(() => {
         if (!submitTitle) return;
 
-        const start = new Date(`${whenStartDate}T${whenStartTime}:00`);
-        const end = new Date(`${whenStartDate}T${whenEndTime}:00`);
-        if (end <= start) {
-            end.setDate(end.getDate() + 1);
-        }
+        const { start, end } = blockInstants(whenStartDate, whenStartTime, whenEndTime);
 
         createTask(
             {
                 title: submitTitle,
                 content: notes.trim() || null,
                 orderIndex: Date.now(),
-                dueDate: whenStartDate,
-                scheduledStart: start.toISOString(),
-                scheduledEnd: end.toISOString(),
-                isAllDay: false,
+                scheduledStart: start,
+                scheduledEnd: end,
                 timezoneLocked: mode === "weekly",
                 recurrenceRule: recurrenceRule ?? undefined,
                 interactionMode: recurrenceRule ? interactionMode : "task",

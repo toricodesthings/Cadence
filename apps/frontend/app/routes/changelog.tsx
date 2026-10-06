@@ -6,7 +6,7 @@ import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { CADENCE_PUBLIC_VERSION } from "../lib/constants/app-info";
 import { CADENCE_CHANGELOG, type ChangelogEntry, type ChangelogGroup } from "../lib/constants/changelog";
-import { parseLocalDate } from "../lib/utils/date-format";
+import { formatShortDateLabel } from "../lib/utils/date-format";
 
 const CHANGELOG_GLYPHS: Record<ChangelogEntry["glyph"], { icon: typeof Sparkles; className: string }> = {
     release: { icon: Sparkles, className: "border-accent-primary/20 bg-accent-primary/10 text-accent-primary" },
@@ -25,7 +25,7 @@ function ReleaseDate({ date }: { date?: string }) {
     if (!date) return null;
     return (
         <time dateTime={date} className="shrink-0 text-xs font-medium text-twilight-text-muted">
-            {parseLocalDate(date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            {formatShortDateLabel(date, { year: true })}
         </time>
     );
 }

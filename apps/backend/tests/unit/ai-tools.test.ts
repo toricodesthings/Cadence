@@ -19,8 +19,7 @@ const baseTask: TaskRow = {
     id: "t1",
     title: "Write report",
     state: "ACTIVE",
-    isAllDay: false,
-    dueDate: "2026-06-10T12:00:00.000Z",
+    dueDate: "2026-06-10",
     scheduledStart: null,
     scheduledEnd: null,
     durationEstimate: 30,
@@ -64,34 +63,34 @@ describe("toMinimalTask", () => {
         expect(toMinimalTask(task, "America/Toronto")).toMatchObject({
             scheduledStart: "2026-06-10T14:00:00-04:00",
             scheduledEnd: "2026-06-10T15:30:00-04:00",
-            dueDate: "2026-06-10T08:00:00-04:00",
+            dueDate: "2026-06-10", // a day stays a day: never shifted by the zone
         });
     });
 
-    it("writes all-day values as the stored calendar date, in any zone", () => {
-        const task = { ...baseTask, isAllDay: true, dueDate: "2026-06-10T12:00:00.000Z", scheduledEnd: "2026-06-12T23:59:59.999Z" };
+    it("writes days as stored, in any zone", () => {
+        const task = { ...baseTask, dueDate: "2026-06-10", endDate: "2026-06-12" };
 
-        for (const tz of ["Pacific/Auckland", "America/Los_Angeles"]) {
-            expect(toMinimalTask(task, tz)).toMatchObject({ dueDate: "2026-06-10", scheduledEnd: "2026-06-12" });
+        for (const tz of ["Pacific/Auckland", "America/Los_Angeles", "Pacific/Kiritimati"]) {
+            expect(toMinimalTask(task, tz)).toMatchObject({ dueDate: "2026-06-10", endDate: "2026-06-12" });
             expect(toMinimalTask(task, tz).scheduledStart).toBeUndefined();
         }
+        expect(toMinimalTask({ ...baseTask, notBefore: "2026-06-08" }, "Pacific/Pago_Pago").hiddenUntil).toBe("2026-06-08");
     });
 });
 
 describe("taskLocalDay", () => {
     it("puts a timed task on the day its start has in the user's zone", () => {
-        const lateEvening = { isAllDay: false, dueDate: null, scheduledStart: "2026-06-11T02:30:00.000Z" }; // 22:30 on the 10th in Toronto
+        const lateEvening = { dueDate: null, scheduledStart: "2026-06-11T02:30:00.000Z" }; // 22:30 on the 10th in Toronto
 
         expect(taskLocalDay(lateEvening, "America/Toronto")).toBe("2026-06-10");
         expect(taskLocalDay(lateEvening, "UTC")).toBe("2026-06-11");
     });
 
-    it("keeps an all-day task on its stored date in every zone, and is null when undated", () => {
-        const allDay = { isAllDay: true, dueDate: "2026-06-10T12:00:00.000Z", scheduledStart: null };
+    it("keeps an all-day task on its stored day in every zone, and is null when undated", () => {
+        const allDay = { dueDate: "2026-10-05", scheduledStart: null }; // the COMP3000 case
 
-        expect(taskLocalDay(allDay, "Pacific/Kiritimati")).toBe("2026-06-10");
-        expect(taskLocalDay(allDay, "Pacific/Pago_Pago")).toBe("2026-06-10");
-        expect(taskLocalDay({ isAllDay: true, dueDate: null, scheduledStart: null }, "UTC")).toBeNull();
+        for (const tz of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto", "UTC"]) expect(taskLocalDay(allDay, tz)).toBe("2026-10-05");
+        expect(taskLocalDay({ dueDate: null, scheduledStart: null }, "UTC")).toBeNull();
     });
 });
 
@@ -118,7 +117,7 @@ describe("toMinimalHabit", () => {
     it("flags paused when currentDate is on/before pausedUntil", () => {
         expect(toMinimalHabit({ ...habit, pausedUntil: "2026-06-10" }, "2026-06-05").paused).toBe(true);
         expect(toMinimalHabit({ ...habit, pausedUntil: "2026-06-01" }, "2026-06-05").paused).toBe(false);
-        expect(toMinimalHabit({ ...habit, pausedUntil: "2026-06-05" }, "2026-06-05T09:00Z").paused).toBe(true);
+        expect(toMinimalHabit({ ...habit, pausedUntil: "2026-06-05" }, "2026-06-05").paused).toBe(true);
     });
 });
 
@@ -215,7 +214,7 @@ describe("tool registry", () => {
         expect(patch.clear.items.enum).toEqual(expect.arrayContaining(["dueDate", "reminderAt", "projectId", "sectionId", "recurrenceRule"]));
         expect(patch.clear.items.enum).not.toContain("title");
         expect(JSON.stringify(patch)).not.toMatch(/null (clears|removes|shows|stops)/);
-        expect(patch.dueDate.description).toBe("A deadline, only when one is given.");
+        expect(patch.dueDate.description).toBe("The day it sits on, or its deadline, YYYY-MM-DD (never a time).");
 
         // The tool's result tells the model what was dropped.
         const help = asSchema(tools.get_cadence_help.inputSchema);
@@ -316,6 +315,19 @@ describe("task drafts", () => {
         expect(parsed.fromImage).toEqual({ note: "Amouage" });
         expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { subtasks: "x".repeat(300) } }).success).toBe(true);
         expect(taskDraftSchema.safeParse({ title: "Pay rent", fromImage: { dueDate: "x".repeat(301) } }).success).toBe(false);
+    });
+});
+
+describe("a time in a day field is refused with a way forward", () => {
+    it("rejects an instant in dueDate and a bare day in scheduledStart", () => {
+        const withTime = taskDraftSchema.safeParse({ title: "Essay", dueDate: "2026-10-09T23:59:00-04:00" });
+        expect(withTime.success).toBe(false);
+        expect(JSON.stringify(withTime.error?.issues)).toMatch(/reminderAt/);
+        const bareDay = taskDraftSchema.safeParse({ title: "Essay", scheduledStart: "2026-10-09" });
+        expect(bareDay.success).toBe(false);
+        expect(JSON.stringify(bareDay.error?.issues)).toMatch(/dueDate/);
+        expect(taskDraftSchema.safeParse({ title: "Essay", dueDate: "2026-10-09", reminderAt: "2026-10-09T23:00:00-04:00" }).success).toBe(true);
+        expect(taskDraftSchema.safeParse({ title: "Call", scheduledStart: "2026-10-09T18:00:00-04:00", scheduledEnd: "2026-10-09T19:00:00-04:00" }).success).toBe(true);
     });
 });
 

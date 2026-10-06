@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { flexibleDateTimeSchema, isoDateTimeSchema } from "./common";
+import { instantSchema, isoDateTimeSchema, legacyTimeInputSchema, localDateSchema } from "./common";
 import { canonicalNlpEnvelopeSchema, effortLevelSchema, sourceSurfaceSchema } from "./task";
 
 export const inboxQuerySchema = z.object({ status: z.enum(["clarifying", "kept"]).default("clarifying") });
@@ -39,10 +39,14 @@ export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
 export const processInboxItemSchema = z.object({
     title: z.string().min(1).max(2_000),
     complete: z.boolean().optional(),
-    scheduledDate: flexibleDateTimeSchema.nullish(),
-    dueDate: z.iso.date().nullish(),
-    scheduledStart: isoDateTimeSchema.nullish(),
-    scheduledEnd: flexibleDateTimeSchema.nullish(),
+    /** An all-day placement: the day (a deadline is a day). */
+    scheduledDay: localDateSchema.nullish(),
+    dueDate: localDateSchema.nullish(),
+    /** A timed placement: the start and optional end instants (the server adds the user's zone). */
+    scheduledStart: instantSchema.nullish(),
+    scheduledEnd: instantSchema.nullish(),
+    /** time-legacy: queued offline operations from before 0.26.3 (a day or an instant, plus isAllDay). */
+    scheduledDate: legacyTimeInputSchema.nullish(),
     isAllDay: z.boolean().nullish(),
     projectId: z.uuid().nullish(),
     sectionId: z.uuid().nullish(),

@@ -10,16 +10,11 @@ import {
     type RankableTask,
 } from "@cadence/nlp/ranking";
 
-const NOW = new Date("2026-03-26T10:00:00");
-
-/** Helper: format a Date as YYYY-MM-DDT12:00:00 to avoid UTC date-shift when parsed back */
-function localDateStr(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T12:00:00`;
-}
-
-const TODAY = localDateStr(NOW);
-const YESTERDAY = localDateStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - 1));
-const TOMORROW = localDateStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 1));
+const NOW = new Date("2026-03-26T10:00:00Z");
+const TODAY = "2026-03-26";
+const YESTERDAY = "2026-03-25";
+const TOMORROW = "2026-03-27";
+const OPTS = { now: NOW, clock: { today: TODAY, now: "10:00", weekStart: "Sunday" as const }, dayOf: (i: string) => i.slice(0, 10) };
 
 function makeTask(overrides: Partial<RankableTask> = {}): RankableTask {
     return {
@@ -31,7 +26,6 @@ function makeTask(overrides: Partial<RankableTask> = {}): RankableTask {
         dueDate: null,
         scheduledStart: null,
         scheduledEnd: null,
-        isAllDay: false,
         effort: null,
         waitingOn: null,
         notBefore: null,
@@ -48,8 +42,8 @@ describe("rankTasks determinism", () => {
             makeTask({ id: "c", effort: 1, orderIndex: 2 }),
             makeTask({ id: "d", orderIndex: 3 }),
         ];
-        const a = rankTasks(tasks, { now: NOW, routeContext: "today" });
-        const b = rankTasks(tasks, { now: NOW, routeContext: "today" });
+        const a = rankTasks(tasks, { ...OPTS, routeContext: "today" });
+        const b = rankTasks(tasks, { ...OPTS, routeContext: "today" });
         expect(a.map((r) => r.task.id)).toEqual(b.map((r) => r.task.id));
         expect(a.map((r) => r.score)).toEqual(b.map((r) => r.score));
     });
@@ -62,10 +56,10 @@ describe("rankTasks determinism", () => {
             makeTask({ id: "d", waitingOn: "Alice" }),
             makeTask({ id: "e", notBefore: TOMORROW, orderIndex: 4 }),
         ];
-        const ref = rankTasks(tasks, { now: NOW });
+        const ref = rankTasks(tasks, OPTS);
         const refIds = ref.map((r) => r.task.id);
         for (let i = 0; i < 100; i++) {
-            const result = rankTasks(tasks, { now: NOW });
+            const result = rankTasks(tasks, OPTS);
             expect(result.map((r) => r.task.id)).toEqual(refIds);
         }
     });
@@ -77,7 +71,7 @@ describe("rankTasks scoring signals", () => {
             makeTask({ id: "overdue", dueDate: YESTERDAY }),
             makeTask({ id: "due_today", dueDate: TODAY, orderIndex: 1 }),
         ];
-        const result = rankTasks(tasks, { now: NOW });
+        const result = rankTasks(tasks, OPTS);
         // Overdue gets +40, due_today gets +30
         expect(result[0].task.id).toBe("overdue");
         expect(result[0].reasons).toContain("overdue");
@@ -90,7 +84,7 @@ describe("rankTasks scoring signals", () => {
             makeTask({ id: "high", priority: 4, orderIndex: 1 }),
             makeTask({ id: "low", priority: 0, orderIndex: 0 }),
         ];
-        const result = rankTasks(tasks, { now: NOW });
+        const result = rankTasks(tasks, OPTS);
         const high = result.find((r) => r.task.id === "high")!;
         expect(high.reasons).toContain("high_priority");
     });
@@ -99,20 +93,20 @@ describe("rankTasks scoring signals", () => {
         const tasks = [
             makeTask({ id: "quick", effort: 1, orderIndex: 0 }),
         ];
-        const result = rankTasks(tasks, { now: NOW });
+        const result = rankTasks(tasks, OPTS);
         expect(result[0].reasons).toContain("quick_win");
     });
 
     it("pinned tasks get pinned reason", () => {
         const tasks = [makeTask({ id: "pinned", isPinned: true })];
-        const result = rankTasks(tasks, { now: NOW });
+        const result = rankTasks(tasks, OPTS);
         expect(result[0].reasons).toContain("pinned");
     });
 
     it("waiting tasks get negative score adjustment", () => {
         const waiting = makeTask({ id: "w", waitingOn: "Bob", orderIndex: 0 });
         const normal = makeTask({ id: "n", orderIndex: 1 });
-        const result = rankTasks([waiting, normal], { now: NOW });
+        const result = rankTasks([waiting, normal], OPTS);
         const w = result.find((r) => r.task.id === "w")!;
         const n = result.find((r) => r.task.id === "n")!;
         expect(w.score).toBeLessThan(n.score);
@@ -123,18 +117,32 @@ describe("rankTasks scoring signals", () => {
         const tasks = [
             makeTask({ id: "deferred", notBefore: TOMORROW }),
         ];
-        const result = rankTasks(tasks, { now: NOW });
+        const result = rankTasks(tasks, OPTS);
         expect(result[0].score).toBeLessThan(0);
         expect(result[0].reasons).toContain("not_yet");
     });
 
     it("scheduled-now tasks score higher than unscheduled", () => {
         const tasks = [
-            makeTask({ id: "now", scheduledStart: "2026-03-26T10:15:00", orderIndex: 1 }),
+            makeTask({ id: "now", scheduledStart: "2026-03-26T10:15:00Z", orderIndex: 1 }),
             makeTask({ id: "plain", orderIndex: 0 }),
         ];
-        const result = rankTasks(tasks, { now: NOW });
+        const result = rankTasks(tasks, OPTS);
         expect(result[0].task.id).toBe("now");
         expect(result[0].reasons).toContain("scheduled_now");
+    });
+});
+
+describe("rankTasks days", () => {
+    it("derives a scheduled task's day through the injected dayOf", () => {
+        const t = makeTask({ id: "s", scheduledStart: "2026-03-27T02:00:00Z" });
+        const toronto = (i: string) => (i.startsWith("2026-03-27T02") ? "2026-03-26" : i.slice(0, 10));
+        expect(rankTasks([t], { ...OPTS, dayOf: toronto })[0].reasons).toContain("due_today");
+        expect(rankTasks([t], OPTS)[0].reasons).not.toContain("due_today");
+    });
+
+    it("flags due_soon by whole days", () => {
+        expect(rankTasks([makeTask({ dueDate: "2026-03-29" })], OPTS)[0].reasons).toContain("due_soon");
+        expect(rankTasks([makeTask({ dueDate: "2026-03-30" })], OPTS)[0].reasons).not.toContain("due_soon");
     });
 });

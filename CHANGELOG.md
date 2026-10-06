@@ -6,6 +6,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Dates and times land on the same day everywhere, in every time zone, all year round.
+
+### Changed
+
+- Settings' time zone is now "Device" or a zone you pick, and every screen and the assistant follow it.
+- Deadlines are plain days everywhere; a time now means a time block or a reminder.
+
+### Fixed
+
+- Weekly classes and other repeating time blocks keep their clock time when daylight saving changes.
+- A deadline falls on the same day in the app, the assistant and connected assistants, in any time zone.
+- "What's due today" and Today no longer miss tasks late in the evening or early in the morning.
+- Overdue counts and workload signals no longer count repeating tasks and Fixed blocks as late every day.
+- The overdue check runs on your own day, not UTC's, and the data export is named with your date.
+
 ## [0.26.2] - 2026-10-05
 
 ### Fixed

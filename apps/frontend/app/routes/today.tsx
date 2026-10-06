@@ -35,7 +35,9 @@ import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
-import { toISODate } from "../lib/utils/date-format";
+import { atLocal, wallTimeOf } from "@cadence/domain/time";
+import { dayOfInstant, fromTimeValue, nlpClock } from "../lib/utils/date-format";
+import { getUserZone, useToday } from "../lib/utils/user-zone";
 import { getPassiveTimetableOccurrenceAnchor, getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { sortTasks } from "../lib/utils/task/sort-tasks";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
@@ -74,7 +76,7 @@ export default function TodayRoute() {
 
     const [hideRoutines, setHideRoutines] = useState(false);
     const resolveHabit = useResolveHabit();
-    const todayISO = toISODate(new Date());
+    const todayISO = useToday();
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
     const { data: userSettings } = useSettings();
@@ -82,8 +84,7 @@ export default function TodayRoute() {
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
 
-    const todayDate = new Date();
-    const personalEvents = usePersonalEvents(todayDate.getFullYear());
+    const personalEvents = usePersonalEvents(Number(todayISO.slice(0, 4)));
     const todayEvents = personalEvents.enabled ? personalEvents.getEventsForDate(todayISO) : [];
     const todayDayEvents = todayEvents.map((evt) => ({ ...evt, dateStr: todayISO }));
 
@@ -115,10 +116,10 @@ export default function TodayRoute() {
     const filteredTasks = useMemo(() => {
         let result = activeTagId ? tasks.filter((task) => task.tagIds?.includes(activeTagId)) : tasks;
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
-            result = applyFocusView(result, activeDefinition);
+            result = applyFocusView(result, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
         return result;
-    }, [activeTagId, tasks, activeDefinition, intelligenceEnabled, focusViewsEnabled]);
+    }, [activeTagId, tasks, activeDefinition, intelligenceEnabled, focusViewsEnabled, todayISO]);
 
     const grouped = useMemo(() => {
         const stillOpen: Task[] = [];
@@ -152,13 +153,12 @@ export default function TodayRoute() {
                 dueDate: t.dueDate,
                 scheduledStart: t.scheduledStart,
                 scheduledEnd: t.scheduledEnd,
-                isAllDay: t.isAllDay,
                 effort: t.effort,
                 waitingOn: t.waitingOn ?? null,
                 notBefore: t.notBefore ?? null,
                 durationEstimate: t.durationEstimate,
             }));
-            const ranked = rankTasks(rankable, { routeContext: "today" });
+            const ranked = rankTasks(rankable, { routeContext: "today", clock: nlpClock(), dayOf: dayOfInstant });
             for (const item of ranked) {
                 rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
             }
@@ -179,10 +179,12 @@ export default function TodayRoute() {
     const spineItems = useMemo<SpineItem[]>(() => {
         const items: SpineItem[] = [];
         for (const task of grouped.fixed) {
-            const occurrence = getPassiveTimetableOccurrenceAnchor(task, new Date());
+            const occurrence = getPassiveTimetableOccurrenceAnchor(task, todayISO);
             if (!occurrence || !task.scheduledStart) continue;
-            const start = new Date(occurrence);
-            const durationMs = task.scheduledEnd ? new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime() : 0;
+            // The block's local time on today's occurrence, in the zone it was planned in.
+            const zone = task.zone ?? getUserZone();
+            const start = new Date(atLocal(occurrence, wallTimeOf(task.scheduledStart, zone), zone));
+            const durationMs = task.scheduledEnd ? Date.parse(task.scheduledEnd) - Date.parse(task.scheduledStart) : 0;
             items.push({ id: task.id, kind: "fixed", title: task.title, start, end: durationMs > 0 ? new Date(start.getTime() + durationMs) : null });
         }
         for (const routine of [...grouped.routinesOpen, ...grouped.routinesDone]) {
@@ -192,7 +194,7 @@ export default function TodayRoute() {
                 kind: "routine",
                 title: routine.title,
                 emoji: routine.emoji,
-                start: new Date(`${todayISO}T${routine.time}:00`),
+                start: new Date(fromTimeValue(todayISO, routine.time)),
                 end: null,
                 done: routine.done,
             });

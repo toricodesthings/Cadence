@@ -1,3 +1,5 @@
+import { wallTimeOf } from "@cadence/domain/time";
+import { getUserZone } from "../utils/user-zone";
 const GREETINGS: Record<string, string[]> = {
     morning: [
         "Good morning",
@@ -34,7 +36,7 @@ function pickRandom(arr: string[]): string {
 }
 
 export function getTimeBasedGreeting(): string {
-    const hour = new Date().getHours();
+    const hour = Number(wallTimeOf(new Date(), getUserZone()).slice(0, 2));
     if (hour >= 5 && hour < 12) return pickRandom(GREETINGS.morning);
     if (hour >= 12 && hour < 18) return pickRandom(GREETINGS.afternoon);
     if (hour >= 18 && hour < 22) return pickRandom(GREETINGS.evening);

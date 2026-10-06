@@ -1,4 +1,12 @@
 import * as chrono from "chrono-node";
+import {
+  addDaysLocal,
+  daysBetweenLocal,
+  weekdayLocal,
+  type LocalDate,
+  type WallTime,
+  type NlpClock,
+} from "../core/index.js";
 import type {
   ParsedEntity,
   DateValue,
@@ -74,54 +82,29 @@ function isFalsePositive(fullInput: string): boolean {
   return FALSE_POSITIVE_GUARDS.some((p) => p.test(fullInput));
 }
 
-function formatDate(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function formatDateTime(d: Date): string {
-  return d.toISOString();
-}
-
-function formatHumanLabel(d: Date, hasTime: boolean): string {
-  const now = new Date();
-  const todayStr = formatDate(now);
-  const dateStr = formatDate(d);
-
-  const tomorrowDate = new Date(now);
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrowStr = formatDate(tomorrowDate);
-
+function formatHumanLabel(day: LocalDate, time: WallTime | null, today: LocalDate): string {
+  const diff = daysBetweenLocal(today, day);
   let label: string;
-  if (dateStr === todayStr) {
-    label = "Today";
-  } else if (dateStr === tomorrowStr) {
-    label = "Tomorrow";
-  } else {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-    label = `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
-  }
+  if (diff === 0) label = "Today";
+  else if (diff === 1) label = "Tomorrow";
+  else label = `${DAYS[weekdayLocal(day)]}, ${MONTHS[Number(day.slice(5, 7)) - 1]} ${Number(day.slice(8, 10))}`;
 
-  if (hasTime) {
-    const hours = d.getHours();
-    const minutes = d.getMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
+  if (time) {
+    const [hours, minutes] = time.split(":").map(Number);
     const h = hours % 12 || 12;
     const m = minutes > 0 ? `:${String(minutes).padStart(2, "0")}` : "";
-    label += ` at ${h}${m} ${ampm}`;
+    label += ` at ${h}${m} ${hours >= 12 ? "PM" : "AM"}`;
   }
-
   return label;
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
 export interface DateParseOptions {
-  referenceDate?: Date;
+  clock: NlpClock;
   dateStyle?: DateStyle;
 }
 
@@ -137,15 +120,19 @@ export interface DateParseResult {
  */
 export function parseDates(
   input: string,
-  options: DateParseOptions = {},
+  options: DateParseOptions,
 ): DateParseResult {
-  const { referenceDate = new Date(), dateStyle = "mdy" } = options;
+  const { clock, dateStyle = "mdy" } = options;
+  // A floating date: its UTC fields are the user's wall clock, so chrono never touches the machine zone.
+  const [y, mo, d] = clock.today.split("-").map(Number);
+  const [h, mi] = clock.now.split(":").map(Number);
+  const reference = { instant: new Date(Date.UTC(y, mo - 1, d, h, mi)), timezone: 0 };
 
   // Pick the right chrono parser based on date style
   const parser =
     dateStyle === "dmy" ? chrono.en.GB : chrono.en;
 
-  const results = parser.parse(input, referenceDate, {
+  const results = parser.parse(input, reference, {
     forwardDate: true,
   });
 
@@ -160,7 +147,8 @@ export function parseDates(
     // Skip false positives
     if (isFalsePositive(input)) continue;
 
-    const parsedDate = result.start.date();
+    const parsed = result.start.date();
+    let day: LocalDate = `${parsed.getUTCFullYear()}-${pad(parsed.getUTCMonth() + 1)}-${pad(parsed.getUTCDate())}`;
     const hasTime =
       result.start.isCertain("hour") || result.start.isCertain("minute");
 
@@ -171,7 +159,7 @@ export function parseDates(
     // "by Friday" includes Friday; "before Friday" / "before March" ends the day before.
     // A time keeps its own boundary ("before 6 PM" is due at 6 PM).
     if (!hasTime && /\bbefore\s*$/i.test(beforeText)) {
-      parsedDate.setDate(parsedDate.getDate() - 1);
+      day = addDaysLocal(day, -1);
     }
 
     let confidence: ConfidenceTier;
@@ -184,11 +172,12 @@ export function parseDates(
       confidence = "medium";
     }
 
+    const time: WallTime | null = hasTime ? `${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())}` : null;
     const dateValue: DateValue = {
-      date: formatDate(parsedDate),
-      datetime: hasTime ? formatDateTime(parsedDate) : null,
+      date: day,
+      time,
       hasTime,
-      humanLabel: formatHumanLabel(parsedDate, hasTime),
+      humanLabel: formatHumanLabel(day, time, clock.today),
     };
 
     // Determine entity type based on context

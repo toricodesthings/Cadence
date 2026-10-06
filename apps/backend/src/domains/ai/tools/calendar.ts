@@ -1,16 +1,17 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, gte, isNotNull, isNull, lte, ne } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { tasks, habits } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit } from "./index";
-import { localDaySql, placeNameColumns } from "./tasks";
-import { isDateOnly, normalizeStartBoundary, normalizeEndBoundary } from "@cadence/contracts/common";
+import { placeNameColumns } from "./tasks";
+import { inDayWindow } from "../../tasks/task-filters";
 import { expandScheduleScopedTasks } from "@cadence/domain/task-recurrence";
-import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
+import { isPausedOn } from "@cadence/domain/repeats";
+import { addDays, legacyDay } from "@cadence/domain/time";
 import { taskLocalDay, toMinimalTask } from "./projections";
 import { expandOccurrences } from "../../habits/habits.service";
 
@@ -23,8 +24,9 @@ const scheduleColumns = {
     id: tasks.id,
     title: tasks.title,
     state: tasks.state,
-    isAllDay: tasks.isAllDay,
     dueDate: tasks.dueDate,
+    endDate: tasks.endDate,
+    zone: tasks.zone,
     scheduledStart: tasks.scheduledStart,
     scheduledEnd: tasks.scheduledEnd,
     durationEstimate: tasks.durationEstimate,
@@ -49,7 +51,7 @@ export function routinesDue(
     timeZone = "UTC",
 ) {
     return rows.flatMap((row) => {
-        const days = expandOccurrences(row.recurrenceRule, row.createdAt, new Date(`${from}T00:00:00.000Z`), new Date(`${to}T23:59:59.999Z`), timeZone)
+        const days = expandOccurrences(row.recurrenceRule, row.createdAt, from, to, timeZone)
             .filter((day) => !isPausedOn(row.pausedUntil, day, today));
         return days.length ? [{ id: row.id, title: row.title, days, targetTime: row.targetTime }] : [];
     });
@@ -62,27 +64,25 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_schedule_window: tool({
         description:
-            "Open tasks and the routines due on each day of a local date range (inclusive, up to ~2 months), " +
+            "Open tasks and the routines due on each day of a local day range (inclusive, up to ~2 months), " +
             "for planning, sorted by day and time. Repeating tasks appear once per occurrence. fixedBlock:true = a class or shift: it " +
             "takes that time, can't be checked off and is never overdue. Tasks page with offset: more:true and nextOffset when there's more.",
         inputSchema: z.object({
-            start: z.string().describe("First local date (a datetime is reduced to its local date)."),
-            end: z.string().describe("Last local date."),
+            start: z.string().describe("First local day, YYYY-MM-DD."),
+            end: z.string().describe("Last local day."),
             includeDone: z.boolean().default(false).describe("Also tasks already done."),
             offset: z.number().int().min(0).max(100_000).optional().describe("From nextOffset; omit for the first page."),
             limit: z.number().int().min(1).max(50).default(50),
         }),
         execute: async ({ start, end, includeDone, offset = 0, limit }) =>
             safeExecute("get_schedule_window", userId, async () => {
-                // Work in the user's local dates; a datetime is reduced to its local day.
-                const dayOf = (value: string) => (isDateOnly(value) ? value : localDay(value, ctx.timezone));
-                const from = dayOf(start);
-                let to = dayOf(end);
+                // Work in the user's local days; a stray instant is read as the day it has for the user.
+                const from = legacyDay(start, ctx.timezone);
+                let to = legacyDay(end, ctx.timezone);
                 // Clamp the span server-side so a huge range can't be requested.
-                const maxTo = addDaysToDate(from, MAX_RANGE_DAYS);
+                const maxTo = addDays(from, MAX_RANGE_DAYS);
                 if (to > maxTo) to = maxTo;
                 const cap = clampLimit(limit, 50);
-                const localDayOf = localDaySql(ctx.timezone);
 
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
@@ -92,11 +92,11 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         ne(tasks.state, "ARCHIVED"),
                         includeDone ? undefined : ne(tasks.state, "COMPLETE"),
                     );
-                    // Dated one-offs in the window, matched on their exact local day in SQL.
+                    // Dated one-offs in the window: all-day on `due_on`, timed by the day's instant bounds.
                     const dated = await tx
                         .select(scheduleColumns)
                         .from(tasks)
-                        .where(and(open, isNull(tasks.recurrenceRule), gte(localDayOf, from), lte(localDayOf, to)))
+                        .where(and(open, isNull(tasks.recurrenceRule), inDayWindow(from, to, ctx.timezone)))
                         .limit(WINDOW_ROW_GUARD + 1);
                     // A repeating series is stored at its first date; every one may land in the window.
                     const series = await tx
@@ -119,20 +119,11 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .orderBy(habits.sortOrder)
                         .limit(50);
 
-                    // Same expansion as GET /tasks for a date range: each occurrence of a
-                    // repeating series lands on its own day instead of the series' first date.
-                    const expanded = expandScheduleScopedTasks(series, {
-                        scheduledRangeStart: normalizeStartBoundary(addDaysToDate(from, -1)),
-                        scheduledRangeEnd: normalizeEndBoundary(addDaysToDate(to, 1)),
-                    });
-                    const when = (row: (typeof dated)[number]) => `${taskLocalDay(row, ctx.timezone)} ${row.isAllDay ? "" : row.scheduledStart ?? row.dueDate}`;
-                    const inRange = [
-                        ...dated.slice(0, WINDOW_ROW_GUARD),
-                        ...expanded.filter((row) => {
-                            const day = taskLocalDay(row, ctx.timezone);
-                            return day !== null && day >= from && day <= to;
-                        }),
-                    ].sort((a, b) => when(a).localeCompare(when(b)));
+                    // Same expansion as GET /tasks for a day window: each occurrence of a
+                    // repeating series lands on its own day, in the series' zone.
+                    const expanded = expandScheduleScopedTasks(series, { from, to }, ctx.timezone);
+                    const when = (row: (typeof dated)[number]) => `${taskLocalDay(row, ctx.timezone)} ${row.scheduledStart ?? ""}`;
+                    const inRange = [...dated.slice(0, WINDOW_ROW_GUARD), ...expanded].sort((a, b) => when(a).localeCompare(when(b)));
                     const shown = inRange.slice(offset, offset + cap);
                     const more = inRange.length > offset + cap || dated.length > WINDOW_ROW_GUARD;
                     return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysToDate, habitOccurrences, isPausedOn, localDay, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
+import { habitOccurrences, isPausedOn, routineTimeOn, stepDayStatus, stepMarksOn, suggestInteractionMode } from "@cadence/domain/repeats";
 
 describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
@@ -17,7 +17,6 @@ describe("suggestInteractionMode", () => {
         recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE",
         scheduledStart: "2026-09-21T10:00:00Z",
         scheduledEnd: "2026-09-21T11:00:00Z",
-        isAllDay: false,
     };
 
     it("makes timed class-like series Fixed and leaves the rest as tasks", () => {
@@ -33,8 +32,9 @@ describe("habitOccurrences", () => {
         const days = habitOccurrences(
             "FREQ=WEEKLY;BYDAY=MO,WE",
             "2026-09-01T10:00:00.000Z",
-            new Date("2026-09-21T00:00:00.000Z"),
-            new Date("2026-09-23T23:59:59.999Z"),
+            "2026-09-21",
+            "2026-09-23",
+            "UTC",
         );
         expect(days).toEqual(["2026-09-21", "2026-09-23"]); // not Tuesday the 22nd
     });
@@ -44,21 +44,21 @@ describe("habitOccurrences", () => {
         const days = habitOccurrences(
             "FREQ=WEEKLY;BYDAY=MO,WE",
             "2026-09-23T10:00:00.000Z",
-            new Date("2026-09-21T00:00:00.000Z"),
-            new Date("2026-09-23T23:59:59.999Z"),
+            "2026-09-21",
+            "2026-09-23",
+            "UTC",
         );
         expect(days).toEqual(["2026-09-21", "2026-09-23"]);
         // A plain monthly rule keeps its day of the month.
-        expect(habitOccurrences("FREQ=MONTHLY", "2026-09-15T10:00:00.000Z", new Date("2026-07-01T00:00:00.000Z"), new Date("2026-08-31T00:00:00.000Z")))
+        expect(habitOccurrences("FREQ=MONTHLY", "2026-09-15T10:00:00.000Z", "2026-07-01", "2026-08-31", "UTC"))
             .toEqual(["2026-07-15", "2026-08-15"]);
     });
 
     it("counts an every-N rule from the creation day in the user's zone", () => {
         // 9 pm in New York on the 21st is the 22nd in UTC.
         const created = "2026-09-22T01:00:00.000Z";
-        const window = [new Date("2026-09-19T00:00:00.000Z"), new Date("2026-09-25T23:59:59.999Z")] as const;
+        const window = ["2026-09-19", "2026-09-25"] as const;
         expect(habitOccurrences("FREQ=DAILY;INTERVAL=2", created, ...window, "America/New_York")).toEqual(["2026-09-21", "2026-09-23", "2026-09-25"]);
-        expect(localDay(created, "America/New_York")).toBe("2026-09-21");
     });
 });
 
@@ -93,12 +93,5 @@ describe("isPausedOn", () => {
 
     it("is off without a pause", () => {
         expect(isPausedOn(null, today, today)).toBe(false);
-    });
-});
-
-describe("addDaysToDate", () => {
-    it("crosses month and year ends", () => {
-        expect(addDaysToDate("2026-12-31", 1)).toBe("2027-01-01");
-        expect(addDaysToDate("2026-03-01", -1)).toBe("2026-02-28");
     });
 });

@@ -29,7 +29,7 @@ import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
-import { formatShortDate, formatShortDateTime, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import { formatShortDate, formatShortDateTime, fromTimeValue } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import { CHIP_ACTIVE, CHIP_BASE, CHIP_IDLE, EFFORT_ICON, EFFORT_OPTIONS, PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
 import {
@@ -39,7 +39,7 @@ import {
     isRecurringTask,
 } from "../../lib/utils/task/task-scheduling";
 import type { EffortLevel, TaskPriority, TaskState } from "@cadence/contracts/task";
-import { isDateOnly } from "@cadence/contracts/common";
+import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { DetailTitle } from "../shared/DetailTitle";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import {
@@ -56,6 +56,7 @@ interface TaskEditorProps {
     onDetailModeChange?: (mode: "peek" | "focus") => void;
 }
 
+/** A date from an instant (created, updated, a check-in), in the user's zone. */
 function formatDateTime(iso: string) {
     return formatShortDate(iso);
 }
@@ -157,32 +158,9 @@ export function TaskEditor({
         updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
     };
 
-    const handleDeadlineChange = (updates: {
-        dueDate: string | null;
-        scheduledStart: string | null;
-        scheduledEnd?: string | null;
-        recurrenceRule: string | null;
-        isAllDay: boolean;
-    }) => {
+    const handleDeadlineChange = (updates: ScheduleUpdates) => {
         if (!task) return;
-        // Guard the wire payload: dueDate must be a valid date-only or ISO datetime,
-        // or null. Anything else (empty string, whitespace, unparseable) would trip
-        // the backend's date union and 400. Coerce unparseable values to null.
-        const dueDate = (() => {
-            const raw = updates.dueDate;
-            if (!raw || !raw.trim()) return null;
-            if (isDateOnly(raw)) return raw;
-            const ms = new Date(raw).getTime();
-            return Number.isNaN(ms) ? null : raw;
-        })();
-        updateTask.mutate({
-            id: task.id,
-            dueDate,
-            scheduledStart: updates.scheduledStart,
-            scheduledEnd: updates.scheduledEnd ?? null,
-            recurrenceRule: updates.recurrenceRule,
-            isAllDay: updates.isAllDay,
-        });
+        updateTask.mutate({ id: task.id, ...updates });
     };
 
     const handleDelete = () => {
@@ -196,7 +174,7 @@ export function TaskEditor({
     const scheduleSummary = task ? getTaskScheduleSummary(task) : null;
     const recurrenceSummary = task ? getTaskRecurrenceSummary(task) : null;
     const isPassiveTimetable = task ? isPassiveTimetableTask(task) : false;
-    const canToggleInteractionMode = Boolean(task?.recurrenceRule && task?.scheduledStart && task?.isAllDay === false);
+    const canToggleInteractionMode = Boolean(task?.recurrenceRule && task?.scheduledStart);
     // Timetable blocks get direct start/end/day editing instead of the date popover alone.
     const isTimetableBlock = isPassiveTimetable && canToggleInteractionMode;
     const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
@@ -436,7 +414,7 @@ export function TaskEditor({
                                                                 dueDate={null}
                                                                 scheduledStart={task.waitingReminder ?? null}
                                                                 recurrenceRule={null}
-                                                                onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart ?? null })}
+                                                                onChange={(updates) => updateTask.mutate({ id: task.id, waitingReminder: updates.scheduledStart ?? (updates.dueDate ? fromTimeValue(updates.dueDate, "09:00") : null) })}
                                                             >
                                                                 <button type="button" className={`${VALUE_BTN} -ml-2.5`}>
                                                                     {task.waitingReminder ? `Check again ${formatDateTime(task.waitingReminder)}` : "Set a check-in reminder"}
@@ -481,6 +459,7 @@ export function TaskEditor({
                                             <FieldRow icon={scheduleSummary?.isDuration ? CalendarRange : Calendar} label={scheduleFieldLabel}>
                                                 <DeadlinePickerPopover
                                                     dueDate={task.dueDate}
+                                                    endDate={task.endDate}
                                                     scheduledStart={task.scheduledStart}
                                                     scheduledEnd={task.scheduledEnd}
                                                     recurrenceRule={task.recurrenceRule}
@@ -508,12 +487,10 @@ export function TaskEditor({
                                         {!isTimetableBlock ? (
                                             <FieldRow icon={EyeOff} label="Hide until">
                                                 <DatePicker
-                                                    value={task.notBefore ? toISODate(new Date(task.notBefore)) : null}
+                                                    value={task.notBefore ?? null}
                                                     onChange={(date) => {
                                                         if (!task) return;
-                                                        const at = date ? parseLocalDate(date) : null;
-                                                        at?.setHours(0, 0, 0, 0);
-                                                        updateTask.mutate({ id: task.id, notBefore: at ? at.toISOString() : null });
+                                                        updateTask.mutate({ id: task.id, notBefore: date });
                                                     }}
                                                     label="Hide until date"
                                                     clearLabel="Always show"

@@ -119,8 +119,9 @@ interface** — the parity guard only covers the Row subset.
 
 - **common**: scalars, pagination, `uuidParamSchema`/`taskIdParamSchema`, the
   `ApiError` envelope + `ERROR_CODES`/`ErrorCode` (every code the API sends;
-  `AppError` and `DomainError` take one), and the wire-format boundary helpers
-  `isDateOnly`/`normalizeStartBoundary`/`normalizeEndBoundary`.
+  `AppError` and `DomainError` take one), and the time scalars
+  `instantSchema`/`localDateSchema`/`wallTimeSchema`/`zoneSchema` (plus `isZone` and the one-release
+  `legacyTimeInputSchema`).
 - **task** also holds the `GET /tasks` filters (`taskFiltersSchema`,
   `taskListQuerySchema`); **events** the usage-event names, batch cap and strict frontend-performance and error samples with bounded endpoint/status/error and build/revision dimensions (legacy defaults to revision 1);
   **proxy** the weather/geocoding/holiday queries and responses;
@@ -170,10 +171,18 @@ Never import `AppError` here.
 
 ### 2.2 Current modules
 
-- `task-temporal.ts` — `classifyTaskReadShape` (the canonical 6-value
-  `TaskReadShape` enum, used as-is by both apps), `normalizeTaskTemporalFields`,
-  `hasTaskTemporalMutation`, `inferIsAllDay` (a proposal's shape → all-day vs timed).
-- `task-recurrence.ts` — `validateTaskRecurrenceRule`, `expandScheduleScopedTasks`
+- `time.ts` — the only conversions between Instant, LocalDate, WallTime and Zone:
+  `todayIn`, `dayOf`, `atLocal` (DST gap moves forward, overlap takes the earlier),
+  `startOfDay`/`endOfDay`, `wallTimeOf`, `toZonedIso`, LocalDate math (`addDays`,
+  `daysBetween`, `weekRange`, `monthRange`), `expandSeries` (all-day series on dates,
+  timed series in a floating wall-clock frame converted with `atLocal`), `isZone`,
+  `formatInZone`. Intl only, no date library.
+- `task-temporal.ts` — `classifyTaskReadShape` (4 shapes: `unscheduled`, `day`, `days`,
+  `timed`), `normalizeTaskTemporalFields` (validates `dueDate`/`endDate` LocalDates or
+  `scheduledStart`/`scheduledEnd` instants with a `zone`; all-day = no start),
+  `hasTaskTemporalMutation`, and the shared reschedule (an all-day task moves its days,
+  a timed task keeps its local time via `atLocal`).
+- `task-recurrence.ts` — `validateTaskRecurrenceRule` (`UNTIL` is a LocalDate), `expandScheduleScopedTasks` (via `expandSeries`, in the series zone; occurrence ids `<series>::<LocalDate>`)
   (+ helpers), and `resolveOccurrenceAnchor` (next/closest occurrence around a
   reference date; returns `null` on unparseable rule — callers supply the
   fallback). Filter inputs are typed via the local `ScheduleScopeFilters`
@@ -185,8 +194,7 @@ Never import `AppError` here.
   time on a date, honouring per-weekday overrides), `habitRule`/`habitOccurrences`
   (a routine's due days; rules without INTERVAL/COUNT are anchored by whole
   periods so days before creation follow the pattern, "every N" rules count from
-  the creation day in the user's zone), `localDay`, `addDaysToDate` (zone-free),
-  `isPausedOn` (a pause covers today through `pausedUntil`, never the past), `stepDayStatus`/`stepMarksOn`
+  the creation day in the user's zone), `isPausedOn` (a pause covers today through `pausedUntil`, never the past), `stepDayStatus`/`stepMarksOn`
   (a routine day's status from its step marks, and back), and
   `suggestInteractionMode` (the server default that makes class-like timed series Fixed).
 - `ai-title.ts` — conversation-title helpers (`deriveFallbackTitle`,
@@ -235,8 +243,9 @@ sync. Add to it when you add a `TaskReadShape` branch.
 - **Naming:** `xRowSchema` / `xSchema` / `insertXSchema` / `updateXSchema`; types
   `X` / `XRow` / `InsertX` / `UpdateX`, plus `CreateXInput` / `UpdateXInput`
   (`z.input`) where clients build the body. Constants `SCREAMING_SNAKE`.
-- **Shared scalars:** `isoDateTimeSchema` / `flexibleDateTimeSchema` come from
-  `common.ts` (contracts and backend alike) — never redeclare them.
+- **Shared scalars:** `instantSchema`, `localDateSchema`, `wallTimeSchema` and `zoneSchema`
+  come from `common.ts` (contracts and backend alike), never redeclared. A field is one type,
+  never a date-or-datetime union.
 - **Imports:** always by sub-path (`@cadence/contracts/task`); contracts and domain
   have no barrel (only nlp does, for the backend). Extensionless relative imports inside a package.
 - **No catch-all files.** One module per domain; no `utils.ts`/`helpers.ts`.

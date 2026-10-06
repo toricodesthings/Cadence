@@ -13,9 +13,9 @@ const text = (t: string) => ({ type: "text", text: t });
 const chat = (message: Record<string, unknown>) => ({ message, currentDate: "2026-06-05T09:00:00.000Z" });
 
 describe("chatRequestSchema", () => {
-    it("accepts a user turn and defaults the timezone to UTC", () => {
+    it("accepts a user turn; an omitted timezone stays omitted (the stored zone stands)", () => {
         const parsed = chatRequestSchema.parse(chat({ id: "m1", role: "user", parts: [text("hi")] }));
-        expect(parsed.timezone).toBe("UTC");
+        expect(parsed.timezone).toBeUndefined();
     });
 
     // Security: a crafted request must never persist an elevated role into history.

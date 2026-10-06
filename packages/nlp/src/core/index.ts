@@ -99,9 +99,40 @@ export interface CanonicalNlpSnapshot extends ParseResult {
   userOverrides: Record<string, unknown>;
 }
 
-/** A date's local calendar day as `YYYY-MM-DD`. */
-export function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// ── Zone-free clock (the caller builds it from the user's zone) ──
+
+/** `YYYY-MM-DD` */
+export type LocalDate = string;
+/** `HH:MM` */
+export type WallTime = string;
+
+/** The user's "now" as plain strings. nlp never reads the machine clock or zone. */
+export interface NlpClock {
+  today: LocalDate;
+  now: WallTime;
+  weekStart: "Sunday" | "Monday" | "Saturday";
+}
+
+// time-ok: LocalDate arithmetic, zone-free (nlp cannot import @cadence/domain)
+const toUtc = (d: LocalDate): number => {
+  const [y, m, day] = d.split("-").map(Number);
+  return Date.UTC(y, m - 1, day);
+};
+const fromUtc = (ms: number): LocalDate => new Date(ms).toISOString().slice(0, 10); // time-ok: UTC ms of a LocalDate, zone-free
+
+export function addDaysLocal(d: LocalDate, n: number): LocalDate {
+  return fromUtc(toUtc(d) + n * 86_400_000);
+}
+export function daysBetweenLocal(from: LocalDate, to: LocalDate): number {
+  return Math.round((toUtc(to) - toUtc(from)) / 86_400_000);
+}
+/** 0 = Sunday */
+export function weekdayLocal(d: LocalDate): number {
+  return new Date(toUtc(d)).getUTCDay();
+}
+export function endOfMonthLocal(d: LocalDate): LocalDate {
+  const [y, m] = d.split("-").map(Number);
+  return fromUtc(Date.UTC(y, m, 0));
 }
 
 // ── Priority mapping ──
@@ -118,10 +149,9 @@ export interface RecurrenceValue {
 // ── Date value ──
 
 export interface DateValue {
-  /** ISO date string YYYY-MM-DD */
-  date: string;
-  /** Optional ISO datetime if a time was also specified */
-  datetime: string | null;
+  date: LocalDate;
+  /** Wall time on `date` when one was typed; callers combine with the zone (atLocal). */
+  time: WallTime | null;
   /** Whether a specific time was mentioned */
   hasTime: boolean;
   /** Human-readable label */
@@ -147,7 +177,8 @@ export interface ResolutionContext {
 export interface ParseOptions {
   input: string;
   sourceSurface: SourceSurface;
-  referenceDate?: Date;
+  /** The user's today / now / week start, from their zone. */
+  clock: NlpClock;
   context?: ResolutionContext;
   dismissedEntityIds?: string[];
   /** User's preferred date style for ambiguous dates */

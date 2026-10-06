@@ -6,7 +6,6 @@ import { habitCache } from "./optimistic-helpers";
 import type { ResolveHabitAction, Habit } from "@cadence/contracts/habit";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { toISODate } from "../../lib/utils/date-format";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { stepDayStatus } from "@cadence/domain/repeats";
 import { toastError } from "../../lib/utils/error-toast";
@@ -14,7 +13,7 @@ import { toastError } from "../../lib/utils/error-toast";
 const latestResolveByCell = new Map<string, string>();
 
 function makeCellKey(habitId: string, targetDate: string) {
-    return `${habitId}:${toISODate(new Date(targetDate))}`;
+    return `${habitId}:${targetDate}`;
 }
 
 /** Pass `habitId` per call when one hook instance resolves many habits (e.g. schedule rows). */
@@ -33,7 +32,7 @@ export function useResolveHabit(boundHabitId?: string) {
             (action) => ({
                 type: "resolve_habit",
                 id: idOf(action),
-                payload: { targetDate: action.targetDate, status: action.status, stepStatus: action.stepStatus, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+                payload: { targetDate: action.targetDate, status: action.status, stepStatus: action.stepStatus},
             }),
             async (vars) => {
                 const habitId = idOf(vars);
@@ -43,8 +42,7 @@ export function useResolveHabit(boundHabitId?: string) {
                 latestResolveByCell.set(requestKey, requestId);
                 const res = await client.api.habits[":id"].resolve.$post({
                     param: { id: habitId },
-                    // The caller's zone makes "today" (and the streak) their day.
-                    json: { ...action, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+                    json: action,
                 });
                 return {
                     ...(await unwrapResponse(res)),
@@ -70,7 +68,7 @@ export function useResolveHabit(boundHabitId?: string) {
                             ? stepDayStatus(stepIds, action.stepStatus)
                             : { status: action.status, stepStatus: null };
                         const newLogs = habit.logs?.map((log) => {
-                            if (log.targetDate.substring(0, 10) === action.targetDate.substring(0, 10)) {
+                            if (log.targetDate === action.targetDate) {
                                 return { ...log, ...next };
                             }
                             return log;

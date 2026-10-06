@@ -1,21 +1,22 @@
-import { toISODate } from "../date-format";
+import { atLocal, type Instant, type LocalDate, type WallTime } from "@cadence/domain/time";
+import { getUserZone } from "../user-zone";
 
 export const CALENDAR_SLOT_MINUTES = 15;
 export const CALENDAR_SLOT_COUNT = (24 * 60) / CALENDAR_SLOT_MINUTES;
 
 export interface CalendarDropPreview {
     kind: "timed" | "allday";
-    dateStr: string;
+    dateStr: LocalDate;
     startMinutes?: number;
     endMinutes?: number;
     label?: string;
 }
 
-export function buildCalendarTimedDropId(dateStr: string, minutes: number) {
+export function buildCalendarTimedDropId(dateStr: LocalDate, minutes: number) {
     return `slot-${dateStr}__${minutes}`;
 }
 
-export function buildCalendarAllDayDropId(dateStr: string) {
+export function buildCalendarAllDayDropId(dateStr: LocalDate) {
     return `allday-${dateStr}`;
 }
 
@@ -33,20 +34,21 @@ export function parseCalendarTimedDropId(dropId: string) {
     return { dateStr, minutes };
 }
 
-export function getDateFromTimedDropId(dropId: string) {
+/** `HH:MM` for minutes after midnight. */
+export function minutesToWallTime(minutes: number): WallTime {
+    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** An hour-slot drop: the slot's day, its minutes, and the instant at that wall time on that day in the user's zone. */
+export function getDateFromTimedDropId(dropId: string): { iso: Instant; date: LocalDate; minutes: number } {
     const parsed = parseCalendarTimedDropId(dropId);
     if (!parsed) {
         throw new Error(`Invalid calendar timed drop id: ${dropId}`);
     }
 
-    const [year, month, day] = parsed.dateStr.split("-").map(Number);
-    const hours = Math.floor(parsed.minutes / 60);
-    const mins = parsed.minutes % 60;
-    const iso = new Date(year, month - 1, day, hours, mins, 0, 0).toISOString();
-
     return {
-        iso,
-        date: toISODate(new Date(year, month - 1, day)),
+        iso: atLocal(parsed.dateStr, minutesToWallTime(parsed.minutes), getUserZone()),
+        date: parsed.dateStr,
         minutes: parsed.minutes,
     };
 }

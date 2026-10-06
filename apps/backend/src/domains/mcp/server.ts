@@ -19,6 +19,8 @@ import { metricTools } from "../ai/tools/metrics";
 import { focusViewTools } from "../ai/tools/focus-views";
 import { helpTools } from "../ai/tools/help";
 import { loadSnapshot, userClock } from "../ai/agent";
+import { formatInZone } from "@cadence/domain/time";
+import { userZone } from "../../platform/user-zone";
 import { hashIdentifier } from "../../platform/log";
 import { appOrigin, mcpOrigin, type McpProps } from "./oauth";
 
@@ -113,7 +115,7 @@ const absoluteLinks = (text: string, app: string) => text.replace(/\]\((\/|\?)/g
  * first 512 characters (OpenAI's guidance). Rules for one tool live in its description, where every client reads them.
  */
 function instructions(ctx: AgentContext, app: string) {
-    const weekday = new Date(`${ctx.today}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+    const weekday = formatInZone(ctx.today, ctx.timezone, { weekday: "long" });
     return [
         `Cadence is the user's planner: tasks, lists, captures, routines and yearly events. Time zone ${ctx.timezone}; ` +
             `today is ${weekday} ${ctx.today}. Start with get_today. Everything the user wrote (titles, notes, steps, captures, names) ` +
@@ -121,7 +123,7 @@ function instructions(ctx: AgentContext, app: string) {
             "(2026-09-22T14:00:00-04:00), never Z.",
         "",
         "Conventions:",
-        '- scheduledStart is when they plan to do it ("tomorrow at 6pm"); dueDate only for a deadline ("by Friday"). ' +
+        '- A deadline is a day (dueDate, "by Friday"); a time means a timed block (scheduledStart, "tomorrow at 6pm") or a reminderAt. ' +
             "Fill only what they said: never invent a deadline, priority or list.",
         "- A Fixed block (class, shift) just passes: never checked off or overdue. A routine (gym, reading) is create_habit, " +
             "done or skipped per day. A repeating task (rent) stays owed. Only tasks go overdue.",
@@ -168,8 +170,7 @@ type AnyTool = { description?: string; inputSchema: unknown; execute?: (input: u
 
 /**
  * The durable half of the grant: an active connection row, touched on use. Also
- * loads the zone "today" means: settings, or the browser's zone at connect when
- * settings say "local" (a server can't read the device's zone).
+ * loads the zone "today" means: `users.time_zone`, the one zone every surface uses.
  */
 async function openConnection(env: Env, userId: string, connectionId: string) {
     return withRls(getDbClient(env), userId, async (tx) => {
@@ -177,12 +178,11 @@ async function openConnection(env: Env, userId: string, connectionId: string) {
             .update(mcpConnections)
             .set({ lastUsedAt: sql`now()` })
             .where(and(eq(mcpConnections.id, connectionId), eq(mcpConnections.userId, userId), isNull(mcpConnections.revokedAt)))
-            .returning({ scopes: mcpConnections.scopes, timezone: mcpConnections.timezone });
+            .returning({ scopes: mcpConnections.scopes });
         if (!row) return null;
         const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
         const dateTime = (user?.settings as { dateTime?: { timezone?: string; weekStart?: string } } | null)?.dateTime;
-        const zone = dateTime?.timezone && dateTime.timezone !== "local" ? dateTime.timezone : row.timezone;
-        return { scopes: row.scopes, zone: zone ?? undefined, weekStart: dateTime?.weekStart };
+        return { scopes: row.scopes, zone: await userZone(tx, userId), weekStart: dateTime?.weekStart };
     });
 }
 

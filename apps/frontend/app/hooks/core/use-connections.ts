@@ -10,6 +10,7 @@ import type { McpScope } from "@cadence/contracts/connections";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
+import { getUserZone } from "../../lib/utils/user-zone";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toastError } from "../../lib/utils/error-toast";
 
@@ -59,7 +60,7 @@ export function useAnswerConnectRequest(request: string) {
             const res = answer
                 ? await client.api.connections.requests[":request"].approve.$post({
                     param,
-                    json: { scopes: answer.scopes, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+                    json: { scopes: answer.scopes, timezone: getUserZone() },
                 })
                 : await client.api.connections.requests[":request"].decline.$post({ param });
             return (await unwrapResponse(res)).redirectTo;

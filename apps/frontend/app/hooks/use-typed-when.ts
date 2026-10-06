@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { addMinutesToTime, minutesBetweenTimes, toISODate, toTimeValue } from "../lib/utils/date-format";
+import { addMinutesToTime, minutesBetweenTimes, dayOfInstant, toTimeValue } from "../lib/utils/date-format";
 import type { NlpParseOutput } from "./use-nlp-parse";
 
 export interface WhenFields {
-    /** "YYYY-MM-DD", or "" for none. */
+    /** A LocalDate, or "" for none. */
     date: string;
     allDay: boolean;
     /** "HH:mm". */
@@ -20,13 +20,13 @@ export function useTypedWhen(nlp: Pick<NlpParseOutput, "scheduledStart" | "dueDa
     const [touched, setTouched] = useState(false);
     const live = follow && !touched;
     const parsedStart = live && nlp.scheduledStart ? nlp.scheduledStart : null;
-    const parsedDate = live && nlp.dueDate ? nlp.dueDate.slice(0, 10) : null;
+    const parsedDate = live && nlp.dueDate ? nlp.dueDate : null;
 
     let when = fields;
     if (parsedStart) {
         const start = toTimeValue(parsedStart);
         when = {
-            date: toISODate(new Date(parsedStart)),
+            date: dayOfInstant(parsedStart),
             allDay: false,
             start,
             end: addMinutesToTime(start, nlp.durationMinutes ?? minutesBetweenTimes(fields.start, fields.end)),

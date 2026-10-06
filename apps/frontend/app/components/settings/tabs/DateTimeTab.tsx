@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { formatInZone } from "@cadence/domain/time";
 import { Link, useNavigate } from "react-router";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/Select";
 import { Switch } from "../../primitives";
@@ -8,24 +9,54 @@ import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { useHolidayOverlay } from "../../../hooks/environment/use-holiday-overlay";
 import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
+import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
+import { deviceZone, resolveZone, useToday } from "../../../lib/utils/user-zone";
 import { HolidayPreferencesPanel } from "../../calendar/HolidayControls";
 
-/** Returns the current system UTC offset as a formatted string like "UTC+5:30" or "UTC-8" */
-function getLocalUtcOffsetLabel(): string {
-    const offsetMinutes = -new Date().getTimezoneOffset(); // positive = east of UTC
-    const sign = offsetMinutes >= 0 ? "+" : "−";
-    const absMinutes = Math.abs(offsetMinutes);
-    const hours = Math.floor(absMinutes / 60);
-    const minutes = absMinutes % 60;
-    return minutes > 0 ? `UTC${sign}${hours}:${String(minutes).padStart(2, "0")}` : `UTC${sign}${hours}`;
+/** Every IANA zone the runtime knows, "UTC" first (some runtimes leave it out of the list). */
+function listZones(): string[] {
+    const all = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+    return ["UTC", ...all.filter((zone) => zone !== "UTC")];
+}
+
+/** "device" follows the device; an IANA name pins the zone. A search box narrows the list; a live clock previews the choice. */
+function TimezonePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+    const [query, setQuery] = useState("");
+    const zones = useMemo(listZones, []);
+    const device = deviceZone();
+    const now = useMinuteClock().toISOString(); // time-ok: the current instant, shown in the chosen zone
+    const needle = query.trim().toLowerCase().replace(/ /g, "_");
+    const matches = zones.filter((zone) => zone.toLowerCase().includes(needle) || zone === value);
+    const preview = formatInZone(now, resolveZone(value), { weekday: "short", hour: "numeric", minute: "2-digit" });
+    return (
+        <div className="flex w-full flex-col gap-2 sm:max-w-[18rem]">
+            <input
+                type="search"
+                aria-label="Search time zones"
+                placeholder="Search time zones"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="h-11 w-full rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 text-sm text-twilight-text focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
+            />
+            <select
+                aria-label="Time zone"
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                className="h-11 w-full cursor-pointer rounded-xl border border-twilight-border-light bg-twilight-base px-3 text-sm text-twilight-text focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
+            >
+                <option value="device">{`Device (${device})`}</option>
+                {matches.map((zone) => <option key={zone} value={zone}>{zone.replace(/_/g, " ")}</option>)}
+            </select>
+            <p className="text-sm text-twilight-text-muted">Now: {preview}</p>
+        </div>
+    );
 }
 
 export function DateTimeTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
     const navigate = useNavigate();
-    const systemZone = useMemo(() => `${Intl.DateTimeFormat().resolvedOptions().timeZone} (${getLocalUtcOffsetLabel()})`, []);
-    const currentYear = new Date().getFullYear();
+    const currentYear = Number(useToday().slice(0, 4));
     const holidayOverlay = useHolidayOverlay({
         start: `${currentYear}-01-01`,
         end: `${currentYear}-12-31`,
@@ -92,9 +123,9 @@ export function DateTimeTab() {
             <SettingsSection title="Timezone">
                 <SettingsRow
                     title="Timezone"
-                    description="Cadence shows every date and time in your device's time zone, and follows it when you travel."
+                    description="Follow your device's time zone as you travel, or pin one."
                 >
-                    <p className="text-sm text-warm-white/70">{systemZone}</p>
+                    <TimezonePicker value={dtSettings.timezone} onChange={(timezone) => updateSettings.mutate({ dateTime: { timezone } })} />
                 </SettingsRow>
             </SettingsSection>
 

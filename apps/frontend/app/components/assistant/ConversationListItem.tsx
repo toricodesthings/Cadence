@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { formatInZone } from "@cadence/domain/time";
+import { formatShortDate } from "../../lib/utils/date-format";
+import { getUserZone } from "../../lib/utils/user-zone";
 import { MoreHorizontal, Pencil, Archive, ArchiveRestore, Trash2, Check, X } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as AlertDialog from "../primitives/AlertDialog";
@@ -20,9 +23,9 @@ function relativeTime(iso: string | null): string {
     const day = Math.round(hr / 24);
     if (day === 1) return "Yesterday";
     if (day < 7) {
-        return new Date(then).toLocaleDateString(undefined, { weekday: "short" });
+        return formatInZone(iso, getUserZone(), { weekday: "short" });
     }
-    return new Date(then).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return formatShortDate(iso);
 }
 
 /**

@@ -8,7 +8,9 @@ import { ArrowDownUp, CalendarClock, Check, CheckCircle2, Copy, AlertCircle, Tra
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTaskTitleLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
-import { parseLocalDate } from "../../../lib/utils/date-format";
+import { formatInZone } from "@cadence/domain/time";
+import { toDay } from "../../../lib/utils/date-format";
+import { getUserZone } from "../../../lib/utils/user-zone";
 
 /** Up to four rows, then a "+ N more" reveal. */
 function TaskRows({ rows, off, onToggle }: { rows: string[]; off: ReadonlySet<number>; onToggle: (i: number) => (() => void) | undefined }) {
@@ -120,10 +122,8 @@ export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext }) {
 
 function dayLabel(iso?: string): string {
     if (!iso) return "later";
-    // A date-only target is a local day; `new Date("2026-09-22")` would be UTC midnight.
-    const d = parseLocalDate(iso);
-    if (Number.isNaN(d.getTime())) return "later";
-    return d.toLocaleDateString(undefined, { weekday: "long" });
+    if (Number.isNaN(Date.parse(iso))) return "later";
+    return formatInZone(toDay(iso), getUserZone(), { weekday: "long" });
 }
 
 /**
@@ -136,7 +136,7 @@ export function RescheduleCard({ ctx }: { ctx: ToolRenderContext }) {
     const { off, onToggle, removed } = useUnticked(ctx);
     const input = ctx.part?.input ?? {};
     const titles = ((input.taskIds ?? []) as string[]).map(lookupTitle);
-    const day = dayLabel(input.targetDate?.slice(0, 10));
+    const day = dayLabel(input.targetDate);
     const kept = titles.length - off.size;
 
     return (

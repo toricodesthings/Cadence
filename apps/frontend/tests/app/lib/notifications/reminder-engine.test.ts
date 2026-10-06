@@ -6,7 +6,9 @@
  * - Quiet hours suppress non-high-priority
  * - Habit bundling works at threshold
  */
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect } from "vitest";
+import { atLocal, dayOf, wallTimeOf } from "@cadence/domain/time";
+import { setUserZone } from "../../../../app/lib/utils/user-zone";
 import {
     deriveCandidates,
     filterByBehavior,
@@ -19,8 +21,13 @@ import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import { makeHabit, makeTask } from "../../../helpers";
 
-const BASE_TASK = makeTask({ id: "t1", userId: "u1", title: "Test Task", isAllDay: false });
+const BASE_TASK = makeTask({ id: "t1", userId: "u1", title: "Test Task" });
 const BASE_HABIT = makeHabit({ id: "h1", userId: "u1", title: "Test Habit" });
+
+const ZONE = "America/Toronto";
+/** A wall time on the test day in the user's zone, as the Date the engine takes for "now". */
+const at = (time: string, day = "2026-03-26") => new Date(atLocal(day, time, ZONE));
+beforeEach(() => setUserZone(ZONE));
 
 const DEFAULT_BEHAVIOR: BehaviorFilterOptions = {
     taskReminders: true,
@@ -33,12 +40,12 @@ const DEFAULT_BEHAVIOR: BehaviorFilterOptions = {
 
 describe("deriveCandidates", () => {
     it("produces no candidates from empty inputs", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         expect(deriveCandidates([], [], now)).toEqual([]);
     });
 
     it("produces a task-due candidate for a task due today", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const task: Task = {
             ...BASE_TASK,
             dueDate: "2026-03-26",
@@ -50,7 +57,7 @@ describe("deriveCandidates", () => {
     });
 
     it("produces an overdue candidate for task due yesterday", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const task: Task = {
             ...BASE_TASK,
             dueDate: "2026-03-25",
@@ -62,7 +69,7 @@ describe("deriveCandidates", () => {
     });
 
     it("does not produce candidates for completed tasks", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const task: Task = {
             ...BASE_TASK,
             state: "COMPLETE",
@@ -86,7 +93,7 @@ describe("deriveCandidates", () => {
 
 describe("filterByBehavior", () => {
     it("suppresses task reminders when preference is off", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const task: Task = {
             ...BASE_TASK,
             reminderAt: "2026-03-26T10:30:00.000Z",
@@ -101,7 +108,7 @@ describe("filterByBehavior", () => {
 
     it("suppresses non-high-priority during quiet hours", () => {
         // 10pm is in quiet hours (22:00 - 07:00)
-        const now = new Date("2026-03-26T22:30:00");
+        const now = at("22:30");
         const habit: Habit = {
             ...BASE_HABIT,
             reminderEnabled: true,
@@ -121,7 +128,7 @@ describe("filterByBehavior", () => {
 
     it("bundles missed habits when count >= threshold", () => {
         // 3pm — targetTime 14:00 was 1hr ago (within ±2hr window), so candidates are generated
-        const now = new Date("2026-03-26T15:00:00");
+        const now = at("15:00");
         const habits: Habit[] = Array.from({ length: 4 }, (_, i) => ({
             ...BASE_HABIT,
             id: `h${i}`,
@@ -145,7 +152,7 @@ describe("filterByBehavior", () => {
 });
 
 describe("routine reminders", () => {
-    const now = new Date("2026-03-26T14:30:00");
+    const now = at("14:30");
     const routine = (logs: Habit["logs"]): Habit => ({ ...BASE_HABIT, reminderEnabled: true, targetTime: "14:00", logs });
     const log = (status: "PENDING" | "COMPLETED" | "SKIPPED") => [{ id: "l", habitId: "h1", status, targetDate: "2026-03-26", completedAt: null }];
 
@@ -159,7 +166,7 @@ describe("routine reminders", () => {
 
 describe("applyPresentationRules", () => {
     it("filters out dismissed notifications", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const task: Task = {
             ...BASE_TASK,
             dueDate: "2026-03-26",
@@ -174,7 +181,7 @@ describe("applyPresentationRules", () => {
     });
 
     it("hides deferred notifications until their defer time passes", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const task: Task = {
             ...BASE_TASK,
             dueDate: "2026-03-26",
@@ -191,7 +198,7 @@ describe("applyPresentationRules", () => {
         expect(resultBefore.length).toBe(0);
 
         // After defer period, should resurface
-        const later = new Date("2026-03-26T10:11:00");
+        const later = at("10:11");
         const resultAfter = applyPresentationRules(candidates, state, later);
         expect(resultAfter.length).toBe(1);
     });
@@ -199,24 +206,38 @@ describe("applyPresentationRules", () => {
 
 describe("computeDeferUntil", () => {
     it("computes 10_minutes correctly", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const result = computeDeferUntil("10_minutes", now);
-        expect(new Date(result).getTime()).toBe(new Date("2026-03-26T10:10:00").getTime());
+        expect(new Date(result).getTime()).toBe(at("10:10").getTime());
     });
 
     it("this_evening pushes to next day if past 7pm", () => {
-        const now = new Date("2026-03-26T20:00:00");
+        const now = at("20:00");
         const result = computeDeferUntil("this_evening", now);
-        const d = new Date(result);
-        expect(d.getDate()).toBe(27);
-        expect(d.getHours()).toBe(19);
+        expect([dayOf(result, ZONE), wallTimeOf(result, ZONE)]).toEqual(["2026-03-27", "19:00"]);
     });
 
     it("tomorrow puts at 9am next day", () => {
-        const now = new Date("2026-03-26T10:00:00");
+        const now = at("10:00");
         const result = computeDeferUntil("tomorrow", now);
-        const d = new Date(result);
-        expect(d.getDate()).toBe(27);
-        expect(d.getHours()).toBe(9);
+        expect([dayOf(result, ZONE), wallTimeOf(result, ZONE)]).toEqual(["2026-03-27", "09:00"]);
+    });
+});
+
+describe("zone-aware behaviour", () => {
+    it("treats a deadline as a day: due today at 23:30 local still reads as today, and a timed block is not a deadline", () => {
+        const due = makeTask({ id: "d", dueDate: "2026-03-26" });
+        const timed = makeTask({ id: "t", scheduledStart: atLocal("2026-03-26", "11:00", ZONE), zone: ZONE });
+        const candidates = deriveCandidates([due, timed], [], at("23:30"));
+        expect(candidates.map((c) => [c.entityId, c.body])).toEqual([["d", "Due today"]]);
+    });
+
+    it("quiet hours read the wall clock in the user's zone", () => {
+        const options = { ...DEFAULT_BEHAVIOR, quietHoursEnabled: true, quietHoursStart: "22:00", quietHoursEnd: "07:00" };
+        const habit = { ...BASE_HABIT, reminderEnabled: true, targetTime: "22:00", logs: [{ id: "v", habitId: "h1", status: "PENDING" as const, targetDate: "2026-03-26", completedAt: null }] };
+        const night = at("22:30");
+        expect(filterByBehavior(deriveCandidates([], [habit], night), night, options)).toHaveLength(0);
+        const noon = at("12:00");
+        expect(filterByBehavior([{ id: "x", kind: "habit-reminder", title: "", body: "", triggerAt: noon.toISOString(), entityId: null, route: null, priority: "normal", read: false }], noon, options)).toHaveLength(1);
     });
 });

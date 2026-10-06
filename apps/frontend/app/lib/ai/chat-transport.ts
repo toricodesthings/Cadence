@@ -19,6 +19,7 @@
 import { DefaultChatTransport, type UIMessage } from "ai";
 import type { ToolApprovalDecision } from "@cadence/contracts/ai";
 import { API_BASE_URL } from "../env";
+import { getUserZone } from "../utils/user-zone";
 import { useAssistantStore } from "../../stores/assistant-store";
 
 /** The approval answers on an assistant reply (`addToolApprovalResponse` sets them). */
@@ -60,7 +61,8 @@ export function makeChatTransport(
                     // load-by-id: only the latest message (or the approval answers); backend rebuilds history.
                     ...(last?.role === "assistant" ? { approvals: approvalAnswers(last) } : { message: last }),
                     clientMessageId,
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    // The RESOLVED zone (a pinned Settings zone, else the device's), never the raw setting.
+                    timezone: getUserZone(),
                     // FRESH per request — never a memoized clock.
                     currentDate: new Date().toISOString(),
                     // BCP-47 client locale → runtime prompt context ({{locale}}).

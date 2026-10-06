@@ -24,7 +24,9 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
 import { MonthCalendar } from "../shared/DatePicker";
-import { placementLabel, relativeTime } from "../../lib/utils/date-format";
+import type { Instant, LocalDate } from "@cadence/domain/time";
+import { placementLabel, relativeTime, toDay } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
 import { ThoughtMark } from "../tasks/ThoughtMark";
 import { TagSignal } from "../tasks/TagSignal";
 import { useTags } from "../../hooks/tags/use-tags";
@@ -37,7 +39,7 @@ import { Button } from "../primitives/Button";
 import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
 import { PlaceDraggable, usePlaceTask } from "./PlaceSheet";
-import { DAY_PILL, DAY_PILL_PLAIN, DAY_PILL_SUGGESTED } from "./CaptureDayChips";
+import { DAY_PILL, DAY_PILL_PLAIN, DAY_PILL_SUGGESTED, placeFields } from "./CaptureDayChips";
 import { toast } from "sonner";
 import { PendingMark } from "../shared/PendingMark";
 
@@ -83,7 +85,7 @@ export function CaptureRow({
     const [menuOpen, setMenuOpen] = useState(false);
     const subtaskUi = useInlineSubtasks(task?.id ?? "");
     const subtaskPanelId = useId();
-    const [pickerMonth, setPickerMonth] = useState(() => new Date());
+    const [pickerMonth, setPickerMonth] = useState<LocalDate>(() => today());
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(
         () => () => {
@@ -97,20 +99,20 @@ export function CaptureRow({
         | undefined;
     const title = task?.title ?? overrides?.title ?? item!.rawText;
     const disabled = process.isPending || status.isPending;
-    const place = (date?: string, complete = false) => {
+    const place = (when?: LocalDate | Instant, complete = false) => {
         if (disabled) return;
         if (task) {
-            if (date) void placeTask(task, date).catch(() => {});
+            if (when) void placeTask(task, toDay(when)).catch(() => {});
             return;
         }
         process.mutate({
             inboxItemId: object.id,
             rawText: item!.rawText,
-            title: overrides?.title ?? (date || parse.tagIds.length ? parse.cleanedTitle || title : title),
-            ...(date
-                ? { scheduledDate: date }
+            title: overrides?.title ?? (when || parse.tagIds.length ? parse.cleanedTitle || title : title),
+            ...(when
+                ? placeFields(when)
                 : {
-                      isAllDay: true,
+                      // explicit nulls: the server must not infer a day from the text
                       dueDate: null,
                       scheduledStart: null,
                       scheduledEnd: null,
@@ -376,8 +378,8 @@ export function CaptureRow({
                                         </Menu.SubTrigger>
                                         <Menu.SubContent className="w-72 p-0">
                                             <MonthCalendar
-                                                viewDate={pickerMonth}
-                                                onViewDateChange={setPickerMonth}
+                                                viewDay={pickerMonth}
+                                                onViewDayChange={setPickerMonth}
                                                 selectedDate=""
                                                 onSelectDate={(day) => {
                                                     place(day);

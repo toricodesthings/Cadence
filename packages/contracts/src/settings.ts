@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { isoDateTimeSchema, localDateSchema, zoneSchema } from "./common";
 import { TASK_PRIORITY_NAMES } from "./constants";
 import { DATE_STYLES } from "@cadence/nlp/core";
 import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
@@ -62,7 +62,7 @@ export const personalEventSchema = z.object({
     monthDay: z.string().regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/), // "MM-DD"
     emoji: z.string().max(4).nullable(),
     notify: z.boolean(),
-    startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/).nullable(), // "YYYY-MM-DD"
+    startedOn: localDateSchema.nullable(),
     // A palette key like the routine colours; missing or null means no colour (the default tint).
     color: z.string().max(30).nullable().optional(),
 });
@@ -173,7 +173,9 @@ export const userSettingsSchema = z.object({
     }).optional(),
     dateTime: z.object({
         weekStart: z.enum(["Sunday", "Monday", "Saturday"]),
-        timezone: z.string(),
+        // "device" follows the device's zone (the client keeps `users.time_zone` equal to it); an IANA name pins one.
+        // time-legacy: "local" (before 0.26.3) reads as "device".
+        timezone: z.preprocess((v) => (v === "local" ? "device" : v), z.union([z.literal("device"), zoneSchema])),
         timeDisplay: z.enum(["12h", "24h"]),
         dateStyle: z.enum(DATE_STYLES).optional(),
     }).optional(),
@@ -413,7 +415,7 @@ export const SETTINGS_DEFAULTS = {
     },
     dateTime: {
         weekStart: "Sunday" as const,
-        timezone: "local",
+        timezone: "device" as const,
         timeDisplay: "12h" as const,
         dateStyle: "mdy" as const,
     },

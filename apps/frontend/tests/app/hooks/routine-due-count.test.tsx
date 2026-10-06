@@ -9,7 +9,8 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: (args: unknown) => { state.weekly(args); return { data: state.routines }; } }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: { notifications: { showHabitNavDueCount: state.enabled } } }) }));
-vi.mock("../../../app/hooks/ui/use-realtime-clock", () => ({ useMinuteClock: () => new Date(2026, 8, 23, 12) }));
+// The hook reads the user's today; the zone store itself is covered with user-zone.
+vi.mock("../../../app/lib/utils/user-zone", () => ({ useToday: () => "2026-09-23" }));
 beforeEach(() => { state.enabled = true; state.routines = []; vi.clearAllMocks(); });
 
 it("counts scheduled pending routines today, excluding yesterday and unscheduled routines", () => {

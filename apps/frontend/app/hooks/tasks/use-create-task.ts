@@ -12,6 +12,7 @@ import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { ApiErrorResponse } from "../../types/api";
 import { toastError } from "../../lib/utils/error-toast";
 import { clientIdFor } from "../../lib/api/optimistic-id";
+import { getUserZone } from "../../lib/utils/user-zone";
 
 /** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
@@ -37,13 +38,13 @@ export function useCreateTask() {
                         ...(input.content !== undefined && { content: input.content }),
                         orderIndex: input.orderIndex,
                         state: "ACTIVE",
-                        isAllDay: input.isAllDay ?? true,
                         ...(input.projectId && { projectId: input.projectId }),
                         ...(input.tagIds?.length ? { tagIds: input.tagIds } : {}),
                         ...(input.sectionId !== undefined && { sectionId: input.sectionId }),
                         ...(input.scheduledStart && { scheduledStart: input.scheduledStart }),
                         ...(input.scheduledEnd && { scheduledEnd: input.scheduledEnd }),
                         ...(input.dueDate && { dueDate: input.dueDate }),
+                        ...(input.endDate && { endDate: input.endDate }),
                         ...(input.timezoneLocked !== undefined && { timezoneLocked: input.timezoneLocked }),
                         ...(input.priority !== undefined && { priority: input.priority }),
                         ...(input.isPinned !== undefined && { isPinned: input.isPinned }),
@@ -80,10 +81,11 @@ export function useCreateTask() {
                 content: input.content ?? null,
                 state: "ACTIVE",
                 orderIndex: input.orderIndex,
-                isAllDay: input.isAllDay ?? true,
                 dueDate: input.dueDate ?? null,
+                endDate: input.endDate ?? null,
                 scheduledStart: input.scheduledStart ?? null,
                 scheduledEnd: input.scheduledEnd ?? null,
+                zone: input.scheduledStart ? input.zone ?? getUserZone() : null,
                 durationEstimate: input.durationEstimate ?? null,
                 timezoneLocked: input.timezoneLocked ?? false,
                 priority: input.priority ?? 0,

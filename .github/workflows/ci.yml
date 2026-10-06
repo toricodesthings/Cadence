@@ -48,6 +48,11 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: pnpm test --continue
 
+      # The packages and frontend suites in four zones (Toronto, Los Angeles, UTC+14, UTC-11): a test that depends on the machine's zone fails somewhere.
+      - name: Test (time zones)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm test:tz --continue
+
       - name: Build
         id: build
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}

@@ -4,18 +4,21 @@ import { useCreateTask } from "../../hooks/tasks/use-create-task";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
-import { parseLocalDate, getDateFormatConfig } from "../../lib/utils/date-format";
+import { formatDateSpan, formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
 import type { Task } from "@cadence/contracts/task";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
+import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { QuickAddActionTray } from "./QuickAddActionTray";
 import { ParseSummaryChips } from "./ParseSummaryChips";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { AddPersonalEventDialog } from "../calendar/AddPersonalEventDialog";
+
+const NO_SCHEDULE: ScheduleUpdates = { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null };
 
 interface AddTaskInputProps {
     projectId?: string;
@@ -40,19 +43,7 @@ export function AddTaskInput({
     const [projectSelection, setProjectSelection] = useState<string | null>(projectId ?? null);
     const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
     const [ignoredTokenIds, setIgnoredTokenIds] = useState<string[]>([]);
-    const [deadline, setDeadline] = useState<{
-        dueDate: string | null;
-        scheduledStart: string | null;
-        scheduledEnd: string | null;
-        recurrenceRule: string | null;
-        isAllDay: boolean;
-    }>({
-        dueDate: null,
-        scheduledStart: null,
-        scheduledEnd: null,
-        recurrenceRule: null,
-        isAllDay: true,
-    });
+    const [deadline, setDeadline] = useState<ScheduleUpdates>(NO_SCHEDULE);
 
     const createTask = useCreateTask();
     const { data: projects = [] } = useProjects();
@@ -78,6 +69,11 @@ export function AddTaskInput({
         enabled: nlpEnabled && autoParseOnCapture,
     });
 
+    // A typed time is a timed block; a typed day alone is a deadline day.
+    const typedSchedule: ScheduleUpdates = parsedInput.scheduledStart
+        ? { dueDate: null, endDate: null, scheduledStart: parsedInput.scheduledStart, scheduledEnd: null, recurrenceRule: parsedInput.recurrenceRule }
+        : { dueDate: parsedInput.dueDate, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: parsedInput.recurrenceRule };
+
     const handleSubmit = () => {
         const rawTitle = value.trim();
         if (!rawTitle) return;
@@ -88,17 +84,9 @@ export function AddTaskInput({
         const resolvedProjectId = projectId ?? projectSelection ?? parsedInput.projectId ?? null;
         const resolvedTagIds = Array.from(new Set([...selectedTagIds, ...parsedInput.tagIds]));
         const hasManualSchedule = Boolean(
-            deadline.dueDate || deadline.scheduledStart || deadline.scheduledEnd || deadline.recurrenceRule,
+            deadline.dueDate || deadline.scheduledStart || deadline.recurrenceRule,
         );
-        const resolvedDeadline = hasManualSchedule
-            ? deadline
-            : {
-                dueDate: parsedInput.dueDate,
-                scheduledStart: parsedInput.scheduledStart,
-                scheduledEnd: null,
-                recurrenceRule: parsedInput.recurrenceRule,
-                isAllDay: parsedInput.scheduledStart ? false : true,
-            };
+        const resolvedDeadline = hasManualSchedule ? deadline : typedSchedule;
         const didApplyNlp = Boolean(
             (!hasManualSchedule && (resolvedDeadline.dueDate || resolvedDeadline.scheduledStart || resolvedDeadline.recurrenceRule))
             || (!projectId && !projectSelection && parsedInput.projectId)
@@ -129,39 +117,24 @@ export function AddTaskInput({
         setProjectSelection(projectId ?? null);
         setSelectedTagIds([]);
         setIgnoredTokenIds([]);
-        setDeadline({
-            dueDate: null,
-            scheduledStart: null,
-            scheduledEnd: null,
-            recurrenceRule: null,
-            isAllDay: true,
-        });
+        setDeadline(NO_SCHEDULE);
     };
 
-    const previewDeadline = {
-        dueDate: deadline.dueDate ?? parsedInput.dueDate,
-        scheduledStart: deadline.scheduledStart ?? parsedInput.scheduledStart,
-        scheduledEnd: deadline.scheduledEnd,
+    const hasManualDay = Boolean(deadline.dueDate || deadline.scheduledStart);
+    const previewDeadline: ScheduleUpdates = {
+        ...(hasManualDay ? deadline : typedSchedule),
         recurrenceRule: deadline.recurrenceRule ?? parsedInput.recurrenceRule,
-        isAllDay: deadline.scheduledStart || deadline.dueDate || deadline.scheduledEnd || deadline.recurrenceRule
-            ? deadline.isAllDay
-            : !parsedInput.scheduledStart,
     };
     const hasDeadlineSet = Boolean(previewDeadline.dueDate || previewDeadline.scheduledStart);
     const showScheduleTrigger = isFocused || hasDeadlineSet || value.trim().length > 0;
 
-    const deadlineLabel = (() => {
-        const locale = getDateFormatConfig().dateStyle === "dmy" ? "en-GB" : "en-US";
-        if (previewDeadline.scheduledEnd && previewDeadline.dueDate) {
-            const start = parseLocalDate(previewDeadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-            const end = parseLocalDate(previewDeadline.scheduledEnd).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-            return `${start} \u2013 ${end}`;
-        }
-        if (previewDeadline.dueDate) {
-            return parseLocalDate(previewDeadline.dueDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-        }
-        return "Add date";
-    })();
+    const deadlineLabel = previewDeadline.scheduledStart
+        ? formatShortDateTime(previewDeadline.scheduledStart)
+        : previewDeadline.dueDate && previewDeadline.endDate
+            ? formatDateSpan(previewDeadline.dueDate, previewDeadline.endDate)
+            : previewDeadline.dueDate
+                ? formatShortDate(previewDeadline.dueDate)
+                : "Add date";
 
     return (
         <form
@@ -240,10 +213,11 @@ export function AddTaskInput({
             {showScheduleTrigger ? (
                 <DeadlinePickerPopover
                     dueDate={deadline.dueDate}
+                    endDate={deadline.endDate}
                     scheduledStart={deadline.scheduledStart}
                     scheduledEnd={deadline.scheduledEnd}
                     recurrenceRule={deadline.recurrenceRule}
-                    onChange={(updates) => setDeadline({ ...deadline, ...updates })}
+                    onChange={(updates) => setDeadline(updates)}
                 >
                     <button
                         type="button"
@@ -271,12 +245,13 @@ export function AddTaskInput({
                         excludeActions={["date", "priority"]}
                         dueDate={previewDeadline.dueDate}
                         scheduledStart={previewDeadline.scheduledStart}
-                        scheduledEnd={deadline.scheduledEnd}
+                        endDate={previewDeadline.endDate}
+                        scheduledEnd={previewDeadline.scheduledEnd}
                         recurrenceRule={previewDeadline.recurrenceRule}
                         priority={null}
                         projectId={projectId ?? projectSelection ?? parsedInput.projectId ?? null}
                         tagIds={Array.from(new Set([...selectedTagIds, ...parsedInput.tagIds]))}
-                        onScheduleChange={(updates) => setDeadline({ ...deadline, ...updates })}
+                        onScheduleChange={(updates) => setDeadline(updates)}
                         onPriorityChange={() => {}}
                         onProjectChange={(value) => setProjectSelection(value)}
                         onToggleTag={(tagId) =>

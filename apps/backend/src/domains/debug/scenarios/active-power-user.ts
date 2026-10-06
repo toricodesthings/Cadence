@@ -34,8 +34,11 @@ import {
     createSeedTaskNote,
     createSeedNlpMetadata,
     createSeedSavedFocusView,
+    seedClock,
     seedDate,
     seedDateTime,
+    type SeedClock,
+    type SeedTaskInput,
 } from "../debug-seed";
 import {
     aiMemories,
@@ -59,9 +62,11 @@ import {
     users,
 } from "../../../db/schema";
 import { eq } from "drizzle-orm";
+import { nowWallTime } from "@cadence/domain/time";
+import { userZone } from "../../../platform/user-zone";
 import { seedAiShowcaseConversation } from "./ai-showcase-conversation";
 
-export const SCENARIO_VERSION = "2.4.0";
+export const SCENARIO_VERSION = "2.5.0";
 
 function getRequiredRow<T>(map: Map<string, T>, key: string, label: string): T {
     const row = map.get(key);
@@ -69,32 +74,22 @@ function getRequiredRow<T>(map: Map<string, T>, key: string, label: string): T {
     return row;
 }
 
-function seedMonthDay(anchor: Date, dayOffset: number): string {
-    const date = new Date(anchor);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + dayOffset);
-
-    const month = `${date.getMonth() + 1}`.padStart(2, "0");
-    const day = `${date.getDate()}`.padStart(2, "0");
-
-    return `${month}-${day}`;
+function seedMonthDay(clock: SeedClock, dayOffset: number): string {
+    return seedDate(clock, dayOffset).slice(5);
 }
 
-function seedStartedOn(anchor: Date, dayOffset: number, yearsAgo: number): string {
-    const date = new Date(anchor);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + dayOffset);
-    date.setFullYear(date.getFullYear() - yearsAgo);
-
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, "0");
-    const day = `${date.getDate()}`.padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+function seedStartedOn(clock: SeedClock, dayOffset: number, yearsAgo: number): string {
+    const [year, monthDay] = [seedDate(clock, dayOffset).slice(0, 4), seedDate(clock, dayOffset).slice(5)];
+    const leap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    const target = Number(year) - yearsAgo;
+    return `${target}-${monthDay === "02-29" && !leap(target) ? "02-28" : monthDay}`;
 }
 
 export async function seed(db: Tx, userId: string) {
-    const anchor = new Date();
+    // Everything is planned in the user's own zone: days as LocalDates, timed values as instants.
+    const zone = await userZone(db, userId);
+    const clock = seedClock(zone);
+    const seedTask = (input: SeedTaskInput) => createSeedTask(userId, input, zone);
 
     // ── Projects ─────────────────────────────────────────────────────
     const seededProjects = await db.insert(projects).values([
@@ -150,166 +145,153 @@ export async function seed(db: Tx, userId: string) {
     // ── Tasks ────────────────────────────────────────────────────────
     const seededTasks = await db.insert(tasks).values([
         // 0 — Timed block today (Feature Launch)
-        createSeedTask(userId, {
+        seedTask({
             projectId: featureLaunchId,
             sectionId: sectionByProjectAndName(featureLaunchId, "Today").id,
             title: "Draft launch announcement",
             content: "Include retention numbers and revised CTA.",
             state: "ACTIVE",
             orderIndex: 1,
-            isAllDay: false,
-            scheduledStart: seedDateTime(anchor, 0, 14, 0),
-            scheduledEnd: seedDateTime(anchor, 0, 15, 30),
+            scheduledStart: seedDateTime(clock, 0, 14, 0),
+            scheduledEnd: seedDateTime(clock, 0, 15, 30),
             durationEstimate: 90,
             priority: 3,
             isPinned: true,
-            reminderAt: seedDateTime(anchor, 0, 13, 30),
+            reminderAt: seedDateTime(clock, 0, 13, 30),
             effort: 2,
         }),
         // 1 — All-day deadline today (no project)
-        createSeedTask(userId, {
+        seedTask({
             sectionId: sectionByProjectAndName(null, "Today").id,
             title: "Call landlord about hallway leak",
             state: "ACTIVE",
             orderIndex: 2,
-            isAllDay: true,
-            dueDate: seedDate(anchor, 0),
+            dueDate: seedDate(clock, 0),
             priority: 4,
             isPinned: true,
-            reminderAt: seedDateTime(anchor, 0, 16, 0),
+            reminderAt: seedDateTime(clock, 0, 16, 0),
             effort: 1,
         }),
         // 2 — Timed block today (Client Ops)
-        createSeedTask(userId, {
+        seedTask({
             projectId: clientOpsId,
             sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
             title: "Reconcile subscription invoices",
             state: "ACTIVE",
             orderIndex: 3,
-            isAllDay: false,
-            scheduledStart: seedDateTime(anchor, 0, 10, 0),
-            scheduledEnd: seedDateTime(anchor, 0, 10, 30),
+            scheduledStart: seedDateTime(clock, 0, 10, 0),
+            scheduledEnd: seedDateTime(clock, 0, 10, 30),
             durationEstimate: 30,
             priority: 2,
             effort: 1,
         }),
         // 3 — Waiting task (Client Ops)
-        createSeedTask(userId, {
+        seedTask({
             projectId: clientOpsId,
             sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
             title: "Wait for legal sign-off",
             state: "WAITING",
             orderIndex: 4,
-            isAllDay: true,
             waitingOn: "external counsel",
-            waitingReminder: seedDateTime(anchor, 1, 15, 0),
+            waitingReminder: seedDateTime(clock, 1, 15, 0),
             effort: 1,
         }),
         // 4 — Recurring weekly (Client Ops)
-        createSeedTask(userId, {
+        seedTask({
             projectId: clientOpsId,
             sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
             title: "Prepare weekly reset notes",
             state: "ACTIVE",
             orderIndex: 5,
-            isAllDay: true,
-            dueDate: seedDate(anchor, 1),
+            dueDate: seedDate(clock, 1),
             recurrenceRule: "FREQ=WEEKLY;BYDAY=MO",
             priority: 1,
         }),
         // 5 — Duration task (no project)
-        createSeedTask(userId, {
+        seedTask({
             sectionId: sectionByProjectAndName(null, "Later This Week").id,
             title: "Outline Q2 research themes",
             content: "Collect wins, friction points, and three testable hypotheses for the next cycle.",
             state: "ACTIVE",
             orderIndex: 6,
-            isAllDay: true,
             durationEstimate: 120,
             effort: 3,
         }),
         // 6 — All-day duration with date range (Home Reset)
-        createSeedTask(userId, {
+        seedTask({
             projectId: homeResetId,
             sectionId: sectionByProjectAndName(homeResetId, "Later This Week").id,
             title: "Stage weekend reset window",
             state: "ACTIVE",
             orderIndex: 7,
-            isAllDay: true,
-            dueDate: seedDate(anchor, 2),
-            scheduledEnd: seedDate(anchor, 3),
+            dueDate: seedDate(clock, 2),
+            endDate: seedDate(clock, 3),
             priority: 1,
             effort: 2,
         }),
         // 7 — Timezone-locked timed block (Feature Launch)
-        createSeedTask(userId, {
+        seedTask({
             projectId: featureLaunchId,
             sectionId: sectionByProjectAndName(featureLaunchId, "Later This Week").id,
             title: "Pack samples for studio shoot",
             state: "ACTIVE",
             orderIndex: 8,
-            isAllDay: false,
-            scheduledStart: seedDateTime(anchor, 1, 16, 0),
-            scheduledEnd: seedDateTime(anchor, 1, 17, 0),
+            scheduledStart: seedDateTime(clock, 1, 16, 0),
+            scheduledEnd: seedDateTime(clock, 1, 17, 0),
             durationEstimate: 60,
             timezoneLocked: true,
             priority: 1,
-            notBefore: seedDateTime(anchor, 1, 13, 0),
+            notBefore: seedDate(clock, 1),
             effort: 2,
         }),
         // 8 — Completed task (Feature Launch)
-        createSeedTask(userId, {
+        seedTask({
             projectId: featureLaunchId,
             title: "Ship retrospective notes",
             content: "Published after the team recap.",
             state: "COMPLETE",
             orderIndex: 9,
-            isAllDay: true,
-            dueDate: seedDate(anchor, -1),
+            dueDate: seedDate(clock, -1),
             priority: 1,
         }),
         // 9 — Archived task (Home Reset)
-        createSeedTask(userId, {
+        seedTask({
             projectId: homeResetId,
             title: "Archive 2025 receipts",
             state: "ARCHIVED",
             orderIndex: 10,
-            isAllDay: true,
-            dueDate: seedDate(anchor, -3),
+            dueDate: seedDate(clock, -3),
         }),
         // 10 — Recurring weekly timed (Client Ops)
-        createSeedTask(userId, {
+        seedTask({
             projectId: clientOpsId,
             sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
             title: "Clear inbox to zero",
             state: "ACTIVE",
             orderIndex: 11,
-            isAllDay: false,
-            scheduledStart: seedDateTime(anchor, 3, 13, 0),
-            scheduledEnd: seedDateTime(anchor, 3, 13, 45),
+            scheduledStart: seedDateTime(clock, 3, 13, 0),
+            scheduledEnd: seedDateTime(clock, 3, 13, 45),
             durationEstimate: 45,
             recurrenceRule: "FREQ=WEEKLY;BYDAY=TH",
             effort: 2,
         }),
         // 11 — Future deadline with reminder (no project)
-        createSeedTask(userId, {
+        seedTask({
             title: "Book dentist follow-up",
             state: "ACTIVE",
             orderIndex: 12,
-            isAllDay: true,
-            dueDate: seedDate(anchor, 5),
-            reminderAt: seedDateTime(anchor, 4, 18, 0),
+            dueDate: seedDate(clock, 5),
+            reminderAt: seedDateTime(clock, 4, 18, 0),
             effort: 1,
         }),
-        // 12 — Timetable anchor (Spring Semester)
-        createSeedTask(userId, {
+        // 12 — Timetable clock (Spring Semester)
+        seedTask({
             projectId: springSemesterId,
             sectionId: sectionByProjectAndName(springSemesterId, "Weekly Anchors").id,
             title: "Calculus II lecture",
-            content: "Recurring timetable anchor for Tuesday and Thursday mornings during the spring term.",
+            content: "Recurring timetable clock for Tuesday and Thursday mornings during the spring term.",
             state: "ACTIVE",
             orderIndex: 13,
-            isAllDay: false,
             interactionMode: "timetable",
             scheduledStart: "2026-03-10T09:30:00.000Z",
             scheduledEnd: "2026-03-10T10:45:00.000Z",
@@ -363,7 +345,7 @@ export async function seed(db: Tx, userId: string) {
             taskId: getRequiredRow(taskByTitle, "Draft launch announcement", "task").id,
             rescheduleCount: 2,
             delayCount: 1,
-            firstScheduled: seedDateTime(anchor, -2, 14, 0),
+            firstScheduled: seedDate(clock, -2),
         },
         {
             userId,
@@ -371,8 +353,8 @@ export async function seed(db: Tx, userId: string) {
             rescheduleCount: 1,
             delayCount: 0,
             createdToDone: 2880,
-            firstScheduled: seedDateTime(anchor, -3, 13, 0),
-            completedAt: seedDateTime(anchor, -1, 17, 0),
+            firstScheduled: seedDate(clock, -3),
+            completedAt: seedDateTime(clock, -1, 17, 0),
         },
     ]);
 
@@ -485,55 +467,55 @@ export async function seed(db: Tx, userId: string) {
             userId,
             habitId: getRequiredRow(habitByTitle, "Morning review", "habit").id,
             status: "COMPLETED",
-            targetDate: seedDate(anchor, -3),
-            completedAt: seedDateTime(anchor, -3, 7, 42),
+            targetDate: seedDate(clock, -3),
+            completedAt: seedDateTime(clock, -3, 7, 42),
         },
         {
             userId,
             habitId: getRequiredRow(habitByTitle, "Morning review", "habit").id,
             status: "COMPLETED",
-            targetDate: seedDate(anchor, -2),
-            completedAt: seedDateTime(anchor, -2, 7, 40),
+            targetDate: seedDate(clock, -2),
+            completedAt: seedDateTime(clock, -2, 7, 40),
         },
         {
             userId,
             habitId: getRequiredRow(habitByTitle, "Morning review", "habit").id,
             status: "COMPLETED",
-            targetDate: seedDate(anchor, -1),
-            completedAt: seedDateTime(anchor, -1, 7, 38),
+            targetDate: seedDate(clock, -1),
+            completedAt: seedDateTime(clock, -1, 7, 38),
         },
         {
             userId,
             habitId: getRequiredRow(habitByTitle, "Hydrate before coffee", "habit").id,
             status: "SKIPPED",
-            targetDate: seedDate(anchor, -2),
+            targetDate: seedDate(clock, -2),
         },
         {
             userId,
             habitId: getRequiredRow(habitByTitle, "Hydrate before coffee", "habit").id,
             status: "COMPLETED",
-            targetDate: seedDate(anchor, -1),
-            completedAt: seedDateTime(anchor, -1, 9, 5),
+            targetDate: seedDate(clock, -1),
+            completedAt: seedDateTime(clock, -1, 9, 5),
         },
         {
             userId,
             habitId: getRequiredRow(habitByTitle, "Strength session", "habit").id,
             status: "COMPLETED",
-            targetDate: seedDate(anchor, -2),
-            completedAt: seedDateTime(anchor, -2, 18, 50),
+            targetDate: seedDate(clock, -2),
+            completedAt: seedDateTime(clock, -2, 18, 50),
         },
         {
             userId,
             habitId: getRequiredRow(habitByTitle, "Strength session", "habit").id,
             status: "PENDING",
-            targetDate: seedDate(anchor, 0),
+            targetDate: seedDate(clock, 0),
         },
         {
             userId,
             habitId: getRequiredRow(habitByTitle, "Archive bedside reading", "habit").id,
             status: "COMPLETED",
-            targetDate: seedDate(anchor, -4),
-            completedAt: seedDateTime(anchor, -4, 21, 55),
+            targetDate: seedDate(clock, -4),
+            completedAt: seedDateTime(clock, -4, 21, 55),
         },
     ]);
 
@@ -598,7 +580,7 @@ export async function seed(db: Tx, userId: string) {
         userId,
         rescheduleVelocity: 1.6,
         currentBurnoutIndex: 34,
-        lastCalculatedAt: seedDateTime(anchor, 0, 6, 0),
+        lastCalculatedAt: seedDateTime(clock, 0, 6, 0),
     });
 
     // ── Task notes ───────────────────────────────────────────────────
@@ -675,34 +657,31 @@ export async function seed(db: Tx, userId: string) {
 
     // ── Notification & feature-testing tasks ─────────────────────────
     const notifTasks = await db.insert(tasks).values([
-        createSeedTask(userId, {
+        seedTask({
             projectId: featureLaunchId,
             title: "Review analytics dashboard mockups",
             content: "Check the latest Figma frames from design.",
             state: "ACTIVE",
             orderIndex: 20,
-            isAllDay: true,
-            reminderAt: seedDateTime(anchor, 0, Math.max(anchor.getUTCHours() - 1, 0), 0),
+            reminderAt: seedDateTime(clock, 0, Math.max(Number(nowWallTime(zone).slice(0, 2)) - 1, 0), 0),
             reminderSilenced: false,
             priority: 3,
             effort: 2,
         }),
-        createSeedTask(userId, {
+        seedTask({
             projectId: clientOpsId,
             title: "Send revised proposal to Acme Corp",
             state: "ACTIVE",
             orderIndex: 21,
-            isAllDay: true,
-            dueDate: seedDate(anchor, 0),
+            dueDate: seedDate(clock, 0),
             priority: 4,
             effort: 1,
         }),
-        createSeedTask(userId, {
+        seedTask({
             title: "Follow up on venue booking",
             state: "ACTIVE",
             orderIndex: 22,
-            isAllDay: true,
-            dueDate: seedDate(anchor, -1),
+            dueDate: seedDate(clock, -1),
             priority: 2,
             effort: 1,
         }),
@@ -710,18 +689,16 @@ export async function seed(db: Tx, userId: string) {
 
     // ── Unmanaged tasks (no date, no project) ────────────────────────
     await db.insert(tasks).values([
-        createSeedTask(userId, {
+        seedTask({
             title: "Brainstorm podcast episode topics",
             state: "ACTIVE",
             orderIndex: 30,
-            isAllDay: true,
             effort: 2,
         }),
-        createSeedTask(userId, {
+        seedTask({
             title: "Research ergonomic keyboard options",
             state: "ACTIVE",
             orderIndex: 31,
-            isAllDay: true,
             effort: 1,
         }),
     ]);
@@ -740,7 +717,7 @@ export async function seed(db: Tx, userId: string) {
 
     // ── AI showcase conversation ─────────────────────────────────────
     await seedAiShowcaseConversation(db, userId, {
-        anchor,
+        clock,
         tasks: [...seededTasks, ...notifTasks],
         habits: seededHabits,
         inboxItems: seededInboxItems,
@@ -830,9 +807,10 @@ export async function seed(db: Tx, userId: string) {
     // ── User settings (all notification channels enabled) ────────────
     await db.update(users)
         .set({
+            timeZone: zone,
             settings: {
                 tasks: { defaultDueDate: null, hideTrash: false, hideCompleted: false },
-                dateTime: { weekStart: "Sunday", timezone: "local", timeDisplay: "12h" },
+                dateTime: { weekStart: "Sunday", timezone: "device", timeDisplay: "12h" },
                 location: {
                     mode: "approximate",
                     countryCode: null,
@@ -850,15 +828,15 @@ export async function seed(db: Tx, userId: string) {
                             {
                                 id: "coffeeversary",
                                 label: "First coffee date",
-                                monthDay: seedMonthDay(anchor, 0),
+                                monthDay: seedMonthDay(clock, 0),
                                 emoji: "☕",
                                 notify: true,
-                                startedOn: seedStartedOn(anchor, 0, 2),
+                                startedOn: seedStartedOn(clock, 0, 2),
                             },
                             {
                                 id: "mom-birthday",
                                 label: "Mom's Birthday",
-                                monthDay: seedMonthDay(anchor, 4),
+                                monthDay: seedMonthDay(clock, 4),
                                 emoji: "🎂",
                                 notify: true,
                                 startedOn: null,
@@ -866,26 +844,26 @@ export async function seed(db: Tx, userId: string) {
                             {
                                 id: "cadence-launch",
                                 label: "Cadence launch day",
-                                monthDay: seedMonthDay(anchor, 11),
+                                monthDay: seedMonthDay(clock, 11),
                                 emoji: "🚀",
                                 notify: false,
-                                startedOn: seedStartedOn(anchor, 11, 1),
+                                startedOn: seedStartedOn(clock, 11, 1),
                             },
                             {
                                 id: "move-in-day",
                                 label: "Move-in anniversary",
-                                monthDay: seedMonthDay(anchor, 26),
+                                monthDay: seedMonthDay(clock, 26),
                                 emoji: "🏡",
                                 notify: true,
-                                startedOn: seedStartedOn(anchor, 26, 4),
+                                startedOn: seedStartedOn(clock, 26, 4),
                             },
                             {
                                 id: "wedding-day",
                                 label: "Wedding anniversary",
-                                monthDay: seedMonthDay(anchor, 63),
+                                monthDay: seedMonthDay(clock, 63),
                                 emoji: "💍",
                                 notify: true,
-                                startedOn: seedStartedOn(anchor, 63, 7),
+                                startedOn: seedStartedOn(clock, 63, 7),
                             },
                         ],
                     },

@@ -3,7 +3,9 @@ import { ChevronDown, Flag, Inbox, Plus } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "../../../types/settings";
-import { formatTime, toISODate } from "../../../lib/utils/date-format";
+import { atLocal, type Instant, type LocalDate } from "@cadence/domain/time";
+import { formatTime } from "../../../lib/utils/date-format";
+import { getUserZone, useToday } from "../../../lib/utils/user-zone";
 import { formatDuration, freeGaps, itemEnd, itemStart, scheduleKind, splitDay, type FreeGap } from "../../../lib/utils/calendar/schedule-day";
 import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
 import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
@@ -13,7 +15,7 @@ import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
 let lastDayScrollTop = 0;
 
 export interface DayAgendaProps extends ScheduleRowHandlers {
-    dateIso: string;
+    dateIso: LocalDate;
     tasks: Task[];
     holidays?: HolidayRecord[];
     isBirthday?: boolean;
@@ -22,20 +24,19 @@ export interface DayAgendaProps extends ScheduleRowHandlers {
     /** Ready-to-place tasks waiting in Holding. */
     hasReady?: boolean;
     onOpenReady?: () => void;
-    /** Create something starting at `start`, `minutes` long. */
-    onAddAt: (start: Date, minutes: number) => void;
+    /** Create something starting at the instant `start`, `minutes` long. */
+    onAddAt: (start: Instant, minutes: number) => void;
     dragActive?: boolean;
     reducedMotion?: boolean;
 }
 
 const SECTION_LABEL = "px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-twilight-text-muted";
 
+const QUARTER_MS = 15 * 60_000;
+
 /** Round up to the next quarter hour, so "add into this gap" lands on a clean time. */
-function nextQuarter(date: Date) {
-    const next = new Date(date);
-    next.setSeconds(0, 0);
-    next.setMinutes(Math.ceil(next.getMinutes() / 15) * 15);
-    return next;
+function nextQuarter(date: Date): Instant {
+    return new Date(Math.ceil(date.getTime() / QUARTER_MS) * QUARTER_MS).toISOString();
 }
 
 /**
@@ -58,7 +59,7 @@ export function DayAgenda({
     ...handlers
 }: DayAgendaProps) {
     const now = useMinuteClock();
-    const todayIso = toISODate(now);
+    const todayIso = useToday();
     const isToday = dateIso === todayIso;
     const [showEarlier, setShowEarlier] = useState(false);
     const [showDoneRoutines, setShowDoneRoutines] = useState(false);
@@ -190,8 +191,8 @@ export function DayAgenda({
                     <button
                         type="button"
                         onClick={() => {
-                            const start = new Date(`${dateIso}T09:00:00`);
-                            onAddAt(isToday ? nextQuarter(new Date(Math.max(now.getTime(), start.getTime()))) : start, 60);
+                            const nineAm = atLocal(dateIso, "09:00", getUserZone());
+                            onAddAt(isToday ? nextQuarter(new Date(Math.max(now.getTime(), new Date(nineAm).getTime()))) : nineAm, 60);
                         }}
                         className="mt-1 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-twilight-border/40 px-4 text-sm font-medium text-twilight-text-soft transition-colors hover:bg-white/[0.05] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                     >

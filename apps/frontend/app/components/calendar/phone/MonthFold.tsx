@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { format } from "date-fns";
 import type { Task } from "@cadence/contracts/task";
-import { getDaysInMonth, getFirstDayOfWeek, MONTH_NAMES, parseLocalDate, toISODate, weekdayLabels } from "../../../lib/utils/date-format";
+import type { LocalDate } from "@cadence/domain/time";
+import { getDaysInMonth, getFirstDayOfWeek, isoDay, MONTH_NAMES, weekdayLabels } from "../../../lib/utils/date-format";
+import { dayHeading, dayOfMonth, dayShortHeading, weekdayName } from "../../../lib/utils/calendar/calendar-math";
+import { useToday } from "../../../lib/utils/user-zone";
 import { dayLoad, scheduleKind, splitDay } from "../../../lib/utils/calendar/schedule-day";
 import { loadWord } from "../../../lib/utils/task/day-load";
 import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
@@ -17,21 +19,17 @@ const INTENT = 8;
 export interface MonthFoldProps extends ScheduleRowHandlers {
     year: number;
     month: number;
-    selectedIso: string;
-    /** Everything scheduled this month, routines included, by ISO day. */
-    groups: Map<string, Task[]>;
-    /** Holiday, birthday and personal-event names by ISO day. */
-    markers: Map<string, string[]>;
+    selectedIso: LocalDate;
+    /** Everything scheduled this month, routines included, by day. */
+    groups: Map<LocalDate, Task[]>;
+    /** Holiday, birthday and personal-event names by day. */
+    markers: Map<LocalDate, string[]>;
     routineEmoji: (task: Task) => string | null;
-    onSelect: (iso: string) => void;
-    onOpenDay: (iso: string) => void;
+    onSelect: (iso: LocalDate) => void;
+    onOpenDay: (iso: LocalDate) => void;
     onNextMonth: () => void;
     dragActive?: boolean;
     reducedMotion?: boolean;
-}
-
-function isoOf(year: number, month: number, day: number) {
-    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /**
@@ -54,7 +52,7 @@ export function MonthFold({
     reducedMotion,
     ...handlers
 }: MonthFoldProps) {
-    const todayIso = toISODate(new Date());
+    const todayIso = useToday();
     const [folded, setFolded] = useState(false);
     const listRef = useRef<HTMLDivElement | null>(null);
     /** Where the touch began, where it last was, and where the list first sat at its top. */
@@ -63,8 +61,8 @@ export function MonthFold({
     const direction = useRef<"up" | "down" | null>(null);
 
     const weeks = useMemo(() => {
-        const cells: (string | null)[] = Array.from({ length: getFirstDayOfWeek(year, month) }, () => null);
-        for (let day = 1; day <= getDaysInMonth(year, month); day++) cells.push(isoOf(year, month, day));
+        const cells: (LocalDate | null)[] = Array.from({ length: getFirstDayOfWeek(year, month) }, () => null);
+        for (let day = 1; day <= getDaysInMonth(year, month); day++) cells.push(isoDay(year, month, day));
         while (cells.length % 7) cells.push(null);
         return Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
     }, [month, year]);
@@ -77,10 +75,10 @@ export function MonthFold({
 
     /** Selected day onward: days with something get a heading, quiet runs collapse to one line. */
     const agenda = useMemo(() => {
-        const blocks: Array<{ kind: "day"; iso: string } | { kind: "open"; from: string; to: string }> = [];
-        const selectedDay = parseLocalDate(selectedIso).getDate();
+        const blocks: Array<{ kind: "day"; iso: LocalDate } | { kind: "open"; from: LocalDate; to: LocalDate }> = [];
+        const selectedDay = dayOfMonth(selectedIso);
         for (let day = selectedDay; day <= getDaysInMonth(year, month); day++) {
-            const iso = isoOf(year, month, day);
+            const iso = isoDay(year, month, day);
             const busy = (groups.get(iso)?.length ?? 0) > 0 || (markers.get(iso)?.length ?? 0) > 0;
             if (busy || iso === selectedIso) {
                 blocks.push({ kind: "day", iso });
@@ -128,7 +126,7 @@ export function MonthFold({
         if (folded && event.deltaY < -20 && atTop()) setFolded(false);
     };
 
-    const handleCell = (iso: string) => {
+    const handleCell = (iso: LocalDate) => {
         if (iso === selectedIso) onOpenDay(iso);
         else onSelect(iso);
     };
@@ -165,13 +163,12 @@ export function MonthFold({
                                         const marked = (markers.get(iso)?.length ?? 0) > 0;
                                         const selected = iso === selectedIso;
                                         const isToday = iso === todayIso;
-                                        const date = parseLocalDate(iso);
                                         return (
                                             <span key={iso} role="gridcell" aria-selected={selected}>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleCell(iso)}
-                                                    aria-label={`${format(date, "EEEE d MMMM")}${isToday ? ", today" : ""}${items.length ? `, ${loadWord(dayLoad(items))}` : ", open"}${marked ? `, ${markers.get(iso)!.join(", ")}` : ""}${selected ? ". Tap again to open the day" : ""}`}
+                                                    aria-label={`${dayHeading(iso)}${isToday ? ", today" : ""}${items.length ? `, ${loadWord(dayLoad(items))}` : ", open"}${marked ? `, ${markers.get(iso)!.join(", ")}` : ""}${selected ? ". Tap again to open the day" : ""}`}
                                                     className="flex min-h-11 w-full cursor-pointer flex-col items-center justify-center gap-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 rounded-xl"
                                                 >
                                                     <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[14px] tabular-nums transition-colors ${
@@ -181,7 +178,7 @@ export function MonthFold({
                                                                 ? "font-semibold text-accent-primary ring-1 ring-accent-primary/60"
                                                                 : "text-twilight-text"
                                                     }`}>
-                                                        {date.getDate()}
+                                                        {dayOfMonth(iso)}
                                                     </span>
                                                     <span className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
                                                         {kinds.has("task") ? <span className="h-1.5 w-1.5 rounded-full bg-accent-primary/80" /> : null}
@@ -219,10 +216,9 @@ export function MonthFold({
             >
                 {agenda.map((block) => {
                     if (block.kind === "open") {
-                        const from = parseLocalDate(block.from);
                         const label = block.from === block.to
-                            ? format(from, "EEE d")
-                            : `${format(from, "EEE d")} – ${format(parseLocalDate(block.to), "EEE d")}`;
+                            ? dayShortHeading(block.from)
+                            : `${dayShortHeading(block.from)} – ${dayShortHeading(block.to)}`;
                         return (
                             <button
                                 key={block.from}
@@ -239,18 +235,17 @@ export function MonthFold({
 
                     const items = groups.get(block.iso) ?? [];
                     const { allDay, timed } = splitDay(items);
-                    const date = parseLocalDate(block.iso);
                     const relation = block.iso === todayIso ? "Today" : null;
                     const dayMarkers = markers.get(block.iso) ?? [];
                     return (
-                        <section key={block.iso} aria-label={format(date, "EEEE d MMMM")} className="pb-2">
+                        <section key={block.iso} aria-label={dayHeading(block.iso)} className="pb-2">
                             <button
                                 type="button"
                                 onClick={() => onOpenDay(block.iso)}
                                 className="group flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-2xl px-2 pt-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             >
                                 <span className={`font-display text-[15px] font-semibold ${relation ? "text-accent-primary" : "text-twilight-text"}`}>
-                                    {format(date, "EEEE d")}
+                                    {`${weekdayName(block.iso)} ${dayOfMonth(block.iso)}`}
                                 </span>
                                 {relation ? <span className="text-[12px] text-accent-primary/90">{relation}</span> : null}
                                 <span className="min-w-0 flex-1 truncate text-[12px] text-twilight-text-soft">

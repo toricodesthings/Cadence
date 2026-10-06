@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { parseCanonicalNlpEnvelope } from "@cadence/nlp";
 import type { ProcessInboxItem } from "@cadence/contracts/inbox";
-import { normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
+import { isLocalDate } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { inboxItems, subtasks, tasks, taskTags } from "../../db/schema";
 import { checkIdempotency, recordMutation } from "../../platform/idempotency";
@@ -9,8 +9,8 @@ import { assertOwnership } from "../../platform/ownership";
 import { throwIfNotFound } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 import { sourceSurfaceSchema } from "@cadence/contracts/task";
-import { toTask, withTagIds } from "../tasks/tasks.service";
-import { isDateOnly } from "@cadence/contracts/common";
+import { temporalColumns, toTask, withTagIds } from "../tasks/tasks.service";
+import { userZone } from "../../platform/user-zone";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
 import { writeNote } from "../notes/notes.service";
 
@@ -28,9 +28,8 @@ export async function processCapture(
 ) {
     const idempotencyKey = extras.idempotencyKey;
     const title = body.title;
-    const scheduledDate = body.scheduledDate ?? undefined;
-    const dueDate = body.dueDate ?? undefined;
-    const scheduledStart = body.scheduledStart ?? undefined;
+    const scheduledDate = body.scheduledDate ?? undefined; // time-legacy: a day or an instant
+    const scheduledDay = body.scheduledDay ?? undefined;
     const scheduledEnd = body.scheduledEnd ?? undefined;
     const isAllDay = body.isAllDay ?? undefined;
     const projectId = body.projectId ?? undefined;
@@ -57,6 +56,7 @@ export async function processCapture(
         if (placed) return { task: placed, alreadyProcessed: true };
     }
 
+    const zone = await userZone(tx, userId);
     const nlpRuntime = await loadNlpRuntime(tx, userId);
     const envelope = nlp ?? {
         rawInput: item.rawText,
@@ -67,6 +67,7 @@ export async function processCapture(
     };
     const parsed = parseCanonicalNlpEnvelope(envelope, {
         context: nlpRuntime.context,
+        clock: nlpRuntime.clock,
     });
     const confidenceThreshold = (((nlpRuntime.settings as any).tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low");
     const inferred = inferTaskFieldsFromParse(
@@ -78,55 +79,22 @@ export async function processCapture(
             durationEstimate,
             waitingOn,
             recurrenceRule,
-            scheduledDate,
-            dueDate,
-            scheduledStart,
+            // An explicit null stays null: it means "no date", not "not given".
+            dueDate: body.dueDate !== undefined ? body.dueDate : scheduledDay ?? (scheduledDate !== undefined && isLocalDate(scheduledDate) ? scheduledDate : undefined),
+            scheduledStart: body.scheduledStart !== undefined ? body.scheduledStart : (scheduledDate !== undefined && !isLocalDate(scheduledDate) ? scheduledDate : undefined),
             scheduledEnd,
             isAllDay,
         },
         confidenceThreshold,
+        zone,
     );
 
-    let temporalFields: ReturnType<typeof normalizeTaskTemporalFields>;
-    if (
-        "dueDate" in body
-        || "scheduledStart" in body
-        || "scheduledEnd" in body
-        || "isAllDay" in body
-    ) {
-        temporalFields = normalizeTaskTemporalFields({
-            dueDate,
-            scheduledStart,
-            scheduledEnd,
-            isAllDay: isAllDay ?? (scheduledStart ? false : true),
-        });
-    } else if (scheduledDate !== undefined) {
-        if (isDateOnly(scheduledDate)) {
-            temporalFields = normalizeTaskTemporalFields({
-                isAllDay: true,
-                dueDate: scheduledDate,
-            });
-        } else {
-            temporalFields = normalizeTaskTemporalFields({
-                isAllDay: false,
-                scheduledStart: scheduledDate,
-            });
-        }
-    } else if (inferred.scheduledDate !== undefined && inferred.scheduledDate !== null) {
-        if (isDateOnly(inferred.scheduledDate)) {
-            temporalFields = normalizeTaskTemporalFields({
-                isAllDay: true,
-                dueDate: inferred.scheduledDate,
-            });
-        } else {
-            temporalFields = normalizeTaskTemporalFields({
-                isAllDay: false,
-                scheduledStart: inferred.scheduledDate,
-            });
-        }
-    } else {
-        temporalFields = normalizeTaskTemporalFields({ isAllDay: true });
-    }
+    // One placement: what the caller sent (a day, or a timed start), else what the parse found.
+    const temporalFields = temporalColumns(
+        { dueDate: inferred.dueDate, scheduledStart: inferred.scheduledStart, scheduledEnd: inferred.scheduledEnd, isAllDay },
+        zone,
+        "inbox",
+    );
 
     const taskTagIds = Array.from(new Set(tagIds ?? inferred.tagIds ?? []));
     const taskValues = {
@@ -143,10 +111,10 @@ export async function processCapture(
         recurrenceRule: inferred.recurrenceRule ?? recurrenceRule ?? null,
         waitingOn: inferred.waitingOn ?? waitingOn ?? null,
         ...temporalFields,
-        ...(body.complete ? { dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true, projectId: null, sectionId: null, recurrenceRule: null } : {}),
+        ...(body.complete ? { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null, projectId: null, sectionId: null, recurrenceRule: null } : {}),
     };
 
-    validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.scheduledStart ?? null);
+    validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.zone ?? zone);
 
     await assertOwnership(tx, userId, {
         projectId: taskValues.projectId,

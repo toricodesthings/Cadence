@@ -8,7 +8,8 @@ import { useCreateHabit } from "./use-create-habit";
 import { taskCache } from "../tasks/optimistic-helpers";
 import { habitCache } from "./optimistic-helpers";
 import { getTaskSeriesId, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
-import { toISODate } from "../../lib/utils/date-format";
+import { fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
+import { today as getToday } from "../../lib/utils/user-zone";
 
 /** Fixed happens to you, a Routine lets go when missed, a Task carries over. */
 export type RepeatKind = "fixed" | "routine" | "task";
@@ -18,11 +19,6 @@ export function getTaskRepeatKind(task: Pick<Task, "interactionMode">): RepeatKi
 }
 
 const DEFAULT_BLOCK_MINUTES = 60;
-
-function localTime(iso: string) {
-    const date = new Date(iso);
-    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
 
 /**
  * Moves a repeating item between kinds that live in different tables (task ⇄
@@ -52,7 +48,7 @@ export function useConvertRepeat() {
         const habit = await createHabit.mutateAsync({
             title: task.title,
             recurrenceRule: task.recurrenceRule,
-            targetTime: !task.isAllDay && task.scheduledStart ? localTime(task.scheduledStart) : null,
+            targetTime: task.scheduledStart ? toTimeValue(task.scheduledStart) : null,
             notes: task.content ?? null,
             projectId: task.projectId,
             tagIds: task.tagIds ?? [],
@@ -73,14 +69,13 @@ export function useConvertRepeat() {
     };
 
     const routineToTask = async (habit: Habit, kind: "fixed" | "task") => {
-        const today = toISODate(new Date());
+        const today = getToday();
         const timing = habit.targetTime
             ? (() => {
-                const start = new Date(`${today}T${habit.targetTime}:00`);
-                const end = new Date(start.getTime() + DEFAULT_BLOCK_MINUTES * 60_000);
-                return { isAllDay: false, scheduledStart: start.toISOString(), scheduledEnd: end.toISOString() };
+                const start = fromTimeValue(today, habit.targetTime);
+                return { scheduledStart: start, scheduledEnd: new Date(Date.parse(start) + DEFAULT_BLOCK_MINUTES * 60_000).toISOString() };
             })()
-            : { isAllDay: true, dueDate: today };
+            : { dueDate: today };
         const task = await createTask.mutateAsync({
             title: habit.title,
             orderIndex: Date.now(),

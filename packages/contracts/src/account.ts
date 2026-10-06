@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema } from "./common";
+import { isoDateTimeSchema, zoneSchema } from "./common";
 
 /** What a person types to confirm account deletion. The server checks it too, so a stray request can't delete anything. */
 export const ACCOUNT_DELETE_PHRASE = "delete my account";
@@ -30,3 +30,7 @@ export type DataExportRow = z.infer<typeof dataExportRowSchema>;
 /** What Settings shows of a request. */
 export const dataExportSchema = dataExportRowSchema.omit({ userId: true, bytes: true });
 export type DataExport = z.infer<typeof dataExportSchema>;
+
+/** The device's zone, sent so the server's one source of the user's zone (`users.time_zone`) follows it. */
+export const setTimeZoneSchema = z.object({ timeZone: zoneSchema });
+export type SetTimeZoneInput = z.infer<typeof setTimeZoneSchema>;

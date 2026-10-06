@@ -1,3 +1,5 @@
+import { weekdayOf } from "@cadence/domain/time";
+import { today } from "../../lib/utils/user-zone";
 import { ActivityBadge } from "../primitives/ActivityBadge";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import {
@@ -89,7 +91,7 @@ const NAV_LINKS = [
         activeBg: "bg-accent-nav-upcoming/15 glow-accent",
         hoverColor: "hover:text-accent-nav-upcoming/70",
         hoverBg: "hover:bg-accent-nav-upcoming/8 hover:glow-accent",
-        notificationFn: () => new Date().getDay() === 1, // subtle dot if Monday
+        notificationFn: () => weekdayOf(today()) === 1, // subtle dot if Monday
     },
 ] as const;
 

@@ -6,7 +6,7 @@ import { Button } from "../components/primitives/Button";
 import { Tip } from "../components/primitives";
 import { ArrowRight, ArrowLeft, Clock, Check, Pause, Repeat, Sun, Sunrise, Moon, Trash2, LoaderCircle, type LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toISODate } from "../lib/utils/date-format";
+import { today } from "../lib/utils/user-zone";
 import { useDocumentMeta } from "../hooks/core/use-document-meta";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useWeeklyReviewActions } from "../hooks/core/use-weekly-review-actions";
@@ -225,7 +225,7 @@ export default function WeeklyReview() {
     };
     const handleFinish = () => {
         trackUsageEvent("weekly_reset.completed", { route: "weekly-review" });
-        localStorage.setItem("cadence_last_weekly_reset", toISODate(new Date()));
+        localStorage.setItem("cadence_last_weekly_reset", today());
         try { localStorage.removeItem(STEP_STORAGE_KEY); } catch { /* noop */ }
         navigate("/today");
     };

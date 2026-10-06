@@ -35,12 +35,20 @@ describe("Shared capture editor", () => {
         fireEvent.click(screen.getByRole("button", { name: "Pick day…" }));
         expect(screen.getByTestId("custom-time").textContent).toBe(parsed.scheduledStart);
         await act(async () => fireEvent.click(screen.getByRole("button", { name: placementLabel(parsed.scheduledStart) })));
-        expect(process).toHaveBeenCalledWith(expect.objectContaining({ scheduledDate: parsed.scheduledStart }));
+        expect(process).toHaveBeenCalledWith(expect.objectContaining({ scheduledStart: parsed.scheduledStart }));
+    });
+    it("places a typed day as an all-day scheduledDay", async () => {
+        parse.mockReturnValue({ ...parsed, scheduledStart: null });
+        setup();
+        await act(async () => fireEvent.click(screen.getByRole("button", { name: placementLabel("2026-09-17") })));
+        expect(process).toHaveBeenCalledWith(expect.objectContaining({ scheduledDay: "2026-09-17" }));
+        expect(process.mock.calls[0][0]).not.toHaveProperty("scheduledDate");
     });
     it("keeps a dated thought with no day only through an explicit null schedule", async () => {
         setup();
         await act(async () => fireEvent.click(screen.getByRole("button", { name: "Keep with no day" })));
-        expect(process).toHaveBeenCalledWith(expect.objectContaining({ dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true }));
+        expect(process).toHaveBeenCalledWith(expect.objectContaining({ dueDate: null, scheduledStart: null, scheduledEnd: null }));
+        expect(process.mock.calls[0][0]).not.toHaveProperty("isAllDay");
         expect(close).toHaveBeenCalledOnce();
     });
 });

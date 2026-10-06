@@ -46,7 +46,9 @@ import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
-import { toISODate } from "../lib/utils/date-format";
+import { addDays } from "@cadence/domain/time";
+import { dayOfInstant, nlpClock } from "../lib/utils/date-format";
+import { useToday } from "../lib/utils/user-zone";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../lib/constants/colors";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { ProjectSectionsSheet, ProjectTaskSheet, UNSECTIONED_ID } from "../components/tasks/ProjectSheets";
@@ -143,8 +145,8 @@ export default function ProjectView() {
     const { onNextSection, onPrevSection } = useSectionNav();
     useKeyboardShortcuts({ onNextSection, onPrevSection });
 
-    const todayISO = toISODate(new Date());
-    const weekAgoISO = toISODate(new Date(Date.now() - 7 * 86_400_000));
+    const todayISO = useToday();
+    const weekAgoISO = addDays(todayISO, -7);
     const { data: allHabits = [] } = useHabitsRange({ start: weekAgoISO, end: todayISO });
     const linkedHabits = useMemo(
         () => allHabits.filter((h) => h.projectId === projectId && !h.archived),
@@ -152,7 +154,7 @@ export default function ProjectView() {
     );
     const dueLinkedHabits = useMemo(
         () => linkedHabits.filter((h) =>
-            h.logs?.some((l: any) => l.status === "PENDING" && l.targetDate?.substring(0, 10) <= todayISO),
+            h.logs?.some((l) => l.status === "PENDING" && l.targetDate <= todayISO),
         ),
         [linkedHabits, todayISO],
     );
@@ -163,7 +165,7 @@ export default function ProjectView() {
             : (rawTasks ?? []);
         const rationaleByTaskId: Record<string, string | null> = {};
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
-            filtered = applyFocusView(filtered, activeDefinition);
+            filtered = applyFocusView(filtered, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
         if (intelligenceEnabled && smartSortEnabled && sortMode === "smart") {
             const rankable: RankableTask[] = filtered.map((t) => ({
@@ -175,13 +177,12 @@ export default function ProjectView() {
                 dueDate: t.dueDate,
                 scheduledStart: t.scheduledStart,
                 scheduledEnd: t.scheduledEnd,
-                isAllDay: t.isAllDay,
                 effort: t.effort,
                 waitingOn: t.waitingOn ?? null,
                 notBefore: t.notBefore ?? null,
                 durationEstimate: t.durationEstimate,
             }));
-            const ranked = rankTasks(rankable, { routeContext: "project" });
+            const ranked = rankTasks(rankable, { routeContext: "project", clock: nlpClock(), dayOf: dayOfInstant });
             for (const item of ranked) {
                 rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
             }
@@ -195,7 +196,7 @@ export default function ProjectView() {
             tasks: sortTasks(filtered, sortMode),
             rationaleByTaskId,
         };
-    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId]);
+    }, [rawTasks, activeTagId, sortMode, activeDefinition, intelligenceEnabled, focusViewsEnabled, smartSortEnabled, projectId, todayISO]);
 
     const handleRenameOpen = () => {
         setRenameValue(project?.name ?? "");
@@ -570,13 +571,13 @@ export default function ProjectView() {
                                     <div className="flex flex-col divide-y divide-moonlit/10">
                                         {dueLinkedHabits.map((habit) => {
                                             const pendingLog = habit.logs?.find(
-                                                (l: any) => l.status === "PENDING" && l.targetDate?.substring(0, 10) <= todayISO,
+                                                (l) => l.status === "PENDING" && l.targetDate <= todayISO,
                                             );
                                             return (
                                                 <LinkedHabitRow
                                                     key={habit.id}
                                                     habit={habit}
-                                                    targetDate={pendingLog?.targetDate?.substring(0, 10) ?? todayISO}
+                                                    targetDate={pendingLog?.targetDate ?? todayISO}
                                                     onNavigate={() => navigate("/routines")}
                                                 />
                                             );

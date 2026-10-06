@@ -1,4 +1,5 @@
 import { formatDateLabel } from "../../lib/utils/date-format";
+import { useToday } from "../../lib/utils/user-zone";
 import { getTimeBasedGreeting } from "../../lib/constants/greetings";
 import { useWeather } from "../../hooks/environment/use-weather";
 import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
@@ -10,8 +11,7 @@ import { CloudOff } from "lucide-react";
 export function PlannerHeader({ className = "" }: { className?: string }) {
     const { session } = useAuthState();
     const { weather, status } = useWeather();
-    const now = new Date();
-    const formatted = formatDateLabel(now);
+    const formatted = formatDateLabel(useToday());
     const greeting = useMemo(() => getTimeBasedGreeting(), []);
     const clock = useRealtimeClock();
 

@@ -1,19 +1,23 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+    fromPickerDate,
     fromTimeValue,
-    getEffectiveTaskDate,
     getDaysInMonth,
     getFirstDayOfWeek,
-    preserveLocalTime,
+    getWeekDays,
+    pickerDate,
     relativeTime,
-    toISODate,
     toTimeValue,
     weekdayLabels,
 } from "../../../../app/lib/utils/date-format";
+import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
 describe("date-format shared helpers", () => {
-    it("toISODate uses the local date, not UTC", () => {
-        expect(toISODate(new Date(2026, 8, 21, 23, 59))).toBe("2026-09-21");
+    beforeEach(() => setUserZone("America/Toronto"));
+
+    it("pickerDate and fromPickerDate round-trip a LocalDate through a widget Date", () => {
+        expect(fromPickerDate(pickerDate("2026-09-21"))).toBe("2026-09-21");
+        expect(fromPickerDate(new Date(2026, 8, 21, 23, 59))).toBe("2026-09-21");
     });
 
     it("builds month grids for Monday- and Sunday-first weeks", () => {
@@ -33,25 +37,17 @@ describe("date-format shared helpers", () => {
         vi.useRealTimers();
     });
 
-    it("round-trips TimePicker values on a date-only or full ISO base", () => {
-        const onDate = fromTimeValue("2026-09-21", "07:30");
-        expect(toTimeValue(onDate)).toBe("07:30");
-        expect(toISODate(new Date(onDate))).toBe("2026-09-21");
-        expect(toTimeValue(fromTimeValue(onDate, "22:05"))).toBe("22:05");
+    it("round-trips TimePicker values on a day or an instant, in the user's zone", () => {
+        const onDay = fromTimeValue("2026-09-21", "07:30");
+        expect(onDay).toBe("2026-09-21T11:30:00.000Z"); // 07:30 EDT
+        expect(toTimeValue(onDay)).toBe("07:30");
+        expect(toTimeValue(fromTimeValue(onDay, "22:05"))).toBe("22:05");
+        expect(fromTimeValue(fromTimeValue(onDay, "22:05"), "08:00")).toBe(fromTimeValue("2026-09-21", "08:00"));
     });
 
-    it("preserveLocalTime moves a timed block to another day at the same local clock time", () => {
-        // 21:30 local is a different UTC day in many zones; the result must stay 21:30 local on the target day.
-        const late = new Date(2026, 2, 10, 21, 30).toISOString();
-
-        const moved = new Date(preserveLocalTime("2026-03-12", late));
-
-        expect([moved.getFullYear(), moved.getMonth(), moved.getDate(), moved.getHours(), moved.getMinutes()]).toEqual([2026, 2, 12, 21, 30]);
-    });
-
-    it("getEffectiveTaskDate reads all-day dates as stored and timed ones in the user's zone", () => {
-        expect(getEffectiveTaskDate("2026-03-10T12:00:00.000Z", true)).toBe("2026-03-10");
-        expect(getEffectiveTaskDate(new Date(2026, 2, 10, 23, 30).toISOString(), false)).toBe("2026-03-10");
-        expect(getEffectiveTaskDate(new Date(2026, 2, 11, 0, 30).toISOString(), false)).toBe("2026-03-11");
+    it("lists a week's days as LocalDates", () => {
+        expect(getWeekDays("2026-09-23", 1)).toEqual([
+            "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27",
+        ]);
     });
 });

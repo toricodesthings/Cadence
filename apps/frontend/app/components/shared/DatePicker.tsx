@@ -3,7 +3,9 @@ import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { CalendarGrid } from "../calendar/CalendarGrid";
 import { useIsCoarsePointer } from "../../hooks/ui/use-coarse-pointer";
-import { formatShortDateLabel, parseLocalDate, toISODate } from "../../lib/utils/date-format";
+import type { LocalDate } from "@cadence/domain/time";
+import { formatMonthName, formatMonthYear, formatShortDateLabel, isoDay, isoMonthStart } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
 import { COMPOSER_FIELD } from "./Composer";
 
 const NAV_BTN = "touch-target flex cursor-pointer items-center justify-center rounded-lg text-twilight-text-muted transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
@@ -14,22 +16,26 @@ const NO_MARKS = new Set<number>();
  * `CalendarGrid`. The one calendar body behind every date choice: `DatePicker`
  * and the task schedule surface both render it.
  */
-export function MonthCalendar({ viewDate, onViewDateChange, selectedDate, onSelectDate, marked = NO_MARKS, yearNav = false }: {
-    viewDate: Date;
-    onViewDateChange: (date: Date) => void;
-    /** "YYYY-MM-DD", or "" for none. */
-    selectedDate: string;
-    onSelectDate: (date: string) => void;
+export function MonthCalendar({ viewDay, onViewDayChange, selectedDate, onSelectDate, marked = NO_MARKS, yearNav = false }: {
+    /** Any LocalDate in the month being viewed. */
+    viewDay: LocalDate;
+    onViewDayChange: (day: LocalDate) => void;
+    /** A LocalDate, or "" for none. */
+    selectedDate: LocalDate | "";
+    onSelectDate: (day: LocalDate) => void;
     /** Day numbers in the viewed month that carry a dot. */
     marked?: Set<number>;
     /** A year select, for far-off dates like birthdays. */
     yearNav?: boolean;
 }) {
-    const year = viewDate.getFullYear();
-    const month = viewDate.getMonth();
-    const go = (months: number) => onViewDateChange(new Date(year, month + months, 1));
+    const year = Number(viewDay.slice(0, 4));
+    const month = Number(viewDay.slice(5, 7)) - 1;
+    const go = (months: number) => {
+        const index = year * 12 + month + months;
+        onViewDayChange(isoMonthStart(Math.floor(index / 12), index % 12));
+    };
     const yearOptions = React.useMemo(() => {
-        const now = new Date().getFullYear();
+        const now = Number(today().slice(0, 4));
         const start = Math.min(year, now) - 100;
         return Array.from({ length: Math.max(year, now) + 20 - start + 1 }, (_, i) => start + i);
     }, [year]);
@@ -39,18 +45,18 @@ export function MonthCalendar({ viewDate, onViewDateChange, selectedDate, onSele
             <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-3">
                 {yearNav ? (
                     <span className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-[12px] font-semibold text-twilight-text">{viewDate.toLocaleString("default", { month: "long" })}</span>
+                        <span className="truncate text-[12px] font-semibold text-twilight-text">{formatMonthName(viewDay)}</span>
                         <select
                             aria-label="Year"
                             value={year}
-                            onChange={(e) => onViewDateChange(new Date(Number(e.target.value), month, 1))}
+                            onChange={(e) => onViewDayChange(isoMonthStart(Number(e.target.value), month))}
                             className="min-h-8 cursor-pointer rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 text-[12px] font-semibold text-twilight-text transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                         >
                             {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
                         </select>
                     </span>
                 ) : (
-                    <span className="text-[12px] font-semibold text-twilight-text">{viewDate.toLocaleString("default", { month: "long", year: "numeric" })}</span>
+                    <span className="text-[12px] font-semibold text-twilight-text">{formatMonthYear(viewDay)}</span>
                 )}
                 <div className="flex shrink-0 items-center">
                     <button type="button" onClick={() => go(-1)} aria-label="Previous month" className={NAV_BTN}><ChevronLeft size={15} aria-hidden="true" /></button>
@@ -62,8 +68,8 @@ export function MonthCalendar({ viewDate, onViewDateChange, selectedDate, onSele
                     year={year}
                     month={month}
                     selectedDate={selectedDate}
-                    datesWithTasks={marked}
-                    onSelectDate={(day) => onSelectDate(toISODate(new Date(year, month, day)))}
+                    datesWithTasks={new Set([...marked].map((day) => isoDay(year, month, day)))}
+                    onSelectDate={onSelectDate}
                     variant="compact"
                 />
             </div>
@@ -72,9 +78,9 @@ export function MonthCalendar({ viewDate, onViewDateChange, selectedDate, onSele
 }
 
 interface DatePickerProps {
-    /** "YYYY-MM-DD"; null or "" when unset. */
-    value: string | null;
-    onChange: (date: string | null) => void;
+    /** A LocalDate; null or "" when unset. */
+    value: LocalDate | null;
+    onChange: (date: LocalDate | null) => void;
     /** Accessible name, e.g. "Series end date". */
     label: string;
     /** Allows clearing (a quiet footer action on desktop; the OS clear control on touch). */
@@ -116,13 +122,13 @@ function NativeDateField({ value, onChange, label, clearLabel, disabled, classNa
 
 function DesktopDatePicker({ value, onChange, label, clearLabel, yearNav, disabled, placeholder = "Pick a date", className, children }: DatePickerProps) {
     const [open, setOpen] = React.useState(false);
-    const [viewDate, setViewDate] = React.useState(() => (value ? parseLocalDate(value) : new Date()));
+    const [viewDay, setViewDay] = React.useState<LocalDate>(() => value || today());
 
     const onOpenChange = (next: boolean) => {
-        if (next) setViewDate(value ? parseLocalDate(value) : new Date());
+        if (next) setViewDay(value || today());
         setOpen(next);
     };
-    const pick = (date: string | null) => {
+    const pick = (date: LocalDate | null) => {
         onChange(date);
         setOpen(false);
     };
@@ -150,7 +156,7 @@ function DesktopDatePicker({ value, onChange, label, clearLabel, yearNav, disabl
                 aria-label={label}
                 className="w-[18rem] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overflow-x-hidden overscroll-contain p-0"
             >
-                <MonthCalendar viewDate={viewDate} onViewDateChange={setViewDate} selectedDate={value ?? ""} onSelectDate={pick} yearNav={yearNav} />
+                <MonthCalendar viewDay={viewDay} onViewDayChange={setViewDay} selectedDate={value ?? ""} onSelectDate={pick} yearNav={yearNav} />
                 {clearLabel && value ? (
                     <div className="border-t border-twilight-border/40 px-3 py-2">
                         <button

@@ -7,12 +7,8 @@ import { getDbClient } from "../../platform/db";
 import { throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
-import { normalizeTaskFilters } from "./task-filters";
 import { readTaskBatch, readTasks } from "./tasks.read";
-import {
-    hasTaskTemporalMutation,
-    normalizeTaskTemporalFields,
-} from "@cadence/domain/task-temporal";
+import { hasTaskTemporalMutation } from "@cadence/domain/task-temporal";
 import { computeGappedOrderIndex } from "@cadence/domain/ordering";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
@@ -21,7 +17,8 @@ import { taskTagSchema } from "@cadence/contracts/tag";
 import { sourceSurfaceSchema, batchDeleteSchema, batchRescheduleSchema, batchStateSchema, insertTaskSchema, reorderTaskSchema, taskListQuerySchema, taskBatchQuerySchema, updateTaskSchema } from "@cadence/contracts/task";
 import type { Env } from "../../types/env";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "./task-nlp";
-import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
+import { createTask, deleteTasks, deleteTrashedTasks, duplicateTask, rescheduleTasks, setTaskState, temporalColumns, toTask, trackTaskChanges, updateTask, withTagIds } from "./tasks.service";
+import { userZone } from "../../platform/user-zone";
 
 const taskTagParamSchema = z.object({
     id: z.uuid(),
@@ -112,6 +109,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 : fallbackEnvelope;
             const parsed = parseCanonicalNlpEnvelope(envelope, {
                 context: nlpRuntime.context,
+                            clock: nlpRuntime.clock,
             });
 
             const [row] = await (async () => {
@@ -187,10 +185,12 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                         },
                         {
                             context: nlpRuntime?.context,
+                            clock: nlpRuntime!.clock,
                         },
                     )
                     : null;
 
+                const zone = await userZone(tx, userId);
                 const inferred = parsed
                     ? inferTaskFieldsFromParse(
                         parsed,
@@ -209,6 +209,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                                 : undefined,
                         },
                         (nlpRuntime?.settings.tasks?.intelligence?.confidenceThreshold ?? "medium") as "high" | "medium" | "low",
+                        zone,
                     )
                     : null;
 
@@ -223,16 +224,19 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                         durationEstimate: inferred?.durationEstimate ?? body.durationEstimate,
                         waitingOn: inferred?.waitingOn ?? body.waitingOn,
                         recurrenceRule: inferred?.recurrenceRule ?? body.recurrenceRule,
-                        ...normalizeTaskTemporalFields({
+                        ...temporalColumns({
                             dueDate: inferred?.dueDate ?? body.dueDate ?? null,
+                            endDate: body.endDate,
                             scheduledStart: inferred?.scheduledStart ?? body.scheduledStart ?? null,
                             scheduledEnd: inferred?.scheduledEnd ?? body.scheduledEnd ?? null,
-                            isAllDay: inferred?.isAllDay ?? body.isAllDay ?? true,
-                        }),
+                            zone: body.zone,
+                            isAllDay: body.isAllDay,
+                            notBefore: body.notBefore,
+                        }, zone, "tasks"),
                     }
                     : {
                         ...body,
-                        ...normalizeTaskTemporalFields(body),
+                        ...temporalColumns({ ...body, notBefore: body.notBefore }, zone, "tasks"),
                     };
 
                 const row = await createTask(tx, userId, taskBody, allTagIds);
@@ -367,7 +371,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     })
     .get("/", apiValidator("query", taskListQuerySchema), async (c) => {
         const userId = c.get("userId");
-        const query = normalizeTaskFilters(c.req.valid("query"));
+        const query = c.req.valid("query");
         const db = getDbClient(c.env);
 
         const items = await withRls(db, userId, (tx) => readTasks(tx, userId, query));

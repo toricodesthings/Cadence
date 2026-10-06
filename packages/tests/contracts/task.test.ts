@@ -19,7 +19,6 @@ describe("insertTaskSchema", () => {
             title: "Write spec",
             orderIndex: 1,
             state: "ACTIVE",
-            isAllDay: true,
             timezoneLocked: false,
             priority: 0,
             isPinned: false,
@@ -92,8 +91,11 @@ describe("batch and reorder limits", () => {
         expect(schema.safeParse(build(51)).success).toBe(false);
     });
 
-    it("reschedules as all-day unless told otherwise", () => {
-        expect(batchRescheduleSchema.parse({ taskIds: ids(1), scheduledStart: "2026-03-09" }).isAllDay).toBe(true);
+    it("reschedules to a day, or (legacy) a start, never both", () => {
+        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), date: "2026-03-09" }).success).toBe(true);
+        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09T10:00:00-04:00" }).success).toBe(true);
+        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1), scheduledStart: "2026-03-09", date: "2026-03-09" }).success).toBe(false);
+        expect(batchRescheduleSchema.safeParse({ taskIds: ids(1) }).success).toBe(false);
     });
 
     it("reorders up to 200 siblings at once", () => {
@@ -115,9 +117,9 @@ describe("offline task batch bounds", () => {
         [{}], [{ state: "COMPLETE" }], [{ state: "ARCHIVED" }],
         [{ state: "ACTIVE", limit: 1000 }], [{ state: "ACTIVE", offset: 10 }],
         [{ state: "ACTIVE", userId: UUID }],
-        [{ state: "ACTIVE", scheduledRangeStart: "2026-03-01" }],
-        [{ state: "ACTIVE", scheduledRangeStart: "2026-03-09", scheduledRangeEnd: "2026-03-01" }],
-        [{ state: "ACTIVE", scheduledRangeStart: "2026-03-01", scheduledRangeEnd: "2026-05-01" }],
+        [{ state: "ACTIVE", from: "2026-03-01" }],
+        [{ state: "ACTIVE", from: "2026-03-09", to: "2026-03-01" }],
+        [{ state: "ACTIVE", from: "2026-03-01", to: "2026-05-01" }],
     ].map((queries) => ({ queries })))("rejects unsupported or unbounded filters $queries", ({ queries }) => {
         expect(taskBatchQuerySchema.safeParse({ queries: JSON.stringify(queries) }).success).toBe(false);
     });

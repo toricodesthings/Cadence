@@ -11,7 +11,8 @@ import { toMinimalHabit } from "./projections";
 import { routinesDue } from "./calendar";
 import { createHabit, deleteHabit, habitDays, moveHabit, resolveHabit, updateHabit } from "../../habits/habits.service";
 import { habitTargetTimesSchema, insertHabitSchema, MAX_ROUTINE_STEPS, routineStepSchema, stepStatusSchema } from "@cadence/contracts/habit";
-import { addDaysToDate, stepMarksOn } from "@cadence/domain/repeats";
+import { stepMarksOn } from "@cadence/domain/repeats";
+import { addDays } from "@cadence/domain/time";
 import type { Tx } from "../../../types/db";
 
 const stepTitle = routineStepSchema.shape.title;
@@ -124,7 +125,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     const links = ids.length
                         ? await tx.select({ habitId: habitTags.habitId, tagId: habitTags.tagId }).from(habitTags).where(inArray(habitTags.habitId, ids))
                         : [];
-                    const recent = await routineDays(tx, userId, rows.slice(0, cap), addDaysToDate(ctx.today, -30), addDaysToDate(ctx.today, -1), ctx.timezone, ctx.today);
+                    const recent = await routineDays(tx, userId, rows.slice(0, cap), addDays(ctx.today, -30), addDays(ctx.today, -1), ctx.timezone, ctx.today);
                     return { rows, links, recent };
                 });
                 const count = (id: string, status: DayStatus) => recent.get(id)?.filter((day) => day.status === status).length ?? 0;
@@ -207,7 +208,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext) => ({
         }),
         execute: async ({ start, end, habitId, includeArchived }) =>
             safeExecute("get_habit_history", userId, async () => {
-                const to = [end, ctx.today, addDaysToDate(start, MAX_HISTORY_DAYS)].sort()[0];
+                const to = [end, ctx.today, addDays(start, MAX_HISTORY_DAYS)].sort()[0];
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
                     const rows = await tx

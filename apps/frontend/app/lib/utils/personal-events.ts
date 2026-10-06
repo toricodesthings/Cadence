@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
 import type { PersonalEvent } from "../../types/settings";
 import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
-import { formatShortDate, toISODate } from "./date-format";
+import { daysBetween, type LocalDate } from "@cadence/domain/time";
+import { formatShortDate, getDaysInMonth, isoDay } from "./date-format";
+import { today as todayDay } from "./user-zone";
 
 const EVENT_DEFAULT_TONE = "var(--accent-nav-schedule)";
 
@@ -43,7 +45,7 @@ export interface PersonalEventViewModel {
 export function getNormalizedMonthDay(monthDay: string, year: number) {
     const [rawMonth, rawDay] = monthDay.split("-").map((value) => Number.parseInt(value, 10));
     const month = Number.isFinite(rawMonth) ? Math.min(Math.max(rawMonth, 1), 12) : 1;
-    const maxDay = new Date(year, month, 0).getDate();
+    const maxDay = getDaysInMonth(year, month - 1); // Feb 29 falls on Feb 28 in non-leap years
     const day = Number.isFinite(rawDay) ? Math.min(Math.max(rawDay, 1), maxDay) : 1;
 
     return {
@@ -53,16 +55,16 @@ export function getNormalizedMonthDay(monthDay: string, year: number) {
     };
 }
 
-function getPersonalEventOccurrenceDate(monthDay: string, year: number) {
+function getPersonalEventOccurrenceDate(monthDay: string, year: number): LocalDate {
     const normalized = getNormalizedMonthDay(monthDay, year);
-    return `${year}-${String(normalized.month).padStart(2, "0")}-${String(normalized.day).padStart(2, "0")}`;
+    return isoDay(year, normalized.month - 1, normalized.day);
 }
 
-export function getNextPersonalEventDate(event: Pick<PersonalEvent, "monthDay">, today = new Date()) {
-    const todayIso = toISODate(today);
-    const thisYearDate = getPersonalEventOccurrenceDate(event.monthDay, today.getFullYear());
-    if (thisYearDate >= todayIso) return thisYearDate;
-    return getPersonalEventOccurrenceDate(event.monthDay, today.getFullYear() + 1);
+export function getNextPersonalEventDate(event: Pick<PersonalEvent, "monthDay">, today: LocalDate = todayDay()): LocalDate {
+    const year = Number(today.slice(0, 4));
+    const thisYearDate = getPersonalEventOccurrenceDate(event.monthDay, year);
+    if (thisYearDate >= today) return thisYearDate;
+    return getPersonalEventOccurrenceDate(event.monthDay, year + 1);
 }
 
 export function getPersonalEventCountdownLabel(daysUntil: number) {
@@ -71,21 +73,14 @@ export function getPersonalEventCountdownLabel(daysUntil: number) {
     return `In ${daysUntil} days`;
 }
 
-function getPersonalEventMonthDayLabel(monthDay: string, year = new Date().getFullYear()) {
+function getPersonalEventMonthDayLabel(monthDay: string, year = Number(todayDay().slice(0, 4))) {
     return formatShortDate(getPersonalEventOccurrenceDate(monthDay, year));
 }
 
 export function getPersonalEventMilestoneLabel(startedOn: string | null | undefined, nextDate: string) {
     if (!startedOn) return null;
 
-    const startDate = new Date(`${startedOn}T00:00:00`);
-    const occurrenceDate = new Date(`${nextDate}T00:00:00`);
-
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(occurrenceDate.getTime())) {
-        return null;
-    }
-
-    const yearsElapsed = occurrenceDate.getFullYear() - startDate.getFullYear();
+    const yearsElapsed = Number(nextDate.slice(0, 4)) - Number(startedOn.slice(0, 4));
 
     if (yearsElapsed <= 0) {
         return `Started ${formatShortDate(startedOn)}`;
@@ -98,10 +93,9 @@ export function getPersonalEventMilestoneLabel(startedOn: string | null | undefi
     return `Marks ${yearsElapsed} years`;
 }
 
-export function toPersonalEventViewModel(event: PersonalEvent, today = new Date()): PersonalEventViewModel {
-    const todayIso = toISODate(today);
+export function toPersonalEventViewModel(event: PersonalEvent, today: LocalDate = todayDay()): PersonalEventViewModel {
     const nextDate = getNextPersonalEventDate(event, today);
-    const daysUntil = Math.round((new Date(`${nextDate}T00:00:00`).getTime() - new Date(`${todayIso}T00:00:00`).getTime()) / 86_400_000);
+    const daysUntil = daysBetween(today, nextDate);
 
     return {
         event,
@@ -109,7 +103,7 @@ export function toPersonalEventViewModel(event: PersonalEvent, today = new Date(
         nextDateLabel: formatShortDate(nextDate),
         countdownLabel: getPersonalEventCountdownLabel(daysUntil),
         daysUntil,
-        monthDayLabel: getPersonalEventMonthDayLabel(event.monthDay),
+        monthDayLabel: getPersonalEventMonthDayLabel(event.monthDay, Number(today.slice(0, 4))),
         milestoneLabel: getPersonalEventMilestoneLabel(event.startedOn, nextDate),
     };
 }

@@ -11,7 +11,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createUser, getTestDb, startTestDb } from "../helpers/db";
+import { getTestDb, startTestDb } from "../helpers/db";
+import { createUserIn } from "../helpers/zone";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { getAgentInstance } from "../../src/domains/ai/agent";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
@@ -19,6 +20,7 @@ import type { Env } from "../../src/types/env";
 import { withRls } from "../../src/platform/rls";
 import { habits } from "../../src/db/schema";
 import { eq } from "drizzle-orm";
+import { todayIn } from "@cadence/domain/time";
 
 const TZ = "America/Toronto";
 /** Wednesday 2026-09-23, 10:00 in Toronto. */
@@ -45,6 +47,10 @@ interface Scenario {
     level: "simple" | "medium" | "complex";
     seed?: (t: Tools) => Promise<Record<string, any>>;
     turns: string[];
+    /** The user's clock for this scenario (default: NOW). */
+    now?: string;
+    /** Model runs to repeat, all of which must pass (luna is not deterministic; the time scenarios run 3). */
+    runs?: number;
     /** Problems found, empty when it passed. */
     check: (run: Run, t: Tools, seeded: Record<string, any>) => Promise<string[]>;
 }
@@ -53,8 +59,8 @@ interface Scenario {
 const backdateRoutines = (userId: string) =>
     withRls(getTestDb(), userId, (tx: any) => tx.update(habits).set({ createdAt: "2026-09-01T12:00:00.000Z" }).where(eq(habits.userId, userId)));
 
-function toolsFor(userId: string) {
-    const tools = buildToolRegistry(env, userId, { timezone: TZ, currentDate: NOW, today: TODAY, weekStart: "Monday" }) as any;
+function toolsFor(userId: string, now = NOW) {
+    const tools = buildToolRegistry(env, userId, { timezone: TZ, currentDate: now, today: todayIn(TZ, new Date(now)), weekStart: "Monday" }) as any;
     let seq = 0;
     return async (name: string, input: object = {}) => {
         const result = await tools[name].execute(input, { toolCallId: `seed_${++seq}`, messages: [] });
@@ -63,7 +69,7 @@ function toolsFor(userId: string) {
     };
 }
 
-async function converse(userId: string, turns: string[]): Promise<Run> {
+async function converse(userId: string, turns: string[], now = NOW): Promise<Run> {
     const calls: Call[] = [];
     const messages: any[] = [];
     let text = "";
@@ -71,7 +77,7 @@ async function converse(userId: string, turns: string[]): Promise<Run> {
     let tokens = 0;
     const started = Date.now();
     for (const turn of turns) {
-        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: NOW, approvalMode: "full", nonce: "evalnonce", queryText: turn });
+        const { agent, turnContext } = await getAgentInstance(env, userId, { timezone: TZ, currentDate: now, approvalMode: "full", nonce: "evalnonce", queryText: turn });
         messages.push({ role: "user", content: turn });
         // Like production: this turn's context rides on the newest user message, never stored in history.
         const result = await agent.generate({ messages: [...messages.slice(0, -1), { role: "user", content: `${turn}\n\n${turnContext}` }] });
@@ -415,6 +421,80 @@ const SCENARIOS: Scenario[] = [
             ];
         },
     },
+    // ── Time model (0.26.3): a deadline is a day; a time means a timed block or a reminder ──
+    {
+        name: "deadline with a time is a day plus a reminder",
+        level: "simple",
+        runs: 3,
+        turns: ["Add the essay, due Friday at 11:59 PM"],
+        check: async (run, t) => {
+            const essay = titled(await openTasks(t), "essay");
+            const rejected = called(run, "create_tasks").filter((c) => c.output?.ok === false);
+            return [
+                ...need(essay?.dueDate === "2026-09-25", `dueDate is Friday's day, no time (got ${essay?.dueDate})`),
+                ...need(!essay?.scheduledStart, `no timed block for a deadline (got ${essay?.scheduledStart})`),
+                ...need(!essay?.reminderAt || essay.reminderAt.startsWith("2026-09-25"), `a reminder, if any, is Friday (got ${essay?.reminderAt})`),
+                ...need(rejected.length === 0, "dueDate sent as a day the first time, not a time that the schema refused"),
+            ];
+        },
+    },
+    {
+        name: "what's due today, at 11:30 PM",
+        level: "simple",
+        runs: 3,
+        now: "2026-09-24T03:30:00.000Z", // 11:30 PM Wednesday 2026-09-23 in Toronto, already Thursday in UTC
+        seed: async (t) => {
+            await t("create_tasks", { tasks: [{ title: "COMP3000 assignment", dueDate: "2026-09-23" }, { title: "Tomorrow thing", dueDate: "2026-09-24" }] });
+            return {};
+        },
+        turns: ["What's due today?"],
+        check: async (run, t) => [
+            ...need(/COMP3000/i.test(run.text), "names the all-day task due today"),
+            ...need(!/Tomorrow thing/i.test(run.text), "leaves tomorrow's task out"),
+            ...need(!/overdue/i.test(run.text), "doesn't call today's task overdue"),
+            ...need(run.calls.every((c) => c.name.startsWith("get_")), "reads only"),
+            ...need((await openTasks(t)).length === 2, "nothing changed"),
+        ],
+    },
+    {
+        name: "move a class across the DST change",
+        level: "medium",
+        runs: 3,
+        now: "2026-10-30T14:00:00.000Z", // Friday 10:00 AM EDT; clocks go back on Sunday 2026-11-01
+        seed: async (t) => {
+            await t("create_tasks", { tasks: [{ title: "COMP3005 class", scheduledStart: "2026-10-30T14:35:00-04:00", scheduledEnd: "2026-10-30T15:55:00-04:00" }] });
+            return {};
+        },
+        turns: ["Move my COMP3005 class to Monday"],
+        check: async (run, t) => {
+            const klass = titled(await openTasks(t), "COMP3005");
+            return [
+                ...need(klass?.scheduledStart === "2026-11-02T14:35:00-05:00", `Monday, same local time 2:35 PM (got ${klass?.scheduledStart})`),
+                ...need(klass?.scheduledEnd === "2026-11-02T15:55:00-05:00", `ends 3:55 PM (got ${klass?.scheduledEnd})`),
+                ...need(called(run, "reschedule_tasks").length + called(run, "update_tasks").length >= 1, "moved with a write"),
+            ];
+        },
+    },
+    {
+        name: "a weekly class across the DST change",
+        level: "medium",
+        runs: 3,
+        now: "2026-10-26T14:00:00.000Z",
+        seed: async (t) => {
+            await t("create_tasks", { tasks: [{
+                title: "COMP3005 lecture", scheduledStart: "2026-10-29T14:35:00-04:00", scheduledEnd: "2026-10-29T15:55:00-04:00",
+                recurrenceRule: "FREQ=WEEKLY;BYDAY=TH", fixed: true,
+            }] });
+            return {};
+        },
+        turns: ["What time is my COMP3005 lecture on Thursday Oct 29 and on Thursday Nov 5?"],
+        check: async (run) => [
+            ...need(called(run, "get_schedule_window").length >= 1, "read the schedule window"),
+            ...need((run.text.match(/2:35\s*(PM|pm)|14:35/g) ?? []).length >= 1, "says 2:35 PM"),
+            ...need(!/1:35|3:35/.test(run.text), "never shifts the time an hour"),
+            ...need(run.calls.every((c) => c.name.startsWith("get_")), "reads only"),
+        ],
+    },
 ];
 
 // ── Runner ──────────────────────────────────────────────────────────────────
@@ -433,16 +513,20 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
 
     for (const scenario of SCENARIOS) {
         it.concurrent(scenario.name, async () => {
-            const userId = await createUser();
-            const t = Object.assign(toolsFor(userId), { userId });
-            const seeded = (await scenario.seed?.(t)) ?? {};
-            const run = await converse(userId, scenario.turns);
-            const problems = [...(await scenario.check(run, t, seeded)), ...failedCalls(run).filter((p) => !p.startsWith("get_"))];
-            report.push({
-                name: scenario.name, level: scenario.level, passed: problems.length === 0, problems,
-                steps: run.steps, tokens: run.tokens, ms: run.ms,
-                calls: [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+")),
-            });
+            const total = { steps: 0, tokens: 0, ms: 0 };
+            const problems: string[] = [];
+            let calls: string[] = [];
+            for (let attempt = 1; attempt <= (scenario.runs ?? 1); attempt++) {
+                const userId = await createUserIn(TZ);
+                const t = Object.assign(toolsFor(userId, scenario.now), { userId });
+                const seeded = (await scenario.seed?.(t)) ?? {};
+                const run = await converse(userId, scenario.turns, scenario.now);
+                const found = [...(await scenario.check(run, t, seeded)), ...failedCalls(run).filter((p) => !p.startsWith("get_"))];
+                problems.push(...found.map((p) => ((scenario.runs ?? 1) > 1 ? `run ${attempt}: ${p}` : p)));
+                total.steps += run.steps; total.tokens += run.tokens; total.ms += run.ms;
+                calls = [...new Set(run.calls.map((c) => c.step))].map((step) => run.calls.filter((c) => c.step === step).map((c) => c.name).join("+"));
+            }
+            report.push({ name: scenario.name, level: scenario.level, passed: problems.length === 0, problems, ...total, calls });
             expect(problems).toEqual([]);
         });
     }

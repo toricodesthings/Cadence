@@ -29,7 +29,7 @@ import {
     tasks,
     userMetrics,
 } from "../../../db/schema";
-import { seedDate, seedDateTime } from "../debug-seed";
+import { seedDate, seedDateTime, type SeedClock } from "../debug-seed";
 import { createTasks, setTaskState } from "../../tasks/tasks.service";
 import { resolveHabit } from "../../habits/habits.service";
 import { processCapture } from "../../inbox/inbox.service";
@@ -49,7 +49,7 @@ import {
 type TaskRow = typeof tasks.$inferSelect;
 
 interface ShowcaseRefs {
-    anchor: Date;
+    clock: SeedClock;
     tasks: TaskRow[];
     habits: (typeof habits.$inferSelect)[];
     inboxItems: (typeof inboxItems.$inferSelect)[];
@@ -99,8 +99,8 @@ const step = { type: "step-start" };
 
 export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: ShowcaseRefs) {
     callSeq = 0;
-    const { anchor } = refs;
-    const today = seedDate(anchor, 0);
+    const { clock } = refs;
+    const today = seedDate(clock, 0);
     const task = (title: string) => find(refs.tasks, (t) => t.title === title, `task "${title}"`);
     const habit = (title: string) => find(refs.habits, (h) => h.title === title, `habit "${title}"`);
     const inbox = (prefix: string) => find(refs.inboxItems, (i) => i.rawText.startsWith(prefix), `inbox "${prefix}"`);
@@ -151,8 +151,8 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         title: "Prep slides for client review",
         note: "Pull Q3 numbers and the revised timeline.",
         subtasks: ["Pull Q3 numbers", "Update the timeline slide"],
-        scheduledStart: seedDateTime(anchor, 2, 13, 0),
-        scheduledEnd: seedDateTime(anchor, 2, 14, 0),
+        scheduledStart: seedDateTime(clock, 2, 13, 0),
+        scheduledEnd: seedDateTime(clock, 2, 14, 0),
         durationEstimate: 60,
         projectId: clientOps.id,
         priority: 2 as const,
@@ -166,11 +166,11 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     // Approved: structure_inbox_item, create_project.
     const transcriptDraft = {
         title: "Pull quotable lines from customer interview",
-        dueDate: seedDate(anchor, 3),
+        dueDate: seedDate(clock, 3),
         durationEstimate: 45,
         projectId: featureLaunch.id,
     };
-    const { task: transcriptTask } = await processCapture(db, userId, transcript.id, { ...transcriptDraft, scheduledStart: null, isAllDay: true, tagIds: [] });
+    const { task: transcriptTask } = await processCapture(db, userId, transcript.id, { ...transcriptDraft, scheduledStart: null, tagIds: [] });
     const planningDraft = { name: "Q3 Planning", emoji: "🧭", colorAccent: "luminous-amber" };
     const planning = await createProject(db, userId, planningDraft);
 
@@ -188,7 +188,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
 
     const isToday = (t: TaskRow) => (t.scheduledStart ?? t.dueDate)?.slice(0, 10) === today;
     const activeTasks = refs.tasks.filter((t) => t.state === "ACTIVE" || t.state === "WAITING");
-    const weekEnd = seedDate(anchor, 6);
+    const weekEnd = seedDate(clock, 6);
     const inWeek = activeTasks.filter((t) => {
         const day = (t.scheduledStart ?? t.dueDate)?.slice(0, 10);
         return !!day && day >= today && day <= weekEnd;
@@ -199,7 +199,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const [conversation] = await db.insert(aiConversations).values({
         userId,
         title: "Planning a heavy day",
-        lastMessageAt: seedDateTime(anchor, 0, 9, 18),
+        lastMessageAt: seedDateTime(clock, 0, 9, 18),
     }).returning();
 
     const turns: { role: "user" | "assistant"; minute: number; parts: unknown[] }[] = [
@@ -235,7 +235,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                         "One thing slipped: **Follow up on venue booking** was due yesterday. " +
                         "Want me to move it to tomorrow so it stops nagging you?",
                 ),
-                declined("reschedule_tasks", { taskIds: [venue.id], targetDate: seedDate(anchor, 1) }, "Not answered"),
+                declined("reschedule_tasks", { taskIds: [venue.id], targetDate: seedDate(clock, 1) }, "Not answered"),
             ],
         },
         {
@@ -271,9 +271,9 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 read("get_habits", { includeArchived: false, limit: 20 }, {
                     habits: activeHabits.map((h) => toMinimalHabit(h, today)),
                 }),
-                read("get_habit_history", { start: seedDate(anchor, -2), end: seedDate(anchor, -1) }, {
-                    range: { start: seedDate(anchor, -2), end: seedDate(anchor, -1) },
-                    routines: routinesDue(activeHabits, seedDate(anchor, -2), seedDate(anchor, -1), today).map((h) => ({ habitId: h.id, title: h.title, due: h.days.length, missed: h.days })),
+                read("get_habit_history", { start: seedDate(clock, -2), end: seedDate(clock, -1) }, {
+                    range: { start: seedDate(clock, -2), end: seedDate(clock, -1) },
+                    routines: routinesDue(activeHabits, seedDate(clock, -2), seedDate(clock, -1), today, clock.zone).map((h) => ({ habitId: h.id, title: h.title, due: h.days.length, missed: h.days })),
                 }),
                 step,
                 text("Good call resting your back. Here are both check-ins:"),
@@ -336,7 +336,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 }, { item: { id: passport.id, rawText: passport.rawText }, deduped: false }),
                 read("get_events", {}, {
                     today,
-                    events: [toMinimalEvent({ id: "mom-birthday", label: "Mom's Birthday", monthDay: seedDate(anchor, 4).slice(5), emoji: "🎂", notify: true, startedOn: null }, today)],
+                    events: [toMinimalEvent({ id: "mom-birthday", label: "Mom's Birthday", monthDay: seedDate(clock, 4).slice(5), emoji: "🎂", notify: true, startedOn: null }, today)],
                 }),
                 read("get_task_detail", { taskId: acme.id }, {
                     task: mini(acme),
@@ -365,15 +365,15 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     tasks: [
                         {
                             title: prescription.rawText,
-                            scheduledStart: seedDateTime(anchor, 0, 17, 15),
-                            scheduledEnd: seedDateTime(anchor, 0, 17, 45),
+                            scheduledStart: seedDateTime(clock, 0, 17, 15),
+                            scheduledEnd: seedDateTime(clock, 0, 17, 45),
                             durationEstimate: 30,
                             priority: 3,
                             effort: 1,
                         },
                         {
                             title: "History essay: causes of the 1929 crash",
-                            dueDate: seedDate(anchor, 4),
+                            dueDate: seedDate(clock, 4),
                             priority: 4,
                             subtasks: ["Pick three primary sources", "Outline the argument"],
                             fromImage: { dueDate: "due Friday", priority: "URGENT", subtasks: "1. sources 2. outline" },
@@ -411,9 +411,9 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 read("get_cadence_help", { topic: "organizing" }, { topic: "organizing", text: HELP_TOPICS.organizing }),
                 step,
                 text("Here's the whole tidy-up. Deleting Hydrate and the Maya capture is for good, so those wait for you either way."),
-                waiting("duplicate_tasks", { tasks: [{ taskId: slidesCreated[0].taskId, targetDate: seedDate(anchor, 9) }] }),
+                waiting("duplicate_tasks", { tasks: [{ taskId: slidesCreated[0].taskId, targetDate: seedDate(clock, 9) }] }),
                 waiting("reorder_tasks", { taskIds: [launch.id], to: "top" }),
-                waiting("update_tasks", { taskIds: [acme.id], patch: { reminderAt: seedDateTime(anchor, 0, 16, 0), addTagNames: ["Legal"] } }),
+                waiting("update_tasks", { taskIds: [acme.id], patch: { reminderAt: seedDateTime(clock, 0, 16, 0), addTagNames: ["Legal"] } }),
                 waiting("update_project", { projectId: homeReset.id, patch: { name: "Home" } }),
                 waiting("delete_project", { projectId: project("Spring Semester").id, name: "Spring Semester", tasks: "keep" }),
                 waiting("update_tag", { tagId: followUp.id, patch: { name: "Chase" } }),
@@ -436,7 +436,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             role: turn.role,
             parts: turn.parts,
             orderIndex: index + 1,
-            createdAt: seedDateTime(anchor, 0, 9, turn.minute),
+            createdAt: seedDateTime(clock, 0, 9, turn.minute),
         })),
     );
 }

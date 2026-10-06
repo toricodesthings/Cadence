@@ -1,3 +1,6 @@
+import { dayOf, todayIn } from "@cadence/domain/time";
+import { getUserZone } from "../utils/user-zone";
+
 export type NotificationKind =
     | "task-reminder"
     | "task-due"
@@ -12,7 +15,7 @@ export interface AppNotification {
     kind: NotificationKind;
     title: string;
     body: string;
-    /** ISO timestamp the notification becomes relevant */
+    /** Instant the notification becomes relevant */
     triggerAt: string;
     /** Entity id this notification relates to (task or habit id) */
     entityId: string | null;
@@ -26,21 +29,15 @@ export interface AppNotification {
 export type NotificationGroup = "now" | "today" | "earlier";
 
 export function groupNotification(n: AppNotification, now: Date): NotificationGroup {
-    const trigger = new Date(n.triggerAt);
-    const diffMs = now.getTime() - trigger.getTime();
+    const diffMs = now.getTime() - Date.parse(n.triggerAt);
     const diffMin = diffMs / 60_000;
 
     // "Now" = triggered within the last 15 minutes or in the future
     if (diffMin <= 15) return "now";
 
-    // "Today" = triggered earlier today
-    if (
-        trigger.getFullYear() === now.getFullYear() &&
-        trigger.getMonth() === now.getMonth() &&
-        trigger.getDate() === now.getDate()
-    ) {
-        return "today";
-    }
+    // "Today" = triggered earlier today (the user's day)
+    const zone = getUserZone();
+    if (dayOf(n.triggerAt, zone) === todayIn(zone, now)) return "today";
 
     return "earlier";
 }

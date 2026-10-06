@@ -11,31 +11,39 @@ import {
 import { Tip, TimePicker } from "../primitives";
 import { MonthCalendar } from "../shared/DatePicker";
 import { RecurrencePicker } from "./RecurrencePicker";
-import { addDays, fromTimeValue, parseLocalDate, toISODate, toTimeValue } from "../../lib/utils/date-format";
+import { addDays, daysBetween, weekdayOf, type Instant, type LocalDate, type WallTime } from "@cadence/domain/time";
+import { blockEnd, dayOfInstant, fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
+
+/**
+ * What the picker writes. All-day: `dueDate` (a deadline is a day, never a time), plus `endDate`
+ * (inclusive) for a multi-day span. Timed block: `scheduledStart`/`scheduledEnd` instants only.
+ */
+export interface ScheduleUpdates {
+    dueDate: LocalDate | null;
+    endDate: LocalDate | null;
+    scheduledStart: Instant | null;
+    scheduledEnd: Instant | null;
+    recurrenceRule: string | null;
+}
 
 interface QuickScheduleSurfaceProps {
-    dueDate: string | null;
-    scheduledStart: string | null;
-    scheduledEnd?: string | null;
+    dueDate: LocalDate | null;
+    endDate?: LocalDate | null;
+    scheduledStart: Instant | null;
+    scheduledEnd?: Instant | null;
     recurrenceRule: string | null;
     isOpen?: boolean;
-    onChange: (updates: {
-        dueDate: string | null;
-        scheduledStart: string | null;
-        scheduledEnd?: string | null;
-        recurrenceRule: string | null;
-        isAllDay: boolean;
-    }) => void;
+    onChange: (updates: ScheduleUpdates) => void;
     onRequestClose?: () => void;
 }
 
 type PickerMode = "deadline" | "duration";
 
-function getNextMonday(): Date {
-    const d = new Date();
-    const day = d.getDay();
-    const daysUntilMonday = day === 0 ? 1 : 8 - day;
-    return addDays(d, daysUntilMonday);
+/** The Monday after `day` (the day itself when it is a Sunday's next day, never `day`). */
+function getNextMonday(day: LocalDate): LocalDate {
+    const weekday = weekdayOf(day);
+    return addDays(day, weekday === 0 ? 1 : 8 - weekday);
 }
 
 const QUICK_ACTIONS = [
@@ -44,16 +52,7 @@ const QUICK_ACTIONS = [
     { id: "next_week", icon: CalendarClock, label: "Next Monday" },
 ] as const;
 
-const DEFAULT_TIME = "09:00";
-
-/** "HH:mm" → ISO on the start date, rolling to the next day when the block crosses midnight. */
-function toEndOnDate(startIso: string, time: string): string {
-    const [h, m] = time.split(":").map(Number);
-    const d = new Date(startIso);
-    d.setHours(h, m, 0, 0);
-    if (d <= new Date(startIso)) d.setDate(d.getDate() + 1);
-    return d.toISOString();
-}
+const DEFAULT_TIME: WallTime = "09:00";
 
 /** "HH:mm" + 1 hour (wraps past midnight). */
 function plusOneHour(time: string): string {
@@ -61,8 +60,12 @@ function plusOneHour(time: string): string {
     return `${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+const initialDay = (dueDate: LocalDate | null, scheduledStart: Instant | null): LocalDate =>
+    scheduledStart ? dayOfInstant(scheduledStart) : (dueDate ?? today());
+
 export function QuickScheduleSurface({
     dueDate,
+    endDate = null,
     scheduledStart,
     scheduledEnd,
     recurrenceRule,
@@ -70,193 +73,120 @@ export function QuickScheduleSurface({
     onChange,
     onRequestClose,
 }: QuickScheduleSurfaceProps) {
-    const initialDate = scheduledStart ? parseLocalDate(scheduledStart) : (dueDate ? parseLocalDate(dueDate) : new Date());
-    const [viewDate, setViewDate] = useState(initialDate);
-    const [selectedDate, setSelectedDate] = useState(dueDate ?? toISODate(initialDate));
-    const [rangeEndDate, setRangeEndDate] = useState<string | null>(scheduledEnd ?? null);
+    const [viewDay, setViewDay] = useState<LocalDate>(initialDay(dueDate, scheduledStart));
+    const [selectedDate, setSelectedDate] = useState<LocalDate>(initialDay(dueDate, scheduledStart));
+    const [rangeEndDate, setRangeEndDate] = useState<LocalDate | null>(endDate);
     const [showTime, setShowTime] = useState(Boolean(scheduledStart));
-    const [endTimeValue, setEndTimeValue] = useState<string | null>(
+    const [endTimeValue, setEndTimeValue] = useState<WallTime | null>(
         scheduledStart && scheduledEnd ? toTimeValue(scheduledEnd) : null,
     );
-    const [mode, setMode] = useState<PickerMode>("deadline");
+    const [mode, setMode] = useState<PickerMode>(endDate ? "duration" : "deadline");
     const [rangeClickStep, setRangeClickStep] = useState<"start" | "end">("start");
 
     useEffect(() => {
         if (!isOpen) return;
 
-        const nextInitialDate = scheduledStart ? parseLocalDate(scheduledStart) : (dueDate ? parseLocalDate(dueDate) : new Date());
-        setViewDate(nextInitialDate);
-        setSelectedDate(dueDate ?? toISODate(nextInitialDate));
-        setRangeEndDate(scheduledEnd ?? null);
+        const day = initialDay(dueDate, scheduledStart);
+        setViewDay(day);
+        setSelectedDate(day);
+        setRangeEndDate(endDate);
         setShowTime(Boolean(scheduledStart));
         setEndTimeValue(scheduledStart && scheduledEnd ? toTimeValue(scheduledEnd) : null);
+        setMode(endDate ? "duration" : "deadline");
         setRangeClickStep("start");
-    }, [dueDate, isOpen, scheduledEnd, scheduledStart]);
+    }, [dueDate, endDate, isOpen, scheduledEnd, scheduledStart]);
 
     const startTimeValue = scheduledStart ? toTimeValue(scheduledStart) : DEFAULT_TIME;
-    const startIsoFor = (dateOnly: string) => fromTimeValue(dateOnly, startTimeValue);
 
-    const handleSelectDate = (iso: string) => {
+    /** A deadline day, or a timed block on `day`. */
+    const dayUpdates = (day: LocalDate, timed: boolean, start: WallTime, end: WallTime | null, rule = recurrenceRule): ScheduleUpdates => {
+        if (!timed) return { dueDate: day, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: rule };
+        const startIso = fromTimeValue(day, start);
+        return { dueDate: null, endDate: null, scheduledStart: startIso, scheduledEnd: end ? blockEnd(day, startIso, end) : null, recurrenceRule: rule };
+    };
+    const spanUpdates = (start: LocalDate, end: LocalDate | null, rule = recurrenceRule): ScheduleUpdates =>
+        ({ dueDate: start, endDate: end, scheduledStart: null, scheduledEnd: null, recurrenceRule: rule });
 
+    const handleSelectDate = (day: LocalDate) => {
         if (mode === "duration") {
-            // Duration is always an all-day date span — times live on Deadline.
+            // Duration is always an all-day span: times live on Deadline.
             if (rangeClickStep === "start") {
-                setSelectedDate(iso);
+                setSelectedDate(day);
                 setRangeEndDate(null);
                 setRangeClickStep("end");
-                onChange({
-                    dueDate: iso,
-                    scheduledStart: null,
-                    scheduledEnd: null,
-                    recurrenceRule,
-                    isAllDay: true,
-                });
+                onChange(spanUpdates(day, null));
                 return;
             }
 
-            const startD = new Date(selectedDate);
-            const endD = new Date(iso);
-
-            if (endD < startD) {
-                setRangeEndDate(selectedDate);
-                setSelectedDate(iso);
-                onChange({
-                    dueDate: iso,
-                    scheduledStart: null,
-                    scheduledEnd: selectedDate,
-                    recurrenceRule,
-                    isAllDay: true,
-                });
-            } else {
-                setRangeEndDate(iso);
-                onChange({
-                    dueDate: selectedDate,
-                    scheduledStart: null,
-                    scheduledEnd: iso,
-                    recurrenceRule,
-                    isAllDay: true,
-                });
-            }
-
+            const [first, last] = day < selectedDate ? [day, selectedDate] : [selectedDate, day];
+            setSelectedDate(first);
+            setRangeEndDate(last);
+            onChange(spanUpdates(first, last));
             setRangeClickStep("start");
             return;
         }
 
-        setSelectedDate(iso);
-        const startIso = showTime ? startIsoFor(iso) : null;
-        onChange({
-            dueDate: iso,
-            scheduledStart: startIso,
-            scheduledEnd: startIso && endTimeValue ? toEndOnDate(startIso, endTimeValue) : null,
-            recurrenceRule,
-            isAllDay: !showTime,
-        });
+        setSelectedDate(day);
+        onChange(dayUpdates(day, showTime, startTimeValue, endTimeValue));
     };
 
     const handleQuickAction = (preset: "today" | "tomorrow" | "next_week") => {
-        const now = new Date();
-        let target = new Date();
-        if (preset === "tomorrow") target.setDate(now.getDate() + 1);
-        if (preset === "next_week") target = getNextMonday();
-
-        const iso = toISODate(target);
-        setSelectedDate(iso);
-        setViewDate(target);
+        const now = today();
+        const day = preset === "tomorrow" ? addDays(now, 1) : preset === "next_week" ? getNextMonday(now) : now;
+        setSelectedDate(day);
+        setViewDay(day);
         setRangeEndDate(null);
         setRangeClickStep("start");
-
-        const startIso = showTime ? startIsoFor(iso) : null;
-        onChange({
-            dueDate: iso,
-            scheduledStart: startIso,
-            scheduledEnd: startIso && endTimeValue ? toEndOnDate(startIso, endTimeValue) : null,
-            recurrenceRule,
-            isAllDay: !showTime,
-        });
+        onChange(dayUpdates(day, showTime && mode === "deadline", startTimeValue, endTimeValue));
     };
 
     const getActivePreset = (): string => {
-        const todayIso = toISODate(new Date());
-        const tomorrowIso = toISODate(addDays(new Date(), 1));
-        const nextMondayIso = toISODate(getNextMonday());
-        if (selectedDate === todayIso) return "today";
-        if (selectedDate === tomorrowIso) return "tomorrow";
-        if (selectedDate === nextMondayIso) return "next_week";
+        const now = today();
+        if (selectedDate === now) return "today";
+        if (selectedDate === addDays(now, 1)) return "tomorrow";
+        if (selectedDate === getNextMonday(now)) return "next_week";
         return "";
     };
 
-    // The TimePicker commits on Enter/blur/pick — no debounce needed.
-    const handleStartTimeChange = (time: string) => {
+    // The TimePicker commits on Enter/blur/pick: no debounce needed.
+    const handleStartTimeChange = (time: WallTime) => {
         const startIso = fromTimeValue(selectedDate, time);
-        let endIso: string | null = null;
+        let endIso: Instant | null = null;
         if (endTimeValue) {
             const sameDayEnd = fromTimeValue(selectedDate, endTimeValue);
             // Keep a positive block: when the end would land at or before the
             // new start, bump it to start + 1 hour.
-            endIso = new Date(sameDayEnd) > new Date(startIso)
+            endIso = Date.parse(sameDayEnd) > Date.parse(startIso)
                 ? sameDayEnd
-                : new Date(new Date(startIso).getTime() + 60 * 60000).toISOString();
+                : new Date(Date.parse(startIso) + 60 * 60000).toISOString();
             setEndTimeValue(toTimeValue(endIso));
         }
-        onChange({
-            dueDate: selectedDate,
-            scheduledStart: startIso,
-            scheduledEnd: endIso,
-            recurrenceRule,
-            isAllDay: false,
-        });
+        onChange({ dueDate: null, endDate: null, scheduledStart: startIso, scheduledEnd: endIso, recurrenceRule });
     };
 
-    const handleEndTimeChange = (picked: string) => {
-        const startIso = startIsoFor(selectedDate);
+    const handleEndTimeChange = (picked: WallTime) => {
         // End = start would roll over into a 24h block; push it an hour out instead.
-        const time = picked === toTimeValue(startIso) ? plusOneHour(picked) : picked;
+        const time = picked === startTimeValue ? plusOneHour(picked) : picked;
         setEndTimeValue(time);
-        onChange({
-            dueDate: selectedDate,
-            scheduledStart: startIso,
-            // An end at/before the start rolls to the next day (overnight block).
-            scheduledEnd: toEndOnDate(startIso, time),
-            recurrenceRule,
-            isAllDay: false,
-        });
+        onChange(dayUpdates(selectedDate, true, startTimeValue, time));
     };
 
     const handleAddEnd = () => {
         const end = plusOneHour(startTimeValue);
-        const startIso = startIsoFor(selectedDate);
         setEndTimeValue(end);
-        onChange({
-            dueDate: selectedDate,
-            scheduledStart: startIso,
-            scheduledEnd: toEndOnDate(startIso, end),
-            recurrenceRule,
-            isAllDay: false,
-        });
+        onChange(dayUpdates(selectedDate, true, startTimeValue, end));
     };
 
     const handleRemoveEnd = () => {
         setEndTimeValue(null);
-        onChange({
-            dueDate: selectedDate,
-            scheduledStart,
-            scheduledEnd: null,
-            recurrenceRule,
-            isAllDay: false,
-        });
+        onChange(dayUpdates(selectedDate, true, startTimeValue, null));
     };
 
     const clearDeadline = () => {
-        const resetDate = new Date();
-        onChange({
-            dueDate: null,
-            scheduledStart: null,
-            scheduledEnd: null,
-            recurrenceRule: null,
-            isAllDay: true,
-        });
-        setSelectedDate(toISODate(resetDate));
-        setViewDate(resetDate);
+        const now = today();
+        onChange({ dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null });
+        setSelectedDate(now);
+        setViewDay(now);
         setRangeEndDate(null);
         setShowTime(false);
         setEndTimeValue(null);
@@ -267,14 +197,10 @@ export function QuickScheduleSurface({
     const activePreset = getActivePreset();
     const datesWithRange = new Set<number>();
     if (mode === "duration" && selectedDate && rangeEndDate) {
-        const start = new Date(selectedDate);
-        const end = new Date(rangeEndDate);
-        const cur = new Date(start);
-        while (cur <= end) {
-            if (cur.getFullYear() === viewDate.getFullYear() && cur.getMonth() === viewDate.getMonth()) {
-                datesWithRange.add(cur.getDate());
-            }
-            cur.setDate(cur.getDate() + 1);
+        const viewMonth = viewDay.slice(0, 7);
+        for (let i = 0; i <= daysBetween(selectedDate, rangeEndDate); i++) {
+            const day = addDays(selectedDate, i);
+            if (day.startsWith(viewMonth)) datesWithRange.add(Number(day.slice(8, 10)));
         }
     }
 
@@ -312,13 +238,7 @@ export function QuickScheduleSurface({
                         if (showTime || scheduledStart) {
                             setShowTime(false);
                             setEndTimeValue(null);
-                            onChange({
-                                dueDate: selectedDate,
-                                scheduledStart: null,
-                                scheduledEnd: rangeEndDate ? toISODate(new Date(rangeEndDate)) : null,
-                                recurrenceRule,
-                                isAllDay: true,
-                            });
+                            onChange(spanUpdates(selectedDate, rangeEndDate));
                         }
                     }}
                     className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
@@ -359,8 +279,8 @@ export function QuickScheduleSurface({
             </div>
 
             <MonthCalendar
-                viewDate={viewDate}
-                onViewDateChange={setViewDate}
+                viewDay={viewDay}
+                onViewDayChange={setViewDay}
                 selectedDate={selectedDate}
                 onSelectDate={handleSelectDate}
                 marked={datesWithRange}
@@ -381,13 +301,7 @@ export function QuickScheduleSurface({
                                 setShowTime(next);
                                 if (!next) {
                                     setEndTimeValue(null);
-                                    onChange({
-                                        dueDate: selectedDate,
-                                        scheduledStart: null,
-                                        scheduledEnd: null,
-                                        recurrenceRule,
-                                        isAllDay: true,
-                                    });
+                                    onChange(dayUpdates(selectedDate, false, startTimeValue, null));
                                 }
                             }}
                             aria-label={showTime ? "Remove time" : "Add time"}
@@ -436,13 +350,11 @@ export function QuickScheduleSurface({
 
                 <RecurrencePicker
                     value={recurrenceRule}
-                    onChange={(value) => onChange({
-                        dueDate: selectedDate,
-                        scheduledStart: mode === "duration" ? null : scheduledStart,
-                        scheduledEnd: mode === "duration" ? rangeEndDate : (scheduledEnd ?? null),
-                        recurrenceRule: value,
-                        isAllDay: mode === "duration" || !showTime,
-                    })}
+                    onChange={(value) => onChange(
+                        mode === "duration"
+                            ? spanUpdates(selectedDate, rangeEndDate, value)
+                            : dayUpdates(selectedDate, showTime, startTimeValue, endTimeValue, value),
+                    )}
                 />
 
                 <button

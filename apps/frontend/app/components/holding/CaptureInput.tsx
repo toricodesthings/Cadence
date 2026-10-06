@@ -1,3 +1,4 @@
+import { nlpClock } from "../../lib/utils/date-format";
 import { useState, useRef, type KeyboardEvent } from "react";
 import { Inbox, MessageSquare } from "lucide-react";
 import { useCreateInboxItem } from "../../hooks/inbox/use-create-inbox-item";
@@ -37,7 +38,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void) {
                 if (asTask) {
                     savedCapture.current = item ?? savedCapture.current;
                     const { parse } = await import("@cadence/nlp/parse");
-                    const parsed = parse({ input: text, sourceSurface: "inbox" });
+                    const parsed = parse({ input: text, sourceSurface: "inbox", clock: nlpClock() });
                     await process.mutateAsync({
                         inboxItemId: id,
                         rawText: text,

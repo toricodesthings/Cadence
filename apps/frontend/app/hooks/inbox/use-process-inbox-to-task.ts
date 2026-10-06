@@ -7,7 +7,9 @@ import type { Task } from "@cadence/contracts/task";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { toast } from "sonner";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
-import { addDays, toISODate, placementLabel } from "../../lib/utils/date-format";
+import { addDays, type Instant, type LocalDate } from "@cadence/domain/time";
+import { placementLabel } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
 import { useUnprocessInbox } from "./use-unprocess-inbox";
 import type { CanonicalNlpEnvelope } from "@cadence/nlp/core";
 import { toastError } from "../../lib/utils/error-toast";
@@ -19,11 +21,13 @@ interface ProcessInboxParams {
     title?: string;
     complete?: boolean;
     successLabel?: string;
-    scheduledDate?: string;
-    dueDate?: string | null;
-    scheduledStart?: string | null;
-    scheduledEnd?: string | null;
-    isAllDay?: boolean | null;
+    /** An all-day placement: the day it sits on. */
+    scheduledDay?: LocalDate | null;
+    /** A deadline (a day). */
+    dueDate?: LocalDate | null;
+    /** A timed placement: start and optional end instants. */
+    scheduledStart?: Instant | null;
+    scheduledEnd?: Instant | null;
     projectId?: string | null;
     tagIds?: string[];
     priority?: number | null;
@@ -52,22 +56,21 @@ export function useProcessInboxToTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<ProcessInboxParams, Task>(
-            ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => ({
+            ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => ({
                 type: "process_inbox_to_task",
-                payload: { inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete },
+                payload: { inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete },
             }),
-            async ({ inboxItemId, rawText, title, scheduledDate, dueDate, scheduledStart, scheduledEnd, isAllDay, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => {
+            async ({ inboxItemId, rawText, title, scheduledDay, dueDate, scheduledStart, scheduledEnd, projectId, tagIds, priority, durationEstimate, recurrenceRule, waitingOn, nlp, complete }) => {
                 const taskTitle = title?.trim() || rawText;
 
                 const taskRes = await client.api.inbox[":id"].process.$post({
                     param: { id: inboxItemId },
                     json: {
                         title: taskTitle,
-                        scheduledDate,
+                        scheduledDay,
                         dueDate,
                         scheduledStart,
                         scheduledEnd,
-                        isAllDay,
                         projectId,
                         tagIds,
                         priority,
@@ -98,7 +101,7 @@ export function useProcessInboxToTask() {
             if (!_data) return; // Queued offline
             queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
             queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
-            const scheduledLabel = _data.scheduledStart ?? _data.dueDate?.slice(0, 10) ?? variables.scheduledStart ?? variables.dueDate ?? variables.scheduledDate;
+            const scheduledLabel = _data.scheduledStart ?? _data.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate;
             const label = variables.successLabel ?? (variables.complete ? "Ticked off" : scheduledLabel ? placementLabel(scheduledLabel) : "No day yet");
             toast.success(label, { action: { label: "Undo", onClick: () => unprocess.mutate({ id: variables.inboxItemId, taskId: _data.id, item: context?.snapshot.flatMap(([, items]) => items ?? []).find(item => item.id === variables.inboxItemId) }) } });
         },
@@ -114,5 +117,5 @@ export function useProcessInboxToTask() {
     });
 }
 
-export const todayISO = () => toISODate(new Date());
-export const tomorrowISO = () => toISODate(addDays(new Date(), 1));
+export const todayISO = (): LocalDate => today();
+export const tomorrowISO = (): LocalDate => addDays(today(), 1);

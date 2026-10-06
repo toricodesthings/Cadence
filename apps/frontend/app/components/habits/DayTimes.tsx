@@ -1,6 +1,6 @@
 import { HABIT_WEEKDAYS } from "@cadence/contracts/habit";
 import { TimePicker } from "../primitives/TimePicker";
-import { formatTime, fromTimeValue, toISODate } from "../../lib/utils/date-format";
+import { formatWallTime } from "../../lib/utils/date-format";
 
 const DAY_LABELS: Record<(typeof HABIT_WEEKDAYS)[number], string> = { MO: "Mon", TU: "Tue", WE: "Wed", TH: "Thu", FR: "Fri", SA: "Sat", SU: "Sun" };
 
@@ -28,7 +28,7 @@ export function DayTimes({ value, usualTime, onChange }: {
                         <TimePicker
                             label={`${DAY_LABELS[day]} time`}
                             value={override || ""}
-                            placeholder={usualTime ? formatTime(fromTimeValue(toISODate(new Date()), usualTime)) : undefined}
+                            placeholder={usualTime ? formatWallTime(usualTime) : undefined}
                             disabled={anyTime}
                             clearable
                             onChange={(next) => set(day, next || undefined)}

@@ -42,8 +42,10 @@ import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
 import { useSettings } from "../hooks/core/use-settings";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
-import { addDays, formatShortDate, formatTime, toISODate } from "../lib/utils/date-format";
-import { getTaskTimelineAnchor, isPassiveTimetableTask, toTaskDateOnly } from "../lib/utils/task/task-scheduling";
+import { addDays, type LocalDate } from "@cadence/domain/time";
+import { dayOfInstant, formatShortDate, formatTime, formatWallTime, fromTimeValue, nlpClock } from "../lib/utils/date-format";
+import { useToday } from "../lib/utils/user-zone";
+import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../lib/utils/task/task-scheduling";
 import { getMaterialRankingLabel } from "../lib/utils/ranking-reasons";
 import type { SortMode } from "../lib/utils/task/sort-tasks";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
@@ -59,9 +61,10 @@ interface UpcomingViewerItem {
     id: string;
     kind: "task" | "habit";
     title: string;
-    dueDate: string;
+    dueDate: LocalDate;
     dateLabel: "Due" | "Scheduled";
-    sortAt: string;
+    /** Epoch ms: when it sits in the day (all-day items at noon). */
+    sortAt: number;
     timeLabel: string | null;
     projectId: string | null;
     projectName: string | null;
@@ -106,13 +109,8 @@ const UPCOMING_SECTIONS: Array<{
     },
 ];
 
-function toDateOnly(value: string | null | undefined) {
-    return toTaskDateOnly(value);
-}
-
-function getTaskSortAt(task: Task, dateOnly: string) {
-    if (task.scheduledStart) return task.scheduledStart;
-    return `${dateOnly}T12:00:00`;
+function getTaskSortAt(task: Task, day: LocalDate) {
+    return Date.parse(task.scheduledStart ?? fromTimeValue(day, "12:00"));
 }
 
 function getUpcomingComparator(mode: SortMode) {
@@ -122,7 +120,7 @@ function getUpcomingComparator(mode: SortMode) {
                 const pa = a.task?.priority ?? 0;
                 const pb = b.task?.priority ?? 0;
                 if (pa !== pb) return pb - pa;
-                if (a.sortAt !== b.sortAt) return a.sortAt.localeCompare(b.sortAt);
+                if (a.sortAt !== b.sortAt) return a.sortAt - b.sortAt;
                 return a.title.localeCompare(b.title);
             }
             case "manual": {
@@ -131,14 +129,14 @@ function getUpcomingComparator(mode: SortMode) {
                 return oa - ob;
             }
             default: {
-                if (a.sortAt !== b.sortAt) return a.sortAt.localeCompare(b.sortAt);
+                if (a.sortAt !== b.sortAt) return a.sortAt - b.sortAt;
                 return a.title.localeCompare(b.title);
             }
         }
     };
 }
 
-function classifyUpcomingBucket(dateOnly: string, todayISO: string, tomorrowISO: string, nextWeekISO: string): UpcomingBucketKey | null {
+function classifyUpcomingBucket(dateOnly: LocalDate, todayISO: LocalDate, tomorrowISO: LocalDate, nextWeekISO: LocalDate): UpcomingBucketKey | null {
     if (dateOnly < todayISO) return "overdue";
     if (dateOnly === todayISO) return "today";
     if (dateOnly === tomorrowISO) return "tomorrow";
@@ -179,25 +177,23 @@ export default function Upcoming() {
     const intelligenceEnabled = userSettings?.tasks?.intelligence?.nlpEnabled !== false;
     const focusViewsEnabled = userSettings?.tasks?.intelligence?.focusViewsEnabled !== false;
 
-    const today = new Date();
-    const todayISO = toISODate(today);
-    const tomorrowISO = toISODate(addDays(today, 1));
-    const nextWeekISO = toISODate(addDays(today, 7));
-    const habitsRangeStart = toISODate(addDays(today, -30));
+    const todayISO = useToday();
+    const tomorrowISO = addDays(todayISO, 1);
+    const nextWeekISO = addDays(todayISO, 7);
+    const habitsRangeStart = addDays(todayISO, -30);
 
-    const personalEvents = usePersonalEvents(today.getFullYear());
+    const personalEvents = usePersonalEvents(Number(todayISO.slice(0, 4)));
     const upcomingEvents = useMemo(() => {
         if (!personalEvents.enabled) return [];
         const events: Array<{ event: import("../types/settings").PersonalEvent; dateStr: string }> = [];
         for (let i = 0; i <= 7; i++) {
-            const d = addDays(today, i);
-            const ds = toISODate(d);
+            const ds = addDays(todayISO, i);
             for (const evt of personalEvents.getEventsForDate(ds)) {
                 events.push({ event: evt, dateStr: ds });
             }
         }
         return events;
-    }, [personalEvents, today]);
+    }, [personalEvents, todayISO]);
 
     const { data: habits = [], isLoading: habitsLoading } = useHabitsRange({
         start: habitsRangeStart,
@@ -215,11 +211,11 @@ export default function Upcoming() {
             : tasks;
 
         if (activeDefinition && intelligenceEnabled && focusViewsEnabled) {
-            next = applyFocusView(next, activeDefinition);
+            next = applyFocusView(next, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
 
         return next;
-    }, [activeDefinition, activeTagId, focusViewsEnabled, intelligenceEnabled, tasks]);
+    }, [activeDefinition, activeTagId, focusViewsEnabled, intelligenceEnabled, tasks, todayISO]);
 
     const projectById = useMemo(
         () => new Map(projects.map((project) => [project.id, project] as const)),
@@ -239,7 +235,7 @@ export default function Upcoming() {
                 continue;
             }
 
-            const dateOnly = getTaskTimelineAnchor(task) ?? task.dueDate ?? toDateOnly(task.scheduledStart);
+            const dateOnly = getTaskTimelineAnchor(task, todayISO) ?? task.dueDate;
             if (!dateOnly) continue;
 
             const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
@@ -271,7 +267,7 @@ export default function Upcoming() {
             for (const log of logs) {
                 if (log.status !== "PENDING") continue;
 
-                const dateOnly = toDateOnly(log.targetDate);
+                const dateOnly = log.targetDate;
                 if (!dateOnly) continue;
 
                 const bucket = classifyUpcomingBucket(dateOnly, todayISO, tomorrowISO, nextWeekISO);
@@ -280,7 +276,7 @@ export default function Upcoming() {
                 if (bucket === "nextWeek" || bucket === "overdue") continue;
 
                 const time = routineTimeOn(habit, dateOnly);
-                const habitTimeLabel = time ? formatTime(`${dateOnly}T${time}:00`) : null;
+                const habitTimeLabel = time ? formatWallTime(time) : null;
 
                 grouped[bucket].push({
                     id: `habit-${habit.id}-${dateOnly}`,
@@ -288,7 +284,7 @@ export default function Upcoming() {
                     title: habit.title,
                     dueDate: dateOnly,
                     dateLabel: "Due",
-                    sortAt: time ? `${dateOnly}T${time}:00` : `${dateOnly}T12:00:00`,
+                    sortAt: Date.parse(fromTimeValue(dateOnly, time ?? "12:00")),
                     timeLabel: habitTimeLabel,
                     projectId: null,
                     projectName: project,
@@ -317,13 +313,12 @@ export default function Upcoming() {
                         dueDate: item.task!.dueDate,
                         scheduledStart: item.task!.scheduledStart,
                         scheduledEnd: item.task!.scheduledEnd,
-                        isAllDay: item.task!.isAllDay,
                         effort: item.task!.effort,
                         waitingOn: item.task!.waitingOn ?? null,
                         notBefore: item.task!.notBefore ?? null,
                         durationEstimate: item.task!.durationEstimate,
                     }));
-                const ranked = rankTasks(rankable, { routeContext: "upcoming" });
+                const ranked = rankTasks(rankable, { routeContext: "upcoming", clock: nlpClock(), dayOf: dayOfInstant });
                 const sorted = ranked.flatMap((entry) => {
                     const item = grouped[bucket].find((candidate) => candidate.task?.id === entry.task.id);
                     if (!item) return [];

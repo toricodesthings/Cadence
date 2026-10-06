@@ -3,9 +3,10 @@
  * delete cards can render human labels for ids the model only knows by uuid.
  * Falls back to a short id slice when the entity isn't cached.
  */
+import { isLocalDate } from "@cadence/domain/time";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../../lib/api/query-keys";
-import { formatShortDate, formatShortDateTime, parseLocalDate } from "../../../lib/utils/date-format";
+import { formatShortDate, formatShortDateTime } from "../../../lib/utils/date-format";
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
 import type { Tag } from "@cadence/contracts/tag";
@@ -78,10 +79,10 @@ export function useHabitLookup() {
 /**
  * When a proposal lands, in the viewer's time zone and date/time settings:
  * "Mar 8" for a date-only value, "Mar 8, 2:00 PM" for a timed one. Null when
- * missing or invalid. Date-only values are local days, never UTC midnight.
+ * missing or invalid. A date-only value is a day, rendered as stored.
  */
 export function formatWhen(value?: string | null): string | null {
     if (!value) return null;
-    if (Number.isNaN(parseLocalDate(value).getTime())) return null;
-    return value.length === 10 ? formatShortDate(value) : formatShortDateTime(value);
+    if (isLocalDate(value)) return formatShortDate(value);
+    return Number.isNaN(Date.parse(value)) ? null : formatShortDateTime(value);
 }

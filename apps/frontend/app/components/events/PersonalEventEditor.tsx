@@ -20,7 +20,7 @@ export function PersonalEventEditor({ event, onChange, onClose, onDelete, detail
 }) {
     const [detailsOpen, setDetailsOpen] = useState(false);
     const nextDate = getNextPersonalEventDate(event);
-    const summary = toPersonalEventViewModel(event, new Date());
+    const summary = toPersonalEventViewModel(event);
 
     return (
         <div className="h-full min-w-0 overflow-hidden" role="complementary" aria-label="Event details" style={eventToneStyle(event.color)}>

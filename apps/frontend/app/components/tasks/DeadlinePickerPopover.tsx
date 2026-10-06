@@ -2,25 +2,25 @@ import React, { useState } from "react";
 import * as Popover from "../primitives/Popover";
 import * as Dialog from "../primitives/Dialog";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
-import { QuickScheduleSurface } from "./QuickScheduleSurface";
+import type { Instant, LocalDate } from "@cadence/domain/time";
+import { QuickScheduleSurface, type ScheduleUpdates } from "./QuickScheduleSurface";
 
 interface DeadlinePickerPopoverProps {
     children: React.ReactNode;
-    dueDate: string | null;
-    scheduledStart: string | null;
-    scheduledEnd?: string | null;
+    /** A day: the deadline, or the first day of an all-day span. Never a time. */
+    dueDate: LocalDate | null;
+    /** Inclusive last day of an all-day span. */
+    endDate?: LocalDate | null;
+    /** A timed block (instants). */
+    scheduledStart: Instant | null;
+    scheduledEnd?: Instant | null;
     recurrenceRule: string | null;
-    onChange: (updates: {
-        dueDate: string | null;
-        scheduledStart: string | null;
-        scheduledEnd?: string | null;
-        recurrenceRule: string | null;
-        isAllDay: boolean;
-    }) => void;
+    onChange: (updates: ScheduleUpdates) => void;
 }
 export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
     children,
     dueDate,
+    endDate,
     scheduledStart,
     scheduledEnd,
     recurrenceRule,
@@ -41,6 +41,7 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
                     </div>
                     <QuickScheduleSurface
                         dueDate={dueDate}
+                        endDate={endDate}
                         scheduledStart={scheduledStart}
                         scheduledEnd={scheduledEnd}
                         recurrenceRule={recurrenceRule}
@@ -65,6 +66,7 @@ export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({
             >
                 <QuickScheduleSurface
                     dueDate={dueDate}
+                    endDate={endDate}
                     scheduledStart={scheduledStart}
                     scheduledEnd={scheduledEnd}
                     recurrenceRule={recurrenceRule}

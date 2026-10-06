@@ -8,7 +8,9 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { useRealtimeClock } from "../../hooks/ui/use-realtime-clock";
-import { getDateFormatConfig, MONTH_NAMES } from "../../lib/utils/date-format";
+import { addDays, formatInZone, type LocalDate } from "@cadence/domain/time";
+import { getDateFormatConfig, getWeekStart, MONTH_NAMES } from "../../lib/utils/date-format";
+import { dayOfMonth, parseYMD } from "../../lib/utils/calendar/calendar-math";
 import * as Popover from "../primitives/Popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/Select";
 import { PAGE_HEADER_SURFACE, PageHeader, PageHeaderIdentity, PhonePageHeader } from "../layout/PageHeader";
@@ -32,8 +34,8 @@ const VIEW_LABELS: Record<CalendarViewMode, string> = {
 export interface ScheduleHeaderProps {
     year: number;
     month: number;
-    /** Current date string YYYY-MM-DD (drives day label) */
-    currentDate: string;
+    /** Current LocalDate (drives day label) */
+    currentDate: LocalDate;
     viewMode: CalendarViewMode;
     onViewMode: (mode: CalendarViewMode) => void;
     onNavigate: (delta: number) => void;
@@ -61,33 +63,23 @@ export interface ScheduleHeaderProps {
 /** Build the contextual subtitle — week range, day label, or seasonal context. */
 function buildSubtitleLabel(
     viewMode: CalendarViewMode,
-    currentDate: string,
+    currentDate: LocalDate,
 ): string {
     const isDmy = getDateFormatConfig().dateStyle === "dmy";
     const locale = isDmy ? "en-GB" : "en-US";
+    const show = (day: LocalDate, options: Intl.DateTimeFormatOptions) => formatInZone(day, "UTC", options, locale);
 
-    if (viewMode === "day") {
-        const d = new Date(currentDate + "T00:00:00");
-        return d.toLocaleDateString(locale, { weekday: "long", day: "numeric" });
-    }
     if (viewMode === "week") {
-        const start = new Date(currentDate + "T00:00:00");
-        const end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        const startLabel = start.toLocaleDateString(locale, { month: "short", day: "numeric" });
-        if (start.getMonth() === end.getMonth()) {
-            return `Week of ${startLabel} \u2013 ${end.getDate()}, ${end.getFullYear()}`;
+        const start = getWeekStart(currentDate);
+        const end = addDays(start, 6);
+        const startLabel = show(start, { month: "short", day: "numeric" });
+        if (parseYMD(start).m === parseYMD(end).m) {
+            return `Week of ${startLabel} \u2013 ${dayOfMonth(end)}, ${parseYMD(end).y}`;
         }
-        const endLabel = end.toLocaleDateString(locale, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-        });
-        return `Week of ${startLabel} \u2013 ${endLabel}`;
+        return `Week of ${startLabel} \u2013 ${show(end, { month: "short", day: "numeric", year: "numeric" })}`;
     }
-    // Month / year view — return the current day label as warm context
-    const d = new Date(currentDate + "T00:00:00");
-    return d.toLocaleDateString(locale, { weekday: "long", day: "numeric" });
+    // Day / month / year view — the current day label as warm context
+    return show(currentDate, { weekday: "long", day: "numeric" });
 }
 
 /** Contextual add trigger — one button with task/event segmented chooser. */

@@ -31,7 +31,7 @@ export function parse(options: ParseOptions): ParseResult {
   const {
     input,
     sourceSurface,
-    referenceDate = new Date(),
+    clock,
     context,
     dismissedEntityIds = [],
     dateStyle = "mdy",
@@ -83,7 +83,7 @@ export function parse(options: ParseOptions): ParseResult {
   take(parseDuration(input), true);
 
   // 3. Dates — skip any that overlap recurrence or duration matches
-  const dateResult = parseDates(input, { referenceDate, dateStyle });
+  const dateResult = parseDates(input, { clock, dateStyle });
   take(dateResult, true, (entity) => {
     if (entity.type === "due_date" && (entity.normalizedValue as { hasTime?: boolean })?.hasTime) {
       warnings.push("timed_deadline_needs_review");
@@ -306,14 +306,14 @@ function buildSummary(entities: ParsedEntity[]): string | null {
 
 export function parseCanonicalNlpEnvelope(
   envelope: CanonicalNlpEnvelope,
-  options: Omit<ParseOptions, "input" | "sourceSurface" | "dateStyle" | "dismissedEntityIds"> = {},
+  options: Omit<ParseOptions, "input" | "sourceSurface" | "dateStyle" | "dismissedEntityIds">,
 ): CanonicalNlpSnapshot {
   const parsed = parse({
     input: envelope.rawInput,
     sourceSurface: envelope.sourceSurface,
     dateStyle: envelope.dateStyle,
     dismissedEntityIds: envelope.dismissedEntityIds,
-    referenceDate: options.referenceDate,
+    clock: options.clock,
     context: options.context,
   });
 

@@ -13,21 +13,25 @@ import type { ProjectRow as ProjectRecord } from "@cadence/contracts/project";
 import type { SubtaskRow as SubtaskRecord } from "@cadence/contracts/subtask";
 import type { TagRow as TagRecord } from "@cadence/contracts/tag";
 import type { TaskRow as TaskRecord } from "@cadence/contracts/task";
-import { addDaysToDate, isPausedOn, localDay } from "@cadence/domain/repeats";
-import { toZonedIso } from "../../../platform/date-utils";
+import { isPausedOn } from "@cadence/domain/repeats";
+import { taskDay } from "@cadence/domain/task-recurrence";
+import { addDays, monthRange, toZonedIso, weekRange, type WeekStart } from "@cadence/domain/time";
 import { NOTE_READ_LIMIT } from "./drafts";
 
 /**
  * A minimal task row as projected for the model. Keys at their default are left
  * out (no priority, effort, list, waiting, Fixed or repeat → no key), and so is
- * isAllDay: a plain date is all-day, a date with a time is timed.
+ * isAllDay: a day without a start is all-day, a start is a timed block.
  */
 export interface MinimalTask {
     id: string;
     title: string;
     /** Left out for an active Fixed block: it just passes, so "ACTIVE" would read as not done yet. */
     state?: string;
+    /** The day it sits on, or its deadline (YYYY-MM-DD). */
     dueDate?: string;
+    /** An all-day multi-day task's last day (YYYY-MM-DD). */
+    endDate?: string;
     scheduledStart?: string;
     scheduledEnd?: string;
     durationEstimate?: number;
@@ -56,9 +60,9 @@ export interface MinimalTask {
 /** The task columns the projection reads (a full row fits; `content` is dropped). */
 export type TaskRow = Pick<
     TaskRecord,
-    | "id" | "title" | "state" | "isAllDay" | "dueDate" | "scheduledStart" | "scheduledEnd"
+    | "id" | "title" | "state" | "dueDate" | "scheduledStart" | "scheduledEnd"
     | "durationEstimate" | "priority" | "effort" | "projectId" | "waitingOn" | "interactionMode" | "recurrenceRule"
-> & Partial<Pick<TaskRecord, "sectionId" | "content" | "isPinned" | "reminderAt" | "waitingReminder" | "notBefore">> & {
+> & Partial<Pick<TaskRecord, "endDate" | "sectionId" | "content" | "isPinned" | "reminderAt" | "waitingReminder" | "notBefore">> & {
     /** Set on an expanded occurrence of a repeating task (see expandScheduleScopedTasks). */
     seriesId?: string;
     tagIds?: string[];
@@ -69,19 +73,19 @@ export type TaskRow = Pick<
 /**
  * Project a task row to its minimal, token-frugal shape. Drops `content`.
  * Dates are written the way the user reads them, so the model never converts:
- * all-day values as the stored calendar date ("2026-03-10"), timed values as the
- * user's wall clock with offset ("2026-03-10T14:00:00-04:00").
+ * days as stored ("2026-03-10"), instants as the user's wall clock with offset
+ * ("2026-03-10T14:00:00-04:00").
  */
 export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
-    const show = (value: string | null) =>
-        value === null ? undefined : row.isAllDay ? value.slice(0, 10) : toZonedIso(new Date(value), timezone);
+    const show = (value: string | null) => (value === null ? undefined : toZonedIso(value, timezone));
     // Unset fields are undefined, which JSON leaves out, so they cost nothing on the wire.
     return {
         // An expanded occurrence's id is "<series>::<start>"; the model acts on the series.
         id: row.seriesId ?? row.id,
         title: row.title,
         state: row.interactionMode === "timetable" && row.state === "ACTIVE" ? undefined : row.state,
-        dueDate: show(row.dueDate),
+        dueDate: row.dueDate ?? undefined,
+        endDate: row.endDate ?? undefined,
         scheduledStart: show(row.scheduledStart),
         scheduledEnd: show(row.scheduledEnd),
         durationEstimate: row.durationEstimate ?? undefined,
@@ -96,9 +100,9 @@ export function toMinimalTask(row: TaskRow, timezone: string): MinimalTask {
         repeats: !!row.recurrenceRule || undefined,
         tagIds: row.tagIds?.length ? row.tagIds : undefined,
         pinned: row.isPinned || undefined,
-        reminderAt: row.reminderAt ? toZonedIso(new Date(row.reminderAt), timezone) : undefined,
-        checkInAt: row.waitingReminder ? toZonedIso(new Date(row.waitingReminder), timezone) : undefined,
-        hiddenUntil: row.notBefore ? localDay(new Date(row.notBefore), timezone) : undefined,
+        reminderAt: row.reminderAt ? toZonedIso(row.reminderAt, timezone) : undefined,
+        checkInAt: row.waitingReminder ? toZonedIso(row.waitingReminder, timezone) : undefined,
+        hiddenUntil: row.notBefore ?? undefined,
     };
 }
 
@@ -170,8 +174,7 @@ export type HabitRow = Pick<
  */
 export function toMinimalHabit(row: HabitRow, currentDate: string, recent?: { done: number; missed: number }): MinimalHabit {
     const counted = recent ? recent.done + recent.missed : 0;
-    const today = currentDate.slice(0, 10);
-    const paused = isPausedOn(row.pausedUntil, today, today);
+    const paused = isPausedOn(row.pausedUntil, currentDate, currentDate);
     return {
         id: row.id,
         title: row.title,
@@ -214,17 +217,11 @@ export function toMinimalInboxItem(row: InboxItemRow): MinimalInboxItem {
 }
 
 /**
- * The calendar day a task belongs to for this user: all-day tasks keep their
- * stored date (a noon-UTC anchor, the same day in every zone); timed tasks fall
- * on the day their start has in the user's zone. Null when undated.
+ * The calendar day a task belongs to for this user: a timed task falls on the day its start
+ * has in the user's zone, an all-day task on its stored day. Null when undated.
  */
-export function taskLocalDay(
-    row: { isAllDay: boolean; dueDate: string | null; scheduledStart: string | null },
-    timezone: string,
-): string | null {
-    const value = row.isAllDay ? row.dueDate ?? row.scheduledStart : row.scheduledStart ?? row.dueDate;
-    if (!value) return null;
-    return row.isAllDay ? value.slice(0, 10) : localDay(new Date(value), timezone);
+export function taskLocalDay(row: { dueDate: string | null; scheduledStart: string | null }, timezone: string): string | null {
+    return taskDay(row, timezone);
 }
 
 /**
@@ -235,15 +232,10 @@ export function taskLocalDay(
 export function resolveDueWindow(
     window: "overdue" | "today" | "this_week" | "this_month",
     today: string,
-    weekStartsOn: "Sunday" | "Monday" = "Sunday",
+    weekStartsOn: WeekStart = "Sunday",
 ): { from?: string; to: string } {
-    if (window === "overdue") return { to: addDaysToDate(today, -1) };
+    if (window === "overdue") return { to: addDays(today, -1) };
     if (window === "today") return { from: today, to: today };
-    if (window === "this_week") {
-        const dow = new Date(`${today}T00:00:00.000Z`).getUTCDay(); // 0=Sun..6=Sat
-        const from = addDaysToDate(today, -(weekStartsOn === "Monday" ? (dow + 6) % 7 : dow));
-        return { from, to: addDaysToDate(from, 6) };
-    }
-    const from = `${today.slice(0, 7)}-01`;
-    return { from, to: addDaysToDate(addDaysToDate(from, 32).slice(0, 7) + "-01", -1) };
+    const { start, end } = window === "this_week" ? weekRange(today, weekStartsOn) : monthRange(today);
+    return { from: start, to: end };
 }

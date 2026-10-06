@@ -1,21 +1,39 @@
-import { eq, and, lt, sql, inArray, isNull, or } from "drizzle-orm";
+import { eq, and, lt, ne, sql, inArray, isNull, or } from "drizzle-orm";
 import { getDbClient } from "../platform/db";
-import { tasks, taskMetrics, mutationDedup, aiMemories, aiImages, usageEvents } from "../db/schema";
+import { tasks, taskMetrics, mutationDedup, aiMemories, aiImages, usageEvents, users } from "../db/schema";
 import { aiImageKey, deleteImageObjects, IMAGE_RETENTION_DAYS, ORPHAN_HOURS } from "../domains/ai/images/chat-images";
 import { withRls } from "../platform/rls";
 import { computeWorkloadSignals } from "../platform/metrics";
 import { logger, hashIdentifier, issuesFromError } from "../platform/log";
 import type { Env } from "../types/env";
 
-export async function handleOverdueCheck(env: Env) {
+/** The hour (local) at which a user's day turns over for Cadence: between midnight and 4am still counts as "tonight". */
+export const DAY_BOUNDARY_HOUR = 4;
+
+/**
+ * Hourly. Each user is handled once per local day: on the run that falls in their 04:00 hour
+ * (every zone has exactly one such hour a day, DST or not). Overdue = open, not repeating, not
+ * Fixed, and its day is before the user's today.
+ */
+export async function handleOverdueCheck(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
-    const now = new Date().toISOString();
+    const instant = now.toISOString();
 
     // Cron runs as table owner — intentionally bypasses RLS to scan all users' overdue tasks
     const overdueTasks = await db
         .select({ id: tasks.id, userId: tasks.userId })
         .from(tasks)
-        .where(and(eq(tasks.state, "ACTIVE"), lt(tasks.dueDate, now)));
+        .innerJoin(users, eq(users.id, tasks.userId))
+        .where(and(
+            eq(tasks.state, "ACTIVE"),
+            isNull(tasks.recurrenceRule),
+            ne(tasks.interactionMode, "timetable"),
+            sql`extract(hour from timezone(${users.timeZone}, ${instant}::timestamptz)) = ${DAY_BOUNDARY_HOUR}`,
+            or(
+                sql`${tasks.dueDate} < timezone(${users.timeZone}, ${instant}::timestamptz)::date`,
+                and(isNull(tasks.dueDate), sql`${tasks.scheduledStart} < (timezone(${users.timeZone}, ${instant}::timestamptz)::date)::timestamp AT TIME ZONE ${users.timeZone}`),
+            ),
+        ));
 
     if (overdueTasks.length === 0) return { overdueTasks: 0, overdueUsers: 0 };
 
@@ -150,14 +168,19 @@ export async function pruneAiImages(env: Env) {
     return pruned;
 }
 
-/** The daily cron: every job runs even if another fails; one `cron_summary` line reports them all. */
-export async function runDailyCron(env: Env) {
+/** Pruning is a calendar-free retention sweep: it runs once a day, on the 06:00 UTC tick of the hourly cron. */
+const PRUNE_HOUR_UTC = 6;
+
+/** The hourly cron: the overdue sweep every run, the prunes on one run a day. Every job runs even if another fails; one `cron_summary` line reports them all. */
+export async function runHourlyCron(env: Env, now: Date = new Date()) {
+    const prune = now.getUTCHours() === PRUNE_HOUR_UTC;
+    const skipped = Promise.resolve(undefined);
     const [overdue, mutations, memories, images, usage] = await Promise.allSettled([
-        handleOverdueCheck(env),
-        pruneStaleMutations(env),
-        pruneAiMemories(env),
-        pruneAiImages(env),
-        pruneUsageEvents(env),
+        handleOverdueCheck(env, now),
+        prune ? pruneStaleMutations(env) : skipped,
+        prune ? pruneAiMemories(env) : skipped,
+        prune ? pruneAiImages(env) : skipped,
+        prune ? pruneUsageEvents(env) : skipped,
     ]);
     const ok = <T>(result: PromiseSettledResult<T>) => (result.status === "fulfilled" ? result.value : undefined);
     const failed = Object.entries({ overdue, mutations, memories, images, usage }).filter(([, r]) => r.status === "rejected");

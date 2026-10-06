@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
     apiErrorSchema,
-    flexibleDateTimeSchema,
+    instantSchema,
     isoDateTimeSchema,
-    normalizeEndBoundary,
-    normalizeStartBoundary,
+    legacyTimeInputSchema,
+    localDateSchema,
+    wallTimeSchema,
+    zoneSchema,
     paginationSchema,
     uuidParamSchema,
 } from "@cadence/contracts/common";
@@ -21,11 +23,58 @@ describe("timestamps", () => {
 
     it.each([
         ["2026-03-01", true],
-        ["2026-03-01T12:00:00.000Z", true],
         ["2026-02-30", false],
+        ["2026-03-01T12:00:00.000Z", false],
         ["March 1", false],
-    ])("flexibleDateTimeSchema(%s) → %s", (value, ok) => {
-        expect(flexibleDateTimeSchema.safeParse(value).success).toBe(ok);
+    ])("localDateSchema(%s) → %s", (value, ok) => {
+        expect(localDateSchema.safeParse(value).success).toBe(ok);
+    });
+
+    it.each([
+        ["2026-03-01T12:00:00-05:00", true],
+        ["2026-03-01", false],
+        ["2026-03-01T12:00:00", false],
+    ])("instantSchema(%s) → %s", (value, ok) => {
+        expect(instantSchema.safeParse(value).success).toBe(ok);
+    });
+
+    it.each([
+        ["09:05", true],
+        ["23:59", true],
+        ["24:00", false],
+        ["9:05", false],
+        ["09:05:00", false],
+    ])("wallTimeSchema(%s) → %s", (value, ok) => {
+        expect(wallTimeSchema.safeParse(value).success).toBe(ok);
+    });
+
+    it.each([
+        ["America/Toronto", true],
+        ["UTC", true],
+        ["local", false],
+        ["-04:00", false],
+        ["Not/AZone", false],
+    ])("zoneSchema(%s) → %s", (value, ok) => {
+        expect(zoneSchema.safeParse(value).success).toBe(ok);
+    });
+
+    it("legacyTimeInputSchema accepts a day or an instant, nothing else", () => {
+        expect(legacyTimeInputSchema.safeParse("2026-03-01").success).toBe(true);
+        expect(legacyTimeInputSchema.safeParse("2026-03-01T12:00:00Z").success).toBe(true);
+        expect(legacyTimeInputSchema.safeParse("March 1").success).toBe(false);
+    });
+
+    it("flexibleDateTimeSchema is gone from the contracts source", () => {
+        // Vite's glob (no node types in this package).
+        const files = (import.meta as unknown as { glob: (p: string, o: object) => Record<string, string> }).glob(
+            "../../contracts/src/**/*.ts",
+            { query: "?raw", import: "default", eager: true },
+        );
+        expect(Object.keys(files).length).toBeGreaterThan(5);
+        const hits = Object.entries(files)
+            .filter(([, src]) => /flexibleDateTimeSchema|normalizeStartBoundary|normalizeEndBoundary/.test(src))
+            .map(([f]) => f);
+        expect(hits).toEqual([]);
     });
 });
 
@@ -59,18 +108,5 @@ describe("apiErrorSchema", () => {
 
     it("rejects a code that isn't in ERROR_CODES", () => {
         expect(apiErrorSchema.safeParse({ error: { ...body, code: "INTERNAL_SERVER_ERROR" } }).success).toBe(false);
-    });
-});
-
-describe("range boundary normalization", () => {
-    it("expands date-only boundaries to the inclusive start/end of that UTC day", () => {
-        expect(normalizeStartBoundary("2026-03-01")).toBe("2026-03-01T00:00:00.000Z");
-        expect(normalizeEndBoundary("2026-03-31")).toBe("2026-03-31T23:59:59.999Z");
-    });
-
-    it("passes full datetimes through unchanged", () => {
-        const iso = "2026-03-01T12:30:00.000Z";
-        expect(normalizeStartBoundary(iso)).toBe(iso);
-        expect(normalizeEndBoundary(iso)).toBe(iso);
     });
 });

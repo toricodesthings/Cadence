@@ -25,7 +25,7 @@ export function weekGridColumns(showWeekCount: boolean) {
 
 /** Logs keyed by day. */
 export function logsByDay(habit: Habit): Map<string, HabitLog> {
-    return new Map((habit.logs ?? []).map((log) => [log.targetDate.slice(0, 10), log]));
+    return new Map((habit.logs ?? []).map((log) => [log.targetDate, log]));
 }
 
 /** A day a check-in can be logged for: scheduled (it has a log) and not in the future. */

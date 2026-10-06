@@ -15,8 +15,10 @@ import { Tip } from "../primitives/Tooltip";
 import * as Menu from "../primitives/DropdownMenu";
 import { TagField } from "../tasks/TagField";
 import { ParseSummaryChips } from "../tasks/ParseSummaryChips";
-import { QuickScheduleSurface } from "../tasks/QuickScheduleSurface";
-import { CaptureDayChips } from "./CaptureDayChips";
+import { QuickScheduleSurface, type ScheduleUpdates } from "../tasks/QuickScheduleSurface";
+import type { Instant, LocalDate } from "@cadence/domain/time";
+import { today } from "../../lib/utils/user-zone";
+import { CaptureDayChips, placeFields } from "./CaptureDayChips";
 import { useWeekLoad } from "./PlaceSheet";
 
 interface ClarifySheetProps {
@@ -46,18 +48,18 @@ export function ClarifySheet({
     const title = stored?.title ?? (parse.cleanedTitle || item.rawText);
     const projectId = stored?.projectId !== undefined ? stored.projectId : parse.projectId;
     const tagIds = stored?.tagIds ?? parse.tagIds;
-    const { lightest } = useWeekLoad(new Date());
+    const { lightest } = useWeekLoad(today());
     const [custom, setCustom] = useState(false);
-    const [schedule, setSchedule] = useState({
-        dueDate: null as string | null,
-        scheduledStart: null as string | null,
-        scheduledEnd: null as string | null,
-        isAllDay: true,
-        recurrenceRule: null as string | null,
+    const [schedule, setSchedule] = useState<ScheduleUpdates>({
+        dueDate: null,
+        endDate: null,
+        scheduledStart: null,
+        scheduledEnd: null,
+        recurrenceRule: null,
     });
     const save = (patch: NonNullable<typeof stored>) =>
         update.mutate({ id: item.id, analysis: { ...item.analysis, userOverrides: { ...stored, ...patch } } });
-    const place = async (date?: string, openEditor = false, useCustom = false) => {
+    const place = async (when?: LocalDate | Instant, openEditor = false, useCustom = false) => {
         const task = await process.mutateAsync({
             inboxItemId: item.id,
             rawText: item.rawText,
@@ -66,11 +68,17 @@ export function ClarifySheet({
             tagIds,
             priority: parse.priority,
             durationEstimate: parse.durationMinutes,
+            // A picked schedule: an all-day day (or a span's first day) or a timed block; else a placement; else none.
             ...(useCustom
-                ? schedule
-                : date
-                  ? { scheduledDate: date }
-                  : { dueDate: null, scheduledStart: null, scheduledEnd: null, isAllDay: true }),
+                ? {
+                      scheduledDay: schedule.scheduledStart ? undefined : schedule.dueDate,
+                      scheduledStart: schedule.scheduledStart,
+                      scheduledEnd: schedule.scheduledEnd,
+                      recurrenceRule: schedule.recurrenceRule,
+                  }
+                : when
+                  ? placeFields(when)
+                  : { dueDate: null, scheduledStart: null, scheduledEnd: null }), // explicit nulls: the server must not infer a day from the text
             nlp: {
                 rawInput: item.rawText,
                 sourceSurface: "clarify_sheet",
@@ -84,16 +92,16 @@ export function ClarifySheet({
         if (task && openEditor) onOpenFullEditor?.(task.id);
         else onClose();
     };
-    const runPlace = (date?: string, openEditor = false, useCustom = false) => {
-        void place(date, openEditor, useCustom).catch(() => {});
+    const runPlace = (when?: LocalDate | Instant, openEditor = false, useCustom = false) => {
+        void place(when, openEditor, useCustom).catch(() => {});
     };
     const openCustom = () => {
         const detected = parse.scheduledStart ?? parse.dueDate;
         setSchedule({
             dueDate: parse.scheduledStart ? null : detected,
+            endDate: null,
             scheduledStart: parse.scheduledStart,
             scheduledEnd: null,
-            isAllDay: !parse.scheduledStart,
             recurrenceRule: parse.recurrenceRule,
         });
         setCustom(true);

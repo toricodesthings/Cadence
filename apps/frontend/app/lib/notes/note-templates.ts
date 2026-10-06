@@ -3,6 +3,9 @@
  * Accessed via /template slash command or template insert action.
  */
 
+import { formatShortDateLabel } from "../utils/date-format";
+import { today } from "../utils/user-zone";
+
 export interface NoteTemplate {
   id: string;
   label: string;
@@ -37,9 +40,11 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
     id: "meeting",
     label: "Meeting Notes",
     description: "Capture meeting outcomes and actions",
-    body: `## Meeting Notes
+    // A getter: the date is when the template is inserted, in the user's zone.
+    get body() {
+      return `## Meeting Notes
 
-**Date:** ${new Date().toLocaleDateString()}
+**Date:** ${formatShortDateLabel(today(), { year: true })}
 **Attendees:**
 
 ---
@@ -55,7 +60,8 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
 ### Next Steps
 
 - [ ]
-`,
+`;
+    },
   },
   {
     id: "brainstorm",

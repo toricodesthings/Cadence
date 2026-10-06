@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { LocalDate } from "@cadence/domain/time";
 import type { Habit } from "@cadence/contracts/habit";
 import * as AlertDialog from "../../components/primitives/AlertDialog";
 import { Button } from "../../components/primitives/Button";
@@ -38,8 +39,8 @@ export function useRoutineActions(habit: Habit, { onGone }: { onGone?: () => voi
 
     return {
         isPaused: isRoutinePaused(habit),
-        /** Pause from today until `until` (a Date), a week by default. */
-        pause: (until?: Date) => pause(habit.id, until),
+        /** Pause from today until `until` (a LocalDate), a week by default. */
+        pause: (until?: LocalDate) => pause(habit.id, until),
         resume: () => resume(habit.id),
         toggleArchive: () => {
             updateHabit({ id: habit.id, archived: !habit.archived });

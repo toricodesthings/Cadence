@@ -1,11 +1,10 @@
-import { rrulestr } from "rrule";
 import { DomainError } from "./errors";
+import { addDays, dayOf, daysBetween, expandSeries, isValidRule, nextOccurrence, type Instant, type SeriesStart, type LocalDate, type Zone } from "./time";
 
-/** Range + pagination subset needed to expand schedule-scoped recurring tasks. */
+/** The day window (LocalDates, inclusive) and paging needed to expand schedule-scoped repeating tasks. */
 export type ScheduleScopeFilters = {
-    scheduledDate?: string;
-    scheduledRangeStart?: string;
-    scheduledRangeEnd?: string;
+    from?: LocalDate;
+    to?: LocalDate;
     limit?: number;
     offset?: number;
 };
@@ -13,11 +12,12 @@ export type ScheduleScopeFilters = {
 type TaskRow = {
     id: string;
     title: string;
-    dueDate: string | null;
-    scheduledStart: string | null;
-    scheduledEnd: string | null;
+    dueDate: LocalDate | null;
+    endDate: LocalDate | null;
+    scheduledStart: Instant | null;
+    scheduledEnd: Instant | null;
+    zone: Zone | null;
     durationEstimate: number | null;
-    isAllDay: boolean;
     recurrenceRule: string | null;
     interactionMode: "task" | "timetable";
     orderIndex: number;
@@ -29,125 +29,89 @@ type TaskRow = {
 export type RecurringTaskInstance<T extends TaskRow> = T & {
     seriesId?: string;
     isRecurringInstance?: true;
-    occurrenceStart?: string;
-    occurrenceEnd?: string | null;
+    occurrenceDay?: LocalDate;
+    occurrenceStart?: Instant;
+    occurrenceEnd?: Instant | null;
 };
 
-function getScheduleRange(filters: Pick<ScheduleScopeFilters, "scheduledDate" | "scheduledRangeStart" | "scheduledRangeEnd">) {
-    if (filters.scheduledDate) {
-        return {
-            start: new Date(`${filters.scheduledDate}T00:00:00.000Z`),
-            end: new Date(`${filters.scheduledDate}T23:59:59.999Z`),
-        };
-    }
-
-    if (filters.scheduledRangeStart && filters.scheduledRangeEnd) {
-        return {
-            start: new Date(filters.scheduledRangeStart),
-            end: new Date(filters.scheduledRangeEnd),
-        };
-    }
-
-    return null;
+export function isScheduleScopedTaskQuery(filters: Pick<ScheduleScopeFilters, "from" | "to">) {
+    return Boolean(filters.from && filters.to);
 }
 
-function getTaskAnchor(task: Pick<TaskRow, "scheduledStart" | "dueDate">) {
-    return task.scheduledStart ?? task.dueDate;
+/** The day a task sits on for the user: its start's day (timed) or its due day (all-day). */
+export function taskDay(task: Pick<TaskRow, "dueDate" | "scheduledStart">, zone: Zone): LocalDate | null {
+    return task.scheduledStart ? dayOf(task.scheduledStart, zone) : task.dueDate;
 }
 
-function getTimedDurationMs(task: Pick<TaskRow, "scheduledStart" | "scheduledEnd" | "durationEstimate">) {
-    if (task.scheduledStart && task.scheduledEnd) {
-        return Math.max(0, new Date(task.scheduledEnd).getTime() - new Date(task.scheduledStart).getTime());
-    }
-
-    return Math.max(5, task.durationEstimate ?? 60) * 60_000;
-}
-
-function buildRecurringInstanceId(seriesId: string, occurrenceStart: string) {
-    return `${seriesId}::${occurrenceStart}`;
-}
-
-export function isScheduleScopedTaskQuery(
-    filters: Pick<ScheduleScopeFilters, "scheduledDate" | "scheduledRangeStart" | "scheduledRangeEnd">,
-) {
-    return Boolean(filters.scheduledDate || (filters.scheduledRangeStart && filters.scheduledRangeEnd));
-}
-
-export function validateTaskRecurrenceRule(recurrenceRule: string | null | undefined, scheduledStart?: string | null) {
-    if (!recurrenceRule) return;
-
-    try {
-        rrulestr(recurrenceRule, scheduledStart ? { dtstart: new Date(scheduledStart) } : undefined);
-    } catch {
+/** A repeating task's rule must parse (`UNTIL` is a LocalDate, inclusive). */
+export function validateTaskRecurrenceRule(recurrenceRule: string | null | undefined, zone: Zone = "UTC") {
+    if (recurrenceRule && !isValidRule(recurrenceRule, zone)) {
         throw new DomainError("INVALID_RECURRENCE_RULE", "Recurrence rule could not be parsed", 400);
     }
 }
 
-/** Next/closest occurrence anchor for a recurring task around a reference date. */
-export function resolveOccurrenceAnchor(
-    rule: string,
-    dtstart: string,
-    reference: Date,
-): string | null {
-    try {
-        const parsed = rrulestr(rule, { dtstart: new Date(dtstart) });
-        const occurrence =
-            parsed.after(reference, true)
-            ?? parsed.before(reference, true)
-            ?? new Date(dtstart);
-        return occurrence.toISOString();
-    } catch {
-        return null;
-    }
+function seriesStart(task: TaskRow, userZone: Zone): { zone: Zone; start: SeriesStart | null } {
+    const zone = task.zone ?? userZone;
+    return {
+        zone,
+        start: task.scheduledStart
+            ? { instant: task.scheduledStart, end: task.scheduledEnd }
+            : task.dueDate
+              ? { day: task.dueDate }
+              : null,
+    };
 }
 
+/** The occurrence of a repeating task on or after `reference` (a day), else the one before it, else its start. */
+export function resolveOccurrenceAnchor(task: TaskRow & { recurrenceRule: string }, reference: LocalDate, userZone: Zone): LocalDate | null {
+    const { zone, start } = seriesStart(task, userZone);
+    if (!start) return null;
+    const first = "day" in start ? start.day : dayOf(start.instant, zone);
+    const after = nextOccurrence({ rule: task.recurrenceRule, start, zone, from: reference });
+    if (after) return after.day;
+    const before = expandSeries({ rule: task.recurrenceRule, start, zone, range: { from: first, to: reference } }).at(-1);
+    return before?.day ?? first;
+}
+
+/**
+ * Expand a window of tasks: one-offs stay when their day is inside it, and each repeating
+ * task becomes one instance per occurrence (`<seriesId>::<LocalDate>`). Timed series repeat in
+ * the series zone, so the local time holds across DST changes.
+ */
 export function expandScheduleScopedTasks<T extends TaskRow>(
     tasks: T[],
-    filters: Pick<ScheduleScopeFilters, "scheduledDate" | "scheduledRangeStart" | "scheduledRangeEnd" | "limit" | "offset">,
+    filters: Pick<ScheduleScopeFilters, "from" | "to" | "limit" | "offset">,
+    userZone: Zone,
 ) {
-    const range = getScheduleRange(filters);
-    if (!range) {
-        return tasks;
-    }
+    const { from, to } = filters;
+    if (!from || !to) return tasks;
 
     const items: RecurringTaskInstance<T>[] = [];
 
     for (const task of tasks) {
-        if (!task.recurrenceRule || task.isAllDay || !task.scheduledStart) {
-            const anchor = getTaskAnchor(task);
-            if (!anchor) continue;
-
-            const anchorTime = new Date(anchor).getTime();
-            if (anchorTime >= range.start.getTime() && anchorTime <= range.end.getTime()) {
-                items.push(task);
-            }
+        const series = task.recurrenceRule ? seriesStart(task, userZone) : null;
+        if (!task.recurrenceRule || !series?.start) {
+            const day = taskDay(task, userZone);
+            if (day && day >= from && day <= to) items.push(task);
             continue;
         }
 
-        const durationMs = getTimedDurationMs(task);
-        let rule: ReturnType<typeof rrulestr>;
-
-        try {
-            rule = rrulestr(task.recurrenceRule, { dtstart: new Date(task.scheduledStart) });
-        } catch {
-            continue;
-        }
-
-        const starts = rule.between(range.start, range.end, true);
-        for (const occurrenceDate of starts) {
-            const occurrenceStart = occurrenceDate.toISOString();
-            const occurrenceEnd = new Date(occurrenceDate.getTime() + durationMs).toISOString();
-
+        const span = task.endDate && task.dueDate ? daysBetween(task.dueDate, task.endDate) : 0;
+        for (const occurrence of expandSeries({ rule: task.recurrenceRule, start: series.start, zone: series.zone, range: { from, to } })) {
             items.push({
                 ...task,
-                id: buildRecurringInstanceId(task.id, occurrenceStart),
+                id: `${task.id}::${occurrence.day}`,
                 seriesId: task.id,
                 isRecurringInstance: true,
-                occurrenceStart,
-                occurrenceEnd,
-                dueDate: occurrenceStart,
-                scheduledStart: occurrenceStart,
-                scheduledEnd: occurrenceEnd,
+                occurrenceDay: occurrence.day,
+                ...(occurrence.start
+                    ? {
+                          occurrenceStart: occurrence.start,
+                          occurrenceEnd: occurrence.end,
+                          scheduledStart: occurrence.start,
+                          scheduledEnd: occurrence.end,
+                      }
+                    : { dueDate: occurrence.day, endDate: task.endDate ? addDays(occurrence.day, span) : null }),
             });
         }
     }
@@ -157,11 +121,13 @@ export function expandScheduleScopedTasks<T extends TaskRow>(
             return Number(b.isPinned) - Number(a.isPinned);
         }
 
-        const aAnchor = getTaskAnchor(a) ?? "";
-        const bAnchor = getTaskAnchor(b) ?? "";
-        if (aAnchor !== bAnchor) {
-            return aAnchor.localeCompare(bAnchor);
-        }
+        // Day first, then timed blocks in time order after the day's all-day items.
+        const aDay = taskDay(a, userZone) ?? "";
+        const bDay = taskDay(b, userZone) ?? "";
+        if (aDay !== bDay) return aDay.localeCompare(bDay);
+        const aStart = a.scheduledStart ?? "";
+        const bStart = b.scheduledStart ?? "";
+        if (aStart !== bStart) return aStart.localeCompare(bStart);
 
         return a.orderIndex - b.orderIndex;
     });

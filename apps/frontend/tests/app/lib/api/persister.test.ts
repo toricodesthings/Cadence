@@ -46,15 +46,13 @@ describe("workspace cache persistence", () => {
     });
 });
 
-it("drops only legacy routine ranges whose timezone is unknown", async () => {
+it("restores the stored snapshot untouched (old-shape data is dropped by the cache buster, not here)", async () => {
     const qc = new QueryClient();
-    const taskKey = ["tasks", { state: "ACTIVE" }];
-    const old = ["habits", "weekly", { start: "2026-03-06", end: "2026-03-10" }, false];
-    const zoned = ["habits", "weekly", { start: "2026-03-06", end: "2026-03-10", timezone: "America/New_York" }, false];
-    for (const key of [taskKey, old, zoned]) qc.setQueryData(key, []);
+    const keys = [["tasks", { state: "ACTIVE" }], ["habits", "weekly", { start: "2026-03-06", end: "2026-03-10" }, false]];
+    for (const key of keys) qc.setQueryData(key, []);
     storage.get.mockResolvedValue({ ...snapshot(1), clientState: dehydrate(qc) });
     const restored = await persister.restoreClient();
-    expect(restored?.clientState.queries.map(q => q.queryKey)).toEqual([taskKey, zoned]);
+    expect(restored?.clientState.queries.map(q => q.queryKey)).toEqual(keys);
     expect(restored?.buster).toBe("account");
     qc.clear();
 });

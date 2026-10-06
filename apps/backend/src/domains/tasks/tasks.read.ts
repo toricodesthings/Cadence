@@ -1,21 +1,18 @@
 /** Task list reads shared by the single-list route and offline batch. */
-import { and, asc, between, desc, eq, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
-import type { Task, TaskBatch, TaskBatchFilters } from "@cadence/contracts/task";
+import type { Task, TaskBatch, TaskBatchFilters, TaskFilters } from "@cadence/contracts/task";
+import type { Zone } from "@cadence/domain/time";
 import { expandScheduleScopedTasks, isScheduleScopedTaskQuery } from "@cadence/domain/task-recurrence";
 import { tasks } from "../../db/schema";
 import type { Tx } from "../../types/db";
-import { normalizeTaskFilters, type NormalizedTaskFilters } from "./task-filters";
+import { userZone } from "../../platform/user-zone";
+import { hasNoDay, inDayWindow, onOrBefore } from "./task-filters";
 import { toTask } from "./tasks.service";
 
-function buildEffectiveTaskAnchorExpression() {
-    return sql<string>`case
-        when ${tasks.isAllDay} = true then coalesce(${tasks.dueDate}, ${tasks.scheduledStart})
-        else coalesce(${tasks.scheduledStart}, ${tasks.dueDate})
-    end`;
-}
+type ReadFilters = TaskFilters & { limit?: number; offset?: number };
 
-export function buildTaskWhereClause(userId: string, filters: NormalizedTaskFilters): (SQL<unknown> | undefined)[] {
+export function buildTaskWhereClause(userId: string, filters: ReadFilters, zone: Zone): (SQL<unknown> | undefined)[] {
     const conditions: (SQL<unknown> | undefined)[] = [eq(tasks.userId, userId)];
 
     if (filters.state) {
@@ -25,20 +22,10 @@ export function buildTaskWhereClause(userId: string, filters: NormalizedTaskFilt
         conditions.push(eq(tasks.projectId, filters.projectId));
     }
 
-    // A date window: tasks anchored inside it, plus repeating series started by its end.
-    // `expandScheduleScopedTasks` makes the final cut and expands the series.
-    const window = filters.scheduledDate
-        ? { start: `${filters.scheduledDate}T00:00:00.000Z`, end: `${filters.scheduledDate}T23:59:59.999Z` }
-        : filters.scheduledRangeStart && filters.scheduledRangeEnd
-            ? { start: filters.scheduledRangeStart, end: filters.scheduledRangeEnd }
-            : undefined;
-    if (window) {
-        conditions.push(
-            or(
-                between(sql`coalesce(${tasks.scheduledStart}, ${tasks.dueDate})`, window.start, window.end),
-                and(isNotNull(tasks.recurrenceRule), lte(tasks.scheduledStart, window.end)),
-            ),
-        );
+    // A day window: tasks on its days, plus repeating series started by its end.
+    // `expandScheduleScopedTasks` expands the series and makes the final cut.
+    if (filters.from && filters.to) {
+        conditions.push(inDayWindow(filters.from, filters.to, zone));
     }
 
     if (filters.priority !== undefined) {
@@ -54,13 +41,13 @@ export function buildTaskWhereClause(userId: string, filters: NormalizedTaskFilt
         conditions.push(or(lte(tasks.notBefore, filters.notBeforeBefore), isNull(tasks.notBefore)));
     }
     if (filters.hasNoDate) {
-        conditions.push(and(isNull(tasks.scheduledStart), isNull(tasks.dueDate)));
+        conditions.push(hasNoDay());
     }
     if (filters.hasNoProject) {
         conditions.push(isNull(tasks.projectId));
     }
-    if (filters.effectiveOnOrBeforeDateTime) {
-        conditions.push(lte(buildEffectiveTaskAnchorExpression(), filters.effectiveOnOrBeforeDateTime));
+    if (filters.effectiveOnOrBeforeDate) {
+        conditions.push(onOrBefore(filters.effectiveOnOrBeforeDate, zone));
     }
 
     return conditions;
@@ -69,19 +56,20 @@ export function buildTaskWhereClause(userId: string, filters: NormalizedTaskFilt
 const tagLinks = { tags: { columns: { tagId: true as const } } };
 const manualOrder = [desc(tasks.isPinned), asc(tasks.orderIndex), asc(tasks.id)];
 
-function finishTaskList(rows: Task[], filters: NormalizedTaskFilters) {
-    return isScheduleScopedTaskQuery(filters) ? expandScheduleScopedTasks(rows, filters) : rows;
+function finishTaskList(rows: Task[], filters: ReadFilters, zone: Zone) {
+    return isScheduleScopedTaskQuery(filters) ? expandScheduleScopedTasks(rows, filters, zone) : rows;
 }
 
-export async function readTasks(tx: Tx, userId: string, filters: NormalizedTaskFilters): Promise<Task[]> {
+export async function readTasks(tx: Tx, userId: string, filters: ReadFilters): Promise<Task[]> {
+    const zone = await userZone(tx, userId);
     const newestFirst = filters.state === "COMPLETE" || filters.state === "ARCHIVED";
     const rows = await tx.query.tasks.findMany({
-        where: and(...buildTaskWhereClause(userId, filters)),
+        where: and(...buildTaskWhereClause(userId, filters, zone)),
         orderBy: newestFirst ? [desc(tasks.updatedAt), desc(tasks.id)] : manualOrder,
         ...(isScheduleScopedTaskQuery(filters) ? {} : { limit: filters.limit, offset: filters.offset }),
         with: tagLinks,
     });
-    return finishTaskList(rows.map(({ tags: links, ...row }) => toTask(row, links.map((link) => link.tagId))), filters);
+    return finishTaskList(rows.map(({ tags: links, ...row }) => toTask(row, links.map((link) => link.tagId))), filters, zone);
 }
 
 /**
@@ -90,8 +78,9 @@ export async function readTasks(tx: Tx, userId: string, filters: NormalizedTaskF
  * are applied per list afterwards. Completed/Trash paging stays on single reads.
  */
 export async function readTaskBatch(tx: Tx, userId: string, queries: TaskBatchFilters): Promise<TaskBatch> {
-    const filters = queries.map(normalizeTaskFilters);
-    const predicates = filters.map((filter) => and(...buildTaskWhereClause(userId, filter))!);
+    const zone = await userZone(tx, userId);
+    const filters: ReadFilters[] = queries;
+    const predicates = filters.map((filter) => and(...buildTaskWhereClause(userId, filter, zone))!);
     const rows = await tracing.enterSpan("tasks.batch.read", async () => tx.query.tasks.findMany({
         where: or(...predicates),
         orderBy: manualOrder,
@@ -110,7 +99,7 @@ export async function readTaskBatch(tx: Tx, userId: string, queries: TaskBatchFi
     const result: TaskBatch = { tasks: [], lists: [] };
     const indexById = new Map<string, number>();
     filters.forEach((filter, index) => {
-        const list = finishTaskList(buckets[index], filter);
+        const list = finishTaskList(buckets[index], filter, zone);
         result.lists.push(list.map((task) => {
             let taskIndex = indexById.get(task.id);
             if (taskIndex === undefined) {

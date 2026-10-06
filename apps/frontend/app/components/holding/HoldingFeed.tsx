@@ -19,6 +19,9 @@ import { Tip } from "../primitives/Tooltip";
 import { CaptureRow } from "./CaptureRow";
 import { KBD } from "./CaptureInput";
 import { CaptureDayChips } from "./CaptureDayChips";
+import type { LocalDate, WallTime } from "@cadence/domain/time";
+import { dayOfInstant, fromTimeValue, nlpClock, toDay } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
 import { useWeekLoad, usePlaceTask } from "./PlaceSheet";
 import { toast } from "sonner";
 
@@ -34,7 +37,7 @@ export function HoldingFeed({
 }) {
     const feed = useCaptureFeed();
     const coarse = useIsCoarsePointer();
-    const { lightest } = useWeekLoad(new Date());
+    const { lightest } = useWeekLoad(today());
     const { captureOrder, activeDefinition } = useFocusViewStore();
     const { data: settings } = useSettings();
     const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -51,6 +54,7 @@ export function HoldingFeed({
             const parsed = parse({
                 input: item.rawText,
                 sourceSurface: "inbox",
+                clock: nlpClock(),
                 dateStyle: settings?.dateTime.dateStyle,
             });
             const priority = parsed.entities.find((e) => e.type === "priority")?.normalizedValue as number | undefined;
@@ -60,15 +64,16 @@ export function HoldingFeed({
                   ? 1
                   : null;
             const day = parsed.entities.find((e) => e.type === "due_date" || e.type === "scheduled_start")
-                ?.normalizedValue as { date?: string; datetime?: string } | undefined;
+                ?.normalizedValue as { date?: LocalDate; time?: WallTime | null } | undefined;
             return {
                 item,
                 priority: priority ?? 0,
                 effort,
                 state: "ACTIVE",
                 projectId: null,
-                dueDate: day?.date ?? null,
-                scheduledStart: day?.datetime ?? null,
+                // A typed time is a timed start; a bare day is the due day.
+                dueDate: day?.time ? null : (day?.date ?? null),
+                scheduledStart: day?.date && day.time ? fromTimeValue(day.date, day.time) : null,
             };
         };
         const compare = (a: { priority: number; createdAt: string; id: string }, b: typeof a) => {
@@ -82,7 +87,7 @@ export function HoldingFeed({
                 ranked =
                     definition.waitingOnly || definition.projectIds.length || definition.states.includes("WAITING")
                         ? []
-                        : applyFocusView(ranked, definition);
+                        : applyFocusView(ranked, definition, { clock: nlpClock(), dayOf: dayOfInstant });
             return ranked
                 .sort((a, b) => compare({ ...a.item, priority: a.priority }, { ...b.item, priority: b.priority }))
                 .map((r) => r.item);
@@ -90,7 +95,7 @@ export function HoldingFeed({
         return {
             thoughts: thoughts(feed.thoughts),
             older: thoughts(feed.older),
-            tasks: (definition ? applyFocusView(feed.tasks, definition) : [...feed.tasks]).sort(compare),
+            tasks: (definition ? applyFocusView(feed.tasks, definition, { clock: nlpClock(), dayOf: dayOfInstant }) : [...feed.tasks]).sort(compare),
         };
     }, [feed.thoughts, feed.older, feed.tasks, definition, captureOrder, settings?.dateTime.dateStyle]);
     const toggle = (id: string) =>
@@ -100,7 +105,7 @@ export function HoldingFeed({
             else next.add(id);
             return next;
         });
-    const bulk = async (date?: string, discard = false) => {
+    const bulk = async (date?: LocalDate, discard = false) => {
         if (busy) return;
         setBusy(true);
         try {
@@ -118,6 +123,7 @@ export function HoldingFeed({
                             parse({
                                 input: item.rawText,
                                 sourceSurface: "inbox",
+                                clock: nlpClock(),
                                 dateStyle: settings?.dateTime.dateStyle,
                             }).cleanedTitle,
                         projectId: overrides?.projectId,
@@ -129,7 +135,7 @@ export function HoldingFeed({
                             dismissedEntityIds: (item.analysis?.dismissedEntityIds ?? []) as string[],
                             userOverrides: overrides ?? {},
                         },
-                        ...(date ? { scheduledDate: date } : { isAllDay: true, dueDate: null, scheduledStart: null }),
+                        ...(date ? { scheduledDay: date } : { dueDate: null, scheduledStart: null, scheduledEnd: null }),
                     });
                 }
                 setSelected((old) => {
@@ -190,7 +196,7 @@ export function HoldingFeed({
             </span>
             {/* Phone: count and actions share the top line, the day pills get their own below. */}
             <div className="order-last basis-full sm:order-none sm:basis-auto">
-                <CaptureDayChips lightest={lightest} onPlace={(date) => void bulk(date)} disabled={busy} />
+                <CaptureDayChips lightest={lightest} onPlace={(day) => void bulk(toDay(day))} disabled={busy} />
             </div>
             <Button
                 disabled={busy}

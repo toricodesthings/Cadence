@@ -1,14 +1,15 @@
 import type { Habit } from "@cadence/contracts/habit";
+import type { LocalDate } from "@cadence/domain/time";
 import { isPausedOn } from "@cadence/domain/repeats";
 import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
-import { toISODate } from "./date-format";
+import { today as getToday } from "./user-zone";
 
 /**
  * Whether a pause covers `date` (default today). A pause runs from today
  * through `pausedUntil`: it never reaches back over days already past.
  */
-export function isRoutinePaused(habit: Pick<Habit, "pausedUntil">, date?: string): boolean {
-    const today = toISODate(new Date());
+export function isRoutinePaused(habit: Pick<Habit, "pausedUntil">, date?: LocalDate): boolean {
+    const today = getToday();
     return isPausedOn(habit.pausedUntil, date ?? today, today);
 }
 

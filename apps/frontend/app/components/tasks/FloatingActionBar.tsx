@@ -9,7 +9,9 @@ import { toast } from "sonner";
 import * as Popover from "../primitives/Popover";
 import { Button } from "../primitives/Button";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
-import { toISODate, addDays } from "../../lib/utils/date-format";
+import { addDays } from "@cadence/domain/time";
+import { today } from "../../lib/utils/user-zone";
+import type { ScheduleUpdates } from "./QuickScheduleSurface";
 
 export function FloatingActionBar() {
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
@@ -65,14 +67,12 @@ export function FloatingActionBar() {
         );
     };
 
-    const handleReschedule = (updates: any) => {
-        if (!updates.scheduledStart) return;
+    const handleReschedule = (updates: ScheduleUpdates) => {
+        // A picked time moves tasks to that instant; a picked day moves each to the day, keeping its own time.
+        const when = updates.scheduledStart ? { scheduledStart: updates.scheduledStart } : updates.dueDate ? { date: updates.dueDate } : null;
+        if (!when) return;
         batchReschedule.mutate(
-            {
-                taskIds: selectedArray,
-                scheduledStart: updates.scheduledStart,
-                isAllDay: updates.isAllDay ?? true
-            },
+            { taskIds: selectedArray, ...when },
             {
                 onSuccess: () => {
                     toast.success(`Rescheduled ${count} tasks`);
@@ -83,9 +83,8 @@ export function FloatingActionBar() {
     };
 
     const handleQuickReschedule = (daysFromNow: number) => {
-        const target = toISODate(addDays(new Date(), daysFromNow));
         batchReschedule.mutate(
-            { taskIds: selectedArray, scheduledStart: target, isAllDay: true },
+            { taskIds: selectedArray, date: addDays(today(), daysFromNow) },
             {
                 onSuccess: () => {
                     toast.success(`Rescheduled ${count} tasks`);

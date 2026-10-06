@@ -7,13 +7,16 @@ import {
     createSeedTaskNote,
     createSeedNlpMetadata,
     createSeedSavedFocusView,
+    seedClock,
     seedDate,
     seedDateTime,
 } from "../../src/domains/debug/debug-seed";
 import { classifyTaskReadShape } from "@cadence/domain/task-temporal";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
-const ANCHOR = new Date(Date.UTC(2026, 2, 9, 12, 0, 0, 0));
+// Monday 2026-03-09, 10:00 PM in Toronto (the UTC day is already the 10th).
+const ZONE = "America/Toronto";
+const ANCHOR = seedClock(ZONE, new Date("2026-03-10T02:00:00Z"));
 
 describe("debug seed helpers", () => {
     it("builds canonical all-day deadline tasks for deadline views", () => {
@@ -21,18 +24,18 @@ describe("debug seed helpers", () => {
             title: "Call landlord about hallway leak",
             state: "ACTIVE",
             orderIndex: 2,
-            isAllDay: true,
             dueDate: seedDate(ANCHOR, 0),
             priority: 4,
             isPinned: true,
             reminderAt: seedDateTime(ANCHOR, 0, 16, 0),
             effort: 1,
-        });
+        }, ZONE);
 
-        expect(task.dueDate).toBe("2026-03-09T12:00:00.000Z");
+        // The user's day (Monday), not the UTC day: a day is a LocalDate, never an instant.
+        expect(task.dueDate).toBe("2026-03-09");
         expect(task.scheduledStart).toBeNull();
         expect(task.scheduledEnd).toBeNull();
-        expect(classifyTaskReadShape(task)).toBe("deadline_only");
+        expect(classifyTaskReadShape(task)).toBe("day");
     });
 
     it("builds canonical all-day duration tasks for schedule spans", () => {
@@ -40,17 +43,17 @@ describe("debug seed helpers", () => {
             title: "Stage weekend reset window",
             state: "ACTIVE",
             orderIndex: 7,
-            isAllDay: true,
             dueDate: seedDate(ANCHOR, 2),
-            scheduledEnd: seedDate(ANCHOR, 3),
+            endDate: seedDate(ANCHOR, 3),
             priority: 1,
             effort: 2,
-        });
+        }, ZONE);
 
-        expect(task.dueDate).toBe("2026-03-11T12:00:00.000Z");
+        expect(task.dueDate).toBe("2026-03-11");
+        expect(task.endDate).toBe("2026-03-12");
         expect(task.scheduledStart).toBeNull();
-        expect(task.scheduledEnd).toBe("2026-03-12T23:59:59.999Z");
-        expect(classifyTaskReadShape(task)).toBe("all_day_duration");
+        expect(task.scheduledEnd).toBeNull();
+        expect(classifyTaskReadShape(task)).toBe("days");
     });
 
     it("builds canonical timed tasks for calendar blocks", () => {
@@ -58,7 +61,6 @@ describe("debug seed helpers", () => {
             title: "Draft launch announcement",
             state: "ACTIVE",
             orderIndex: 1,
-            isAllDay: false,
             scheduledStart: seedDateTime(ANCHOR, 0, 14, 0),
             scheduledEnd: seedDateTime(ANCHOR, 0, 15, 30),
             durationEstimate: 90,
@@ -66,12 +68,14 @@ describe("debug seed helpers", () => {
             isPinned: true,
             reminderAt: seedDateTime(ANCHOR, 0, 13, 30),
             effort: 2,
-        });
+        }, ZONE);
 
         expect(task.dueDate).toBeNull();
-        expect(task.scheduledStart).toBe("2026-03-09T14:00:00.000Z");
-        expect(task.scheduledEnd).toBe("2026-03-09T15:30:00.000Z");
-        expect(classifyTaskReadShape(task)).toBe("timed_block");
+        // 2:00 PM Monday in Toronto (EDT, -04:00 since Mar 8), kept with the zone it was planned in.
+        expect(task.scheduledStart).toBe("2026-03-09T18:00:00.000Z");
+        expect(task.scheduledEnd).toBe("2026-03-09T19:30:00.000Z");
+        expect(task.zone).toBe(ZONE);
+        expect(classifyTaskReadShape(task)).toBe("timed");
     });
 
     it("builds recurring timetable seed tasks without mutating the timed anchor", () => {
@@ -79,21 +83,20 @@ describe("debug seed helpers", () => {
             title: "Calculus II lecture",
             state: "ACTIVE",
             orderIndex: 13,
-            isAllDay: false,
             scheduledStart: "2026-03-10T09:30:00.000Z",
             scheduledEnd: "2026-03-10T10:45:00.000Z",
             durationEstimate: 75,
             timezoneLocked: true,
-            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502",
             priority: 2,
             effort: 2,
-        });
+        }, ZONE);
 
         expect(task.scheduledStart).toBe("2026-03-10T09:30:00.000Z");
         expect(task.scheduledEnd).toBe("2026-03-10T10:45:00.000Z");
         expect(task.timezoneLocked).toBe(true);
-        expect(task.recurrenceRule).toBe("FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z");
-        expect(classifyTaskReadShape(task)).toBe("timed_block");
+        expect(task.recurrenceRule).toBe("FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502");
+        expect(classifyTaskReadShape(task)).toBe("timed");
     });
 
     it("leaves column defaults to the database for non-task seed entities", () => {

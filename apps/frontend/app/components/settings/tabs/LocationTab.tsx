@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { formatShortDateTime } from "../../../lib/utils/date-format";
+import { useToday } from "../../../lib/utils/user-zone";
 import { ExternalLink } from "../../shared/ExternalLink";
 import { CADENCE_PRIVACY_URL } from "../../../lib/constants/app-info";
 import { useQuery } from "@tanstack/react-query";
@@ -64,7 +66,7 @@ function formatPlace(place: ResolvedPlace, locale: string, subdivisionFallback: 
 }
 
 function formatUpdatedAt(iso: string) {
-    return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return formatShortDateTime(iso);
 }
 
 export function LocationTab() {
@@ -72,7 +74,7 @@ export function LocationTab() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
     const locale = getPreferredLocale();
-    const year = new Date().getFullYear();
+    const year = Number(useToday().slice(0, 4));
     const holidays = useHolidayOverlay({
         start: `${year}-01-01`,
         end: `${year}-12-31`,

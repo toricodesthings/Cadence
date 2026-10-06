@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { createUser, getTestDb, startTestDb } from "../helpers/db";
+import { createUserIn } from "../helpers/zone";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { projectRoutes } from "../../src/domains/projects/projects.route";
@@ -19,7 +20,7 @@ let subApi: ReturnType<typeof apiAs>;
 
 beforeAll(startTestDb);
 beforeEach(async () => {
-    userId = await createUser();
+    userId = await createUserIn("America/New_York");
     api = apiAs(userId, "/tasks", taskRoutes);
     subApi = apiAs(userId, "", subtaskRoutes);
     const tools = buildToolRegistry({} as never, userId, { timezone: "America/New_York", currentDate: "2026-09-23T12:00:00Z", today: "2026-09-23" }) as any;
@@ -72,7 +73,7 @@ describe("list destinations", () => {
             fromImage: { title: "Assignment", dueDate: "Oct 22" },
         }] });
         expect((await api("GET", `/${created[0].taskId}`)).body.data).toMatchObject({
-            projectId: university.id, sectionId: course.id, isAllDay: true, dueDate: expect.stringContaining("2026-10-22"),
+            projectId: university.id, sectionId: course.id, dueDate: "2026-10-22", scheduledStart: null,
         });
         expect((await call("get_task_detail", { taskId: created[0].taskId })).task.sectionId).toBe(course.id);
         expect((await call("get_tasks", { projectId: university.id })).tasks[0].sectionId).toBe(course.id);
@@ -153,7 +154,7 @@ describe("create_tasks", () => {
         const [klass, essay] = await Promise.all(created.map(async (c: any) => (await api("GET", `/${c.taskId}`)).body.data));
         const note = (await apiAs(userId, "", noteRoutes)("GET", `/tasks/${essay.id}/note`)).body.data;
 
-        expect(klass).toMatchObject({ isAllDay: false, interactionMode: "timetable" });
+        expect(klass).toMatchObject({ isAllDay: false, interactionMode: "timetable", zone: "America/New_York" });
         expect(essay).toMatchObject({ isAllDay: true });
         expect(note.body).toBe("Three sources.");
     });

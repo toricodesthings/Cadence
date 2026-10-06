@@ -5,7 +5,7 @@ import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { ColourDot } from "../shared/ColourDot";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
 import type { PersonalEvent } from "../../types/settings";
-import { toISODate } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
 import { EVENT_SWATCHES, eventToneStyle } from "../../lib/utils/personal-events";
 
 interface PersonalEventEditorDialogProps {
@@ -47,7 +47,7 @@ export function usePersonalEventComposer({
     submitLabel?: string;
     onSubmit: (value: Omit<PersonalEvent, "id">) => void;
 }): ComposerDraft & { titleRef: React.RefObject<HTMLInputElement | null> } {
-    const startDate = initialDate ?? toISODate(new Date());
+    const startDate = initialDate ?? today();
     const titleRef = useRef<HTMLInputElement>(null);
     const [label, setLabel] = useState("");
     const [emoji, setEmoji] = useState("");

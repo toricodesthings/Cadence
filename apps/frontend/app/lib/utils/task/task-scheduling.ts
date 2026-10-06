@@ -3,16 +3,13 @@ import {
     formatShortDate,
     formatShortDateTime,
     formatTime,
-    parseLocalDate,
-    toISODate,
+    dayOfInstant,
 } from "../date-format";
+import { getUserZone, today } from "../user-zone";
 import { classifyTaskReadShape, type TaskReadShape } from "@cadence/domain/task-temporal";
 import { resolveOccurrenceAnchor } from "@cadence/domain/task-recurrence";
+import type { LocalDate } from "@cadence/domain/time";
 import type { Task, TaskListQueryInput } from "@cadence/contracts/task";
-import { isDateOnly } from "@cadence/contracts/common";
-
-const canonicalAllDayDateTimePattern = /^(\d{4}-\d{2}-\d{2})T(?:00:00:00(?:\.000)?|12:00:00(?:\.000)?|23:59:59\.999)Z$/;
-const offsetDateTimePattern = /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/;
 
 export interface TaskScheduleSummary {
     kind: TaskReadShape;
@@ -69,10 +66,8 @@ function formatWeekdayLabel(byDay: string | null | undefined) {
 
 function formatUntilLabel(untilValue: string | null | undefined) {
     if (!untilValue) return null;
-    if (/^\d{8}T\d{6}Z$/.test(untilValue)) {
-        return formatShortDate(`${untilValue.slice(0, 4)}-${untilValue.slice(4, 6)}-${untilValue.slice(6, 8)}`);
-    }
-    if (/^\d{8}$/.test(untilValue)) {
+    // UNTIL is a LocalDate (YYYYMMDD); a pre-0.26.3 rule may still carry an instant, whose date part names the day.
+    if (/^\d{8}(T\d{6}Z?)?$/.test(untilValue)) {
         return formatShortDate(`${untilValue.slice(0, 4)}-${untilValue.slice(4, 6)}-${untilValue.slice(6, 8)}`);
     }
     return formatShortDate(untilValue);
@@ -133,98 +128,27 @@ export function getTaskRecurrenceSummary(
     };
 }
 
-function startOfLocalDay(referenceDate: Date) {
-    return new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
-}
-
+/** A Fixed block's next occurrence day on or after `referenceDay` (default today), else its own day. */
 export function getPassiveTimetableOccurrenceAnchor(
-    task: Pick<Task, "interactionMode" | "recurrenceRule" | "scheduledStart" | "dueDate">,
-    referenceDate = new Date(),
-) {
-    const fallbackAnchor = task.scheduledStart ?? task.dueDate;
+    task: Pick<Task, "interactionMode" | "recurrenceRule" | "scheduledStart" | "dueDate" | "scheduledEnd" | "endDate" | "zone" | "id" | "title" | "orderIndex" | "isPinned" | "durationEstimate">,
+    referenceDay: LocalDate = today(),
+): LocalDate | null {
+    const own = task.dueDate ?? (task.scheduledStart ? dayOfInstant(task.scheduledStart) : null);
 
-    if (!isPassiveTimetableTask(task) || !task.recurrenceRule || !task.scheduledStart) {
-        return fallbackAnchor;
-    }
+    if (!isPassiveTimetableTask(task) || !task.recurrenceRule || !task.scheduledStart) return own;
 
     // Shared RRULE occurrence math lives in @cadence/domain; the passive-timetable
     // gating + fallback stay here in the presentation layer.
-    return resolveOccurrenceAnchor(
-        task.recurrenceRule,
-        task.scheduledStart,
-        startOfLocalDay(referenceDate),
-    ) ?? fallbackAnchor;
-}
-
-export function toTaskDateOnly(value: string | null | undefined) {
-    if (!value) return null;
-    if (value.length === 10) return value;
-
-    const canonicalAllDayMatch = value.match(canonicalAllDayDateTimePattern);
-    if (canonicalAllDayMatch) {
-        return canonicalAllDayMatch[1];
-    }
-
-    return toISODate(parseLocalDate(value));
-}
-
-export type TaskWriteTemporalField = "dueDate" | "scheduledStart" | "scheduledEnd";
-
-export function normalizeTaskWriteTemporalField(
-    value: string | null | undefined,
-    field: TaskWriteTemporalField,
-) {
-    if (!value) return value;
-    const trimmed = value.trim();
-    if (!trimmed) return value;
-
-    if (field === "dueDate") {
-        if (isDateOnly(trimmed)) return trimmed;
-
-        const canonicalAllDayMatch = trimmed.match(canonicalAllDayDateTimePattern);
-        if (canonicalAllDayMatch) return canonicalAllDayMatch[1];
-
-        const parsed = parseLocalDate(trimmed);
-        if (Number.isNaN(parsed.getTime())) return trimmed;
-        return toISODate(parsed);
-    }
-
-    if (isDateOnly(trimmed) || offsetDateTimePattern.test(trimmed)) {
-        return trimmed;
-    }
-
-    const parsed = parseLocalDate(trimmed);
-    if (Number.isNaN(parsed.getTime())) return trimmed;
-    return parsed.toISOString();
-}
-
-export function normalizeTaskWriteTemporalInput<T extends {
-    dueDate?: string | null;
-    scheduledStart?: string | null;
-    scheduledEnd?: string | null;
-}>(input: T): T {
-    return {
-        ...input,
-        ...(input.dueDate !== undefined && {
-            dueDate: normalizeTaskWriteTemporalField(input.dueDate, "dueDate"),
-        }),
-        ...(input.scheduledStart !== undefined && {
-            scheduledStart: normalizeTaskWriteTemporalField(input.scheduledStart, "scheduledStart"),
-        }),
-        ...(input.scheduledEnd !== undefined && {
-            scheduledEnd: normalizeTaskWriteTemporalField(input.scheduledEnd, "scheduledEnd"),
-        }),
-    };
+    return resolveOccurrenceAnchor({ ...task, recurrenceRule: task.recurrenceRule }, referenceDay, getUserZone()) ?? own;
 }
 
 export function getTaskScheduleSummary(
-    task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay" | "interactionMode">,
+    task: Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "interactionMode">,
 ): TaskScheduleSummary {
     const kind = classifyTaskReadShape(task);
 
     switch (kind) {
-        case "timed_block":
-        case "legacy_mixed_timed_deadline": {
+        case "timed": {
             const start = task.scheduledStart!;
             const end = task.scheduledEnd;
             return {
@@ -235,37 +159,31 @@ export function getTaskScheduleSummary(
                 isDeadline: false,
                 isDuration: false,
                 isTimed: true,
-                anchorDate: toTaskDateOnly(start),
+                anchorDate: dayOfInstant(start),
             };
         }
-        case "all_day_duration": {
-            const start = toTaskDateOnly(task.dueDate!)!;
-            const end = toTaskDateOnly(task.scheduledEnd!)!;
+        case "days":
             return {
                 kind,
                 displayMode: "duration",
-                primaryLabel: formatDateSpan(start, end),
+                primaryLabel: formatDateSpan(task.dueDate!, task.endDate!),
                 secondaryLabel: "Duration",
                 isDeadline: false,
                 isDuration: true,
                 isTimed: false,
-                anchorDate: start,
+                anchorDate: task.dueDate!,
             };
-        }
-        case "deadline_only":
-        case "legacy_all_day_with_start": {
-            const anchor = toTaskDateOnly(task.dueDate ?? task.scheduledStart!)!;
+        case "day":
             return {
                 kind,
                 displayMode: "deadline",
-                primaryLabel: formatShortDate(anchor),
+                primaryLabel: formatShortDate(task.dueDate!),
                 secondaryLabel: "Deadline",
                 isDeadline: true,
                 isDuration: false,
                 isTimed: false,
-                anchorDate: anchor,
+                anchorDate: task.dueDate!,
             };
-        }
         default:
             return {
                 kind: "unscheduled",
@@ -280,27 +198,22 @@ export function getTaskScheduleSummary(
     }
 }
 
-export function getTaskEffectiveAnchor(
-    task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay" | "interactionMode">,
-) {
-    const summary = getTaskScheduleSummary(task);
-    return summary.anchorDate;
+/** The day a task sits on: its due day, or the user's day of its start. */
+export function getTaskEffectiveAnchor(task: Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "interactionMode">): LocalDate | null {
+    return getTaskScheduleSummary(task).anchorDate;
 }
 
 export function getTaskTimelineAnchor(
-    task: Pick<Task, "dueDate" | "scheduledStart" | "scheduledEnd" | "isAllDay" | "interactionMode" | "recurrenceRule">,
-    referenceDate = new Date(),
-) {
-    if (isPassiveTimetableTask(task)) {
-        return toTaskDateOnly(getPassiveTimetableOccurrenceAnchor(task, referenceDate));
-    }
-
+    task: Parameters<typeof getPassiveTimetableOccurrenceAnchor>[0],
+    referenceDay: LocalDate = today(),
+): LocalDate | null {
+    if (isPassiveTimetableTask(task)) return getPassiveTimetableOccurrenceAnchor(task, referenceDay);
     return getTaskEffectiveAnchor(task);
 }
 
-/** `GET /tasks` filters as views pass them: typed values, with the range as one pair. */
-export type UseTasksFilterInput = Pick<TaskListQueryInput, "state" | "projectId" | "scheduledDate" | "effectiveOnOrBeforeDate"> & {
-    scheduledRange?: { start: string; end: string };
+/** `GET /tasks` filters as views pass them: typed values, with the day window as one `{ from, to }` pair (LocalDates, inclusive). */
+export type UseTasksFilterInput = Pick<TaskListQueryInput, "state" | "projectId" | "effectiveOnOrBeforeDate"> & {
+    range?: { from: LocalDate; to: LocalDate };
     limit?: number;
     offset?: number;
     hasNoProject?: boolean;
@@ -312,9 +225,7 @@ export function buildTasksQuery(filters: UseTasksFilterInput) {
     return {
         ...(filters.state && { state: filters.state }),
         ...(filters.projectId && { projectId: filters.projectId }),
-        ...(filters.scheduledDate && { scheduledDate: filters.scheduledDate }),
-        ...(filters.scheduledRange?.start && { scheduledRangeStart: filters.scheduledRange.start }),
-        ...(filters.scheduledRange?.end && { scheduledRangeEnd: filters.scheduledRange.end }),
+        ...(filters.range && { from: filters.range.from, to: filters.range.to }),
         ...(filters.hasNoProject !== undefined && { hasNoProject: filters.hasNoProject ? "true" as const : "false" as const }),
         ...(filters.hasNoDate !== undefined && { hasNoDate: filters.hasNoDate ? "true" as const : "false" as const }),
         ...(filters.effectiveOnOrBeforeDate && { effectiveOnOrBeforeDate: filters.effectiveOnOrBeforeDate }),

@@ -17,7 +17,9 @@ import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { Task } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import { toISODate } from "../../lib/utils/date-format";
+import { addDays, weekdayOf } from "@cadence/domain/time";
+import { rescheduleToDay } from "@cadence/domain/task-temporal";
+import { getUserZone, today } from "../../lib/utils/user-zone";
 
 export interface TaskMenuItemsProps {
     task: Task;
@@ -58,22 +60,22 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
 
     const handleQuickSchedule = (daysToAdd: number, startOfWeekend = false, nextWeek = false) => {
         trackMenuAction(nextWeek ? "reschedule_next_week" : startOfWeekend ? "reschedule_weekend" : daysToAdd === 0 ? "reschedule_today" : daysToAdd === 1 ? "reschedule_tomorrow" : `reschedule_${daysToAdd}_days`);
-        const date = new Date();
-        if (nextWeek) {
-            date.setDate(date.getDate() + ((1 + 7 - date.getDay()) % 7 || 7)); // Next Monday
-        } else if (startOfWeekend) {
-            date.setDate(date.getDate() + ((6 - date.getDay() + 7) % 7 || 7)); // Next Saturday
-        } else {
-            date.setDate(date.getDate() + daysToAdd);
-        }
+        const now = today();
+        const weekday = weekdayOf(now);
+        const day = nextWeek
+            ? addDays(now, (1 + 7 - weekday) % 7 || 7) // Next Monday
+            : startOfWeekend
+                ? addDays(now, (6 - weekday + 7) % 7 || 7) // Next Saturday
+                : addDays(now, daysToAdd);
 
-        // Return ISO string
+        // The task keeps its shape: an all-day task moves its days, a timed one keeps its time on the new day.
+        const moved = rescheduleToDay(task, day, getUserZone());
         updateTask.mutate({
             id: task.id,
-            dueDate: toISODate(date),
-            scheduledStart: null,
-            scheduledEnd: null,
-            isAllDay: true,
+            dueDate: moved.dueDate,
+            endDate: moved.endDate,
+            scheduledStart: moved.scheduledStart,
+            scheduledEnd: moved.scheduledEnd,
         });
         onCloseMenu?.();
     };
@@ -168,7 +170,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                                 type="button"
                                 onClick={() => {
                                     trackMenuAction("clear_schedule");
-                                    updateTask.mutate({ id: task.id, scheduledStart: null, scheduledEnd: null, dueDate: null, isAllDay: true });
+                                    updateTask.mutate({ id: task.id, scheduledStart: null, scheduledEnd: null, dueDate: null, endDate: null });
                                     onCloseMenu?.();
                                 }}
                                 className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-red-400/80 transition-colors hover:bg-red-500/10 hover:text-red-300"
@@ -181,6 +183,7 @@ export function TaskMenuItems({ task, onAddSubtask, onRename, MenuComponents: Me
                 ) : (
                     <QuickScheduleSurface
                         dueDate={task.dueDate}
+                        endDate={task.endDate}
                         scheduledStart={task.scheduledStart}
                         scheduledEnd={task.scheduledEnd}
                         recurrenceRule={task.recurrenceRule}

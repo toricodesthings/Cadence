@@ -46,6 +46,15 @@ describe("settingsPatchSchema", () => {
     });
 });
 
+describe("dateTime.timezone", () => {
+    it('reads the pre-0.26.3 "local" as "device" and rejects offsets', () => {
+        expect(settingsPatchSchema.parse({ dateTime: { timezone: "local" } })).toEqual({ dateTime: { timezone: "device" } });
+        expect(settingsPatchSchema.parse({ dateTime: { timezone: "device" } })).toEqual({ dateTime: { timezone: "device" } });
+        expect(settingsPatchSchema.safeParse({ dateTime: { timezone: "-04:00" } }).success).toBe(false);
+        expect(SETTINGS_DEFAULTS.dateTime.timezone).toBe("device");
+    });
+});
+
 describe("deepMerge", () => {
     it("merges objects key by key and replaces arrays and scalars", () => {
         const target = { a: { b: 1, c: 2 }, list: [1, 2, 3], n: 1 };

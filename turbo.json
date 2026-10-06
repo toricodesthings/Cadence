@@ -38,6 +38,9 @@
     "test": {
       "outputs": []
     },
+    "test:tz": {
+      "outputs": []
+    },
     "@cadence/package-tests#test": {
       "inputs": [
         "$TURBO_DEFAULT$",

@@ -5,10 +5,15 @@ import { dataExports, tasks } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { hashIdentifier, issuesFromError, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
+import { todayIn } from "@cadence/domain/time";
+import { userZone } from "../../platform/user-zone";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
 
 const FROM = { email: "noreply@mail.cadenceapp.cloud", name: "Cadence" };
+
+/** Says which time values are which, so the file reads the same in any tool. */
+const TIME_NOTE = "Days (due_on, end_on, hidden_until, target_date, first_scheduled…) are calendar days as YYYY-MM-DD with no time zone. Moments (scheduled_start, scheduled_end, created_at, …) are ISO 8601 in UTC (…Z); a timed task's zone column is the time zone it was planned in. users.time_zone is yours.";
 
 /** Email caps a message at 25 MiB, body included. ponytail: over this the export fails; zip it or link R2 if anyone gets here. */
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -37,7 +42,7 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
         if (!scope) throw new Error(`data export doesn't know how to scope ${name}`);
         data[name] = await tx.select(columns as never).from(table as never).where(scope);
     }
-    return JSON.stringify({ exportedAt: new Date().toISOString(), account: { id: userId, email: identity.email }, data }, null, 2);
+    return JSON.stringify({ readme: TIME_NOTE, exportedAt: new Date().toISOString(), account: { id: userId, email: identity.email }, data }, null, 2);
 }
 
 /**
@@ -51,10 +56,9 @@ export async function deliverExport(env: Env, request: { id: string; userId: str
     let bytes: number | null = null;
     let status: "sent" | "failed" = "failed";
     try {
-        const json = await withRls(db, userId, (tx) => buildExport(tx, request));
+        const { json, day } = await withRls(db, userId, async (tx) => ({ json: await buildExport(tx, request), day: todayIn(await userZone(tx, userId)) }));
         bytes = new TextEncoder().encode(json).byteLength;
         if (bytes > MAX_BYTES) throw new Error(`export is ${bytes} bytes, over the ${MAX_BYTES} email limit`);
-        const day = new Date().toISOString().slice(0, 10);
         await env.EMAIL!.send({
             from: FROM,
             to: request.email,

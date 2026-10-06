@@ -15,7 +15,8 @@ import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { Composer, type ComposerDraft, ComposerSubmit, ComposerMore, ComposerTabs, ComposerTitle, ComposerToggle, COMPOSER_FIELD } from "../shared/Composer";
 import { CHIP_BASE, CHIP_IDLE, FIELD_LABEL } from "../tasks/task-choice-options";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
-import { toISODate } from "../../lib/utils/date-format";
+import { fromTimeValue } from "../../lib/utils/date-format";
+import { today } from "../../lib/utils/user-zone";
 import type { Habit, RoutineStep } from "@cadence/contracts/habit";
 import { RoutineStepsEditor } from "./RoutineSteps";
 import { createHabitSchema } from "../../lib/validations/habit-schemas";
@@ -97,7 +98,7 @@ export function useRoutineComposer({ onSaved }: { onSaved: (created: Habit | nul
 
     const summary = getTaskRecurrenceSummary({
         recurrenceRule,
-        scheduledStart: targetTime ? new Date(`${toISODate(new Date())}T${targetTime}:00`).toISOString() : null,
+        scheduledStart: targetTime ? fromTimeValue(today(), targetTime) : null,
         scheduledEnd: null,
     });
     const subtitle = `${summary?.label ?? "Repeats"}${targetTime ? "" : ", any time"}`;

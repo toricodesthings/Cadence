@@ -1,15 +1,16 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, asc, desc, eq, exists, gte, ilike, inArray, isNotNull, isNull, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { projects, savedFocusViews, taskSections, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
-import { normalizeTaskFilters } from "../../tasks/task-filters";
+import { hasNoDay, inDayWindow, onOrBefore } from "../../tasks/task-filters";
 import { buildTaskWhereClause } from "../../tasks/tasks.read";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import {
+    taskLocalDay,
     toMinimalTask,
     toMinimalSubtask,
     toMinimalTag,
@@ -17,10 +18,10 @@ import {
 } from "./projections";
 import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
 import { NOTE_READ_LIMIT, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
-import { hasTaskTemporalMutation, inferIsAllDay } from "@cadence/domain/task-temporal";
+import { hasTaskTemporalMutation } from "@cadence/domain/task-temporal";
+import { addDays, type LocalDate } from "@cadence/domain/time";
 import { AppError, throwIfNotFound } from "../../../platform/errors";
 import { approvalFor } from "../safety/approval";
-import { startOfLocalDay } from "../../../platform/date-utils";
 import type { Tx } from "../../../types/db";
 import {
     createTasks,
@@ -28,7 +29,6 @@ import {
     duplicateTask,
     reorderTasks,
     rescheduleTasks,
-    rescheduleToDate,
     setTaskState,
     trackTaskChanges,
     updateTasks,
@@ -40,7 +40,6 @@ import { writeNote } from "../../notes/notes.service";
 import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
 import { readFocusView } from "./focus-views";
 
-/** Columns returned by the minimal task projection — selected once, reused. */
 /**
  * The task's list and section names, so the model can match how the user remembers it
  * ("the COMP3005 assignment") and say where it lives, with no extra read.
@@ -50,13 +49,14 @@ export const placeNameColumns = {
     sectionName: sql<string | null>`(select ${taskSections.name} from ${taskSections} where ${taskSections.id} = ${tasks.sectionId})`,
 };
 
+/** Columns returned by the minimal task projection — selected once, reused. */
 const minimalTaskColumns = {
     ...placeNameColumns,
     id: tasks.id,
     title: tasks.title,
     state: tasks.state,
-    isAllDay: tasks.isAllDay,
     dueDate: tasks.dueDate,
+    endDate: tasks.endDate,
     scheduledStart: tasks.scheduledStart,
     scheduledEnd: tasks.scheduledEnd,
     durationEstimate: tasks.durationEstimate,
@@ -75,19 +75,9 @@ const minimalTaskColumns = {
 
 const offsetSchema = z.number().int().min(0).max(100_000).optional().describe("From nextOffset; omit for the first page.");
 
-/**
- * A task's day in the user's zone, in SQL: all-day values keep their stored date
- * (a noon-UTC anchor), timed values take the day their start has locally. Same
- * rule as `taskLocalDay`, so windows filter exactly and pages stay stable.
- */
-export const localDaySql = (timezone: string) =>
-    sql`(CASE WHEN ${tasks.isAllDay}
-        THEN (coalesce(${tasks.dueDate}, ${tasks.scheduledStart}) AT TIME ZONE 'UTC')::date
-        ELSE (coalesce(${tasks.scheduledStart}, ${tasks.dueDate}) AT TIME ZONE ${timezone})::date END)`;
-
-/** Local midnight as an instant, for a `hideUntil` day. */
-const hideUntilInstant = (day: string | null | undefined, timezone: string) =>
-    day === undefined ? undefined : day === null ? null : startOfLocalDay(day, timezone).toISOString();
+/** A task's day in SQL, for ordering: a timed task's start in the user's zone, else its due day. */
+const daySql = (zone: string) =>
+    sql`(CASE WHEN ${tasks.scheduledStart} IS NOT NULL THEN (${tasks.scheduledStart} AT TIME ZONE ${zone})::date ELSE ${tasks.dueDate} END)`;
 
 export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     const track = ctx.waitUntil ?? (() => {});
@@ -110,23 +100,26 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             if (changes) trackTaskChanges(track, db, userId, changes);
             return result;
         });
-    const localDay = localDaySql(ctx.timezone);
+    const zone = ctx.timezone;
+    const day = daySql(zone);
     const weekStartsOn = ctx.weekStart === "Monday" ? "Monday" : "Sunday";
-    const noDate = and(isNull(tasks.dueDate), isNull(tasks.scheduledStart));
+    /** Tasks on a day from `from` to `to` (open start: everything up to `to`). A series sits in get_schedule_window, not here. */
+    const dayRange = (from: LocalDate | undefined, to: LocalDate) =>
+        and(isNull(tasks.recurrenceRule), from ? inDayWindow(from, to, zone) : onOrBefore(to, zone));
 
     return {
         // ── R ──────────────────────────────────────────────────────────────────
         get_tasks: tool({
             description:
                 "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine. " +
-                "Leaves out Fixed blocks (see get_schedule_window). Rows carry tagIds. Pages with offset: more:true and nextOffset when there's more.",
+                "Leaves out Fixed blocks and the days of repeating series (see get_schedule_window). Rows carry tagIds. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z.object({
                 query: z.string().min(1).max(200).optional().describe("Words to find; each must be in the title, note, list name or section name."),
                 state: z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]).optional().describe("ARCHIVED = Trash."),
                 dueWindow: z
                     .enum(["overdue", "today", "this_week", "this_month"])
                     .optional()
-                    .describe("Local-date window; overdue = dated before today (repeating series excluded)."),
+                    .describe("Local-day window; overdue = dated before today."),
                 from: z.iso.date().optional().describe("Dated on or after this local day."),
                 to: z.iso.date().optional().describe("Dated on or before this local day."),
                 noDate: z.boolean().optional().describe("Only tasks with no date."),
@@ -152,17 +145,19 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     const db = getDbClient(env);
                     return withRls(db, userId, async (tx) => {
                         // Reuse the REST filter builder — no copy-pasted WHERE clauses (AGENTS §18).
-                        const normalized = normalizeTaskFilters({
-                            state: args.state,
-                            projectId: args.projectId,
-                            // false is "any", like noDate: a model filling every field must not hide pinned tasks.
-                            isPinned: args.pinned || undefined,
-                            hasNoDate: args.missingStructure || args.noDate || undefined,
-                            hasNoProject: args.missingStructure || undefined,
-                        } as never);
                         // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
                         // checked off, so they never belong in a task list. get_schedule_window shows them.
-                        const conditions: (SQL | undefined)[] = [...buildTaskWhereClause(userId, normalized), ne(tasks.interactionMode, "timetable")];
+                        const conditions: (SQL | undefined)[] = [
+                            ...buildTaskWhereClause(userId, {
+                                state: args.state,
+                                projectId: args.projectId,
+                                // false is "any", like noDate: a model filling every field must not hide pinned tasks.
+                                isPinned: args.pinned || undefined,
+                                hasNoDate: args.missingStructure || args.noDate || undefined,
+                                hasNoProject: args.missingStructure || undefined,
+                            }, zone),
+                            ne(tasks.interactionMode, "timetable"),
+                        ];
                         let sort = args.sort;
                         let view: { name: string } | undefined;
                         if (args.focusViewId) {
@@ -178,13 +173,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         }
                         if (args.dueWindow) {
                             const window = resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn);
-                            if (window.from) conditions.push(gte(localDay, window.from));
-                            conditions.push(lte(localDay, window.to));
-                            // A series is stored at its first date; that date passing doesn't make it overdue.
-                            if (args.dueWindow === "overdue") conditions.push(isNull(tasks.recurrenceRule));
+                            conditions.push(dayRange(window.from, window.to));
                         }
-                        if (args.from) conditions.push(gte(localDay, args.from));
-                        if (args.to) conditions.push(lte(localDay, args.to));
+                        if (args.from || args.to) {
+                            // One side open is a half-bounded range.
+                            conditions.push(args.from ? dayRange(args.from, args.to ?? "2999-12-31") : dayRange(undefined, args.to!));
+                        }
                         if (args.sectionId) conditions.push(eq(tasks.sectionId, args.sectionId));
                         else if (args.noSection) conditions.push(isNull(tasks.sectionId));
                         if (args.tagId) conditions.push(hasAnyTag([args.tagId]));
@@ -207,7 +201,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const order = {
                             priority: [desc(tasks.priority), desc(tasks.createdAt)],
                             list: [desc(tasks.isPinned), asc(tasks.orderIndex)],
-                            date: [sql`${localDay} asc nulls last`, sql`coalesce(${tasks.scheduledStart}, ${tasks.dueDate}) asc nulls last`],
+                            date: [sql`${day} asc nulls last`, sql`${tasks.scheduledStart} asc nulls first`],
                         }[sort ?? "priority"];
                         const rows = await tx
                             .select(minimalTaskColumns)
@@ -317,7 +311,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     for (const { fromImage: _quotes, tagNames = [], hideUntil, tagIds = [], inboxItemId, ...draft } of drafts) {
                         const allTagIds = [...tagIds, ...tagNames.map((name) => named.get(name.trim().toLowerCase())!)];
                         if (!inboxItemId) {
-                            created.push(...await createTasks(tx, userId, [{ ...draft, tagIds: allTagIds, notBefore: hideUntilInstant(hideUntil, ctx.timezone) }]));
+                            created.push(...await createTasks(tx, userId, [{ ...draft, tagIds: allTagIds, notBefore: hideUntil }]));
                             continue;
                         }
                         const { subtasks: steps, note, fixed: _fixed, reminderAt: _reminder, ...fields } = draft;
@@ -326,7 +320,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             // Explicit nulls: the capture's own words never add a date, list or tags.
                             dueDate: fields.dueDate ?? null,
                             scheduledStart: fields.scheduledStart ?? null,
-                            isAllDay: inferIsAllDay(fields) ?? true,
+                            scheduledEnd: fields.scheduledEnd ?? null,
                             projectId: fields.projectId ?? null,
                             sectionId: fields.sectionId ?? null,
                             tagIds: allTagIds,
@@ -354,8 +348,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     for (const { taskId, title, targetDate } of sources) {
                         const copy = await duplicateTask(tx, userId, taskId, title);
                         if (targetDate) {
-                            await tx.update(tasks).set(rescheduleToDate(copy, targetDate, ctx.timezone))
-                                .where(and(eq(tasks.id, copy.id), eq(tasks.userId, userId)));
+                            await rescheduleTasks(tx, userId, { taskIds: [copy.id], date: targetDate });
                         }
                         created.push({ taskId: copy.id, title: copy.title, from: taskId });
                     }
@@ -380,14 +373,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             execute: async ({ taskIds, patch }, { toolCallId }) =>
                 write("update_tasks", toolCallId, async (tx) => {
                     const { addTagIds = [], addTagNames, removeTagIds, note, appendNote, noteVersion, checkInAt, hideUntil, fixed, ...fields } = patch;
-                    const isAllDay = inferIsAllDay(fields);
                     const rows = await updateTasks(tx, userId, {
                         taskIds,
                         patch: {
                             ...fields,
-                            ...(isAllDay !== undefined && { isAllDay }),
                             ...(checkInAt !== undefined && { waitingReminder: checkInAt }),
-                            ...(hideUntil !== undefined && { notBefore: hideUntilInstant(hideUntil, ctx.timezone) }),
+                            ...(hideUntil !== undefined && { notBefore: hideUntil }),
                             ...(fixed !== undefined && { interactionMode: fixed ? "timetable" as const : "task" as const }),
                         },
                         addTagIds: [...addTagIds, ...(addTagNames?.length ? await findOrCreateTags(tx, userId, addTagNames) : [])],
@@ -484,7 +475,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             execute: async ({ taskIds, targetDate }, { toolCallId }) =>
                 write("reschedule_tasks", toolCallId, async (tx) => {
                     const before = await tasksBefore(tx, taskIds);
-                    const rows = await rescheduleTasks(tx, userId, { taskIds, date: targetDate, timezone: ctx.timezone, isAllDay: true });
+                    const rows = await rescheduleTasks(tx, userId, { taskIds, date: targetDate });
                     const moved = new Set(rows.map((row) => row.id));
                     // The day each left, so "undo that" can put each one back where it was.
                     const left = before.filter((row) => moved.has(row.id)).map(({ id, title, day }) => ({ id, title, from: day }));
@@ -499,12 +490,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
      */
     async function tasksBefore(tx: Tx, taskIds: string[]) {
         const rows = await tx
-            .select({ id: tasks.id, title: tasks.title, state: tasks.state, day: sql<string | null>`${localDay}` })
+            .select({ id: tasks.id, title: tasks.title, state: tasks.state, dueDate: tasks.dueDate, scheduledStart: tasks.scheduledStart })
             .from(tasks)
             .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
         const missing = new Set(taskIds).size - rows.length;
         if (missing) throw new AppError(404, "NOT_FOUND", `${missing} of these taskIds match no task. Read the tasks again (get_tasks or get_schedule_window) and retry with the ids it returns`);
-        return rows;
+        return rows.map(({ dueDate, scheduledStart, ...row }) => ({ ...row, day: taskLocalDay({ dueDate, scheduledStart }, zone) }));
     }
 
     /**
@@ -515,7 +506,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     async function sameTitled(tx: Tx, targets: { title: string; day: string | null }[]) {
         const titles = [...new Set(targets.map((row) => row.title.toLowerCase()))];
         const rows = await tx
-            .select({ id: tasks.id, title: tasks.title, ...placeNameColumns, day: sql<string | null>`${localDay}` })
+            .select({ id: tasks.id, title: tasks.title, ...placeNameColumns, dueDate: tasks.dueDate, scheduledStart: tasks.scheduledStart })
             .from(tasks)
             .where(and(
                 eq(tasks.userId, userId),
@@ -524,11 +515,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 inArray(sql`lower(${tasks.title})`, titles),
             ))
             .limit(20);
+        const withDay = rows.map(({ dueDate, scheduledStart, ...row }) => ({ ...row, day: taskLocalDay({ dueDate, scheduledStart }, zone) }));
         const key = (row: { title: string; day: string | null }) => `${row.title.toLowerCase()}|${row.day ?? ""}`;
         const wanted = new Set(targets.map(key));
         const count = new Map<string, number>();
-        for (const row of rows) count.set(key(row), (count.get(key(row)) ?? 0) + 1);
-        return rows
+        for (const row of withDay) count.set(key(row), (count.get(key(row)) ?? 0) + 1);
+        return withDay
             .filter((row) => wanted.has(key(row)) && count.get(key(row))! > 1)
             .map(({ id, title, listName, sectionName, day }) => ({ id, title, list: listName ?? undefined, section: sectionName ?? undefined, day: day ?? undefined }));
     }
@@ -563,14 +555,14 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         if (view.states.length) conditions.push(inArray(tasks.state, view.states));
         if (view.projectIds.length) conditions.push(inArray(tasks.projectId, view.projectIds));
         if (view.tagIds.length) conditions.push(hasAnyTag(view.tagIds));
-        if (view.needsDate) conditions.push(noDate);
+        if (view.needsDate) conditions.push(hasNoDay());
         if (view.needsProject) conditions.push(isNull(tasks.projectId));
         if (view.priorityMin !== null) conditions.push(gte(tasks.priority, view.priorityMin));
         if (view.effortMax !== null) conditions.push(or(isNull(tasks.effort), lte(tasks.effort, view.effortMax)));
         if (view.waitingOnly) conditions.push(isNotNull(tasks.waitingOn));
-        if (view.missingStructureOnly) conditions.push(or(noDate, isNull(tasks.projectId)));
-        if (view.dueWindow === "overdue") conditions.push(lt(localDay, ctx.today));
-        else if (view.dueWindow) conditions.push(or(noDate, lte(localDay, resolveDueWindow(view.dueWindow, ctx.today, weekStartsOn).to)));
+        if (view.missingStructureOnly) conditions.push(or(hasNoDay(), isNull(tasks.projectId)));
+        if (view.dueWindow === "overdue") conditions.push(onOrBefore(addDays(ctx.today, -1), zone));
+        else if (view.dueWindow) conditions.push(or(hasNoDay(), onOrBefore(resolveDueWindow(view.dueWindow, ctx.today, weekStartsOn).to, zone)));
         const sort = ({ smart: "date", priority: "priority", manual: "list" } as const)[view.sortMode];
         return { name: row.name, conditions, sort, hasStates: view.states.length > 0 };
     }

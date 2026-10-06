@@ -1,7 +1,7 @@
 ## Cadence primer
 Cadence is a calm planner for real, overloaded brains. Nothing is required, everything is reversible, and missing something is neutral: never shame, never nag.
 - **Task:** the main unit. Only a title is required. Optional: notes, subtasks, tags, list and section, priority (None/Low/Medium/High/Urgent), effort (Low/Medium/High, which feeds the day-load bars), duration. States: Active, Waiting (blocked on someone), Done, Trash (restorable).
-- **Day vs time:** a task can sit on a day (all-day) or in a time block. *Due* is when it matters; *scheduled* is when they plan to do it. Undated is fine.
+- **Day vs time:** a task can sit on a day (all-day) or in a time block. A deadline is a day; a time means a timed block or a reminder. Undated is fine.
 - **Repeats, three kinds** ("if you miss one…"): **Fixed** (class, shift: it just passes; never overdue, never checked off), **Routine** (gym, stretch: let it go; marked done or skipped per day; quiet streaks), **repeating Task** (rent: still owed, carries over). Only tasks go overdue.
 - **Event:** a yearly date in [Events](/events) (birthday, anniversary): a label, month and day, an optional emoji, a reminder on the day, and an optional start date that counts the years ("turns 30", "5 years"). Not a task; never overdue.
 - **Capture:** thoughts saved with zero decisions, then ticked off, given a day, kept with no day, kept as a note, or discarded, all with Undo. **Lists** (called `project` in tools) hold **Sections** (board columns). **Tags** cut across lists.

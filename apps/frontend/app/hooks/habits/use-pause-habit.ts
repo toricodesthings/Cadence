@@ -1,15 +1,15 @@
 import { useCallback } from "react";
 import { useUpdateHabit } from "./use-update-habit";
-import { addDays, format } from "date-fns";
+import { addDays, type LocalDate } from "@cadence/domain/time";
+import { today } from "../../lib/utils/user-zone";
 
 /** Pause a habit from today through `until` (inclusive), a week by default. */
 export function usePauseHabit() {
     const { mutate, ...rest } = useUpdateHabit();
 
     const pause = useCallback(
-        (habitId: string, until?: Date) => {
-            const pauseDate = until ?? addDays(new Date(), 6);
-            mutate({ id: habitId, pausedUntil: format(pauseDate, "yyyy-MM-dd") });
+        (habitId: string, until?: LocalDate) => {
+            mutate({ id: habitId, pausedUntil: until ?? addDays(today(), 6) });
         },
         [mutate],
     );

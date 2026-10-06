@@ -3,11 +3,12 @@ import { IdentityBlock, MetaPill, TagPill } from "./ProposalCard";
 import { ApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { formatWhen, useTagsLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
-import { formatTime } from "../../../lib/utils/date-format";
+import { isLocalDate } from "@cadence/domain/time";
+import { dayOfInstant, formatTime } from "../../../lib/utils/date-format";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
 import { PRIORITY_CONFIG } from "../../../lib/constants/priority";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
-import { getTaskRecurrenceSummary, normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
+import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import type { CreateTaskInput } from "@cadence/contracts/task";
 
 type Quoted = "title" | "dueDate" | "scheduledStart" | "priority" | "subtasks" | "note";
@@ -41,8 +42,8 @@ function formatDraftWhen(draft: TaskDraft): string | null {
     const when = formatWhen(draft.scheduledStart ?? draft.dueDate);
     const start = draft.scheduledStart;
     const end = draft.scheduledEnd;
-    if (!when || !start || !end || start.length === 10 || end.length === 10) return when;
-    return start.slice(0, 10) === end.slice(0, 10) ? `${when} – ${formatTime(end)}` : `${when} – ${formatWhen(end)}`;
+    if (!when || !start || !end || isLocalDate(start) || isLocalDate(end)) return when;
+    return dayOfInstant(start) === dayOfInstant(end) ? `${when} – ${formatTime(end)}` : `${when} – ${formatWhen(end)}`;
 }
 
 /**
@@ -152,7 +153,7 @@ export function DraftSteps({ draft }: { draft: TaskDraft }) {
 export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
-    const drafts: TaskDraft[] = ((ctx.part?.input?.tasks ?? []) as TaskDraft[]).map((d) => normalizeTaskWriteTemporalInput(d));
+    const drafts: TaskDraft[] = ((ctx.part?.input?.tasks ?? []) as TaskDraft[]);
     const count = drafts.length;
     const kept = count - off.size;
     const first = drafts[0] ?? {};

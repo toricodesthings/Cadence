@@ -23,7 +23,8 @@ import { InlineSubtaskPanel, SUBTASK_RAIL, SubtaskChip, useInlineSubtasks } from
 import { useTaskSelectionStore } from "../../stores/task-selection-store";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
-import { formatShortDate, toISODate } from "../../lib/utils/date-format";
+import { formatShortDate } from "../../lib/utils/date-format";
+import { useToday } from "../../lib/utils/user-zone";
 import { getTaskScheduleSummary, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
 import type { Tag } from "@cadence/contracts/tag";
 import type { Subtask } from "@cadence/contracts/subtask";
@@ -110,6 +111,7 @@ export function TaskCard({
 
     const { toggleTask, selectedTaskIds } = useTaskSelectionStore();
     const shell = useShellMode();
+    const todayDay = useToday();
 
     const subtaskUi = useInlineSubtasks(task.id);
     const subtaskPanelId = useId();
@@ -122,7 +124,7 @@ export function TaskCard({
     const scheduleLabel = scheduleSummary.primaryLabel;
     const isPastDue = Boolean(
         scheduleSummary.anchorDate
-        && scheduleSummary.anchorDate < toISODate(new Date())
+        && scheduleSummary.anchorDate < todayDay
         && task.state !== "COMPLETE"
         && task.state !== "ARCHIVED",
     );

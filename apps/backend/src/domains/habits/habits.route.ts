@@ -4,8 +4,8 @@ import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
 import { getDbClient } from "../../platform/db";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
-import { resolveTimeZone } from "../../platform/date-utils";
-import { localDay } from "@cadence/domain/repeats";
+import { daysBetween, todayIn } from "@cadence/domain/time";
+import { userZone } from "../../platform/user-zone";
 import { habits, habitLogs, habitTags } from "../../db/schema";
 import { insertHabitSchema, updateHabitSchema, resolveHabitActionSchema, weeklyHabitsQuerySchema, habitListQuerySchema } from "@cadence/contracts/habit";
 import { uuidParamSchema } from "@cadence/contracts/common";
@@ -75,13 +75,11 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     })
     .get("/weekly", apiValidator("query", weeklyHabitsQuerySchema), async (c) => {
         const userId = c.get("userId");
-        const { start, end, archived, timezone } = c.req.valid("query");
+        const { start, end, archived } = c.req.valid("query");
         const db = getDbClient(c.env);
 
-        const tz = resolveTimeZone(timezone);
-        const todayStr = localDay(new Date(), tz);
-
         const snapshot = await withRls(db, userId, async (tx) => {
+            const zone = await userZone(tx, userId);
             const userHabits = await tx
                 .select()
                 .from(habits)
@@ -90,7 +88,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     eq(habits.archived, archived || false)
                 ));
 
-            if (userHabits.length === 0) return { userHabits, logs: [], allTags: [] };
+            if (userHabits.length === 0) return { userHabits, logs: [], allTags: [], zone };
 
             const habitIds = userHabits.map((h) => h.id);
 
@@ -110,14 +108,14 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     .where(inArray(habitTags.habitId, habitIds)),
             ]);
 
-            return { userHabits, logs, allTags };
+            return { userHabits, logs, allTags, zone };
         });
 
         c.header("Cache-Control", "private, no-store");
         const result = tracing.enterSpan("habits.range.project", (span) => {
-            const projected = projectHabitRange(snapshot, { start, end, timeZone: tz, today: todayStr });
+            const projected = projectHabitRange(snapshot, { start, end, timeZone: snapshot.zone, today: todayIn(snapshot.zone) });
             span.setAttribute("habits.count", snapshot.userHabits.length);
-            const rangeDays = Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
+            const rangeDays = daysBetween(start, end) + 1;
             if (Number.isFinite(rangeDays)) span.setAttribute("habits.range_days", Math.max(0, rangeDays));
             span.setAttribute("habits.expanded_days", projected.reduce((total, habit) => total + habit.logs.length, 0));
             return projected;

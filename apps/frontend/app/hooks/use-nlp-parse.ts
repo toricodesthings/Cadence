@@ -9,11 +9,12 @@
  * The parse module is dynamically imported and cached after first use.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { ParseResult, ParsedEntity } from "@cadence/nlp/core";
+import type { DateValue, ParseResult, ParsedEntity } from "@cadence/nlp/core";
 import type { SourceSurface } from "@cadence/nlp/core";
 import type { TaskPriority } from "@cadence/contracts/task";
 import type { QuickAddParsedToken, QuickAddParseResult } from "../lib/utils/quick-add-parser";
 import { trackUsageEvent } from "../lib/api/track-event";
+import { fromTimeValue, nlpClock } from "../lib/utils/date-format";
 
 // Lazy module cache — loaded once, shared across all hook instances
 let parseModuleCache: { parse: typeof import("@cadence/nlp/parse")["parse"] } | null = null;
@@ -52,7 +53,7 @@ export interface NlpParseOutput extends QuickAddParseResult {
     durationMinutes: number | null;
     /** §11.5: Human-readable label for the detected date (not raw ISO) */
     dueHumanLabel: string | null;
-    /** Timed start detected from NLP when a date entity carries a datetime */
+    /** Timed start (an Instant) when a date entity carries a time of day */
     scheduledStart: string | null;
 }
 
@@ -198,6 +199,7 @@ export function useNlpParse({
         const result = mod.parse({
             input: currentInput,
             sourceSurface,
+            clock: nlpClock(),
             dateStyle,
             context: resolutionContext,
             dismissedEntityIds: [...latestIgnoredTokenIdsRef.current, ...latestDismissedEntityIdsRef.current],
@@ -222,17 +224,13 @@ export function useNlpParse({
             switch (entity.type) {
                 case "scheduled_start":
                 case "due_date": {
-                    const val = entity.normalizedValue as {
-                        date?: string;
-                        datetime?: string | null;
-                        humanLabel?: string;
-                    };
+                    const val = entity.normalizedValue as Partial<DateValue> | undefined;
                     if (confidenceMeetsThreshold(entity.confidence, effectiveThreshold)) {
-                        if (!dueDate && val?.date) {
+                        // A typed time makes a timed block (and no deadline); a bare day is the all-day / deadline day.
+                        if (val?.date && val.time && val.hasTime !== false) {
+                            if (!scheduledStart) scheduledStart = fromTimeValue(val.date, val.time);
+                        } else if (!dueDate && val?.date) {
                             dueDate = val.date;
-                        }
-                        if (!scheduledStart && val?.datetime) {
-                            scheduledStart = val.datetime;
                         }
                         if (!dueHumanLabel && val?.humanLabel) {
                             dueHumanLabel = val.humanLabel;

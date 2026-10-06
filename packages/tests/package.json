@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:tz": "node ../../scripts/test-tz.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

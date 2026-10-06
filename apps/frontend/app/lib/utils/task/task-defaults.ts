@@ -1,4 +1,5 @@
-import { addDays, nextMonday, format } from "date-fns";
+import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
+import { today } from "../user-zone";
 import type { TaskPriority } from "@cadence/contracts/task";
 import { TASK_PRIORITY_NAMES, type TaskPriorityName } from "@cadence/contracts/constants";
 
@@ -7,16 +8,17 @@ export function mapPriorityNameToNumber(name?: string | null): TaskPriority {
     return level < 0 ? 0 : (level as TaskPriority);
 }
 
-export function resolveDefaultDueDate(setting?: string | null): string | undefined {
-    if (!setting || setting === "None") return undefined;
-    const today = new Date();
+/** The default due day a new task gets (a LocalDate), from Settings. */
+export function resolveDefaultDueDate(setting?: string | null): LocalDate | undefined {
+    const now = today();
     switch (setting) {
         case "Today":
-            return format(today, "yyyy-MM-dd");
+            return now;
         case "Tomorrow":
-            return format(addDays(today, 1), "yyyy-MM-dd");
+            return addDays(now, 1);
         case "Next Week":
-            return format(nextMonday(today), "yyyy-MM-dd");
+            // The coming Monday (a Monday today means next week's).
+            return addDays(now, 8 - (weekdayOf(now) || 7));
         default:
             return undefined;
     }

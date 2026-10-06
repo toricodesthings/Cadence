@@ -22,6 +22,7 @@ import {
 } from "@cadence/contracts/settings";
 import { upsertNotificationStateSchema, type NotificationState, type NotificationStateRow } from "@cadence/contracts/notification";
 import { uuidParamSchema } from "@cadence/contracts/common";
+import { isZone } from "@cadence/domain/time";
 
 function isPlainObject(value: unknown): value is Record<string, any> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -68,6 +69,9 @@ export function normalizeSettings(stored: Record<string, any>): SettingsView {
     if (stored.preferredView && !stored.tasks?.defaultView) {
         merged.tasks = { ...merged.tasks, defaultView: stored.preferredView };
     }
+
+    // time-legacy: "local" (before 0.26.3) is "device"
+    if (merged.dateTime?.timezone === "local") merged.dateTime = { ...merged.dateTime, timezone: "device" };
 
     return merged;
 }
@@ -220,6 +224,8 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .update(users)
                 .set({
                     settings: merged,
+                    // Pinning a zone makes it the user's zone at once, while "device" waits for the client's next sync.
+                    ...(isZone(merged.dateTime?.timezone) && { timeZone: merged.dateTime.timezone }),
                 })
                 .where(eq(users.id, userId))
                 .returning({ settings: users.settings });

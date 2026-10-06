@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     buildTasksQuery,
     getTaskSeriesId,
@@ -6,55 +6,82 @@ import {
     getTaskScheduleSummary,
     getTaskTimelineAnchor,
     isRecurringTaskInstance,
-    normalizeTaskWriteTemporalInput,
 } from "../../../../app/lib/utils/task/task-scheduling";
 import { formatTime } from "../../../../app/lib/utils/date-format";
+import { setUserZone, today } from "../../../../app/lib/utils/user-zone";
 import { makeTask } from "../../../helpers";
 
 describe("task scheduling helpers", () => {
-    it("classifies deadline, duration, timed, and legacy mixed tasks deterministically", () => {
+    beforeEach(() => setUserZone("America/Toronto"));
+    afterEach(() => vi.useRealTimers());
+
+    it("summarizes the four task shapes: unscheduled, day, days, timed", () => {
+        expect(getTaskScheduleSummary(makeTask())).toMatchObject({
+            kind: "unscheduled",
+            displayMode: "none",
+            primaryLabel: null,
+            anchorDate: null,
+        });
+
         expect(getTaskScheduleSummary(makeTask({ dueDate: "2026-03-09" }))).toMatchObject({
-            kind: "deadline_only",
+            kind: "day",
             displayMode: "deadline",
             primaryLabel: "Mar 9",
             secondaryLabel: "Deadline",
+            anchorDate: "2026-03-09",
         });
 
-        expect(
-            getTaskScheduleSummary(makeTask({ dueDate: "2026-03-09", scheduledEnd: "2026-03-12", isAllDay: true })),
-        ).toMatchObject({
-            kind: "all_day_duration",
+        expect(getTaskScheduleSummary(makeTask({ dueDate: "2026-03-09", endDate: "2026-03-12" }))).toMatchObject({
+            kind: "days",
             displayMode: "duration",
+            primaryLabel: "Mar 9 - Mar 12",
             secondaryLabel: "Duration",
+            anchorDate: "2026-03-09",
         });
 
         expect(
             getTaskScheduleSummary(
                 makeTask({
-                    isAllDay: false,
-                    scheduledStart: "2026-03-09T09:00:00.000Z",
-                    scheduledEnd: "2026-03-09T10:00:00.000Z",
+                    scheduledStart: "2026-03-09T13:00:00.000Z",
+                    scheduledEnd: "2026-03-09T14:30:00.000Z",
                 }),
             ),
         ).toMatchObject({
-            kind: "timed_block",
+            kind: "timed",
             displayMode: "timed",
+            primaryLabel: "Mar 9, 9:00 AM – 10:30 AM",
             secondaryLabel: "Time block",
-        });
-
-        expect(
-            getTaskScheduleSummary(
-                makeTask({
-                    isAllDay: false,
-                    dueDate: "2026-03-09",
-                    scheduledStart: "2026-03-09T09:00:00.000Z",
-                }),
-            ),
-        ).toMatchObject({
-            kind: "legacy_mixed_timed_deadline",
-            displayMode: "timed",
+            anchorDate: "2026-03-09",
         });
     });
+
+    it("anchors a timed task on the user's day of its start, not the UTC day", () => {
+        // 23:30 in Toronto on Mar 9 is already Mar 10 in UTC.
+        const task = makeTask({ scheduledStart: "2026-03-10T03:30:00.000Z" });
+        expect(getTaskScheduleSummary(task).anchorDate).toBe("2026-03-09");
+        setUserZone("Pacific/Kiritimati");
+        expect(getTaskScheduleSummary(task).anchorDate).toBe("2026-03-10");
+    });
+
+    it("a timed task with a deadline day is still the timed shape", () => {
+        expect(
+            getTaskScheduleSummary(makeTask({ dueDate: "2026-03-12", scheduledStart: "2026-03-09T13:00:00.000Z" })).kind,
+        ).toBe("timed");
+    });
+
+    it.each(["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto"])(
+        "shows an all-day task due 2026-10-05 on Oct 5 for a user in %s",
+        (zone) => {
+            // The same instant is Oct 5 in Kiritimati (UTC+14) and still Oct 4 in Pago Pago (UTC-11).
+            vi.useFakeTimers().setSystemTime(new Date("2026-10-04T20:00:00.000Z"));
+            setUserZone(zone);
+            const task = makeTask({ dueDate: "2026-10-05" });
+
+            expect(getTaskScheduleSummary(task)).toMatchObject({ primaryLabel: "Oct 5", anchorDate: "2026-10-05" });
+            // Today for this user decides "due today"; the stored day itself never moves.
+            expect(getTaskTimelineAnchor(task) === today()).toBe(zone === "Pacific/Kiritimati");
+        },
+    );
 
     it("serializes extended task filters for the backend contract", () => {
         expect(
@@ -63,12 +90,12 @@ describe("task scheduling helpers", () => {
                 hasNoProject: true,
                 hasNoDate: false,
                 effectiveOnOrBeforeDate: "2026-03-09",
-                scheduledRange: { start: "2026-03-01", end: "2026-03-31" },
+                range: { from: "2026-03-01", to: "2026-03-31" },
             }),
         ).toEqual({
             state: "ACTIVE",
-            scheduledRangeStart: "2026-03-01",
-            scheduledRangeEnd: "2026-03-31",
+            from: "2026-03-01",
+            to: "2026-03-31",
             hasNoProject: "true",
             hasNoDate: "false",
             effectiveOnOrBeforeDate: "2026-03-09",
@@ -77,10 +104,9 @@ describe("task scheduling helpers", () => {
 
     it("formats recurring series metadata without exposing raw RRULE text", () => {
         const task = makeTask({
-            isAllDay: false,
             scheduledStart: "2026-03-10T13:30:00.000Z",
             scheduledEnd: "2026-03-10T14:45:00.000Z",
-            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502",
         });
         const timeLabel = `${formatTime(task.scheduledStart!)} – ${formatTime(task.scheduledEnd!)}`;
 
@@ -102,7 +128,7 @@ describe("task scheduling helpers", () => {
 
     it("routes recurring instances back to their series master for mutations", () => {
         const instance = makeTask({
-            id: "series-1::2026-03-10T09:30:00.000Z",
+            id: "series-1::2026-03-10",
             seriesId: "series-1",
             isRecurringInstance: true,
         });
@@ -113,58 +139,24 @@ describe("task scheduling helpers", () => {
 
     it("labels passive recurring timeblocks as timetable anchors and resolves their occurrence date", () => {
         const passiveSeries = makeTask({
-            isAllDay: false,
             interactionMode: "timetable",
-            scheduledStart: "2026-03-10T09:30:00.000Z",
-            scheduledEnd: "2026-03-10T10:45:00.000Z",
-            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502T235959Z",
+            zone: "America/Toronto",
+            scheduledStart: "2026-03-10T13:30:00.000Z",
+            scheduledEnd: "2026-03-10T14:45:00.000Z",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502",
         });
 
         expect(getTaskScheduleSummary(passiveSeries)).toMatchObject({
-            kind: "timed_block",
+            kind: "timed",
             secondaryLabel: "Fixed",
         });
 
-        expect(
-            getTaskTimelineAnchor(passiveSeries, new Date("2026-03-11T08:00:00.000Z")),
-        ).toBe("2026-03-12");
+        // The next Tuesday/Thursday on or after Wednesday Mar 11 is Thursday Mar 12.
+        expect(getTaskTimelineAnchor(passiveSeries, "2026-03-11")).toBe("2026-03-12");
     });
 
-    it("normalizes task write temporal fields through the canonical local date path", () => {
-        expect(
-            normalizeTaskWriteTemporalInput({
-                title: "Book dentist",
-                dueDate: "2026-06-10T12:00:00.000",
-                isAllDay: true,
-            }),
-        ).toEqual({
-            title: "Book dentist",
-            dueDate: "2026-06-10",
-            isAllDay: true,
-        });
-
-        const timed = normalizeTaskWriteTemporalInput({
-            title: "Write brief",
-            scheduledStart: "2026-06-10T14:00:00.000",
-            scheduledEnd: "2026-06-10T15:30:00.000",
-            isAllDay: false,
-        });
-
-        expect(timed.scheduledStart).toBe(new Date("2026-06-10T14:00:00.000").toISOString());
-        expect(timed.scheduledEnd).toBe(new Date("2026-06-10T15:30:00.000").toISOString());
-    });
-
-    it("preserves already-valid task write temporal fields", () => {
-        expect(
-            normalizeTaskWriteTemporalInput({
-                dueDate: "2026-06-10",
-                scheduledStart: "2026-06-10T14:00:00.000Z",
-                scheduledEnd: "2026-06-10T15:30:00.000-04:00",
-            }),
-        ).toEqual({
-            dueDate: "2026-06-10",
-            scheduledStart: "2026-06-10T14:00:00.000Z",
-            scheduledEnd: "2026-06-10T15:30:00.000-04:00",
-        });
+    it("reads the series end from a LocalDate UNTIL", () => {
+        const summary = getTaskRecurrenceSummary(makeTask({ recurrenceRule: "FREQ=WEEKLY;BYDAY=MO;UNTIL=20261231", scheduledStart: null }));
+        expect(summary?.endLabel).toBe("Dec 31");
     });
 });

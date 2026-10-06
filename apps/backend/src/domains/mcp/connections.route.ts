@@ -7,7 +7,8 @@ import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
-import { resolveTimeZone } from "../../platform/date-utils";
+import { isZone } from "@cadence/domain/time";
+import { syncUserZone } from "../../platform/user-zone";
 import type { AuthVariables } from "../../platform/auth";
 import type { Env } from "../../types/env";
 import { approveConnectRequest, declineConnectUrl, liveConnectionIds, readConnectRequest, revokeConnection } from "./oauth";
@@ -32,8 +33,11 @@ export const connectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
     .post("/requests/:request/approve", apiValidator("param", requestParam), apiValidator("json", approveMcpConnectSchema), async (c) => {
         const { request } = c.req.valid("param");
         const { scopes, timezone } = c.req.valid("json");
-        if (resolveTimeZone(timezone) !== timezone) throw new AppError(400, "VALIDATION_ERROR", "Unknown time zone");
-        const redirectTo = await approveConnectRequest(c.env, c.get("userId"), request, [...new Set(scopes)], timezone);
+        if (!isZone(timezone)) throw new AppError(400, "VALIDATION_ERROR", "Unknown time zone");
+        const userId = c.get("userId");
+        // The browser's zone keeps users.time_zone current; MCP reads that, never the connection's copy.
+        await withRls(getDbClient(c.env), userId, (tx) => syncUserZone(tx, userId, timezone));
+        const redirectTo = await approveConnectRequest(c.env, userId, request, [...new Set(scopes)], timezone);
         return c.json({ data: { redirectTo } }, 201);
     })
     // POST /connections/requests/:request/decline

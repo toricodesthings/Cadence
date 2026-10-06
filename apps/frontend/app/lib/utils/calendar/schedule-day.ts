@@ -1,7 +1,9 @@
 import type { Task } from "@cadence/contracts/task";
-import { getEffectiveTaskDate, parseLocalDate } from "../date-format";
+import { type LocalDate } from "@cadence/domain/time";
+import { dayOfInstant } from "../date-format";
 import { isPassiveTimetableTask } from "../task/task-scheduling";
 import { loadWord } from "../task/day-load";
+import { daysIn } from "./calendar-math";
 
 /** How a scheduled thing feels: it passes (fixed), it lets go (routine), or it's owed (task). */
 export type ScheduleKind = "fixed" | "routine" | "task";
@@ -11,31 +13,41 @@ export function scheduleKind(task: Pick<Task, "isHabit" | "interactionMode">): S
     return isPassiveTimetableTask(task) ? "fixed" : "task";
 }
 
+/**
+ * The days a task shows on: a timed block on the user's day of its start (a series instance carries its own
+ * occurrence start / due day); an all-day task on `dueDate`, through `endDate` when it spans days.
+ */
+export function taskDays(task: Pick<Task, "dueDate" | "endDate" | "scheduledStart">): LocalDate[] {
+    if (task.scheduledStart) return [dayOfInstant(task.scheduledStart)];
+    if (!task.dueDate) return [];
+    return task.endDate && task.endDate > task.dueDate ? daysIn(task.dueDate, task.endDate) : [task.dueDate];
+}
+
 /** One grouping for every phone surface, routines included, so marks and lists never disagree. */
 export function groupByDate(tasks: Task[]) {
-    const map = new Map<string, Task[]>();
+    const map = new Map<LocalDate, Task[]>();
     for (const task of tasks) {
-        const anchor = task.scheduledStart ?? task.dueDate;
-        if (!anchor) continue;
-        const iso = getEffectiveTaskDate(anchor, task.isAllDay);
-        const list = map.get(iso);
-        if (list) list.push(task);
-        else map.set(iso, [task]);
+        for (const day of taskDays(task)) {
+            const list = map.get(day);
+            if (list) list.push(task);
+            else map.set(day, [task]);
+        }
     }
     return map;
 }
 
-export function isTimed(task: Task) {
-    return !task.isAllDay && Boolean(task.scheduledStart) && task.scheduledStart!.length > 10;
+/** A timed block: it has a start (all-day tasks have none). */
+export function isTimed(task: Pick<Task, "scheduledStart">) {
+    return Boolean(task.scheduledStart);
 }
 
 export function itemStart(task: Task) {
-    return parseLocalDate(task.scheduledStart!);
+    return new Date(task.scheduledStart!);
 }
 
 /** Routines are moments; everything else runs to its end, or its estimate. */
 export function itemEnd(task: Task) {
-    if (task.scheduledEnd) return parseLocalDate(task.scheduledEnd);
+    if (task.scheduledEnd) return new Date(task.scheduledEnd);
     const minutes = task.isHabit ? 0 : task.durationEstimate ?? 30;
     return new Date(itemStart(task).getTime() + minutes * 60_000);
 }

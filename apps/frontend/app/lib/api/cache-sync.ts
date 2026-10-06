@@ -7,26 +7,19 @@ import type { Tag } from "@cadence/contracts/tag";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { transformListCache } from "./cache-guards";
 import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";
-import { toISODate } from "../utils/date-format";
 
 function matchesTaskList(task: Task, filters: Record<string, unknown>) {
     if (filters.state && task.state !== filters.state) return false;
     if (filters.projectId && task.projectId !== filters.projectId) return false;
     if (filters.hasNoProject === true && task.projectId !== null) return false;
     if (filters.hasNoDate === true && (task.dueDate || task.scheduledStart || task.scheduledEnd)) return false;
-    if (filters.scheduledDate) {
-        const date = String(filters.scheduledDate);
+    if (filters.range && typeof filters.range === "object") {
+        // Anchors and bounds are both LocalDates (inclusive): plain string compare.
+        const range = filters.range as { from?: string; to?: string };
         const anchor = getTaskEffectiveAnchor(task);
-        if (anchor !== date) return false;
-    }
-    if (filters.scheduledRange && typeof filters.scheduledRange === "object") {
-        const range = filters.scheduledRange as { start?: string; end?: string };
-        const compareValue = getTaskEffectiveAnchor(task);
-        if (!compareValue) return false;
-        // Anchors are local YYYY-MM-DD; normalise timestamp bounds to the same shape.
-        const toDateOnly = (value: string) => (value.includes("T") ? toISODate(new Date(value)) : value);
-        if (range.start && compareValue < toDateOnly(range.start)) return false;
-        if (range.end && compareValue > toDateOnly(range.end)) return false;
+        if (!anchor) return false;
+        if (range.from && anchor < range.from) return false;
+        if (range.to && anchor > range.to) return false;
     }
     if (filters.effectiveOnOrBeforeDate) {
         const anchor = getTaskEffectiveAnchor(task);

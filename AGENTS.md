@@ -18,6 +18,17 @@ The graph tracks structure, not behaviour, and lags uncommitted edits. Open the 
 - **Edit, don't append.** Replace outdated lines; if you add one, merge or cut another. Keep them from growing.
 - No history, dated notes, or plans in AGENTS.md. Those belong in `/docs`.
 
+## Time: one model, everywhere
+
+Every date or time value is exactly one of four types. Name the type in the contract, and never convert between types outside `@cadence/domain/time`.
+
+- **Instant:** `timestamptz` / ISO with offset (`instantSchema`). Timed starts and ends, reminders, audit times.
+- **LocalDate:** `date` / `YYYY-MM-DD` (`localDateSchema`). All-day days, deadlines (a deadline is a day), multi-day ends, hide-until, routine days. Never stored or compared as an instant.
+- **WallTime:** `HH:MM`, always with the day and zone it belongs to (routine times).
+- **Zone:** IANA name. The user's is `users.time_zone`, read on the server only through `userZone`; the client keeps it in sync with the device unless Settings pins one.
+
+Today is `todayIn(zone)`, a day is `dayOf(instant, zone)`, a time on a day is `atLocal(day, time, zone)`, and repeating series expand with `expandSeries` in their zone (same local time across DST). Display goes through `formatInZone`. Banned (`scripts/check-time.mjs`): slicing a timestamp for a day, `toISOString()` for a day, `new Date("…T00:00")`-style parsing, `getTimezoneOffset`, `Date` local getters in day logic, `AT TIME ZONE 'UTC'`, and date-or-datetime union fields. The `test:tz` matrix runs the suites in four zones.
+
 ## Versions and releases
 
 - The version lives **only** in the root `package.json`. The app label, in-app changelog, and desktop/Tauri/Cargo versions are derived at build time. Never type a version anywhere else.

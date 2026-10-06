@@ -22,9 +22,9 @@ it("runs focused row shortcuts, with explicit no-day fields and completion", () 
     const row = screen.getByRole("article");
     row.focus();
     fireEvent.keyDown(row, { key: "2" });
-    expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ scheduledDate: "2026-09-24" }));
+    expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ scheduledDay: "2026-09-24" }));
     fireEvent.keyDown(row, { key: "3" });
-    expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ isAllDay: true, dueDate: null, scheduledStart: null }));
+    expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ dueDate: null, scheduledStart: null, scheduledEnd: null }));
     fireEvent.keyDown(row, { key: "x" });
     expect(mocks.process).toHaveBeenLastCalledWith(expect.objectContaining({ complete: true }));
     fireEvent.keyDown(row, { key: "Enter" }); expect(open).toHaveBeenCalledOnce();

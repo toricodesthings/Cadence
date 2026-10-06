@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import * as Popover from "../primitives/Popover";
-import { addDays } from "date-fns";
+import { addDays, weekdayOf, type LocalDate } from "@cadence/domain/time";
 import { Archive, ArchiveRestore, Bell, CalendarClock, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3, FolderOpen, ListChecks, Palette, Pause, Play, SlidersHorizontal, StickyNote, Tag, Target, Trash2 } from "lucide-react";
 import type { Habit } from "@cadence/contracts/habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
@@ -25,7 +25,8 @@ import { Switch } from "../primitives/Switch";
 import { TimePicker } from "../primitives/TimePicker";
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { getTaskRecurrenceSummary } from "../../lib/utils/task/task-scheduling";
-import { formatShortDate, formatTime, getMonthDateRange, getWeekDates, MONTH_NAMES, toISODate, WEEK_START_INDEX } from "../../lib/utils/date-format";
+import { formatMonthYear, formatShortDate, formatTime, fromTimeValue, getMonthDateRange, getWeekDays, isoMonthStart, weekdayLabels, WEEK_START_INDEX } from "../../lib/utils/date-format";
+import { today as todayDay, useToday } from "../../lib/utils/user-zone";
 import { ROUTINE_DEFAULT_ACCENT, ROUTINE_SWATCHES, routineTone } from "../../lib/utils/habits";
 import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { RoutineMark } from "./RoutineMark";
@@ -39,9 +40,9 @@ const VALUE_TIME = "border-transparent! bg-transparent! px-0! transition-colors 
 const MENU_ITEM = "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 text-left text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
 /** "Pause ▾": how long, from today. Sits beside Archive. */
-function PauseMenu({ onPause }: { onPause: (until: Date) => void }) {
+function PauseMenu({ onPause }: { onPause: (until: LocalDate) => void }) {
     const [open, setOpen] = useState(false);
-    const pause = (until: Date) => { onPause(until); setOpen(false); };
+    const pause = (until: LocalDate) => { onPause(until); setOpen(false); };
     return (
         <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Trigger asChild>
@@ -53,15 +54,20 @@ function PauseMenu({ onPause }: { onPause: (until: Date) => void }) {
             </Popover.Trigger>
             <Popover.Content align="end" side="top" className="w-60 p-1.5" aria-label="Pause for">
                 {PAUSES.map(([label, days]) => (
-                    <button key={days} type="button" className={MENU_ITEM} onClick={() => pause(addDays(new Date(), days - 1))}>{label}</button>
+                    <button key={days} type="button" className={MENU_ITEM} onClick={() => pause(addDays(todayDay(), days - 1))}>{label}</button>
                 ))}
-                <DatePicker value={null} label="Pause until" onChange={(date) => { if (date) pause(new Date(`${date}T00:00:00`)); }}>
+                <DatePicker value={null} label="Pause until" onChange={(date) => { if (date) pause(date); }}>
                     <button type="button" className={MENU_ITEM}>Until a date…</button>
                 </DatePicker>
                 <p className="border-t border-twilight-border/30 px-2.5 pb-1 pt-2 text-xs text-twilight-text-muted">A pause starts today. Days you already logged stay.</p>
             </Popover.Content>
         </Popover.Root>
     );
+}
+
+function shiftMonth(day: LocalDate, delta: number): LocalDate {
+    const index = Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7)) - 1 + delta;
+    return isoMonthStart(Math.floor(index / 12), index % 12);
 }
 
 /** This routine in the range's data (a week or a month), with its logs. */
@@ -79,7 +85,7 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
     const [section, setSection] = useState<"notes" | "steps" | "details" | "history" | null>(habit.notes?.trim() || habit.description?.trim() ? "notes" : null);
     const [notes, setNotes] = useState(habit.notes ?? "");
     const [purpose, setPurpose] = useState(habit.description ?? "");
-    const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    const [month, setMonth] = useState<LocalDate>(() => isoMonthStart(Number(todayDay().slice(0, 4)), Number(todayDay().slice(5, 7)) - 1));
     const [dayTimesOpen, setDayTimesOpen] = useState(Boolean(habit.targetTimes));
     const convertRepeat = useConvertRepeat();
     const { data: settings } = useSettings();
@@ -93,16 +99,16 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
     const actions = useRoutineActions(habit, { onGone: onClose });
     const { data: projects = [] } = useProjects();
 
-    const today = toISODate(new Date());
-    const week = useMemo(() => getWeekDates(new Date(), weekStartsOn), [weekStartsOn]);
-    const thisWeek = useRoutineInRange(habit, { start: toISODate(week[0]), end: toISODate(week[6]) });
+    const today = useToday();
+    const week = useMemo(() => getWeekDays(today, weekStartsOn), [today, weekStartsOn]);
+    const thisWeek = useRoutineInRange(habit, { start: week[0], end: week[6] });
     const weekLogs = logsByDay(thisWeek ?? habit);
-    const historyMonth = useRoutineInRange(habit, getMonthDateRange(month.getFullYear(), month.getMonth()), section === "history");
+    const historyMonth = useRoutineInRange(habit, getMonthDateRange(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1), section === "history");
 
     const status = habit.archived ? "Archived" : actions.isPaused ? `Paused until ${formatShortDate(habit.pausedUntil!)}` : "Active";
     const routineSummary = `${getTaskRecurrenceSummary({
         recurrenceRule: habit.recurrenceRule,
-        scheduledStart: habit.targetTime ? new Date(`${today}T${habit.targetTime}:00`).toISOString() : null,
+        scheduledStart: habit.targetTime ? fromTimeValue(today, habit.targetTime) : null,
         scheduledEnd: null,
     })?.label ?? "Repeats"}${habit.targetTime ? "" : ", any time"}`;
     const routineStatus = habit.archived || actions.isPaused ? status : showStreaks && habit.currentStreak > 0 ? `${habit.currentStreak} in a row` : `${habit.totalCompletions} check-ins`;
@@ -124,12 +130,11 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                     </div>
                     {habit.archived ? null : (
                         <div role="group" aria-label="This week" className="grid grid-cols-7 gap-1">
-                            {week.map((date) => {
-                                const iso = toISODate(date);
+                            {week.map((iso) => {
                                 return (
                                     <div key={iso} className="flex flex-col items-center gap-1">
                                         <span aria-hidden="true" className={`text-[10px] font-semibold uppercase ${iso === today ? "text-[var(--routine-tone)]" : "text-twilight-text-muted"}`}>
-                                            {date.toLocaleDateString("en-US", { weekday: "narrow" })}
+                                            {weekdayLabels(1, 0)[weekdayOf(iso)]}
                                         </span>
                                         <RoutineDayCell size="sm" habit={habit} date={iso} log={weekLogs.get(iso)} today={today} bloom={bloom} />
                                     </div>
@@ -235,29 +240,29 @@ export function HabitEditor({ habit, onClose, detailMode = "peek", onDetailModeC
                         </DetailGroup>
 
                     </section>
-                ) : <PanelTrigger icon={SlidersHorizontal} title="Details" summary={[status, habit.targetTime ? formatTime(`${today}T${habit.targetTime}:00`) : null, habit.reminderEnabled ? "Reminder on" : null].filter(Boolean).join(" · ")} onOpen={() => setSection("details")} />}
+                ) : <PanelTrigger icon={SlidersHorizontal} title="Details" summary={[status, habit.targetTime ? formatTime(fromTimeValue(today, habit.targetTime)) : null, habit.reminderEnabled ? "Reminder on" : null].filter(Boolean).join(" · ")} onOpen={() => setSection("details")} />}
 
                 {section === "history" ? (
                     <section className={`${CARD} space-y-4 px-4 py-3`}>
                         <PanelHeader title="History" onDone={() => setSection(null)} />
                         <div className="flex items-center justify-between">
-                            <Button variant="ghost" size="icon" onClick={() => setMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))} aria-label="Previous month">
+                            <Button variant="ghost" size="icon" onClick={() => setMonth((d) => shiftMonth(d, -1))} aria-label="Previous month">
                                 <ChevronLeft size={15} aria-hidden="true" />
                             </Button>
-                            <span className="text-[13px] font-semibold tabular-nums text-twilight-text">{MONTH_NAMES[month.getMonth()]} {month.getFullYear()}</span>
-                            <Button variant="ghost" size="icon" onClick={() => setMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))} aria-label="Next month">
+                            <span className="text-[13px] font-semibold tabular-nums text-twilight-text">{formatMonthYear(month)}</span>
+                            <Button variant="ghost" size="icon" onClick={() => setMonth((d) => shiftMonth(d, 1))} aria-label="Next month">
                                 <ChevronRight size={15} aria-hidden="true" />
                             </Button>
                         </div>
                         {historyMonth ? (
-                            <RoutineMonthGrid habit={historyMonth} year={month.getFullYear()} month={month.getMonth()} weekStartsOn={weekStartsOn} today={today} bloom={bloom} />
+                            <RoutineMonthGrid habit={historyMonth} year={Number(month.slice(0, 4))} month={Number(month.slice(5, 7)) - 1} weekStartsOn={weekStartsOn} today={today} bloom={bloom} />
                         ) : <div className="h-48 animate-pulse rounded-2xl bg-white/[0.03]" />}
                         <dl className="space-y-2 text-sm">
                             {[["Total check-ins", habit.totalCompletions], ...(showStreaks ? [["Current run", habit.currentStreak], ["Longest run", habit.longestStreak]] : [])].map(([label, value]) => (
                                 <div key={label} className="flex justify-between gap-2"><dt className="text-twilight-text-muted">{label}</dt><dd className="text-twilight-text">{value}</dd></div>
                             ))}
                         </dl>
-                        <p className="text-xs text-twilight-text-muted">Created {new Date(habit.createdAt).toLocaleDateString()}</p>
+                        <p className="text-xs text-twilight-text-muted">Created {formatShortDate(habit.createdAt)}</p>
                     </section>
                 ) : <PanelTrigger icon={CalendarDays} title="History" summary={showStreaks && habit.currentStreak > 0 ? `${habit.totalCompletions} check-ins · ${habit.currentStreak} in a row` : `${habit.totalCompletions} check-ins`} onOpen={() => setSection("history")} />}
 

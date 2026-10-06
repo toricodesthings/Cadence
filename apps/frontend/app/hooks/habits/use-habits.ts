@@ -3,14 +3,14 @@ import { useApiClient } from "../auth/use-api-client";
 import type { ApiClient } from "../../lib/api/client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
+import type { LocalDate } from "@cadence/domain/time";
 import { useAuthState } from "../auth/use-auth-state";
 
 interface UseHabitsRangeOptions {
-    start: string; // YYYY-MM-DD
-    end: string;
+    start: LocalDate;
+    end: LocalDate;
     archived?: boolean;
     enabled?: boolean;
-    timezone?: string;
 }
 
 /**
@@ -18,25 +18,24 @@ interface UseHabitsRangeOptions {
  * just today). Every range shares the `weeklyAll` key prefix, so each
  * optimistic update covers them all.
  */
-export function useHabitsRange({ start, end, archived = false, enabled = true, timezone }: UseHabitsRangeOptions) {
+export function useHabitsRange({ start, end, archived = false, enabled = true }: UseHabitsRangeOptions) {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
 
     return useQuery({
-        ...habitsRangeQueryOptions(client, { start, end, archived, timezone }),
+        ...habitsRangeQueryOptions(client, { start, end, archived }),
         enabled: enabled && !!start && !!end && authReady && isAuthenticated,
     });
 }
 
 /** One range's query; shared with the offline prefetch so their keys match. */
-export function habitsRangeQueryOptions(client: ApiClient, { start, end, archived = false, timezone }: Omit<UseHabitsRangeOptions, "enabled">) {
-    const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+export function habitsRangeQueryOptions(client: ApiClient, { start, end, archived = false }: Omit<UseHabitsRangeOptions, "enabled">) {
     return queryOptions({
-        queryKey: [...queryKeys.habits.weekly({ start, end, timezone: tz }), archived],
+        queryKey: [...queryKeys.habits.weekly({ start, end }), archived],
         staleTime: STALE_TIMES.HABITS,
         queryFn: async () => {
             const res = await client.api.habits.weekly.$get({
-                query: { start, end, archived: String(archived), timezone: tz },
+                query: { start, end, archived: String(archived) },
             });
             return unwrapResponse(res);
         },

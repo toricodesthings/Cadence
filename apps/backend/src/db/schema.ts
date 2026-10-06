@@ -78,7 +78,7 @@ export const users = pgTable('users', {
                 actions: ["date", "priority", "project"],
             },
         },
-        dateTime: { weekStart: 'Sunday', timezone: 'local', timeDisplay: '12h' },
+        dateTime: { weekStart: 'Sunday', timezone: 'device', timeDisplay: '12h' },
         calendar: {
             clutter: {
                 showAllDay: true,
@@ -92,6 +92,9 @@ export const users = pgTable('users', {
         notifications: { email: true, browser: false, taskReminders: true, habitReminders: true, dueDateAlerts: true },
         shortcuts: {}
     }).notNull(), // User preferences (view mode, theme, etc.)
+    // The user's IANA zone: the only source every server path reads (`userZone`). The client keeps it
+    // equal to the device's zone unless settings pin one. 'UTC' until the first client sync.
+    timeZone: text('time_zone').default('UTC').notNull(),
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
 }, () => ({
     rlsPolicy: pgPolicy("users_owner_access", {
@@ -241,7 +244,7 @@ export const mcpConnections = pgTable('mcp_connections', {
     clientName: text('client_name').notNull(),
     redirectUri: text('redirect_uri').notNull(),
     scopes: text('scopes').array().notNull(),
-    timezone: text('timezone'),                                  // browser zone at connect; used when settings say "local"
+    timezone: text('timezone'),                                  // pre-0.26.3 browser zone at connect; no longer read (users.time_zone is the source)
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     lastUsedAt: timestamptz('last_used_at'),
     revokedAt: timestamptz('revoked_at'),
@@ -306,11 +309,14 @@ export const tasks = pgTable('tasks', {
     // High-Performance Drag & Drop
     orderIndex: doublePrecision('order_index').notNull(), // Fractional index (1.5, 2.75) for rapid reordering without collision
 
-    // The Calendar Unified Layer
-    isAllDay: boolean('is_all_day').default(true).notNull(), // Does it float at the top of the day, or exist in a time block?
-    dueDate: timestamptz('due_date'), // The deadline
-    scheduledStart: timestamptz('scheduled_start'), // e.g. Tuesday at 2 PM
-    scheduledEnd: timestamptz('scheduled_end'), // e.g. Tuesday at 3 PM
+    // The Calendar Unified Layer: a day (LocalDate) or a timed block (Instants + the zone it was planned in).
+    // All-day = no scheduled_start. The pre-0.26.3 columns (is_all_day, due_date, not_before) stay in the table
+    // until the contract migration; a trigger keeps them in step.
+    dueDate: date('due_on', { mode: 'string' }), // The day an all-day task sits on, or its deadline
+    endDate: date('end_on', { mode: 'string' }), // Inclusive last day of an all-day multi-day task
+    scheduledStart: timestamptz('scheduled_start'), // Timed only, e.g. Tuesday at 2 PM
+    scheduledEnd: timestamptz('scheduled_end'), // Timed only, e.g. Tuesday at 3 PM
+    zone: text('zone'), // The zone a timed task was planned in; repeating series expand in it
     durationEstimate: integer('duration_estimate'), // If unscheduled, how big should the block be when dragged to the calendar? (in minutes)
     timezoneLocked: boolean('timezone_locked').default(false).notNull(), // If TRUE, scheduledStart stays strictly at "3 PM" regardless of user traveling timezones
 
@@ -332,7 +338,7 @@ export const tasks = pgTable('tasks', {
     waitingOn: text('waiting_on'),
     waitingReminder: timestamptz('waiting_reminder'),
     effort: integer('effort'), // 1=Low, 2=Medium, 3=High, NULL=unset
-    notBefore: timestamptz('not_before'),
+    notBefore: date('hidden_until', { mode: 'string' }), // Hidden until this day
 
     createdAt: timestamptz('created_at').default(sql`now()`).notNull(),
     updatedAt: timestamptz('updated_at').default(sql`now()`).notNull(),
@@ -341,13 +347,18 @@ export const tasks = pgTable('tasks', {
         // Every read is one user's: lists in manual order, Done/Trash newest first, date windows.
         userListIdx: index('tasks_user_list_idx').on(table.userId, table.state, table.isPinned.desc().nullsFirst(), table.orderIndex),
         userUpdatedIdx: index('tasks_user_updated_idx').on(table.userId, table.state, table.updatedAt, table.id),
-        userAnchorIdx: index('tasks_user_anchor_idx').on(table.userId, sql`coalesce(${table.scheduledStart}, ${table.dueDate})`),
+        userDueIdx: index('tasks_user_due_idx').on(table.userId, table.dueDate),
+        userStartIdx: index('tasks_user_start_idx').on(table.userId, table.scheduledStart),
         userSeriesIdx: index('tasks_user_series_idx').on(table.userId).where(sql`${table.recurrenceRule} IS NOT NULL`),
-        // The daily cron's sweep across all users.
+        // The cron's overdue sweep across all users.
         overdueIdx: index('tasks_overdue_idx').on(table.dueDate).where(sql`${table.state} = 'ACTIVE'`),
         projectIdIdx: index('tasks_project_id_idx').on(table.projectId),
         sectionIdIdx: index('tasks_section_id_idx').on(table.sectionId),
         effortCheck: check('tasks_effort_check', sql`effort IS NULL OR effort BETWEEN 1 AND 3`),
+        timedHasZoneCheck: check('tasks_timed_zone_check', sql`scheduled_start IS NULL OR zone IS NOT NULL`),
+        noEndWithoutStartCheck: check('tasks_end_needs_start_check', sql`scheduled_start IS NOT NULL OR scheduled_end IS NULL`),
+        endOnCheck: check('tasks_end_on_check', sql`end_on IS NULL OR (due_on IS NOT NULL AND end_on >= due_on)`),
+        timedNoEndOnCheck: check('tasks_timed_end_on_check', sql`scheduled_start IS NULL OR end_on IS NULL`),
         rlsPolicy: pgPolicy("tasks_owner_access", {
             as: "permissive",
             for: "all",
@@ -689,7 +700,7 @@ export const taskMetrics = pgTable(
         rescheduleCount: integer("reschedule_count").default(0).notNull(),
         delayCount: integer("delay_count").default(0).notNull(),
         createdToDone: integer("created_to_done"),
-        firstScheduled: timestamptz("first_scheduled"),
+        firstScheduled: date("first_scheduled", { mode: "string" }), // the day the task was first rescheduled to
         completedAt: timestamptz("completed_at"),
         createdAt: timestamptz("created_at")
             .default(sql`now()`)
@@ -819,7 +830,7 @@ export const taskNlpMetadata = pgTable(
         parseResult: jsonb("parse_result").$type<Record<string, unknown>>().default({}).notNull(),
         confidenceTier: confidenceTierEnum("confidence_tier").default("medium").notNull(),
         // ── Resolved columns (queryable without unpacking JSON) ──
-        resolvedDueDate: timestamptz("resolved_due_date"),
+        resolvedDueDate: date("resolved_due_date", { mode: "string" }),
         resolvedScheduledStart: timestamptz("resolved_scheduled_start"),
         resolvedScheduledEnd: timestamptz("resolved_scheduled_end"),
         resolvedRecurrenceRule: text("resolved_recurrence_rule"),

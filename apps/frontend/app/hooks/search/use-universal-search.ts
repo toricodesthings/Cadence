@@ -7,7 +7,8 @@ import { useProjects } from "../projects/use-projects";
 import { useSections } from "../sections/use-sections";
 import { useFocusViewStore } from "../../stores/focus-view-store";
 import { getTaskTimelineAnchor, isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
-import { toISODate } from "../../lib/utils/date-format";
+import { today as getToday } from "../../lib/utils/user-zone";
+import type { Task } from "@cadence/contracts/task";
 import type { FocusKind } from "./use-route-focus";
 
 /** Type-safe null filter */
@@ -145,16 +146,7 @@ function extractMarkdownHeadings(input: string | null | undefined) {
 
 // ── Route resolution ──────────────────────────────────────────────
 
-function resolveTaskRoute(task: {
-    state: string;
-    projectId: string | null;
-    dueDate: string | null;
-    scheduledStart: string | null;
-    interactionMode: "task" | "timetable";
-    recurrenceRule: string | null;
-    scheduledEnd: string | null;
-    isAllDay: boolean;
-}): { route: string; context: string; scope?: string } {
+function resolveTaskRoute(task: Task): { route: string; context: string; scope?: string } {
     if (task.state === "COMPLETE") return { route: "/completed", context: "Completed" };
     if (task.state === "ARCHIVED") return { route: "/trash", context: "Trash" };
 
@@ -163,8 +155,8 @@ function resolveTaskRoute(task: {
         return { route: "/schedule", context: "Schedule anchor" };
     }
 
-    const today = toISODate(new Date());
-    const effectiveDate = getTaskTimelineAnchor(task) ?? task.dueDate ?? task.scheduledStart;
+    const today = getToday();
+    const effectiveDate = getTaskTimelineAnchor(task);
 
     if (task.projectId) return { route: `/project/${task.projectId}`, context: "List" };
     if (effectiveDate && effectiveDate <= today) return { route: "/today", context: "Today", scope: effectiveDate < today ? "today-overdue" : "today" };

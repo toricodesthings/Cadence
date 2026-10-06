@@ -1,9 +1,11 @@
 import { Calendar, FolderOpen, Hash } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
+import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
+import type { Instant, LocalDate } from "@cadence/domain/time";
 import type { TaskPriority } from "@cadence/contracts/task";
 import { PRIORITY_ICON, PRIORITY_OPTIONS } from "./task-choice-options";
 import type { UserSettings } from "../../types/settings";
@@ -14,20 +16,15 @@ interface QuickAddActionTrayProps {
     quickAddSettings?: UserSettings["tasks"]["quickAdd"];
     projectLocked?: boolean;
     excludeActions?: QuickAddAction[];
-    dueDate: string | null;
-    scheduledStart: string | null;
-    scheduledEnd?: string | null;
+    dueDate: LocalDate | null;
+    endDate?: LocalDate | null;
+    scheduledStart: Instant | null;
+    scheduledEnd?: Instant | null;
     recurrenceRule: string | null;
     priority: TaskPriority | null;
     projectId: string | null;
     tagIds: string[];
-    onScheduleChange: (updates: {
-        dueDate: string | null;
-        scheduledStart: string | null;
-        scheduledEnd?: string | null;
-        recurrenceRule: string | null;
-        isAllDay: boolean;
-    }) => void;
+    onScheduleChange: (updates: ScheduleUpdates) => void;
     onPriorityChange: (value: TaskPriority | null) => void;
     onProjectChange: (value: string | null) => void;
     onToggleTag: (tagId: string) => void;
@@ -43,6 +40,7 @@ export function QuickAddActionTray({
     projectLocked = false,
     excludeActions = [],
     dueDate,
+    endDate,
     scheduledStart,
     scheduledEnd,
     recurrenceRule,
@@ -75,6 +73,7 @@ export function QuickAddActionTray({
                 return (
                     <DeadlinePickerPopover
                         dueDate={dueDate}
+                        endDate={endDate}
                         scheduledStart={scheduledStart}
                         scheduledEnd={scheduledEnd}
                         recurrenceRule={recurrenceRule}

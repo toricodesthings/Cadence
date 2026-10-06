@@ -6,7 +6,7 @@ import { habitCache } from "./optimistic-helpers";
 import type { Habit, InsertHabit } from "@cadence/contracts/habit";
 import { reconcileHabitInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
-import { toISODate } from "../../lib/utils/date-format";
+import { today as getToday } from "../../lib/utils/user-zone";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 import { clientIdFor } from "../../lib/api/optimistic-id";
@@ -64,10 +64,10 @@ export function useCreateHabit() {
                 (old) => transformListCache(old, (items) => [...items, optimisticHabit], { initialize: true }),
             );
 
-            const today = toISODate(new Date());
+            const today = getToday();
             const optimisticWithLog: Habit = {
                 ...optimisticHabit,
-                logs: [{ id: `virtual-${optimisticHabit.id}-${today}`, habitId: optimisticHabit.id, status: "PENDING", targetDate: `${today}T00:00:00.000Z`, completedAt: null }],
+                logs: [{ id: `virtual-${optimisticHabit.id}-${today}`, habitId: optimisticHabit.id, status: "PENDING", targetDate: today, completedAt: null }],
             };
 
             queryClient

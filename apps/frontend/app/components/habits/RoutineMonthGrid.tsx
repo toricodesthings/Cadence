@@ -1,6 +1,7 @@
+import { addDays } from "@cadence/domain/time";
 import { useMemo, type CSSProperties } from "react";
 import type { Habit } from "@cadence/contracts/habit";
-import { getDaysInMonth, getFirstDayOfWeek, toISODate, weekdayLabels } from "../../lib/utils/date-format";
+import { dayOfInstant, formatMonthYear, getDaysInMonth, getFirstDayOfWeek, isoDay, isoMonthStart, weekdayLabels } from "../../lib/utils/date-format";
 import { routineTone } from "../../lib/utils/habits";
 import { useRovingGrid } from "../../hooks/ui/use-roving-grid";
 import { RoutineDayCell } from "./RoutineDayCell";
@@ -12,7 +13,7 @@ export function monthStats(habit: Habit, today: string) {
     let run = 0;
     let longest = 0;
     for (const log of [...(habit.logs ?? [])].sort((a, b) => a.targetDate.localeCompare(b.targetDate))) {
-        if (log.targetDate.slice(0, 10) > today) break;
+        if (log.targetDate > today) break;
         if (log.status === "COMPLETED") {
             checkIns++;
             longest = Math.max(longest, ++run);
@@ -51,15 +52,14 @@ export function RoutineMonthGrid({
     const weeks = useMemo(() => {
         const cells: Array<string | null> = [
             ...Array(getFirstDayOfWeek(year, month, weekStartsOn)).fill(null),
-            ...Array.from({ length: getDaysInMonth(year, month) }, (_, i) => toISODate(new Date(year, month, i + 1))),
+            ...Array.from({ length: getDaysInMonth(year, month) }, (_, i) => isoDay(year, month, i + 1)),
         ];
         while (cells.length % 7) cells.push(null);
         const rows = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
         if (!fromFirstWeek) return rows;
-        const created = new Date(habit.createdAt);
-        created.setDate(created.getDate() - 1); // the day before creation can be logged too
-        const firstLog = habit.logs?.map((log) => log.targetDate.slice(0, 10)).sort()[0];
-        const first = [toISODate(created), firstLog].filter(Boolean).sort()[0]!;
+        const created = addDays(dayOfInstant(habit.createdAt), -1); // the day before creation can be logged too
+        const firstLog = habit.logs?.map((log) => log.targetDate).sort()[0];
+        const first = [created, firstLog].filter(Boolean).sort()[0]!;
         return rows.filter((row) => row.some((iso) => iso && iso >= first));
     }, [year, month, weekStartsOn, fromFirstWeek, habit.createdAt, habit.logs]);
 
@@ -74,7 +74,7 @@ export function RoutineMonthGrid({
     if (!weeks.length) return <p className="py-6 text-center text-xs text-twilight-text-muted">Started after this month.</p>;
 
     return (
-        <div role="grid" aria-label={`${habit.title}, ${new Date(year, month).toLocaleDateString(undefined, { month: "long", year: "numeric" })}`} {...gridProps} style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties} className="space-y-2">
+        <div role="grid" aria-label={`${habit.title}, ${formatMonthYear(isoMonthStart(year, month))}`} {...gridProps} style={{ "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties} className="space-y-2">
             <div role="row" className="grid grid-cols-7 gap-1">
                 {weekdayLabels(2, weekStartsOn).map((label) => (
                     <span key={label} role="columnheader" className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-twilight-text-muted">{label}</span>

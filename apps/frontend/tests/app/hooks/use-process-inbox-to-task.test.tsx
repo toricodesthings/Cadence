@@ -46,7 +46,6 @@ describe("useProcessInboxToTask", () => {
             dueDate: "2026-03-27",
             scheduledStart: "2026-03-27T15:30:00.000Z",
             scheduledEnd: "2026-03-27T16:00:00.000Z",
-            isAllDay: false,
             priority: 2,
         });
 
@@ -60,8 +59,7 @@ describe("useProcessInboxToTask", () => {
                 dueDate: "2026-03-27",
                 scheduledStart: "2026-03-27T15:30:00.000Z",
                 scheduledEnd: "2026-03-27T16:00:00.000Z",
-                isAllDay: false,
-                priority: 2,
+                    priority: 2,
             }),
         });
     });

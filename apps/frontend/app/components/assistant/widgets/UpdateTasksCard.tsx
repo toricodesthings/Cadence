@@ -6,7 +6,6 @@ import { TaskDestination } from "./TaskDestination";
 import { TagNamePills } from "./TaskBatchCard";
 import { NoteDiff, useNoteProposal, type NoteProposal } from "./note-proposal";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-options";
-import { normalizeTaskWriteTemporalInput } from "../../../lib/utils/task/task-scheduling";
 import type { UpdateTaskInput } from "@cadence/contracts/task";
 
 /** The change `update_tasks` applies to every listed task. */
@@ -30,7 +29,7 @@ export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext }) {
     const lookupTags = useTagsLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
     const taskIds: string[] = ctx.part?.input?.taskIds ?? [];
-    const patch = normalizeTaskWriteTemporalInput((ctx.part?.input?.patch ?? {}) as TaskPatch);
+    const patch = (ctx.part?.input?.patch ?? {}) as TaskPatch;
     const count = taskIds.length;
     const kept = count - off.size;
     const title = count === 1 ? lookupTitle(taskIds[0]) : `${count} tasks`;

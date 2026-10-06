@@ -25,7 +25,7 @@ describe("personal event utilities", () => {
         expect(
             getNextPersonalEventDate(
                 { monthDay: "11-04" },
-                new Date("2026-03-24T00:00:00"),
+                "2026-03-24",
             ),
         ).toBe("2026-11-04");
     });
@@ -34,9 +34,15 @@ describe("personal event utilities", () => {
         expect(
             getNextPersonalEventDate(
                 { monthDay: "01-10" },
-                new Date("2026-03-24T00:00:00"),
+                "2026-03-24",
             ),
         ).toBe("2027-01-10");
+    });
+
+    it("puts Feb 29 on Feb 28 in non-leap years", () => {
+        expect(getNextPersonalEventDate({ monthDay: "02-29" }, "2026-03-01")).toBe("2027-02-28");
+        expect(getNextPersonalEventDate({ monthDay: "02-29" }, "2027-03-01")).toBe("2028-02-29");
+        expect(toPersonalEventViewModel({ id: "x", label: "L", monthDay: "02-29", emoji: null, notify: true, startedOn: null }, "2026-02-27").daysUntil).toBe(1);
     });
 
     it("formats countdown labels with friendly near-term wording", () => {
@@ -52,7 +58,7 @@ describe("personal event utilities", () => {
     });
 
     it("sorts reminder-enabled events first when requested", () => {
-        const today = new Date("2026-03-24T00:00:00");
+        const today = "2026-03-24";
         const sorted = sortPersonalEventViewModels([
             toPersonalEventViewModel({ id: "a", label: "Later", monthDay: "04-20", emoji: null, notify: false, startedOn: null }, today),
             toPersonalEventViewModel({ id: "b", label: "Soon", monthDay: "03-28", emoji: null, notify: true, startedOn: "2020-03-28" }, today),

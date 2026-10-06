@@ -356,7 +356,7 @@ export function CalendarTaskChip({
 /** A lightweight drag overlay clone shown while dragging */
 export function CalendarTaskChipOverlay({ task }: { task: Task }) {
     const priority = (task.priority ?? 0) as TaskPriority;
-    const isTimed = !task.isAllDay && !!task.scheduledStart;
+    const isTimed = !!task.scheduledStart;
     return (
         <div
             className={`

@@ -48,7 +48,7 @@ export function startupEndpoint(url: URL): PerformanceSample["endpoint"] {
     const path = url.pathname.replace(/^\/api\/v1/, "").replace(/(.)\/$/, "$1");
     if (path === "/tasks") {
         if (["COMPLETE", "ARCHIVED"].includes(url.searchParams.get("state") ?? "")) return "tasks_history";
-        if (url.searchParams.has("scheduledDate") || url.searchParams.has("scheduledRangeStart")) return "tasks_schedule";
+        if (url.searchParams.has("from")) return "tasks_schedule";
         if (url.searchParams.get("hasNoDate") === "true" && url.searchParams.get("hasNoProject") === "true") return "tasks_capture";
         return "tasks_open";
     }

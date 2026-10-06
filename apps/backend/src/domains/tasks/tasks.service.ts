@@ -6,7 +6,8 @@
 import { and, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
 import type { BatchReschedule, EffortLevel, InsertTask, Task, TaskPriority, TaskRow, TaskState, UpdateTask } from "@cadence/contracts/task";
-import { hasTaskTemporalMutation, inferIsAllDay, normalizeTaskTemporalFields } from "@cadence/domain/task-temporal";
+import { hasTaskTemporalMutation, normalizeHiddenUntil, normalizeTaskTemporalFields, rescheduleToDay, type TaskTemporalFields } from "@cadence/domain/task-temporal";
+import { addDays, daysBetween, isLocalDate, type Zone } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { ORDER_INDEX_GAP } from "@cadence/domain/ordering";
@@ -14,7 +15,8 @@ import { subtasks, tasks, taskTags } from "../../db/schema";
 import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { insertWithClientId } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
-import { atLocalDate } from "../../platform/date-utils";
+import { logger } from "../../platform/log";
+import { userZone } from "../../platform/user-zone";
 import { trackBatchCompletion, trackBatchEvents, trackReschedules } from "../../platform/metrics";
 import type { DbClient, Tx } from "../../types/db";
 import { writeNote } from "../notes/notes.service";
@@ -26,7 +28,7 @@ type TaskPatch = Omit<UpdateTask, "expectedUpdatedAt">;
 
 /** A task as the assistant drafts it: plain fields, plus checklist steps and a note. */
 export type TaskDraft = Partial<Pick<InsertTask,
-    "dueDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" |
+    "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "durationEstimate" | "projectId" | "sectionId" |
     "priority" | "effort" | "recurrenceRule" | "tagIds" | "reminderAt" | "notBefore">> & {
     title: string;
     subtasks?: string[];
@@ -35,30 +37,22 @@ export type TaskDraft = Partial<Pick<InsertTask,
     note?: string;
 };
 
-/**
- * One task moved to a local `date`, keeping its shape: an all-day task lands on
- * the date, a timed task keeps its local time there, and an end (or deadline)
- * moves by the same amount.
- */
-export function rescheduleToDate(
-    row: { isAllDay: boolean; dueDate: string | null; scheduledStart: string | null; scheduledEnd: string | null },
-    date: string,
-    timezone: string,
-) {
-    const shift = (value: string | null, ms: number) => (value ? new Date(new Date(value).getTime() + ms).toISOString() : null);
-    if (!row.isAllDay && row.scheduledStart) {
-        const start = atLocalDate(new Date(row.scheduledStart), date, timezone);
-        const delta = start.getTime() - new Date(row.scheduledStart).getTime();
-        return normalizeTaskTemporalFields({
-            isAllDay: false,
-            scheduledStart: start.toISOString(),
-            scheduledEnd: shift(row.scheduledEnd, delta),
-            dueDate: shift(row.dueDate, delta),
-        });
-    }
-    const anchor = (row.dueDate ?? row.scheduledStart)?.slice(0, 10);
-    const days = anchor ? Date.parse(date) - Date.parse(anchor) : 0;
-    return normalizeTaskTemporalFields({ isAllDay: true, dueDate: date, scheduledEnd: shift(row.scheduledEnd, days) });
+/** Logs each pre-0.26.3 time shape a write carried, so the shim can go once the logs are quiet (`legacy_time_shape`). */
+export function legacyTimeLogger(source: string) {
+    const fields = new Set<string>();
+    return {
+        note: (field: string) => void fields.add(field),
+        flush: () => { if (fields.size) logger.info("http", "legacy_time_shape", { source, fields: [...fields] }); },
+    };
+}
+
+/** A write's temporal fields (new or legacy shapes) as the columns to store, in the user's zone. */
+export function temporalColumns(fields: TaskTemporalFields & { notBefore?: string | null }, zone: Zone, source: string) {
+    const legacy = legacyTimeLogger(source);
+    const temporal = normalizeTaskTemporalFields(fields, zone, legacy.note);
+    const hidden = "notBefore" in fields ? { notBefore: normalizeHiddenUntil(fields.notBefore, zone, legacy.note) } : {};
+    legacy.flush();
+    return { ...temporal, ...hidden };
 }
 
 /** Metrics and usage events for committed task writes. Best-effort, never blocks the caller. */
@@ -74,7 +68,7 @@ export function trackTaskChanges(
 ) {
     const { created = [], rescheduled = [], completed = [] } = changes;
     if (rescheduled.length) {
-        waitUntil(tracing.enterSpan("tasks.metrics.reschedule", () => trackReschedules(db, userId, rescheduled.map((task) => ({ taskId: task.id, at: task.scheduledStart ?? task.dueDate })))));
+        waitUntil(tracing.enterSpan("tasks.metrics.reschedule", () => trackReschedules(db, userId, rescheduled.map((task) => ({ taskId: task.id, scheduledStart: task.scheduledStart, dueDate: task.dueDate })))));
     }
     if (completed.length) waitUntil(tracing.enterSpan("tasks.metrics.completion", () => trackBatchCompletion(db, completed, userId)));
     const events = [
@@ -92,7 +86,8 @@ export function trackTaskChanges(
  * (the contract validates them), so the columns narrow to their literal unions.
  */
 export function toTask(row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstance" | "occurrenceStart" | "occurrenceEnd">, tagIds: string[]): Task {
-    return { ...row, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null, tagIds };
+    // `isAllDay` is derived for old clients for one release (all-day = no start); nothing stores or reads it.
+    return { ...row, isAllDay: row.scheduledStart === null, priority: row.priority as TaskPriority, effort: row.effort as EffortLevel | null, tagIds };
 }
 
 /** `toTask` for rows fresh from a write: loads their tag ids in one query. */
@@ -110,7 +105,7 @@ export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
 
 /** Insert one task (temporal fields already normalized) and link its tags. */
 export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds: string[] = []) {
-    validateTaskRecurrenceRule(values.recurrenceRule, values.scheduledStart ?? null);
+    validateTaskRecurrenceRule(values.recurrenceRule, values.zone ?? "UTC");
     await assertOwnership(tx, userId, { projectId: values.projectId ?? null, sectionId: values.sectionId, tagIds });
 
     const [row] = await insertWithClientId(() => tx
@@ -129,14 +124,15 @@ export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds
  */
 export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
     const created: { taskId: string; title: string; subtaskIds: string[] }[] = [];
-    for (const { subtasks: steps = [], fixed, note, tagIds = [], dueDate, scheduledStart, scheduledEnd, ...draft } of drafts) {
+    const zone = await userZone(tx, userId);
+    for (const { subtasks: steps = [], fixed, note, tagIds = [], dueDate, endDate, scheduledStart, scheduledEnd, notBefore, ...draft } of drafts) {
         const row = await createTask(
             tx,
             userId,
             {
                 ...draft,
                 orderIndex: 0,
-                ...normalizeTaskTemporalFields({ dueDate, scheduledStart, scheduledEnd, isAllDay: inferIsAllDay({ dueDate, scheduledStart }) }),
+                ...temporalColumns({ dueDate, endDate, scheduledStart, scheduledEnd, ...(notBefore !== undefined && { notBefore }) }, zone, "assistant"),
                 ...(fixed && { interactionMode: "timetable" as const }),
             },
             [...new Set(tagIds)],
@@ -174,10 +170,11 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
             content: original.content,
             state: "ACTIVE",
             orderIndex: original.orderIndex + 0.001,
-            isAllDay: original.isAllDay,
             dueDate: original.dueDate,
+            endDate: original.endDate,
             scheduledStart: original.scheduledStart,
             scheduledEnd: original.scheduledEnd,
+            zone: original.zone,
             durationEstimate: original.durationEstimate,
             timezoneLocked: original.timezoneLocked,
             priority: original.priority,
@@ -202,13 +199,43 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
 
 // ── Update ────────────────────────────────────────────────────────────
 
+type StoredTemporal = Pick<TaskRow, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "zone">;
+
+/**
+ * A patch laid over the stored task, as the fields to validate. A time edit re-plans the task in the
+ * user's zone; a day edit on a multi-day task moves its end by the same amount; turning a timed task
+ * into an all-day one (or back) leaves nothing of the other shape behind.
+ */
+function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalFields {
+    const has = (key: keyof TaskPatch) => key in body && body[key] !== undefined;
+    const startsNull = has("scheduledStart") ? body.scheduledStart === null : false;
+    const timeEdit = has("scheduledStart") || has("scheduledEnd");
+    const dueDate = has("dueDate") ? body.dueDate : existing.dueDate;
+    let endDate = has("endDate") ? body.endDate : existing.endDate;
+    if (!has("endDate") && has("dueDate") && body.dueDate && existing.dueDate && existing.endDate && isLocalDate(body.dueDate)) {
+        endDate = addDays(existing.endDate, daysBetween(existing.dueDate, body.dueDate)); // keep the span
+    }
+    const scheduledStart = has("scheduledStart") ? body.scheduledStart : existing.scheduledStart;
+    // Leaving timed behind (start cleared) forgets the old end; becoming timed forgets the old end day.
+    const scheduledEnd = has("scheduledEnd") ? body.scheduledEnd : startsNull ? null : existing.scheduledEnd;
+    if (scheduledStart && has("scheduledStart") && !has("endDate")) endDate = null;
+    return {
+        dueDate,
+        endDate,
+        scheduledStart,
+        scheduledEnd,
+        zone: body.zone ?? (timeEdit ? undefined : existing.zone),
+        isAllDay: body.isAllDay,
+    };
+}
+
 /** Apply a patch to one task. `expectedUpdatedAt` turns a stale edit into a 409. */
 export async function updateTask(tx: Tx, userId: string, id: string, body: TaskPatch, expectedUpdatedAt?: string) {
     const placementChanged = body.projectId !== undefined || body.sectionId !== undefined;
     const temporalChanged = hasTaskTemporalMutation(body);
     const needsExisting = placementChanged || temporalChanged || body.recurrenceRule !== undefined;
     let versionCondition: SQL | undefined;
-    let patch = body;
+    let patch: Record<string, unknown> = body;
 
     // Simple edits don't depend on the stored row. UPDATE takes the row lock and
     // checks its version atomically, avoiding a separate SELECT FOR UPDATE trip.
@@ -216,10 +243,11 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         const [existing] = await tracing.enterSpan("tasks.update.lock", () => tx
             .select({
                 id: tasks.id,
-                isAllDay: tasks.isAllDay,
                 dueDate: tasks.dueDate,
+                endDate: tasks.endDate,
                 scheduledStart: tasks.scheduledStart,
                 scheduledEnd: tasks.scheduledEnd,
+                zone: tasks.zone,
                 updatedAt: tasks.updatedAt,
                 projectId: tasks.projectId,
                 sectionId: tasks.sectionId,
@@ -234,18 +262,14 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         const sectionId = body.sectionId !== undefined ? body.sectionId
             : projectId !== existing.projectId ? null : existing.sectionId;
         if (placementChanged) await assertOwnership(tx, userId, { projectId, sectionId });
-        validateTaskRecurrenceRule(body.recurrenceRule, body.scheduledStart ?? existing.scheduledStart);
+        const zone = temporalChanged || body.recurrenceRule !== undefined || body.notBefore !== undefined ? await userZone(tx, userId) : "UTC";
+        validateTaskRecurrenceRule(body.recurrenceRule, existing.zone ?? zone);
 
-        const temporalPatch = temporalChanged
-            ? normalizeTaskTemporalFields({
-                  isAllDay: body.isAllDay ?? existing.isAllDay,
-                  dueDate: "dueDate" in body ? body.dueDate : existing.dueDate,
-                  scheduledStart: "scheduledStart" in body ? body.scheduledStart : existing.scheduledStart,
-                  scheduledEnd: "scheduledEnd" in body ? body.scheduledEnd : existing.scheduledEnd,
-              })
-            : {};
+        const temporalPatch = temporalChanged ? temporalColumns(mergeTemporal(existing, body), zone, "tasks") : {};
+        const hiddenPatch = !temporalChanged && body.notBefore !== undefined ? temporalColumns({ notBefore: body.notBefore }, zone, "tasks") : {};
+        const { isAllDay: _legacy, ...rest } = body;
 
-        patch = { ...body, ...(placementChanged && { sectionId }), ...temporalPatch };
+        patch = { ...rest, ...(placementChanged && { sectionId }), ...hiddenPatch, ...temporalPatch };
     } else if (expectedUpdatedAt) {
         // The API exposes milliseconds; Postgres stores microseconds. Match the
         // same instant comparison as assertNoConflict, including timezone offsets.
@@ -317,24 +341,27 @@ export async function setTaskState(
 }
 
 /**
- * Move tasks: to one exact `scheduledStart`, or to a local `date` where each keeps
- * its own time. Fixed blocks stay put unless they're all that was asked to move.
+ * Move tasks: to one exact `scheduledStart`, or to a local `date` where each keeps its own
+ * time (all-day stays all-day), in the user's zone. Fixed blocks stay put unless they're all
+ * that was asked to move.
  */
-export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, scheduledStart, isAllDay, date, timezone }: BatchReschedule) {
+export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, scheduledStart, isAllDay, date }: BatchReschedule) {
+    const zone = await userZone(tx, userId);
     if (!date) {
         return tx
             .update(tasks)
-            .set({ ...normalizeTaskTemporalFields({ isAllDay, scheduledStart }), updatedAt: sql`NOW()` })
+            .set({ ...temporalColumns({ scheduledStart, isAllDay }, zone, "tasks.reschedule"), updatedAt: sql`NOW()` })
             .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)))
             .returning();
     }
     const rows = await tx
         .select({
             id: tasks.id,
-            isAllDay: tasks.isAllDay,
             dueDate: tasks.dueDate,
+            endDate: tasks.endDate,
             scheduledStart: tasks.scheduledStart,
             scheduledEnd: tasks.scheduledEnd,
+            zone: tasks.zone,
             interactionMode: tasks.interactionMode,
         })
         .from(tasks)
@@ -347,7 +374,7 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
             .map((row) =>
                 tx
                     .update(tasks)
-                    .set({ ...rescheduleToDate(row, date, timezone!), updatedAt: sql`NOW()` })
+                    .set({ ...rescheduleToDay(row, date, zone), updatedAt: sql`NOW()` })
                     .where(and(eq(tasks.id, row.id), eq(tasks.userId, userId)))
                     .returning()
                     .then(([updated]) => updated)),

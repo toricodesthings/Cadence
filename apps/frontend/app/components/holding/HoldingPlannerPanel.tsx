@@ -6,8 +6,10 @@ import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { DatePicker } from "../shared/DatePicker";
 import { Button } from "../primitives/Button";
 import { PLACE_DROP, dayLabel, useWeekLoad } from "./PlaceSheet";
-import { formatTime, getWeekStart, parseLocalDate, toISODate } from "../../lib/utils/date-format";
-import { toTaskDateOnly } from "../../lib/utils/task/task-scheduling";
+import type { LocalDate } from "@cadence/domain/time";
+import { taskDay } from "@cadence/domain/task-recurrence";
+import { formatShortDate, formatTime, formatWeekdayNarrow, formatWeekdayLong, getWeekStart } from "../../lib/utils/date-format";
+import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { loadWord } from "../../lib/utils/task/day-load";
 
 /** 0–3 dots: free · light · steady · busy. */
@@ -20,12 +22,12 @@ const loadDots = (load: number) => (load === 0 ? 0 : load <= 2 ? 1 : load <= 5 ?
  */
 export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: string) => void }) {
     const navigate = useNavigate();
-    const todayIso = toISODate(new Date());
-    const { tasks, loads } = useWeekLoad(getWeekStart(new Date()), true, 14);
-    const [selected, setSelected] = useState(todayIso);
+    const todayIso = useToday();
+    const { tasks, loads } = useWeekLoad(getWeekStart(todayIso), true, 14);
+    const [selected, setSelected] = useState<LocalDate>(todayIso);
     const dragging = Boolean(useDndContext().active);
     const days = [...loads];
-    const dayTasks = tasks.filter((t) => toTaskDateOnly(t.dueDate ?? t.scheduledStart) === selected);
+    const dayTasks = tasks.filter((t) => taskDay(t, getUserZone()) === selected);
 
     const week = (label: string, slice: typeof days) => (
         <section aria-label={label} className="space-y-2">
@@ -61,8 +63,8 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                     <section aria-live="polite" className="rounded-3xl border border-twilight-border/35 bg-white/[0.02] p-4">
                         <div className="flex items-baseline justify-between gap-3">
                             <h3 className="font-display text-base font-semibold text-twilight-text">
-                                {selected === todayIso ? "Today" : parseLocalDate(selected).toLocaleDateString(undefined, { weekday: "long" })}
-                                <span className="ml-2 text-sm font-normal text-twilight-text-soft">{parseLocalDate(selected).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                                {selected === todayIso ? "Today" : formatWeekdayLong(selected)}
+                                <span className="ml-2 text-sm font-normal text-twilight-text-soft">{formatShortDate(selected)}</span>
                             </h3>
                             <span className="text-xs text-twilight-text-muted">{loadWord(loads.get(selected) ?? 0)}</span>
                         </div>
@@ -74,7 +76,7 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                                             className="flex min-h-9 w-full justify-start gap-2.5 rounded-xl px-2 text-left font-sans text-sm font-normal text-twilight-text-soft hover:bg-white/[0.05] hover:text-twilight-text">
                                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-primary/70" aria-hidden="true" />
                                             <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                                            {task.scheduledStart && !task.isAllDay && <span className="shrink-0 text-xs text-twilight-text-muted">{formatTime(task.scheduledStart)}</span>}
+                                            {task.scheduledStart && <span className="shrink-0 text-xs text-twilight-text-muted">{formatTime(task.scheduledStart)}</span>}
                                         </Button>
                                     </li>
                                 ))}
@@ -103,7 +105,6 @@ function DayTile({ iso, load, isToday, isPast, isSelected, dragging, onSelect }:
     iso: string; load: number; isToday: boolean; isPast: boolean; isSelected: boolean; dragging: boolean; onSelect: () => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id: PLACE_DROP + iso, disabled: isPast });
-    const date = parseLocalDate(iso);
     const dots = loadDots(load);
     const tone = isOver
         ? "scale-105 border-accent-primary bg-accent-primary/25 hover:bg-accent-primary/25"
@@ -117,9 +118,9 @@ function DayTile({ iso, load, isToday, isPast, isSelected, dragging, onSelect }:
             aria-label={`${dayLabel(iso)}, ${loadWord(load)}`}
             className={`flex aspect-[4/5] min-h-14 flex-col gap-1 rounded-2xl border transition-[transform,background-color,border-color] duration-150 active:scale-100 ${tone} ${isPast ? "opacity-40" : ""}`}>
             <span className={`text-[10px] font-semibold uppercase tracking-wider ${isToday ? "text-accent-primary" : "text-twilight-text-muted"}`}>
-                {date.toLocaleDateString(undefined, { weekday: "narrow" })}
+                {formatWeekdayNarrow(iso)}
             </span>
-            <span className={`font-display text-lg font-semibold leading-none ${isToday ? "text-accent-primary" : "text-twilight-text"}`}>{date.getDate()}</span>
+            <span className={`font-display text-lg font-semibold leading-none ${isToday ? "text-accent-primary" : "text-twilight-text"}`}>{Number(iso.slice(8, 10))}</span>
             <span className="flex h-1.5 gap-0.5" aria-hidden="true">
                 {Array.from({ length: dots }, (_, i) => <span key={i} className="h-1.5 w-1.5 rounded-full bg-accent-primary/75" />)}
             </span>

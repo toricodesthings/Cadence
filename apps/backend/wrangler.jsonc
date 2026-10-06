@@ -81,7 +81,7 @@
   ],
 
   "triggers": {
-    "crons": ["0 6 * * *"]
+    "crons": ["0 * * * *"]
   },
   "preview_urls": false,
   "workers_dev": false,
@@ -162,7 +162,7 @@
         }
       ],
       "triggers": {
-        "crons": ["0 6 * * *"]
+        "crons": ["0 * * * *"]
       }
     }
   }

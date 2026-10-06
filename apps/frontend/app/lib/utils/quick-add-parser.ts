@@ -1,3 +1,4 @@
+import type { LocalDate } from "@cadence/domain/time";
 import type { TaskPriority } from "@cadence/contracts/task";
 
 export type QuickAddTokenKind = "date" | "priority" | "project" | "tag" | "recurrence";
@@ -11,7 +12,8 @@ export interface QuickAddParsedToken {
 
 export interface QuickAddParseResult {
     cleanedTitle: string;
-    dueDate: string | null;
+    /** The all-day / deadline day (a LocalDate); null when the input names a time instead. */
+    dueDate: LocalDate | null;
     recurrenceRule: string | null;
     priority: TaskPriority | null;
     projectId: string | null;

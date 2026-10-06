@@ -1,11 +1,27 @@
+/**
+ * Date and time display, and the calendar-grid helpers. Formatting only: days are LocalDates
+ * (`YYYY-MM-DD`, as the API sends them), instants are converted by `@cadence/domain/time` in the
+ * user's zone (`getUserZone()`), and every label goes through `formatInZone`. Never use `Date`
+ * local getters, slicing or `toISOString()` for a day (scripts/check-time.mjs enforces it).
+ */
 import {
-    format,
-    startOfWeek,
-    endOfWeek,
     addDays,
-    endOfMonth,
-    eachDayOfInterval,
-} from "date-fns";
+    atLocal,
+    dayOf,
+    daysBetween,
+    formatInZone,
+    isLocalDate,
+    monthRange,
+    nowWallTime,
+    weekRange,
+    weekdayOf,
+    wallTimeOf,
+    type Instant,
+    type LocalDate,
+    type WallTime,
+} from "@cadence/domain/time";
+import type { NlpClock } from "@cadence/nlp/core";
+import { getUserZone, today } from "./user-zone";
 
 // ─── Format Configuration ────────────────────────────────────────────────────
 
@@ -35,118 +51,100 @@ export function getDateFormatConfig(): Readonly<DateFormatConfig> {
     return _config;
 }
 
-// ─── Core Conversion ─────────────────────────────────────────────────────────
+const WEEK_START_NAME = { 0: "Sunday", 1: "Monday", 6: "Saturday" } as const;
+const dmy = () => _config.dateStyle === "dmy";
+// Intl writes a narrow no-break space before AM/PM; labels and tests use a plain one.
+const plain = (text: string) => text.replace(/[  ]/g, " ");
+const format = (value: Instant | LocalDate, options: Intl.DateTimeFormatOptions, locale = "en-US") =>
+    plain(formatInZone(value, getUserZone(), options, locale));
 
-/**
- * Extract `YYYY-MM-DD` from a Date using **local** timezone getters.
- * This is the canonical way to turn a Date into a date-only string.
- * Never use `.toISOString().substring(0,10)` — that extracts the UTC date.
- */
-export function toISODate(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+// ─── Days and instants ───────────────────────────────────────────────────────
+
+/** The user's day an instant falls on. */
+export const dayOfInstant = (instant: Instant): LocalDate => dayOf(instant, getUserZone());
+
+/** The day a value names: a LocalDate as is, an instant as the user's day. */
+export const toDay = (value: Instant | LocalDate): LocalDate => (isLocalDate(value) ? value : dayOfInstant(value));
+
+/** `HH:mm` (the `TimePicker` value format) an instant shows in the user's zone. */
+export const toTimeValue = (instant: Instant): WallTime => wallTimeOf(instant, getUserZone());
+
+/** The instant at `time` on `day` in the user's zone (`day` may also be an instant: its user's day is used). */
+export const fromTimeValue = (day: LocalDate | Instant, time: WallTime): Instant => atLocal(toDay(day), time, getUserZone());
+
+/** The end instant of a block that starts at `start` and ends at wall time `time`: on `day`, or the next day when that is not after the start (overnight). */
+export function blockEnd(day: LocalDate, start: Instant, time: WallTime): Instant {
+    const sameDay = fromTimeValue(day, time);
+    return Date.parse(sameDay) > Date.parse(start) ? sameDay : fromTimeValue(addDays(day, 1), time);
 }
 
 /**
- * Parse a date string as **local** midnight, eliminating the off-by-one error
- * that occurs when `new Date("YYYY-MM-DD")` treats the input as UTC midnight.
- *
- * - Date-only strings ("YYYY-MM-DD")  → appends "T00:00:00" so the browser
- *   interprets them in the local timezone.
- * - Strings that already contain a time component are passed through as-is.
+ * A calendar widget (react-day-picker, native inputs) speaks `Date`. This pair is the only crossing:
+ * a LocalDate shows as that day at device-local midnight, and the picked `Date` reads back by its
+ * y/m/d. Both are picker plumbing, never day logic.
  */
-export function parseLocalDate(iso: string): Date {
-    return new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
-}
-
-/** 
- * Takes a date-only string (YYYY-MM-DD) and an original ISO string with time,
- * and constructs a new ISO string preserving the local hour/minute of the original.
- */
-export function preserveLocalTime(datePart: string, originalIso: string): string {
-    const oldLocal = new Date(originalIso);
-    const lh = String(oldLocal.getHours()).padStart(2, "0");
-    const lm = String(oldLocal.getMinutes()).padStart(2, "0");
-    return new Date(`${datePart}T${lh}:${lm}:00`).toISOString();
-}
-
-/**
- * Extract the YYYY-MM-DD date for a task's effective timestamp.
- * For all-day tasks, extracts the UTC date portion from the stored ISO
- * string to avoid timezone off-by-one (dueDate is stored as UTC midnight).
- * For timed tasks, uses local timezone for correct local-day positioning.
- */
-export function getEffectiveTaskDate(dateStr: string, isAllDay: boolean): string {
-    if (isAllDay && dateStr.length > 10) {
-        return dateStr.substring(0, 10);
-    }
-    return toISODate(parseLocalDate(dateStr));
-}
-
-/**
- * Parse a task's effective timestamp into a Date for calendar positioning.
- * For all-day tasks, re-interprets the UTC date as local midnight to avoid
- * timezone off-by-one. For timed tasks, parses as-is.
- */
-export function parseEffectiveTaskDate(dateStr: string, isAllDay: boolean): Date {
-    if (isAllDay && dateStr.length > 10) {
-        return new Date(`${dateStr.substring(0, 10)}T00:00:00`);
-    }
-    return parseLocalDate(dateStr);
-}
-
-// ─── Date Arithmetic (re-exported from date-fns) ─────────────────────────────
-
-export { addDays };
+export const pickerDate = (day: LocalDate): Date => {
+    const [y, m, d] = day.split("-").map(Number);
+    return new Date(y, m - 1, d);
+};
+export const fromPickerDate = (date: Date): LocalDate =>
+    `${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; // time-ok: a picked Date's y/m/d
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-/** Format a date for display, e.g. "Thursday, February 26" or "Thursday, 26 February" */
-export function formatDateLabel(date: Date): string {
-    return _config.dateStyle === "dmy"
-        ? format(date, "EEEE, d MMMM")
-        : format(date, "EEEE, MMMM d");
+/** "Thursday, February 26" or "Thursday, 26 February" (dmy). */
+export function formatDateLabel(day: LocalDate): string {
+    const weekday = format(day, { weekday: "long" });
+    const month = format(day, { month: "long" });
+    const date = format(day, { day: "numeric" });
+    return dmy() ? `${weekday}, ${date} ${month}` : `${weekday}, ${month} ${date}`;
 }
 
-/** Format a time from an ISO string: "9:30 AM" (12h) or "09:30" (24h) */
-export function formatTime(iso: string): string {
-    const d = parseLocalDate(iso);
-    return format(d, _config.timeDisplay === "24h" ? "HH:mm" : "h:mm a");
+/** A time from an instant: "9:30 AM" (12h) or "09:30" (24h). */
+export function formatTime(instant: Instant): string {
+    return _config.timeDisplay === "24h"
+        ? format(instant, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+        : format(instant, { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
-/** Format a short local-safe date label: "Mar 8" (mdy/ymd) or "8 Mar" (dmy) */
-export function formatShortDate(iso: string): string {
-    return format(
-        parseLocalDate(iso),
-        _config.dateStyle === "dmy" ? "d MMM" : "MMM d",
-    );
+/** "9:30 AM" / "09:30" from a wall time (a routine's time of day: no day or zone involved). */
+export function formatWallTime(time: WallTime): string {
+    const [h, m] = time.split(":").map(Number);
+    if (_config.timeDisplay === "24h") return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
-/** Format a short local-safe date + time label: "Mar 8, 9:30 AM" */
-export function formatShortDateTime(iso: string): string {
-    const datePart = _config.dateStyle === "dmy" ? "d MMM" : "MMM d";
-    const timePart = _config.timeDisplay === "24h" ? "HH:mm" : "h:mm a";
-    return format(parseLocalDate(iso), `${datePart}, ${timePart}`);
+/** A short date: "Mar 8" (mdy/ymd) or "8 Mar" (dmy). Takes a day, or an instant (shown as the user's day). */
+export function formatShortDate(value: Instant | LocalDate): string {
+    return format(toDay(value), { month: "short", day: "numeric" }, dmy() ? "en-GB" : "en-US");
 }
 
-/** Weekday + short date from "YYYY-MM-DD": "Thu, Mar 8" or "Thu 8 Mar" (dmy); `year` appends the year. */
-export function formatShortDateLabel(date: string, { year = false }: { year?: boolean } = {}): string {
-    const dmy = _config.dateStyle === "dmy";
-    return parseLocalDate(date).toLocaleDateString(dmy ? "en-GB" : "en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        ...(year ? { year: "numeric" } : {}),
-    });
+/** Short date + time: "Mar 8, 9:30 AM". */
+export function formatShortDateTime(instant: Instant): string {
+    return `${format(instant, { month: "short", day: "numeric" }, dmy() ? "en-GB" : "en-US")}, ${formatTime(instant)}`;
 }
 
-/** "HH:mm" (local) from an ISO timestamp — the `TimePicker` value format. */
-export function toTimeValue(iso: string): string {
-    const d = new Date(iso);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+/** Weekday + short date from a day: "Thu, Mar 8" or "Thu 8 Mar" (dmy); `year` appends the year. */
+export function formatShortDateLabel(day: LocalDate, { year = false }: { year?: boolean } = {}): string {
+    return format(day, { weekday: "short", day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}) }, dmy() ? "en-GB" : "en-US");
 }
+
+/** "Mar 8 - Mar 10" from two days. */
+export function formatDateSpan(start: LocalDate, end: LocalDate): string {
+    return `${formatShortDate(start)} - ${formatShortDate(end)}`;
+}
+
+/** "Thursday" for a day. */
+export const formatWeekdayLong = (day: LocalDate): string => format(day, { weekday: "long" });
+
+/** "T" for a day (calendar tile headers). */
+export const formatWeekdayNarrow = (day: LocalDate): string => format(day, { weekday: "narrow" });
+
+/** The month's name for a day: "October". */
+export const formatMonthName = (day: LocalDate): string => format(day, { month: "long" });
+
+/** "October 2026" for a day. */
+export const formatMonthYear = (day: LocalDate): string => format(day, { month: "long", year: "numeric" });
 
 /** "HH:mm" shifted by `delta` minutes, wrapping past midnight. */
 export function addMinutesToTime(time: string, delta: number): string {
@@ -163,22 +161,9 @@ export function minutesBetweenTimes(start: string, end: string): number {
     return diff > 0 ? diff : diff + 1440;
 }
 
-/** "HH:mm" → ISO on `base`'s local date (`base` is "YYYY-MM-DD" or a full ISO). */
-export function fromTimeValue(base: string, time: string): string {
-    const [h, m] = time.split(":").map(Number);
-    const d = parseLocalDate(base);
-    d.setHours(h, m, 0, 0);
-    return d.toISOString();
-}
-
-/** Format a local-safe date span: "Mar 8 - Mar 10" */
-export function formatDateSpan(startIso: string, endIso: string): string {
-    return `${formatShortDate(startIso)} - ${formatShortDate(endIso)}`;
-}
-
 /** Compact age: "just now", "5 m", "3 h", "2 d", "4 mo" — plus `suffix` (e.g. " ago"). */
-export function relativeTime(iso: string, { suffix = "" }: { suffix?: string } = {}): string {
-    const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+export function relativeTime(iso: Instant, { suffix = "" }: { suffix?: string } = {}): string {
+    const diffSec = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 1000));
 
     if (diffSec < 60) return "just now";
     const mins = Math.floor(diffSec / 60);
@@ -190,23 +175,27 @@ export function relativeTime(iso: string, { suffix = "" }: { suffix?: string } =
     return `${Math.floor(days / 30)} mo${suffix}`;
 }
 
-// ─── Week Helpers ────────────────────────────────────────────────────────────
+// ─── Week and month grids (arrays of LocalDates) ─────────────────────────────
 
 /** Settings' `dateTime.weekStart` as a weekday index (0 = Sunday). */
 export const WEEK_START_INDEX = { Sunday: 0, Monday: 1, Saturday: 6 } as const;
 
-/** Return the start of the week containing the given date, respecting settings */
-export function getWeekStart(date: Date, weekStartsOn: 0 | 1 | 6 = _config.weekStartsOn): Date {
-    return startOfWeek(date, { weekStartsOn });
+/** The first day of the week containing `day`, respecting settings. */
+export function getWeekStart(day: LocalDate, weekStartsOn: 0 | 1 | 6 = _config.weekStartsOn): LocalDate {
+    return weekRange(day, WEEK_START_NAME[weekStartsOn]).start;
 }
 
-/** Return an array of 7 Date objects for the week containing the given date */
-export function getWeekDates(date: Date, weekStartsOn?: 0 | 1 | 6): Date[] {
-    const start = getWeekStart(date, weekStartsOn);
-    return eachDayOfInterval({ start, end: addDays(start, 6) });
+/** The seven days of the week containing `day`. */
+export function getWeekDays(day: LocalDate, weekStartsOn?: 0 | 1 | 6): LocalDate[] {
+    const start = getWeekStart(day, weekStartsOn);
+    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
-// ─── Calendar Grid ───────────────────────────────────────────────────────────
+/** Every day of the month containing `day`. */
+export function getMonthDays(day: LocalDate): LocalDate[] {
+    const { start, end } = monthRange(day);
+    return Array.from({ length: daysBetween(start, end) + 1 }, (_, i) => addDays(start, i));
+}
 
 export const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
@@ -221,58 +210,48 @@ export function weekdayLabels(length: number, weekStartsOn: 0 | 1 | 6 = 1): stri
     return [...WEEKDAY_NAMES.slice(shift), ...WEEKDAY_NAMES.slice(0, shift)].map((d) => d.slice(0, length));
 }
 
+/** Days in a month (`month` is 0-based). */
 export function getDaysInMonth(year: number, month: number): number {
-    return new Date(year, month + 1, 0).getDate();
+    return daysBetween(monthRange(isoMonthStart(year, month)).start, monthRange(isoMonthStart(year, month)).end) + 1;
 }
 
-/** Blank cells before day 1 in a month grid whose weeks start on `weekStartsOn` (0 = Sunday, 1 = Monday, 6 = Saturday). */
+/** Blank cells before day 1 in a month grid whose weeks start on `weekStartsOn` (`month` is 0-based). */
 export function getFirstDayOfWeek(year: number, month: number, weekStartsOn: 0 | 1 | 6 = 1): number {
-    return (new Date(year, month, 1).getDay() - weekStartsOn + 7) % 7;
+    return (weekdayOf(isoMonthStart(year, month)) - weekStartsOn + 7) % 7;
+}
+
+/** The first day of a month (`month` is 0-based). */
+export function isoMonthStart(year: number, month: number): LocalDate {
+    return `${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-01`;
+}
+
+/** The day with `day` of a 0-based month and year (no overflow: caller passes a real day). */
+export function isoDay(year: number, month: number, day: number): LocalDate {
+    return `${isoMonthStart(year, month).slice(0, 8)}${String(day).padStart(2, "0")}`;
 }
 
 // ─── Date Range Builders ─────────────────────────────────────────────────────
-//
-// These return `YYYY-MM-DD` boundaries, NOT full ISO strings.
-// The backend should interpret these as inclusive date boundaries.
-// This eliminates the UTC-shift bug where `.toISOString()` converted
-// local midnight/11:59PM into a different date in UTC.
+// Inclusive LocalDate bounds `{ start, end }`; the server turns them into instants in the user's zone.
 
-/** Build a date range for a full calendar month → `{start: "YYYY-MM-DD", end: "YYYY-MM-DD"}` */
-export function getMonthDateRange(year: number, month: number) {
-    const start = new Date(year, month, 1);
-    const end = endOfMonth(start);
-    return {
-        start: toISODate(start),
-        end: toISODate(end),
-    };
+export const getMonthDateRange = (year: number, month: number) => monthRange(isoMonthStart(year, month));
+
+export const getWeekDateRange = (day: LocalDate) => weekRange(day, WEEK_START_NAME[_config.weekStartsOn]);
+
+export const getYearDateRange = (year: number) => ({ start: isoDay(year, 0, 1), end: isoDay(year, 11, 31) });
+
+/** A placement destination, in the user's date and time format: "Today", "Tomorrow", "Thu, Mar 8 · 9:30 AM". */
+export function placementLabel(value: Instant | LocalDate): string {
+    const day = toDay(value);
+    const now = today();
+    const label = day === now ? "Today"
+        : day === addDays(now, 1) ? "Tomorrow"
+        : format(day, { weekday: "short", month: "short", day: "numeric" });
+    return isLocalDate(value) ? label : `${label} · ${formatTime(value)}`;
 }
 
-/** Build a date range for an entire week → `{start: "YYYY-MM-DD", end: "YYYY-MM-DD"}` */
-export function getWeekDateRange(date: Date) {
-    const start = getWeekStart(date);
-    const end = endOfWeek(date, { weekStartsOn: _config.weekStartsOn });
-    return {
-        start: toISODate(start),
-        end: toISODate(end),
-    };
-}
-
-/** Build a date range for a full calendar year → `{start: "YYYY-MM-DD", end: "YYYY-MM-DD"}` */
-export function getYearDateRange(year: number) {
-    const start = new Date(year, 0, 1);
-    const end = new Date(year, 11, 31);
-    return {
-        start: toISODate(start),
-        end: toISODate(end),
-    };
-}
-
-/** A placement destination, in the user's local date and time format. */
-export function placementLabel(iso: string): string {
-    const date = parseLocalDate(iso);
-    const day = toISODate(date);
-    const label = day === toISODate(new Date()) ? "Today"
-        : day === toISODate(addDays(new Date(), 1)) ? "Tomorrow"
-        : date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-    return iso.includes("T") ? `${label} · ${formatTime(iso)}` : label;
-}
+/** The user's today, time and week start for `@cadence/nlp` (it never reads the machine clock or zone). */
+export const nlpClock = (): NlpClock => ({
+    today: today(),
+    now: nowWallTime(getUserZone()),
+    weekStart: WEEK_START_NAME[_config.weekStartsOn],
+});

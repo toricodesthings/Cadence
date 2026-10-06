@@ -1,8 +1,8 @@
 /**
  * Task schemas for the write tools, derived from the REST contracts so a tool can
- * never offer a field the write path would drop or read differently. `isAllDay`
- * is left out on purpose: it follows from the values (`inferIsAllDay`), so a
- * clock time always means timed.
+ * never offer a field the write path would drop or read differently. All-day is
+ * derived (no `scheduledStart`). A deadline is a day (`dueDate`, YYYY-MM-DD, a time in it
+ * is rejected); a time means a timed block (`scheduledStart` instant with offset) or a reminder.
  */
 import { z } from "zod";
 import { insertTagSchema } from "@cadence/contracts/tag";
@@ -16,13 +16,15 @@ const step = z.string().min(1).max(500);
 const quote = z.string().max(300).optional();
 const tagNames = z.array(insertTagSchema.shape.name).max(20);
 const reminderAt = insertTaskSchema.shape.reminderAt.describe("When to remind the user: local time with offset.");
+const dayError = "A deadline is a day: use YYYY-MM-DD with no time. For a time of day, set reminderAt, or plan a timed block with scheduledStart and scheduledEnd (with offset).";
+const instantError = "A time block's start and end are a time with an offset, e.g. 2026-09-22T14:00:00-04:00. For an all-day task use dueDate (YYYY-MM-DD).";
+const dueDate = z.iso.date({ error: dayError }).nullable().optional();
+const instant = () => z.iso.datetime({ offset: true, error: instantError }).nullable().optional();
 const hideUntil = z.iso.date().describe("Hide it from lists until this local day.");
 const when = {
-    dueDate: insertTaskSchema.shape.dueDate.describe("A deadline, only when one is given; null clears."),
-    scheduledStart: insertTaskSchema.shape.scheduledStart.describe(
-        "When they plan to do it: a day, or a time for a time block; null clears.",
-    ),
-    scheduledEnd: insertTaskSchema.shape.scheduledEnd.describe("The time block's end."),
+    dueDate: dueDate.describe("The day it sits on, or its deadline, YYYY-MM-DD (never a time); null clears."),
+    scheduledStart: instant().describe("A time block's start, with offset; omit for an all-day task; null clears."),
+    scheduledEnd: instant().describe("The time block's end, with offset."),
     recurrenceRule: insertTaskSchema.shape.recurrenceRule.describe(
         "Repeats, as an RRULE, e.g. FREQ=WEEKLY;BYDAY=MO,WE; null stops it. Things done for their own sake are routines (create_habit).",
     ),

@@ -1,4 +1,6 @@
 import type { Task } from "@cadence/contracts/task";
+import { wallTimeOf } from "@cadence/domain/time";
+import { getUserZone } from "../user-zone";
 
 /** Height in px for each 1-hour block in the time grid */
 export const HOUR_HEIGHT = 72;
@@ -9,10 +11,10 @@ const HOURS_IN_DAY = 24;
 /** Total height of the full-day time grid */
 export const DAY_GRID_HEIGHT = HOUR_HEIGHT * HOURS_IN_DAY;
 
-/** Convert an ISO datetime string to minutes elapsed since midnight (local time) */
-function minutesFromMidnight(isoDateTime: string): number {
-    const d = new Date(isoDateTime);
-    return d.getHours() * 60 + d.getMinutes();
+/** Minutes elapsed since midnight on the user's wall clock at this instant */
+export function minutesFromMidnight(instant: string): number {
+    const [h, m] = wallTimeOf(instant, getUserZone()).split(":").map(Number);
+    return h * 60 + m;
 }
 
 /** Calculate the top offset (px) for a task chip based on its scheduledStart */
@@ -83,7 +85,7 @@ function buildClusterLayouts(cluster: TimedTaskWithRange[]): TimedTaskLayout[] {
 
 export function buildTimedTaskLayouts(tasks: Task[]): TimedTaskLayout[] {
     const timed = tasks
-        .filter((task) => !task.isAllDay && task.scheduledStart)
+        .filter((task) => task.scheduledStart)
         .map(getTaskRange)
         .sort((a, b) => (a.start - b.start) || (a.end - b.end));
 

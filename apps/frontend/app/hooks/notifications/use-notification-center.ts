@@ -3,7 +3,7 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import type { NotificationState, UpsertNotificationState } from "@cadence/contracts/notification";
 import { useTasks } from "../tasks/use-tasks";
 import { useHabitsRange } from "../habits/use-habits";
-import { toISODate } from "../../lib/utils/date-format";
+import { useToday } from "../../lib/utils/user-zone";
 import { useSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -120,7 +120,7 @@ export function useNotificationCenter() {
     const tasks = useMemo(() => [...(activeTasks ?? []), ...(waitingTasks ?? [])], [activeTasks, waitingTasks]);
     // Today's weekly data (shared with the due count): its logs say whether each
     // routine is due, paused or already checked.
-    const today = toISODate(new Date());
+    const today = useToday();
     const { data: habits = [] } = useHabitsRange({ start: today, end: today });
     const { authReady, isAuthenticated, session } = useAuthState();
     const userId = session?.user.id;

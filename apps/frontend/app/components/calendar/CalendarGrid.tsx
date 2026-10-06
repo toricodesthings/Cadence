@@ -1,5 +1,7 @@
 import { useMemo } from "react";
-import { getDaysInMonth, getFirstDayOfWeek, weekdayLabels } from "../../lib/utils/date-format";
+import type { LocalDate } from "@cadence/domain/time";
+import { getDaysInMonth, getFirstDayOfWeek, isoDay, weekdayLabels } from "../../lib/utils/date-format";
+import { useToday } from "../../lib/utils/user-zone";
 import { CalendarDayCell } from "./CalendarDayCell";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 import type { Task } from "@cadence/contracts/task";
@@ -10,26 +12,27 @@ const DAYS_FULL = weekdayLabels(3);
 interface CalendarGridProps {
     year: number;
     month: number;
-    selectedDate: string; // "YYYY-MM-DD"
-    datesWithTasks: Set<number>;
+    /** The selected day, or "" for none */
+    selectedDate: LocalDate | "";
+    datesWithTasks: Set<LocalDate>;
     /** Days that have habits (show a lantern dot indicator, not chips) */
-    habitDays?: Set<number>;
+    habitDays?: Set<LocalDate>;
     /** Days that have holidays (show a warmer ember marker) */
-    holidayDays?: Set<number>;
-    /** Day number of user's birthday in this month (if applicable) */
-    birthdayDay?: number | null;
+    holidayDays?: Set<LocalDate>;
+    /** The user's birthday this year (if it falls in this month) */
+    birthdayDate?: LocalDate | null;
     /** Days that have personal events (show a warm rose marker) */
-    personalEventDays?: Set<number>;
+    personalEventDays?: Set<LocalDate>;
     /** Count of personal events per day for density-aware markers */
-    personalEventCountsByDay?: Record<number, number>;
-    onSelectDate: (day: number) => void;
+    personalEventCountsByDay?: Record<LocalDate, number>;
+    onSelectDate: (day: LocalDate) => void;
     /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
     /**
-     * Full variant only — tasks grouped by day-number.
+     * Full variant only — tasks grouped by LocalDate.
      * Used to render CalendarTaskChip inside each cell.
      */
-    tasksByDay?: Record<number, Task[]>;
+    tasksByDay?: Record<LocalDate, Task[]>;
     onSelectTask?: (taskId: string) => void;
     onCompleteTask?: (taskId: string) => void;
     onArchiveTask?: (taskId: string) => void;
@@ -45,7 +48,7 @@ export function CalendarGrid({
     datesWithTasks,
     habitDays,
     holidayDays,
-    birthdayDay,
+    birthdayDate,
     personalEventDays,
     personalEventCountsByDay,
     onSelectDate,
@@ -56,28 +59,19 @@ export function CalendarGrid({
     onArchiveTask,
     onContextAdd,
 }: CalendarGridProps) {
-    const today = new Date();
+    const today = useToday();
 
     const cells = useMemo(() => {
         const total = getDaysInMonth(year, month);
         const first = getFirstDayOfWeek(year, month);
-        const arr: (number | null)[] = [];
+        const arr: (LocalDate | null)[] = [];
         for (let i = 0; i < first; i++) arr.push(null);
-        for (let d = 1; d <= total; d++) arr.push(d);
+        for (let d = 1; d <= total; d++) arr.push(isoDay(year, month, d));
         if (variant === "compact") {
             while (arr.length < 42) arr.push(null);
         }
         return arr;
     }, [month, variant, year]);
-
-    const selectedDay = (() => {
-        const parts = selectedDate.split("-");
-        const selYear = parseInt(parts[0]);
-        const selMonth = parseInt(parts[1]) - 1;
-        const selDay = parseInt(parts[2]);
-        if (selYear === year && selMonth === month) return selDay;
-        return -1;
-    })();
 
     const isCompact = variant === "compact";
     const dayLabels = isCompact ? DAYS_SHORT : DAYS_FULL;
@@ -104,19 +98,14 @@ export function CalendarGrid({
             <div className={`grid grid-cols-7 ${isCompact ? "grid-rows-6 gap-0.5" : "gap-1.5 flex-1 auto-rows-[1fr]"}`}>
                 {cells.map((day, i) => (
                     <CalendarDayCell
-                        key={i}
+                        key={day ?? `blank-${i}`}
                         day={day}
-                        isToday={
-                            day !== null &&
-                            day === today.getDate() &&
-                            month === today.getMonth() &&
-                            year === today.getFullYear()
-                        }
-                        isSelected={day === selectedDay}
+                        isToday={day === today}
+                        isSelected={day !== null && day === selectedDate}
                         hasTask={day !== null && datesWithTasks.has(day)}
                         hasHabit={day !== null && (habitDays?.has(day) ?? false)}
                         hasHoliday={day !== null && (holidayDays?.has(day) ?? false)}
-                        hasBirthday={day !== null && day === birthdayDay}
+                        hasBirthday={day !== null && day === birthdayDate}
                         hasPersonalEvent={day !== null && (personalEventDays?.has(day) ?? false)}
                         personalEventCount={day !== null ? (personalEventCountsByDay?.[day] ?? 0) : 0}
                         onSelect={onSelectDate}
@@ -125,8 +114,6 @@ export function CalendarGrid({
                         onSelectTask={onSelectTask}
                         onCompleteTask={onCompleteTask}
                         onArchiveTask={onArchiveTask}
-                        year={year}
-                        month={month}
                         onContextAdd={onContextAdd}
                     />
                 ))}

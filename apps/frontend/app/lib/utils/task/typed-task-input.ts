@@ -1,11 +1,14 @@
+import type { Instant, LocalDate } from "@cadence/domain/time";
 import type { CreateTaskInput, SourceSurface, TaskPriority } from "@cadence/contracts/task";
 
+/** A day (`dueDate`, a LocalDate) or a timed block (`scheduledStart`/`scheduledEnd`, Instants). */
 export interface TaskSchedule {
-    dueDate: string | null;
-    scheduledStart: string | null;
-    scheduledEnd: string | null;
+    dueDate: LocalDate | null;
+    /** Inclusive last day of an all-day span. */
+    endDate?: LocalDate | null;
+    scheduledStart: Instant | null;
+    scheduledEnd: Instant | null;
     recurrenceRule: string | null;
-    isAllDay: boolean;
 }
 
 /**
@@ -45,10 +48,10 @@ export function buildTypedTaskInput({
         title,
         tagIds,
         dueDate: schedule.dueDate ?? undefined,
+        endDate: schedule.endDate ?? undefined,
         scheduledStart: schedule.scheduledStart ?? undefined,
         scheduledEnd: schedule.scheduledEnd ?? undefined,
         recurrenceRule: schedule.recurrenceRule ?? undefined,
-        isAllDay: schedule.isAllDay,
         ...(priority > 0 && { priority }),
         ...(projectId && { projectId }),
         ...(waitingOn && { waitingOn }),
@@ -63,6 +66,7 @@ export function buildTypedTaskInput({
                 projectId,
                 tagIds,
                 dueDate: schedule.dueDate,
+                endDate: schedule.endDate ?? null,
                 scheduledStart: schedule.scheduledStart,
                 scheduledEnd: schedule.scheduledEnd,
                 recurrenceRule: schedule.recurrenceRule,

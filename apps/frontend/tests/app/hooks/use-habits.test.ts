@@ -8,23 +8,25 @@ vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => (
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({}) }));
 
 describe("routine range identity", () => {
-    it("separates zones across DST while sharing reconciliation and archive matching", async () => {
+    it("keys a range by its LocalDates (no zone) while sharing reconciliation and archive matching", async () => {
         const get = vi.fn().mockImplementation(async () => Response.json({ data: [makeHabit()] }));
         const client = { api: { habits: { weekly: { $get: get } } } } as unknown as ApiClient;
         const qc = testQueryClient();
-        const range = { start: "2026-03-06", end: "2026-03-10" };
-        const ny = habitsRangeQueryOptions(client, { ...range, timezone: "America/New_York" });
-        const tokyo = habitsRangeQueryOptions(client, { ...range, timezone: "Asia/Tokyo" });
-        await Promise.all([qc.fetchQuery(ny), qc.fetchQuery(tokyo)]);
-        expect(get.mock.calls.map(([input]) => input.query.timezone)).toEqual(["America/New_York", "Asia/Tokyo"]);
-        expect(ny.queryKey).not.toEqual(tokyo.queryKey);
+        const week = habitsRangeQueryOptions(client, { start: "2026-03-06", end: "2026-03-10" });
+        const month = habitsRangeQueryOptions(client, { start: "2026-03-01", end: "2026-03-31" });
+        await Promise.all([qc.fetchQuery(week), qc.fetchQuery(month)]);
+        expect(get.mock.calls.map(([input]) => input.query)).toEqual([
+            { start: "2026-03-06", end: "2026-03-10", archived: "false" },
+            { start: "2026-03-01", end: "2026-03-31", archived: "false" },
+        ]);
+        expect(week.queryKey).not.toEqual(month.queryKey);
         const changed = makeHabit({ title: "Changed" });
         reconcileHabitInCaches(qc, changed);
-        expect(qc.getQueryData(ny.queryKey)?.[0].title).toBe("Changed");
-        expect(qc.getQueryData(tokyo.queryKey)?.[0].title).toBe("Changed");
+        expect(qc.getQueryData(week.queryKey)?.[0].title).toBe("Changed");
+        expect(qc.getQueryData(month.queryKey)?.[0].title).toBe("Changed");
         reconcileHabitInCaches(qc, { ...changed, archived: true });
-        expect(qc.getQueryData(ny.queryKey)).toEqual([]);
-        expect(qc.getQueryData(tokyo.queryKey)).toEqual([]);
+        expect(qc.getQueryData(week.queryKey)).toEqual([]);
+        expect(qc.getQueryData(month.queryKey)).toEqual([]);
         qc.clear();
     });
 });

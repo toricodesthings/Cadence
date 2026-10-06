@@ -6,7 +6,8 @@
  */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
-import { createUser, getTestDb, startTestDb } from "../helpers/db";
+import { getTestDb, startTestDb } from "../helpers/db";
+import { createUserIn } from "../helpers/zone";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
@@ -23,7 +24,7 @@ let api: ReturnType<typeof apiAs>;
 
 beforeAll(startTestDb);
 beforeEach(async () => {
-    userId = await createUser();
+    userId = await createUserIn(TZ);
     api = apiAs(userId, "/tasks", taskRoutes);
     const tools = buildToolRegistry({} as never, userId, { timezone: TZ, currentDate: "2026-09-23T16:00:00Z", today: "2026-09-23", weekStart: "Monday" }) as any;
     let seq = 0;
@@ -76,7 +77,7 @@ describe("get_tasks filters and pages", () => {
 describe("task fields beyond dates", () => {
     it("sets and clears a reminder, a Waiting check-in, a hide-until day and Fixed; tags by name on update", async () => {
         const [id] = await make([{ title: "Call bank", reminderAt: "2026-09-24T09:00:00-04:00", hideUntil: "2026-09-24" }]);
-        expect(await task(id)).toMatchObject({ reminderAt: "2026-09-24T13:00:00.000Z", notBefore: "2026-09-24T04:00:00.000Z" });
+        expect(await task(id)).toMatchObject({ reminderAt: "2026-09-24T13:00:00.000Z", notBefore: "2026-09-24" });
         expect((await call("get_task_detail", { taskId: id })).task).toMatchObject({ reminderAt: "2026-09-24T09:00:00-04:00", hiddenUntil: "2026-09-24" });
 
         await call("set_task_state", { taskIds: [id], state: "WAITING", waitingOn: "Bank", checkInAt: "2026-09-28T10:00:00-04:00" });
@@ -225,7 +226,7 @@ describe("focus views", () => {
 describe("get_schedule_window", () => {
     it("keeps repeating tasks even when more than 50 one-offs share the range, sorted by day and time, and pages", async () => {
         await withRls(getTestDb(), userId, (tx) =>
-            tx.insert(tasks).values(Array.from({ length: 60 }, (_, i) => ({ userId, title: `One-off ${i}`, orderIndex: i, isAllDay: true, dueDate: `2026-09-${String(24 + (i % 5)).padStart(2, "0")}T12:00:00.000Z` }))));
+            tx.insert(tasks).values(Array.from({ length: 60 }, (_, i) => ({ userId, title: `One-off ${i}`, orderIndex: i, dueDate: `2026-09-${String(24 + (i % 5)).padStart(2, "0")}` }))));
         await make([{ title: "Daily standup", scheduledStart: "2026-09-24T09:00:00-04:00", scheduledEnd: "2026-09-24T09:15:00-04:00", recurrenceRule: "FREQ=DAILY" }]);
 
         const first = await call("get_schedule_window", { start: "2026-09-24", end: "2026-09-28" });
@@ -265,7 +266,7 @@ describe("batch writes the model can undo, and a check-off it can't guess", () =
         const [water, stretch] = await make([{ title: "Water plants", dueDate: "2026-09-23" }, { title: "Stretch" }]);
         await expect(call("reschedule_tasks", { taskIds: [water, "6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f"], targetDate: "2026-09-24" }))
             .rejects.toThrow("1 of these taskIds match no task");
-        expect((await task(water)).dueDate).toContain("2026-09-23"); // nothing moved
+        expect((await task(water)).dueDate).toBe("2026-09-23"); // nothing moved
         const moved = await call("reschedule_tasks", { taskIds: [water, stretch], targetDate: "2026-09-24" });
         expect(moved.tasks).toEqual(expect.arrayContaining([{ id: water, title: "Water plants", from: "2026-09-23" }, { id: stretch, title: "Stretch", from: null }]));
         expect((await call("set_task_state", { taskIds: [water], state: "COMPLETE" })).tasks).toEqual([{ id: water, title: "Water plants", was: "ACTIVE" }]);

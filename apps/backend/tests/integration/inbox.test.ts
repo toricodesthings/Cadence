@@ -67,7 +67,7 @@ describe("processing an item into a task", () => {
         const { status, body } = await inbox("POST", `/${item.id}/process`, { title: "Work on Apollo" });
 
         expect(status).toBe(201);
-        expect(body.data).toMatchObject({ title: "Work on Apollo", projectId: project.data.id, dueDate: "2026-03-09T12:00:00.000Z", isAllDay: true });
+        expect(body.data).toMatchObject({ title: "Work on Apollo", projectId: project.data.id, dueDate: "2026-03-09", scheduledStart: null, isAllDay: true });
         expect((await tasks("GET", `/${body.data.id}/tags`)).body.data.map((t: any) => t.id)).toEqual([tag.data.id]);
         const [placed] = await asOwner(async (pg) =>
             (await pg.query("SELECT capture_status, placed_task_id, processed, analysis_status FROM inbox_items WHERE id = $1", [item.id])).rows,
@@ -81,7 +81,7 @@ describe("processing an item into a task", () => {
 
         const { body } = await inbox("POST", `/${item.id}/process`, { title: "Dentist", dueDate: "2026-04-01", priority: 1 });
 
-        expect(body.data).toMatchObject({ title: "Dentist", dueDate: "2026-04-01T12:00:00.000Z", priority: 1 });
+        expect(body.data).toMatchObject({ title: "Dentist", dueDate: "2026-04-01", priority: 1 });
     });
 
     it("replays a retried process call with the same Idempotency-Key as 200, without a second task", async () => {
@@ -223,6 +223,13 @@ describe("Capture exits", () => {
         expect(result.status).toBe(201);
         expect(new Date(result.body.data.scheduledStart).toISOString()).toBe("2026-09-24T19:00:00.000Z");
         expect(result.body.data.isAllDay).toBe(false);
+    });
+
+    it("places a legacy date-only scheduledDate and a scheduledDay on that day, all-day", async () => {
+        const legacy = await inbox("POST", `/${(await capture("a")).id}/process`, { title: "A", scheduledDate: "2026-10-05" });
+        const day = await inbox("POST", `/${(await capture("b")).id}/process`, { title: "B", scheduledDay: "2026-10-06" });
+        expect(legacy.body.data).toMatchObject({ dueDate: "2026-10-05", scheduledStart: null, isAllDay: true });
+        expect(day.body.data).toMatchObject({ dueDate: "2026-10-06", scheduledStart: null, isAllDay: true });
     });
 
     it("orders equal timestamps by descending id", async () => {

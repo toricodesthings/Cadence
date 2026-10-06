@@ -8,10 +8,12 @@ import { Tip } from "../primitives";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { Plus, CalendarHeart, Focus, ArrowRight } from "lucide-react";
 import { HOUR_HEIGHT, DAY_GRID_HEIGHT, buildTimedTaskLayouts } from "../../lib/utils/calendar/calendar-utils";
-import { toISODate } from "../../lib/utils/date-format";
+import { useToday } from "../../lib/utils/user-zone";
+import { dayOfMonth, weekdayName } from "../../lib/utils/calendar/calendar-math";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import { CALENDAR_SLOT_MINUTES, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
+import { CALENDAR_SLOT_MINUTES, minutesToWallTime, type CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
+import type { LocalDate } from "@cadence/domain/time";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "../../types/settings";
@@ -156,7 +158,7 @@ function DroppableDayColumn({
                     }}
                 >
                     <span className="text-[12px] text-accent-primary/70 font-medium">
-                        {`${String(Math.floor(draftPlacement.startMinute / 60)).padStart(2, "0")}:${String(draftPlacement.startMinute % 60).padStart(2, "0")} – ${String(Math.floor(draftPlacement.endMinute / 60)).padStart(2, "0")}:${String(draftPlacement.endMinute % 60).padStart(2, "0")}`}
+                        {`${minutesToWallTime(draftPlacement.startMinute)} – ${minutesToWallTime(draftPlacement.endMinute)}`}
                     </span>
                 </div>
             )}
@@ -196,9 +198,9 @@ function DroppableDayColumn({
 }
 
 export interface WeekViewProps {
-    /** The 7 date objects for this week in the active configured order */
-    weekDates: Date[];
-    /** Tasks grouped by ISO date string */
+    /** The 7 LocalDates of this week in the active configured order */
+    weekDates: LocalDate[];
+    /** Tasks grouped by LocalDate */
     tasksByDate: Record<string, Task[]>;
     holidaysByDate?: Record<string, HolidayRecord[]>;
     /** ISO date string of user's birthday this year (e.g. "2026-03-15") */
@@ -233,13 +235,8 @@ export function WeekView({
     onGridClick,
     onJumpToDay,
 }: WeekViewProps) {
-    const today = new Date();
-    const todayStr = toISODate(today);
+    const todayStr = useToday();
     const scrollRef = useRef<HTMLDivElement>(null);
-    const weekdayFormatter = useMemo(
-        () => new Intl.DateTimeFormat("en-US", { weekday: "short" }),
-        [],
-    );
 
     // Scroll to 7 AM on mount
     useEffect(() => {
@@ -251,18 +248,16 @@ export function WeekView({
     // Split tasks into all-day and timed
     const allDayByDate = useMemo(() => {
         const map: Record<string, Task[]> = {};
-        weekDates.forEach((d) => {
-            const ds = toISODate(d);
-            map[ds] = (tasksByDate[ds] ?? []).filter((t) => t.isAllDay || !t.scheduledStart);
+        weekDates.forEach((ds) => {
+            map[ds] = (tasksByDate[ds] ?? []).filter((t) => !t.scheduledStart);
         });
         return map;
     }, [weekDates, tasksByDate]);
 
     const timedByDate = useMemo(() => {
         const map: Record<string, Task[]> = {};
-        weekDates.forEach((d) => {
-            const ds = toISODate(d);
-            map[ds] = (tasksByDate[ds] ?? []).filter((t) => !t.isAllDay && !!t.scheduledStart);
+        weekDates.forEach((ds) => {
+            map[ds] = (tasksByDate[ds] ?? []).filter((t) => !!t.scheduledStart);
         });
         return map;
     }, [weekDates, tasksByDate]);
@@ -278,11 +273,10 @@ export function WeekView({
                     </span>
                 </div>
 
-                {weekDates.map((d) => {
-                    const ds = toISODate(d);
+                {weekDates.map((ds) => {
                     const isToday = ds === todayStr;
                     const allDay = allDayByDate[ds] ?? [];
-                    const dayLabel = weekdayFormatter.format(d);
+                    const dayLabel = weekdayName(ds, "short");
 
                     return (
                         <div
@@ -302,7 +296,7 @@ export function WeekView({
                                             ? "rounded-full bg-accent-primary/20 text-accent-primary ring-1 ring-accent-primary shadow-[0_0_8px_color-mix(in_srgb,var(--accent-primary)_15%,transparent)]"
                                             : ""}
                                     `}>
-                                        {d.getDate()}
+                                        {dayOfMonth(ds)}
                                     </div>
                                     {(holidaysByDate[ds]?.length ?? 0) > 0 && (
                                         <Tip label={holidaysByDate[ds].map((holiday) => holiday.name).join(", ")} side="top">
@@ -407,8 +401,7 @@ export function WeekView({
                     <TimeGutter hourHeight={HOUR_HEIGHT} />
 
                     {/* Day columns */}
-                    {weekDates.map((d) => {
-                        const ds = toISODate(d);
+                    {weekDates.map((ds) => {
                         return (
                             <div key={ds} className="relative flex-1 min-w-0">
                                 <DroppableDayColumn

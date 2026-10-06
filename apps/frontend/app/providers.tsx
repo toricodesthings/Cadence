@@ -31,7 +31,7 @@ import { installDesktopE2EBridge } from "./platform/desktop-e2e";
 import { publishAvailableDesktopUpdate } from "./platform/desktop-update-state";
 
 /** v2: API timestamps unified to strict ISO; drop caches holding Postgres-text timestamps. */
-const QUERY_CACHE_VERSION = "v3";
+const QUERY_CACHE_VERSION = "v4";
 /** How long a saved workspace stays usable offline. gcTime matches it, or inactive views are dropped before they're saved. */
 const OFFLINE_CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 14;
 
