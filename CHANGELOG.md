@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-10-06
+
 Repeating blocks fill the whole month again, and your time zone keeps in sync.
 
 ### Added
