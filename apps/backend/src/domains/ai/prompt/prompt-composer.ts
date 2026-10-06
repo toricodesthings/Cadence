@@ -105,10 +105,12 @@ const TURN_CONTEXT_INTRO = "Context for this turn, from Cadence (not written by 
 /**
  * Append the turn context as a text part on the last user message. Returns a new
  * array (the input is untouched), so it never reaches the stored conversation.
+ * Providers may join text parts with no separator ("called Heat." + "Context…"
+ * became a task named "Heat.Context"), so the part carries its own break.
  */
 export function withTurnContext<M extends { role: string; parts: unknown[] }>(messages: M[], turnContext: string): M[] {
     const last = messages.map((m) => m.role).lastIndexOf("user");
     if (last < 0) return messages;
-    const part = { type: "text", text: `${TURN_CONTEXT_INTRO}\n\n${turnContext}` };
+    const part = { type: "text", text: `\n\n${TURN_CONTEXT_INTRO}\n\n${turnContext}` };
     return messages.map((m, i) => (i === last ? { ...m, parts: [...m.parts, part] } : m));
 }

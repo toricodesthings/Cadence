@@ -68,6 +68,30 @@ export function applyApprovals(
     return matched ? { ...message, parts } : null;
 }
 
+/**
+ * Retrying a reply that failed after it already changed something: the changes
+ * stay in Cadence either way, so the reply keeps the steps that finished and the
+ * retry continues it. Starting over would hide those changes from the user and
+ * the model alike. Null (a clean re-run) when `anchorId` isn't the second-to-last
+ * row, the reply after it finished, or none of its finished steps wrote anything.
+ */
+export function keepFinishedWrites(rows: StoredMessage[], anchorId: string): UIMessageLike | null {
+    const at = rows.findIndex((row) => row.id === anchorId);
+    const reply = rows[at + 1];
+    if (at < 0 || at !== rows.length - 2 || reply?.role !== "assistant" || reply.status === "complete") return null;
+    const finished = (part: unknown) => {
+        const p = part as { type?: string; state?: string };
+        return typeof p?.type === "string" && p.type.startsWith("tool-") && p.state === "output-available";
+    };
+    // Each finished call keeps the step-start before it; partial text and failed calls go.
+    const parts = reply.parts.filter((part, i) =>
+        finished(part) || ((part as { type?: string })?.type === "step-start" && finished(reply.parts[i + 1])),
+    );
+    // Reads (get_*) change nothing, so a reply that only read starts over.
+    const wrote = parts.some((part) => finished(part) && !(part as { type: string }).type.startsWith("tool-get_"));
+    return wrote ? { id: reply.id, role: reply.role, parts, metadata: reply.metadata } : null;
+}
+
 const UNANSWERED = new Set(["input-available", "approval-requested", "approval-responded"]);
 
 /**

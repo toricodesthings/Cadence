@@ -1,5 +1,6 @@
 import { BACKGROUND_IMAGE_LIMITS } from "@cadence/contracts/settings";
 import { CHAT_IMAGE_LIMITS } from "@cadence/contracts/ai";
+import { log } from "../log";
 
 /** WebKit can display some phone formats that its ImageBitmap decoder rejects. */
 async function decodeImage(file: Blob) {
@@ -90,7 +91,8 @@ export async function compressChatImage(file: File): Promise<File> {
     let blob: Blob;
     try {
         blob = await encodeWebp(file, CHAT_IMAGE_LIMITS.maxDimension, [0.82, 0.7, 0.55], CHAT_IMAGE_LIMITS.maxBytes);
-    } catch {
+    } catch (error) {
+        log.error("image", `Couldn’t prepare a chat image (${file.type || "unknown type"})`, error);
         throw new Error("Couldn’t read that image.");
     }
     if (blob.size > CHAT_IMAGE_LIMITS.maxBytes) throw new Error("That image is too detailed to send. Try a crop.");

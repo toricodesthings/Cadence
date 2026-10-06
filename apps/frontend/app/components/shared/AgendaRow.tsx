@@ -43,8 +43,8 @@ export function AgendaRow({
 export function AgendaHabitDivider({ label }: { label: string }) {
     return (
         <div className="px-3 py-3">
-            <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-moonlit/90">
-                <Repeat size={11} aria-hidden="true" />
+            <div className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-moonlit">
+                <Repeat size={14} aria-hidden="true" />
                 <span>{label}</span>
             </div>
         </div>

@@ -51,7 +51,7 @@ import { generateConversationTitle } from "./title/generate-title";
 import { openStream, closeStream, flushChunks, requestAbort, readMeta } from "./streaming/resume-store";
 import { startAbortWatcher } from "./streaming/abort-watcher";
 import { buildResumeStream } from "./streaming/replay";
-import { applyApprovals, compactOldReads, dropForeignReasoning, dropUnsignedReasoning, rowToUIMessage, settleUnanswered } from "./persistence/message-mapper";
+import { applyApprovals, keepFinishedWrites, compactOldReads, dropForeignReasoning, dropUnsignedReasoning, rowToUIMessage, settleUnanswered } from "./persistence/message-mapper";
 import { makeFenceNonce, stripNonce } from "./safety/injection-policy";
 import { assertMessageWithinCaps, clampHistory, MAX_HISTORY_TURNS } from "./safety/input-guard";
 import { buildStreamError, streamErrorToText, AI_ERROR_MESSAGES } from "./safety/stream-error";
@@ -239,7 +239,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // active_stream_id is set in the SAME transaction as the user turn, so the moment
     // a refreshing client can read the user message it can also resume — closing the
     // window that made a *fast* refresh (right after send) miss the live stream.
-    const { conversationId, history, needsTitle } = await withRls(db, userId, async (tx) => {
+    const { conversationId, history, continues, needsTitle } = await withRls(db, userId, async (tx) => {
         if (!incoming) {
             // Approval answers land on the stored assistant message, never on one the
             // client sends: only its waiting parts change, signatures stay the server's.
@@ -250,7 +250,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             const answered = last?.role === "assistant" ? applyApprovals(rowToUIMessage(last), body.approvals!) : null;
             if (!answered) throw new AppError(409, "CONFLICT", "Nothing here is waiting for approval.");
             if (redis) await setActiveStream(tx, userId, conversation!.id, streamId);
-            return { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], needsTitle: false };
+            return { conversationId: conversation!.id, history: [...rows.slice(0, -1).map(rowToUIMessage), answered], continues: true, needsTitle: false };
         }
         const { id, title } = await resolveOrCreateConversation(tx, userId, { conversationId: body.conversationId, model: modelId });
         // Explicit message EDIT: the client kept rows up to the anchor and
@@ -264,15 +264,20 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // Regenerate/retry re-runs an EXISTING user message id: drop every row
         // after it BEFORE loading history, or the superseded assistant reply
         // leaks back into model context and resurrects on reload.
-        const isRerun = await truncateMessagesAfter(tx, userId, id, incoming.id);
+        // A retry of a reply that failed after changing something continues that reply instead.
+        const kept = body.editAnchorId === undefined
+            ? keepFinishedWrites(await loadConversationMessages(tx, userId, id, { limit: MAX_HISTORY_TURNS }), incoming.id)
+            : null;
+        const isRerun = await truncateMessagesAfter(tx, userId, id, kept?.id ?? incoming.id);
         const priorRows = await loadConversationMessages(tx, userId, id, { limit: MAX_HISTORY_TURNS });
         await appendUserMessage(tx, userId, id, incoming, { clientMessageId });
         await markSent(tx, userId, imageIds);
         if (redis) await setActiveStream(tx, userId, id, streamId);
         // First user turn on a still-untitled thread → auto-title it. On a rerun
-        // the anchor row itself is the only prior row.
-        const isFirstTurn = isRerun ? priorRows.length <= 1 : priorRows.length === 0;
-        return { conversationId: id, history: priorRows.map(rowToUIMessage), needsTitle: isFirstTurn && !title };
+        // the anchor row (and a kept reply) are the only prior rows.
+        const isFirstTurn = isRerun ? priorRows.length <= (kept ? 2 : 1) : priorRows.length === 0;
+        const history = priorRows.map((row) => (row.id === kept?.id ? kept : rowToUIMessage(row)));
+        return { conversationId: id, history, continues: !!kept, needsTitle: isFirstTurn && !title };
     });
 
     // Auto-title (first turn only): generate a short title in PARALLEL with the reply
@@ -291,8 +296,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
     // Mint the assistant id up-front so the streamed `start` frame, the persisted
     // row PK, and any resume all reference ONE id (PK-upsert stays idempotent, §7.7).
-    // An approval answer continues the waiting assistant message under its own id.
-    const assistantMessageId = incoming ? generateId() : history.at(-1)!.id;
+    // An approval answer, or a retry that kept a failed reply's writes, continues that
+    // assistant message under its own id.
+    const assistantMessageId = continues ? history.at(-1)!.id : generateId();
 
     if (redis) {
         // Open the chunk-log immediately (before the slower agent build) so a quick
@@ -318,9 +324,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // shrink to ids (compactOldReads).
     // Open calls in earlier turns replay as declined; an approval answer keeps the
     // message it answers as is, so the SDK runs what was approved.
-    const turn = incoming
-        ? [...settleUnanswered(history.filter((m) => m.id !== incoming.id)), incoming]
-        : [...settleUnanswered(history.slice(0, -1)), history.at(-1)!];
+    const turn = continues
+        ? [...settleUnanswered(history.slice(0, -1)), history.at(-1)!]
+        : [...settleUnanswered(history.filter((m) => m.id !== incoming!.id)), incoming!];
     // A turn that switched models (model-router) must not replay the previous
     // model's thought signatures — they belong to a family this one never used.
     const uiMessages = compactOldReads(

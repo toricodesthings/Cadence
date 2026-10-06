@@ -52,8 +52,10 @@ export function useConversationMessages(id: string | null) {
     return useQuery({
         queryKey: id ? queryKeys.ai.conversation(id) : ["ai", "conversation", "none"],
         enabled: authReady && isAuthenticated && !!id,
-        // History is immutable-ish per load; refetch only when the thread changes.
         staleTime: 5_000,
+        // Reopening the panel always asks the server: a turn may have run (or still be
+        // running) while it was closed, and the cached copy can't know.
+        refetchOnMount: "always",
         // Never restore a thread from the IndexedDB snapshot: the panel seeds useChat
         // once per thread, so a stale snapshot would hide newer server turns after reload.
         meta: { persist: false },

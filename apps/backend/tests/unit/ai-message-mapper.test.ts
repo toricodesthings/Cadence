@@ -6,6 +6,7 @@ import {
     compactOldReads,
     applyApprovals,
     settleUnanswered,
+    keepFinishedWrites,
     uiMessageToRow,
     type StoredMessage,
 } from "../../src/domains/ai/persistence/message-mapper";
@@ -166,5 +167,30 @@ describe("approval answers", () => {
             { ...waiting, state: "output-denied", approval: { id: "ap1", signature: "sig", approved: false, reason: "Not answered" } },
             { ...legacy, state: "output-denied", approval: { id: "unanswered-c3", approved: false, reason: "Not answered" } },
         ]);
+    });
+});
+
+describe("keepFinishedWrites", () => {
+    const row = (id: string, role: StoredMessage["role"], status: StoredMessage["status"], parts: unknown[]): StoredMessage =>
+        ({ id, role, status, parts, metadata: {}, orderIndex: 0 });
+    const read = { type: "tool-get_projects", toolCallId: "r", state: "output-available", output: {} };
+    const write = { type: "tool-update_tasks", toolCallId: "w", state: "output-available", output: { updated: 1 } };
+    const user = row("u", "user", "complete", [{ type: "text", text: "heat" }]);
+
+    it("keeps a failed reply's finished steps and drops its partial text", () => {
+        const failed = row("a", "assistant", "failed", [
+            { type: "step-start" }, read, { type: "step-start" }, write, { type: "text", text: "Half a sen" },
+        ]);
+        expect(keepFinishedWrites([user, failed], "u")).toEqual({
+            id: "a", role: "assistant", metadata: {},
+            parts: [{ type: "step-start" }, read, { type: "step-start" }, write],
+        });
+    });
+
+    it("starts over when nothing was written, the reply finished, or it isn't the last turn", () => {
+        expect(keepFinishedWrites([user, row("a", "assistant", "failed", [read])], "u")).toBeNull();
+        expect(keepFinishedWrites([user, row("a", "assistant", "complete", [write])], "u")).toBeNull();
+        expect(keepFinishedWrites([user, row("a", "assistant", "failed", [write]), user], "u")).toBeNull();
+        expect(keepFinishedWrites([user], "u")).toBeNull();
     });
 });

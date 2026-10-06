@@ -10,11 +10,17 @@ import { useAuthState } from "../../hooks/auth/use-auth-state";
 export function CaptureGreeting({ className = "" }: { className?: string }) {
     const { session } = useAuthState();
     const { weather, status } = useWeather();
-    const greeting = getTimeBasedGreeting(useMinuteClock(), session?.user?.name?.trim().split(/\s+/)[0]);
+    const name = session?.user?.name?.trim().split(/\s+/)[0];
+    const greeting = getTimeBasedGreeting(useMinuteClock(), name);
+    // The name always ends the greeting; tint just that.
+    const named = name && greeting.endsWith(name);
 
     return (
         <p className={`flex min-w-0 items-center gap-2 text-[13px] leading-5 text-twilight-text-muted ${className}`.trim()}>
-            <span className="truncate">{greeting}</span>
+            <span className="truncate">
+                {named ? greeting.slice(0, -name.length) : greeting}
+                {named && <span className="text-accent-primary">{name}</span>}
+            </span>
             {status === "ready" && weather && (
                 <span className="inline-flex shrink-0 items-center gap-1.5 animate-in fade-in duration-500">
                     <span aria-hidden="true" className="text-twilight-text-muted/60">·</span>

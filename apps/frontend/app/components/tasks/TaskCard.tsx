@@ -122,13 +122,14 @@ export function TaskCard({
 
     const scheduleSummary = getTaskScheduleSummary(task);
     const scheduleLabel = scheduleSummary.primaryLabel;
+    const isPassiveTimetable = isPassiveTimetableTask(task);
     const isPastDue = Boolean(
-        scheduleSummary.anchorDate
+        !isPassiveTimetable
+        && scheduleSummary.anchorDate
         && scheduleSummary.anchorDate < todayDay
         && task.state !== "COMPLETE"
         && task.state !== "ARCHIVED",
     );
-    const isPassiveTimetable = isPassiveTimetableTask(task);
     const orderedSubtasks = [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
     const tagSummary = tags.length === 1 ? tags[0]?.name ?? "1 tag" : `${tags.length} tags`;
     const primaryTagTone = getTagTone(tags[0]);

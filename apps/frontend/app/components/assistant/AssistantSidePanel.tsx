@@ -415,6 +415,9 @@ export function AssistantSidePanel({
     // re-seed, so the reply never appeared). Genuine (re)loads — refresh / reconnect /
     // thread-switch — leave this false and still resume to catch a live stream.
     const skipResumeOnNextLoadRef = useRef(false);
+    // A retry can continue a failed reply that already changed something (the server
+    // keeps those steps). Only the new steps stream, so the thread re-seeds once it ends.
+    const retriedRef = useRef(false);
 
     // ── Cross-tab signalling (two-tab fix, doc Update 4) ─────────────────────
     // When another tab on THIS thread starts/finishes a turn, re-sync from the server:
@@ -495,7 +498,7 @@ export function AssistantSidePanel({
     // When the active thread changes, pull its persisted messages and hand them
     // to setMessages so reloaded proposals re-render in their settled state.
     // A freshly-minted thread (no server row yet) is NOT fetched — avoids a 404.
-    const { data: history, error: historyError } = useConversationMessages(
+    const { data: history, error: historyError, isFetching: historyFetching } = useConversationMessages(
         assistantPanelOpen && !isFreshThread ? activeConversationId : null,
     );
     // The persisted thread is gone server-side (deleted elsewhere, DB reset) — start fresh
@@ -516,9 +519,14 @@ export function AssistantSidePanel({
             return;
         }
         if (history?.messages) {
-            loadedThreadRef.current = activeConversationId;
+            // A turn started while the read was in flight owns the view now.
+            if (statusRef.current === "submitted" || statusRef.current === "streaming") return;
             setMessages(history.messages as UIMessage[]);
             setThreadTitle(history.conversation?.title ?? null);
+            // The cached snapshot shows at once, but it can predate a turn that ran while
+            // the panel was closed: only the server's answer locks the thread in.
+            if (historyFetching) return;
+            loadedThreadRef.current = activeConversationId;
             // Re-attach ONLY on a genuine (re)load (refresh / reconnect / thread-switch) AND
             // only when a stream is actually live (activeStreamId set) — that catches a turn
             // we're not already showing. Cross-tab re-syncs set skipResume (re-seed only): the
@@ -529,7 +537,7 @@ export function AssistantSidePanel({
             skipResumeOnNextLoadRef.current = false;
             if (!skipResume && history.conversation?.activeStreamId) void resumeStream();
         }
-    }, [activeConversationId, history, isFreshThread, setMessages, resumeStream]);
+    }, [activeConversationId, history, historyFetching, isFreshThread, setMessages, resumeStream]);
 
     // Hydrate the live stream id so the Stop control can send it (§8). Tracks the
     // conversation read for the active thread; null when no turn is producing.
@@ -576,7 +584,9 @@ export function AssistantSidePanel({
     useEffect(() => {
         if (status === "submitted" || status === "streaming") return; // don't thrash mid-stream
         const id = conversationIdRef.current;
-        if (id) syncMessagesToCache(id, messages);
+        // Until the server's history lands, the view is the cache itself: writing it back would
+        // only re-trigger the load.
+        if (id && loadedThreadRef.current === id) syncMessagesToCache(id, messages);
     }, [status, messages, syncMessagesToCache]);
 
     // On a completed streamed turn (streaming → ready), the thread now exists
@@ -603,6 +613,12 @@ export function AssistantSidePanel({
         // shows even if they missed the live window (reliable guarantee, short turns).
         if (status === "ready" || status === "error") {
             localTurnRef.current = false;
+            if (retriedRef.current) {
+                retriedRef.current = false;
+                loadedThreadRef.current = null;
+                skipResumeOnNextLoadRef.current = true;
+                queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversation(convId) });
+            }
             // The turn spent budget — refresh the usage line with real numbers.
             queryClient.invalidateQueries({ queryKey: queryKeys.ai.usage });
             broadcastChatActivity("stream-finished", convId);
@@ -790,6 +806,7 @@ export function AssistantSidePanel({
             setInputNotice("You’re offline — I’ll be here when you’re back.");
             return;
         }
+        retriedRef.current = true;
         regenerateLocal();
         requestAnimationFrame(() => scrollToBottom());
     }, [online, regenerateLocal]);

@@ -82,6 +82,8 @@ describe("composePrompt", () => {
         const out = withTurnContext(msgs, "CTX");
         expect(out[2]!.parts).toHaveLength(2);
         expect((out[2]!.parts[1] as { text: string }).text).toContain("CTX");
+        // Providers join text parts with "": the context must not run into the user's last word.
+        expect((out[2]!.parts[1] as { text: string }).text).toMatch(/^\n\n/);
         expect(out[0]).toBe(msgs[0]);
         expect(msgs[2]!.parts).toHaveLength(1);
         expect(withTurnContext([msgs[1]!], "CTX")).toEqual([msgs[1]]);

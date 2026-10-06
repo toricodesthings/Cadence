@@ -6,6 +6,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Timetable blocks no longer show "Past Due".
+- The Routines label on Upcoming now matches the other section headers.
+- The Capture greeting highlights your name in the accent colour.
+- The assistant no longer tacks stray words like "Context" onto the end of task names.
+- Photos attach to the assistant again in Safari and the installed app.
+- Reopening the assistant mid-reply no longer loses the latest messages.
+- Retrying a failed assistant reply keeps the changes it already made, so none happen out of sight.
+
 ## [0.27.1] - 2026-10-06
 
 Repeating blocks fill the whole month again, and your time zone keeps in sync.
