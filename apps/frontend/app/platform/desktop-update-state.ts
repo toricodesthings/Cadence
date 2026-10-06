@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { createExternalStore } from "../lib/utils/external-store";
 import type { AvailableAppUpdate } from "./runtime";
 
@@ -9,6 +10,13 @@ const lastCheckedStore = createExternalStore<Date | null>(null);
 export function publishAvailableDesktopUpdate(update: AvailableAppUpdate | null) {
     updateStore.set(update);
     lastCheckedStore.set(new Date());
+}
+
+/** The one nudge for a found update; the details live in Settings > About. */
+export function announceDesktopUpdate(update: AvailableAppUpdate) {
+    toast.info(`Cadence ${update.version} is ready to install.`, {
+        description: "Open Settings > About Cadence to review release notes and apply the update.",
+    });
 }
 
 export function useAvailableDesktopUpdate() {

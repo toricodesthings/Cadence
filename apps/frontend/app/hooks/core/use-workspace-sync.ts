@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import { toastError } from "../../lib/utils/error-toast";
 import { checkForAppUpdate, IS_DESKTOP_RUNTIME } from "../../platform/runtime";
-import { publishAvailableDesktopUpdate } from "../../platform/desktop-update-state";
+import { announceDesktopUpdate, publishAvailableDesktopUpdate } from "../../platform/desktop-update-state";
 
 export function useWorkspaceSync() {
     const queryClient = useQueryClient();
@@ -22,11 +22,7 @@ export function useWorkspaceSync() {
                 // Same check as startup; a failed check stays quiet since the sync itself worked.
                 void checkForAppUpdate().then((update) => {
                     publishAvailableDesktopUpdate(update);
-                    if (update) {
-                        toast.info(`Cadence ${update.version} is ready to install.`, {
-                            description: "Open Settings > About Cadence to review release notes and apply the update.",
-                        });
-                    }
+                    if (update) announceDesktopUpdate(update);
                 }).catch(() => {});
             }
         } catch (error) {

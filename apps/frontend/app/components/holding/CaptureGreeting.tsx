@@ -11,15 +11,14 @@ export function CaptureGreeting({ className = "" }: { className?: string }) {
     const { session } = useAuthState();
     const { weather, status } = useWeather();
     const greeting = getTimeBasedGreeting(useMinuteClock(), session?.user?.name?.trim().split(/\s+/)[0]);
-    const WeatherIcon = weather?.icon;
 
     return (
         <p className={`flex min-w-0 items-center gap-2 text-[13px] leading-5 text-twilight-text-muted ${className}`.trim()}>
             <span className="truncate">{greeting}</span>
-            {status === "ready" && weather && WeatherIcon && (
+            {status === "ready" && weather && (
                 <span className="inline-flex shrink-0 items-center gap-1.5 animate-in fade-in duration-500">
                     <span aria-hidden="true" className="text-twilight-text-muted/60">·</span>
-                    <WeatherIcon size={13} strokeWidth={1.75} aria-hidden="true" />
+                    <weather.icon size={13} strokeWidth={1.75} aria-hidden="true" />
                     <span className="tabular-nums">{weather.temp}°</span>
                     <span className="sr-only sm:not-sr-only">{weather.condition}</span>
                 </span>
